@@ -1,3 +1,4 @@
+import { useResumeLiveGame } from '../../lib/useResumeLiveGame.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Archive, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2, UserRoundCog } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening } from '../../lib/api';
@@ -26,6 +27,9 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId })
   const [pendingGameAction, setPendingGameAction] = useState<{ type: 'archive' | 'delete'; game: ClubGameRecord } | null>(null);
   const [processingGameAction, setProcessingGameAction] = useState(false);
   const [retryingFinalSaveGameId, setRetryingFinalSaveGameId] = useState<number | null>(null);
+
+  // A reload returns to the game window that was open.
+  useResumeLiveGame('club', loading ? null : games, activeLiveGame !== null, setActiveLiveGame);
 
   const load = async () => {
     setLoading(true); setError(null);

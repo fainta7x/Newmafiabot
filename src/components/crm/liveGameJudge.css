@@ -358,7 +358,6 @@
     -webkit-overflow-scrolling:touch;
   }
   .evening-live-engine-shell > div { width:100%!important; max-width:none!important; padding:2px!important; padding-bottom:14px!important; }
-  .evening-live-engine-shell > div > div.space-y-4 > div:first-child { display:none!important; }
 
   .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
     position:relative!important;

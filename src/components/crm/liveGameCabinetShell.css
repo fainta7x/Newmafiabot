@@ -41,38 +41,6 @@
   --live-stage-line: rgba(251, 113, 133, 0.24);
 }
 
-/* The surrounding judge shell should feel like the same product as Home/Games,
-   not like a separate slate admin console. Desktop toolbar is kept functional;
-   mobile still hides it via liveGameJudge.css. */
-.evening-live-engine-shell > div > div.space-y-4 > div:first-child {
-  border-color: var(--ds-border) !important;
-  border-radius: var(--ds-radius-lg) !important;
-  background: var(--ds-surface) !important;
-  box-shadow: var(--ds-shadow-surface) !important;
-}
-
-.evening-live-engine-shell > div > div.space-y-4 > div:first-child > span {
-  color: rgba(255, 255, 255, 0.46) !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.12em !important;
-}
-
-.evening-live-engine-shell > div > div.space-y-4 > div:first-child button {
-  min-height: 36px;
-  border-color: var(--ds-border-soft) !important;
-  border-radius: var(--ds-radius-sm) !important;
-  background: var(--ds-inset) !important;
-  color: rgba(255, 255, 255, 0.60) !important;
-  font-weight: 600 !important;
-  box-shadow: none !important;
-}
-
-.evening-live-engine-shell > div > div.space-y-4 > div:first-child button:first-of-type:not(:disabled) {
-  border-color: rgba(232, 185, 94, 0.16) !important;
-  background: rgba(232, 185, 94, 0.07) !important;
-  color: #fde9b4 !important;
-}
-
 /* ---------- canonical center judge HUD ---------- */
 .evening-live-engine-shell .live-judge-hud {
   position: relative !important;

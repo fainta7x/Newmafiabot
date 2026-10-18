@@ -33,10 +33,8 @@ import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
-import LiveGameJudgeToolbar from "./LiveGameEngine/LiveGameJudgeToolbar.js";
 import RevealPanel from "./LiveGameEngine/RevealPanel.tsx";
 import { addReveal, removeAnnouncedCheck, removeReveal, setAnnouncedCheck, type LiveReveal, type RevealColor } from "../lib/liveReveals.ts";
-import LiveGamePlayerList from "./LiveGameEngine/LiveGamePlayerList.js";
 import LiveGameHotkeyLayer from "./LiveGameEngine/LiveGameHotkeyLayer.tsx";
 import { useLiveGameHotkeys } from "./LiveGameEngine/useLiveGameHotkeys.ts";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
@@ -106,7 +104,7 @@ import {
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, onRolesHiddenChange, sessionKey, trainingRoles }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -178,14 +176,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const [historyStack, setHistoryStack] = useState<LiveSnapshot[]>([]);
   const [restorableSession, setRestorableSession] = useState<PersistedLiveSession | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "list">("table");
-  const [showRolesOnTable, setShowRolesOnTable] = useState(false);
-  const rolesAreVisible = rolesHidden === undefined ? showRolesOnTable : !rolesHidden;
-  const toggleRolesOnTable = () => {
-    const nextVisible = !rolesAreVisible;
-    setShowRolesOnTable(nextVisible);
-    onRolesHiddenChange?.(!nextVisible);
-  };
+  // The roles switch lives in the game window header (the owner of `rolesHidden`); without one the roles stay hidden.
+  const rolesAreVisible = rolesHidden === undefined ? false : !rolesHidden;
 
   useEffect(() => { onPhaseChange?.(phase); }, [phase, onPhaseChange]);
 
@@ -1721,11 +1713,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const bestMovePlayerNickname = activeBestMoveSlot === null
     ? ''
     : activePlayers.find((player) => player.slot_num === activeBestMoveSlot)?.nickname || 'Игрок';
-  const requiresTableSeatVoting = phase === 'day_voting' &&
-    (votingStage === 'collecting' || votingStage === 'table_decision');
-  const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode;
-  const speechExtensionAvailability = getCurrentSpeechExtensionAvailability();
-
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
       <LiveGameHotkeyLayer
@@ -1806,22 +1793,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         />
       ) : (
         <div className="space-y-4">
-          <LiveGameJudgeToolbar
-            activePlayers={activePlayers}
-            onSelectPlayer={setActionPlayerSlot}
-            speechExtensionAvailability={speechExtensionAvailability}
-            onSpeechExtension={handleExchangeFoulsForSpeech}
-            historyLength={historyStack.length}
-            onUndo={handleUndoAction}
-            rolesAreVisible={rolesAreVisible}
-            onToggleRoles={toggleRolesOnTable}
-            viewMode={viewMode}
-            onToggleView={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}
-            requiresTableSeatVoting={requiresTableSeatVoting}
-            revealCount={reveals.length}
-            onOpenReveals={() => setRevealPanelOpen(true)}
-          />
-
           {revealPanelOpen ? (
             <RevealPanel
               players={activePlayers}
@@ -1835,12 +1806,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             />
           ) : null}
 
-          {effectiveViewMode === 'table' ? renderTable() : (
-            <div className="space-y-3">
-              <CenterPanel {...centerPanelProps()} />
-              <LiveGamePlayerList activePlayers={activePlayers} onSelectPlayer={setActionPlayerSlot} />
-            </div>
-          )}
+          {renderTable()}
 
           <EventsPanel
             phase={phase}

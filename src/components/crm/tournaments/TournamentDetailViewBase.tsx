@@ -1,3 +1,4 @@
+import { useResumeLiveGame } from '../../../lib/useResumeLiveGame.ts';
 import { countGames } from '../../../lib/russianPlural';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -94,6 +95,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // Protocol blank import modal state
   const [showProtocolImportModal, setShowProtocolImportModal] = useState(false);
   const [liveGameId, setLiveGameId] = useState<string | null>(null);
+  // A reload returns to the game window that was open.
+  useResumeLiveGame('tournament', tournament?.games ?? null, liveGameId !== null, (game) => setLiveGameId(String(game.id)), (game) => game.status === 'active');
   const [rolesFixGameId, setRolesFixGameId] = useState<string | null>(null);
   const [selectedImportGameId, setSelectedImportGameId] = useState<string | undefined>(undefined);
 

@@ -84,13 +84,29 @@ describe('evening extension: the charge and the API', () => {
     expect(response.body.extensions).toHaveLength(1);
   });
 
-  it('adds nothing before the evening is closed, then charges when it is closed', async () => {
+  it('charges at once while the evening is still running, and closing the evening does not charge it twice', async () => {
     await seed('CASUAL', false);
     await request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send({ games_count: 1, amount: 250 });
-    expect(await due('a')).toMatchObject({ extension_due: 0 });
+    expect(await due('a')).toMatchObject({ extension_due: 83 });
     await db.run("UPDATE game_evenings SET status='completed', settled_at=? WHERE id='ev'", [now]);
     await reconcileRegularEveningPayments(db, 'ev');
-    expect(await due('a')).toMatchObject({ extension_due: 83 });
+    expect(await due('a')).toMatchObject({ extension_due: 83, amount_due: 300 + 83 });
+  });
+
+  it('is tied to the games played when it was entered: games played afterwards do not move it', async () => {
+    await seed('CASUAL', false);
+    await request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send({ games_count: 1, amount: 250 });
+    // The extension covers game 3 (org free, a, c, d pay 83 each). A fourth game with other players follows.
+    await db.run(
+      `INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES ('ev',4,'2026-10-09','red','Красные',?,'[]',?)`,
+      [JSON.stringify({ version: 1, kind: 'club_evening_protocol', protocol: { status: 'completed' }, player_results: ['b', 'c'].map((p) => ({ participant_id: `ep-${p}` })) }), now],
+    );
+    await reconcileRegularEveningPayments(db, 'ev');
+    expect(await due('b')).toMatchObject({ extension_due: 0 });
+    expect(await due('d')).toMatchObject({ extension_due: 83 });
+    expect(await due('c')).toMatchObject({ extension_due: 83 });
+    const stored = await db.get<any>("SELECT games_total_at_entry FROM evening_extensions WHERE evening_id = 'ev'");
+    expect(stored.games_total_at_entry).toBe(3);
   });
 
   it('does not charge a gifted player and keeps a player who already paid as a debtor for the extension', async () => {
@@ -117,12 +133,12 @@ describe('evening extension: the charge and the API', () => {
     expect(await due('a')).toMatchObject({ extension_due: 0, amount_due: 300 });
   });
 
-  it('includes an extension entered before closing in the amounts and the ledger right after the evening is closed', async () => {
+  it('an extension entered before closing is in the amounts at once and in the ledger once the evening is closed', async () => {
     await seed('CASUAL', false);
     await db.run("UPDATE game_evenings SET starts_at='2026-10-09T20:00:00+03:00' WHERE id='ev'");
     const created = await request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send({ games_count: 1, amount: 250 });
     expect(created.status).toBe(201);
-    expect(await due('a')).toMatchObject({ extension_due: 0 });
+    expect(await due('a')).toMatchObject({ extension_due: 83, amount_due: 300 + 83 });
     const settled = await request(app).post('/api/evenings/ev/closeout/settle').set('Cookie', cookie()).send({});
     expect(settled.status).toBe(200);
     expect(await due('a')).toMatchObject({ extension_due: 83, amount_due: 300 + 83 });
@@ -192,11 +208,11 @@ describe('evening extension: the charge and the API', () => {
       expect(await base('a')).toMatchObject({ amount_due: 683, extension_due: 83 });
     });
 
-    it('charges nothing before the evening is closed, and nobody who got a gifted evening', async () => {
+    it('charges at once on a running evening, and nobody who got a gifted evening', async () => {
       await seed('NOVICE', false);
       await setBase('a', 300);
       await request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send({ games_count: 1, amount: 250 });
-      expect(await base('a')).toMatchObject({ amount_due: 300, extension_due: 0 });
+      expect(await base('a')).toMatchObject({ amount_due: 383, extension_due: 83 });
       await db.run("INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at) VALUES ('ep-d','ev','Подарочный вечер',?,?)", [now, now]);
       await setBase('d', 0);
       await db.run("UPDATE game_evenings SET status='completed', settled_at=? WHERE id='ev'", [now]);

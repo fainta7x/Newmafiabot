@@ -155,7 +155,7 @@ const loadExtensionShares = async (
 ) => {
   const hasExtensions = await tableExists(db, 'evening_extensions');
   const extensionRows = hasExtensions
-    ? await db.all<any>('SELECT id, games_count, amount FROM evening_extensions WHERE evening_id = ? ORDER BY created_at ASC, id ASC', [eveningId])
+    ? await db.all<any>('SELECT id, games_count, amount, games_total_at_entry FROM evening_extensions WHERE evening_id = ? ORDER BY created_at ASC, id ASC', [eveningId])
     : [];
   const excluded = new Set<string>();
   for (const participant of participants) {
@@ -198,6 +198,12 @@ const loadCompletedGames = async (db: DatabaseWrapper, eveningId: string, partic
   }
   return { playedCounts, completedGameParticipants };
 };
+
+/** How many games of the evening are completed right now (the point an extension entered now is tied to). */
+export async function countCompletedEveningGames(db: DatabaseWrapper, eveningId: string): Promise<number> {
+  const participants = await db.all<any>('SELECT ep.* FROM evening_participants ep WHERE ep.evening_id = ?', [eveningId]);
+  return (await loadCompletedGames(db, eveningId, participants)).completedGameParticipants.length;
+}
 
 export async function reconcileRegularEveningPayments(
   db: DatabaseWrapper,
@@ -253,7 +259,7 @@ export async function reconcileRegularEveningPayments(
 
   const { playedCounts, completedGameParticipants } = await loadCompletedGames(db, eveningId, participants);
 
-  // «Продление вечера»: shares of what the club paid for extra time (see eveningExtensionService); charged after the evening is closed.
+  // «Продление вечера»: shares of what the club paid for extra time (see eveningExtensionService); charged as soon as it is entered.
   const { shares: extensionShares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedStaffPlayerId, assignedJudgePlayerId);
 
   const closed = evening.status === 'completed' || Boolean(evening.settled_at);
@@ -266,7 +272,7 @@ export async function reconcileRegularEveningPayments(
         || reviewHoldIds.has(participantId)
         || isRegularFeeFreeByStaffRule(evening.starts_at, playerId, assignedStaffPlayerId);
       const gamesPlayed = playedCounts.get(participantId) || 0;
-      const extensionDue = closed && !feeExempt ? (extensionShares.get(participantId) || 0) : 0;
+      const extensionDue = !feeExempt ? (extensionShares.get(participantId) || 0) : 0;
       const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed) + extensionDue;
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
 
@@ -316,8 +322,8 @@ export async function reconcileRegularEveningPayments(
  * «Продление вечера» on evenings of the other formats (rating, novice, tournament evening ...): the price of such an evening is
  * written by other services and may be recalculated at any time, so the extension is added on top of whatever `amount_due` is now.
  * `extension_total_due` remembers the total we wrote: while `amount_due` still equals it, the base price is `amount_due - extension_due`;
- * otherwise another service has rewritten the price and `amount_due` already is the base. Charged after the evening is closed,
- * with an ordinary ledger adjustment. Regular (CASUAL) evenings are handled by reconcileRegularEveningPayments.
+ * otherwise another service has rewritten the price and `amount_due` already is the base. Charged as soon as it is entered; once the
+ * evening is closed a change is an ordinary ledger adjustment (before that the closing writes the ledger from `amount_due`). Regular (CASUAL) evenings are handled by reconcileRegularEveningPayments.
  */
 export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, eveningId: string): Promise<void> {
   const evening = await db.get<any>('SELECT id, title, format, status, settled_at, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
@@ -351,7 +357,7 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
       // A player who is free of the evening — a gifted evening, or a shop free-evening credit that set `waived` with a zero amount
       // without writing a waiver row — is free of the extension too.
       const freeOfCharge = waivedIds.has(participantId) || (String(participant.payment_status) === 'waived' && due === 0);
-      const newExtension = closed && !freeOfCharge ? (shares.get(participantId) || 0) : 0;
+      const newExtension = !freeOfCharge ? (shares.get(participantId) || 0) : 0;
       const previousTotal = Number(participant.extension_total_due || 0);
       const ourTotalStillStands = oldExtension > 0 && due === previousTotal;
       if (newExtension === oldExtension && (oldExtension === 0 || ourTotalStillStands)) continue;
@@ -379,8 +385,8 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
 }
 
 /**
- * Right after an evening is closed: an extension entered before closing is calculated only once the evening is closed, so the amounts and
- * the ledger are brought up to date at once. Evenings without an extension are left exactly as the closing wrote them.
+ * Right after an evening is closed: the amounts and the ledger are brought in line with the extension once more (an extension is already
+ * charged while the evening runs; the closing wrote the ledger from those amounts). Evenings without an extension are left as the closing wrote them.
  */
 export async function reconcileExtensionsAfterClose(db: DatabaseWrapper, eveningId: string): Promise<void> {
   if (!(await tableExists(db, 'evening_extensions'))) return;

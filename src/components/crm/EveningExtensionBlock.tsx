@@ -7,18 +7,18 @@ export type EveningExtension = { id: string; games_count: number; amount: number
 
 /**
  * «Продлить вечер» (owner, 2026-10-12): the organizer enters how many games the extension covered and the amount the club paid for it.
- * The amount is split between the players of those last games (not the organizer and the judge) and charged after the evening is closed,
+ * The amount is split between the players of those last games (not the organizer and the judge) and charged at once (owner, 2026-10-19),
  * as a separate line inside the player's single payment.
  */
 export default function EveningExtensionBlock({
   eveningId,
   extensions,
-  closed,
   onChanged,
 }: {
   eveningId: string;
   extensions: EveningExtension[];
-  closed: boolean;
+  /** Not needed any more: the charge no longer waits for closing; kept so existing callers still compile. */
+  closed?: boolean;
   onChanged: (payload: any) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -96,7 +96,7 @@ export default function EveningExtensionBlock({
           </label>
           <p className="text-[10px] leading-4 text-text-muted">
             Сумма делится поровну между игроками этих последних игр, без организатора и судьи, и округляется вниз до рубля.
-            {closed ? ' Вечер закрыт: начисление появится сразу.' : ' Начисление появится, когда вечер будет закрыт.'}
+            {' Начисление появится у игроков сразу и привязано к уже сыгранным играм: игры после этого его не сдвигают.'}
           </p>
           {error ? <div role="alert" className="rounded-[10px] bg-danger-soft px-3 py-2 text-[10px] text-danger">{error}</div> : null}
           <button type="button" onClick={() => void submit()} disabled={busy || !valid} data-testid="extension-submit" className="inline-flex min-h-[44px] w-full items-center justify-center rounded-[11px] bg-success-soft px-3 text-[12px] font-black text-success disabled:opacity-40">

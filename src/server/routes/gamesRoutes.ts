@@ -157,7 +157,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
 
     // Prepayment at the table (user-approved 2026-09-24): on NOVICE and RATING evenings a game
     // cannot start while a seated player still owes for the evening. Guests without a club
-    // profile have no payment row and never block.
+    // profile have no payment row and never block. The share of an evening extension is not a prepayment: it never blocks a game.
     if (['NOVICE', 'RATING'].includes(normalizeEveningFormat(evening.format))) {
       // Novice dues are estimates made at booking time; bring them to the canonical price
       // (free visits, level, selected games) before judging who still owes.
@@ -167,7 +167,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
         `SELECT ep.id AS participant_id, p.nickname, ep.amount_due, ep.amount_paid
            FROM evening_participants ep JOIN players p ON p.id = ep.player_id
           WHERE ep.evening_id = ? AND ep.id IN (${seatIds.map(() => '?').join(',')})
-            AND COALESCE(ep.payment_status, '') <> 'waived' AND ep.amount_due > ep.amount_paid
+            AND COALESCE(ep.payment_status, '') <> 'waived' AND (ep.amount_due - COALESCE(ep.extension_due, 0)) > ep.amount_paid
           ORDER BY p.nickname COLLATE NOCASE`,
         [eveningId, ...seatIds],
       ) : [];

@@ -57,4 +57,13 @@ describe('prepayment at the table', () => {
     const casual = await setup('CASUAL');
     expect((await casual.create()).body.code).not.toBe('prepayment_required');
   });
+
+  it('does not treat the share of an evening extension as a prepayment: a player who paid the price is not blocked by it', async () => {
+    const { db, create } = await setup('RATING');
+    await db.run("UPDATE evening_participants SET amount_paid = 500, payment_status = 'paid' WHERE id = 'ep3'");
+    // An extension was charged to ep3 afterwards: 500 price + 83 extension, 500 paid.
+    await db.run("UPDATE evening_participants SET amount_due = 583, extension_due = 83, extension_total_due = 583, payment_status = 'partial' WHERE id = 'ep3'");
+    const created = await create();
+    expect(created.body.code).not.toBe('prepayment_required');
+  });
 });

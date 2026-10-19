@@ -6,7 +6,7 @@ import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
-import { isRegularFeeFreeByStaffRule, reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
+import { countCompletedEveningGames, isRegularFeeFreeByStaffRule, reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { EXTENSION_MAX_AMOUNT, EXTENSION_MAX_GAMES } from '../services/eveningExtensionService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { manualReminderSlot, sendEveningPaymentReminders } from '../services/eveningPaymentReminderService.ts';
@@ -288,7 +288,7 @@ router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
 });
 
 // «Продлить вечер» (owner, 2026-10-12): the organizer enters how many games the extension covered and the amount the club paid;
-// it is split between the players of those last games (not the organizer and the judge) and charged after the evening is closed.
+// it is split between the players of those last games (not the organizer and the judge) and charged at once (owner, 2026-10-19).
 router.post('/:id/extensions', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
@@ -305,9 +305,11 @@ router.post('/:id/extensions', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Укажите сумму продления целым числом рублей' });
     }
     const note = String(req.body?.note || '').trim().slice(0, 200) || null;
+    // The extension is tied to the games played so far (owner, 2026-10-19), so games played later do not move it.
+    const gamesNow = await countCompletedEveningGames(db, eveningId);
     await db.run(
-      'INSERT INTO evening_extensions (id, evening_id, games_count, amount, note, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [crypto.randomUUID(), eveningId, gamesCount, amount, note, null, new Date().toISOString()],
+      'INSERT INTO evening_extensions (id, evening_id, games_count, amount, note, created_by, created_at, games_total_at_entry) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), eveningId, gamesCount, amount, note, null, new Date().toISOString(), gamesNow],
     );
     await reconcileRegularEveningPayments(db, eveningId);
     await reconcileOtherFormatExtensions(db, eveningId);

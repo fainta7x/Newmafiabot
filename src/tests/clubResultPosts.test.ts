@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { loadEveningSummary, loadGameBlank, loadSeasonTable } from '../server/services/clubResultData.ts';
+import { loadEveningSummary, loadGameBlank, loadSeasonTable, seatEffectiveness } from '../server/services/clubResultData.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from '../server/services/clubResultImages.ts';
 import { ensureClubResultPostSchema, queueEveningPlayerCards, runClubResultPosts } from '../server/services/clubResultPostService.ts';
 
@@ -96,6 +96,53 @@ describe('club game blank', () => {
   });
 });
 
+describe('role effectiveness (owner rules, 2026-10-19)', () => {
+  const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+  const envelope = (winner: string, patch: (results: any[]) => void, extra: Record<string, unknown> = {}) => {
+    const results = roles.map((role, index) => ({ participant_id: `p${index + 1}`, seat_number: index + 1, role, color_protocol: [] as any[] }));
+    patch(results);
+    return { protocol: { winner_team: winner, best_moves: [], events: [], ...extra }, player_results: results };
+  };
+
+  it('red: +1 per black in the best move, in the colour protocol, minus a black marked red; the win counts', () => {
+    const scores = seatEffectiveness(envelope('red', (results) => {
+      results[1].color_protocol = [{ mark: 'black', seat_numbers: [8, 9, 2] }, { mark: 'red', seat_numbers: [10] }];
+    }, { best_moves: [{ participant_id: 'p2', seat_numbers: [8, 3, 4] }] }));
+    // win 1 + ЛХ 1 black + protocol 2 blacks (seat 2 is red) − 1 black marked red = 3
+    expect(scores.get(2)).toBe(3);
+    expect(scores.get(3)).toBe(1);
+  });
+
+  it('red votes: black +1, red −1, the zero circle (round 1) is ignored; the sheriff gets +1 per black found', () => {
+    const events = [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: 'x', round: 2, phase: 'day_voting', kind: 'nomination', seat: 8, by: 1 },
+      { seq: 3, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 1, target: 8 },
+      { seq: 4, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 3 },
+      { seq: 5, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:8' },
+      { seq: 6, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 8, value: 'voted_day' },
+      { seq: 7, at: 'x', round: 2, phase: 'night', kind: 'sheriff_check', target: 9 },
+      { seq: 8, at: 'x', round: 2, phase: 'night', kind: 'night_step', value: 'best_move' },
+    ];
+    const scores = seatEffectiveness(envelope('red', () => {}, { events }));
+    expect(scores.get(1)).toBe(1 + 1 + 1); // win + vote for a black + check found a black
+    expect(scores.get(2)).toBe(1 - 1);     // win − vote for a red
+  });
+
+  it('black: win, +1 per red who marked the seat red, +1 per best move that did not name the seat', () => {
+    const scores = seatEffectiveness(envelope('black', (results) => {
+      results[1].color_protocol = [{ mark: 'red', seat_numbers: [8] }];
+      results[2].color_protocol = [{ mark: 'red', seat_numbers: [8, 9] }];
+    }, { best_moves: [{ participant_id: 'p2', seat_numbers: [8, 3, 4] }, { participant_id: 'p3', seat_numbers: [10, 3, 4] }] }));
+    // seat 8: win + 2 reds marked it red + 1 best move without it (p3's) = 4
+    expect(scores.get(8)).toBe(4);
+    // seat 9: win + 1 red mark + 2 best moves without it = 4
+    expect(scores.get(9)).toBe(4);
+    // seat 10: win + 0 marks + 1 best move without it = 2
+    expect(scores.get(10)).toBe(2);
+  });
+});
+
 describe('evening summary', () => {
   it('ordinary evening: games, red : black, most wins and the best by role by wins', async () => {
     const { db, addGame } = await setup('CASUAL');
@@ -104,7 +151,7 @@ describe('evening summary', () => {
     expect(summary).toMatchObject({ games: 3, redWins: 2, blackWins: 1, players: 10, scored: false, bestAverage: [] });
     expect(summary!.mostWins[0]).toMatchObject({ nickname: 'Игрок A', value: '2 победы', detail: 'из 3 игр' });
     expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player).toMatchObject({ nickname: 'Игрок A' });
-    expect(summary!.bestByRole.find((item) => item.role === 'don')!.player).toMatchObject({ nickname: 'Игрок J', value: '1 победа' });
+    expect(summary!.bestByRole.find((item) => item.role === 'don')!.player).toMatchObject({ nickname: 'Игрок J', value: '+0,33', detail: 'в среднем за 3 игры' });
     expect(eveningSummarySvg(summary!)).toContain('БОЛЬШЕ ВСЕХ ПОБЕД');
     expect(summary!.eloGain[0].detail).toBe('Эло за вечер');
     expect(eveningSummarySvg(summary!)).toContain('РОСТ ЭЛО ЗА ВЕЧЕР');
@@ -130,7 +177,8 @@ describe('evening summary', () => {
     // the other citizens: 0.5.
     expect(summary!.bestAverage.map((item) => item.nickname)).toEqual(['Игрок B', 'Игрок A', expect.any(String)]);
     expect(summary!.bestAverage[1]).toMatchObject({ value: '+0,75', detail: 'в среднем за 2 игры' });
-    expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player!.value).toBe('+0,75');
+    // Roles go by effectiveness, not points: the sheriff only has the red win in game 1 (1 / 2 games).
+    expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player!.value).toBe('+0,5');
     expect(eveningSummarySvg(summary!)).toContain('ЛУЧШИЙ СРЕДНИЙ БАЛЛ');
   });
 });

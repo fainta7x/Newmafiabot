@@ -5,6 +5,9 @@ import { resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifes
 import { normalizeRole, roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
+import { gameActionFacts } from '../../lib/gameActionFacts.ts';
+import type { StatGame } from '../../lib/gameStatistics.ts';
+import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 
 // Data for the pictures the bot posts to the club chat (owner, 2026-10-01): the blank after each
 // game and the evening summary at closeout. Points exist only on rating and tournament evenings.
@@ -178,7 +181,56 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
   };
 }
 
-type Tally = { playerId: string; games: number; wins: number; points: number; byRole: Map<string, { games: number; wins: number; points: number }> };
+type Tally = { playerId: string; games: number; wins: number; points: number; byRole: Map<string, { games: number; wins: number; points: number; effect: number }> };
+
+const isRedRole = (role: string | null | undefined) => role === 'citizen' || role === 'sheriff';
+const isBlackRole = (role: string | null | undefined) => role === 'mafia' || role === 'don';
+const seatList = (value: unknown): number[] => (Array.isArray(value) ? [...new Set(value.map(Number).filter((seat) => Number.isInteger(seat) && seat > 0))] : []);
+
+/**
+ * How effective each seat was in one game (owner, 2026-10-19), by effectiveness rather than wins alone. Red: +1 per black
+ * named in the best move (ЛХ), per black marked «black» in the colour protocol and per vote against a black; −1 per black
+ * marked «red» and per vote against a red; the sheriff also +1 per check that found a black; +1 for a red win.
+ * Black: +1 for a black win, +1 per red who marked the seat «red», +1 per best move that did not name the seat.
+ * Votes of the zero circle never count (the shared action facts already leave them out).
+ */
+export function seatEffectiveness(envelope: any): Map<number, number> {
+  const protocol = envelope?.protocol || {};
+  const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
+  const seats = results
+    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeRole(result?.role), playerId: String(result?.player_id || '') || null, participantId: String(result?.participant_id || ''), colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [] }))
+    .filter((item) => Number.isInteger(item.seat) && item.seat > 0);
+  const roleOf = new Map(seats.map((item) => [item.seat, item.role]));
+  const moves: Array<{ participantId: string; seats: number[] }> = (Array.isArray(protocol.best_moves) && protocol.best_moves.length
+    ? protocol.best_moves
+    : protocol.best_move_participant_id ? [{ participant_id: protocol.best_move_participant_id, seat_numbers: protocol.best_move_seats }] : [])
+    .map((move: any) => ({ participantId: String(move?.participant_id || ''), seats: seatList(move?.seat_numbers) }));
+  const facts = gameActionFacts({
+    id: '', source: 'club', date: '', winner: protocol.winner_team === 'red' || protocol.winner_team === 'black' ? protocol.winner_team : null,
+    seats: seats.map(({ seat, role, playerId }) => ({ seat, role: role as any, playerId })), events: sanitizeLiveGameEvents(protocol.events),
+  } satisfies StatGame);
+  const markedSeats = (item: { colors: any[] }, mark: string) => new Set(item.colors.filter((entry) => entry?.mark === mark).flatMap((entry) => seatList(entry?.seat_numbers)));
+  const scores = new Map<number, number>();
+  for (const me of seats) {
+    let score = won(me.role, protocol.winner_team) ? 1 : 0;
+    if (isRedRole(me.role)) {
+      for (const move of moves.filter((item) => item.participantId && item.participantId === me.participantId)) score += move.seats.filter((seat) => isBlackRole(roleOf.get(seat))).length;
+      for (const seat of markedSeats(me, 'black')) if (isBlackRole(roleOf.get(seat))) score += 1;
+      for (const seat of markedSeats(me, 'red')) if (isBlackRole(roleOf.get(seat))) score -= 1;
+      for (const voting of facts.votings) {
+        const target = voting.votes.get(me.seat);
+        if (!target) continue;
+        if (isBlackRole(roleOf.get(target))) score += 1; else if (isRedRole(roleOf.get(target))) score -= 1;
+      }
+      if (me.role === 'sheriff') score += facts.checks.filter((check) => check.kind === 'sheriff' && isBlackRole(roleOf.get(check.target))).length;
+    } else if (isBlackRole(me.role)) {
+      score += seats.filter((other) => isRedRole(other.role) && markedSeats(other, 'red').has(me.seat)).length;
+      score += moves.filter((move) => isRedRole(seats.find((other) => other.participantId && other.participantId === move.participantId)?.role) && !move.seats.includes(me.seat)).length;
+    }
+    scores.set(me.seat, score);
+  }
+  return scores;
+}
 
 /**
  * The blank of one completed tournament game (owner, 2026-10-03): the same picture as a club game,
@@ -281,6 +333,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     if (envelope.protocol.winner_team === 'red') redWins += 1;
     if (envelope.protocol.winner_team === 'black') blackWins += 1;
     for (const [playerId, change] of elo.get(String(row.id)) || []) eloByPlayer.set(playerId, (eloByPlayer.get(playerId) || 0) + change.delta);
+    const effects = seatEffectiveness(envelope);
     for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
       // A walk-in guest has no profile: count them by the placeholder (or the name on the seat).
       const guestKey = String(result?.guest_placeholder_id || result?.display_name || '').trim();
@@ -292,8 +345,8 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
       const points = scored ? gameResultPoints(envelope, result).total : 0;
       const tally = tallies.get(playerId) || { playerId, games: 0, wins: 0, points: 0, byRole: new Map() };
       tally.games += 1; tally.wins += win; tally.points += points;
-      const byRole = tally.byRole.get(role) || { games: 0, wins: 0, points: 0 };
-      byRole.games += 1; byRole.wins += win; byRole.points += points;
+      const byRole = tally.byRole.get(role) || { games: 0, wins: 0, points: 0, effect: 0 };
+      byRole.games += 1; byRole.wins += win; byRole.points += points; byRole.effect += effects.get(Number(result?.seat_number)) ?? 0;
       tally.byRole.set(role, byRole);
       tallies.set(playerId, tally);
     }
@@ -309,8 +362,8 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
   const ofGames = (count: number) => `из ${count} ${count % 10 === 1 && count % 100 !== 11 ? 'игры' : 'игр'}`;
   const gamesWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'игру' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'игры' : 'игр');
 
-  // Most wins: more wins first, then fewer games.
-  const mostWins = all.filter((item) => item.wins > 0)
+  // Most wins: only players with two or more wins (owner, 2026-10-19); more wins first, then fewer games.
+  const mostWins = all.filter((item) => item.wins >= 2)
     .sort((a, b) => b.wins - a.wins || a.games - b.games)
     .slice(0, 3)
     .map((item) => person(item, `${item.wins} ${winsWord(item.wins)}`, ofGames(item.games)));
@@ -327,21 +380,14 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     .slice(0, 3)
     .map(([playerId, delta]) => person(tallies.get(playerId) || { playerId, games: 0, wins: 0, points: 0, byRole: new Map() }, `+${Math.round(delta)}`, 'Эло за вечер'));
 
+  // Best by role = effectiveness per game of that role (owner, 2026-10-19); a role nobody played stays empty, otherwise it never is.
   const bestByRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
     const candidates = all.filter((item) => item.byRole.has(role));
     if (!candidates.length) return { role, player: null };
     const stat = (item: Tally) => item.byRole.get(role)!;
-    const best = scored
-      ? candidates.sort((a, b) => stat(b).points / stat(b).games - stat(a).points / stat(a).games || stat(b).games - stat(a).games)[0]
-      : candidates.sort((a, b) => stat(b).wins - stat(a).wins || stat(b).wins / stat(b).games - stat(a).wins / stat(a).games || stat(b).games - stat(a).games)[0];
-    const s = stat(best);
-    if (!scored && s.wins === 0) return { role, player: null };
-    return {
-      role,
-      player: scored
-        ? person(best, signed(s.points / s.games), `в среднем за ${s.games} ${gamesWord(s.games)}`)
-        : person(best, `${s.wins} ${winsWord(s.wins)}`, ofGames(s.games)),
-    };
+    const average = (item: Tally) => stat(item).effect / stat(item).games;
+    const best = candidates.sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games)[0];
+    return { role, player: person(best, signed(average(best)), `в среднем за ${stat(best).games} ${gamesWord(stat(best).games)}`) };
   });
 
   return {

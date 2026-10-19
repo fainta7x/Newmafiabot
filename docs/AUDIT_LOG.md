@@ -1333,4 +1333,4 @@ Second-block connected checks:41 tests across8 suites,14 isolated Python-copy ca
 - `clubResultData.ts` «Больше всех побед»: a player with 1 win in 1 game took third place because the list had no minimum. **fixed:** only 2+ wins.
 - `clubResultData.ts` best by role on unscored evenings counted wins only, so after an evening of five black wins the sheriff and citizen nominations were empty. **fixed:** effectiveness per game (rules in BUSINESS_RULES, evening summary); empty only when nobody played the role.
 - Elo growth looked wrong to the owner: **open** — waiting for the owner to say what is wrong (no production data here); the number comes from `loadPlayerEloHistory`, unchanged.
-- Season table keeps the old role rule: **open**, not asked for.
+- Season table role nominations: **fixed** — two lists, by wins and by effectiveness (owner choice).

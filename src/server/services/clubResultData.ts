@@ -405,7 +405,10 @@ export type SeasonTable = {
   rows: SeasonRow[];
   minGames: number | null;
   pending: Array<{ nickname: string; games: number }>;
+  /** Best by role by wins (owner, 2026-10-19: the season shows two lists). */
   bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
+  /** Best by role by effectiveness per game (the same rule as the evening summary). */
+  bestByRoleEffect: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
 };
 
 /** Rating seasons: the top counts only players with at least 40% of the most active player's games (owner, 2026-10-01). */
@@ -461,29 +464,38 @@ export async function loadSeasonTableForPeriod(db: DatabaseWrapper, period: any)
   const gamesWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'игру' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'игры' : 'игр');
 
   const roleIds = new Set<string>(ranked.map((item: any) => String(item.player_id)));
-  const roleTallies = new Map<string, Map<string, { games: number; wins: number; points: number }>>();
+  type RoleTally = { games: number; wins: number; effect: number };
+  const roleTallies = new Map<string, Map<string, RoleTally>>();
+  // Effectiveness needs each game's protocol (best moves, colour protocols, votes), read once per game of the season.
+  const gameIds = [...new Set(qualified.flatMap((item: any) => (item.games || []).map((game: any) => Number(game.game_id))).filter(Number.isFinite))];
+  const effects = new Map<number, Map<number, number>>();
+  for (let from = 0; from < gameIds.length; from += 400) {
+    const chunk = gameIds.slice(from, from + 400);
+    const rows = await db.all<any>(`SELECT id, protocol_text FROM games WHERE id IN (${chunk.map(() => '?').join(',')})`, chunk);
+    for (const row of rows) effects.set(Number(row.id), seatEffectiveness(parse(row.protocol_text)));
+  }
   // The best by role also counts only players who are in the season's standings.
   for (const item of qualified) {
     for (const game of item.games || []) {
       const role = normalizeRole(game.role) || 'citizen';
       const perRole = roleTallies.get(role) || new Map();
-      const tally = perRole.get(String(item.player_id)) || { games: 0, wins: 0, points: 0 };
-      tally.games += 1; tally.wins += Number(game.win_point || 0); tally.points += Number(game.game_total || 0);
+      const tally: RoleTally = perRole.get(String(item.player_id)) || { games: 0, wins: 0, effect: 0 };
+      tally.games += 1; tally.wins += Number(game.win_point || 0);
+      tally.effect += effects.get(Number(game.game_id))?.get(Number(game.seat_number)) ?? 0;
       perRole.set(String(item.player_id), tally);
       roleTallies.set(role, perRole);
     }
   }
-  const bestRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
-    const entries = [...(roleTallies.get(role) || new Map()).entries()];
-    if (!entries.length) return { role, best: null as null | [string, { games: number; wins: number; points: number }] };
-    entries.sort((a, b) => (scored
-      ? b[1].points / b[1].games - a[1].points / a[1].games || b[1].games - a[1].games
-      : b[1].wins - a[1].wins || a[1].games - b[1].games));
+  const roles = ['sheriff', 'don', 'mafia', 'citizen'] as const;
+  const pickBest = (role: string, order: (a: RoleTally, b: RoleTally) => number, minimum: (tally: RoleTally) => boolean) => {
+    const entries = [...(roleTallies.get(role) || new Map<string, RoleTally>()).entries()].sort((a, b) => order(a[1], b[1]));
     const best = entries[0];
-    if (!scored && best[1].wins === 0) return { role, best: null };
+    if (!best || !minimum(best[1])) return null;
     roleIds.add(best[0]);
-    return { role, best };
-  });
+    return best;
+  };
+  const bestByWins = roles.map((role) => ({ role, best: pickBest(role, (a, b) => b.wins - a.wins || a.games - b.games, (tally) => tally.wins > 0) }));
+  const bestByEffect = roles.map((role) => ({ role, best: pickBest(role, (a, b) => b.effect / b.games - a.effect / a.games || b.games - a.games, () => true) }));
 
   const ids = [...roleIds];
   const [names, avatars] = await Promise.all([loadNicknames(db, [...ids, ...pendingRows.map((item: any) => String(item.player_id))]), loadAvatars(db, ids)]);
@@ -495,18 +507,15 @@ export async function loadSeasonTableForPeriod(db: DatabaseWrapper, period: any)
     value: scored ? signed(average(item)) : `${item.wins} ${winsWord(item.wins)}`,
     detail: scored ? `в среднем · ${item.games_played} ${gamesWord(item.games_played)}` : ofGames(item.games_played),
   }));
-  const bestByRole = bestRole.map(({ role, best }) => ({
-    role,
-    player: best ? {
-      playerId: best[0],
-      nickname: names.get(best[0]) || 'Игрок',
-      avatar: avatars.get(best[0]) || null,
-      value: scored ? signed(best[1].points / best[1].games) : `${best[1].wins} ${winsWord(best[1].wins)}`,
-      detail: scored ? `в среднем за ${best[1].games} ${gamesWord(best[1].games)}` : ofGames(best[1].games),
-    } : null,
+  const asPlayer = (best: [string, RoleTally], value: string, detail: string): SummaryPlayer => ({ playerId: best[0], nickname: names.get(best[0]) || 'Игрок', avatar: avatars.get(best[0]) || null, value, detail });
+  const bestByRole = bestByWins.map(({ role, best }) => ({
+    role, player: best ? asPlayer(best, `${best[1].wins} ${winsWord(best[1].wins)}`, ofGames(best[1].games)) : null,
+  }));
+  const bestByRoleEffect = bestByEffect.map(({ role, best }) => ({
+    role, player: best ? asPlayer(best, signed(best[1].effect / best[1].games), `в среднем за ${best[1].games} ${gamesWord(best[1].games)}`) : null,
   }));
   const pending = pendingRows.map((item: any) => ({ nickname: names.get(String(item.player_id)) || String(item.nickname || 'Игрок'), games: Number(item.games_played) }));
-  return { periodTitle: String(period.title || 'Сезон'), scored, games: Number(result.completed_games_count || 0), rows, minGames, pending, bestByRole };
+  return { periodTitle: String(period.title || 'Сезон'), scored, games: Number(result.completed_games_count || 0), rows, minGames, pending, bestByRole, bestByRoleEffect };
 }
 
 export type EveningPlayerResult = {

@@ -194,7 +194,11 @@ describe('season so far', () => {
     expect(season!.rows[9].value).toBe('0 побед');
     expect(season!.rows[0]).toMatchObject({ place: 1, value: '2 победы', detail: 'из 2 игр' });
     expect(season!.bestByRole.find((item) => item.role === 'sheriff')!.player).toMatchObject({ nickname: 'Игрок A' });
+    // Second list (owner, 2026-10-19): by effectiveness. Citizen «b» names three blacks in his best move each game.
+    expect(season!.bestByRoleEffect.find((item) => item.role === 'citizen')!.player).toMatchObject({ nickname: 'Игрок B', value: '+4', detail: 'в среднем за 2 игры' });
+    expect(season!.bestByRoleEffect.every((item) => item.player)).toBe(true);
     expect(seasonTableSvg(season!)).toContain('ТОП-10 ПО ПОБЕДАМ');
+    expect(seasonTableSvg(season!)).toContain('ПО ПОКАЗАТЕЛЯМ');
   });
 
   it('rating season: the top needs 40% of the most active player\'s games; the rest are listed as close', async () => {

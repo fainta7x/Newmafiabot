@@ -1,10 +1,11 @@
 import type { DatabaseWrapper } from './index.ts';
+import { oncePerDatabase } from './oncePerDatabase.ts';
 
 /**
  * Durable per-recipient Telegram delivery queue.
  * Additive only: this creates new tables/indexes and never rewrites existing data.
  */
-export async function ensureTelegramDirectMessageSchema(db: DatabaseWrapper): Promise<void> {
+async function ensureTelegramDirectMessageSchemaOnce(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS telegram_message_outbox (
       message_key TEXT PRIMARY KEY,
@@ -39,3 +40,5 @@ export async function ensureTelegramDirectMessageSchema(db: DatabaseWrapper): Pr
     catch (error: any) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
   }
 }
+
+export const ensureTelegramDirectMessageSchema = oncePerDatabase(ensureTelegramDirectMessageSchemaOnce);

@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from './index.ts';
+import { oncePerDatabase } from './oncePerDatabase.ts';
 
-export async function ensureVkIntegrationSchema(db: DatabaseWrapper): Promise<void> {
+async function ensureVkIntegrationSchemaOnce(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS player_external_identities (
       platform TEXT NOT NULL,
@@ -103,3 +104,5 @@ export async function ensureVkIntegrationSchema(db: DatabaseWrapper): Promise<vo
     await db.run('ALTER TABLE vk_evening_publications ADD COLUMN last_message_hash TEXT');
   }
 }
+
+export const ensureVkIntegrationSchema = oncePerDatabase(ensureVkIntegrationSchemaOnce);

@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from './index.ts';
+import { oncePerDatabase } from './oncePerDatabase.ts';
 
-export async function ensureVkPersonalMessageSchema(db: DatabaseWrapper): Promise<void> {
+async function ensureVkPersonalMessageSchemaOnce(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS vk_message_outbox (
       message_key TEXT PRIMARY KEY,
@@ -39,3 +40,5 @@ export async function ensureVkPersonalMessageSchema(db: DatabaseWrapper): Promis
       ON vk_message_outbox(failure_kind, status, updated_at DESC);
   `);
 }
+
+export const ensureVkPersonalMessageSchema = oncePerDatabase(ensureVkPersonalMessageSchemaOnce);

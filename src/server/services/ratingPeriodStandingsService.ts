@@ -9,6 +9,7 @@ import {
   roundToTwo,
 } from '../utils/ciHelper.ts';
 import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { scoreGamePoints } from './gameScore.ts';
 
 const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
@@ -233,19 +234,6 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
         result?.exit_type === 'removed',
         isPpkCulprit,
       );
-      const positiveJudge = Math.max(judgeBonus, 0);
-      const negativeJudge = Math.max(-judgeBonus, 0);
-      const positiveProtocol = Math.max(protocolBonus, 0);
-      const negativeProtocol = Math.max(-protocolBonus, 0);
-      const positivePoints = roundToTwo(positiveJudge + positiveProtocol);
-      const gamePenaltyPoints = roundToTwo(negativeJudge + negativeProtocol);
-      const bestMove = roundToTwo(bestMovePoints.get(participantId) || 0);
-      const disciplinaryPoints = roundToTwo(disciplinaryPenalty);
-
-      let winPoint = 0;
-      if (game.winner_team === 'red' && (role === 'citizen' || role === 'sheriff')) winPoint = 1;
-      if (game.winner_team === 'black' && (role === 'mafia' || role === 'don')) winPoint = 1;
-
       const playerRate = ciRates.get(playerId) || 0;
       const ciResult = calculateGameCi({
         isFirstKilled: firstKilledParticipantId === participantId,
@@ -257,8 +245,13 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
         playerRate,
       });
       const gameCi = ciResult.gameCi;
-      const additionalGame = roundToTwo(positivePoints + bestMove - disciplinaryPoints - gamePenaltyPoints);
-      const gameTotal = roundToTwo(winPoint + additionalGame + gameCi);
+      const {
+        winPoint, positiveJudge, negativeJudge, positiveProtocol, negativeProtocol,
+        positivePoints, gamePenaltyPoints, bestMove, disciplinaryPoints, additional: additionalGame, total: gameTotal,
+      } = scoreGamePoints({
+        winnerTeam: game.winner_team, role: result?.role, judgeBonus, protocolBonus,
+        bestMovePoints: bestMovePoints.get(participantId) || 0, disciplinaryPenalty, ci: gameCi,
+      });
 
       stats.games_played += 1;
       stats.wins += winPoint;

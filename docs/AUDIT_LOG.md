@@ -1447,7 +1447,8 @@ The owner asked: «все элементы подчинялись единым �
 - **Fixed later (2026-10-23):**
   - The 12 shadowed handlers in `eveningsRoutesBase.ts` are removed. These were the list, card, create, update, participants and settle handlers, together with their legacy «going» and debt rules. The file keeps deletion, adjustments and tables.
   - The fee-waiver DDL is one function, `ensureEveningFeeWaiverTables`, used by both schema guards. The two definitions were identical by then.
-- **Still open:** the standings totals formula (tournament vs rating period) and the rest of A.
+- One game-score formula, `services/gameScore.ts` `scoreGamePoints`, now serves the tournament table and the rating-period table: win point by team, ±judge and protocol points, best move, discipline and Ci.
+- **Still open:** the rest of A (message retry policies, avatars, loading states, status labels).
 
 **Progress (step 3, UI primitives, first slice):**
 - **Fixed — money.** `lib/formatRubleAmount.ts` `formatRubles` is the one money format: whole rubles, Russian thousands separator, zero for junk and negative amounts unless `signed`. It replaces the local `rubles`/`money`/`formatMoney` helpers and about 40 inline `… ₽` in 27 screens.

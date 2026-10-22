@@ -1530,3 +1530,7 @@ The owner asked: «все элементы подчинялись единым �
 - A Telegram request that throws (no HTTP answer) now says «Telegram не ответил … пост мог выйти, проверьте группу перед повтором». A VK error says the same about the wall.
 - A full «uncertain» state with a confirm-before-repost button is a UI change and is left as a proposal. **mitigated**
 
+**Python bot findings (B), 2026-10-23:**
+- `organizer_notifications.py` hard-coded «недобор» at 10. **fixed:** it now uses the server's minimum (8 for a novice evening, 10 otherwise), capped by capacity. Test `test_novice_evening_needs_eight_not_ten`.
+- The «unpaid» count over going and late players is **not a bug**: it is the digest *before* the evening (who will owe), not the debt after closeout. **wontfix.**
+

@@ -117,10 +117,13 @@ def build_organizer_digest(
         capacity = max(0, int(evening.get("capacity") or 10))
         attending_count = len(attending) if participants else int(evening.get("attending_count") or 0)
 
+        # The same minimum as the server's shortfall check (eveningMinimumPlayers): 8 for a novice evening, else 10.
+        minimum = 8 if str(evening.get("format") or "").upper() == "NOVICE" else 10
+        needed = min(minimum, capacity or minimum)
         lines: list[str] = []
-        if hours_to_start <= 48 and hours_to_start > -6 and attending_count < min(10, capacity or 10):
-            lines.append(f"⚠️ Запись: {attending_count}/10 — не хватает {10 - attending_count}")
-        elif 0 <= hours_to_start <= 12 and attending_count >= 10:
+        if hours_to_start <= 48 and hours_to_start > -6 and attending_count < needed:
+            lines.append(f"⚠️ Запись: {attending_count}/{needed} — не хватает {needed - attending_count}")
+        elif 0 <= hours_to_start <= 12 and attending_count >= needed:
             lines.append(f"✅ По людям готово: подтверждено {attending_count}")
         if hours_to_start <= 48 and thinking:
             lines.append(f"🤔 Думают ({len(thinking)}): {_nickname_list(thinking)}")

@@ -53,6 +53,17 @@ class OrganizerNotificationDigestTests(unittest.TestCase):
         self.assertIn("Не набраны игры: Игра 2", digest)
         self.assertIn("Оплата под контролем (8)", digest)
 
+    def test_novice_evening_needs_eight_not_ten(self):
+        now = dt.datetime(2026, 9, 4, 18, 0, tzinfo=MOSCOW)
+        starts_at = (now + dt.timedelta(hours=20)).isoformat()
+        evening = {"id": "n1", "title": "Новички", "starts_at": starts_at, "status": "published", "capacity": 12, "format": "NOVICE"}
+        going = lambda count: [{"nickname": f"Игрок {i}", "response_status": "going", "attendance_status": "pending",
+                                "payment_status": "unpaid", "amount_due": 0, "amount_paid": 0} for i in range(count)]
+        short = build_organizer_digest([evening], {"n1": {"participants": going(7)}}, {}, now=now)
+        self.assertIn("Запись: 7/8 — не хватает 1", short or "")
+        enough = build_organizer_digest([evening], {"n1": {"participants": going(8)}}, {}, now=now)
+        self.assertNotIn("Запись:", enough or "")
+
     def test_reports_ready_roster_close_to_start(self):
         now = dt.datetime(2026, 9, 4, 18, 0, tzinfo=MOSCOW)
         evenings = [{

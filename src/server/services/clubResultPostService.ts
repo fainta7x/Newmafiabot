@@ -169,18 +169,20 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   if (isEveningPublishingPaused()) return 0;
   await ensureClubResultPostSchema(db);
   const stamp = new Date(now).toISOString();
-  await db.run(
-    `INSERT OR IGNORE INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES (?, 'marker', 'sent', ?, ?)`,
-    [ENABLED_KEY, stamp, stamp],
-  );
-  const marker = await db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [ENABLED_KEY]);
+  // A switch-on marker is written once; reading it first keeps the minute scan from taking the write lock for nothing.
+  const switchOnMarker = async (key: string) => {
+    const existing = await db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [key]);
+    if (existing) return existing;
+    await db.run(
+      `INSERT OR IGNORE INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES (?, 'marker', 'sent', ?, ?)`,
+      [key, stamp, stamp],
+    );
+    return db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [key]);
+  };
+  const marker = await switchOnMarker(ENABLED_KEY);
   // The entry channel has its own switch-on: an upgrade from the chat-only release must not post
   // the evenings closed before it (they never had entry-channel records).
-  await db.run(
-    `INSERT OR IGNORE INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES (?, 'marker', 'sent', ?, ?)`,
-    [PUBLIC_ENABLED_KEY, stamp, stamp],
-  );
-  const publicMarker = await db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [PUBLIC_ENABLED_KEY]);
+  const publicMarker = await switchOnMarker(PUBLIC_ENABLED_KEY);
   const publicSince = String(publicMarker?.created_at || stamp);
   // Strictly after the switch-on: an evening already running at deploy time is not posted retroactively.
   const since = Math.max(now - WINDOW_MS, new Date(String(marker?.created_at || stamp)).getTime());

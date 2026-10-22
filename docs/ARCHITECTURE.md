@@ -303,7 +303,7 @@ Primary ownership:
 - `deploy/start-web.sh` — storage contract; pins production to `/data/mafia_crm.sqlite` and the in-app sandbox to `/data/mafia_crm.test.sqlite`;
 - `src/db/index.ts` — generic DB wrapper/bootstrap logic used by production SQLite and tests;
 - `src/db/` + `drizzle/` — schema/migrations/ensure logic; nothing in `src/db/` imports server code.
-- `src/server/dataMigrations/` — data migrations that need server services (Elo scale, starter tokens, the Fandorin 2026-08-28 and Chagin 2026-09-04 game identity repairs); `startupHistoricalRepairs.ts` runs the one-off repairs from `server.ts` right after `getDb()` and before `createApp`.
+- `src/server/dataMigrations/` — data migrations that need server services (Elo scale, starter tokens); `startupHistoricalRepairs.ts` runs the one-off Millourt repair from `server.ts` right after `getDb()` and before `createApp`.
 
 ### Production backend selection
 

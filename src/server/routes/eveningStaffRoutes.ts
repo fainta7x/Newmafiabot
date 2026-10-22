@@ -378,8 +378,9 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     if (participant.attendance_status !== 'attended') return res.status(400).json({ error: 'Оплата отмечается только для фактически пришедших игроков' });
 
     if (typeof waived === 'boolean') {
-      if (normalizeEveningFormat(evening.format) !== 'CASUAL') {
-        return res.status(400).json({ error: 'Явное освобождение этим действием доступно только для обычного клубного вечера' });
+      // «Подарить вечер» also works on a novice evening (owner, 2026-10-22: experienced players and guests there owe nothing).
+      if (!['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(evening.format))) {
+        return res.status(400).json({ error: 'Явное освобождение этим действием доступно только для обычного клубного вечера и вечера новичков' });
       }
       const now = new Date().toISOString();
       if (waived) {
@@ -401,6 +402,11 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
         `, [now, participantId, eveningId]);
       }
       await reconcileRegularEveningPayments(db, eveningId);
+      // Novice charges skip waived participants, so the gift itself zeroes the sum; taking it back recounts the evening.
+      if (normalizeEveningFormat(evening.format) === 'NOVICE') {
+        if (waived) await db.run("UPDATE evening_participants SET amount_due = 0, payment_status = CASE WHEN amount_paid > 0 THEN 'paid' ELSE 'waived' END, updated_at = ? WHERE id = ?", [now, participantId]);
+        else await reconcileNoviceEveningCharges(db, eveningId);
+      }
       await reconcileOtherFormatExtensions(db, eveningId);
       return res.json(await loadPayments(db, eveningId));
     }

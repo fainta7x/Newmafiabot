@@ -86,6 +86,9 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.runtime.sqlite' && process.env.NODE_ENV !== 'production';
   if (isPreviewTournamentDB) sqlite.pragma('journal_mode = DELETE'); else sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
+  // Keep up to ~32 MB of database pages in memory (the default is ~2 MB): on production every point lookup that missed
+  // the cache waited 100–200 ms for the network disk (owner question 2026-10-22). Reads only; durability is unchanged.
+  sqlite.pragma('cache_size = -32000');
   const drizzleDb = drizzle(sqlite, { schema });
   let transactionQueue: Promise<void> = Promise.resolve();
   let savepointCounter = 0;

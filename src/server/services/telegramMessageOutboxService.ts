@@ -216,6 +216,12 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
 export async function expireStaleEveningNotices(db: DatabaseWrapper, table: 'telegram_message_outbox' | 'vk_message_outbox', maxRetries: number) {
   const cutoff = new Date(Date.now() - STALE_EVENING_NOTICE_MS).toISOString();
   const now = new Date().toISOString();
+  // A read first: an UPDATE takes the write lock even when nothing matches, and this runs every few seconds.
+  const stale = await db.get(
+    `SELECT 1 FROM ${table} WHERE status IN ('pending', 'failed') AND event_type IN ('evening_cancelled', 'evening_shortfall') AND created_at < ? LIMIT 1`,
+    [cutoff],
+  );
+  if (!stale) return;
   await db.run(
     `UPDATE ${table}
         SET status = 'failed', retry_count = ?, last_error = 'Устарело: не отправлено после паузы публикаций', updated_at = ?

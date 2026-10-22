@@ -1,10 +1,11 @@
 import type { DatabaseWrapper } from './index.ts';
+import { oncePerDatabase } from './oncePerDatabase.ts';
 
 /**
  * Poker MTT (owner, 2026-10-10). A tournament is its own record: it keeps its settings, its clock and who plays.
  * Tournament chips are nominal and live only inside the tournament; club tokens move only for re-buys and prizes.
  */
-export async function ensurePokerTournamentSchema(db: DatabaseWrapper): Promise<void> {
+async function ensurePokerTournamentSchemaOnce(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS poker_tournaments (
       id TEXT PRIMARY KEY,
@@ -60,3 +61,5 @@ export async function ensurePokerTournamentSchema(db: DatabaseWrapper): Promise<
   if (!hasTournament('announce_json')) await db.exec('ALTER TABLE poker_tournaments ADD COLUMN announce_json TEXT');
   if (!hasTournament('announced_at')) await db.exec('ALTER TABLE poker_tournaments ADD COLUMN announced_at TEXT');
 }
+
+export const ensurePokerTournamentSchema = oncePerDatabase(ensurePokerTournamentSchemaOnce);

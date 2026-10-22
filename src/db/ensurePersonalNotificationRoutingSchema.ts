@@ -1,8 +1,9 @@
 import type { DatabaseWrapper } from './index.ts';
+import { oncePerDatabase } from './oncePerDatabase.ts';
 
 const inviteColumnsReady = new WeakSet<object>();
 
-export async function ensurePersonalNotificationRoutingSchema(db: DatabaseWrapper): Promise<void> {
+async function ensurePersonalNotificationRoutingSchemaOnce(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS player_notification_preferences (
       player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
@@ -50,3 +51,5 @@ export async function ensurePersonalNotificationRoutingSchema(db: DatabaseWrappe
   await addColumn('allow_direct_contact', 'INTEGER NOT NULL DEFAULT 0');
   inviteColumnsReady.add(db as object);
 }
+
+export const ensurePersonalNotificationRoutingSchema = oncePerDatabase(ensurePersonalNotificationRoutingSchemaOnce);

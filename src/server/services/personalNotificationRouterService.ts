@@ -92,6 +92,11 @@ export async function resolvePersonalNotificationRouting(db: DatabaseWrapper, pl
   };
 }
 
+async function outboxRowSent(db: DatabaseWrapper, table: 'telegram_message_outbox' | 'vk_message_outbox', messageKey: string) {
+  const row = await db.get<{ status: string }>(`SELECT status FROM ${table} WHERE message_key = ? LIMIT 1`, [messageKey]).catch(() => null);
+  return row?.status === 'sent';
+}
+
 async function ensureExternalOutboxRow(
   db: DatabaseWrapper,
   delivery: any,
@@ -106,6 +111,9 @@ async function ensureExternalOutboxRow(
   if (!notificationKey || !playerId || !target || !eventType || !text) return;
 
   if (delivery.selected_channel === 'telegram' && delivery.status === 'queued') {
+    // Producers re-run every minute; a message already sent needs nothing, and rewriting its row would take the write
+    // lock for every reminder ever sent. A pending row is still refreshed, a missing one is put back.
+    if (await outboxRowSent(db, 'telegram_message_outbox', notificationKey)) return;
     await enqueueTelegramMessage(db, {
       messageKey: notificationKey,
       category: 'personal',
@@ -119,6 +127,7 @@ async function ensureExternalOutboxRow(
     });
     kickTelegramMessageOutbox(db);
   } else if (delivery.selected_channel === 'vk' && delivery.status === 'pending_channel') {
+    if (await outboxRowSent(db, 'vk_message_outbox', `personal:${notificationKey}:vk`)) return;
     await enqueueVkMessage(db, {
       messageKey: `personal:${notificationKey}:vk`,
       notificationKey,

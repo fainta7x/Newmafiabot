@@ -17,6 +17,10 @@ const slowRequests: SlowRequest[] = [];
 const slowTransactions: SlowTransaction[] = [];
 const loopWindows: LoopWindow[] = [];
 const slowJobs: SlowJob[] = [];
+/** Slow SQLite statements by their text (parameters are never stored): how often, the longest, the sum. */
+const slowQueries = new Map<string, { sql: string; count: number; max_ms: number; total_ms: number; last_at: number }>();
+export const SLOW_QUERY_MS = 50;
+const MAX_SLOW_QUERY_SHAPES = 200;
 const jobContext = new AsyncLocalStorage<{ sqliteMs: number; sqliteCalls: number }>();
 type RouteLabel = string | (() => string);
 const inFlight = new Map<number, { label: RouteLabel; startedAt: number }>();
@@ -61,7 +65,8 @@ export const recordSlowTransaction = (waitedMs: number, heldMs: number, origin: 
 };
 
 /** Called by the database wrapper after each synchronous statement; counted only inside a timed background job. */
-export const addSqliteTime = (ms: number) => {
+export const addSqliteTime = (ms: number, sql?: string) => {
+  if (sql && ms >= SLOW_QUERY_MS) recordSlowQuery(sql, ms);
   const store = jobContext.getStore();
   if (!store) return;
   store.sqliteMs += ms;
@@ -93,6 +98,20 @@ export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>, t
   }
 }
 
+export const recordSlowQuery = (sql: string, ms: number, now = Date.now()) => {
+  const text = sql.replace(/\s+/g, ' ').trim().slice(0, 240);
+  const item = slowQueries.get(text);
+  if (item) {
+    item.count += 1; item.total_ms += ms; item.max_ms = Math.max(item.max_ms, ms); item.last_at = now;
+    return;
+  }
+  if (slowQueries.size >= MAX_SLOW_QUERY_SHAPES) {
+    const oldest = [...slowQueries.entries()].sort((a, b) => a[1].last_at - b[1].last_at)[0];
+    if (oldest) slowQueries.delete(oldest[0]);
+  }
+  slowQueries.set(text, { sql: text, count: 1, max_ms: ms, total_ms: ms, last_at: now });
+};
+
 export const recordLoopWindow = (window: Omit<LoopWindow, 'at'>, now = Date.now()) => {
   push(loopWindows, { at: new Date(now).toISOString(), ...window });
 };
@@ -114,10 +133,15 @@ export const performanceSnapshot = (now = Date.now()) => {
     slow_requests: recent(slowRequests, now).sort((a, b) => b.ms - a.ms).slice(0, 10),
     slow_transactions: recent(slowTransactions, now).sort((a, b) => Math.max(b.held_ms, b.waited_ms) - Math.max(a.held_ms, a.waited_ms)).slice(0, 10),
     slow_jobs: recent(slowJobs, now).sort((a, b) => b.sqlite_ms - a.sqlite_ms).slice(0, 10),
+    // Since the process started (not the 5-minute window): the statements that cost the most in total.
+    slow_queries: [...slowQueries.values()]
+      .sort((a, b) => b.total_ms - a.total_ms)
+      .slice(0, 15)
+      .map(({ sql, count, max_ms, total_ms }) => ({ sql, count, max_ms: Math.round(max_ms), total_ms: Math.round(total_ms) })),
     running_now: requestsInFlight(now),
   };
 };
 
 export const resetPerformanceProbeForTesting = () => {
-  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; slowJobs.length = 0; inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
+  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; slowJobs.length = 0; slowQueries.clear(); inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
 };

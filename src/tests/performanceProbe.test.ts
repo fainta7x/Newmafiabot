@@ -5,7 +5,7 @@ import { createDatabaseConnection } from '../db/index.ts';
 import {
   SLOW_REQUEST_MS, SLOW_TRANSACTION_MS, performanceSnapshot, recordLoopWindow, recordSlowTransaction,
   requestFinished, requestStarted, resetPerformanceProbeForTesting, routeLabel, setSlowRequestThresholdForTesting,
-  SLOW_JOB_SQLITE_MS, timeBackgroundJob,
+  SLOW_JOB_SQLITE_MS, SLOW_QUERY_MS, recordSlowQuery, timeBackgroundJob,
 } from '../lib/performanceProbe.ts';
 import { performanceMiddleware, requestRouteLabel } from '../server/services/performanceWatchdog.ts';
 import { createRuntimeHealthRoutes } from '../server/routes/runtimeHealthRoutes.ts';
@@ -127,6 +127,17 @@ describe('the record of what made the server slow', () => {
     const jobs = performanceSnapshot().slow_jobs.map((item) => item.job).sort();
     expect(jobs).toEqual(['outer_job', 'outer_job/step']);
     db.sqlite.close();
+  });
+
+  it('groups slow statements by their text, never their parameters, and orders them by total time', () => {
+    recordSlowQuery('SELECT * FROM a\n   WHERE x = ?', SLOW_QUERY_MS + 10);
+    recordSlowQuery('SELECT * FROM a WHERE x = ?', SLOW_QUERY_MS + 30);
+    recordSlowQuery('SELECT * FROM b', SLOW_QUERY_MS + 100);
+    const { slow_queries } = performanceSnapshot();
+    expect(slow_queries).toEqual([
+      { sql: 'SELECT * FROM b', count: 1, max_ms: SLOW_QUERY_MS + 100, total_ms: SLOW_QUERY_MS + 100 },
+      { sql: 'SELECT * FROM a WHERE x = ?', count: 2, max_ms: SLOW_QUERY_MS + 30, total_ms: 2 * SLOW_QUERY_MS + 40 },
+    ]);
   });
 });
 

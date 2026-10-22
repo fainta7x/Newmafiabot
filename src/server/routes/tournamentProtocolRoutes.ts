@@ -2,7 +2,8 @@ import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
-import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { getAuthenticatedOrganizerActorId, requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { recordTournamentGameEdit } from '../services/tournamentGameEditPolicy.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { determineVotingResult, validateVotingHierarchy } from '../../shared/tournamentVoting.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
@@ -1437,11 +1438,11 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
     }
 
     if (tournament.status === 'completed') {
-      return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
+      return res.status(400).json({ error: 'Турнир завершён. Нажмите «Исправить» на игре — турнир откроется для исправления' });
     }
 
     if (tournament.status !== 'active' && tournament.status !== 'correction') {
-      return res.status(400).json({ error: 'Открыть игру для правки можно только в идущем турнире или в режиме корректировки' });
+      return res.status(400).json({ error: 'Открыть игру для правки можно только в идущем турнире или в режиме исправления' });
     }
 
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
@@ -1449,14 +1450,7 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    const activeGame = await db.get<any>(
-      "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
-      [tournamentId, gameId]
-    );
-    if (activeGame) {
-      return res.status(400).json({ error: 'Нельзя открыть игру для правки: в турнире уже идёт другая игра' });
-    }
-
+    // Another game running at the same time does not block a correction (owner, 2026-10-22).
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
     if (!existingProtocol) {
       return res.status(400).json({ error: 'Протокол не найден' });
@@ -1511,6 +1505,11 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
         guessed_blacks: guessedBlacks,
         bonus_points: bonusPoints
       };
+    });
+
+    await recordTournamentGameEdit(db, {
+      tournamentId, gameId, action: 'game_reopened_for_correction', actorId: getAuthenticatedOrganizerActorId(req),
+      payload: { tournament_status: tournament.status },
     });
 
     const cpResult = await createPreviewCheckpoint(db);

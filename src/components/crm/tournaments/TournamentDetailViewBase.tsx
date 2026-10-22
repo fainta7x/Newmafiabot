@@ -118,6 +118,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
+  // «Исправить» on a game of a completed tournament: the game to reopen once the tournament is back in correction.
+  const [correctGameAfterReopen, setCorrectGameAfterReopen] = useState<string | null>(null);
 
   // Results PNG export states
   const [exportGameId, setExportGameId] = useState<string | undefined>(undefined);
@@ -183,9 +185,41 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     loadDetail();
   };
 
+  // «Исправить» on a completed game (owner, 2026-10-22): reopen it right here; a completed tournament is reopened first.
+  const handleCorrectGame = async (gameId: string) => {
+    if (tournament?.status === 'completed') {
+      setCorrectGameAfterReopen(gameId);
+      setShowReopenModal(true);
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.revertGameProtocolToDraft(tournamentId, gameId);
+      setFeedbackMsg({ type: 'success', text: 'Игра открыта для правки: можно менять судью, роли, места и протокол.' });
+      await loadDetail();
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось открыть игру для правки' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleReopenTournament = async () => {
     try {
       await api.reopenTournamentForCorrection(tournamentId);
+      if (correctGameAfterReopen) {
+        const gameId = correctGameAfterReopen;
+        setCorrectGameAfterReopen(null);
+        // The tournament is already reopened: if the game step fails, reload so «Исправить» retries only that step.
+        try {
+          await api.revertGameProtocolToDraft(tournamentId, gameId);
+          setFeedbackMsg({ type: 'success', text: 'Турнир открыт для исправления, игра открыта для правки. Публичные результаты скрыты до повторного завершения.' });
+        } catch (gameErr: any) {
+          setFeedbackMsg({ type: 'error', text: `Турнир открыт для исправления, но игру открыть не удалось: ${gameErr?.message || 'ошибка'}. Нажмите «Исправить» ещё раз.` });
+        }
+        await loadDetail();
+        return;
+      }
       setFeedbackMsg({
         type: 'success',
         text: 'Турнир возвращён на корректировку. Публичные результаты временно скрыты.',
@@ -254,6 +288,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     canEditCurrentGameJudgeAndRoles,
     canEditJudgeInline,
     canSwapSeatsCurrentGame,
+    canCorrectCurrentGame,
   } = tournamentGameEditRights(tournament.status, games, currentGame);
 
   const handleOpenStartModal = () => {
@@ -1119,8 +1154,21 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   </button>
                 )}
 
+                {/* «Исправить» on a completed game: reopens it (and a completed tournament first) — owner, 2026-10-22 */}
+                {canCorrectCurrentGame && (
+                  <button
+                    type="button"
+                    data-testid="correct-completed-game-button"
+                    onClick={() => void handleCorrectGame(String(currentGame.id))}
+                    disabled={actionLoading}
+                    className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                  >
+                    <span>Исправить</span>
+                  </button>
+                )}
+
                 {/* A wrong click while dealing the roles: fixable in a running game until its protocol is completed */}
-                {tournament.status === 'active' && currentGame.status === 'active' && (currentGame as any).protocol_status !== 'completed' && (
+                {(tournament.status === 'active' || tournament.status === 'correction') && currentGame.status === 'active' && (currentGame as any).protocol_status !== 'completed' && (
                   <button
                     type="button"
                     data-testid="fix-active-game-roles-button"
@@ -1549,7 +1597,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
       <ConfirmReopenTournamentModal
         isOpen={showReopenModal}
-        onClose={() => setShowReopenModal(false)}
+        onClose={() => { setShowReopenModal(false); setCorrectGameAfterReopen(null); }}
         onConfirm={handleReopenTournament}
       />
 

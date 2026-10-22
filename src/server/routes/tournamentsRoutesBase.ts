@@ -6,9 +6,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DatabaseWrapper } from '../../db/index.ts';
-import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { getAuthenticatedOrganizerActorId, requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { internalGetNominations } from '../services/tournamentStandingsService.ts';
+import { recordTournamentGameEdit, tournamentGameEditPermission } from '../services/tournamentGameEditPolicy.ts';
 import { insertRowSafe, validateTournamentBackupData } from '../services/tournamentBackupService.ts';
 import { normalizeRole } from '../utils/ciHelper.ts';
 import {
@@ -191,7 +192,7 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    const check = await checkGameEditingPermission(db, tournament, game);
+    const check = await tournamentGameEditPermission(db, tournament, game, 'seats');
     if (!check.allowed) {
       return res.status(400).json({ error: check.error || 'Перестановка мест запрещена' });
     }
@@ -296,66 +297,15 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
       ORDER BY tgs.seat_number ASC
     `, [gameId]);
 
+    await recordTournamentGameEdit(db, {
+      tournamentId, gameId, action: 'game_seats_swapped', actorId: getAuthenticatedOrganizerActorId(req),
+      payload: { game_status: game.status, seats: [seat1.seat_number, seat2.seat_number], participants: [P1, P2] },
+    });
     res.json({ success: true, game_id: gameId, seats: updatedSeats });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка перестановки мест' });
   }
 });
-
-async function checkGameEditingPermission(
-  db: DatabaseWrapper,
-  tournament: any,
-  game: any,
-  purpose: 'roles' | 'other' = 'other'
-): Promise<{ allowed: boolean; error?: string }> {
-  if (tournament.status === 'completed') {
-    return { allowed: false, error: 'Турнир завершён. Изменение параметров игры запрещено' };
-  }
-
-  if (game.status === 'completed') {
-    return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
-  }
-
-  // A wrong role after the deal (owner, 2026-10-03): the roles of a game that is already running can be
-  // corrected until its protocol is completed (the judge and the seating stay locked).
-  if (purpose === 'roles' && game.status === 'active' && tournament.status === 'active') {
-    const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
-    if (protocol?.status === 'completed') {
-      return { allowed: false, error: 'Протокол игры завершён. Сначала откройте его для правки' };
-    }
-    return { allowed: true };
-  }
-
-  if (game.status === 'planned') {
-    if (tournament.status === 'draft' || tournament.status === 'active') {
-      return { allowed: true };
-    }
-    if (tournament.status === 'correction') {
-      return { allowed: false, error: 'В режиме корректировки нельзя изменять запланированные игры' };
-    }
-    return { allowed: false, error: 'Изменение параметров игры запрещено в текущем статусе турнира' };
-  }
-
-  if (tournament.status === 'correction') {
-    if (game.status === 'active') {
-      const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
-      if (!protocol || protocol.status !== 'draft') {
-        return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
-      }
-      const otherActive = await db.get<any>(
-        "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
-        [tournament.id, game.id]
-      );
-      if (otherActive) {
-        return { allowed: false, error: 'В турнире уже есть другая активная игра' };
-      }
-      return { allowed: true };
-    }
-    return { allowed: false, error: 'Изменение параметров игры запрещено' };
-  }
-
-  return { allowed: false, error: 'Изменение ролей и судьи запрещено после запуска игры' };
-}
 
 // 8. PATCH /api/tournaments/:id/games/:gameId/roles - Assign roles to seats
 router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -375,7 +325,7 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    const check = await checkGameEditingPermission(db, tournament, game, 'roles');
+    const check = await tournamentGameEditPermission(db, tournament, game, 'roles');
     if (!check.allowed) {
       return res.status(400).json({ error: check.error || 'Изменение ролей запрещено' });
     }
@@ -467,6 +417,10 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
       ORDER BY tgs.seat_number ASC
     `, [gameId]);
 
+    await recordTournamentGameEdit(db, {
+      tournamentId, gameId, action: 'game_roles_changed', actorId: getAuthenticatedOrganizerActorId(req),
+      payload: { game_status: game.status, roles: items.map((item: any) => ({ seat_number: item.seat_number, role: normalizeRoleValue(item.role) })) },
+    });
     res.json({ success: true, game_id: gameId, seats: updatedSeats });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка обновления ролей' });

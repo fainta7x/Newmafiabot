@@ -1,11 +1,12 @@
 import { Router, type Response } from 'express';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { getAuthenticatedOrganizerActorId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './tournamentsRoutesBase.ts';
 export { validateTournamentBackupData } from '../services/tournamentBackupService.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
+import { recordTournamentGameEdit, tournamentGameEditPermission } from '../services/tournamentGameEditPolicy.ts';
 import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
 import { syncTrustedTournamentAwards } from '../services/playerVerifiedAwardsService.ts';
 import { queuePersonalNotification } from '../services/personalNotificationRouterService.ts';
@@ -432,42 +433,6 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
   }
 });
 
-const checkJudgeEditingPermission = async (db: DatabaseWrapper, tournament: any, game: any) => {
-  if (tournament.status === 'completed') {
-    return { allowed: false, error: 'Турнир завершён. Сначала верните его на корректировку' };
-  }
-
-  if (tournament.status === 'correction' && game.status === 'completed') {
-    return { allowed: true };
-  }
-
-  if (game.status === 'planned') {
-    if (tournament.status === 'draft' || tournament.status === 'active') return { allowed: true };
-    if (tournament.status === 'correction') return { allowed: false, error: 'В режиме корректировки нельзя изменять запланированные игры' };
-    return { allowed: false, error: 'Изменение судьи запрещено в текущем статусе турнира' };
-  }
-
-  if (tournament.status === 'correction' && game.status === 'active') {
-    const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
-    if (!protocol || protocol.status !== 'draft') return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
-    const otherActive = await db.get<any>(
-      "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
-      [tournament.id, game.id],
-    );
-    if (otherActive) return { allowed: false, error: 'В турнире уже есть другая активная игра' };
-    return { allowed: true };
-  }
-
-  // A judge who cannot continue must be replaceable in the middle of the game (owner audit, 2026-10-04):
-  // allowed in an active tournament while the protocol of the running game is not completed.
-  if (tournament.status === 'active' && game.status === 'active') {
-    const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
-    if (!protocol || protocol.status !== 'completed') return { allowed: true };
-  }
-
-  return { allowed: false, error: 'Изменение судьи запрещено после запуска игры' };
-};
-
 router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
@@ -477,7 +442,7 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) return res.status(404).json({ error: 'Игра не найдена' });
 
-    const permission = await checkJudgeEditingPermission(db, tournament, game);
+    const permission = await tournamentGameEditPermission(db, tournament, game, 'judge');
     if (!permission.allowed) return res.status(400).json({ error: permission.error || 'Изменение судьи запрещено' });
 
     const judge = await resolveJudgeAssignment(db, {
@@ -492,6 +457,10 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
     if (game.status === 'completed' && judge.judge_player_id) {
       await evaluateAchievementsForPlayers(db, [judge.judge_player_id]);
     }
+    await recordTournamentGameEdit(db, {
+      tournamentId: String(tournamentId), gameId: String(gameId), action: 'game_judge_changed', actorId: getAuthenticatedOrganizerActorId(req),
+      payload: { before: { judge_name: game.judge_name, judge_player_id: game.judge_player_id }, after: { judge_name: judge.judge_name, judge_player_id: judge.judge_player_id } },
+    });
 
     const updated = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     return res.json(updated);

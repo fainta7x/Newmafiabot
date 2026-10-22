@@ -464,7 +464,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
   });
 
   // Test 17: Cannot revert completed game if another game is active
-  it('17. Prevents reverting completed game if another game is active', async () => {
+  it('17. Reopens a completed game for correction even while another game is running (owner, 2026-10-22)', async () => {
     // Complete game 1
     const complete1 = await request(app)
       .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
@@ -502,8 +502,12 @@ describe('Manual Mobile Protocol Test Suite', () => {
       .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/revert-to-draft`)
       .set('Cookie', organizerCookie);
 
-    expect(revertRes.status).toBe(400);
-    expect(revertRes.body.error).toContain('уже идёт другая игра');
+    expect(revertRes.status).toBe(200);
+    expect(revertRes.body.protocol.status).toBe('draft');
+    const reopened = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+    const statuses = Object.fromEntries((reopened.body.games || []).map((g: any) => [g.id, g.status]));
+    expect(statuses[game1Id]).toBe('active');
+    expect(statuses[game2Id]).toBe('active');
   });
 
   // Test 18: Rejects invalid player results count or exit_type

@@ -1,5 +1,6 @@
 import { Player, GameSlot } from "../../types.js";
 import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
+import type { GameExitType, RemovalReason } from '../../shared/gameExit.ts';
 
 export interface ActivePlayerState {
   slot_num: number;
@@ -10,7 +11,7 @@ export interface ActivePlayerState {
   fouls: number;
   minor_tech_fouls?: number;
   major_tech_fouls?: number;
-  removal_reason?: '4th_foul' | '2nd_tech' | 'direct' | null;
+  removal_reason?: RemovalReason | null;
   alive: boolean;
   nominated_this_round: boolean;
   has_spoken_this_round: boolean;
@@ -27,7 +28,7 @@ export interface ActivePlayerState {
   eliminated_phase: string;
   has_foul_penalty?: boolean;
   note?: string;
-  exit_reason?: 'alive' | 'killed' | 'voted_zero_round' | 'voted_day' | 'removed';
+  exit_reason?: GameExitType;
 }
 
 export type Phase = "setup" | "zero_night" | "day_speeches" | "day_voting" | "shootout" | "night";

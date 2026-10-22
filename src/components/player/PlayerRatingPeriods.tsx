@@ -2,6 +2,7 @@ import { getGameRoleDefinition, normalizeGameRole } from '../../shared/gameRoles
 import { countGames, countWins } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getJson } from '../../lib/requestJson.ts';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 type RatingPeriodSummary = {
   id: string;
@@ -69,11 +70,7 @@ type PeriodListResponse = {
   completed_periods: RatingPeriodSummary[];
 };
 
-const formatDate = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' }).format(date);
-};
+const formatDate = (value: string) => formatMoscowDate(value, 'short', { empty: '', invalidAsRaw: true });
 
 const formatRange = (start: string, end: string) => `${formatDate(start)} — ${formatDate(end)}`;
 

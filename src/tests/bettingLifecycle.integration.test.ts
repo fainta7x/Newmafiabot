@@ -8,6 +8,7 @@ import {
   BettingIneligibleError,
   getPlayerBettingDashboard,
   placePoolBet,
+  reconcileAllBettingPools,
   refundBetPool,
   settleBetPool,
 } from '../server/services/bettingPoolService.ts';
@@ -228,6 +229,36 @@ describe('server-side club betting lifecycle', () => {
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='spectator-red'"))?.tokens)).toBe(redAfter);
     await refundBetPool(db, secondGameId);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='spectator-red'"))?.tokens)).toBe(redAfter);
+  });
+
+  it('reconciles pools from the protocol fields alone: settles once, leaves a settled pool alone, unsettles a reopened game', async () => {
+    const tokens = async (id: string) => Number((await db.get<any>('SELECT tokens FROM players WHERE id = ?', [id]))?.tokens);
+    await request(app).post(`/api/games/${gameId}/start`).set('Cookie', organizerCookie).send({ roles }).expect(201);
+    await placePoolBet(db, { gameId, playerId: 'spectator-red', team: 'red', amount: 100, requestId: 'r-red' });
+    await placePoolBet(db, { gameId, playerId: 'spectator-black', team: 'black', amount: 100, requestId: 'r-black' });
+    const afterStake = await tokens('spectator-red');
+    const completed = protocolFor(gameId);
+    completed.protocol.status = 'completed';
+    completed.protocol.winner_team = 'red';
+    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(completed), gameId]);
+
+    expect(await reconcileAllBettingPools(db)).toBeGreaterThan(0);
+    expect((await db.get<any>('SELECT status, settled_winner FROM betting_pools WHERE game_id = ?', [gameId]))).toMatchObject({ status: 'settled', settled_winner: 'red' });
+    const paid = await tokens('spectator-red');
+    expect(await reconcileAllBettingPools(db)).toBe(0);
+    expect(await tokens('spectator-red')).toBe(paid);
+
+    // The protocol is reopened for correction: the payout is taken back until the game is completed again.
+    completed.protocol.status = 'draft';
+    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(completed), gameId]);
+    await reconcileAllBettingPools(db);
+    expect((await db.get<any>('SELECT status FROM betting_pools WHERE game_id = ?', [gameId]))?.status).toBe('closed');
+    expect(paid).toBeGreaterThan(afterStake);
+    expect(await tokens('spectator-red')).toBe(afterStake);
+
+    // An unreadable protocol never breaks the reconciliation.
+    await db.run("UPDATE games SET protocol_text = '{broken' WHERE id = ?", [gameId]);
+    await expect(reconcileAllBettingPools(db)).resolves.toBe(0);
   });
 
   it('corrects a one-sided pool that an older version already settled', async () => {

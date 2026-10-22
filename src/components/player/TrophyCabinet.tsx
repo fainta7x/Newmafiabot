@@ -5,15 +5,12 @@ import { NominationPlaque, PlaceMedal, medalTierFromPlace, nominationGlyphFromTi
 import PlayerTournamentView from './PlayerTournamentView.tsx';
 import { CABINET_CATEGORIES, cabinetItems, type CabinetAchievement, type CabinetCategory, type CabinetItem, type CabinetVerifiedAward } from '../../lib/trophyCabinetModel.ts';
 import './TrophyCabinet.css';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 const PAGE_SIZE = 6;
 const clamp = (n:number) => Math.max(-16, Math.min(16, n));
-const formatDate = (raw:string|null) => {
-  if(!raw) return null;
-  if(/^\d{4}$/.test(raw)) return raw;
-  const d=new Date(raw);
-  return Number.isNaN(d.getTime()) ? raw : d.toLocaleDateString('ru-RU',{timeZone:'Europe/Moscow'});
-};
+// A bare year («2019») of an old award stays as it is.
+const formatDate = (raw:string|null) => (raw && /^\d{4}$/.test(raw) ? raw : formatMoscowDate(raw, 'numeric', { invalidAsRaw: true }));
 
 /** Original lightweight vector exhibits: perspective is applied by the room, not baked into a static picture. */
 function Exhibit({item}:{item:CabinetItem}) {

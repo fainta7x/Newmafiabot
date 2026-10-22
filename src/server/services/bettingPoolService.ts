@@ -438,32 +438,63 @@ export const refundBetPool = async (db: DatabaseWrapper, gameId: number) => with
   return poolPayload(pool);
 });
 
-const completedWinner = (game: any): BetTeam | null => {
-  const envelope = safeJsonParse<any>(game?.protocol_text, null);
-  const status = envelope?.kind === 'club_evening_protocol' ? envelope.protocol?.status : null;
-  if (status !== 'completed') return null;
-  if (envelope.protocol?.winner_team === 'red' || String(game?.winner_team || '').toLocaleLowerCase('ru-RU').includes('крас')) return 'red';
-  if (envelope.protocol?.winner_team === 'black' || String(game?.winner_team || '').toLocaleLowerCase('ru-RU').includes('чёр') || String(game?.winner_team || '').toLocaleLowerCase('ru-RU').includes('чер')) return 'black';
+type PoolWithGame = BettingPoolRow & {
+  game_found: number | null;
+  game_winner_label: string | null;
+  protocol_kind: string | null;
+  protocol_status: string | null;
+  protocol_winner: string | null;
+};
+
+/** The winner of a completed club protocol, read from the few fields SQLite extracted (never the whole protocol). */
+const completedWinner = (row: Pick<PoolWithGame, 'game_winner_label' | 'protocol_kind' | 'protocol_status' | 'protocol_winner'>): BetTeam | null => {
+  if (row.protocol_kind !== 'club_evening_protocol' || row.protocol_status !== 'completed') return null;
+  const label = String(row.game_winner_label || '').toLocaleLowerCase('ru-RU');
+  if (row.protocol_winner === 'red' || label.includes('крас')) return 'red';
+  if (row.protocol_winner === 'black' || label.includes('чёр') || label.includes('чер')) return 'black';
   return null;
 };
 
+/** True when settleBetPool would leave the pool exactly as it is: settled for this winner, stakes on both sides. */
+const alreadySettledFor = (pool: BettingPoolRow, winner: BetTeam) => {
+  const red = Number(pool.red_pool || 0);
+  const black = Number(pool.black_pool || 0);
+  const oneSided = red + black > 0 && (red <= 0 || black <= 0);
+  return pool.status === 'settled' && pool.settled_winner === winner && !oneSided;
+};
+
+/**
+ * Brings every pool in line with its game. It runs on each wallet and betting screen, so it reads only the protocol's
+ * kind, status and winner inside SQLite: loading and parsing every bet game's whole protocol (with its replay) blocked the
+ * server for ~0.8 s on each open of those screens (CPU profile, 2026-10-23).
+ */
 export const reconcileAllBettingPools = async (db: DatabaseWrapper): Promise<number> => {
-  const pools = await db.all<BettingPoolRow>("SELECT * FROM betting_pools WHERE status IN ('open', 'closed', 'settled') ORDER BY created_at ASC");
+  const pools = await db.all<PoolWithGame>(`
+    SELECT p.*, g.id AS game_found, g.winner_team AS game_winner_label,
+           CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.kind') END AS protocol_kind,
+           CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.protocol.status') END AS protocol_status,
+           CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.protocol.winner_team') END AS protocol_winner
+      FROM betting_pools p
+      LEFT JOIN games g ON g.id = p.game_id
+     WHERE p.status IN ('open', 'closed', 'settled')
+     ORDER BY p.created_at ASC`);
   let changed = 0;
-  for (let pool of pools) {
-    const before = `${pool.status}:${pool.settled_winner || ''}:${pool.updated_at}`;
-    pool = await closeExpiredBetPool(db, pool);
-    const game = await db.get<any>('SELECT id, protocol_text, winner_team FROM games WHERE id = ? LIMIT 1', [pool.game_id]);
-    if (!game) {
+  for (const row of pools) {
+    const before = `${row.status}:${row.settled_winner || ''}:${row.updated_at}`;
+    const pool = await closeExpiredBetPool(db, row);
+    if (row.game_found == null) {
       await refundBetPool(db, pool.game_id);
       changed += 1;
       continue;
     }
-    const winner = completedWinner(game);
+    const winner = completedWinner(row);
     if (winner) {
+      if (alreadySettledFor(pool, winner)) continue;
       await settleBetPool(db, pool.game_id, winner);
     } else if (pool.status === 'settled') {
       await closeUnsettledPoolAfterReopen(db, pool.game_id);
+    } else if (pool === row) {
+      continue;
     }
     const after = await db.get<BettingPoolRow>('SELECT * FROM betting_pools WHERE id = ?', [pool.id]);
     if (after && `${after.status}:${after.settled_winner || ''}:${after.updated_at}` !== before) changed += 1;

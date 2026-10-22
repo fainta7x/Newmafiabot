@@ -1439,14 +1439,25 @@ The owner asked: «все элементы подчинялись единым �
 - **Changed on purpose.** A colour is a team, not a role. `bestMovePoints`, Ci, the tournament standings and PPK read colours through `gameTeamOfRole`, so their results do not change. Per-role statistics no longer count a colour-only row as citizen or mafia (black may be the don). `маф` and `ё` spellings now work everywhere.
 - **B1 fixed:** the counter follows the table size.
 - **B2 fixed:** the inline PPK block is removed, and `processPPK` is the one rule for draft and completion; an unknown culprit role is an error. The betting `roleTeam` was not a bug, because roles are validated just above it.
-- **Still open:** exit types and removal reasons, points formulas, and the rest of A.
+- **Fixed later (2026-10-23):**
+  - Exit types and removal reasons now have one list, `shared/gameExit.ts`, used by the engine types, `api.ts`, `gameDiscipline` and both protocol validators.
+  - Elo and its history share `clubPersonalGamePoints`, `sortTime` and `validatePreparedEvent`; the history copies are removed.
+  - The Elo best-move points use `calculateBestMovePoints`.
+  - The two integer win rates (`playerEveningSummaryService`, `tableScoutingRoutes`) use `winRatePercent`, the owner rule of 2026-10-04 (one decimal).
+- **Still open:** the standings totals formula (tournament vs rating period) and the rest of A.
 
 **Progress (step 3, UI primitives, first slice):**
 - **Fixed — money.** `lib/formatRubleAmount.ts` `formatRubles` is the one money format: whole rubles, Russian thousands separator, zero for junk and negative amounts unless `signed`. It replaces the local `rubles`/`money`/`formatMoney` helpers and about 40 inline `… ₽` in 27 screens.
   - Visible change: amounts of 1 000 ₽ and more now show the separator everywhere.
   - The CRM analytics and command-center keep negative amounts.
 - **Fixed — plural forms.** `lib/russianPlural.ts` is the one plural rule: 5 server copies, `guideCatalog.pluralRu`, `AppUsagePanel.times` and the `StaffWorkStats` alias are removed.
-- **Still open:** dates, avatars, loading states, status labels.
+- **Fixed — dates.** `lib/moscowDate.ts` `formatMoscowDate` is the one date formatter:
+  - always Moscow time;
+  - four fixed styles: numeric, short, long, short-time;
+  - one rule for a missing or unreadable date.
+  - It replaces 9 local formatters, and `formatPlayerGameDate` is built on it. Each screen keeps its style, so dates look the same as before.
+  - The CRM rating periods and public tournament results no longer show «Invalid Date» for a bad value.
+- **Still open:** avatars, loading states, status labels.
 
 **B. Bugs (fixable without a rule decision)**
 - `EveningGameProtocolModal.tsx:416-419` shows the role counter as `/6 /1 /2 /1` even for a table of 8–9 players, while the server checks `roleCountsMatchTable`.
@@ -1494,4 +1505,11 @@ The owner asked: «все элементы подчинялись единым �
     - `personal_notifications/club_results` uses 0.6–0.83 s of CPU (0.1–0.36 s SQLite), and no single part reaches 100 ms.
     - In the same second `telegram_sync_outbox` uses 0.74–1.0 s of CPU with only 3 SQLite calls.
     - The two jobs overlap, and process CPU cannot be split between them. **Next (this PR):** an organizer-only `GET /api/health/performance/profile?seconds=65` takes a V8 CPU profile in-process. It returns the top functions by self time and the longest busy stretches with their stacks, so the blocking function is named, not guessed.
+
+**CPU profile (production, read-only, 2026-10-23 ~23:30 UTC, 40 s, organizer endpoint from #1003): the stall is found.**
+- 0.83 s of the 1.33 s busy time was one stretch in `reconcileAllBettingPools`: 0.63 s in `db.get` loading `games.protocol_text`, and 0.11 s `JSON.parse` in `completedWinner`.
+- **The cause.** It runs on every open of the wallet («Экономика») and betting screens, not on a timer. For every pool ever opened (`open`, `closed`, `settled`; the set only grows), it loaded and parsed the whole protocol of the game, replay included, then queried the pool again.
+- Neither the minute jobs nor the club-results scan were the cause; their overlapping `cpu_ms` was the process's, not theirs.
+- **Fix (PR after #1003):** one query reads only the protocol's kind, status and winner through `json_extract` inside SQLite. A pool already settled for that winner, with stakes on both sides, is skipped, which is what `settleBetPool` would have done anyway.
+- A new lifecycle test (settle, idempotent rerun, reopen-unsettle, broken JSON) passes on the old and the new code. **fixed in code; deploy and re-profile pending.**
 

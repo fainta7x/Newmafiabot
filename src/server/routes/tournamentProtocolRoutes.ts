@@ -11,10 +11,10 @@ import { evaluateAchievementsForPlayers } from '../services/playerAchievementsSe
 import { blackParticipantIds, withoutBlackBestMoves } from '../services/blackBestMoves.ts';
 import { calculateBestMovePoints } from '../services/bestMovePoints.ts';
 import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { isGameExitType, isRemovalReason } from '../../shared/gameExit.ts';
 
 const router = Router();
 
-const VALID_EXIT_TYPES = ['alive', 'killed', 'voted_zero_round', 'voted_day', 'removed'];
 const VALID_COLOR_MARKS = ['red', 'black', 'sheriff'];
 
 /**
@@ -202,7 +202,7 @@ export function validatePlayerResults(
     }
     seenParticipantIds.add(pr.participant_id);
 
-    if (pr.exit_type !== undefined && !VALID_EXIT_TYPES.includes(pr.exit_type)) {
+    if (pr.exit_type !== undefined && !isGameExitType(pr.exit_type)) {
       return `Недопустимый тип ухода из игры: ${pr.exit_type}`;
     }
 
@@ -265,7 +265,7 @@ export function validatePlayerResults(
       return '4 обычных фола требуют статус removed';
     }
 
-    if (pr.removal_reason && !['4th_foul', '2nd_tech', 'direct'].includes(pr.removal_reason)) {
+    if (pr.removal_reason && !isRemovalReason(pr.removal_reason)) {
       return 'Указана неверная причина удаления';
     }
     if (pr.removal_reason && pr.exit_type !== 'removed') {

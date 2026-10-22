@@ -2,6 +2,7 @@ import { resolveEveningMvp } from './eveningMvpService.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
 import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 export type EveningSummaryAward = {
   category: 'best_player';
@@ -60,7 +61,6 @@ type Aggregate = {
   roles: Set<string>;
 };
 
-const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
 
@@ -237,7 +237,7 @@ export async function loadPlayerEveningSummaries(
         games: personalGames,
         wins: personalWins,
         losses: Math.max(0, personalGames - personalWins),
-        win_rate: rate(personalWins, personalGames),
+        win_rate: winRatePercent(personalWins, personalGames),
         elo_before: personal?.elo_before == null ? null : round(personal.elo_before),
         elo_after: personal?.elo_after == null ? null : round(personal.elo_after),
         elo_delta: personalDelta,

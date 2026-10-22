@@ -1525,3 +1525,8 @@ The owner asked: «все элементы подчинялись единым �
 - New test `mvpCardDrawnOnlyWhenPosted.test.ts`: the card is drawn once for the first post and never on later scans. It fails on the old code.
 - **fixed in code; deploy and re-profile pending.** `telegram_sync_outbox` once took 11 s of CPU in 36 s of wall time (23:43); it did not show in this profile window and is watched next.
 
+**B4 (publications that may double-post), 2026-10-23: mitigated in wording.**
+- Retries of «Сегодня играем», «Мы собрались» and cancel posts are manual only: the scheduler skips any evening that already has a status, so the risk is an organizer re-tapping after a timeout.
+- A Telegram request that throws (no HTTP answer) now says «Telegram не ответил … пост мог выйти, проверьте группу перед повтором». A VK error says the same about the wall.
+- A full «uncertain» state with a confirm-before-repost button is a UI change and is left as a proposal. **mitigated**
+

@@ -82,7 +82,8 @@ async function publishTelegram(db: DatabaseWrapper, evening: any, photo: Buffer,
     if (response.ok && payload?.ok !== false) return { status: 'published', error: null };
     return { status: 'failed', error: String(payload?.description || `Telegram HTTP ${response.status}`) };
   } catch (error: any) {
-    return { status: 'failed', error: error?.message || 'Telegram недоступен' };
+    // No answer is not «not posted»: the message may have gone out, so the organizer checks before posting again.
+    return { status: 'failed', error: `Telegram не ответил (${error?.message || 'сеть'}) — пост мог выйти, проверьте группу перед повтором` };
   }
 }
 
@@ -102,7 +103,7 @@ async function publishVk(photo: Buffer, mime: string, caption: string, fetchImpl
     const post = await createVkWallPost({ groupId, message: caption, attachments: attachment ? [attachment] : [] });
     return { status: 'published', error: null, url: post.externalUrl };
   } catch (error: any) {
-    return { status: 'failed', error: error?.message || 'ВК недоступен', url: null };
+    return { status: 'failed', error: `${error?.message || 'ВК недоступен'} — если пост всё же появился на стене, повторять не нужно`, url: null };
   }
 }
 

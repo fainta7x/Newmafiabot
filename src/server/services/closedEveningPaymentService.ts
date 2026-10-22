@@ -135,3 +135,56 @@ export async function setClosedEveningParticipantPaid(
      WHERE ep.id = ?
   `, [participantId]);
 }
+
+const roundMoney = (value: number) => Math.round(value * 100) / 100;
+export const paymentStatusForAmount = (paid: number, due: number) => (paid >= due ? 'paid' : paid > 0 ? 'partial' : 'unpaid');
+
+/**
+ * Sets how much a player has paid for a closed evening (owner, 2026-10-22: a part of the sum can be received by hand).
+ * The ledger follows the same pattern as «paid / not paid»: a rise is a `debt_paid`, a fall gives the money back to the debt.
+ */
+export async function setClosedEveningParticipantPaidAmount(db: DatabaseWrapper, participantId: string, amount: number) {
+  await reconcileRegularEveningPayments(db, String((await db.get<any>('SELECT evening_id FROM evening_participants WHERE id = ?', [participantId]))?.evening_id || ''));
+  const participant = await db.get<any>(`
+    SELECT ep.*, p.nickname, e.title AS evening_title, e.status AS evening_status, e.settled_at
+      FROM evening_participants ep
+      JOIN players p ON p.id = ep.player_id
+      JOIN game_evenings e ON e.id = ep.evening_id
+     WHERE ep.id = ?
+     LIMIT 1
+  `, [participantId]);
+  if (!participant) throw Object.assign(new Error('Участник не найден'), { statusCode: 404 });
+  if (!(participant.evening_status === 'completed' || participant.settled_at)) throw Object.assign(new Error('Вечер ещё не закрыт'), { statusCode: 409 });
+  if (participant.attendance_status !== 'attended') throw Object.assign(new Error('Оплата отмечается только для фактически пришедших игроков'), { statusCode: 400 });
+  const due = Math.max(0, Number(participant.amount_due || 0));
+  if (String(participant.player_id || '') === PRIMARY_ORGANIZER_PLAYER_ID || due === 0) throw Object.assign(new Error('Для этого игрока взнос за вечер не требуется'), { statusCode: 400 });
+  const target = roundMoney(amount);
+  if (!Number.isFinite(target) || target < 0 || target > due) throw Object.assign(new Error(`Сумма должна быть от 0 до ${due} ₽`), { statusCode: 400 });
+
+  const totals = await db.get<any>(`
+    SELECT
+      COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
+      COALESCE(SUM(CASE WHEN type = 'debt_paid' THEN amount ELSE 0 END), 0) AS debt_paid
+      FROM financial_transactions
+     WHERE evening_id = ? AND player_id = ? AND source_id = ?
+  `, [participant.evening_id, participant.player_id, participantId]);
+  const debtPaid = Number(totals?.debt_paid || 0);
+  const financialPaid = clamp(Number(totals?.income || 0) + debtPaid, 0, due);
+  const delta = roundMoney(target - financialPaid);
+  const ids = { eveningId: String(participant.evening_id), playerId: String(participant.player_id), participantId };
+  await db.transaction(async (tx: DatabaseWrapper) => {
+    if (delta > 0) {
+      await addAdjustment(tx, { type: 'debt_paid', amount: delta, ...ids, description: `Частичная оплата долга за вечер ${participant.evening_title}: ${participant.nickname}` });
+    } else if (delta < 0) {
+      const back = -delta;
+      const fromDebt = Math.min(back, Math.max(0, debtPaid));
+      if (fromDebt > 0) await addAdjustment(tx, { type: 'debt_paid', amount: -fromDebt, ...ids, description: `Корректировка оплаты за вечер ${participant.evening_title}: ${participant.nickname}` });
+      const rest = roundMoney(back - fromDebt);
+      if (rest > 0) {
+        await addAdjustment(tx, { type: 'income', amount: -rest, ...ids, description: `Корректировка оплаты за вечер ${participant.evening_title}: ${participant.nickname}` });
+        await addAdjustment(tx, { type: 'debt_created', amount: rest, ...ids, description: `Возврат долга после корректировки оплаты за вечер ${participant.evening_title}: ${participant.nickname}` });
+      }
+    }
+    await tx.run('UPDATE evening_participants SET amount_paid = ?, payment_status = ?, updated_at = ? WHERE id = ?', [target, paymentStatusForAmount(target, due), new Date().toISOString(), participantId]);
+  });
+}

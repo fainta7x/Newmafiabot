@@ -11,6 +11,10 @@ const now = Date.parse('2026-10-20T10:00:00Z');
 const start = Date.parse('2026-10-20T18:00:00Z');
 const LEVEL_MS = 6 * 60_000;
 
+// The tournament code reads the real clock; pin it to the start so the tests do not age (they broke on 2026-10-20 18:00 UTC).
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(start); });
+afterEach(() => { vi.useRealTimers(); });
+
 describe('poker tournament tables', () => {
   let db: DatabaseWrapper;
 

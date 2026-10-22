@@ -142,6 +142,15 @@ export const changedSeats = (before: PlayerResultData[], after: PlayerResultData
     .sort((a, b) => a - b);
 };
 
+/** Seats whose role differs between two loads of the game (roles fixed in the CRM while the engine runs). */
+export const changedRoles = (before: PlayerResultData[], after: PlayerResultData[]): number[] => {
+  const was = new Map(before.map((row) => [Number(row.seat_number), String(row.role || '')]));
+  return after
+    .filter((row) => was.has(Number(row.seat_number)) && was.get(Number(row.seat_number)) !== String(row.role || ''))
+    .map((row) => Number(row.seat_number))
+    .sort((a, b) => a - b);
+};
+
 export default function TournamentLiveGameModal({
   tournamentId,
   gameId,
@@ -171,6 +180,7 @@ export default function TournamentLiveGameModal({
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
   const [movedSeats, setMovedSeats] = useState<number[]>([]);
+  const [changedRoleSeats, setChangedRoleSeats] = useState<number[]>([]);
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
   const lastSnapshotRef = useRef<any>(null);
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
@@ -184,7 +194,10 @@ export default function TournamentLiveGameModal({
     if (!payload || reviewMode) return;
     const check = () => {
       void loadLivePayload()
-        .then((fresh) => setMovedSeats(changedSeats(payload.player_results, fresh.player_results)))
+        .then((fresh) => {
+          setMovedSeats(changedSeats(payload.player_results, fresh.player_results));
+          setChangedRoleSeats(changedRoles(payload.player_results, fresh.player_results));
+        })
         .catch(() => { /* the next check tries again */ });
     };
     const interval = window.setInterval(check, 20_000);
@@ -475,6 +488,11 @@ export default function TournamentLiveGameModal({
       {movedSeats.length ? (
         <div className="mx-4 mt-2 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100" data-testid="tournament-live-seats-moved">
           В CRM изменена рассадка: {movedSeats.map((seat) => `№${seat}`).join(', ')}. Итог игры запишется на игроков, которые сидят на этих местах сейчас; имена в окне обновятся после переоткрытия.
+        </div>
+      ) : null}
+      {changedRoleSeats.length ? (
+        <div className="mx-4 mt-2 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100" data-testid="tournament-live-roles-changed">
+          В CRM изменены роли: {changedRoleSeats.map((seat) => `№${seat}`).join(', ')}. Ведущий продолжает игру со старыми ролями; в протокол запишутся новые роли — перед подтверждением проверьте победителя и ночные действия.
         </div>
       ) : null}
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}

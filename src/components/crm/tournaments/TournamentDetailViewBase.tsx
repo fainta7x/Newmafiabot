@@ -210,8 +210,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       if (correctGameAfterReopen) {
         const gameId = correctGameAfterReopen;
         setCorrectGameAfterReopen(null);
-        await api.revertGameProtocolToDraft(tournamentId, gameId);
-        setFeedbackMsg({ type: 'success', text: 'Турнир открыт для исправления, игра открыта для правки. Публичные результаты скрыты до повторного завершения.' });
+        // The tournament is already reopened: if the game step fails, reload so «Исправить» retries only that step.
+        try {
+          await api.revertGameProtocolToDraft(tournamentId, gameId);
+          setFeedbackMsg({ type: 'success', text: 'Турнир открыт для исправления, игра открыта для правки. Публичные результаты скрыты до повторного завершения.' });
+        } catch (gameErr: any) {
+          setFeedbackMsg({ type: 'error', text: `Турнир открыт для исправления, но игру открыть не удалось: ${gameErr?.message || 'ошибка'}. Нажмите «Исправить» ещё раз.` });
+        }
         await loadDetail();
         return;
       }

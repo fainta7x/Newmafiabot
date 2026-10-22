@@ -133,14 +133,18 @@ export const performanceSnapshot = (now = Date.now()) => {
     slow_requests: recent(slowRequests, now).sort((a, b) => b.ms - a.ms).slice(0, 10),
     slow_transactions: recent(slowTransactions, now).sort((a, b) => Math.max(b.held_ms, b.waited_ms) - Math.max(a.held_ms, a.waited_ms)).slice(0, 10),
     slow_jobs: recent(slowJobs, now).sort((a, b) => b.sqlite_ms - a.sqlite_ms).slice(0, 10),
-    // Since the process started (not the 5-minute window): the statements that cost the most in total.
-    slow_queries: [...slowQueries.values()]
-      .sort((a, b) => b.total_ms - a.total_ms)
-      .slice(0, 15)
-      .map(({ sql, count, max_ms, total_ms }) => ({ sql, count, max_ms: Math.round(max_ms), total_ms: Math.round(total_ms) })),
     running_now: requestsInFlight(now),
   };
 };
+
+/**
+ * The statements that cost the most in total since the process started (not the 5-minute window). SQL text shows
+ * the database layout, so it is served to organizers only (/api/health/performance/queries), never on the open probe.
+ */
+export const slowQueriesSnapshot = () => [...slowQueries.values()]
+  .sort((a, b) => b.total_ms - a.total_ms)
+  .slice(0, 15)
+  .map(({ sql, count, max_ms, total_ms }) => ({ sql, count, max_ms: Math.round(max_ms), total_ms: Math.round(total_ms) }));
 
 export const resetPerformanceProbeForTesting = () => {
   slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; slowJobs.length = 0; slowQueries.clear(); inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;

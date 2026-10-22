@@ -1335,6 +1335,9 @@ Second-block connected checks:41 tests across8 suites,14 isolated Python-copy ca
 - Elo growth looked wrong to the owner: **open** — waiting for the owner to say what is wrong (no production data here); the number comes from `loadPlayerEloHistory`, unchanged.
 - Season table role nominations: **fixed** — two lists, by wins and by effectiveness (owner choice).
 
-## 2026-10-22 · Novice evening of 16 Oct «disappeared» (owner question)
+## 2026-10-22 · Novice evening of 16 Oct «disappeared» (owner question; checked on the running app, read-only)
 
-- No production data here, so the evening itself was not inspected. The code path that removes an evening from the lists is the shortfall check: `eveningShortfallService.runEveningShortfallChecks` cancels a published evening automatically an hour before the start when fewer than 8 (novice) / 10 players are registered, and the evening moves to the separate «Отменённые» list under «История» in `EveningsList.tsx`. **open** — waiting for the owner to look there; nothing changed.
+- The evening was **not cancelled** (an earlier guess that the shortfall check had cancelled it was wrong): status `published`, never started or closed — 10 answered «going», 3 «declined», nobody marked as attended, no games; the route shows «Закрыть вечер» as an open task and «Автоотмены нет» for novices. It lives in «Актуальное» as an overdue open evening and is not in «История» because history lists only closed evenings. **open** — owner to say whether it was held (then mark attendance and close; else cancel).
+- «Недобор: набрано 0 из 2 нужных игр» screenshot: the roster of 9 included 3 «не идут» and 2 «молчат»; only the 4 «Идут» count (4/9 per game), matching «Ответы игроков». Counting is right, the wording is misleading. **open** — wording proposal pending.
+- Elo of the 16 Oct evening: all five games were black wins; one player was black in 4 of 5, one in 2, the rest once or never, so +36 / +16 / ~+8 for the blacks and minus for the reds is what the system gives. No defect found.
+- Judges of games 1–4 (numbers 12–15): 12–13 already «Спящий», 14–15 «Чагин». Change to «Спящий» waits for the owner's explicit «да» (a production write).

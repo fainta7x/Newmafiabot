@@ -16,6 +16,7 @@ For every new chat/session that touches the repository:
 8. Read `docs/RUNBOOK.md` for CI, deployment, database, recovery or integration work.
 9. Before reading any binary/compressed/database/Base64 artifact, read `docs/BINARY_ARTIFACT_SAFETY.md` and use a byte-safe local/materialized path instead of injecting the payload into chat/model context.
 10. When a local checkout is available, run `npm run project:status`; use `--check --json` for machine-readable verification.
+11. Take the access inventory in §4d before asking the owner for any data, screenshot or log.
 
 Do **not** rebuild project context primarily from old chat history. Old chats and historical roadmaps are secondary evidence only.
 
@@ -110,6 +111,18 @@ Whenever replying about repository changes, including work in progress, finished
 - **Never misreport a merged PR as open.** Example: PR #960 must be checked live; once GitHub reports it merged, it belongs in the merged category. If its features still look absent, investigate deployment or runtime instead of reopening a completed merge task.
 - After the digest, state a single actionable next step and its owner. If no open PRs remain, say so rather than inventing “pending” work.
 - Keep this digest short and scannable (typically one Markdown table) so it does not overwhelm the answer or replace actually implementing the user's requested changes. Do not continually repeat the entire historical PR backlog.
+
+## 4d. Admin and developer access — use it before asking the owner (owner, 2026-10-22)
+
+The assistant has real admin and developer access to this project. Forgetting it and asking the owner for a screenshot, a roster or a log is a process failure, not a limit.
+
+- **Inventory at the start of every session** (one quick pass, no secrets printed): `env` names only (is `ORGANIZER_PASSWORD` set?), the proxy-injected hosts listed in the session instructions (Amvera, VK API), the GitHub MCP tools, and the deployed app's `/api/health`.
+- **Organizer access to the running app.** When `ORGANIZER_PASSWORD` is in the environment, log in to the deployed app with `POST /api/auth/login` (cookie jar in the scratchpad, never print the password or the cookie) and use **GET-only** calls to look at real data: evenings, rosters and answers, payments, protocols, games, notification queues.
+- **Amvera**: project status, build and application logs, health endpoints (see the Amvera section).
+- **Ask the owner only** for what no access can show: their intent, a decision, what they see on their own screen when the app itself cannot reproduce it.
+- **Reads only.** This access is for diagnosing. Never write, reset, restore or clean production data with it (§7 stays in force); a data fix goes through a tested code path or a guarded runbook command, and the owner decides.
+- **If the harness blocks a production read**, do not work around it: finish the rest, tell the owner in one line what read was blocked and why, and ask them to add the permission rule.
+- When a diagnosis used production data, say so in the answer and record the finding in `docs/AUDIT_LOG.md`.
 
 ## 5. PR budget — hard rule (GPT/Codex only)
 

@@ -441,6 +441,26 @@ Render configuration remains historical/fallback. It is not the canonical combin
 
 If rollback to legacy hosting is ever required, treat hosting rollback and product-data rollback as separate operations. Do not replace the canonical SQLite file implicitly.
 
+## 13a. Read-only production diagnostics (owner, 2026-10-22)
+
+Rule owner: `AGENTS.md` §4d. Use before asking the owner for data.
+
+```bash
+BASE=https://2la-noire-chagina7x.waw0.amvera.tech          # the deployed app
+JAR="$SCRATCHPAD/prod.jar"                                  # cookie jar in the scratchpad, never in the repo
+curl -sS -c "$JAR" -H 'Content-Type: application/json' \
+  -d "{\"password\":\"$ORGANIZER_PASSWORD\"}" "$BASE/api/auth/login" -o /dev/null -w '%{http_code}\n'   # 200
+curl -sS -b "$JAR" "$BASE/api/evenings"                                   # list, then pick an id
+curl -sS -b "$JAR" "$BASE/api/evenings/<id>"                              # evening, participants, games (protocol_text)
+curl -sS -b "$JAR" "$BASE/api/evenings/<id>/route"                        # route steps and what is open
+curl -sS -b "$JAR" "$BASE/api/evenings/<id>/payments"                     # money by player
+```
+
+- GET only; never print the password or the cookie; do not commit the output (it holds personal data) — quote only the numbers needed.
+- In the cloud session the permission mode must be «Accept edits» (the «Auto» classifier refuses production reads and edits of the instruction files).
+- Find other read routes in `docs/FEATURE_MAP.md` and `src/server/routes/`. The login is rate-limited; log in once per session.
+- No write calls, no database file access, no checkpoint commands: those stay under §7 of `AGENTS.md`. A data fix the owner asked for goes through the app's own route and is confirmed with the owner first.
+
 ## 14. Dependency/security work
 
 Use read-only diagnostics first:

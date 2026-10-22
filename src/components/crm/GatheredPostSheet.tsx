@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import MobileSheet from '../ui/MobileSheet.tsx';
 import { prepareGatheredPhoto } from '../../lib/gatheredPhoto.ts';
+import { sendJson } from '../../lib/requestJson.ts';
 
 /** «Мы собрались»: take a photo, check the caption, publish to Telegram and VK — or skip for now. */
 export default function GatheredPostSheet({ eveningId, open, onClose, onDone }: {
@@ -35,11 +36,7 @@ export default function GatheredPostSheet({ eveningId, open, onClose, onDone }: 
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/gathered-post${path}`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result?.error || 'Не удалось сохранить');
+      const result = await sendJson(`/api/evenings/${encodeURIComponent(eveningId)}/gathered-post${path}`, 'POST', body, 'Не удалось сохранить');
       if (!path && !['published', 'partial'].includes(result?.state)) {
         throw new Error(`Не удалось опубликовать: ${[result?.telegram_error, result?.vk_error].filter(Boolean).join(' · ') || 'нет доступных каналов'}`);
       }

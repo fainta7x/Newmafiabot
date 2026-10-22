@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, RefreshCw, UserRoundCheck, X } from 'lucide-react';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type Application = {
   id: string;
@@ -51,9 +52,7 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/novice/applications', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить воронку');
+      const body = await getJson('/api/novice/applications', 'Не удалось загрузить воронку');
       setApplications(Array.isArray(body.applications) ? body.applications : []);
       setOperations(body.operations || null);
       setAwaiting(Array.isArray(body.awaiting_players) ? body.awaiting_players : []);
@@ -88,11 +87,7 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
     if (!application.player_id) return;
     setBusy(application.id);
     try {
-      const response = await fetch(`/api/novice/players/${encodeURIComponent(application.player_id)}/convert`, {
-        method: 'POST', credentials: 'include',
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось перевести игрока');
+      await sendJson(`/api/novice/players/${encodeURIComponent(application.player_id)}/convert`, 'POST', undefined, 'Не удалось перевести игрока');
       await load();
     } catch (updateError: any) {
       setError(updateError?.message || 'Не удалось перевести игрока');

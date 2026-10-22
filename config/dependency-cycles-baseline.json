@@ -1,13 +1,10 @@
 {
-  "modules": 840,
+  "modules": 842,
   "cyclicGroups": 0,
   "modulesInCycles": 0,
   "cyclicEdges": 0,
   "largestGroup": 0,
-  "layerViolations": 2,
+  "layerViolations": 0,
   "edges": [],
-  "layers": [
-    "src/db/ensureIsolatedTestRuntimeSchema.ts -> src/server/services/eveningAnnouncementTrackingService.ts",
-    "src/db/ensureIsolatedTestRuntimeSchema.ts -> src/server/services/uiUsageService.ts"
-  ]
+  "layers": []
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getJson } from '../../lib/requestJson.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type Channel = 'telegram' | 'vk';
 type State = {
@@ -28,11 +28,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
     if (busy) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      const response = await fetch('/api/player/notification-preferences', {
-        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить настройки');
+      const body = await sendJson('/api/player/notification-preferences', 'PUT', patch, 'Не удалось сохранить настройки');
       setState(body as State); setMessage('Настройки уведомлений сохранены');
     } catch (e: any) { setError(e?.message || 'Не удалось сохранить настройки'); }
     finally { setBusy(false); }
@@ -77,9 +73,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
     if (busy) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      const response = await fetch('/api/player/notification-preferences/test', { method: 'POST', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось отправить тест');
+      const body = await sendJson('/api/player/notification-preferences/test', 'POST', undefined, 'Не удалось отправить тест');
       setMessage(`Тест поставлен в очередь${body.channel ? ` · ${LABEL[body.channel as Channel]}` : ''}`);
       await load();
     } catch (e: any) { setError(e?.message || 'Не удалось отправить тест'); }

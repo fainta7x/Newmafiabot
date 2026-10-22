@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
-import { getJson } from '../../lib/requestJson.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type PaymentItem = {
   participant_id: string;
@@ -268,9 +268,7 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
     setApplyingId(participantId);
     setError(null);
     try {
-      const response = await fetch(`/api/player/payments/${encodeURIComponent(participantId)}/use-free-evening`, { method: 'POST', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось применить бесплатный вечер');
+      await sendJson(`/api/player/payments/${encodeURIComponent(participantId)}/use-free-evening`, 'POST', undefined, 'Не удалось применить бесплатный вечер');
       await load();
     } catch (applyError: any) {
       setError(applyError?.message || 'Не удалось применить бесплатный вечер');

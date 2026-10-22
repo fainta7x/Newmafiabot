@@ -1,6 +1,7 @@
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 export type TelegramMessageStatus = 'pending' | 'sent' | 'failed';
 
@@ -303,7 +304,7 @@ export function kickTelegramMessageOutbox(db: DatabaseWrapper) {
   }
   if (drainInFlight) return;
   drainInFlight = true;
-  void drainTelegramMessageOutbox(db)
+  void timeBackgroundJob('telegram_message_outbox', () => drainTelegramMessageOutbox(db))
     .catch((error) => console.error('[TELEGRAM OUTBOX] Immediate drain failed:', error))
     .finally(() => { drainInFlight = false; });
 }

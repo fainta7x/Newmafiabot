@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PlayerDetails } from '../../lib/api.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type IntegrityData = {
   player: { birth_day: number | null; birth_month: number | null; birth_year: number | null; birthday_visibility: string; profile_checked_at: string | null; profile_updated_at: string | null };
@@ -25,9 +26,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const load = async () => {
     setError(null);
     try {
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/profile-integrity`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить профильные данные');
+      const body = await getJson(`/api/players/${encodeURIComponent(player.id)}/profile-integrity`, 'Не удалось загрузить профильные данные');
       setData(body);
       const birth = body?.player;
       if (birth?.birth_day && birth?.birth_month) setBirthDate(`${String(birth.birth_year || 2000).padStart(4, '0')}-${String(birth.birth_month).padStart(2, '0')}-${String(birth.birth_day).padStart(2, '0')}`);
@@ -46,9 +45,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
         const [year, month, day] = birthDate.split('-').map(Number);
         payload = { birth_day: day, birth_month: month, birth_year: year === 2000 && !data?.player.birth_year ? null : year, birthday_visibility: visibility };
       }
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/profile-private`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить дату рождения');
+      await sendJson(`/api/players/${encodeURIComponent(player.id)}/profile-private`, 'PATCH', payload, 'Не удалось сохранить дату рождения');
       await load();
     } catch (saveError: any) { setError(saveError?.message || 'Не удалось сохранить дату рождения'); } finally { setBusy(false); }
   };
@@ -66,9 +63,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const markChecked = async () => {
     setBusy(true); setError(null);
     try {
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/profile-checked`, { method: 'POST', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось отметить проверку');
+      await sendJson(`/api/players/${encodeURIComponent(player.id)}/profile-checked`, 'POST', undefined, 'Не удалось отметить проверку');
       await load();
     } catch (checkedError: any) { setError(checkedError?.message || 'Не удалось отметить проверку'); } finally { setBusy(false); }
   };
@@ -96,9 +91,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const importHistorical = async () => {
     setBusy(true); setError(null);
     try {
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/verified-awards/import-historical`, { method: 'POST', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось импортировать награды');
+      await sendJson(`/api/players/${encodeURIComponent(player.id)}/verified-awards/import-historical`, 'POST', undefined, 'Не удалось импортировать награды');
       await load();
     } catch (importError: any) { setError(importError?.message || 'Не удалось импортировать награды'); } finally { setBusy(false); }
   };

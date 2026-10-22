@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getJson } from '../../lib/requestJson.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type State = { blocked_kinds: string[]; allow_direct_contact: boolean; kinds: Array<{ kind: string; label: string }> };
 
@@ -18,9 +18,7 @@ export default function PlayerInviteSettings() {
     if (busy) return;
     setBusy(true); setError('');
     try {
-      const response = await fetch('/api/player/invite-preferences', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить');
+      const body = await sendJson('/api/player/invite-preferences', 'PUT', patch, 'Не удалось сохранить');
       setState(body as State);
     } catch (e: any) { setError(e?.message || 'Не удалось сохранить'); } finally { setBusy(false); }
   };

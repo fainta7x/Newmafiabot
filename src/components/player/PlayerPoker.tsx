@@ -6,6 +6,7 @@ import PokerTournaments from './PokerTournaments.tsx';
 import PokerSoundToggle, { usePokerSoundEffects } from './PokerSoundToggle.tsx';
 import PokerDeskSidebar from './PokerDeskSidebar.tsx';
 import { PokerChatBubbles, PokerChatDock, readPokerChatMuted, usePokerChat, writePokerChatMuted } from './PokerChat.tsx';
+import { sendJson } from '../../lib/requestJson.ts';
 
 type Card = { rank: string; suit: string };
 
@@ -648,9 +649,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
   };
   const sendChat = async (payload: { text?: string; emote?: string }) => {
     try {
-      const response = await fetch(`/api/player/poker/lobbies/${encodeURIComponent(current.id)}/chat`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не получилось отправить');
+      const body = await sendJson(`/api/player/poker/lobbies/${encodeURIComponent(current.id)}/chat`, 'POST', payload, 'Не получилось отправить');
       if (Array.isArray(body.chat)) chatFeed.ingest(body.chat);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не получилось отправить'); }
   };

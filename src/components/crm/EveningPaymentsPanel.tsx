@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/Dialog.tsx';
 import { ratingEveningSplit } from '../../lib/ratingEveningMoney.ts';
 import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type PaymentParticipant = {
   id: string;
@@ -58,9 +59,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
   const load = async () => {
     setError(null);
     try {
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/payments`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить оплаты');
+      const body = await getJson(`/api/evenings/${encodeURIComponent(eveningId)}/payments`, 'Не удалось загрузить оплаты');
       setData(body as PaymentPayload);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить оплаты');
@@ -175,9 +174,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
   const remindDebtors = async () => {
     setRemindBusy(true); setError(null); setNotice(null);
     try {
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/payment-reminders`, { method: 'POST', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось отправить напоминания');
+      const body = await sendJson(`/api/evenings/${encodeURIComponent(eveningId)}/payment-reminders`, 'POST', undefined, 'Не удалось отправить напоминания');
       const parts = [`Отправлено: ${body.queued || 0}`];
       if (body.skipped_recent) parts.push(`уже напоминали сегодня: ${body.skipped_recent}`);
       if (body.undeliverable) parts.push(`без Telegram/VK или с выключенными уведомлениями: ${body.undeliverable}`);

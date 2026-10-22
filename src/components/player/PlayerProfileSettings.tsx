@@ -6,6 +6,7 @@ import ConfirmDialog from '../ui/ConfirmDialog.tsx';
 import { FieldDescription, FieldMessage } from '../ui/Field.tsx';
 import PlayerIdentityFields, { type PlayerIdentityDraft } from './PlayerIdentityFields.tsx';
 import { requestPlayerProfileCompletenessRefresh } from './PlayerProfileCompleteness.tsx';
+import { sendJson } from '../../lib/requestJson.ts';
 
 type Player = PlayerMeResponse['player'];
 const normalizeNullable = (value: string) => value.trim() || null;
@@ -101,9 +102,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
     setAvatarSaving(true); setError(null); setMessage(null);
     try {
       const prepared = await preparePlayerAvatar(file);
-      const response = await fetch('/api/player/me/avatar', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prepared) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить фото');
+      const body = await sendJson('/api/player/me/avatar', 'PUT', prepared, 'Не удалось сохранить фото');
       const version = encodeURIComponent(String(body.updated_at || Date.now()));
       onPlayerChange({ ...player, avatar_url: `/api/player/players/${encodeURIComponent(player.id)}/avatar?v=${version}` });
       requestPlayerProfileCompletenessRefresh();
@@ -117,9 +116,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
     if (avatarSaving || !player.avatar_url) return;
     setAvatarSaving(true); setError(null); setMessage(null);
     try {
-      const response = await fetch('/api/player/me/avatar', { method: 'DELETE', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось удалить фото');
+      await sendJson('/api/player/me/avatar', 'DELETE', undefined, 'Не удалось удалить фото');
       onPlayerChange({ ...player, avatar_url: null });
       requestPlayerProfileCompletenessRefresh();
       setMessage('Фото удалено');

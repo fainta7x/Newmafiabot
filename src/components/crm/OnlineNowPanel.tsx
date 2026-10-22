@@ -3,6 +3,7 @@ import { Radio } from 'lucide-react';
 import { screenLabel } from '../../lib/screenLabels.ts';
 import { useClubOwner } from './useClubOwner.ts';
 import { AnalyticsHeading, analyticsCard } from './analyticsShared.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Online = { player_id: string; nickname: string; screen: string; on_screen_seconds: number };
 
@@ -24,9 +25,7 @@ export function OnlineNowPanel({ active = true }: { active?: boolean }) {
     const load = async () => {
       if (document.visibilityState !== 'visible') return;
       try {
-        const response = await fetch('/api/presence', { credentials: 'include', cache: 'no-store' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить');
+        const body = await getJson('/api/presence', 'Не удалось загрузить', { cache: 'no-store' });
         if (!stopped) { setOnline(Array.isArray(body.online) ? body.online : []); setError(''); }
       } catch (loadError: any) { if (!stopped) setError(loadError?.message || 'Не удалось загрузить'); }
     };

@@ -11,7 +11,7 @@ describe('player rating hub structure', () => {
 
     expect(hub).toContain("import PlayerRatingTable from './PlayerRatingTable.tsx'");
     expect(hub).not.toContain("fetch('/api/rating'");
-    expect(table).toContain("fetch('/api/rating', { credentials: 'include' })");
+    expect(table).toContain("getJson('/api/rating', 'Не удалось загрузить рейтинг')");
     expect(table).toContain('Не удалось загрузить рейтинг');
   });
 });

@@ -8,6 +8,7 @@ import CancelEveningSheet from './CancelEveningSheet.tsx';
 import EveningStartTimeEditor from './EveningStartTimeEditor.tsx';
 import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type StepStatus = 'done' | 'todo' | 'attention' | 'info';
 type Step = {
@@ -61,9 +62,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/route`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить маршрут');
+      const body = await getJson(`/api/evenings/${encodeURIComponent(eveningId)}/route`, 'Не удалось загрузить маршрут');
       setRoute(body as RoutePayload);
       setOpen((current) => current ?? (body as RoutePayload).open_stage ?? (body as RoutePayload).current_stage);
     } catch (loadError: any) {

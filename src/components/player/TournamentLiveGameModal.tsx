@@ -21,6 +21,7 @@ import {
   updateLiveProtocolEvidence,
   type LiveProtocolEvidence,
 } from '../../lib/liveClubSession.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
   if (role === 'Мирный' || role === 'citizen') return 'citizen';
@@ -200,9 +201,7 @@ export default function TournamentLiveGameModal({
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить турнирный протокол');
+        const body = await getJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'Не удалось загрузить турнирный протокол');
         if (!cancelled) setPayload({ protocol: body.protocol, player_results: body.player_results || [], game: body.game || null });
       } catch (loadError: any) {
         if (!cancelled) setError(loadError?.message || 'Не удалось загрузить игру');
@@ -326,14 +325,7 @@ export default function TournamentLiveGameModal({
       });
       // The colour protocols the judge filled in for the killed players go into the protocol (as in the club evening).
       next.player_results = applyStoredDeathProtocolsToResults(next.player_results);
-      const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
+      await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'PUT', next, 'Не удалось перенести результат в турнирный протокол');
       try { localStorage.removeItem(evidenceKey); } catch {}
       clearStoredDeathProtocols();
       finishedGameRef.current = null;

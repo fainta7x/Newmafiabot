@@ -4,6 +4,7 @@ import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { syncDirectVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 const DEFAULT_INTERVAL_MS = 60 * 1000;
 const DEFAULT_INITIAL_DELAY_MS = 15 * 1000;
@@ -60,7 +61,7 @@ export async function refreshExistingVkEveningPosts(
 export function kickVkLiveEveningSync(db: DatabaseWrapper) {
   if (refreshInFlight) return;
   refreshInFlight = true;
-  void refreshExistingVkEveningPosts(db)
+  void timeBackgroundJob('vk_live_evening_sync', () => refreshExistingVkEveningPosts(db))
     .then((results) => {
       const failed = results.filter((item) => !item.success);
       if (failed.length) console.error('[VK LIVE SYNC] Some evening posts failed to refresh:', failed);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { playerPathForSection } from '../../lib/appNavigation.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Person = {
   player_id: string;
@@ -63,11 +64,7 @@ export default function PlayerEveningWorkspace({
     let active = true;
     const refresh = async () => {
       try {
-        const response = await fetch(`/api/player/evenings/${encodeURIComponent(eveningId)}/overview`, {
-          credentials: 'include', cache: 'no-store',
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error || 'Не удалось загрузить вечер');
+        const payload = await getJson(`/api/player/evenings/${encodeURIComponent(eveningId)}/overview`, 'Не удалось загрузить вечер', { cache: 'no-store' });
         if (active) {
           setData(payload as PlayerEveningWorkspaceData);
           setError('');

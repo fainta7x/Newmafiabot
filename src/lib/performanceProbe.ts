@@ -3,15 +3,21 @@
  * transactions (owner report 2026-10-11, AUDIT_LOG: poker froze for 5–10 s and nothing on the server measured it).
  * No dependencies, so the database layer and the HTTP layer can both write to it. Only aggregates leave the process.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 export type SlowRequest = { at: string; route: string; status: number; ms: number };
 export type SlowTransaction = { at: string; waited_ms: number; held_ms: number; origin: string };
 export type LoopWindow = { at: string; max_ms: number; p99_ms: number; mean_ms: number };
+/** A background job run: wall time and the part spent inside synchronous SQLite calls (that part blocks every request). */
+export type SlowJob = { at: string; job: string; total_ms: number; sqlite_ms: number; sqlite_calls: number };
 
 const WINDOW_MS = 5 * 60_000;
 const KEEP = 40;
 const slowRequests: SlowRequest[] = [];
 const slowTransactions: SlowTransaction[] = [];
 const loopWindows: LoopWindow[] = [];
+const slowJobs: SlowJob[] = [];
+const jobContext = new AsyncLocalStorage<{ sqliteMs: number; sqliteCalls: number }>();
 type RouteLabel = string | (() => string);
 const inFlight = new Map<number, { label: RouteLabel; startedAt: number }>();
 const resolveLabel = (label: RouteLabel): string => { try { return typeof label === 'function' ? label() : label; } catch { return '(unknown)'; } };
@@ -22,6 +28,7 @@ let slowRequestMs = SLOW_REQUEST_MS;
 /** Tests only: a request is recorded as slow from this many milliseconds. */
 export const setSlowRequestThresholdForTesting = (ms: number = SLOW_REQUEST_MS) => { slowRequestMs = ms; };
 export const SLOW_TRANSACTION_MS = 800;
+export const SLOW_JOB_SQLITE_MS = 300;
 
 const push = <T>(list: T[], item: T) => { list.push(item); if (list.length > KEEP) list.shift(); };
 const recent = <T extends { at: string }>(list: T[], now: number) => list.filter((item) => now - Date.parse(item.at) <= WINDOW_MS);
@@ -53,6 +60,36 @@ export const recordSlowTransaction = (waitedMs: number, heldMs: number, origin: 
   push(slowTransactions, { at: new Date(now).toISOString(), waited_ms: Math.round(waitedMs), held_ms: Math.round(heldMs), origin });
 };
 
+/** Called by the database wrapper after each synchronous statement; counted only inside a timed background job. */
+export const addSqliteTime = (ms: number) => {
+  const store = jobContext.getStore();
+  if (!store) return;
+  store.sqliteMs += ms;
+  store.sqliteCalls += 1;
+};
+
+/**
+ * Runs one tick of a background worker and records it when its SQLite time blocked the server for
+ * SLOW_JOB_SQLITE_MS or more (owner question 2026-10-22: what stalls the server for ~2 s every minute).
+ */
+export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>): Promise<T> {
+  const store = { sqliteMs: 0, sqliteCalls: 0 };
+  const startedAt = performance.now();
+  try {
+    return await jobContext.run(store, run);
+  } finally {
+    if (store.sqliteMs >= SLOW_JOB_SQLITE_MS) {
+      push(slowJobs, {
+        at: new Date().toISOString(),
+        job,
+        total_ms: Math.round(performance.now() - startedAt),
+        sqlite_ms: Math.round(store.sqliteMs),
+        sqlite_calls: store.sqliteCalls,
+      });
+    }
+  }
+}
+
 export const recordLoopWindow = (window: Omit<LoopWindow, 'at'>, now = Date.now()) => {
   push(loopWindows, { at: new Date(now).toISOString(), ...window });
 };
@@ -73,10 +110,11 @@ export const performanceSnapshot = (now = Date.now()) => {
     },
     slow_requests: recent(slowRequests, now).sort((a, b) => b.ms - a.ms).slice(0, 10),
     slow_transactions: recent(slowTransactions, now).sort((a, b) => Math.max(b.held_ms, b.waited_ms) - Math.max(a.held_ms, a.waited_ms)).slice(0, 10),
+    slow_jobs: recent(slowJobs, now).sort((a, b) => b.sqlite_ms - a.sqlite_ms).slice(0, 10),
     running_now: requestsInFlight(now),
   };
 };
 
 export const resetPerformanceProbeForTesting = () => {
-  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
+  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; slowJobs.length = 0; inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
 };

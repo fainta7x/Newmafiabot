@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useJudgeGameMusic } from '../hooks/useJudgeGameMusic.ts';
 import { openExternalMusicUrl } from '../lib/openExternalMusicUrl.ts';
 import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
+import { getJson } from '../lib/requestJson.ts';
 
 const START_EVENT = 'judge-game-music-start';
 const STOP_EVENT = 'judge-game-music-stop';
@@ -211,9 +212,7 @@ export default function JudgeGameMusicController() {
     try {
       const tableIds = resolveTableIds();
       const query = tableIds.length ? `?table=${encodeURIComponent(tableIds.join(','))}` : '';
-      const response = await fetch(`/api/player/music-library/evenings/${encodeURIComponent(eveningId)}/pool${query}`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось собрать музыку вечера.');
+      const body = await getJson(`/api/player/music-library/evenings/${encodeURIComponent(eveningId)}/pool${query}`, 'Не удалось собрать музыку вечера.');
       const entries = (body.pool || []).filter((entry: PoolEntry) => !entry.excluded);
       if (!entries.length) {
         setPicker(null);

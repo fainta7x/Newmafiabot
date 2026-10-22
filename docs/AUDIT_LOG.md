@@ -1506,3 +1506,10 @@ The owner asked: «все элементы подчинялись единым �
     - In the same second `telegram_sync_outbox` uses 0.74–1.0 s of CPU with only 3 SQLite calls.
     - The two jobs overlap, and process CPU cannot be split between them. **Next (this PR):** an organizer-only `GET /api/health/performance/profile?seconds=65` takes a V8 CPU profile in-process. It returns the top functions by self time and the longest busy stretches with their stacks, so the blocking function is named, not guessed.
 
+**CPU profile (production, read-only, 2026-10-23 ~23:30 UTC, 40 s, organizer endpoint from #1003): the stall is found.**
+- 0.83 s of the 1.33 s busy time was one stretch in `reconcileAllBettingPools`: 0.63 s in `db.get` loading `games.protocol_text`, and 0.11 s `JSON.parse` in `completedWinner`.
+- **The cause.** It runs on every open of the wallet («Экономика») and betting screens, not on a timer. For every pool ever opened (`open`, `closed`, `settled`; the set only grows), it loaded and parsed the whole protocol of the game, replay included, then queried the pool again.
+- Neither the minute jobs nor the club-results scan were the cause; their overlapping `cpu_ms` was the process's, not theirs.
+- **Fix (PR after #1003):** one query reads only the protocol's kind, status and winner through `json_extract` inside SQLite. A pool already settled for that winner, with stakes on both sides, is skipped, which is what `settleBetPool` would have done anyway.
+- A new lifecycle test (settle, idempotent rerun, reopen-unsettle, broken JSON) passes on the old and the new code. **fixed in code; deploy and re-profile pending.**
+

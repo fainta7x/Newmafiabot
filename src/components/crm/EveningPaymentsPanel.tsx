@@ -245,7 +245,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
     const received = Math.max(0, Number(participant.amount_paid || 0));
     const partial = !paid && !waived && received > 0;
     const busy = busyIds.has(participant.id);
-    const canGift = data?.evening.format === 'CASUAL';
+    const canGift = data?.evening.format === 'CASUAL' || data?.evening.format === 'NOVICE';
     const canEditAmount = !waived;
 
     return (

@@ -56,3 +56,27 @@ describe('evening route inline controls', () => {
     expect(screen.queryByRole('button', { name: /Написать игрокам лично/ })).toBeNull();
   });
 });
+
+describe('«Начать вечер» asks first (owner, 2026-10-22)', () => {
+  it('shows the shortfall in the question and starts only after «Начать»', async () => {
+    const calls: Array<{ method: string; body: string }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') { calls.push({ method: 'PATCH', body: String(init.body) }); return new Response(JSON.stringify({ id: 'ev', status: 'active' }), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return new Response(JSON.stringify({
+        evening: { id: 'ev', status: 'published', starts_at: new Date(Date.now() + 6 * 3600_000).toISOString() },
+        current_stage: 'gather', open_stage: 'gather',
+        stages: [{ id: 'gather', title: 'Сбор', hint: 'Ждём', state: 'current', steps: [
+          { id: 'shortfall', title: 'Недобор: набрано 0 из 2 нужных игр', detail: '1-я 4/9', status: 'attention' },
+          { id: 'start', title: 'Начать вечер', status: 'todo', action: 'start' },
+        ] }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }));
+    render(<EveningRouteView eveningId="ev" onOpenSection={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Начать вечер' }));
+    expect(await screen.findByText('Начать вечер?')).toBeTruthy();
+    expect(within(screen.getByRole('alertdialog')).getByText(/Недобор: набрано 0 из 2 нужных игр/)).toBeTruthy();
+    expect(calls).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Начать' }));
+    await vi.waitFor(() => expect(calls.some((call) => call.body.includes('"active"'))).toBe(true));
+  });
+});

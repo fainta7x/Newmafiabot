@@ -638,6 +638,9 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   The home counter is the number of these items.
 - **Organizer and judge on everything (user-approved 2026-09-24):**
   - An evening cannot start (via «Начать вечер» or by creating its first game) without an assigned organizer with the «Организатор» club role. A signed-in organizer whose CRM login is linked to such a profile is assigned automatically.
+  - **A mistaken «Начать вечер» can be taken back (owner, 2026-10-22).** While an «Идёт» evening has no game (archived ones do not count), the route step «Вечер начат» offers «Вернуть запись», which puts it back to «Запись открыта» (`PATCH` status `published`). With a game on the evening the server refuses (409 `evening_has_games`).
+  - **«Начать вечер» asks first (owner, 2026-10-22).** A confirmation window appears before the status changes (route step and the overview button); in the route it repeats the shortfall («Недобор: набрано X из Y игр») and, more than 3 hours before the start, how long is left.
+  - **«Подарить вечер» on a novice evening too (owner, 2026-10-22).** An experienced player or a guest at a novice evening can be gifted the evening in «Оплата вечера» (explicit waiver, zero due, can be taken back); the novice-charge recount leaves a waived participant alone.
   - Every game needs a judge: a club player, or a named guest explicitly marked as a guest. Guest judging counts for nobody.
   - The judge gets 200 tokens per completed game (2 × the 100-token player participation reward) for games from 2026-09-24; older games keep the former 100.
   - The evening's organizer gets 1000 tokens once per closed evening, for evenings from 2026-09-24.

@@ -1,10 +1,10 @@
 {
-  "modules": 848,
+  "modules": 850,
   "cyclicGroups": 2,
   "modulesInCycles": 13,
   "cyclicEdges": 19,
   "largestGroup": 11,
-  "layerViolations": 16,
+  "layerViolations": 10,
   "edges": [
     "src/db/index.ts -> src/db/seed.ts",
     "src/db/seed.ts -> src/db/index.ts",
@@ -27,7 +27,6 @@
     "src/server/services/vkMessageOutboxService.ts -> src/server/services/vkLiveEveningSyncWorker.ts"
   ],
   "layers": [
-    "src/components/crm/tournaments/ProtocolImportModal.tsx -> src/server/services/recognition/types.ts",
     "src/db/applyEloScaleMigration.ts -> src/server/services/eloRatingService.ts",
     "src/db/applyPlayerStarterTokenGrant.ts -> src/server/services/tokenLedgerService.ts",
     "src/db/ensureIsolatedTestRuntimeSchema.ts -> src/server/services/eveningAnnouncementTrackingService.ts",
@@ -37,11 +36,6 @@
     "src/db/fixFandorinAug28GameIdentityMigration.ts -> src/server/services/eveningPaymentPricingService.ts",
     "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGamePostSaveService.ts",
     "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGameSeatIdentityRepair.ts",
-    "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGameTokenSettlementService.ts",
-    "src/server/services/flexibleTournamentStandingsService.ts -> src/server/routes/tournamentsRoutesBase.ts",
-    "src/server/services/gameResultCardService.ts -> src/server/routes/tournamentProtocolRoutes.ts",
-    "src/server/services/playerTournamentViewService.ts -> src/server/routes/tournamentsRoutesBase.ts",
-    "src/server/services/ratingPeriodStandingsService.ts -> src/server/routes/tournamentProtocolRoutes.ts",
-    "src/server/services/tournamentAwardsService.ts -> src/server/routes/tournamentsRoutesBase.ts"
+    "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGameTokenSettlementService.ts"
   ]
 }

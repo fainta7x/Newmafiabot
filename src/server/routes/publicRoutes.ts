@@ -3,7 +3,7 @@ import { getDb } from '../../db/index.ts';
 import { getFlexibleTournamentStandings } from '../services/flexibleTournamentStandingsService.ts';
 import { listVerifiedAwards, syncTrustedTournamentAwards } from '../services/playerVerifiedAwardsService.ts';
 import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
-import { internalGetNominations } from './tournamentsRoutesBase.ts';
+import { internalGetNominations } from '../services/tournamentStandingsService.ts';
 import avatarRouter from './publicAvatarRoutes.ts';
 
 const router=Router();

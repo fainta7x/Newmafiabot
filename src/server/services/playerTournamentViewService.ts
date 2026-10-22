@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
-import { internalGetNominations } from '../routes/tournamentsRoutesBase.ts';
+import { internalGetNominations } from './tournamentStandingsService.ts';
 
 /**
  * What a player sees of any tournament, whether he plays it or not (owner, 2026-10-06): registration, roster, games with roles,

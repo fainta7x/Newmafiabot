@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
-import { ensureSlotsForEvening, updateEveningSlotSettings } from './eveningSlotPlanningService.ts';
+import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
+import { updateEveningSlotSettings } from './eveningSlotWritesService.ts';
 import { assignDefaultEveningStaff } from './eveningStaffService.ts';
 
 /**

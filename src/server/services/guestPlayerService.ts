@@ -3,7 +3,6 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { replaceClubGameSeatIdentity } from './clubGameSeatIdentityRepair.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
-import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
 
 export const MAX_GUEST_PLUS = 10;
 export const normalizeGuestPlus = (value: unknown) => Math.min(MAX_GUEST_PLUS, Math.max(0, Math.trunc(Number(value) || 0)));
@@ -86,6 +85,8 @@ async function refreshAnnouncementsAfterGuestChange(db: DatabaseWrapper, evening
     const evening = await db.get<any>('SELECT status FROM game_evenings WHERE id = ?', [eveningId]);
     if (String(evening?.status || '') !== 'published') return;
     await enqueueTelegramEveningSync(db, eveningId);
+    // Loaded on demand: the VK sync reads the evening roster, which lists guests through this service.
+    const { kickVkLiveEveningSync } = await import('./vkLiveEveningSyncWorker.ts');
     kickVkLiveEveningSync(db);
   } catch (error) {
     console.warn('[GUEST] announcement refresh failed:', error instanceof Error ? error.message : String(error));

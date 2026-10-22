@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
-import { ensureSlotsForEvening, loadEveningSlotPlan, replacePlayerSlotSelection, TABLE_MIN_PLAYERS, TABLE_MIN_READY_SLOTS } from '../services/eveningSlotPlanningService.ts';
+import { ensureSlotsForEvening, loadEveningSlotPlan, TABLE_MIN_PLAYERS, TABLE_MIN_READY_SLOTS } from '../services/eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection } from '../services/eveningSlotWritesService.ts';
 import { getNovicePlayerState } from '../services/noviceService.ts';
 import { canSeeCustomEvent } from './customEventRoutes.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';

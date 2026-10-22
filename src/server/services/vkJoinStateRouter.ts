@@ -4,7 +4,8 @@ import { ensureVkJoinSchema } from '../../db/ensureVkJoinSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { getVkJoinState } from './vkJoinIdentityService.ts';
 import { resolveVkJoinSession } from './vkJoinAuthService.ts';
-import { loadEveningSlotPlan, replacePlayerSlotSelection } from './eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection } from './eveningSlotWritesService.ts';
 import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
 import { syncDirectVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 

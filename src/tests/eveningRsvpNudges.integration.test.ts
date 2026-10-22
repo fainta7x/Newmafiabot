@@ -77,7 +77,8 @@ describe('evening RSVP nudges', () => {
 
   it('late arrival reminder includes first chosen game and is not duplicated', async () => {
     const { db, byPlayer } = await setup(20);
-    const { loadEveningSlotPlan, replacePlayerSlotSelection } = await import('../server/services/eveningSlotPlanningService.ts');
+    const { loadEveningSlotPlan } = await import('../server/services/eveningSlotPlanningService.ts');
+    const { replacePlayerSlotSelection } = await import('../server/services/eveningSlotWritesService.ts');
     const plan = await loadEveningSlotPlan(db, 'e1');
     expect(plan.slots.length).toBeGreaterThanOrEqual(3);
     await replacePlayerSlotSelection(db, 'e1', 'p-late', plan.slots.slice(2).map((slot) => slot.id), { notifyOrganizer: false });

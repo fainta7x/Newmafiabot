@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
-import { loadEveningSlotPlan, replacePlayerSlotSelection, updateEveningSlotSettings } from '../services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection, updateEveningSlotSettings } from '../services/eveningSlotWritesService.ts';
 import { replaceOrganizerPlayerSlotSelection } from '../services/organizerEveningSlotSelectionService.ts';
 import { loadLatestEveningRescheduleNotice, retryEveningRescheduleNotice } from '../services/eveningRescheduleService.ts';
 

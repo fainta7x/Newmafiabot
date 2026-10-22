@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { setParticipantResponse } from '../server/services/eveningParticipantState.ts';
-import { replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection } from '../server/services/eveningSlotWritesService.ts';
 import { notifyOrganizerAboutResponse } from '../server/services/organizerResponseNotificationService.ts';
 
 let db: DatabaseWrapper | null = null;

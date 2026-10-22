@@ -1395,3 +1395,72 @@ Scope: all of `src/**` and `server.ts` on `main` `54a86b1` (848 non-test modules
 - `EveningLiveGameModal.mapEngineResultToProtocol` (what a club live game saves): five more cases pin markers, both best moves, fallback to the earlier protocol, seat lookup for a guest identity and the fourth-foul kick. All passed on the current code.
 - `TournamentDetailViewBase`: the edit rights of the selected game (judge, roles, seats; correction mode) moved unchanged to `tournamentGameEditRights.ts` with a status matrix test. **Observation, not changed:** «another game is running» compares with the *first* active game of the list, so when two games are active at once (possible only in correction) the first one in the list is not blocked by the second. Pinned by the test; change only with the owner. **open — owner question if it ever matters**
 - Five CRM cards with identical local `request` helpers use the shared `requestJson`.
+
+## 2026-10-22 · Domain model audit: one concept, one definition (owner request, whole app)
+
+The owner asked: «все элементы подчинялись единым правилам, сценариям, не было задвоений, были единые и правильные сущности со своим правильным функционалом».
+- **Scope:** the whole app: games and protocols, the judge engine, evenings, responses, attendance and payments, rating, statistics, achievements, tokens, messaging and publications, UI primitives.
+- **Method:** a static read of the code, plus the Python bot. The target map is in [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md).
+- **Status:** every finding below is **open** unless marked otherwise.
+
+**A. The same rule copied (safe to merge without an owner decision)**
+- **Roles.** `normalizeRole` and `teamFromRole` are copied in `bestMovePoints.ts:2`, `utils/ciHelper.ts:1`, `playerProfileService.ts:74,84`, `playerAchievementsService.ts:65,74`, `clubGameAnalyticsService.ts:41,50`, `playerGameDetailRoutes.ts:29,38`, `clubGameProtocolService.ts:10,19`, `bettingPoolService.ts:51`, `playerEveningJourneyRoutes.ts:31` and `lib/tournamentRoleValidation.ts:15`.
+  - The alias lists differ: `маф`, `ё`, and colours accepted as roles.
+  - `bestMovePoints.ts` and `ciHelper.ts` return an unknown string instead of null.
+- **Winner.** `normalizeWinner` is copied in `playerProfileService.ts:91`, `clubGameAnalyticsService.ts:34`, `playerGameDetailRoutes.ts:45`, `playerLiveRoutes.ts:27`, `playerEveningJourneyRoutes.ts:24` and `playerSelfCoreRoutes.ts:40`. The canonical one is `clubGameTeams.winnerTeamFromLabel`.
+- **Role labels.** `roleLabel` is hard-coded in `playerProgressionRoutes.ts:77` and `bettingNotificationService.ts:8`.
+- **Engine to protocol role mapping.** `roleToProtocol` is copied in `EveningLiveGameModal.tsx:35` and `TournamentLiveGameModal.tsx:26`.
+- **Exit types and removal reasons.** The 5 exit types are listed in `LiveGameEngine/types.ts:176`, `clubGameProtocolService.ts:45` and `tournamentProtocolRoutes.ts:16`. Removal reasons are listed in 4 places.
+- **Best-move points.** The 0.1/0.3/0.6 points are copied in `protocolStateUtils.ts:15` and `playerGameDetailRoutes.ts:97`.
+- **Club and tournament totals.** The win-point and total formula is duplicated in `tournamentStandingsService.ts:202-231` and `ratingPeriodStandingsService.ts:256-273`.
+- **Elo.** `clubPersonalGamePoints` and the game-selection SQL are duplicated in `eloRatingService.ts` and `playerEloHistoryService.ts`.
+- **Win rate.** Integer copies exist in `playerEveningSummaryService.ts:63`, `tableScoutingRoutes.ts:13` and `developerReadRoutes.ts:74`; the canonical one is `shared/stats.winRatePercent`.
+- **Prices.** `REGULAR_PRICE` is defined twice. `price_per_game: 100` is hard-coded in `playerEventCalendarRoutes.ts:66` and `oneTimeEveningPlans.ts:45`. The `||11` and `||4` table fallbacks are repeated.
+- **Message retries.** There are four retry policies: Telegram and VK outboxes (17 tries), the sync outbox (12 tries, 15 s), and club result posts (12 tries, 30 s). There is no shared module.
+- **Server text helpers.** Plural forms are copied in 5 server services. `formatDate(evening)` is copied in 2 VK services.
+- **UI.**
+  - About 23 inline avatar fallbacks bypass `ui/PlayerAvatar`.
+  - 15 inline ruble formats and `OrganizerCommandCenter.formatMoney` bypass `formatRubleAmount`; that copy shows negative amounts.
+  - 9 local date formatters use different fallbacks.
+  - There are two plural helpers (`russianPlural` and `guideCatalog.pluralRu`).
+  - `ui/AsyncState` is used by 1 component, while 43 files have their own «Загрузка…».
+  - Evening, tournament and payment status labels are defined per screen with different words: «Запись открыта», «Идёт набор», «Идёт сейчас», «Вечер идёт».
+- **Dead code.** `eveningsRoutesBase.ts` GET `/`, GET `/:id` and `/:id/settle` are shadowed by `eveningsRoutes.ts` and never run, but their legacy «going» and debt rules are still in the file.
+- **Schema.** `evening_fee_waivers` and `evening_fee_waiver_migration_diagnostics` are created in two places (`ensureClubOperationsSchema.ts:92` and `ensureLegacyRegularWaiverProtection.ts:46`). The two diagnostics DDLs differ.
+
+**B. Bugs (fixable without a rule decision)**
+- `EveningGameProtocolModal.tsx:416-419` shows the role counter as `/6 /1 /2 /1` even for a table of 8–9 players, while the server checks `roleCountsMatchTable`.
+- Unknown roles are treated as red in two places:
+  - `bettingPoolService.ts:61` turns an unknown role into red.
+  - The inline PPK block of the tournament draft save (`tournamentProtocolRoutes.ts:880-891`) does the same, while `processPPK` rejects an unknown role.
+- `playerProfileService.ts:105-108,143,159,216`: total games and role counts include draft club protocols and tournament games of any status, but the win rate in the same file does not.
+- Publications can double-post:
+  - `eveningTodayPostService.ts:163,188`: a network error is recorded as `failed`, so a retry after a timeout can post twice. Poker and custom events record `uncertain` instead.
+  - The «today» post and the cancel post compute the overall state differently (`pending` vs `failed`).
+- Python bot:
+  - `organizer_notifications.py:117-121` hard-codes «недобор» at 10 and ignores the novice minimum of 8.
+  - `organizer_notifications.py:107-110` counts «unpaid» over going and late players instead of attended players.
+
+**C. Copies whose rules differ (owner decision needed; questions in PROJECT_STATE «Waiting on the owner»)**
+- **What counts as a game in statistics.** Filters differ by service. `gameStatisticsService`/`playerAchievementsService` exclude cancelled evenings and need tournament game+protocol completed. `clubGameAnalyticsService` has no cancelled filter and checks only the tournament game. `playerProfileService` keeps club drafts and does not filter tournament status. Elo/rating periods also need `version === 1` and an Elo-eligible format. `playerSelfCoreRoutes` checks only the tournament game. Proposed: a completed protocol only, cancelled evenings excluded, and for a tournament both the game and its protocol completed.
+- **Best-move source.** Tokens count only the first-killed best move (`clubGameTokenSettlementService.ts:112-119`, `tournamentGameTokenSettlementService.ts`), while Elo counts any source (`eloRatingService.ts:92`).
+- **Club and tournament protocol checks differ.**
+  - Table size: 8–10 for club games, exactly 10 for tournaments.
+  - Removal consistency (4 fouls or 2 technical fouls means removed) and the first-killed and zero-round consistency are checked for tournaments only.
+  - Ci is clamped at save for club games only.
+  - A positive penalty is turned into a negative bonus for tournaments only.
+  - A technical-foul limit per type (0..2) exists for club games only.
+- **Live game save.** A live evening game is saved as `completed`; a live tournament game is saved as a draft for review.
+- **«Going» and «open evening».**
+  - «Going» counts going+late in some places and going+late+thinking in others (`botRoutes.ts:502`, `playerEveningJourneyRoutes.ts:118`, `vkJoinRegistrationService.ts:38`, `playerEveningWorkspaceService.ts:54`).
+  - An «open evening» has four different status sets.
+- **Default evening price.** It is 400 in the create schema, 0 in the database and 500 when a duplicate falls back. The host cabinet has its own table (NOVICE 200, CASUAL 100, RATING 300, TOURNAMENT 500).
+- **Telegram vs VK post text.** Telegram (`telegram_evening_copy.py:382`) ignores the organizer-editable template. The price line differs for RATING evenings. The novice price is hard-coded.
+- **Display name.** Tournaments use `COALESCE(tp.display_name, p.nickname)` in standings but `COALESCE(p.nickname, tp.display_name)` in the player view.
+- **Two achievement systems.** `player_achievements` and the list in `playerProgressionRoutes.ts:280-291`. Also, «strongest role» needs at least 5 games in one place and at least 10 in another.
+
+**D. Structural (the larger work, done step by step)**
+- The judge engine speaks its own language: Russian role and team names, seat-number identities. The protocol is reconstructed by diffing localStorage snapshots 13 times a second. Engine scenario tests come first, then canonical vocabulary, then the event log as the single source for both the engine and the protocol (role and seat fixes from the CRM become events).
+- There are two protocol pipelines: club JSON in `games.protocol_text` with `winner_team='draft'` as a marker, and tournament tables with their own status columns. The target is one set of protocol rules with a table-size parameter.
+- There are three registration models (evening, tournament, custom event) with their own status words.
+- There are eight status sets for outgoing messages and publications.

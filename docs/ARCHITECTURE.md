@@ -1,6 +1,6 @@
 # 2LA Noire — Architecture Map
 
-This file answers **where a subsystem lives and what owns it**. It does not own current release status or work procedure.
+This file answers **where a subsystem lives and what owns it**. It does not own current release status or work procedure. Which module is the single definition of each club concept (role, team, game, evening status, price…) is owned by [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md).
 
 ## 1. Request flow
 

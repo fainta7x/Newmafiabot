@@ -44,6 +44,7 @@ import {
   isRoleOptionDisabled,
 } from '../../../lib/tournamentRoleValidation.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
+import { tournamentGameEditRights } from './tournamentGameEditRights.ts';
 
 type TournamentTab = 'organization' | 'games' | 'standings' | 'nominations';
 
@@ -245,50 +246,15 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const currentGame: TournamentGame | undefined = games[selectedGameIdx];
   const seats: TournamentGameSeat[] = currentGame?.seats || [];
 
-  // Check active game in entire tournament
-  const activeGameInTournament = games.find((g) => g.status === 'active');
-  const isAnotherGameActive = Boolean(
-    activeGameInTournament && currentGame && activeGameInTournament.id !== currentGame.id
-  );
-
-  // Calculate role stats for selected game
-  const roleCounts = {
-    citizen: seats.filter((s) => s.role === 'citizen').length,
-    sheriff: seats.filter((s) => s.role === 'sheriff').length,
-    mafia: seats.filter((s) => s.role === 'mafia').length,
-    don: seats.filter((s) => s.role === 'don').length,
-  };
-
-  const isCorrection = tournament.status === 'correction';
-  const canEditCurrentGameJudgeAndRoles = Boolean(
-    currentGame &&
-      (((tournament.status === 'draft' || tournament.status === 'active') && currentGame.status === 'planned') ||
-        (isCorrection &&
-          currentGame.status === 'active' &&
-          (currentGame as any).protocol_status === 'draft' &&
-          !isAnotherGameActive))
-  );
-
-  // A judge who cannot continue can be replaced in the middle of the running game (until its protocol is completed).
-  const canEditJudgeInline = canEditCurrentGameJudgeAndRoles || Boolean(
-    currentGame &&
-      tournament.status === 'active' &&
-      currentGame.status === 'active' &&
-      (currentGame as any).protocol_status !== 'completed'
-  );
-
-  const canSwapSeatsCurrentGame = Boolean(
-    currentGame &&
-      tournament.status !== 'completed' &&
-      currentGame.status !== 'completed' &&
-      (((tournament.status === 'draft' || tournament.status === 'active') && currentGame.status === 'planned') ||
-        (isCorrection &&
-          currentGame.status === 'active' &&
-          (currentGame as any).protocol_status === 'draft' &&
-          !isAnotherGameActive))
-  );
-
-
+  const {
+    activeGameInTournament,
+    isAnotherGameActive,
+    roleCounts,
+    isCorrection,
+    canEditCurrentGameJudgeAndRoles,
+    canEditJudgeInline,
+    canSwapSeatsCurrentGame,
+  } = tournamentGameEditRights(tournament.status, games, currentGame);
 
   const handleOpenStartModal = () => {
     setStartModalError(null);

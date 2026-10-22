@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { requestJson } from '../../lib/requestJson.ts';
 
 type Placeholder = { token: string; meaning: string; example: string };
 type Template = { key: string; label: string; default_body: string; body: string; customized: boolean; placeholders: Placeholder[] };
 
-const request = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || 'Не получилось');
-  return data;
-};
+const request = (url: string, init?: RequestInit) => requestJson(url, init, 'Не получилось');
 
 /** The text as it will look, with example values in place of the {placeholders}. */
 export const previewTemplate = (body: string, placeholders: Placeholder[]) => placeholders.reduce((text, item) => text.split(item.token).join(item.example), body);

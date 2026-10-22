@@ -5,7 +5,7 @@ import { createDatabaseConnection } from '../db/index.ts';
 import {
   SLOW_REQUEST_MS, SLOW_TRANSACTION_MS, performanceSnapshot, recordLoopWindow, recordSlowTransaction,
   requestFinished, requestStarted, resetPerformanceProbeForTesting, routeLabel, setSlowRequestThresholdForTesting,
-  SLOW_JOB_SQLITE_MS, timeBackgroundJob,
+  SLOW_JOB_SQLITE_MS, SLOW_QUERY_MS, recordSlowQuery, slowQueriesSnapshot, timeBackgroundJob,
 } from '../lib/performanceProbe.ts';
 import { performanceMiddleware, requestRouteLabel } from '../server/services/performanceWatchdog.ts';
 import { createRuntimeHealthRoutes } from '../server/routes/runtimeHealthRoutes.ts';
@@ -114,4 +114,30 @@ describe('the record of what made the server slow', () => {
     expect(slow_jobs[0].sqlite_calls).toBeGreaterThan(0);
     db.sqlite.close();
   });
+
+  it('counts a timed step towards the job around it and records the step with its own threshold', async () => {
+    const db = createDatabaseConnection(':memory:');
+    const heavy = 'WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 200000) SELECT COUNT(*) FROM c';
+    await timeBackgroundJob('outer_job', async () => {
+      await timeBackgroundJob('outer_job/step', async () => {
+        const started = performance.now();
+        while (performance.now() - started < SLOW_JOB_SQLITE_MS + 50) await db.get(heavy);
+      }, 100);
+    });
+    const jobs = performanceSnapshot().slow_jobs.map((item) => item.job).sort();
+    expect(jobs).toEqual(['outer_job', 'outer_job/step']);
+    db.sqlite.close();
+  });
+
+  it('groups slow statements by their text, never their parameters, and orders them by total time', () => {
+    recordSlowQuery('SELECT * FROM a\n   WHERE x = ?', SLOW_QUERY_MS + 10);
+    recordSlowQuery('SELECT * FROM a WHERE x = ?', SLOW_QUERY_MS + 30);
+    recordSlowQuery('SELECT * FROM b', SLOW_QUERY_MS + 100);
+    expect(performanceSnapshot()).not.toHaveProperty('slow_queries');
+    expect(slowQueriesSnapshot()).toEqual([
+      { sql: 'SELECT * FROM b', count: 1, max_ms: SLOW_QUERY_MS + 100, total_ms: SLOW_QUERY_MS + 100 },
+      { sql: 'SELECT * FROM a WHERE x = ?', count: 2, max_ms: SLOW_QUERY_MS + 30, total_ms: 2 * SLOW_QUERY_MS + 40 },
+    ]);
+  });
 });
+

@@ -17,6 +17,10 @@ const slowRequests: SlowRequest[] = [];
 const slowTransactions: SlowTransaction[] = [];
 const loopWindows: LoopWindow[] = [];
 const slowJobs: SlowJob[] = [];
+/** Slow SQLite statements by their text (parameters are never stored): how often, the longest, the sum. */
+const slowQueries = new Map<string, { sql: string; count: number; max_ms: number; total_ms: number; last_at: number }>();
+export const SLOW_QUERY_MS = 50;
+const MAX_SLOW_QUERY_SHAPES = 200;
 const jobContext = new AsyncLocalStorage<{ sqliteMs: number; sqliteCalls: number }>();
 type RouteLabel = string | (() => string);
 const inFlight = new Map<number, { label: RouteLabel; startedAt: number }>();
@@ -61,7 +65,8 @@ export const recordSlowTransaction = (waitedMs: number, heldMs: number, origin: 
 };
 
 /** Called by the database wrapper after each synchronous statement; counted only inside a timed background job. */
-export const addSqliteTime = (ms: number) => {
+export const addSqliteTime = (ms: number, sql?: string) => {
+  if (sql && ms >= SLOW_QUERY_MS) recordSlowQuery(sql, ms);
   const store = jobContext.getStore();
   if (!store) return;
   store.sqliteMs += ms;
@@ -72,13 +77,16 @@ export const addSqliteTime = (ms: number) => {
  * Runs one tick of a background worker and records it when its SQLite time blocked the server for
  * SLOW_JOB_SQLITE_MS or more (owner question 2026-10-22: what stalls the server for ~2 s every minute).
  */
-export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>): Promise<T> {
+export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>, thresholdMs = SLOW_JOB_SQLITE_MS): Promise<T> {
   const store = { sqliteMs: 0, sqliteCalls: 0 };
+  // A step timed inside a job (job/step) still counts towards the job around it.
+  const outer = jobContext.getStore();
   const startedAt = performance.now();
   try {
     return await jobContext.run(store, run);
   } finally {
-    if (store.sqliteMs >= SLOW_JOB_SQLITE_MS) {
+    if (outer) { outer.sqliteMs += store.sqliteMs; outer.sqliteCalls += store.sqliteCalls; }
+    if (store.sqliteMs >= thresholdMs) {
       push(slowJobs, {
         at: new Date().toISOString(),
         job,
@@ -89,6 +97,20 @@ export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>): 
     }
   }
 }
+
+export const recordSlowQuery = (sql: string, ms: number, now = Date.now()) => {
+  const text = sql.replace(/\s+/g, ' ').trim().slice(0, 240);
+  const item = slowQueries.get(text);
+  if (item) {
+    item.count += 1; item.total_ms += ms; item.max_ms = Math.max(item.max_ms, ms); item.last_at = now;
+    return;
+  }
+  if (slowQueries.size >= MAX_SLOW_QUERY_SHAPES) {
+    const oldest = [...slowQueries.entries()].sort((a, b) => a[1].last_at - b[1].last_at)[0];
+    if (oldest) slowQueries.delete(oldest[0]);
+  }
+  slowQueries.set(text, { sql: text, count: 1, max_ms: ms, total_ms: ms, last_at: now });
+};
 
 export const recordLoopWindow = (window: Omit<LoopWindow, 'at'>, now = Date.now()) => {
   push(loopWindows, { at: new Date(now).toISOString(), ...window });
@@ -115,6 +137,15 @@ export const performanceSnapshot = (now = Date.now()) => {
   };
 };
 
+/**
+ * The statements that cost the most in total since the process started (not the 5-minute window). SQL text shows
+ * the database layout, so it is served to organizers only (/api/health/performance/queries), never on the open probe.
+ */
+export const slowQueriesSnapshot = () => [...slowQueries.values()]
+  .sort((a, b) => b.total_ms - a.total_ms)
+  .slice(0, 15)
+  .map(({ sql, count, max_ms, total_ms }) => ({ sql, count, max_ms: Math.round(max_ms), total_ms: Math.round(total_ms) }));
+
 export const resetPerformanceProbeForTesting = () => {
-  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; slowJobs.length = 0; inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
+  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; slowJobs.length = 0; slowQueries.clear(); inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
 };

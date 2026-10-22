@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getJson, RequestJsonError, sendJson } from '../lib/requestJson.ts';
+import { getJson, RequestJsonError, requestJson, sendJson } from '../lib/requestJson.ts';
 
 const mockFetch = (status: number, body: unknown, jsonThrows = false) => {
   const fetchMock = vi.fn(async () => ({
@@ -64,5 +64,29 @@ describe('sendJson', () => {
     await expect(sendJson('/api/x', 'DELETE', undefined, 'fallback')).rejects.toMatchObject({ message: 'Уже есть', status: 409 });
     mockFetch(500, null, true);
     await expect(sendJson('/api/x', 'PUT', {}, 'Не удалось сохранить')).rejects.toThrow('Не удалось сохранить');
+  });
+});
+
+describe('requestJson', () => {
+  it('keeps the caller init, always sends JSON and merges extra headers', async () => {
+    const fetchMock = mockFetch(200, { saved: true });
+    await expect(requestJson('/api/x', { method: 'PUT', body: '{}', headers: { 'X-Test': '1' } }, 'fallback')).resolves.toEqual({ saved: true });
+    expect(fetchMock).toHaveBeenCalledWith('/api/x', {
+      credentials: 'include', method: 'PUT', body: '{}', headers: { 'Content-Type': 'application/json', 'X-Test': '1' },
+    });
+  });
+
+  it('returns null for 204 only when asked', async () => {
+    mockFetch(204, {});
+    await expect(requestJson('/api/x', { method: 'DELETE' }, 'fallback', { nullOn204: true })).resolves.toBeNull();
+    mockFetch(204, {});
+    await expect(requestJson('/api/x', { method: 'DELETE' }, 'fallback')).resolves.toEqual({});
+  });
+
+  it('throws the server error text, else the fallback', async () => {
+    mockFetch(400, { error: 'Пусто' });
+    await expect(requestJson('/api/x', undefined, 'Не получилось')).rejects.toThrow('Пусто');
+    mockFetch(500, null, true);
+    await expect(requestJson('/api/x', undefined, 'Не получилось')).rejects.toThrow('Не получилось');
   });
 });

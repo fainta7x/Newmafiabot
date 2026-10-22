@@ -164,7 +164,7 @@ export async function drainVkMessageOutbox(db: DatabaseWrapper, options: { limit
   if (!isEveningPublishingPaused()) await expireStaleEveningNotices(db, 'vk_message_outbox', MAX_RETRIES);
   const eveningPause = isEveningPublishingPaused()
     ? "AND event_type <> 'evening_cancelled'" : '';
-  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status <> 'sent' AND retry_count < ? AND next_attempt_at IS NOT NULL AND datetime(next_attempt_at) <= datetime('now') ${eveningPause} ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
+  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status IN ('pending', 'failed') AND retry_count < ? AND next_attempt_at IS NOT NULL AND datetime(next_attempt_at) <= datetime('now') ${eveningPause} ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
   let sent = 0, failed = 0;
   for (let offset = 0; offset < rows.length; offset += concurrency) {
     const results = await Promise.all(rows.slice(offset, offset + concurrency).map((row: any) => deliverOne(db, row, options.fetchImpl || fetch)));

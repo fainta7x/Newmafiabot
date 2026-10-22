@@ -36,6 +36,7 @@ import { ensurePokerChatSchema } from './db/ensurePokerChatSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { applyBogdanaTournamentStaff, applyUnifiedTournamentFlowMigration } from './db/applyUnifiedTournamentFlowMigration.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
+import { slowQueriesSnapshot } from './lib/performanceProbe.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
 import playerClaimRoutes from './server/routes/playerClaimRoutes.ts';
@@ -274,6 +275,11 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
 
   app.use(parseUserSession);
+  // Slow SQLite statements by text: organizers only, the open /api/health/performance keeps aggregates without SQL.
+  app.get('/api/health/performance/queries', requireOrganizerAuth, (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ checked_at: new Date().toISOString(), slow_queries: slowQueriesSnapshot() });
+  });
 
   app.use('/api/test-environment', testEnvironmentRoutes);
   app.use('/api/auth', authRoutes);

@@ -22,14 +22,16 @@ const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 1
 // Each step is isolated: a failure in an earlier one must not stop the later ones (the tournament results and
 // seat messages ride the club-results step).
 const isolated = (name: string, step: Promise<number>) => step.catch((error) => { console.error(`[${name}] failed:`, error); return 0; });
-const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated('RSVP NUDGES', queueEveningRsvpNudges(db))) + (await isolated('TOURNAMENT PAYMENTS', enforceTournamentPaymentDeadlines(db)))
-  + (await isolated('SHORTFALL', runEveningShortfallChecks(db))) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
+// Each step is timed on its own (personal_notifications/<step> in /api/health/performance) to find what stalls the minute scan.
+const step = (name: string, run: () => Promise<number>) => timeBackgroundJob(`personal_notifications/${name}`, run, 100);
+const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated('RSVP NUDGES', step('rsvp_nudges', () => queueEveningRsvpNudges(db)))) + (await isolated('TOURNAMENT PAYMENTS', step('tournament_payments', () => enforceTournamentPaymentDeadlines(db))))
+  + (await isolated('SHORTFALL', step('shortfall', () => runEveningShortfallChecks(db)))) + (await step('auto_reminders', () => runAutomaticUnansweredReminders(db)).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
   // The game blank and the evening summary for the club chat (clubResultPostService).
-  + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
+  + (await step('club_results', () => runClubResultPosts(db)).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).
-  + (await runTodayPostSchedule(db).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }))
+  + (await step('today_post', () => runTodayPostSchedule(db)).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }))
   // The organizer's own reminders: the evening route, an unclosed evening, debts, overdue tasks (organizerReminderService).
-  + (await isolated('ORGANIZER REMINDERS', runOrganizerReminders(db)));
+  + (await isolated('ORGANIZER REMINDERS', step('organizer_reminders', () => runOrganizerReminders(db))));
 
 // A tournament Elo note is news only shortly after the game; older games never get one.
 const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -120,7 +122,7 @@ async function queueBettingResults(db: DatabaseWrapper) {
 
 export async function reconcilePersonalNotifications(db: DatabaseWrapper) {
   const [evenings, gamesAndElo, betting] = await Promise.all([
-    queueEveningNotifications(db), queueEloNotifications(db), queueBettingResults(db),
+    queueEveningNotifications(db), step('elo', () => queueEloNotifications(db)), step('betting', () => queueBettingResults(db)),
   ]);
   return { queued: evenings + gamesAndElo + betting, evenings, games_and_elo: gamesAndElo, betting };
 }

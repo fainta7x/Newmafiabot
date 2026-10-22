@@ -7,6 +7,7 @@ import { enforceTournamentPaymentDeadlines } from './tournamentEveningService.ts
 import { runEveningShortfallChecks } from './eveningShortfallService.ts';
 import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
 import { runClubResultPosts } from './clubResultPostService.ts';
+import { runOrganizerReminders } from './organizerReminderService.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -25,7 +26,9 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   // The game blank and the evening summary for the club chat (clubResultPostService).
   + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).
-  + (await runTodayPostSchedule(db).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }));
+  + (await runTodayPostSchedule(db).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }))
+  // The organizer's own reminders: the evening route, an unclosed evening, debts, overdue tasks (organizerReminderService).
+  + (await isolated('ORGANIZER REMINDERS', runOrganizerReminders(db)));
 
 // A tournament Elo note is news only shortly after the game; older games never get one.
 const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

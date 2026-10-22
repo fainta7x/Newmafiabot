@@ -33,15 +33,8 @@ async function ensurePlayerEvidenceColumns(db: DatabaseWrapper): Promise<void> {
   }
 }
 
-async function ensureEvidenceTables(db: DatabaseWrapper): Promise<void> {
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS evening_staff_assignments (
-      evening_id TEXT PRIMARY KEY REFERENCES game_evenings(id) ON DELETE CASCADE,
-      organizer_player_id TEXT REFERENCES players(id) ON DELETE SET NULL,
-      assigned_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+/** The fee waiver table and its migration diagnostics: one definition for this protection and the club operations schema. */
+export async function ensureEveningFeeWaiverTables(db: DatabaseWrapper): Promise<void> {
   await db.run(`
     CREATE TABLE IF NOT EXISTS evening_fee_waivers (
       participant_id TEXT PRIMARY KEY REFERENCES evening_participants(id) ON DELETE CASCADE,
@@ -61,6 +54,18 @@ async function ensureEvidenceTables(db: DatabaseWrapper): Promise<void> {
       updated_at TEXT NOT NULL
     )
   `);
+}
+
+async function ensureEvidenceTables(db: DatabaseWrapper): Promise<void> {
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS evening_staff_assignments (
+      evening_id TEXT PRIMARY KEY REFERENCES game_evenings(id) ON DELETE CASCADE,
+      organizer_player_id TEXT REFERENCES players(id) ON DELETE SET NULL,
+      assigned_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await ensureEveningFeeWaiverTables(db);
 }
 
 /**

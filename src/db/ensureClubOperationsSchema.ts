@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
 import { canHostEveningFormat } from '../lib/hostFormats.ts';
 import { ensureOrganizerPlayerAccessSchema, PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
+import { ensureEveningFeeWaiverTables } from './ensureLegacyRegularWaiverProtection.ts';
 
 const ensuredDatabases = new WeakSet<object>();
 export const CRM_PAY_003_HISTORICAL_MIGRATION = 'crm_pay_003_historical_casual_pricing_v1';
@@ -88,28 +89,10 @@ async function ensureEveningFeeEvidenceSchema(db: DatabaseWrapper) {
     CREATE INDEX IF NOT EXISTS idx_evening_extensions_evening
       ON evening_extensions(evening_id)
   `);
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS evening_fee_waivers (
-      participant_id TEXT PRIMARY KEY REFERENCES evening_participants(id) ON DELETE CASCADE,
-      evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
-      reason TEXT,
-      waived_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+  await ensureEveningFeeWaiverTables(db);
   await db.run(`
     CREATE INDEX IF NOT EXISTS idx_evening_fee_waivers_evening
       ON evening_fee_waivers(evening_id)
-  `);
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS evening_fee_waiver_migration_diagnostics (
-      participant_id TEXT PRIMARY KEY REFERENCES evening_participants(id) ON DELETE CASCADE,
-      evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
-      reason TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'needs_review',
-      detected_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
   `);
   await db.run(`
     CREATE INDEX IF NOT EXISTS idx_evening_fee_waiver_diag_evening

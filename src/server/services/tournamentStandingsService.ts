@@ -8,6 +8,7 @@ import {
 } from '../utils/ciHelper.ts';
 import { compareTournamentNominationCandidates, type TournamentNominationCategory, type NominationHeadToHeadGame } from './tournamentNominationComparator.ts';
 import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { scoreGamePoints } from './gameScore.ts';
 
 // Tournament standings and nominations, read by tournament routes and by rating/award/player services.
 // Helper function to calculate standings, incorporating tie-breaking resolutions
@@ -197,24 +198,6 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       const protocolBonus = Number(resRow?.protocol_bonus || 0);
       const discPenalty = Number(resRow?.disciplinary_penalty_points || 0);
 
-      let winPoint = 0;
-      if (g.winner_team === 'red' && (normRole === 'citizen' || normRole === 'sheriff')) {
-        winPoint = 1;
-      } else if (g.winner_team === 'black' && (normRole === 'mafia' || normRole === 'don')) {
-        winPoint = 1;
-      }
-
-      const positiveJudge = Math.max(judgeBonus, 0);
-      const negativeJudge = Math.max(-judgeBonus, 0);
-
-      const positiveProtocol = Math.max(protocolBonus, 0);
-      const negativeProtocol = Math.max(-protocolBonus, 0);
-
-      const posPoints = roundToTwo(positiveJudge + positiveProtocol);
-      const gamePenPoints = roundToTwo(negativeJudge + negativeProtocol);
-      const bmPoints = roundToTwo(bmPointsMap.get(s.participant_id) || 0);
-      const discPenPoints = roundToTwo(discPenalty);
-
       const playerRate = ciRatesMap.get(s.participant_id) || 0;
       const ciResult = calculateGameCi({
         isFirstKilled: g.first_killed_participant_id === s.participant_id,
@@ -228,8 +211,14 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       const gameCi = ciResult.gameCi;
       const ciReason = ciResult.ciReason;
 
-      const addTotalGame = roundToTwo(posPoints + bmPoints - discPenPoints - gamePenPoints);
-      const gameTotal = roundToTwo(winPoint + addTotalGame + gameCi);
+      const {
+        winPoint, positiveJudge, negativeJudge, positiveProtocol, negativeProtocol,
+        positivePoints: posPoints, gamePenaltyPoints: gamePenPoints, bestMove: bmPoints,
+        disciplinaryPoints: discPenPoints, additional: addTotalGame, total: gameTotal,
+      } = scoreGamePoints({
+        winnerTeam: g.winner_team, role: s.role, judgeBonus, protocolBonus,
+        bestMovePoints: bmPointsMap.get(s.participant_id) || 0, disciplinaryPenalty: discPenalty, ci: gameCi,
+      });
 
       pStats.games_played += 1;
       pStats.wins += winPoint;

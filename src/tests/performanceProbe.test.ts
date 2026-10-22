@@ -115,6 +115,21 @@ describe('the record of what made the server slow', () => {
     db.sqlite.close();
   });
 
+  it('records a job that blocks the server with plain JavaScript work, not one that only waits', async () => {
+    await timeBackgroundJob('render_job', async () => {
+      // Synchronous work outside SQLite (like drawing a picture) blocks the event loop just the same.
+      const started = performance.now();
+      let x = 0;
+      while (performance.now() - started < SLOW_JOB_SQLITE_MS + 50) x += Math.sqrt(x + 1);
+      return x;
+    });
+    await timeBackgroundJob('waiting_job', () => new Promise((resolve) => { setTimeout(resolve, SLOW_JOB_SQLITE_MS + 50); }));
+    const { slow_jobs } = performanceSnapshot();
+    expect(slow_jobs.map((item) => item.job)).toEqual(['render_job']);
+    expect(slow_jobs[0].cpu_ms).toBeGreaterThanOrEqual(SLOW_JOB_SQLITE_MS);
+    expect(slow_jobs[0].sqlite_ms).toBe(0);
+  });
+
   it('counts a timed step towards the job around it and records the step with its own threshold', async () => {
     const db = createDatabaseConnection(':memory:');
     const heavy = 'WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 200000) SELECT COUNT(*) FROM c';

@@ -1481,5 +1481,5 @@ The owner asked: «все элементы подчинялись единым �
 **Stall measurement after #1000 and #1001 were deployed (2026-10-22 19:31 UTC, production, read-only):**
 - The worst event-loop stall is 1.97 s (it was 3.6 s).
 - `personal_notifications` spends 0.3–0.6 s in SQLite (it was 0.7–1.7 s), and `rsvp_nudges` 0.3 s (it was 0.7–0.9 s).
-- **New top cost:** the `personal_notifications/club_results` step takes 1.3–1.8 s every minute but only 0.17–0.21 s of that is SQLite, so the rest is synchronous JS work (probably result text or image building). **open, next.**
+- **New top cost:** the `personal_notifications/club_results` step takes 1.3–1.8 s every minute but only 0.17–0.21 s of that is SQLite, so the rest is either network waits or synchronous JS work, which wall time cannot tell apart. **Measuring (this PR):** the probe now also records the process CPU time of a job (`cpu_ms`, network waits excluded), and the nine parts of the club-results scan are timed separately (`personal_notifications/club_results/<part>`). The fix follows the next production reading. **open**
 

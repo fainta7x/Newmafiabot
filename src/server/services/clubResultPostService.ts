@@ -14,6 +14,7 @@ import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAcces
 import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
@@ -165,6 +166,10 @@ export async function postEveningSummary(db: DatabaseWrapper, eveningId: string,
  * that started after this feature was switched on are posted, so old games never flood the chat.
  * Tournaments run through their own tables and their own result export, not this scan.
  */
+// Each part of the minute scan is timed on its own (personal_notifications/club_results/<part>): the scan takes ~1.5 s
+// of synchronous work a minute on production, and only ~0.2 s of it is SQLite (stall audit, 2026-10-22).
+const part = <T>(name: string, run: () => Promise<T>) => timeBackgroundJob(`personal_notifications/club_results/${name}`, run, 100);
+
 export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch, now = Date.now()) {
   if (isEveningPublishingPaused()) return 0;
   await ensureClubResultPostSchema(db);
@@ -193,7 +198,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   `, [new Date(since).toISOString(), stamp]);
 
   let posted = 0;
-  for (const evening of evenings) {
+  await part('game_blanks', async () => { for (const evening of evenings) {
     const games = await db.all<any>(`
       SELECT g.id, g.protocol_text FROM games g
        WHERE g.evening_id = ? AND g.archived_at IS NULL
@@ -206,7 +211,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
       if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
       if (await postGameBlank(db, String(game.id), evening.format, String(evening.id), fetchImpl)) posted += 1;
     }
-  }
+  } });
 
   // Closed evenings by their closing time, not their start: an evening closed days later (or after a
   // long publishing pause) still gets its summary and the personal messages.
@@ -220,12 +225,12 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
          OR (datetime(e.starts_at) >= datetime(?)
            AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))))
   `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString(), publicSince]);
-  for (const evening of closed) {
+  await part('closed_evenings', async () => { for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
     if (new Date(String(evening.starts_at)).getTime() >= new Date(publicSince).getTime()
       && await postPublicEveningSummary(db, String(evening.id), fetchImpl)) posted += 1;
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
-  }
+  } });
 
   // «MVP вечера»: a post of its own once the results are out, and one reminder for those who have not voted a day later.
   const voting = await db.all<any>(`
@@ -234,11 +239,11 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
   `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
-  for (const evening of voting) {
+  await part('mvp_vote', async () => { for (const evening of voting) {
     if (await postVotePrompt(db, String(evening.id), fetchImpl)) posted += 1;
     const closedAt = new Date(String(evening.closed_at)).getTime();
     if (Number.isFinite(closedAt) && now - closedAt >= 24 * 60 * 60 * 1000) await remindUnvotedPlayers(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] vote reminder failed:', error));
-  }
+  } });
 
   // The result of the vote, when its window is over (and for a few days after: a missed run is caught up, a tie waits for the owner).
   const voted = await db.all<any>(`
@@ -248,9 +253,9 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(COALESCE(e.settled_at, e.updated_at)) <= datetime(?)
        AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
   `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS - CLOSED_WINDOW_MS).toISOString(), new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
-  for (const evening of voted) {
+  await part('mvp_result', async () => { for (const evening of voted) {
     if (await postMvpResult(db, String(evening.id), fetchImpl).catch((error) => { console.error('[CLUB RESULTS] MVP result failed:', error); return false; })) posted += 1;
-  }
+  } });
 
   // The entry channel (owner, 2026-10-01): «Мы собрались» photos and a weekly season table.
   const gathered = await db.all<any>(`
@@ -259,14 +264,14 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
   `, [publicSince, new Date(now - CLOSED_WINDOW_MS).toISOString()]).catch(() => []);
-  for (const row of gathered) {
+  await part('public_gathered', async () => { for (const row of gathered) {
     if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
-  }
-  if (await postWeeklySeasonTables(db, fetchImpl, now)) posted += 1;
-  posted += await runTournamentAnnouncements(db, fetchImpl, now);
-  posted += await runTournamentResultPosts(db, fetchImpl, now);
-  posted += await runEveningPaymentReminders(db, now).catch((error) => { console.error('[PAYMENT REMINDERS] scan failed:', error); return 0; });
-  posted += await runTournamentGameFollowUps(db, fetchImpl, now, String(marker?.created_at || stamp));
+  } });
+  if (await part('weekly_season', () => postWeeklySeasonTables(db, fetchImpl, now))) posted += 1;
+  posted += await part('tournament_announcements', () => runTournamentAnnouncements(db, fetchImpl, now));
+  posted += await part('tournament_results', () => runTournamentResultPosts(db, fetchImpl, now));
+  posted += await part('payment_reminders', () => runEveningPaymentReminders(db, now)).catch((error) => { console.error('[PAYMENT REMINDERS] scan failed:', error); return 0; });
+  posted += await part('tournament_follow_ups', () => runTournamentGameFollowUps(db, fetchImpl, now, String(marker?.created_at || stamp)));
   return posted;
 }
 

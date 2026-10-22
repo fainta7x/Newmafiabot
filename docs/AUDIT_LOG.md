@@ -1517,3 +1517,11 @@ The owner asked: «все элементы подчинялись единым �
 - **Fix (PR after #1003):** one query reads only the protocol's kind, status and winner through `json_extract` inside SQLite. A pool already settled for that winner, with stakes on both sides, is skipped, which is what `settleBetPool` would have done anyway.
 - A new lifecycle test (settle, idempotent rerun, reopen-unsettle, broken JSON) passes on the old and the new code. **fixed in code; deploy and re-profile pending.**
 
+**Re-profile after #1004 was deployed (production, 2026-10-23 ~23:48 UTC, 40 s):**
+- `reconcileAllBettingPools` is gone from the profile.
+- The next stall (1.7 s stretch) is `renderPng` in `buildMvpVoteCard` (0.75 s) and `buildMvpResultCard` (0.6 s).
+- **The cause:** `postVotePrompt` and `postMvpResult` drew the «MVP вечера» card *before* checking whether a post was still due. The minute scan therefore redrew it every minute for the three-day voting window and the result window, then threw it away.
+- **Fix (next PR):** the card is drawn lazily, only after a post claim succeeds; the personal result messages draw it inside their claim.
+- New test `mvpCardDrawnOnlyWhenPosted.test.ts`: the card is drawn once for the first post and never on later scans. It fails on the old code.
+- **fixed in code; deploy and re-profile pending.** `telegram_sync_outbox` once took 11 s of CPU in 36 s of wall time (23:43); it did not show in this profile window and is watched next.
+

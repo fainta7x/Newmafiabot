@@ -461,10 +461,14 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   ].filter(Boolean).join('\n');
   let posted = false;
   // The card with the photo of every candidate (owner, 2026-10-14: the polls were only text); without it the text post still goes out.
-  const card = await buildMvpVoteCard(db, eveningId);
+  // It is drawn only when a post is actually claimed: drawing it on every minute scan of the three-day window blocked the
+  // server for ~0.75 s a minute (CPU profile, 2026-10-23).
+  let cardDrawing: Promise<Buffer | null> | null = null;
+  const voteCard = () => (cardDrawing ??= buildMvpVoteCard(db, eveningId));
   const voteMarkup = voteRows.length ? { inline_keyboard: voteRows } : undefined;
   const telegramKey = `vote-prompt:${eveningId}`;
   if (await claim(db, telegramKey, 'vote-prompt', eveningId, null)) {
+    const card = await voteCard();
     let result = card ? await sendPhotos(db, evening.format, [card], telegramText, fetchImpl, undefined, 'image/png', voteMarkup) : { ok: false, temporary: false, error: 'no card' } as { ok: boolean; temporary?: boolean; error?: string };
     // A refused photo falls back to text; a temporary failure is retried by the claim, so the post is not duplicated.
     if (!result.ok && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl, undefined, voteMarkup);
@@ -473,6 +477,7 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   }
   const vkKey = `vote-prompt-vk:${eveningId}`;
   if (await claim(db, vkKey, 'vote-prompt', eveningId, null)) {
+    const card = await voteCard();
     const result = await sendVk(vkText, { db, eveningId, format: evening.format, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
     await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
     posted = posted || result.status === 'published';
@@ -532,10 +537,13 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   let posted = false;
 
   // The card with the winner's photo and the others who got votes; without it the text post still goes out.
-  const card = await buildMvpResultCard(db, eveningId, winner, resolution.total_votes, reason);
+  // Drawn only once a post is claimed (see postVotePrompt).
+  let cardDrawing: Promise<Buffer | null> | null = null;
+  const resultCard = () => (cardDrawing ??= buildMvpResultCard(db, eveningId, winner, resolution.total_votes, reason));
 
   const telegramKey = `mvp-result:${eveningId}`;
   if (await claim(db, telegramKey, 'mvp-result', eveningId, null)) {
+    const card = await resultCard();
     let result = card ? await sendPhotos(db, evening.format, [card], groupText, fetchImpl) : { ok: false, temporary: false, error: 'no card' } as { ok: boolean; temporary?: boolean; error?: string };
     if (!result.ok && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), groupText, fetchImpl);
     await finish(db, telegramKey, result);
@@ -543,6 +551,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   }
   const vkKey = `mvp-result-vk:${eveningId}`;
   if (await claim(db, vkKey, 'mvp-result', eveningId, null)) {
+    const card = await resultCard();
     const result = await sendVk(groupText, { db, eveningId, format: evening.format, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
     await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
     posted = posted || result.status === 'published';
@@ -554,6 +563,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
         "SELECT DISTINCT player_id FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended' AND player_id IS NOT NULL",
         [eveningId],
       );
+      const card = await resultCard();
       for (const attendee of attendees) {
         const playerId = String(attendee.player_id);
         const text = playerId === winner.player_id

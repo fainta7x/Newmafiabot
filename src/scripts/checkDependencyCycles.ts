@@ -3,8 +3,8 @@
 // Only static runtime imports count: `import type`, `export type` and dynamic
 // `import()` do not create module-initialisation cycles. Tests are excluded.
 // Existing cyclic edges are listed in config/dependency-cycles-baseline.json;
-// the check fails when a new import joins a cycle, and reports baseline edges
-// that are gone so the list can only shrink.
+// the check fails when a new import joins a cycle, and also when a listed edge
+// is gone but still in the baseline, so a removed cycle cannot quietly return.
 //
 //   npx tsx src/scripts/checkDependencyCycles.ts            check against baseline
 //   npx tsx src/scripts/checkDependencyCycles.ts --update   rewrite the baseline
@@ -36,7 +36,9 @@ const resolve = (from: string, specifier: string): string | null => {
     if (specifier.startsWith(alias)) base = target + specifier.slice(alias.length);
   }
   if (base === null) return null;
-  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+  // TypeScript resolves `./x.js` to `./x.ts` / `./x.tsx`.
+  const stem = base.replace(/\.jsx?$/, '');
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`, `${stem}.ts`, `${stem}.tsx`]) {
     if (known.has(candidate)) return candidate;
   }
   return null;
@@ -56,6 +58,10 @@ const runtimeImports = (file: string): string[] => {
       if (onlyTypeSpecifiers) continue;
       if (ts.isStringLiteral(statement.moduleSpecifier)) specifiers.push(statement.moduleSpecifier.text);
     } else if (ts.isExportDeclaration(statement) && statement.moduleSpecifier && !statement.isTypeOnly) {
+      const clause = statement.exportClause;
+      const onlyTypeSpecifiers = clause && ts.isNamedExports(clause)
+        && clause.elements.length > 0 && clause.elements.every((element) => element.isTypeOnly);
+      if (onlyTypeSpecifiers) continue;
       if (ts.isStringLiteral(statement.moduleSpecifier)) specifiers.push(statement.moduleSpecifier.text);
     }
   }
@@ -164,8 +170,8 @@ if (args.has('--json')) {
   console.log(`Dependency cycles: ${summary.cyclicGroups} groups, ${summary.modulesInCycles} modules, ${summary.cyclicEdges} cyclic edges (largest group ${summary.largestGroup}). Layer violations: ${summary.layerViolations}.`);
   const removed = [...cycles.removed, ...layers.removed];
   if (removed.length > 0) {
-    console.log(`\n${removed.length} baseline edge(s) are gone — shrink the baseline with --update:`);
-    removed.forEach((edge) => console.log(`  - ${edge}`));
+    console.error(`\n${removed.length} baseline edge(s) are gone — shrink the baseline with --update and commit it:`);
+    removed.forEach((edge) => console.error(`  - ${edge}`));
   }
   if (cycles.added.length > 0) {
     console.error(`\nNew import(s) inside a dependency cycle (${cycles.added.length}). Move the shared code to a lower layer instead:`);
@@ -176,4 +182,4 @@ if (args.has('--json')) {
     layers.added.forEach((edge) => console.error(`  + ${edge} (${layerRules.find((rule) => rule.from.test(edge.split(' -> ')[0]) && rule.to.test(edge.split(' -> ')[1]))?.rule})`));
   }
 }
-if (cycles.added.length > 0 || layers.added.length > 0) process.exit(1);
+if (cycles.added.length + layers.added.length + cycles.removed.length + layers.removed.length > 0) process.exit(1);

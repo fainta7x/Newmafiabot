@@ -12,6 +12,7 @@ import { pokerTournamentLobbies, rebuyPoker } from './pokerLobbyService.ts';
 import { mutateTokenBalance, TokenInsufficientFundsError } from './tokenLedgerService.ts';
 import { processRunningPokerTournaments, seatLateEntrant } from './pokerTournamentTablesService.ts';
 import { parsePokerTournamentAnnounce, runPokerTournamentAnnouncements } from './pokerTournamentAnnouncementService.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 export class PokerTournamentError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -305,7 +306,7 @@ export function startPokerTournamentWorker(db: DatabaseWrapper) {
   const run = () => {
     if (tournamentScanInFlight) return;
     tournamentScanInFlight = true;
-    void tickPokerTournaments(db)
+    void timeBackgroundJob('poker_tournaments', () => tickPokerTournaments(db))
       .catch((error) => console.error('[POKER TOURNAMENT] scan failed:', error instanceof Error ? error.message : String(error)))
       .finally(() => { tournamentScanInFlight = false; });
   };

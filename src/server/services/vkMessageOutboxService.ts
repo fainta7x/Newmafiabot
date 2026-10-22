@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
 import { startVkLiveEveningSyncWorker } from './vkLiveEveningSyncWorker.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 export type VkMessageStatus = 'pending' | 'sent' | 'failed';
 export type VkFailureKind = 'permission_denied' | 'temporary' | 'permanent' | 'configuration' | null;
@@ -203,7 +204,7 @@ export function kickVkMessageOutbox(db: DatabaseWrapper) {
   }
   if (drainInFlight) return;
   drainInFlight = true;
-  void drainVkMessageOutbox(db).catch((error) => console.error('[VK OUTBOX] Immediate drain failed:', error instanceof Error ? error.message : String(error))).finally(() => { drainInFlight = false; });
+  void timeBackgroundJob('vk_message_outbox', () => drainVkMessageOutbox(db)).catch((error) => console.error('[VK OUTBOX] Immediate drain failed:', error instanceof Error ? error.message : String(error))).finally(() => { drainInFlight = false; });
 }
 export function startVkMessageOutboxWorker(db: DatabaseWrapper) {
   if (workerTimer) return;

@@ -8,6 +8,7 @@ import { runEveningShortfallChecks } from './eveningShortfallService.ts';
 import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
 import { runClubResultPosts } from './clubResultPostService.ts';
 import { runOrganizerReminders } from './organizerReminderService.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -132,7 +133,7 @@ export function startPersonalTelegramNotificationWorker(db: DatabaseWrapper) {
   const run = () => {
     if (scanInFlight) return;
     scanInFlight = true;
-    void reconcilePersonalNotifications(db)
+    void timeBackgroundJob('personal_notifications', () => reconcilePersonalNotifications(db))
       .catch((error) => console.error('[PERSONAL NOTIFICATIONS] reconciliation failed:', error instanceof Error ? error.message : String(error)))
       .finally(() => { scanInFlight = false; });
   };

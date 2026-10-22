@@ -5,6 +5,7 @@ import { createDatabaseConnection } from '../db/index.ts';
 import {
   SLOW_REQUEST_MS, SLOW_TRANSACTION_MS, performanceSnapshot, recordLoopWindow, recordSlowTransaction,
   requestFinished, requestStarted, resetPerformanceProbeForTesting, routeLabel, setSlowRequestThresholdForTesting,
+  SLOW_JOB_SQLITE_MS, timeBackgroundJob,
 } from '../lib/performanceProbe.ts';
 import { performanceMiddleware, requestRouteLabel } from '../server/services/performanceWatchdog.ts';
 import { createRuntimeHealthRoutes } from '../server/routes/runtimeHealthRoutes.ts';
@@ -91,6 +92,26 @@ describe('the record of what made the server slow', () => {
     const { slow_transactions } = performanceSnapshot();
     expect(slow_transactions.some((item) => item.held_ms >= SLOW_TRANSACTION_MS)).toBe(true);
     expect(slow_transactions.some((item) => item.waited_ms >= SLOW_TRANSACTION_MS)).toBe(true);
+    db.sqlite.close();
+  });
+
+  it('records a background job whose SQLite time blocked the server, and only that job', async () => {
+    const db = createDatabaseConnection(':memory:');
+    await db.exec('CREATE TABLE IF NOT EXISTS probe_numbers (n INTEGER)');
+    const busy = async () => {
+      // A recursive CTE keeps SQLite busy synchronously, like a heavy scan in a worker.
+      const started = performance.now();
+      while (performance.now() - started < SLOW_JOB_SQLITE_MS + 50) {
+        await db.get('WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 200000) SELECT COUNT(*) FROM c');
+      }
+    };
+    await timeBackgroundJob('heavy_job', busy);
+    await timeBackgroundJob('light_job', async () => { await db.get('SELECT 1'); });
+    await db.get('WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 200000) SELECT COUNT(*) FROM c');
+    const { slow_jobs } = performanceSnapshot();
+    expect(slow_jobs.map((item) => item.job)).toEqual(['heavy_job']);
+    expect(slow_jobs[0].sqlite_ms).toBeGreaterThanOrEqual(SLOW_JOB_SQLITE_MS);
+    expect(slow_jobs[0].sqlite_calls).toBeGreaterThan(0);
     db.sqlite.close();
   });
 });

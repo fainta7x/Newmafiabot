@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { recordSlowTransaction, SLOW_TRANSACTION_MS } from '../lib/performanceProbe.ts';
+import { addSqliteTime, recordSlowTransaction, SLOW_TRANSACTION_MS } from '../lib/performanceProbe.ts';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
@@ -91,10 +91,10 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   let savepointCounter = 0;
   const wrapper: DatabaseWrapper = {
     sqlite, drizzle: drizzleDb, dbPath: resolvedDbPath,
-    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { return sqlite.prepare(sql).all(...params) as T[]; },
-    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; },
-    async run(sql: string, params: any[] = []) { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; },
-    async exec(sql: string) { sqlite.exec(sql); },
+    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { const t = performance.now(); try { return sqlite.prepare(sql).all(...params) as T[]; } finally { addSqliteTime(performance.now() - t); } },
+    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { const t = performance.now(); try { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; } finally { addSqliteTime(performance.now() - t); } },
+    async run(sql: string, params: any[] = []) { const t = performance.now(); try { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; } finally { addSqliteTime(performance.now() - t); } },
+    async exec(sql: string) { const t = performance.now(); try { sqlite.exec(sql); } finally { addSqliteTime(performance.now() - t); } },
     async transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T> {
       // One SQLite connection serves every request, and a transaction spans awaits: two overlapping transactions
       // used to fail with «cannot start a transaction within a transaction» (the weekly evening automation at startup).

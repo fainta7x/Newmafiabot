@@ -8,6 +8,7 @@ import {
   requestBotPublicRouterSync,
   requestBotTournamentTelegramSync,
 } from './botTelegramSyncService.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 export type TelegramSyncJobKind = 'evening' | 'public_router';
 export type TelegramDispatchJobKind = 'tournament' | 'announcement' | 'reminder';
@@ -406,7 +407,7 @@ export function startTelegramSyncOutboxWorker(
   if (workerTimers.has(db as object)) return;
   const intervalMs = Math.max(5_000, Number(options.intervalMs || DEFAULT_WORKER_INTERVAL_MS));
   const run = () => {
-    void drainTelegramSyncOutbox(db).catch((error) => {
+    void timeBackgroundJob('telegram_sync_outbox', () => drainTelegramSyncOutbox(db)).catch((error) => {
       console.error('[TELEGRAM] Outbox worker failed:', error);
     });
   };

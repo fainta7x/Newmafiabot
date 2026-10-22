@@ -19,6 +19,7 @@ import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
 import { getVkDestinations } from './vkPublishingService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HORIZON_DAYS = 35;
@@ -338,7 +339,7 @@ export async function reconcileWeeklyEveningAutomation(
 export function startWeeklyEveningAutomationWorker(db: DatabaseWrapper): void {
   if (workerTimers.has(db as object)) return;
   const run = () => {
-    void reconcileWeeklyEveningAutomation(db).catch((error) => {
+    void timeBackgroundJob('weekly_evening_automation', () => reconcileWeeklyEveningAutomation(db)).catch((error) => {
       console.error('[WEEKLY EVENING AUTOMATION] Background reconcile failed:', error);
     });
   };

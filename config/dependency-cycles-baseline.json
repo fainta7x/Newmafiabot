@@ -1,13 +1,11 @@
 {
-  "modules": 850,
-  "cyclicGroups": 2,
-  "modulesInCycles": 13,
-  "cyclicEdges": 19,
+  "modules": 839,
+  "cyclicGroups": 1,
+  "modulesInCycles": 11,
+  "cyclicEdges": 17,
   "largestGroup": 11,
-  "layerViolations": 10,
+  "layerViolations": 2,
   "edges": [
-    "src/db/index.ts -> src/db/seed.ts",
-    "src/db/seed.ts -> src/db/index.ts",
     "src/server/services/eveningPeopleService.ts -> src/server/services/guestPlayerService.ts",
     "src/server/services/eveningRecruitmentService.ts -> src/server/services/eveningPeopleService.ts",
     "src/server/services/eveningRecruitmentService.ts -> src/server/services/eveningSlotPlanningService.ts",
@@ -27,15 +25,7 @@
     "src/server/services/vkMessageOutboxService.ts -> src/server/services/vkLiveEveningSyncWorker.ts"
   ],
   "layers": [
-    "src/db/applyEloScaleMigration.ts -> src/server/services/eloRatingService.ts",
-    "src/db/applyPlayerStarterTokenGrant.ts -> src/server/services/tokenLedgerService.ts",
     "src/db/ensureIsolatedTestRuntimeSchema.ts -> src/server/services/eveningAnnouncementTrackingService.ts",
-    "src/db/ensureIsolatedTestRuntimeSchema.ts -> src/server/services/uiUsageService.ts",
-    "src/db/fixFandorinAug28GameIdentityMigration.ts -> src/server/services/clubGameTokenSettlementService.ts",
-    "src/db/fixFandorinAug28GameIdentityMigration.ts -> src/server/services/eloRatingService.ts",
-    "src/db/fixFandorinAug28GameIdentityMigration.ts -> src/server/services/eveningPaymentPricingService.ts",
-    "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGamePostSaveService.ts",
-    "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGameSeatIdentityRepair.ts",
-    "src/db/fixSep4ChaginGameIdentityMigration.ts -> src/server/services/clubGameTokenSettlementService.ts"
+    "src/db/ensureIsolatedTestRuntimeSchema.ts -> src/server/services/uiUsageService.ts"
   ]
 }

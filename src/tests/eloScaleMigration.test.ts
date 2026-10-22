@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureEloSeedSchema } from '../db/ensureEloSeedSchema.ts';
-import { applyEloScaleMigration } from '../db/applyEloScaleMigration.ts';
+import { applyEloScaleMigration } from '../server/dataMigrations/applyEloScaleMigration.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });

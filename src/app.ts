@@ -143,8 +143,8 @@ import { startWeeklyEveningAutomationWorker } from './server/services/weeklyEven
 import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts';
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSchema.ts';
-import { applyEloScaleMigration } from './db/applyEloScaleMigration.ts';
-import { applyPlayerStarterTokenGrant } from './db/applyPlayerStarterTokenGrant.ts';
+import { applyEloScaleMigration } from './server/dataMigrations/applyEloScaleMigration.ts';
+import { applyPlayerStarterTokenGrant } from './server/dataMigrations/applyPlayerStarterTokenGrant.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();

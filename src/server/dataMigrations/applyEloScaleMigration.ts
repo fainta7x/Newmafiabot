@@ -1,6 +1,6 @@
-import type { DatabaseWrapper } from './index.ts';
-import { DEFAULT_ELO_SEED } from './ensureEloSeedSchema.ts';
-import { ELO_SCALE, rebuildCanonicalEloRatings } from '../server/services/eloRatingService.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
+import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
+import { ELO_SCALE, rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
 
 const MIGRATION_NAME = '0042_elo_scale_x5_v1';
 

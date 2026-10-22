@@ -173,7 +173,7 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 - a. Audit + guard (this step).
 - b. Services stop importing route files: `calculateBestMovePoints` → `services/bestMovePoints.ts`, `internalGetStandings` / `internalGetNominations` → `services/tournamentStandingsService.ts` (unchanged code); done in the same PR as a.
 - c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages (done, second PR).
-- d. Start-up data migrations out of `db/` into a runner above it (what they do stays the same); `db/index.ts ↔ seed.ts`.
+- d. Start-up data migrations moved to `src/server/dataMigrations/`, one-off repairs run from `server.ts` (same order); `db/index.ts ↔ seed.ts` fixed (done, with c and e). Deleting the one-off repairs waits for a read of production `migration_history` (no access path yet).
 - e. Start bundle: «Ведение», poker, «Часовая башня» and `/guide` load on demand; start JS 1978 → 972 KB (done, PR after c).
 - f. Evening lifecycle service ring (11 modules) — high risk, integration tests first, owner sees the plan before code.
 - Later passes not yet done: route-by-route auth review, SQLite query plans, coverage of the hotspots (`LiveGameEngine.tsx`, `CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `lib/api.ts`).

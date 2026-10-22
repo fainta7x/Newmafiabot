@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { applySep4ChaginGameIdentityMigration } from '../db/fixSep4ChaginGameIdentityMigration';
+import { applySep4ChaginGameIdentityMigration } from '../server/dataMigrations/fixSep4ChaginGameIdentityMigration';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db';
 import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema';
 import { ensureClubOperationsSchema } from '../db/ensureClubOperationsSchema';

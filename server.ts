@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createApp } from './src/app.ts';
 import { getDb } from './src/db/index.ts';
+import { runStartupHistoricalRepairs } from './src/server/dataMigrations/startupHistoricalRepairs.ts';
 import developerReadRoutes from './src/server/routes/developerReadRoutes.ts';
 import { startGoMafiaFederationSync } from './src/server/services/goMafiaFederationSync.ts';
 
@@ -64,6 +65,7 @@ async function startServer() {
   validateProductionEnvironment();
 
   const db = await getDb();
+  await runStartupHistoricalRepairs(db);
   console.log('[DATABASE] Database initialized.');
   const app = await createApp(db);
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
 import { ensureClubOperationsSchema } from '../db/ensureClubOperationsSchema.ts';
-import { applyFandorinAug28GameIdentityMigration } from '../db/fixFandorinAug28GameIdentityMigration.ts';
+import { applyFandorinAug28GameIdentityMigration } from '../server/dataMigrations/fixFandorinAug28GameIdentityMigration.ts';
 
 let db: DatabaseWrapper | null = null;
 afterEach(() => {

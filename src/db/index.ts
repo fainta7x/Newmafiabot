@@ -12,11 +12,6 @@ import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramP
 import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayerIdentitiesMigration.ts';
 import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
 import { applyUnifiedTournamentFlowMigration, UNIFIED_TOURNAMENT_FLOW_MIGRATION } from './applyUnifiedTournamentFlowMigration.ts';
-import { applyMillourtDuplicateMergeMigration } from './mergeMillourtDuplicateMigration.ts';
-import { applyFandorinAug28GameIdentityMigration } from './fixFandorinAug28GameIdentityMigration.ts';
-import { applySep4ChaginGameIdentityMigration } from './fixSep4ChaginGameIdentityMigration.ts';
-import { ensureJudgeAuthoritySchema } from './ensureJudgeAuthoritySchema.ts';
-import { ensureClubOperationsSchema } from './ensureClubOperationsSchema.ts';
 import { ensureIsolatedTestRuntimeSchema } from './ensureIsolatedTestRuntimeSchema.ts';
 
 export interface DatabaseWrapper {
@@ -144,30 +139,7 @@ export async function getDb(): Promise<DatabaseWrapper> {
   if (!defaultDbInstance) {
     defaultDbInstance = createDatabaseConnection();
     await seedDemoData(defaultDbInstance);
-    try {
-      await applyMillourtDuplicateMergeMigration(defaultDbInstance);
-    } catch (error) {
-      // This is a one-off data hygiene repair. Never make the whole application unavailable
-      // if an unexpected historical reference prevents the merge; leave a clear server log instead.
-      console.error('[DATA] Millourt duplicate cleanup failed:', error);
-    }
-    // The historical game repair depends on both judge_level and club_role because it
-    // re-runs canonical evening pricing after swapping the player identity. Ensure the
-    // same operational schema that createApp uses exists before the one-off migration.
-    await ensureJudgeAuthoritySchema(defaultDbInstance);
-    await ensureClubOperationsSchema(defaultDbInstance);
-    try {
-      await applyFandorinAug28GameIdentityMigration(defaultDbInstance);
-    } catch (error) {
-      // This repair is deliberately narrow and fail-closed. A data mismatch must never
-      // reset/replace the database or prevent the application from starting.
-      console.error('[DATA] Fandorin 2026-08-28 game identity repair failed:', error);
-    }
-    try {
-      await applySep4ChaginGameIdentityMigration(defaultDbInstance);
-    } catch (error) {
-      console.error('[DATA] Confirmed 2026-09-04 game identity repair failed:', error);
-    }
+    // Historical data repairs run from the server start (src/server/dataMigrations/startupHistoricalRepairs.ts).
   }
   return defaultDbInstance;
 }

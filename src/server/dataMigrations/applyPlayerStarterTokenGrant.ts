@@ -1,9 +1,9 @@
-import type { DatabaseWrapper } from './index.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
 import {
   grantPlayerStarterTokens,
   PLAYER_STARTER_TOKEN_GRANT,
   PLAYER_STARTER_TOKEN_GRANT_SOURCE,
-} from '../server/services/tokenLedgerService.ts';
+} from '../services/tokenLedgerService.ts';
 
 export const PLAYER_STARTER_TOKEN_GRANT_MIGRATION = PLAYER_STARTER_TOKEN_GRANT_SOURCE;
 

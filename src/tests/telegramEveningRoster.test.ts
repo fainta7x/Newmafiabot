@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
-import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection } from '../server/services/eveningSlotWritesService.ts';
 
 let db: DatabaseWrapper | null = null;
 

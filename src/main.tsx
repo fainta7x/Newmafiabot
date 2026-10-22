@@ -33,6 +33,21 @@ initializeCrmPrimaryTitleOwnership();
 installUiTelemetry();
 installPresence();
 
+// After a deploy an open page may ask for a lazily loaded screen whose old file is gone: reload once to get
+// the new build instead of «Не удалось открыть экран». The game in progress lives in device storage and resumes.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    const key = 'mafia_chunk_reload_at';
+    const last = Number(sessionStorage.getItem(key) || 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    return;
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 // While the server restarts, the service worker shows «Приложение перезапускается» instead of a bare 503.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js').catch(() => undefined); });

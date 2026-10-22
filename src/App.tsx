@@ -10,7 +10,7 @@ import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import { PublicOffer } from "./components/public/PublicOffer.tsx";
 import TelegramLinkRedeem from "./components/player/TelegramLinkRedeem.tsx";
-import { PublicGuide, guideTabFromSearch } from "./components/public/PublicGuide.tsx";
+const PublicGuideRoute = lazy(() => import("./components/public/PublicGuideRoute.tsx"));
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 const PlayerReplayScreen = lazy(() => import("./components/player/PlayerReplayScreen.tsx"));
 import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboarding.tsx";
@@ -239,7 +239,7 @@ function AppContent() {
 
   if (isLiveRoute) return <BigScreenLive />;
 
-  if (isGuideRoute) return <PublicGuide initialTab={guideTabFromSearch(window.location.search)} onNavigate={navigatePath} />;
+  if (isGuideRoute) return <PublicGuideRoute onNavigate={navigatePath} />;
 
   if (isObsBridgeRoute) return <ObsBridgePage />;
 

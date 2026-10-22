@@ -10,7 +10,8 @@ describe('Telegram evening RSVP contracts', () => {
   it('maps Буду to all game slots and keeps non-going quick answers without slot commitments', () => {
     const source = read('src/server/routes/botRoutes.ts');
 
-    expect(source).toContain("import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';");
+    expect(source).toContain("import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';");
+    expect(source).toContain("import { replacePlayerSlotSelection } from '../services/eveningSlotWritesService.ts';");
     expect(source).toContain("if (responseStatus === 'going')");
     expect(source).toContain('plan.slots.map((slot) => slot.id)');
     expect(source).toContain("await replacePlayerSlotSelection(db, String(evening.id), String(player.id), [], { notifyOrganizer: false, source: 'telegram_quick_rsvp' });");

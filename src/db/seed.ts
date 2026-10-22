@@ -1,4 +1,4 @@
-import { DatabaseWrapper } from './index.ts';
+import type { DatabaseWrapper } from './index.ts';
 
 export async function seedDemoData(db: DatabaseWrapper, options: { isolatedTest?: boolean } = {}): Promise<void> {
   // Production club data is never seeded. The only production-mode exception is

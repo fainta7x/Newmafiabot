@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { applyPlayerStarterTokenGrant } from '../db/applyPlayerStarterTokenGrant.ts';
+import { applyPlayerStarterTokenGrant } from '../server/dataMigrations/applyPlayerStarterTokenGrant.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { reconcileTokenOpeningBalances, verifyTokenLedgerConsistency } from '../server/services/tokenLedgerService.ts';
 

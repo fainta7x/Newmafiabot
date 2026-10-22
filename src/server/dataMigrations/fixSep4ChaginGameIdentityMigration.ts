@@ -1,8 +1,8 @@
 import crypto from 'crypto';
-import type { DatabaseWrapper } from './index.ts';
-import { replaceClubGameSeatIdentity } from '../server/services/clubGameSeatIdentityRepair.ts';
-import { reconcileClubGameTokenSettlement } from '../server/services/clubGameTokenSettlementService.ts';
-import { runClubGamePostSaveTasks } from '../server/services/clubGamePostSaveService.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
+import { replaceClubGameSeatIdentity } from '../services/clubGameSeatIdentityRepair.ts';
+import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
+import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
 
 const MIGRATION_KEY = '0016_fix_sep4_chagin_game_identity_v2_confirmed';
 const TARGET_DATE = '2026-09-04';

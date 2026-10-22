@@ -11,16 +11,6 @@ const sliceBetween = (source: string, start: string, end: string) => {
 };
 
 describe('instant CRM row actions', () => {
-  it('does not reload the whole roster after attendance or payment quick actions', () => {
-    const source = read('src/components/crm/EveningParticipantsWorkboard.tsx');
-    const patch = sliceBetween(source, 'const patch = async', 'const markAttended');
-
-    expect(patch).toContain('replaceParticipant(optimistic)');
-    expect(patch).toContain('const updated = await api.updateParticipant');
-    expect(patch).not.toContain('load(true)');
-    expect(source).toContain('const [busyIds, setBusyIds]');
-  });
-
   it('keeps closeout payment and attendance edits local and uses the real bulk attendance field', () => {
     const source = read('src/components/crm/EveningCloseoutPanel.tsx');
     const patch = sliceBetween(source, 'const patchParticipants = async', 'const openWalkIn');
@@ -34,11 +24,8 @@ describe('instant CRM row actions', () => {
   });
 
   it('does not globally lock the other quick-attendance rows while one player saves', () => {
-    const attendance = read('src/components/crm/EveningAttendanceQuickControls.tsx');
     const activeRoster = read('src/components/crm/EveningActiveRosterView.tsx');
 
-    expect(attendance).toContain('const [busyIds, setBusyIds]');
-    expect(attendance).toContain('const rowBusy = busyIds.has(p.id)');
     expect(activeRoster).toContain('const [busyIds, setBusyIds]');
     expect(activeRoster).toContain('const rowBusy = busyIds.has(participant.id)');
   });

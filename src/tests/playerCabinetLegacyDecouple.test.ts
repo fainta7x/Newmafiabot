@@ -8,7 +8,7 @@ describe('player cabinet legacy decoupling', () => {
   it('keeps the active player shell independent from PlayerCabinetShellLegacy', () => {
     const shell = read('src/components/player/PlayerCabinetShell.tsx');
     expect(shell).not.toContain('PlayerCabinetShellLegacy');
-    expect(shell).toContain("import PlayerConductCenter from './PlayerConductCenter.tsx'");
+    expect(shell).toContain("const PlayerConductCenter = lazy(() => import('./PlayerConductCenter.tsx'));");
     expect(shell).toContain("section === 'conduct'");
     expect(shell).toContain('canOpenAdmin={canOpenAdmin}');
   });

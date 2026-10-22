@@ -11,7 +11,8 @@ import { loadPlayerAchievementProfile } from '../services/playerAchievementsServ
 import { isParticipantResponseLockedAfterAttendance, setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotificationService.ts';
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
-import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection } from '../services/eveningSlotWritesService.ts';
 import { redeemPlayerClaimLink } from '../services/playerClaimLinkService.ts';
 import { recordInviteLinkReferral } from '../services/premiumPlayerConnectionsService.ts';
 import { isNicknameClaimable, isNicknameVkOnlyProfile, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';

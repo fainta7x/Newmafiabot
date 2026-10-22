@@ -5,7 +5,8 @@ vi.mock('../server/services/eveningRescheduleService.ts', () => ({ notifyEvening
 
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
-import { loadEveningSlotPlan, updateEveningSlotSettings } from '../server/services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService.ts';
+import { updateEveningSlotSettings } from '../server/services/eveningSlotWritesService.ts';
 import { kickVkLiveEveningSync } from '../server/services/vkLiveEveningSyncWorker.ts';
 import { notifyEveningRescheduled } from '../server/services/eveningRescheduleService.ts';
 

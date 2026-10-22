@@ -78,7 +78,7 @@ A walk-in can therefore be `unanswered` (or keep an older real response) while a
 - Persisted participant RSVP and physical attendance are written through `src/server/services/eveningParticipantState.ts` and the authenticated routes (including `participantRoutes.ts`). Compatibility `registration_status` is not a second source of truth.
 - Current/legacy RSVP and attendance are interpreted by `eveningDomain.ts` and `eveningResponse.ts`.
 - Two **read-only**, distinct CRM projections belong to `src/lib/eveningParticipantView.ts`: `isInOrganizerWorkingRoster` includes manually added unanswered participants; `needsEveningCloseoutAttendance` identifies only pending participants who previously answered going/late.
-- Game-seat eligibility is separately owned by `isEveningGameRosterEligible` in `eveningDomain.ts` and game services; selection of particular game slots by `eveningSlotPlanningService.ts`; format-specific payment expectation by `eveningPaymentScope.ts` and the pricing services.
+- Game-seat eligibility is separately owned by `isEveningGameRosterEligible` in `eveningDomain.ts` and game services; selection of particular game slots by `eveningSlotPlanningService.ts` (read model, pricing) and `eveningSlotWritesService.ts` (organizer slot settings and a player's game choice, which refresh the announcements and send the reschedule notice); format-specific payment expectation by `eveningPaymentScope.ts` and the pricing services.
 - A player may be in the organizer roster without an automatic game slot. A walk-in may have arrived without an earlier positive RSVP. Do not infer payments or game eligibility from the organizer roster predicate; do not move write operations into presentation adapters.
 
 **Parallel architecture work:** Claude's shared game-team normalization and client GET helper are distinct from the participant state projection workstream. Reconcile other agent branches against the latest `main` rather than overwriting them.
@@ -128,7 +128,6 @@ Main areas:
 - `CRMOverview.tsx`;
 - `EveningsList.tsx`;
 - `EveningWorkspace.tsx`;
-- `EveningParticipantsWorkboard.tsx`;
 - `EveningCloseoutPanel.tsx`;
 - `PlayersCRM.tsx`;
 - `TasksCRM.tsx`;
@@ -149,7 +148,7 @@ Quick CRM row actions should update affected local state without forcing a full 
 
 Primary UI:
 
-- `EveningParticipantsWorkboard.tsx`;
+- `EveningActiveRosterView.tsx`;
 - `EveningCloseoutPanel.tsx`;
 - `EveningPaymentsPanel.tsx` where mounted.
 
@@ -303,8 +302,8 @@ Primary ownership:
 
 - `deploy/start-web.sh` — storage contract; pins production to `/data/mafia_crm.sqlite` and the in-app sandbox to `/data/mafia_crm.test.sqlite`;
 - `src/db/index.ts` — generic DB wrapper/bootstrap logic used by production SQLite and tests;
-- `src/db/tursoHttpDatabase.ts` — retained legacy adapter; it is not selected by the canonical Amvera start script;
-- `src/db/` + `drizzle/` — schema/migrations/ensure logic.
+- `src/db/` + `drizzle/` — schema/migrations/ensure logic; nothing in `src/db/` imports server code.
+- `src/server/dataMigrations/` — data migrations that need server services (Elo scale, starter tokens, the Fandorin 2026-08-28 and Chagin 2026-09-04 game identity repairs); `startupHistoricalRepairs.ts` runs the one-off repairs from `server.ts` right after `getDb()` and before `createApp`.
 
 ### Production backend selection
 

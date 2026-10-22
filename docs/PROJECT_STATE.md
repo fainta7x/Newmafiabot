@@ -172,10 +172,10 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 **Resumed 2026-10-22 (owner: «пора заняться рефакторингом … какие аудиты?», then «согласен со всем планом, приступай»).** Audit results with file lists: `docs/AUDIT_LOG.md` → «Architecture and dependency audit». CI now runs `npm run project:deps`: no new runtime import cycle and no new import against the layer direction (`lib/shared → db → services → routes`, UI never imports server/db); the existing ones are listed in `config/dependency-cycles-baseline.json` and the list may only shrink. Order of slices, one PR each:
 - a. Audit + guard (this step).
 - b. Services stop importing route files: `calculateBestMovePoints` → `services/bestMovePoints.ts`, `internalGetStandings` / `internalGetNominations` → `services/tournamentStandingsService.ts` (unchanged code); done in the same PR as a.
-- c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages.
-- d. Start-up data migrations out of `db/` into a runner above it (what they do stays the same); `db/index.ts ↔ seed.ts`.
-- e. Measure the 1.95 MB start bundle and split the player cabinet by screen (needs 390 px screenshots).
-- f. Evening lifecycle service ring (11 modules) — high risk, integration tests first, owner sees the plan before code.
+- c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages (done, second PR).
+- d. Start-up data migrations moved to `src/server/dataMigrations/`, one-off repairs run from `server.ts` (same order); `db/index.ts ↔ seed.ts` fixed (done, with c and e). Deleting the one-off repairs waits for a read of production `migration_history` (no access path yet).
+- e. Start bundle: «Ведение», poker, «Часовая башня» and `/guide` load on demand; start JS 1978 → 972 KB (done, PR after c).
+- f. Evening lifecycle service ring (11 modules): broken by moving the two slot writes to `eveningSlotWritesService.ts` and loading the VK sync on demand from guest changes; no runtime import cycles remain (owner: «всё разрешаю», 2026-10-22). Existing evening/slot/VK/Telegram integration tests pass unchanged except import paths.
 - Later passes not yet done: route-by-route auth review, SQLite query plans, coverage of the hotspots (`LiveGameEngine.tsx`, `CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `lib/api.ts`).
 
 **Acceptance for each slice:** existing values, fallbacks, API results and user-visible copy remain unchanged unless a specific change was explicitly approved; no unreviewed layout shift; test evidence for affected behaviour; exact PR/head SHA and CI result recorded; separately note deployment and runtime verification. If tests cannot be run locally through GitHub-only access, rely on PR CI and do not label unverified code as safe/merged.

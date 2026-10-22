@@ -1,8 +1,8 @@
 import crypto from 'crypto';
-import type { DatabaseWrapper } from './index.ts';
-import { reconcileClubGameTokenSettlement } from '../server/services/clubGameTokenSettlementService.ts';
-import { rebuildCanonicalEloRatings } from '../server/services/eloRatingService.ts';
-import { reconcileRegularEveningPayments } from '../server/services/eveningPaymentPricingService.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
+import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
+import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 
 const MIGRATION_KEY = '0015_fix_fandorin_aug28_game_identity_v1';
 const TARGET_DATE = '2026-08-28';

@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
-import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
+import { replacePlayerSlotSelection } from '../services/eveningSlotWritesService.ts';
 
 const router = Router();
 

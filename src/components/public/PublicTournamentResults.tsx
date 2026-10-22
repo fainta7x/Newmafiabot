@@ -14,6 +14,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { api } from '../../lib/api.ts';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 interface PublicTournamentResultsProps {
   token: string;
@@ -108,18 +109,7 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
   const { tournament, standings, nominations } = data;
   const top3 = standings.slice(0, 3);
 
-  // Format date helper
-  const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric', timeZone: 'Europe/Moscow' });
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDate = (dateStr: string) => formatMoscowDate(dateStr, 'long', { empty: '', invalidAsRaw: true });
 
   return (
     <div className="min-h-screen bg-[#111113] text-[#F5F1EA] selection:bg-[#C94F67]/30 selection:text-white">

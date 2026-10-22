@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 type RatingPeriod = {
   id: string;
@@ -81,10 +82,7 @@ const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   return body as T;
 };
 
-const formatDate = (value: string) => new Intl.DateTimeFormat('ru-RU', {
-  day: '2-digit', month: '2-digit', year: 'numeric',
-  timeZone: 'Europe/Moscow',
-}).format(new Date(value));
+const formatDate = (value: string) => formatMoscowDate(value, 'numeric', { empty: '—' });
 
 const formatLabels: Record<PeriodEvening['format'], string> = {
   NOVICE: 'Для новичков',

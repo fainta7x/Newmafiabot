@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, Trophy } from 'lucide-react';
 import PlayerTournamentView from './PlayerTournamentView.tsx';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 type Phase = 'registration' | 'registration_closed' | 'live' | 'finished';
 type TournamentItem = {
@@ -15,10 +16,7 @@ type TournamentItem = {
   participated: boolean;
 };
 
-const formatDate = (value: string | null) => {
-  const time = value ? new Date(value).getTime() : NaN;
-  return Number.isFinite(time) ? new Date(time).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' }) : null;
-};
+const formatDate = (value: string | null) => formatMoscowDate(value, 'long');
 
 const PHASE_BADGE: Record<Phase, string> = { registration: 'регистрация', registration_closed: 'скоро', live: 'идёт', finished: '' };
 const GROUPS: Array<{ title: string; match: (phase: Phase) => boolean }> = [

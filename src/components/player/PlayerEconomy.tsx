@@ -2,6 +2,7 @@ import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { getJson } from '../../lib/requestJson.ts';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 type EconomyScope = 'shop' | 'bets' | 'history';
 type BetTeam = 'red' | 'black';
@@ -108,18 +109,7 @@ type BettingData = {
 
 const formatTokens = (value: number) => Math.trunc(Number(value || 0)).toLocaleString('ru-RU');
 
-const formatDateTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Europe/Moscow',
-  }).format(date);
-};
+const formatDateTime = (value: string) => formatMoscowDate(value, 'short-time', { empty: '', invalidAsRaw: true });
 
 const purchaseStatusLabel = (status: string) => {
   if (status === 'redeemed') return 'использовано';

@@ -1446,7 +1446,13 @@ The owner asked: «все элементы подчинялись единым �
   - Visible change: amounts of 1 000 ₽ and more now show the separator everywhere.
   - The CRM analytics and command-center keep negative amounts.
 - **Fixed — plural forms.** `lib/russianPlural.ts` is the one plural rule: 5 server copies, `guideCatalog.pluralRu`, `AppUsagePanel.times` and the `StaffWorkStats` alias are removed.
-- **Still open:** dates, avatars, loading states, status labels.
+- **Fixed — dates.** `lib/moscowDate.ts` `formatMoscowDate` is the one date formatter:
+  - always Moscow time;
+  - four fixed styles: numeric, short, long, short-time;
+  - one rule for a missing or unreadable date.
+  - It replaces 9 local formatters, and `formatPlayerGameDate` is built on it. Each screen keeps its style, so dates look the same as before.
+  - The CRM rating periods and public tournament results no longer show «Invalid Date» for a bad value.
+- **Still open:** avatars, loading states, status labels.
 
 **B. Bugs (fixable without a rule decision)**
 - `EveningGameProtocolModal.tsx:416-419` shows the role counter as `/6 /1 /2 /1` even for a table of 8–9 players, while the server checks `roleCountsMatchTable`.

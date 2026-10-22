@@ -1,6 +1,7 @@
 import PlayerAchievementPaths, { type AchievementPathsProfile } from './PlayerAchievementPaths';
 import TrophyCabinet from './TrophyCabinet.tsx';
 import { useEffect, useMemo, useState } from 'react';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 type Award = { id:string; kind:string; title:string; tournament_id?:string|null; source_key?:string|null; tournament_name?:string|null; award_date?:string|null; award_year?:number|null; place_result?:string|null; team_name?:string|null; description?:string|null; photo_url?:string|null; pinned_position?:number|null };
 type Achievement = { id:string; name:string; description:string; icon:string; rarity_name:string; earned_at:string|null; category_name?:string };
@@ -8,7 +9,7 @@ type TimelineItem = { id:string; type:string; date:string|null; icon:string; tit
 type Showcase = { evening_titles?:Array<{year:number;count:number}>; evening_win_titles?:Array<{year:number;count:number}>; awards:Award[]; pinned_awards:Award[]; earned_achievements:Achievement[]; timeline:TimelineItem[]; achievement_preferences?:{path_id:string;pins:string[]}|null; achievements:AchievementPathsProfile; stats:{verified_awards:number;achievements_earned:number;achievements_total:number;completed_games:number;manual_milestones:number} };
 /** A medal for the first three places, a ribbon for a nomination, a cup for everything else. */
 const awardIcon=(a:Award)=>{const place=/(^|[^\d])([123])(?:\s*[-–]?\s*(?:е|ое|й|я))?\s*мест/i.exec(`${a.place_result||''} ${a.title||''}`)?.[2];if(place==='1')return '🥇';if(place==='2')return '🥈';if(place==='3')return '🥉';return a.kind==='nomination'?'🎖️':'🏆';};
-const formatDate=(value:string|null|undefined)=>value&&!Number.isNaN(new Date(value).getTime())?new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }):null;
+const formatDate=(value:string|null|undefined)=>formatMoscowDate(value,'numeric');
 
 export default function PremiumProfileShowcase({playerId,isSelf,section='all'}:{playerId:string;isSelf:boolean;section?:'all'|'awards'|'history'|'pinned'}){
  const [data,setData]=useState<Showcase|null>(null); const [error,setError]=useState<string|null>(null); const [busy,setBusy]=useState(false); const [nonce,setNonce]=useState(0);

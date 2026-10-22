@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PlayerDetails } from '../../lib/api.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
 type IntegrityData = {
   player: { birth_day: number | null; birth_month: number | null; birth_year: number | null; birthday_visibility: string; profile_checked_at: string | null; profile_updated_at: string | null };
@@ -9,7 +10,7 @@ type IntegrityData = {
   suggestions: any[];
 };
 
-const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—';
+const formatDate = (value?: string | null) => formatMoscowDate(value, 'numeric', { empty: '—' });
 
 export default function PlayerProfileIntegrityPanel({ player }: { player: PlayerDetails }) {
   const [data, setData] = useState<IntegrityData | null>(null);

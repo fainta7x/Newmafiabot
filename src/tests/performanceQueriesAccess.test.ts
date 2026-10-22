@@ -54,5 +54,20 @@ describe('CPU profile summary', () => {
     expect(summary.longest_busy[0].ms).toBe(3);
     expect(summary.longest_busy[0].hottest[0].stack).toEqual(['renderPng src/server/services/images.ts:10', 'runScan src/server/services/scan.ts:10']);
   });
+
+  it('counts garbage collection as busy time, since a stop-the-world pause is a stall too', () => {
+    const summary = summariseCpuProfile({
+      nodes: [
+        { id: 1, callFrame: { functionName: '(root)', url: '', lineNumber: 0 }, children: [2, 3] },
+        { id: 2, callFrame: { functionName: '(idle)', url: '', lineNumber: 0 } },
+        { id: 3, callFrame: { functionName: '(garbage collector)', url: '', lineNumber: 0 } },
+      ],
+      samples: [2, 3, 3, 2],
+      timeDeltas: [0, 1000, 1000, 1000, 1000],
+    });
+    expect(summary.busy_ms).toBe(2);
+    expect(summary.longest_busy[0].ms).toBe(2);
+    expect(summary.top_self[0].fn).toBe('(garbage collector)');
+  });
 });
 

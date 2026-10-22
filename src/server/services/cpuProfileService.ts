@@ -12,7 +12,8 @@ type Profile = { nodes: ProfileNode[]; samples: number[]; timeDeltas: number[] }
 
 let running = false;
 
-const IDLE = new Set(['(idle)', '(program)', '(garbage collector)']);
+// Idle time only: «(garbage collector)» is a stop-the-world pause and counts as busy, it may be the stall itself.
+const IDLE = new Set(['(idle)', '(program)']);
 
 const frameName = (node: ProfileNode) => {
   const { functionName, url, lineNumber } = node.callFrame;

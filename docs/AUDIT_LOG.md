@@ -1444,6 +1444,9 @@ The owner asked: «все элементы подчинялись единым �
   - Elo and its history share `clubPersonalGamePoints`, `sortTime` and `validatePreparedEvent`; the history copies are removed.
   - The Elo best-move points use `calculateBestMovePoints`.
   - The two integer win rates (`playerEveningSummaryService`, `tableScoutingRoutes`) use `winRatePercent`, the owner rule of 2026-10-04 (one decimal).
+- **Fixed later (2026-10-23):**
+  - The 12 shadowed handlers in `eveningsRoutesBase.ts` are removed. These were the list, card, create, update, participants and settle handlers, together with their legacy «going» and debt rules. The file keeps deletion, adjustments and tables.
+  - The fee-waiver DDL is one function, `ensureEveningFeeWaiverTables`, used by both schema guards. The two definitions were identical by then.
 - **Still open:** the standings totals formula (tournament vs rating period) and the rest of A.
 
 **Progress (step 3, UI primitives, first slice):**

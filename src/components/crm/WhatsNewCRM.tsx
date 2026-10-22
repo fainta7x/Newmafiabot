@@ -2,17 +2,12 @@ import { useEffect, useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { requestJson } from '../../lib/requestJson.ts';
 
 type Entry = { id: string; title: string; body: string; published: boolean; published_at: string | null; created_at: string };
 type Draft = { id: string | null; title: string; body: string; published: boolean };
 
-const request = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
-  if (response.status === 204) return null;
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || 'Не получилось');
-  return data;
-};
+const request = (url: string, init?: RequestInit) => requestJson(url, init, 'Не получилось', { nullOn204: true });
 const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' }) : '');
 const EMPTY: Draft = { id: null, title: '', body: '', published: false };
 

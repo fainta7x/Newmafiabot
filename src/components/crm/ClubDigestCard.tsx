@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Megaphone } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { requestJson } from '../../lib/requestJson.ts';
 
 /**
  * «Сводка для игроков» (owner, 2026-10-05): the owner writes the digest of changes and posts it to the chosen Telegram
@@ -11,12 +12,7 @@ type Recent = { created_at: string; destination_id: string; status: string; erro
 type State = { destinations: Destination[]; recent: Recent[]; max_length: number };
 type Result = { destination: string; status: 'sent' | 'failed' | 'duplicate' | 'uncertain'; error?: string };
 
-const request = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || 'Не получилось');
-  return data;
-};
+const request = (url: string, init?: RequestInit) => requestJson(url, init, 'Не получилось');
 
 const STATUS_LABEL: Record<string, string> = { sent: 'отправлено', failed: 'не отправлено', duplicate: 'уже отправлено сегодня', uncertain: 'результат неизвестен: проверьте группу' };
 

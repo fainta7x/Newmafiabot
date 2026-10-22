@@ -142,4 +142,104 @@ describe('club live result -> persisted protocol', () => {
     expect(player4.removal_reason).toBe('4th_foul');
     expect(player4.disciplinary_penalty_points).toBe(1);
   });
+
+  const seatedSlots = (source: ClubGameRecord, overrides: Record<number, Record<string, unknown>> = {}) =>
+    source.club_protocol!.player_results.map((player) => ({
+      slot_num: player.seat_number,
+      user_id: player.player_id,
+      nickname: player.display_name,
+      role: player.seat_number >= 8 ? 'Мафия' : 'Мирный',
+      alive: true,
+      exit_reason: 'alive',
+      fouls: 0,
+      minor_tech_fouls: 0,
+      major_tech_fouls: 0,
+      removal_reason: null,
+      ppk: false,
+      status_reason: 'Жив',
+      ...(overrides[player.seat_number] || {}),
+    }));
+
+  it('maps first killed, zero-round voted and both confirmed best moves by seat', () => {
+    const source = game();
+    const result = mapEngineResultToProtocol(source, {
+      winning_team: 'Красные',
+      protocol_markers: {
+        firstKilledSlot: 4,
+        zeroRoundVotedSlot: 6,
+        bestMoves: {
+          zero_round_voted: { slot: 6, seats: [8, 9, 1, 2] },
+          first_killed: { slot: 4, seats: [8, 10, 3] },
+        },
+      },
+      slots: seatedSlots(source),
+    });
+
+    expect(result.protocol.winner_team).toBe('red');
+    expect(result.protocol.end_reason).toBe('normal');
+    expect(result.protocol.first_killed_participant_id).toBe('part-4');
+    expect(result.protocol.zero_round_voted_participant_id).toBe('part-6');
+    // The zero-round move comes first, seats are cut to three.
+    expect(result.protocol.best_moves).toEqual([
+      { participant_id: 'part-6', source: 'zero_round_voted', seat_numbers: [8, 9, 1] },
+      { participant_id: 'part-4', source: 'first_killed', seat_numbers: [8, 10, 3] },
+    ]);
+    expect(result.protocol.best_move_participant_id).toBe('part-6');
+    expect(result.protocol.best_move_source).toBe('zero_round_voted');
+    expect(result.protocol.best_move_seats).toEqual([8, 9, 1]);
+  });
+
+  it('keeps the earlier protocol data when the engine sends none, and joins the judge notes', () => {
+    const source = game();
+    source.club_protocol!.protocol = {
+      ...source.club_protocol!.protocol,
+      votes: [{ round_number: 1 } as any],
+      shots: [{ night_number: 1, target_seat: 2, result: 'miss' } as any],
+      best_moves: [{ participant_id: 'part-2', source: 'first_killed', seat_numbers: [9] }],
+      best_move_participant_id: 'part-2',
+      best_move_source: 'first_killed',
+      best_move_seats: [9],
+      judge_notes: 'Заметка до игры',
+    };
+    const result = mapEngineResultToProtocol(source, { winning_team: 'Чёрные', protocol_text: 'Итог игры', slots: seatedSlots(source) });
+
+    expect(result.protocol.votes).toEqual([{ round_number: 1 }]);
+    expect(result.protocol.shots).toEqual([{ night_number: 1, target_seat: 2, result: 'miss' }]);
+    expect(result.protocol.best_moves).toEqual([{ participant_id: 'part-2', source: 'first_killed', seat_numbers: [9] }]);
+    expect(result.protocol.best_move_participant_id).toBe('part-2');
+    expect(result.protocol.best_move_seats).toEqual([9]);
+    expect(result.protocol.judge_notes).toBe('Заметка до игры\nИтог игры');
+    expect(result.protocol.first_killed_participant_id).toBeNull();
+  });
+
+  it('finds a player by seat when the engine slot has another identity, and leaves unseated players as they were', () => {
+    const source = game();
+    const slots = seatedSlots(source, { 5: { user_id: 'guest-x', role: 'Шериф', fouls: 3 } }).filter((slot) => slot.slot_num !== 2);
+    const result = mapEngineResultToProtocol(source, { winning_team: 'Красные', slots });
+
+    const player5 = result.player_results.find((player) => player.seat_number === 5)!;
+    expect(player5.role).toBe('sheriff');
+    expect(player5.regular_fouls).toBe(3);
+    const player2 = result.player_results.find((player) => player.seat_number === 2)!;
+    expect(player2).toEqual(source.club_protocol!.player_results[1]);
+  });
+
+  it('marks a kicked player with four fouls as removed for the fourth foul when the engine gave no reason', () => {
+    const source = game();
+    const result = mapEngineResultToProtocol(source, {
+      winning_team: 'Красные',
+      slots: seatedSlots(source, { 7: { alive: false, exit_reason: 'removed', kick: true, fouls: 4, status_reason: 'Удалён' } }),
+    });
+    const player7 = result.player_results.find((player) => player.seat_number === 7)!;
+    expect(player7.removal_reason).toBe('4th_foul');
+    expect(player7.notes).toBe('Удалён');
+    expect(player7.exit_type).toBe('removed');
+  });
+
+  it('refuses a game without a club protocol', () => {
+    const source = game();
+    delete (source as any).club_protocol;
+    expect(() => mapEngineResultToProtocol(source, {})).toThrow('У игры отсутствует клубный протокол');
+  });
 });
+

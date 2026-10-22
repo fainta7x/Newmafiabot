@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, RefreshCw, Trash2 } from 'lucide-react';
+import { requestJson } from '../../lib/requestJson.ts';
 
 /**
  * «Фото для анонсов» (owner request 2026-09-29): club photos shown above Telegram announcements.
@@ -37,16 +38,7 @@ const shrinkToJpeg = async (file: File): Promise<string> => {
   return btoa(binary);
 };
 
-const request = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, {
-    credentials: 'include',
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || 'Не получилось');
-  return data;
-};
+const request = (url: string, init?: RequestInit) => requestJson(url, init, 'Не получилось');
 
 export function AnnouncementPhotosCard() {
   const [photos, setPhotos] = useState<Photo[]>([]);

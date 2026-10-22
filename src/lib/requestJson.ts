@@ -39,3 +39,20 @@ export async function sendJson<T = any>(
   if (!response.ok) throw new RequestJsonError(body?.error || fallbackError, response.status, body);
   return body as T;
 }
+
+/**
+ * Same-origin JSON request with any `init` (method, body, extra headers); a JSON content type is always sent.
+ * `nullOn204` returns null for an empty 204 answer. Replaces the identical local `request` helpers of CRM cards.
+ */
+export async function requestJson<T = any>(
+  url: string,
+  init: RequestInit | undefined,
+  fallbackError: string,
+  options: { nullOn204?: boolean } = {},
+): Promise<T> {
+  const response = await fetch(url, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+  if (options.nullOn204 && response.status === 204) return null as T;
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new RequestJsonError(body?.error || fallbackError, response.status, body);
+  return body as T;
+}

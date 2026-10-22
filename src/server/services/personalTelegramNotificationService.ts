@@ -9,6 +9,9 @@ import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts
 import { runClubResultPosts } from './clubResultPostService.ts';
 import { runOrganizerReminders } from './organizerReminderService.ts';
 import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
+import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
+import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
+import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -87,7 +90,11 @@ async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
   return queued;
 }
 
-async function queueBettingResults(db: DatabaseWrapper) {
+export async function queueBettingResults(db: DatabaseWrapper) {
+  // The tables the skip below reads (each guard runs once per connection).
+  await ensurePersonalNotificationRoutingSchema(db);
+  await ensureTelegramDirectMessageSchema(db);
+  await ensureVkPersonalMessageSchema(db);
   const rows = await db.all<any>(`
     SELECT bp.id AS pool_id, bp.game_id, bp.game_number, bp.status AS pool_status, bp.settlement_seq,
            bb.id AS bet_id, bb.player_id, bb.team, bb.amount, bb.status AS bet_status,
@@ -97,6 +104,20 @@ async function queueBettingResults(db: DatabaseWrapper) {
       JOIN players p ON p.id = bb.player_id
      WHERE bp.status IN ('settled', 'refunded')
        AND COALESCE(p.contact_status, p.lifecycle_status, 'normal') NOT IN ('blocked', 'archived', 'inactive')
+       -- A bet whose note is already routed and sitting in its channel outbox would only be rewritten with the same
+       -- text every minute (each bet ever settled, one write each). Keep only notes that still need routing or a
+       -- missing outbox row, which is what queuePersonalNotification heals.
+       AND NOT EXISTS (
+         SELECT 1 FROM personal_notification_deliveries d
+          WHERE d.notification_key = 'bet-result:' || bp.id || ':' || bb.id || ':' || bp.status || ':' || bp.settlement_seq
+            AND (
+              d.status = 'disabled'
+              OR (d.status = 'queued' AND d.selected_channel = 'telegram'
+                  AND EXISTS (SELECT 1 FROM telegram_message_outbox o WHERE o.message_key = d.notification_key))
+              OR (d.status = 'pending_channel' AND d.selected_channel = 'vk'
+                  AND EXISTS (SELECT 1 FROM vk_message_outbox v WHERE v.message_key = 'personal:' || d.notification_key || ':vk'))
+            )
+       )
   `);
   let queued = 0;
   for (const row of rows) {

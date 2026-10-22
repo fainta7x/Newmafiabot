@@ -1,3 +1,5 @@
+import type { GameExitType, RemovalReason } from '../shared/gameExit.ts';
+
 export interface Player {
   id: string;
   telegram_user_id?: string | null;
@@ -477,7 +479,7 @@ export interface ColorProtocolMark {
 
 export interface PlayerResultInput {
   participant_id: string;
-  exit_type: 'alive' | 'killed' | 'voted_zero_round' | 'voted_day' | 'removed';
+  exit_type: GameExitType;
   exit_order?: number | null;
   regular_fouls: number;
   minor_technical_fouls?: number;
@@ -487,7 +489,7 @@ export interface PlayerResultInput {
   protocol_bonus: number;
   penalty_points: number;
   disciplinary_penalty_points?: number;
-  removal_reason?: '4th_foul' | '2nd_tech' | 'direct' | null;
+  removal_reason?: RemovalReason | null;
   ci_points?: number;
   color_protocol: ColorProtocolMark[];
   notes?: string | null;

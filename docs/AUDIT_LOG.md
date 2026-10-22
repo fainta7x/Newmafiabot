@@ -1439,7 +1439,12 @@ The owner asked: «все элементы подчинялись единым �
 - **Changed on purpose.** A colour is a team, not a role. `bestMovePoints`, Ci, the tournament standings and PPK read colours through `gameTeamOfRole`, so their results do not change. Per-role statistics no longer count a colour-only row as citizen or mafia (black may be the don). `маф` and `ё` spellings now work everywhere.
 - **B1 fixed:** the counter follows the table size.
 - **B2 fixed:** the inline PPK block is removed, and `processPPK` is the one rule for draft and completion; an unknown culprit role is an error. The betting `roleTeam` was not a bug, because roles are validated just above it.
-- **Still open:** exit types and removal reasons, points formulas, and the rest of A.
+- **Fixed later (2026-10-23):**
+  - Exit types and removal reasons now have one list, `shared/gameExit.ts`, used by the engine types, `api.ts`, `gameDiscipline` and both protocol validators.
+  - Elo and its history share `clubPersonalGamePoints`, `sortTime` and `validatePreparedEvent`; the history copies are removed.
+  - The Elo best-move points use `calculateBestMovePoints`.
+  - The two integer win rates (`playerEveningSummaryService`, `tableScoutingRoutes`) use `winRatePercent`, the owner rule of 2026-10-04 (one decimal).
+- **Still open:** the standings totals formula (tournament vs rating period) and the rest of A.
 
 **Progress (step 3, UI primitives, first slice):**
 - **Fixed — money.** `lib/formatRubleAmount.ts` `formatRubles` is the one money format: whole rubles, Russian thousands separator, zero for junk and negative amounts unless `signed`. It replaces the local `rubles`/`money`/`formatMoney` helpers and about 40 inline `… ₽` in 27 screens.

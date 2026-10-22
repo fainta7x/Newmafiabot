@@ -6,11 +6,11 @@ import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 router.use(requireOrganizerAuth);
 
-const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
 
 const safeJsonParse = (value: unknown): any => {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -211,7 +211,7 @@ router.post('/table-scouting', async (req, res) => {
       const stat = byPlayer.get(playerId) || { games: 0, wins: 0, last5: [] };
       return {
         participant_id: String(participant.participant_id), player_id: playerId, nickname: String(participant.nickname || 'Игрок'), elo: Number(participant.elo || 0),
-        games: stat.games, wins: stat.wins, win_rate: rate(stat.wins, stat.games), recent_form: stat.last5,
+        games: stat.games, wins: stat.wins, win_rate: winRatePercent(stat.wins, stat.games), recent_form: stat.last5,
         avatar_url: `/api/player/players/${encodeURIComponent(playerId)}/avatar`,
       };
     }).sort((a: any, b: any) => b.elo - a.elo || b.games - a.games);

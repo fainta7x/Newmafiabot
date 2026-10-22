@@ -1,3 +1,5 @@
+import type { RemovalReason } from '../shared/gameExit.ts';
+
 export type PendingActionType =
   | 'removal_4th_foul'
   | 'minor_tech_causing_removal'
@@ -12,7 +14,7 @@ export interface PlayerDiscipline {
   minorTechFouls: number;
   majorTechFouls: number;
   isRemoved: boolean;
-  removedReason: '4th_foul' | '2nd_tech' | 'direct' | null;
+  removedReason: RemovalReason | null;
   /** The second tech type is retained so a manual restore can reverse the exact triggering tech. */
   secondTechFoulType?: 'minor' | 'major' | null;
   gamePenalty: number;

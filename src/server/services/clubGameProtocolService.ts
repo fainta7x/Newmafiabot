@@ -4,6 +4,7 @@ import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { blackParticipantIds, withoutBlackBestMoves, withoutBlackLegacyBestMove } from './blackBestMoves.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { isGameExitType, isRemovalReason } from '../../shared/gameExit.ts';
 
 const ROLE_ORDER = ['citizen', 'sheriff', 'mafia', 'don'] as const;
 type CanonicalRole = typeof ROLE_ORDER[number];
@@ -28,8 +29,6 @@ const tenthInRange = (value: unknown, min: number, max: number, label: string): 
   return number;
 };
 
-const validExitTypes = new Set(['alive', 'killed', 'voted_zero_round', 'voted_day', 'removed']);
-const validRemovalReasons = new Set(['4th_foul', '2nd_tech', 'direct']);
 
 const referencedParticipant = (participantIds: Set<string>, value: unknown, label: string): string | null => {
   const id = String(value || '').trim();
@@ -93,9 +92,9 @@ export const canonicalizeClubGameSave = (
     const majorTech = integerInRange(incoming.major_technical_fouls, 0, 2, `Игрок #${seat}: большие техфолы`);
     if (minorTech + majorTech > 2) throw new Error(`Игрок #${seat}: технических фолов не может быть больше двух`);
     const exitType = String(incoming.exit_type || 'alive');
-    if (!validExitTypes.has(exitType)) throw new Error(`Игрок #${seat}: некорректный статус выхода`);
+    if (!isGameExitType(exitType)) throw new Error(`Игрок #${seat}: некорректный статус выхода`);
     const removalReason = incoming.removal_reason ? String(incoming.removal_reason) : null;
-    if (removalReason && !validRemovalReasons.has(removalReason)) throw new Error(`Игрок #${seat}: некорректная причина удаления`);
+    if (removalReason && !isRemovalReason(removalReason)) throw new Error(`Игрок #${seat}: некорректная причина удаления`);
     if (removalReason && exitType !== 'removed') throw new Error(`Игрок #${seat}: причина удаления указана, но игрок не удалён`);
     const isPpkCulprit = participantId === ppkCulpritId && incomingProtocol?.end_reason === 'ppk';
     const disciplinaryPenalty = calculateDisciplinaryPenalty(minorTech, majorTech, exitType === 'removed', isPpkCulprit);

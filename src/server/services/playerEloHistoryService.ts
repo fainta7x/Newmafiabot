@@ -1,14 +1,18 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sqliteReadVersion } from './sqliteReadVersion.ts';
-import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import {
   calculateCanonicalEloGame,
   currentEloInputsGeneration,
   DEFAULT_ELO,
+  clubPersonalGamePoints,
+  sortTime,
+  validatePreparedEvent,
   type CanonicalEloGamePlayer,
   type CanonicalEloPlayerDelta,
   type EloTeam,
+  type PreparedEloEvent as PreparedEvent,
+  type PreparedEloPlayer as PreparedPlayer,
 } from './eloRatingService.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
@@ -30,94 +34,13 @@ export interface PlayerEloHistoryEvent {
   players: PlayerEloHistoryRow[];
 }
 
-type PreparedPlayer = Omit<CanonicalEloGamePlayer, 'elo'>;
-
-type PreparedEvent = {
-  source: 'tournament' | 'club';
-  sourceId: string;
-  sortAt: string;
-  sortOrder: number;
-  winnerTeam: EloTeam;
-  players: PreparedPlayer[];
-};
-
-const numeric = (value: unknown) => {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-};
 
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
-const bestMovePoints = (seatNumbers: unknown, results: any[]): number => {
-  if (!Array.isArray(seatNumbers)) return 0;
-  const teams = new Map<number, EloTeam | null>(
-    results.map((result: any) => [Number(result?.seat_number), gameTeamOfRole(result?.role)]),
-  );
-  const blackCount = seatNumbers.reduce(
-    (sum: number, seat: unknown) => sum + (teams.get(Number(seat)) === 'black' ? 1 : 0),
-    0,
-  );
-  if (blackCount >= 3) return 0.6;
-  if (blackCount === 2) return 0.3;
-  if (blackCount === 1) return 0.1;
-  return 0;
-};
-
-const clubBestMovePointsForParticipant = (protocol: any, participantId: string, results: any[]): number => {
-  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
-  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
-  if (relevant.length) {
-    return relevant.reduce(
-      (sum: number, move: any) => sum + bestMovePoints(move?.seat_numbers, results),
-      0,
-    );
-  }
-  if (String(protocol?.best_move_participant_id || '') === participantId) {
-    return bestMovePoints(protocol?.best_move_seats, results);
-  }
-  return 0;
-};
-
-const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
-  const participantId = String(result?.participant_id || '');
-  const isPpkCulprit = payload?.protocol?.end_reason === 'ppk'
-    && participantId
-    && participantId === String(payload?.protocol?.ppk_culprit_participant_id || '');
-  const disciplinaryPenalty = calculateDisciplinaryPenalty(
-    Math.max(0, Math.trunc(numeric(result?.minor_technical_fouls))),
-    Math.max(0, Math.trunc(numeric(result?.major_technical_fouls))),
-    result?.exit_type === 'removed',
-    Boolean(isPpkCulprit),
-  );
-
-  return numeric(result?.judge_bonus)
-    + numeric(result?.protocol_bonus)
-    + clubBestMovePointsForParticipant(payload?.protocol, participantId, results)
-    + numeric(result?.ci_points)
-    - disciplinaryPenalty;
-};
-
-const sortTime = (value: string) => {
-  const time = new Date(value || 0).getTime();
-  return Number.isFinite(time) ? time : 0;
-};
-
 /** `guests` are the seats of guests without a profile: they are left out of the rating, so fewer players are expected. */
-const validatePreparedEvent = (event: PreparedEvent, guests: { red: number; black: number } = { red: 0, black: 0 }) => {
-  const expected = 10 - guests.red - guests.black;
-  if (event.players.length !== expected || new Set(event.players.map((player) => player.playerId)).size !== expected) {
-    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${expected} unique linked players.`);
-  }
-  const red = event.players.filter((player) => player.team === 'red').length;
-  const black = event.players.filter((player) => player.team === 'black').length;
-  if (red !== 7 - guests.red || black !== 3 - guests.black) {
-    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${7 - guests.red} red and ${3 - guests.black} black roles.`);
-  }
-};
-
 const loadPreparedEvents = async (db: DatabaseWrapper) => {
   const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');
   const players = await db.all<any>(

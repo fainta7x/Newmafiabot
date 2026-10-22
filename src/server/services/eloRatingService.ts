@@ -3,6 +3,7 @@ import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { calculateBestMovePoints } from './bestMovePoints.ts';
 
 
 export const DEFAULT_ELO = DEFAULT_ELO_SEED;
@@ -25,8 +26,8 @@ export interface CanonicalEloPlayerDelta {
   totalDelta: number;
 }
 
-type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'>;
-type PreparedEloEvent = {
+export type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'>;
+export type PreparedEloEvent = {
   source: 'tournament' | 'club';
   sourceId: string;
   sortAt: string;
@@ -85,15 +86,10 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
-const bestMovePoints = (seatNumbers: unknown, results: any[]): number => {
-  if (!Array.isArray(seatNumbers)) return 0;
-  const teams = new Map<number, EloTeam | null>(results.map((result: any) => [Number(result?.seat_number), gameTeamOfRole(result?.role)]));
-  const blackCount = seatNumbers.reduce((sum: number, seat: unknown) => sum + (teams.get(Number(seat)) === 'black' ? 1 : 0), 0);
-  if (blackCount >= 3) return 0.6;
-  if (blackCount === 2) return 0.3;
-  if (blackCount === 1) return 0.1;
-  return 0;
-};
+// The best-move points are the shared rule (bestMovePoints.ts); the seat roles come from the protocol results.
+const bestMovePoints = (seatNumbers: unknown, results: any[]): number => (Array.isArray(seatNumbers)
+  ? calculateBestMovePoints(seatNumbers.map(Number), results.map((result: any) => ({ seat_number: Number(result?.seat_number), role: result?.role ?? null }))).bonusPoints
+  : 0);
 
 const clubBestMovePointsForParticipant = (protocol: any, participantId: string, results: any[]): number => {
   const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
@@ -103,7 +99,8 @@ const clubBestMovePointsForParticipant = (protocol: any, participantId: string, 
   return 0;
 };
 
-const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
+/** A player's personal points in a club game (judge and protocol bonus, best move, Ci, minus discipline): Elo and its history. */
+export const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
   const participantId = String(result?.participant_id || '');
   const isPpkCulprit = payload?.protocol?.end_reason === 'ppk' && participantId && participantId === String(payload?.protocol?.ppk_culprit_participant_id || '');
   const disciplinaryPenalty = calculateDisciplinaryPenalty(
@@ -115,13 +112,13 @@ const clubPersonalGamePoints = (payload: any, result: any, results: any[]): numb
   return numeric(result?.judge_bonus) + numeric(result?.protocol_bonus) + clubBestMovePointsForParticipant(payload?.protocol, participantId, results) + numeric(result?.ci_points) - disciplinaryPenalty;
 };
 
-const sortTime = (value: string) => {
+export const sortTime = (value: string) => {
   const time = new Date(value || 0).getTime();
   return Number.isFinite(time) ? time : 0;
 };
 
 /** `guests` are the seats of guests without a profile: they are left out of the rating, so fewer players are expected. */
-const validatePreparedEvent = (event: PreparedEloEvent, guests: { red: number; black: number } = { red: 0, black: 0 }) => {
+export const validatePreparedEvent = (event: PreparedEloEvent, guests: { red: number; black: number } = { red: 0, black: 0 }) => {
   const expected = 10 - guests.red - guests.black;
   if (event.players.length !== expected || new Set(event.players.map((player) => player.playerId)).size !== expected) {
     throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${expected} unique linked players.`);

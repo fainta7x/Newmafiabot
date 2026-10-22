@@ -114,4 +114,19 @@ describe('the record of what made the server slow', () => {
     expect(slow_jobs[0].sqlite_calls).toBeGreaterThan(0);
     db.sqlite.close();
   });
+
+  it('counts a timed step towards the job around it and records the step with its own threshold', async () => {
+    const db = createDatabaseConnection(':memory:');
+    const heavy = 'WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 200000) SELECT COUNT(*) FROM c';
+    await timeBackgroundJob('outer_job', async () => {
+      await timeBackgroundJob('outer_job/step', async () => {
+        const started = performance.now();
+        while (performance.now() - started < SLOW_JOB_SQLITE_MS + 50) await db.get(heavy);
+      }, 100);
+    });
+    const jobs = performanceSnapshot().slow_jobs.map((item) => item.job).sort();
+    expect(jobs).toEqual(['outer_job', 'outer_job/step']);
+    db.sqlite.close();
+  });
 });
+

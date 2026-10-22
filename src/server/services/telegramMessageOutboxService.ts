@@ -219,7 +219,7 @@ export async function expireStaleEveningNotices(db: DatabaseWrapper, table: 'tel
   await db.run(
     `UPDATE ${table}
         SET status = 'failed', retry_count = ?, last_error = 'Устарело: не отправлено после паузы публикаций', updated_at = ?
-      WHERE status <> 'sent' AND event_type IN ('evening_cancelled', 'evening_shortfall') AND created_at < ?`,
+      WHERE status IN ('pending', 'failed') AND event_type IN ('evening_cancelled', 'evening_shortfall') AND created_at < ?`,
     [maxRetries, now, cutoff],
   );
 }
@@ -233,7 +233,9 @@ export async function drainTelegramMessageOutbox(
   if (db.sqlite?.inTransaction) return { processed: 0, sent: 0, failed: 0 };
   const limit = Math.max(1, Math.min(100, Number(options.limit || 40)));
   const concurrency = Math.max(1, Math.min(10, Number(options.concurrency || process.env.TELEGRAM_OUTBOX_CONCURRENCY || DEFAULT_CONCURRENCY)));
-  const clauses = [`status <> 'sent'`, `next_attempt_at IS NOT NULL AND datetime(next_attempt_at) <= datetime('now')`, `retry_count < ?`];
+  // The table only knows pending / sent / failed (CHECK); naming the open states lets SQLite use the due index
+  // instead of scanning every sent message with its picture (owner question 2026-10-22: ~2 s stalls every minute).
+  const clauses = [`status IN ('pending', 'failed')`, `next_attempt_at IS NOT NULL AND datetime(next_attempt_at) <= datetime('now')`, `retry_count < ?`];
   const params: any[] = [MAX_RETRIES];
   if (options.category) { clauses.push('category = ?'); params.push(options.category); }
   if (options.entityId != null) { clauses.push('entity_id = ?'); params.push(String(options.entityId)); }
@@ -263,7 +265,7 @@ export async function drainTelegramMessageOutbox(
 
 export async function getTelegramMessageDiagnostics(db: DatabaseWrapper): Promise<TelegramDeliveryDiagnostics> {
   await ensureTelegramDirectMessageSchema(db);
-  const queue = await db.get<any>(`SELECT COUNT(*) AS count FROM telegram_message_outbox WHERE status <> 'sent' AND retry_count < ? AND next_attempt_at IS NOT NULL`, [MAX_RETRIES]);
+  const queue = await db.get<any>(`SELECT COUNT(*) AS count FROM telegram_message_outbox WHERE status IN ('pending', 'failed') AND retry_count < ? AND next_attempt_at IS NOT NULL`, [MAX_RETRIES]);
   const latestSuccess = await db.get<any>(`
     SELECT message_key, sent_at, category, event_type FROM telegram_message_outbox
      WHERE status = 'sent' AND sent_at IS NOT NULL ORDER BY sent_at DESC LIMIT 1

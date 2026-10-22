@@ -72,13 +72,16 @@ export const addSqliteTime = (ms: number) => {
  * Runs one tick of a background worker and records it when its SQLite time blocked the server for
  * SLOW_JOB_SQLITE_MS or more (owner question 2026-10-22: what stalls the server for ~2 s every minute).
  */
-export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>): Promise<T> {
+export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>, thresholdMs = SLOW_JOB_SQLITE_MS): Promise<T> {
   const store = { sqliteMs: 0, sqliteCalls: 0 };
+  // A step timed inside a job (job/step) still counts towards the job around it.
+  const outer = jobContext.getStore();
   const startedAt = performance.now();
   try {
     return await jobContext.run(store, run);
   } finally {
-    if (store.sqliteMs >= SLOW_JOB_SQLITE_MS) {
+    if (outer) { outer.sqliteMs += store.sqliteMs; outer.sqliteCalls += store.sqliteCalls; }
+    if (store.sqliteMs >= thresholdMs) {
       push(slowJobs, {
         at: new Date().toISOString(),
         job,

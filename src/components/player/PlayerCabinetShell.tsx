@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerBottomNavigation from './PlayerBottomNavigation.tsx';
 import PlayerCommunityHub, { type CommunitySection } from './PlayerCommunityHub.tsx';
-import PlayerConductCenter from './PlayerConductCenter.tsx';
 import PlayerEveningsHub, { type PlayerEveningsSection } from './PlayerEveningsHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerLiveOnlyCenter from './PlayerLiveOnlyCenter.tsx';
@@ -13,8 +12,6 @@ import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerSettingsHub from './PlayerSettingsHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
-import PlayerPoker from './PlayerPoker.tsx';
-import PlayerClocktower from './PlayerClocktower.tsx';
 import {
   PLAYER_NAV_SECTION,
   isPlayerCommunitySection,
@@ -24,6 +21,11 @@ import {
 } from './playerCabinetNavigation.ts';
 
 export type { PlayerCabinetSection } from './playerCabinetNavigation.ts';
+
+// Heavy sections few players open load on demand: the judge's game screen (engine, protocols) and the mini-games.
+const PlayerConductCenter = lazy(() => import('./PlayerConductCenter.tsx'));
+const PlayerPoker = lazy(() => import('./PlayerPoker.tsx'));
+const PlayerClocktower = lazy(() => import('./PlayerClocktower.tsx'));
 
 type Props = {
   data: PlayerMeResponse;
@@ -100,7 +102,9 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : section === 'settings' ? (
         <PlayerSettingsHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
-        <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} onBackToCrm={canOpenAdmin && onOpenAdminAt ? () => onOpenAdminAt('/admin/more/music') : undefined} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
+        <Suspense fallback={<p data-testid="player-section-loading" className="px-4 py-10 text-center text-sm text-muted-foreground">Загружаем раздел…</p>}>
+          <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} onBackToCrm={canOpenAdmin && onOpenAdminAt ? () => onOpenAdminAt('/admin/more/music') : undefined} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
+        </Suspense>
       ) : (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenGame={(gameKey) => open('games', gameKey)} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
       )}

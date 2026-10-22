@@ -1365,7 +1365,7 @@ Scope: all of `src/**` and `server.ts` on `main` `54a86b1` (848 non-test modules
 
 **Size × change hotspots (lines × commits in 90 days):** `LiveGameEngine.tsx` (1836 lines, highest), `LiveGameEngine/CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `PlayerGameDetail.tsx`, `lib/api.ts`, `eveningSlotPlanningService.ts`, `metricRatingService.ts`, `eveningStaffRoutes.ts`. Largest files that rarely change (`tournamentResultsExport.ts`, `tournamentsRoutesBase.ts`, `GameProtocolModal.tsx`, `tournamentProtocolRoutes.ts`) are lower priority. Live Game stays programme item 9 (audit first, owner scope). **open**
 
-**Client bundle:** the start bundle is 1.95 MB (503 KB gzip) plus 416 KB CSS; `OrganizerCRM` 932 KB is already split. Phones download all of the player cabinet up front. **open — measure what is in it before splitting**
+**Client bundle:** the start bundle is 1.95 MB (503 KB gzip) plus 416 KB CSS; `OrganizerCRM` 932 KB is already split. Phones download all of the player cabinet up front. **fixed (start JS 1978 → 972 KB, gzip 516 → 260 KB)** — measured with source maps: the judge's «Ведение» screen pulled the live engine and protocol modals, the guide pulled the reasoning courses, poker 64 KB. They now load on demand (`PlayerCabinetShell.tsx`: `PlayerConductCenter`, `PlayerPoker`, `PlayerClocktower`; `App.tsx`: `/guide` via `PublicGuideRoute.tsx`); a failed chunk after a deploy reloads the page once (`main.tsx`, `vite:preloadError`). 390 px screenshots of `/player`, `/player/conduct`, `/player/poker`, `/player/clocktower`, `/guide` on a local production build: pixel-identical before/after, no console errors.
 
 **Data fetching:** `fetch(` is called directly in 131 components; the shared `getJson` helper is used by 16 (programme item 5). **open**
 

@@ -174,7 +174,7 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 - b. Services stop importing route files: `calculateBestMovePoints` → `services/bestMovePoints.ts`, `internalGetStandings` / `internalGetNominations` → `services/tournamentStandingsService.ts` (unchanged code); done in the same PR as a.
 - c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages (done, second PR).
 - d. Start-up data migrations out of `db/` into a runner above it (what they do stays the same); `db/index.ts ↔ seed.ts`.
-- e. Measure the 1.95 MB start bundle and split the player cabinet by screen (needs 390 px screenshots).
+- e. Start bundle: «Ведение», poker, «Часовая башня» and `/guide` load on demand; start JS 1978 → 972 KB (done, PR after c).
 - f. Evening lifecycle service ring (11 modules) — high risk, integration tests first, owner sees the plan before code.
 - Later passes not yet done: route-by-route auth review, SQLite query plans, coverage of the hotspots (`LiveGameEngine.tsx`, `CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `lib/api.ts`).
 

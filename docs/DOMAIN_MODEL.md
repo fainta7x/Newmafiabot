@@ -17,9 +17,9 @@ The status column says whether the concept is **one** (a single definition), **d
 
 | Concept | Canonical module (target) | Status |
 |---|---|---|
-| Role (citizen, sheriff, mafia, don) | `src/shared/gameRoles.ts` | dup: about 12 local normalizers, two of them accept colours as roles |
-| Team and winner (red, black) | `src/shared/gameRoles.ts` (moved from `server/services/clubGameTeams.ts`) | dup: about 15 local copies; one maps an unknown role to red |
-| Engine vocabulary («Мирный», «Красные») | the engine is translated once by `setupRoles.ts` / `roleToProtocol`, target: the engine uses canonical keys | dup: two copies of `roleToProtocol` |
+| Role (citizen, sheriff, mafia, don) | `src/shared/gameRoles.ts` `normalizeGameRole` | **one** (2026-10-22). A colour is never a role; only `tournamentRoleValidation` keeps the documented colour compatibility for historic assignment input |
+| Team and winner (red, black) | `src/shared/gameRoles.ts` `gameTeamOfRole`, `normalizeWinnerTeam` | **one** (2026-10-22); `clubGameTeams.ts` removed |
+| Engine vocabulary («Мирный», «Красные») | the engine is translated once by `setupRoles.ts` / `roleToProtocol`, target: the engine uses canonical keys | engine names are read by `normalizeGameRole`; the two `roleToProtocol` copies are removed |
 | Exit type and removal reason | `src/shared/` game discipline constants | dup: the 5 exit values are listed 3 times, removal reasons 4 times |
 | Fouls, technical fouls, PPK, Ci, bonus | one protocol rules module for club and tournament | rule?: the club and tournament validators differ |
 | Best move (ЛХ) points | `server/services/bestMovePoints.ts` | rule?: tokens count only the first-killed source, Elo counts any source |

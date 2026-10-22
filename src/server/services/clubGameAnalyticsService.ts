@@ -1,5 +1,6 @@
 import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
 import { completedClubGameDate, isCompletedClubGamePayload } from './completedClubGame.ts';
+import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 export type AnalyticsTeam = 'red' | 'black';
 
 export type AnalyticsPlayerResult = {
@@ -29,29 +30,6 @@ export type CompletedGameSnapshot = {
 const safeJsonParse = (value: unknown): any => {
   if (typeof value !== 'string' || !value.trim()) return null;
   try { return JSON.parse(value); } catch { return null; }
-};
-
-export const normalizeWinner = (value: unknown): AnalyticsTeam | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
-};
-
-export const normalizeRole = (value: unknown): AnalyticsPlayerResult['role'] => {
-  const role = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'красный'].includes(role)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(role)) return 'sheriff';
-  if (['mafia', 'мафия', 'маф'].includes(role)) return 'mafia';
-  if (['don', 'дон'].includes(role)) return 'don';
-  return null;
-};
-
-export const teamFromRole = (value: unknown): AnalyticsTeam | null => {
-  const role = normalizeRole(value);
-  if (role === 'mafia' || role === 'don') return 'black';
-  if (role === 'citizen' || role === 'sheriff') return 'red';
-  return null;
 };
 
 const validDate = (value: unknown): { iso: string; ms: number } | null => {
@@ -113,7 +91,7 @@ async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGam
   for (const row of clubRows) {
     const payload = safeJsonParse(row.protocol_text);
     if (!isCompletedClubGamePayload(payload)) continue;
-    const winner = normalizeWinner(payload.protocol?.winner_team || row.winner_team);
+    const winner = normalizeWinnerTeam(payload.protocol?.winner_team || row.winner_team);
     const eventDate = validDate(row.evening_date || row.game_date || row.created_at);
     // A game can be saved before it ends. Season placements must follow the completed-at date,
     // matching detailed statistics, not the creation date of its draft record.
@@ -123,12 +101,12 @@ async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGam
 
     const players = payload.player_results.flatMap((result: any) => {
       const playerId = String(result.player_id || '').trim();
-      const team = teamFromRole(result.role);
+      const team = gameTeamOfRole(result.role);
       if (!playerId || !team) return [];
       return [{
         player_id: playerId,
         nickname: String(result.display_name || 'Игрок'),
-        role: normalizeRole(result.role),
+        role: normalizeGameRole(result.role),
         team,
         won: team === winner,
         seat_number: Number(result.seat_number || 0),
@@ -161,19 +139,19 @@ async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGam
 
   for (const [gameId, rows] of tournamentByGame.entries()) {
     const head = rows[0];
-    const winner = normalizeWinner(head?.winner_team);
+    const winner = normalizeWinnerTeam(head?.winner_team);
     const eventDate = validDate(head?.tournament_date || head?.completed_at);
     const playedDate = validDate(head?.completed_at || head?.tournament_date) || eventDate;
     const eventId = String(head?.tournament_id || '').trim();
     if (!winner || !eventDate || !playedDate || !eventId) continue;
     const players = rows.flatMap((row: any) => {
       const playerId = String(row.player_id || '').trim();
-      const team = teamFromRole(row.role);
+      const team = gameTeamOfRole(row.role);
       if (!playerId || !team) return [];
       return [{
         player_id: playerId,
         nickname: String(row.nickname || 'Игрок'),
-        role: normalizeRole(row.role),
+        role: normalizeGameRole(row.role),
         team,
         won: team === winner,
         seat_number: Number(row.seat_number || 0),

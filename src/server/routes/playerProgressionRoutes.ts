@@ -3,6 +3,7 @@ import { PLAYER_TITLES, type PlayerTitleId } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
+import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -74,7 +75,7 @@ const ensureSchema = async (db: any) => {
   `);
 };
 
-const roleLabel = (role: Role | null) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : role === 'don' ? 'Дон' : null;
+const roleLabel = (role: Role | null) => (role ? GAME_ROLE_LABELS[role] : null);
 
 const bestWinStreak = (games: PersonalGame[]) => {
   let best = 0;

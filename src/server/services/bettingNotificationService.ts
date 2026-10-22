@@ -4,13 +4,7 @@ import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirect
 import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
 import { BETTING_WINDOW_MS, type BettingRoleSnapshot } from './bettingPoolService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
-
-const roleLabel = (role: BettingRoleSnapshot['role']) => {
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return 'Мирный';
-};
+import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 
 const buildBettingText = (input: {
   gameId: number;
@@ -23,10 +17,10 @@ const buildBettingText = (input: {
     `🎲 СТАВКИ НА ИГРУ №${input.gameNumber || input.gameId}`,
     '',
     '🔴 КРАСНЫЕ',
-    ...red.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
+    ...red.map((item) => `#${item.seat_number} ${item.nickname} — ${GAME_ROLE_LABELS[item.role]}`),
     '',
     '⚫ ЧЁРНЫЕ',
-    ...black.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
+    ...black.map((item) => `#${item.seat_number} ${item.nickname} — ${GAME_ROLE_LABELS[item.role]}`),
     '',
     'Коэффициенты меняются от ставок игроков.',
     `Окно ставок — ${BETTING_WINDOW_MS / 60_000} минут после старта игры.`,

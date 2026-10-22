@@ -4,6 +4,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
 import { loadPlayerEveningWorkspace } from '../services/playerEveningWorkspaceService.ts';
+import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
@@ -19,20 +20,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
 const safeJsonParse = (value: unknown): any => {
   if (typeof value !== 'string' || !value.trim()) return null;
   try { return JSON.parse(value); } catch { return null; }
-};
-
-const normalizeWinner = (value: unknown): 'red' | 'black' | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
-};
-
-const teamFromRole = (value: unknown): 'red' | 'black' | null => {
-  const role = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'sheriff', 'мирный', 'мирный житель', 'красный', 'шериф'].includes(role)) return 'red';
-  if (['mafia', 'don', 'мафия', 'маф', 'дон'].includes(role)) return 'black';
-  return null;
 };
 
 const recapIsFresh = (value: string | null | undefined) => {
@@ -127,7 +114,7 @@ router.get('/evening-journey', async (req, res) => {
           ? payload.player_results
           : [];
         const status = protocol?.status === 'completed' ? 'completed' : 'draft';
-        const winnerTeam = status === 'completed' ? normalizeWinner(protocol?.winner_team || row.winner_team) : null;
+        const winnerTeam = status === 'completed' ? normalizeWinnerTeam(protocol?.winner_team || row.winner_team) : null;
         const players = results
           .slice()
           .sort((a: any, b: any) => Number(a.seat_number) - Number(b.seat_number))
@@ -137,7 +124,7 @@ router.get('/evening-journey', async (req, res) => {
             nickname: String(item.display_name || `Игрок ${item.seat_number || ''}`).trim(),
           }));
         const selfResult = results.find((item: any) => String(item?.player_id || '') === playerId) || null;
-        const selfTeam = selfResult ? teamFromRole(selfResult.role) : null;
+        const selfTeam = selfResult ? gameTeamOfRole(selfResult.role) : null;
         return {
           id: Number(row.id),
           game_key: `club:${row.id}`,

@@ -3,24 +3,10 @@ import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { blackParticipantIds, withoutBlackBestMoves, withoutBlackLegacyBestMove } from './blackBestMoves.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
+import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
 
 const ROLE_ORDER = ['citizen', 'sheriff', 'mafia', 'don'] as const;
 type CanonicalRole = typeof ROLE_ORDER[number];
-
-const canonicalRole = (value: unknown): CanonicalRole | null => {
-  const role = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель'].includes(role)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(role)) return 'sheriff';
-  if (['mafia', 'мафия', 'маф'].includes(role)) return 'mafia';
-  if (['don', 'дон'].includes(role)) return 'don';
-  return null;
-};
-
-const teamFromRole = (role: CanonicalRole | null): 'red' | 'black' | null => {
-  if (role === 'citizen' || role === 'sheriff') return 'red';
-  if (role === 'mafia' || role === 'don') return 'black';
-  return null;
-};
 
 const finite = (value: unknown, label: string): number => {
   const number = Number(value ?? 0);
@@ -101,7 +87,7 @@ export const canonicalizeClubGameSave = (
     if (String(incoming.player_id || '') !== String(previous?.player_id || '')) throw new Error(`Нельзя изменить привязанного игрока на месте #${seat} через протокол`);
     if (String(incoming.guest_placeholder_id || '') !== String(previous?.guest_placeholder_id || '')) throw new Error(`Нельзя изменить гостевую заглушку на месте #${seat} через протокол`);
 
-    const role = canonicalRole(incoming.role);
+    const role = normalizeGameRole(incoming.role);
     const regularFouls = integerInRange(incoming.regular_fouls, 0, 4, `Игрок #${seat}: обычные фолы`);
     const minorTech = integerInRange(incoming.minor_technical_fouls, 0, 2, `Игрок #${seat}: малые техфолы`);
     const majorTech = integerInRange(incoming.major_technical_fouls, 0, 2, `Игрок #${seat}: большие техфолы`);
@@ -145,7 +131,7 @@ export const canonicalizeClubGameSave = (
     if (incomingProtocol?.end_reason === 'ppk') {
       if (!ppkCulpritId) throw new Error('Для завершения по ППК укажите виновника');
       const culprit = playerResults.find((result) => result.participant_id === ppkCulpritId);
-      const culpritTeam = teamFromRole(culprit?.role || null);
+      const culpritTeam = gameTeamOfRole(culprit?.role || null);
       if (!culpritTeam) throw new Error('Для завершения по ППК у виновника должна быть указана роль');
       winnerTeam = culpritTeam === 'red' ? 'black' : 'red';
     } else if (!winnerTeam) throw new Error('Для завершения игры укажите победившую команду');

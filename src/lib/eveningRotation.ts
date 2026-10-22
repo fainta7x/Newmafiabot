@@ -1,3 +1,4 @@
+import { gameTeamOfRole, normalizeWinnerTeam } from '../shared/gameRoles.ts';
 export type RotationTeam = 'red' | 'black';
 
 export type RotationPlayerResult = {
@@ -38,14 +39,8 @@ export type RotationCandidate = {
 
 export type RotationPriorityReason = 'sat_out' | 'early_exit' | 'winner' | 'loser';
 
-const normalizeRole = (value: unknown) => String(value || '').trim().toLocaleLowerCase('ru-RU');
-
-export const rotationTeamFromRole = (role: unknown): RotationTeam | null => {
-  const value = normalizeRole(role);
-  if (['mafia', 'don', 'мафия', 'дон', 'black', 'чёрные', 'черные'].includes(value)) return 'black';
-  if (['citizen', 'sheriff', 'мирный', 'мирянин', 'шериф', 'red', 'красные'].includes(value)) return 'red';
-  return null;
-};
+/** Team of a role or of a stored winner label. */
+export const rotationTeamFromRole = (role: unknown): RotationTeam | null => gameTeamOfRole(role) ?? normalizeWinnerTeam(role);
 
 const finiteOrder = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;

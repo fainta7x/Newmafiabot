@@ -1,7 +1,8 @@
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { calculateBestMovePoints } from './bestMovePoints.ts';
-import { normalizeRole, roundToTwo } from '../utils/ciHelper.ts';
+import { roundToTwo } from '../utils/ciHelper.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 // Shared pieces of the bot's result messages: a seat's game points and the «Позвать друга» link
 // (/start ref_<player id>). The personal message itself is one per evening (clubResultPostService).
@@ -20,7 +21,7 @@ export function gameResultPoints(envelope: any, result: any) {
   const protocol = envelope?.protocol || {};
   const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
   const participantId = String(result?.participant_id || '');
-  const role = normalizeRole(result?.role);
+  const role = normalizeGameRole(result?.role);
   const seats = results.map((item) => ({ seat_number: Number(item.seat_number), role: item.role ?? null }));
   const moves = Array.isArray(protocol.best_moves) && protocol.best_moves.length
     ? protocol.best_moves

@@ -5,11 +5,11 @@ import { getPlayerSessionId } from '../auth.ts';
 import { revealsForGamePage, revealVersions } from '../../lib/revealStats.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from '../services/playerEloHistoryService.ts';
+import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
 type GameSource = 'club' | 'tournament';
-type Team = 'red' | 'black' | null;
 type CanonicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don' | null;
 
 const requirePlayerId = (req: any, res: any): string | null => {
@@ -24,29 +24,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
 const safeJsonParse = <T = any>(value: unknown, fallback: T | null = null): T | null => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
-};
-
-const normalizeRole = (role: unknown): CanonicalRole => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'красный'].includes(value)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(value)) return 'sheriff';
-  if (['mafia', 'мафия', 'маф'].includes(value)) return 'mafia';
-  if (['don', 'дон'].includes(value)) return 'don';
-  return null;
-};
-
-const teamFromRole = (role: unknown): Team => {
-  const normalized = normalizeRole(role);
-  if (normalized === 'citizen' || normalized === 'sheriff') return 'red';
-  if (normalized === 'mafia' || normalized === 'don') return 'black';
-  return null;
-};
-
-const normalizeWinner = (value: unknown): Team => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
 };
 
 const numeric = (value: unknown) => {
@@ -241,14 +218,14 @@ router.get('/games/:gameKey', async (req, res) => {
         return res.status(409).json({ error: 'Игра ещё не завершена' });
       }
 
-      const winnerTeam = normalizeWinner(protocol.winner_team || row.winner_team);
+      const winnerTeam = normalizeWinnerTeam(protocol.winner_team || row.winner_team);
       const playersById = await playerRowsById(db);
       const firstKilledId = String(protocol.first_killed_participant_id || '');
       const zeroRoundVotedId = String(protocol.zero_round_voted_participant_id || '');
       const ppkCulpritId = String(protocol.ppk_culprit_participant_id || '');
       const results = Array.isArray(payload.player_results) ? payload.player_results : [];
       const roleBySeat = new Map<number, CanonicalRole>(
-        results.map((result: any) => [numeric(result?.seat_number), normalizeRole(result?.role)]),
+        results.map((result: any) => [numeric(result?.seat_number), normalizeGameRole(result?.role)]),
       );
       const modernBestMoves = Array.isArray(protocol.best_moves) ? protocol.best_moves : [];
       const legacyBestMove = protocol.best_move_participant_id
@@ -278,8 +255,8 @@ router.get('/games/:gameKey', async (req, res) => {
         const playerId = String(result?.player_id || '').trim() || null;
         const participantId = String(result?.participant_id || '').trim();
         const player = playerId ? playersById.get(playerId) : null;
-        const role = normalizeRole(result?.role);
-        const team = teamFromRole(role);
+        const role = normalizeGameRole(result?.role);
+        const team = gameTeamOfRole(role);
         const won = Boolean(team && winnerTeam && team === winnerTeam);
         const elo = eloForPlayer(eloEvent, playerId);
         const bestMove = bestMoves.find((move) => move.participant_id === participantId) || null;
@@ -379,7 +356,7 @@ router.get('/games/:gameKey', async (req, res) => {
     `, [parsed.sourceId]);
     if (!game) return res.status(404).json({ error: 'Игра не найдена' });
 
-    const winnerTeam = normalizeWinner(game.winner_team);
+    const winnerTeam = normalizeWinnerTeam(game.winner_team);
     const rows = await db.all(`
       SELECT tp.id AS participant_id, p.id AS player_id, COALESCE(p.nickname, tp.display_name) AS nickname,
              tgs.seat_number, tgs.role,
@@ -403,7 +380,7 @@ router.get('/games/:gameKey', async (req, res) => {
     `, [parsed.sourceId]);
 
     const roleBySeat = new Map<number, CanonicalRole>(
-      rows.map((row: any) => [numeric(row.seat_number), normalizeRole(row.role)]),
+      rows.map((row: any) => [numeric(row.seat_number), normalizeGameRole(row.role)]),
     );
     const participantDirectory = rows.map((row: any) => ({
       participant_id: String(row.participant_id || ''),
@@ -415,8 +392,8 @@ router.get('/games/:gameKey', async (req, res) => {
     const players = rows.map((row: any) => {
       const playerId = row.player_id ? String(row.player_id) : null;
       const participantId = String(row.participant_id || '');
-      const role = normalizeRole(row.role);
-      const team = teamFromRole(role);
+      const role = normalizeGameRole(row.role);
+      const team = gameTeamOfRole(role);
       const won = Boolean(team && winnerTeam && team === winnerTeam);
       const elo = eloForPlayer(eloEvent, playerId);
       const bestMoveSeats = normalizedSeats(safeJsonParse<any[]>(row.best_move_seats_json, []) || []);

@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import { Router, type NextFunction, type Response } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getAuthenticatedOrganizerActorId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
-import { normalizeRole } from '../utils/ciHelper.ts';
 import {
   cancelTournamentRegistration,
   loadTournamentEvening,
@@ -14,6 +13,7 @@ import {
   validatePrizeConfiguration,
 } from '../services/tournamentEveningService.ts';
 import { serializeTournamentRosterMutation } from '../services/tournamentRosterMutationSerializer.ts';
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 const router = Router();
 const actorId = (req: AuthenticatedRequest) => getAuthenticatedOrganizerActorId(req);
@@ -75,7 +75,7 @@ router.post('/:id/games/:gameId/start',requireOrganizerAuth,async(req:Authentica
       const seats=await tx.all<any>('SELECT * FROM tournament_game_seats WHERE game_id=?',[gameId]);
       if(seats.length!==10)return{status:400,body:{error:'В игре должно быть ровно 10 мест'}};
       const roleCounts:Record<string,number>={citizen:0,sheriff:0,mafia:0,don:0};
-      for(const seat of seats){const role=normalizeRole(seat.role);if(role&&roleCounts[role]!==undefined)roleCounts[role]+=1;}
+      for(const seat of seats){const role=normalizeGameRole(seat.role);if(role&&roleCounts[role]!==undefined)roleCounts[role]+=1;}
       if(roleCounts.citizen!==6||roleCounts.sheriff!==1||roleCounts.mafia!==2||roleCounts.don!==1){
         return{status:400,body:{error:'Нельзя запустить игру с неправильным набором ролей. Требуется ровно: 6 мирных, 1 Шериф, 2 мафии и 1 Дон.',current_roles:roleCounts}};
       }

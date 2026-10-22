@@ -1,13 +1,13 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { calculateBestMovePoints } from './bestMovePoints.ts';
 import {
-  normalizeRole,
   roundToTwo,
   calculateCiThreshold,
   calculateCiRate,
-  calculateGameCi
+  calculateGameCi,
 } from '../utils/ciHelper.ts';
 import { compareTournamentNominationCandidates, type TournamentNominationCategory, type NominationHeadToHeadGame } from './tournamentNominationComparator.ts';
+import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
 
 // Tournament standings and nominations, read by tournament routes and by rating/award/player services.
 // Helper function to calculate standings, incorporating tie-breaking resolutions
@@ -94,8 +94,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       );
       const fkSeat = seats.find((s) => s.participant_id === g.first_killed_participant_id);
       if (fkSeat) {
-        const normR = normalizeRole(fkSeat.role);
-        if (normR === 'citizen' || normR === 'sheriff') {
+        if (gameTeamOfRole(fkSeat.role) === 'red') {
           const cur = redFirstKilledCounts.get(g.first_killed_participant_id) || 0;
           redFirstKilledCounts.set(g.first_killed_participant_id, cur + 1);
         }
@@ -168,8 +167,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       for (const seatNum of fkBestMove.seat_numbers) {
         const targetSeat = seats.find((s) => s.seat_number === seatNum);
         if (targetSeat) {
-          const targetRole = normalizeRole(targetSeat.role);
-          if (targetRole === 'mafia' || targetRole === 'don') {
+          if (gameTeamOfRole(targetSeat.role) === 'black') {
             hasBlackInFirstKilledBestMove = true;
             break;
           }
@@ -192,7 +190,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       const pStats = statsMap.get(s.participant_id);
       if (!pStats) continue;
 
-      const normRole = normalizeRole(s.role);
+      const normRole = normalizeGameRole(s.role);
       const resRow = resultMap.get(s.participant_id);
 
       const judgeBonus = Number(resRow?.judge_bonus || 0);
@@ -517,12 +515,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
     { category: 'mvp', title: 'MVP', targetRoles: ['citizen', 'sheriff', 'mafia', 'don'] },
   ];
 
-  const teamForRole = (role: string | null): 'red' | 'black' | null => {
-    const normalized = normalizeRole(role);
-    if (normalized === 'citizen' || normalized === 'sheriff') return 'red';
-    if (normalized === 'mafia' || normalized === 'don') return 'black';
-    return null;
-  };
+  const teamForRole = gameTeamOfRole;
 
   const headToHeadGames: NominationHeadToHeadGame[] = gameDataList
     .filter((game) => game.winner_team)
@@ -551,7 +544,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
       for (const game of gameDataList) {
         const seat = game.seats.find((item) => item.participant_id === participant.participant_id);
         if (!seat) continue;
-        const normalizedRole = normalizeRole(seat.role);
+        const normalizedRole = normalizeGameRole(seat.role);
         if (!normalizedRole || !cat.targetRoles.includes(normalizedRole)) continue;
 
         gamesInRole++;

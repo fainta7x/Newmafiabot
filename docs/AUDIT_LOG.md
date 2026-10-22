@@ -1428,6 +1428,19 @@ The owner asked: «все элементы подчинялись единым �
 - **Dead code.** `eveningsRoutesBase.ts` GET `/`, GET `/:id` and `/:id/settle` are shadowed by `eveningsRoutes.ts` and never run, but their legacy «going» and debt rules are still in the file.
 - **Schema.** `evening_fee_waivers` and `evening_fee_waiver_migration_diagnostics` are created in two places (`ensureClubOperationsSchema.ts:92` and `ensureLegacyRegularWaiverProtection.ts:46`). The two diagnostics DDLs differ.
 
+**Progress (step 1, game vocabulary — this PR):**
+- **Fixed.** Every role, team and winner copy in A now uses `shared/gameRoles.ts` (`normalizeGameRole`, `gameTeamOfRole`, `normalizeWinnerTeam`), including:
+  - the engine-to-protocol `roleToProtocol` in both live windows;
+  - the betting labels;
+  - the progression labels;
+  - the club protocol validator;
+  - the evening rotation.
+- **Removed.** `clubGameTeams.ts` is gone; its golden test now covers the shared functions (`gameVocabularyGolden.test.ts`).
+- **Changed on purpose.** A colour is a team, not a role. `bestMovePoints`, Ci, the tournament standings and PPK read colours through `gameTeamOfRole`, so their results do not change. Per-role statistics no longer count a colour-only row as citizen or mafia (black may be the don). `маф` and `ё` spellings now work everywhere.
+- **B1 fixed:** the counter follows the table size.
+- **B2 fixed:** the inline PPK block is removed, and `processPPK` is the one rule for draft and completion; an unknown culprit role is an error. The betting `roleTeam` was not a bug, because roles are validated just above it.
+- **Still open:** exit types and removal reasons, points formulas, and the rest of A.
+
 **B. Bugs (fixable without a rule decision)**
 - `EveningGameProtocolModal.tsx:416-419` shows the role counter as `/6 /1 /2 /1` even for a table of 8–9 players, while the server checks `roleCountsMatchTable`.
 - Unknown roles are treated as red in two places:
@@ -1464,3 +1477,9 @@ The owner asked: «все элементы подчинялись единым �
 - There are two protocol pipelines: club JSON in `games.protocol_text` with `winner_team='draft'` as a marker, and tournament tables with their own status columns. The target is one set of protocol rules with a table-size parameter.
 - There are three registration models (evening, tournament, custom event) with their own status words.
 - There are eight status sets for outgoing messages and publications.
+
+**Stall measurement after #1000 and #1001 were deployed (2026-10-22 19:31 UTC, production, read-only):**
+- The worst event-loop stall is 1.97 s (it was 3.6 s).
+- `personal_notifications` spends 0.3–0.6 s in SQLite (it was 0.7–1.7 s), and `rsvp_nudges` 0.3 s (it was 0.7–0.9 s).
+- **New top cost:** the `personal_notifications/club_results` step takes 1.3–1.8 s every minute but only 0.17–0.21 s of that is SQLite, so the rest is synchronous JS work (probably result text or image building). **open, next.**
+

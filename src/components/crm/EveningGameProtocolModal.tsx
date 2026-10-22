@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileCheck, Moon, PencilLine, Save, Users, Vote, X } from 'lucide-react';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
-import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
+import { CLASSIC_TABLE_SIZE, isSupportedTableSize, roleCountsMatchTable, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
 import {
   cleanAndSyncVotes,
   createNextRevoteRound,
@@ -342,6 +342,8 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     });
   };
 
+  // The counter follows the table size (8–10 players), the same rule the save check uses.
+  const expectedRoles = tableRoleCounts(isSupportedTableSize(playerResults.length) ? playerResults.length : CLASSIC_TABLE_SIZE);
   const roleCounts = useMemo(() => playerResults.reduce<Record<string, number>>((acc, player) => {
     if (player.role) acc[player.role] = (acc[player.role] || 0) + 1;
     return acc;
@@ -413,10 +415,10 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
             {activeTab === 'players' && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] font-bold">
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-300">Мирные: {roleCounts.citizen || 0}/6</div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-emerald-400">Шериф: {roleCounts.sheriff || 0}/1</div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-300">Мафия: {roleCounts.mafia || 0}/2</div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-purple-400">Дон: {roleCounts.don || 0}/1</div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-300">Мирные: {roleCounts.citizen || 0}/{expectedRoles.citizen}</div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-emerald-400">Шериф: {roleCounts.sheriff || 0}/{expectedRoles.sheriff}</div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-300">Мафия: {roleCounts.mafia || 0}/{expectedRoles.mafia}</div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-purple-400">Дон: {roleCounts.don || 0}/{expectedRoles.don}</div>
                 </div>
 
                 {playerResults.slice().sort((a, b) => a.seat_number - b.seat_number).map((player) => {

@@ -21,4 +21,17 @@ describe('schema guards run once per database connection', () => {
     await ensureFlaky(a);
     expect(flaky).toHaveBeenCalledTimes(2);
   });
+
+  it('does not remember a run inside a transaction, which may still be rolled back', async () => {
+    const guard = vi.fn(async () => {});
+    const ensure = oncePerDatabase(guard);
+    const db = { sqlite: { inTransaction: true } } as any;
+    await ensure(db);
+    await ensure(db);
+    db.sqlite.inTransaction = false;
+    await ensure(db);
+    await ensure(db);
+    expect(guard).toHaveBeenCalledTimes(3);
+  });
 });
+

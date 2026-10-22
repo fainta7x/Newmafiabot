@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BellRing, CheckCircle2, CircleDollarSign, Gift, RefreshCw, Undo2 } from 'lucide-react';
+import { BellRing, CheckCircle2, CircleDollarSign, Gift, Pencil, RefreshCw, Undo2 } from 'lucide-react';
 
 import EveningListControls from './EveningListControls.tsx';
 import EveningExtensionBlock, { type EveningExtension } from './EveningExtensionBlock.tsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/Dialog.tsx';
 import { ratingEveningSplit } from '../../lib/ratingEveningMoney.ts';
 import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
 
@@ -50,6 +51,9 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
   const [remindOpen, setRemindOpen] = useState(false);
   const [remindBusy, setRemindBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // «Сумма»: a part of the price received by hand (owner, 2026-10-22).
+  const [amountTarget, setAmountTarget] = useState<PaymentParticipant | null>(null);
+  const [amountText, setAmountText] = useState('');
 
   const load = async () => {
     setError(null);
@@ -111,6 +115,38 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
         next.delete(participant.id);
         return next;
       });
+    }
+  };
+
+  const openAmount = (participant: PaymentParticipant) => {
+    setAmountText(String(Math.max(0, Number(participant.amount_paid || 0))));
+    setAmountTarget(participant);
+  };
+
+  const saveAmount = async () => {
+    const participant = amountTarget;
+    if (!participant || busyIds.has(participant.id)) return;
+    const amount = Number(amountText.replace(',', '.'));
+    const due = Number(participant.amount_due || 0);
+    if (!amountText.trim() || !Number.isFinite(amount) || amount < 0 || amount > due) {
+      setError(`Введи сумму от 0 до ${money(due)}`);
+      return;
+    }
+    setBusyIds((current) => new Set(current).add(participant.id));
+    setError(null); setNotice(null);
+    try {
+      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/payments/${encodeURIComponent(participant.id)}`, {
+        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_paid: amount }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить сумму');
+      setData(body as PaymentPayload);
+      setAmountTarget(null);
+    } catch (saveError: any) {
+      setError(saveError?.message || 'Не удалось сохранить сумму');
+    } finally {
+      setBusyIds((current) => { const next = new Set(current); next.delete(participant.id); return next; });
     }
   };
 
@@ -206,15 +242,18 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
     const due = Number(participant.amount_due || 0);
     const paid = participant.payment_status === 'paid' || (due > 0 && Number(participant.amount_paid || 0) >= due);
     const waived = participant.payment_status === 'waived' || due === 0;
+    const received = Math.max(0, Number(participant.amount_paid || 0));
+    const partial = !paid && !waived && received > 0;
     const busy = busyIds.has(participant.id);
     const canGift = data?.evening.format === 'CASUAL';
+    const canEditAmount = !waived;
 
     return (
       <div key={participant.id} data-testid={`evening-payment-row-${participant.id}`} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
         <div className="min-w-0 flex-1">
           <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
           <div className={`mt-0.5 text-[10px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
-            {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}{!waived && Number(participant.extension_due || 0) > 0 ? ` (вечер ${money(due - Number(participant.extension_due))} + продление ${money(Number(participant.extension_due))})` : ''}
+            {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : partial ? `Оплачено ${money(received)} из ${money(due)} · долг ${money(due - received)}` : `Не оплачено · ${money(due)}`}{!waived && Number(participant.extension_due || 0) > 0 ? ` (вечер ${money(due - Number(participant.extension_due))} + продление ${money(Number(participant.extension_due))})` : ''}
           </div>
         </div>
 
@@ -226,14 +265,26 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
             ) : null}
           </div>
         ) : paid ? (
-          <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-secondary disabled:opacity-40">
-            <Undo2 className="h-3.5 w-3.5" /> Снять оплату
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {canEditAmount ? (
+              <button type="button" disabled={busy} data-testid={`payment-amount-${participant.id}`} onClick={() => openAmount(participant)} aria-label={`Ввести сумму оплаты: ${participant.nickname}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40">
+                <Pencil className="h-4 w-4" />
+              </button>
+            ) : null}
+            <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-secondary disabled:opacity-40">
+              <Undo2 className="h-3.5 w-3.5" /> Снять оплату
+            </button>
+          </div>
         ) : (
           <div className="flex shrink-0 items-center gap-1.5">
             {canGift ? (
               <button type="button" disabled={busy} data-testid={`gift-evening-${participant.id}`} onClick={() => setGiftTarget(participant)} aria-label={`Подарить вечер: ${participant.nickname}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40">
                 <Gift className="h-4 w-4" />
+              </button>
+            ) : null}
+            {canEditAmount ? (
+              <button type="button" disabled={busy} data-testid={`payment-amount-${participant.id}`} onClick={() => openAmount(participant)} aria-label={`Ввести сумму оплаты: ${participant.nickname}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40">
+                <Pencil className="h-4 w-4" />
               </button>
             ) : null}
             <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
@@ -316,6 +367,27 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
       ) : (
         <div className="mt-3 rounded-[11px] bg-surface-2 px-3 py-3 text-[10px] text-text-muted">Пока нет отмеченных пришедших игроков.</div>
       )}
+      <Dialog open={Boolean(amountTarget)} onOpenChange={(next) => { if (!next && !(amountTarget && busyIds.has(amountTarget.id))) setAmountTarget(null); }}>
+        <DialogContent className="max-w-sm" data-testid="payment-amount-dialog">
+          <DialogTitle>Сколько оплатил{amountTarget ? ` · ${amountTarget.nickname}` : ''}?</DialogTitle>
+          {amountTarget ? (() => {
+            const due = Number(amountTarget.amount_due || 0);
+            const typed = Number(amountText.replace(',', '.'));
+            const valid = amountText.trim() !== '' && Number.isFinite(typed) && typed >= 0 && typed <= due;
+            return (
+              <>
+                <DialogDescription className="mt-1">К оплате {money(due)}. Впиши, сколько уже получено, — остаток останется долгом.</DialogDescription>
+                <input type="number" inputMode="decimal" min={0} max={due} step="any" autoFocus aria-label="Сколько получено, ₽" value={amountText} onChange={(event) => setAmountText(event.target.value)} className="mt-3 min-h-[44px] w-full rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[15px] text-text-primary" />
+                <div className="mt-2 text-[12px] text-text-muted">{valid ? (typed >= due ? 'Оплачено полностью' : `Останется долг: ${money(due - typed)}`) : `Сумма от 0 до ${money(due)}`}</div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setAmountTarget(null)} disabled={busyIds.has(amountTarget.id)} className="min-h-[44px] rounded-[11px] bg-surface-2 text-[12px] font-bold text-text-secondary disabled:opacity-40">Отмена</button>
+                  <button type="button" onClick={() => void saveAmount()} disabled={!valid || busyIds.has(amountTarget.id)} className="min-h-[44px] rounded-[11px] bg-success-soft text-[12px] font-black text-success disabled:opacity-40">Сохранить</button>
+                </div>
+              </>
+            );
+          })() : null}
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={Boolean(giftTarget)}
         title="Подарить вечер?"

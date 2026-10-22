@@ -5,7 +5,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
-import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
+import { paymentStatusForAmount, setClosedEveningParticipantPaid, setClosedEveningParticipantPaidAmount } from '../services/closedEveningPaymentService.ts';
 import { countCompletedEveningGames, isRegularFeeFreeByStaffRule, reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { EXTENSION_MAX_AMOUNT, EXTENSION_MAX_GAMES } from '../services/eveningExtensionService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
@@ -355,8 +355,10 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     const participantId = String(req.params.participantId);
     const paid = req.body?.paid;
     const waived = req.body?.waived;
-    if (typeof paid !== 'boolean' && typeof waived !== 'boolean') {
-      return res.status(400).json({ error: 'Передай paid=true/false или waived=true/false' });
+    // «Получено» — the sum the player has paid so far (a part of the evening's price), set by hand.
+    const amountPaid = req.body?.amount_paid;
+    if (typeof paid !== 'boolean' && typeof waived !== 'boolean' && typeof amountPaid !== 'number') {
+      return res.status(400).json({ error: 'Передай paid=true/false, waived=true/false или amount_paid' });
     }
 
     const evening = await db.get<any>(
@@ -411,7 +413,15 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
 
     const closed = evening.status === 'completed' || Boolean(evening.settled_at);
     const now = new Date().toISOString();
-    if (closed) {
+    if (typeof amountPaid === 'number') {
+      if (!Number.isFinite(amountPaid) || amountPaid < 0 || amountPaid > due) return res.status(400).json({ error: `Сумма должна быть от 0 до ${due} ₽` });
+      if (closed) {
+        await setClosedEveningParticipantPaidAmount(db, participantId, amountPaid);
+      } else {
+        const target = Math.round(amountPaid * 100) / 100;
+        await db.run('UPDATE evening_participants SET amount_paid = ?, payment_status = ?, updated_at = ? WHERE id = ?', [target, paymentStatusForAmount(target, due), now, participantId]);
+      }
+    } else if (closed) {
       await setClosedEveningParticipantPaid(db, participantId, paid);
     } else {
       await db.run(

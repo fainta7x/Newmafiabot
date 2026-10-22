@@ -22,14 +22,7 @@ import {
   type LiveProtocolEvidence,
 } from '../../lib/liveClubSession.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
-
-const roleToProtocol = (role: string | null | undefined): string | null => {
-  if (role === 'Мирный' || role === 'citizen') return 'citizen';
-  if (role === 'Шериф' || role === 'sheriff') return 'sheriff';
-  if (role === 'Мафия' || role === 'mafia') return 'mafia';
-  if (role === 'Дон' || role === 'don') return 'don';
-  return null;
-};
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | null | undefined): LegacyPlayer[] => {
   const players: LegacyPlayer[] = results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player, index) => ({
@@ -92,7 +85,7 @@ export const mapEngineResult = (
     if (!slot) return previous;
     return {
       ...previous,
-      role: previous.role || roleToProtocol(slot.role),
+      role: previous.role || normalizeGameRole(slot.role),
       exit_type: slot.exit_reason || (slot.alive ? 'alive' : previous.exit_type),
       regular_fouls: Number(slot.fouls || 0),
       minor_technical_fouls: Number(slot.minor_tech_fouls || 0),

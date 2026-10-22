@@ -10,7 +10,7 @@ import {
   type CanonicalEloPlayerDelta,
   type EloTeam,
 } from './eloRatingService.ts';
-import { teamFromRoleAlias, winnerTeamFromLabel } from './clubGameTeams.ts';
+import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 
 export interface PlayerEloHistoryRow extends CanonicalEloPlayerDelta {
@@ -46,10 +46,6 @@ const numeric = (value: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const teamFromRole = teamFromRoleAlias;
-
-const normalizeWinner = winnerTeamFromLabel;
-
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
@@ -58,7 +54,7 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
 const bestMovePoints = (seatNumbers: unknown, results: any[]): number => {
   if (!Array.isArray(seatNumbers)) return 0;
   const teams = new Map<number, EloTeam | null>(
-    results.map((result: any) => [Number(result?.seat_number), teamFromRole(result?.role)]),
+    results.map((result: any) => [Number(result?.seat_number), gameTeamOfRole(result?.role)]),
   );
   const blackCount = seatNumbers.reduce(
     (sum: number, seat: unknown) => sum + (teams.get(Number(seat)) === 'black' ? 1 : 0),
@@ -160,7 +156,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     `, [tournament.id]);
 
     for (const game of games) {
-      const winner = normalizeWinner(game.winner_team);
+      const winner = normalizeWinnerTeam(game.winner_team);
       if (!winner) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: winner is missing.`);
       const eventPlayers: PreparedPlayer[] = [];
 
@@ -171,7 +167,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
           : null;
         if (!canonicalGame) continue;
 
-        const team = teamFromRole(canonicalGame.role);
+        const team = gameTeamOfRole(canonicalGame.role);
         if (!team) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: role is missing.`);
         const playerId = String(participant.player_id);
         if (!knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
@@ -213,7 +209,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     if (!payload || payload.version !== 1 || payload.kind !== 'club_evening_protocol') continue;
     if (payload.protocol?.status !== 'completed') continue;
 
-    const winner = normalizeWinner(payload.protocol?.winner_team || game.winner_team);
+    const winner = normalizeWinnerTeam(payload.protocol?.winner_team || game.winner_team);
     if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
     // Same rule as the canonical Elo rebuild (`eloRatingService`): a guest without a profile is never an Elo subject, but
@@ -224,7 +220,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     };
     const guests = { red: 0, black: 0 };
     for (const result of results.filter(isGuestSeat)) {
-      const team = teamFromRole(result?.role);
+      const team = gameTeamOfRole(result?.role);
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       guests[team] += 1;
     }
@@ -233,7 +229,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
       if (!playerId || !knownPlayerIds.has(playerId)) {
         throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
       }
-      const team = teamFromRole(result?.role);
+      const team = gameTeamOfRole(result?.role);
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       return {
         playerId,

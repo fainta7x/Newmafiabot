@@ -180,6 +180,16 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 - g. Follow-up PR: 38 hand-written requests → `getJson`/`sendJson`, `TournamentStandingsView` card dedup, tournament backup service, sandbox schema layer (0 violations), `npm audit` 0, coverage measured (see AUDIT_LOG).
 - Next: characterization tests for `GameProtocolModal` and `TournamentDetailViewBase` handlers, then extract their state into hooks; remaining request shapes screen by screen; `LiveGameEngine` only with scenario tests and a plan shown to the owner first; SQLite query plans.
 
+**Domain model — whole app (owner, 2026-10-22: «все элементы подчинялись единым правилам, сценариям, не было задвоений, были единые и правильные сущности»; «да, делай»).** This continues this programme across the whole app. The target map is [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md); the findings are in `AUDIT_LOG` → «Domain model audit». The owner explicitly includes the judge engine, done in this order: scenario tests first, then canonical vocabulary, then the event log as the one source for engine and protocol. Order:
+1. Game vocabulary: one role, team and winner module; one exit-type and removal-reason list; one `roleToProtocol`; fixes for bugs B1–B2.
+2. «What is a game» for statistics, and the shared points formula (after the owner's answer).
+3. UI primitives: avatar, money, date, plural, loading state, status labels.
+4. Messaging: one retry policy, publish-once with `uncertain` (B4).
+5. Evening domain: open, going, debt, price, «недобор», including the bot copies (after the owner's answers).
+6. Engine scenario tests, then the engine uses canonical keys and players.
+7. The event log becomes the source; CRM role and seat fixes become events.
+8. One protocol rule set for club and tournament.
+
 **Acceptance for each slice:** existing values, fallbacks, API results and user-visible copy remain unchanged unless a specific change was explicitly approved; no unreviewed layout shift; test evidence for affected behaviour; exact PR/head SHA and CI result recorded; separately note deployment and runtime verification. If tests cannot be run locally through GitHub-only access, rely on PR CI and do not label unverified code as safe/merged.
 
 **Parallel architecture collaboration (2026-10-12):** Claude has merged #818 (shared date/plurals), #819 (identical server game team mappers), and #820 (first read-only `getJson` consumer). GPT owns the independent CRM participant-projection slice, not those files. Keep one writer per branch and reopen work from current `main`; do not update a shared document from an outdated snapshot. Next high-value *audit* target is the different RSVP legacy fallbacks across Node/player/CRM/Telegram/VK; require fixture-based and persisted-row evidence before unifying business rules. Financial, identity, Live Game and notification writers are out of scope pending separate review.
@@ -1034,7 +1044,17 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 **Robokassa continuation (2026-10-09):** owner reports completed NPD registration, a created store and submitted activation request. Screenshot at 11:29 Moscow confirms non-secret MerchantLogin `2LANoire`; live hash currently MD5, test hash unselected, password values masked, and Result/Success/Fail URLs all point to the application origin with GET. Password contents are unknown and must not enter chat/Git. Owner setup step: select SHA256 for both hash blocks, configure distinct test Password1/Password2 in the lower test block, choose POST for Result and GET for browser returns, save. Actual callback/return endpoints are still to implement/deploy, so origin-only URLs are placeholders, not working payment confirmation. Store activation and Robocheki SMZ authorization remain unverified. Pure test adapter merged in PR #754; wallet checkout, authenticated callback settlement and receipt evidence remain to implement. Future server env: `ROBOKASSA_MERCHANT_LOGIN=2LANoire`, matching SHA256 plus separately stored test passwords. No configured provider test or live payment verified.
 
 ### Waiting on the owner
-- Tournament live game (2026-10-22, from the #1001 review): if roles are fixed in the CRM after the judge's engine has started, the engine keeps the old roles (night actions, winner detection). Today the judge only sees a warning banner, and the result is saved as a draft to check. Proper sync means changing `LiveGameEngine`, which needs scenario tests and a plan first. Owner to decide whether to do it.
+- Tournament live game (2026-10-22, from the #1001 review): the engine keeps the old roles if they are fixed in the CRM mid-game; today the judge only sees a warning banner. **Owner «да» 2026-10-22: it is part of the domain-model programme (steps 6–7).**
+- **Domain model: rules that differ between copies (2026-10-22, owner to decide; details in AUDIT_LOG «Domain model audit» C):**
+  (1) Which games count in statistics (proposed: completed protocol, evening not cancelled; tournament game and protocol both completed).
+  (2) The best-move source for tokens is first-killed only, while Elo uses any source.
+  (3) Club and tournament protocol checks differ.
+  (4) A live evening game is saved as completed, a live tournament game as a draft.
+  (5) Whether «думаю» counts among those coming, and what an «open» evening is.
+  (6) The default evening price.
+  (7) The Telegram post ignores the editable template, and the price line differs from VK.
+  (8) Tournament display name vs nickname.
+  (9) Two achievement systems, and the «strongest role» threshold of 5 vs 10 games.
 - Owner request (2026-10-22), BUILT (needs deploy to take effect): organizer reminders in Telegram — route of the evening, unclosed evening, debts, overdue tasks (rules in BUSINESS_RULES, evening summary section). Next, to agree: forward a player's free-text message, a player «Я перевёл» button, a separate alert for «Приду позже» in the last 3 hours, failed announcement alerts.
 - Owner question (2026-10-22), answered from the running app: the novice evening of 16 Oct is not lost or cancelled — it is an open `published` evening (10 going, none marked attended, no games). Owner to say whether it was held; then close or cancel it. The «Недобор» screen counts only «Идут» (wording may be clarified).
 - Evening summary: the Elo growth block looked wrong on 16 Oct; owner to say what exactly (numbers, players). Owner's note: only one player showed +36 and nobody above +16 — needs the roles of each game and the player Elo history to judge; nothing changed in Elo. Role nominations of the evening summary now use effectiveness (see BUSINESS_RULES).

@@ -2,7 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { judgeRewardFor } from './staffRewards.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
-import { teamFromRoleAlias, winnerTeamFromLabel } from './clubGameTeams.ts';
+import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 
 export type ClubGameSettlementContext = 'completion' | 'correction' | 'reopen' | 'archive' | 'restore';
@@ -53,10 +53,6 @@ interface DesiredTarget {
   breakdown: ClubGameTokenBreakdown | { judge_reward: number };
 }
 
-const normalizeRole = teamFromRoleAlias;
-
-const normalizeWinner = winnerTeamFromLabel;
-
 const count = (value: unknown): number => {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -72,8 +68,8 @@ export const decimalPointsToTenths = (value: unknown): number => {
 };
 
 export const calculateClubGamePlayerTokens = (input: ClubGameTokenFormulaInput): ClubGameTokenBreakdown => {
-  const roleTeam = normalizeRole(input.role);
-  const winner = normalizeWinner(input.winnerTeam);
+  const roleTeam = gameTeamOfRole(input.role);
+  const winner = normalizeWinnerTeam(input.winnerTeam);
   const participation = 100;
   const victory = roleTeam && winner && roleTeam === winner ? 100 : 0;
   const rawDisciplinary = Number(input.disciplinaryPoints || 0);
@@ -99,7 +95,7 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
 const calculateBestMovePoints = (seatNumbers: unknown, playerResults: any[]): number => {
   if (!Array.isArray(seatNumbers)) return 0;
   const roles = new Map<number, 'red' | 'black' | null>();
-  for (const result of playerResults) roles.set(Number(result?.seat_number), normalizeRole(result?.role));
+  for (const result of playerResults) roles.set(Number(result?.seat_number), gameTeamOfRole(result?.role));
   let blackCount = 0;
   for (const seat of seatNumbers) if (roles.get(Number(seat)) === 'black') blackCount += 1;
   if (blackCount >= 3) return 0.6;

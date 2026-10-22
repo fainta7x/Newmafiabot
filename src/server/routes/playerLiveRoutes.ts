@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import playerSpeechRecordingRoutes from './playerSpeechRecordingRoutes.ts';
+import { normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
@@ -22,13 +23,6 @@ const safeJsonParse = (value: unknown): any => {
   } catch {
     return null;
   }
-};
-
-const normalizeWinner = (value: unknown): 'red' | 'black' | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
 };
 
 router.get('/live', async (req, res) => {
@@ -73,7 +67,7 @@ router.get('/live', async (req, res) => {
         : [];
       const status = protocol?.status === 'completed' ? 'completed' : 'draft';
       const winner = status === 'completed'
-        ? normalizeWinner(protocol?.winner_team || row.winner_team)
+        ? normalizeWinnerTeam(protocol?.winner_team || row.winner_team)
         : null;
 
       return {

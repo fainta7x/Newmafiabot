@@ -2,12 +2,13 @@ import fs from 'node:fs';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
-import { normalizeRole, roundToTwo } from '../utils/ciHelper.ts';
+import { roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 // Data for the pictures the bot posts to the club chat (owner, 2026-10-01): the blank after each
 // game and the evening summary at closeout. Points exist only on rating and tournament evenings.
@@ -147,7 +148,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
   const seats: BlankSeat[] = results.map((result) => {
     const playerId = result?.player_id ? String(result.player_id) : null;
     const participantId = String(result?.participant_id || '');
-    const role = normalizeRole(result?.role);
+    const role = normalizeGameRole(result?.role);
     const move = moves.find((item: any) => String(item?.participant_id || '') === participantId);
     return {
       seat: Number(result?.seat_number) || 0,
@@ -198,7 +199,7 @@ export function seatEffectiveness(envelope: any): Map<number, number> {
   const protocol = envelope?.protocol || {};
   const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
   const seats = results
-    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeRole(result?.role), playerId: String(result?.player_id || '') || null, participantId: String(result?.participant_id || ''), colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [] }))
+    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeGameRole(result?.role), playerId: String(result?.player_id || '') || null, participantId: String(result?.participant_id || ''), colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [] }))
     .filter((item) => Number.isInteger(item.seat) && item.seat > 0);
   const roleOf = new Map(seats.map((item) => [item.seat, item.role]));
   const moves: Array<{ participantId: string; seats: number[] }> = (Array.isArray(protocol.best_moves) && protocol.best_moves.length
@@ -280,7 +281,7 @@ export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGam
     const participantId = String(seat.participant_id);
     const playerId = seat.player_id ? String(seat.player_id) : null;
     const result = resultByParticipant.get(participantId);
-    const role = normalizeRole(seat.role);
+    const role = normalizeGameRole(seat.role);
     const move = bestMoves.find((item) => String(item.participant_id) === participantId);
     let moveSeats: number[] = [];
     try { moveSeats = JSON.parse(move?.seat_numbers_json || '[]').map(Number).filter(Number.isFinite); } catch { moveSeats = []; }
@@ -340,7 +341,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
       const playerId = String(result?.player_id || '') || (guestKey ? `guest:${guestKey}` : '');
       if (!playerId) continue;
       if (playerId.startsWith('guest:')) guestNames.set(playerId, String(result?.display_name || 'Гость'));
-      const role = normalizeRole(result?.role) || 'citizen';
+      const role = normalizeGameRole(result?.role) || 'citizen';
       const win = won(role, envelope.protocol.winner_team) ? 1 : 0;
       const points = scored ? gameResultPoints(envelope, result).total : 0;
       const tally = tallies.get(playerId) || { playerId, games: 0, wins: 0, points: 0, byRole: new Map() };
@@ -477,7 +478,7 @@ export async function loadSeasonTableForPeriod(db: DatabaseWrapper, period: any)
   // The best by role also counts only players who are in the season's standings.
   for (const item of qualified) {
     for (const game of item.games || []) {
-      const role = normalizeRole(game.role) || 'citizen';
+      const role = normalizeGameRole(game.role) || 'citizen';
       const perRole = roleTallies.get(role) || new Map();
       const tally: RoleTally = perRole.get(String(item.player_id)) || { games: 0, wins: 0, effect: 0 };
       tally.games += 1; tally.wins += Number(game.win_point || 0);
@@ -549,7 +550,7 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
     for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
       const playerId = String(result?.player_id || '');
       if (!playerId) continue;
-      const role = normalizeRole(result?.role);
+      const role = normalizeGameRole(result?.role);
       const win = won(role, envelope.protocol.winner_team);
       const entry = players.get(playerId) || { playerId, games: [], wins: 0, points: scored ? 0 : null, eloDelta: null, eloAfter: null };
       entry.games.push({ number: String(keptNumber), role, won: win });

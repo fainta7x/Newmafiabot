@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { teamFromRoleAlias, winnerTeamFromLabel } from '../server/services/clubGameTeams.ts';
+import { gameTeamOfRole as teamFromRoleAlias, normalizeGameRole, normalizeWinnerTeam as winnerTeamFromLabel } from '../shared/gameRoles.ts';
 
 // Copies of the implementations that lived in eloRatingService, playerEloHistoryService,
 // tournamentGameTokenSettlementService, clubGameTokenSettlementService and ratingPeriodStandingsService.
@@ -40,3 +40,19 @@ describe('club game team aliases', () => {
     expect(winnerTeamFromLabel('ничья')).toBeNull();
   });
 });
+
+describe('game role parser (domain model, 2026-10-22)', () => {
+  it('reads every role spelling used by the engine, the CRM and stored protocols', () => {
+    expect(['citizen', ' Мирный ', 'мирный житель', 'мирянин'].map(normalizeGameRole)).toEqual(Array(4).fill('citizen'));
+    expect(['sheriff', 'Шериф'].map(normalizeGameRole)).toEqual(['sheriff', 'sheriff']);
+    expect(['mafia', 'Мафия', 'маф'].map(normalizeGameRole)).toEqual(Array(3).fill('mafia'));
+    expect(['don', 'Дон'].map(normalizeGameRole)).toEqual(['don', 'don']);
+  });
+
+  it('never turns a team colour or junk into a role', () => {
+    for (const value of ['red', 'black', 'красный', 'чёрный', 'Красные', '', null, undefined, 'constructor', '__proto__', 'xyz']) {
+      expect(normalizeGameRole(value)).toBeNull();
+    }
+  });
+});
+

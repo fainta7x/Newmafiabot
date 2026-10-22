@@ -21,6 +21,7 @@ import { buildFinalChronology } from '../../lib/liveGameEventLog';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -31,14 +32,6 @@ interface EveningLiveGameModalProps {
   /** Only synthetic local games enable the guided training layout and task panel. */
   trainingMode?: boolean;
 }
-
-const roleToProtocol = (role: string | null | undefined): string | null => {
-  if (role === 'Мирный' || role === 'citizen') return 'citizen';
-  if (role === 'Шериф' || role === 'sheriff') return 'sheriff';
-  if (role === 'Мафия' || role === 'mafia') return 'mafia';
-  if (role === 'Дон' || role === 'don') return 'don';
-  return null;
-};
 
 /**
  * LiveGameEngine still declares its legacy identity as a number, but the club
@@ -125,7 +118,7 @@ export const mapEngineResultToProtocol = (
     const majorTechnical = Number(slot.major_tech_fouls || 0);
     return {
       ...previous,
-      role: roleToProtocol(slot.role),
+      role: normalizeGameRole(slot.role),
       exit_type: slot.exit_reason || (slot.alive ? 'alive' : previous.exit_type),
       regular_fouls: Number(slot.fouls || 0),
       minor_technical_fouls: minorTechnical,

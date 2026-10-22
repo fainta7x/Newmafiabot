@@ -8,8 +8,11 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export type SlowRequest = { at: string; route: string; status: number; ms: number };
 export type SlowTransaction = { at: string; waited_ms: number; held_ms: number; origin: string };
 export type LoopWindow = { at: string; max_ms: number; p99_ms: number; mean_ms: number };
-/** A background job run: wall time and the part spent inside synchronous SQLite calls (that part blocks every request). */
-export type SlowJob = { at: string; job: string; total_ms: number; sqlite_ms: number; sqlite_calls: number };
+/**
+ * A background job run: wall time (includes network waits), CPU time of the process meanwhile (the work that blocks
+ * every request, SQLite included) and the part spent inside synchronous SQLite calls.
+ */
+export type SlowJob = { at: string; job: string; total_ms: number; cpu_ms: number; sqlite_ms: number; sqlite_calls: number };
 
 const WINDOW_MS = 5 * 60_000;
 const KEEP = 40;
@@ -74,23 +77,28 @@ export const addSqliteTime = (ms: number, sql?: string) => {
 };
 
 /**
- * Runs one tick of a background worker and records it when its SQLite time blocked the server for
- * SLOW_JOB_SQLITE_MS or more (owner question 2026-10-22: what stalls the server for ~2 s every minute).
+ * Runs one tick of a background worker and records it when its SQLite or CPU time blocked the server for
+ * the threshold or more (owner question 2026-10-22: what stalls the server for ~2 s every minute). CPU time is
+ * the process's, so a concurrent request adds to it; network waits do not.
  */
 export async function timeBackgroundJob<T>(job: string, run: () => Promise<T>, thresholdMs = SLOW_JOB_SQLITE_MS): Promise<T> {
   const store = { sqliteMs: 0, sqliteCalls: 0 };
   // A step timed inside a job (job/step) still counts towards the job around it.
   const outer = jobContext.getStore();
   const startedAt = performance.now();
+  const cpuAtStart = process.cpuUsage();
   try {
     return await jobContext.run(store, run);
   } finally {
     if (outer) { outer.sqliteMs += store.sqliteMs; outer.sqliteCalls += store.sqliteCalls; }
-    if (store.sqliteMs >= thresholdMs) {
+    const cpu = process.cpuUsage(cpuAtStart);
+    const cpuMs = (cpu.user + cpu.system) / 1000;
+    if (store.sqliteMs >= thresholdMs || cpuMs >= thresholdMs) {
       push(slowJobs, {
         at: new Date().toISOString(),
         job,
         total_ms: Math.round(performance.now() - startedAt),
+        cpu_ms: Math.round(cpuMs),
         sqlite_ms: Math.round(store.sqliteMs),
         sqlite_calls: store.sqliteCalls,
       });
@@ -132,7 +140,7 @@ export const performanceSnapshot = (now = Date.now()) => {
     },
     slow_requests: recent(slowRequests, now).sort((a, b) => b.ms - a.ms).slice(0, 10),
     slow_transactions: recent(slowTransactions, now).sort((a, b) => Math.max(b.held_ms, b.waited_ms) - Math.max(a.held_ms, a.waited_ms)).slice(0, 10),
-    slow_jobs: recent(slowJobs, now).sort((a, b) => b.sqlite_ms - a.sqlite_ms).slice(0, 10),
+    slow_jobs: recent(slowJobs, now).sort((a, b) => Math.max(b.cpu_ms, b.sqlite_ms) - Math.max(a.cpu_ms, a.sqlite_ms)).slice(0, 12),
     running_now: requestsInFlight(now),
   };
 };

@@ -7,6 +7,7 @@ import { loadPlayerAchievementProfile } from '../services/playerAchievementsServ
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const router = Router();
 const EVENING_RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'declined']);
@@ -35,13 +36,6 @@ const safeJsonParse = (value: unknown): any => {
   } catch {
     return null;
   }
-};
-
-const normalizeWinner = (value: unknown): 'red' | 'black' | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
 };
 
 router.get('/me', async (req, res) => {
@@ -245,7 +239,7 @@ router.get('/games/all', async (req, res) => {
         date: row.evening_date || row.game_date || null,
         game_number: Number(row.global_game_number || 0),
         format: String(row.evening_format || 'CASUAL'),
-        winner_team: normalizeWinner(payload.protocol?.winner_team || row.winner_team),
+        winner_team: normalizeWinnerTeam(payload.protocol?.winner_team || row.winner_team),
         judge_name: row.judge_name || null,
       }];
     });
@@ -257,7 +251,7 @@ router.get('/games/all', async (req, res) => {
       date: row.completed_at || row.tournament_date || null,
       game_number: Number(row.game_number || 0),
       format: 'TOURNAMENT',
-      winner_team: normalizeWinner(row.winner_team),
+      winner_team: normalizeWinnerTeam(row.winner_team),
       judge_name: row.judge_name || null,
     }));
 

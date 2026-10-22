@@ -1,6 +1,6 @@
 import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
 import type { StatGame, StatRole } from '../../lib/gameStatistics.ts';
-import { normalizeRole, normalizeWinner } from './clubGameAnalyticsService.ts';
+import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { isCompletedClubGamePayload } from './completedClubGame.ts';
 
@@ -63,10 +63,10 @@ async function loadStatGamesUncached(db: any, options: StatOptions): Promise<Sta
       id: `club:${row.id}`,
       source: 'club',
       date: date.toISOString(),
-      winner: normalizeWinner(payload.protocol?.winner_team),
+      winner: normalizeWinnerTeam(payload.protocol?.winner_team),
       seats: payload.player_results.map((result: any) => ({
         seat: Number(result.seat_number),
-        role: normalizeRole(result.role) as StatRole | null,
+        role: normalizeGameRole(result.role) as StatRole | null,
         playerId: result.player_id ? String(result.player_id) : null,
       })),
       events: sanitizeLiveGameEvents(payload.protocol?.events),
@@ -91,10 +91,10 @@ async function loadStatGamesUncached(db: any, options: StatOptions): Promise<Sta
       id: `tournament:${row.game_id}`,
       source: 'tournament',
       date: date.toISOString(),
-      winner: normalizeWinner(row.winner_team),
+      winner: normalizeWinnerTeam(row.winner_team),
       seats: seats.map((seat: any) => ({
         seat: Number(seat.seat_number),
-        role: normalizeRole(seat.role) as StatRole | null,
+        role: normalizeGameRole(seat.role) as StatRole | null,
         playerId: seat.player_id ? String(seat.player_id) : null,
       })),
       events: sanitizeLiveGameEvents(parse(row.events_json)),

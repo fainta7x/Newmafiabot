@@ -9,6 +9,7 @@ import {
   type AchievementMetric,
   type AchievementRarity,
 } from '../../lib/achievementCatalog.ts';
+import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 export interface AchievementStats {
   stories?: Record<string, StoryResult>;
@@ -60,29 +61,6 @@ export interface PlayerAchievementProfile {
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
-};
-
-const normalizeRole = (role: unknown): 'citizen' | 'sheriff' | 'mafia' | 'don' | null => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный'].includes(value)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(value)) return 'sheriff';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный', 'чёрный'].includes(value)) return 'mafia';
-  if (['don', 'дон'].includes(value)) return 'don';
-  return null;
-};
-
-const teamFromRole = (role: unknown): 'red' | 'black' | null => {
-  const normalized = normalizeRole(role);
-  if (normalized === 'mafia' || normalized === 'don') return 'black';
-  if (normalized === 'citizen' || normalized === 'sheriff') return 'red';
-  return null;
-};
-
-const normalizeWinner = (winner: unknown): 'red' | 'black' | null => {
-  const value = String(winner || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(value)) return 'red';
-  if (['black', 'черные', 'чёрные', 'черная', 'чёрная', 'мафия'].includes(value)) return 'black';
-  return null;
 };
 
 const storyEvidence = (achievement: AchievementDefinition, stats: AchievementStats) => stats.stories?.[achievement.id]?.evidence || null;
@@ -200,9 +178,9 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     if (seenGames.has(key)) continue;
     seenGames.add(key);
 
-    const winner = normalizeWinner(payload.protocol?.winner_team || row.winner_team);
-    const role = normalizeRole(result.role);
-    const team = teamFromRole(role);
+    const winner = normalizeWinnerTeam(payload.protocol?.winner_team || row.winner_team);
+    const role = normalizeGameRole(result.role);
+    const team = gameTeamOfRole(role);
     stats.completedGames += 1;
     if (winner && team && winner === team) {
       stats.wins += 1;
@@ -231,9 +209,9 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     const key = `tournament:${row.game_id}`;
     if (seenGames.has(key)) continue;
     seenGames.add(key);
-    const winner = normalizeWinner(row.winner_team);
-    const role = normalizeRole(row.role);
-    const team = teamFromRole(role);
+    const winner = normalizeWinnerTeam(row.winner_team);
+    const role = normalizeGameRole(row.role);
+    const team = gameTeamOfRole(role);
     stats.completedGames += 1;
     if (winner && team && winner === team) {
       stats.wins += 1;

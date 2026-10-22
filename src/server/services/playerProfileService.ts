@@ -1,6 +1,7 @@
 import { loadPlayerTournamentAwards } from './tournamentAwardsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 import { normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
+import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 export type PlayerGameSource = 'club' | 'tournament';
 export type PlayerGameTeam = 'red' | 'black' | null;
@@ -71,30 +72,6 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   }
 };
 
-const normalizeRole = (role: unknown): 'citizen' | 'sheriff' | 'mafia' | 'don' | null => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (!value) return null;
-  if (value === 'citizen' || value === 'мирный' || value === 'мирный житель' || value === 'красный') return 'citizen';
-  if (value === 'sheriff' || value === 'шериф') return 'sheriff';
-  if (value === 'mafia' || value === 'мафия' || value === 'маф') return 'mafia';
-  if (value === 'don' || value === 'дон') return 'don';
-  return null;
-};
-
-const teamFromRole = (role: unknown): PlayerGameTeam => {
-  const normalized = normalizeRole(role);
-  if (normalized === 'mafia' || normalized === 'don') return 'black';
-  if (normalized === 'citizen' || normalized === 'sheriff') return 'red';
-  return null;
-};
-
-const normalizeWinner = (winner: unknown): PlayerGameTeam => {
-  const value = String(winner || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (value === 'red' || value === 'красные' || value === 'красная' || value === 'город') return 'red';
-  if (value === 'black' || value === 'черные' || value === 'черная' || value === 'мафия') return 'black';
-  return null;
-};
-
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
 export const buildPlayerProfileStats = (games: PlayerGameHistoryItem[]): PlayerGameProfileStats => {
@@ -103,7 +80,7 @@ export const buildPlayerProfileStats = (games: PlayerGameHistoryItem[]): PlayerG
   const roleCounts = { citizen: 0, sheriff: 0, mafia: 0, don: 0, unknown: 0 };
 
   for (const game of games) {
-    const role = normalizeRole(game.role);
+    const role = normalizeGameRole(game.role);
     if (role) roleCounts[role] += 1;
     else roleCounts.unknown += 1;
   }
@@ -153,9 +130,9 @@ export const loadPlayerGameProfile = async (db: any, playerId: string) => {
     if (!result) continue;
 
     const protocol = payload.protocol || {};
-    const role = normalizeRole(result.role);
-    const team = teamFromRole(role);
-    const winner = normalizeWinner(protocol.winner_team || row.winner_team);
+    const role = normalizeGameRole(result.role);
+    const team = gameTeamOfRole(role);
+    const winner = normalizeWinnerTeam(protocol.winner_team || row.winner_team);
     const status = protocol.status === 'completed' ? 'completed' : 'draft';
     const bestMove = Array.isArray(protocol.best_moves)
       ? protocol.best_moves.find((item: any) => String(item.participant_id || '') === String(result.participant_id || ''))
@@ -218,9 +195,9 @@ export const loadPlayerGameProfile = async (db: any, playerId: string) => {
   `, [playerId]);
 
   const tournamentGames: PlayerGameHistoryItem[] = tournamentRows.map((row: any) => {
-    const role = normalizeRole(row.role);
-    const team = teamFromRole(role);
-    const winner = normalizeWinner(row.winner_team);
+    const role = normalizeGameRole(row.role);
+    const team = gameTeamOfRole(role);
+    const winner = normalizeWinnerTeam(row.winner_team);
     const status = row.game_status === 'completed' ? 'completed' : row.game_status || 'planned';
     const bestMoveSource = row.best_move_source === 'first_killed' || row.best_move_source === 'zero_round_voted'
       ? row.best_move_source

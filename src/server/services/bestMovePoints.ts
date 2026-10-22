@@ -1,14 +1,5 @@
-// Protocol role names and the best-move («ЛХ») bonus, shared by protocol routes and rating/result services.
-export function normalizeRole(r: string | null | undefined): string | null {
-  if (!r) return null;
-  const lower = r.trim().toLowerCase();
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный'].includes(lower)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(lower)) return 'sheriff';
-  if (['mafia', 'мафия', 'black', 'черный'].includes(lower)) return 'mafia';
-  if (['don', 'дон'].includes(lower)) return 'don';
-  return lower;
-}
-
+import { gameTeamOfRole } from '../../shared/gameRoles.ts';
+// The best-move («ЛХ») bonus, shared by protocol routes and rating/result services.
 export function calculateBestMovePoints(
   bestMoveSeats: number[],
   seats: Array<{ seat_number: number; role: string | null }>
@@ -17,18 +8,11 @@ export function calculateBestMovePoints(
     return { guessedBlacks: 0, bonusPoints: 0 };
   }
 
-  const roleMap = new Map<number, string>();
-  for (const s of seats) {
-    const r = normalizeRole(s.role);
-    if (r) roleMap.set(s.seat_number, r);
-  }
+  const teams = new Map<number, string | null>(seats.map((s) => [s.seat_number, gameTeamOfRole(s.role)]));
 
   let guessedBlacks = 0;
   for (const seatNum of bestMoveSeats) {
-    const r = roleMap.get(seatNum);
-    if (r === 'mafia' || r === 'don') {
-      guessedBlacks++;
-    }
+    if (teams.get(seatNum) === 'black') guessedBlacks++;
   }
 
   let bonusPoints = 0;

@@ -9,7 +9,8 @@ import { determineVotingResult, validateVotingHierarchy } from '../../shared/tou
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { blackParticipantIds, withoutBlackBestMoves } from '../services/blackBestMoves.ts';
-import { calculateBestMovePoints, normalizeRole } from '../services/bestMovePoints.ts';
+import { calculateBestMovePoints } from '../services/bestMovePoints.ts';
+import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ export function validateFirstKilled(
     return 'Первоубиенный игрок не найден среди участников этой игры';
   }
 
-  const normRole = normalizeRole(fkSeat.role);
+  const normRole = normalizeGameRole(fkSeat.role);
   if (!normRole) {
     return `У первоубиенного игрока должна быть указана роль (сейчас: ${fkSeat.role || 'не указана'})`;
   }
@@ -876,20 +877,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: 'Завершённую игру можно править, только открыв её протокол для правки' });
     }
 
-    // Validations
-    if (protocol?.end_reason === 'ppk') {
-      if (!protocol.ppk_culprit_participant_id) {
-        return res.status(400).json({ error: 'При ППК виновник обязателен' });
-      }
-      const culprit = seats.find((s: any) => s.participant_id === protocol.ppk_culprit_participant_id);
-      if (!culprit) {
-        return res.status(400).json({ error: 'Виновник ППК не участвует в игре' });
-      }
-      // Automate winner assignment for ppk
-      const culpritRole = ['мафия', 'mafia', 'black', 'черный', 'дон', 'don'].includes((culprit.role || '').toLowerCase()) ? 'black' : 'red';
-      protocol.winner_team = culpritRole === 'red' ? 'black' : 'red';
-    }
-
+    // PPK: one rule (processPPK) for the draft save and the completion; an unknown culprit role is an error, never «red».
     const ppkErr = processPPK(protocol, seats);
     if (ppkErr) return res.status(400).json({ error: ppkErr });
 
@@ -1195,7 +1183,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     // Check roles distribution
     const roleCounts: Record<string, number> = { citizen: 0, sheriff: 0, mafia: 0, don: 0 };
     for (const seat of seats) {
-      const r = normalizeRole(seat.role);
+      const r = normalizeGameRole(seat.role);
       if (r && roleCounts[r] !== undefined) roleCounts[r]++;
     }
     if (roleCounts.citizen !== 6 || roleCounts.sheriff !== 1 || roleCounts.mafia !== 2 || roleCounts.don !== 1) {
@@ -1539,10 +1527,10 @@ function processPPK(protocol: any, seats: any[]): string | null {
     if (!culprit) {
       return 'Виновник ППК не участвует в игре';
     }
-    const culpritRole = normalizeRole(culprit.role);
-    if (culpritRole === 'citizen' || culpritRole === 'sheriff') {
+    const culpritTeam = gameTeamOfRole(culprit.role);
+    if (culpritTeam === 'red') {
       protocol.winner_team = 'black';
-    } else if (culpritRole === 'mafia' || culpritRole === 'don') {
+    } else if (culpritTeam === 'black') {
       protocol.winner_team = 'red';
     } else {
       return 'Неизвестная роль виновника ППК';

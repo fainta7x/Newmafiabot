@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
+import { GAME_ROLES, normalizeGameRole } from '../../shared/gameRoles.ts';
 
 export type BetTeam = 'red' | 'black';
 
@@ -47,17 +48,6 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
-
-const normalizeRole = (value: unknown): BettingRoleSnapshot['role'] | null => {
-  const role = String(value || '').trim().toLocaleLowerCase('ru-RU');
-  if (role === 'мирный' || role === 'citizen') return 'citizen';
-  if (role === 'шериф' || role === 'sheriff') return 'sheriff';
-  if (role === 'мафия' || role === 'mafia') return 'mafia';
-  if (role === 'дон' || role === 'don') return 'don';
-  return null;
-};
-
-const roleTeam = (role: BettingRoleSnapshot['role']): BetTeam => role === 'mafia' || role === 'don' ? 'black' : 'red';
 
 /**
  * Bets stay open for eight minutes after the game starts (owner, 2026-10-10): the agreement, the sheriff call and the
@@ -150,7 +140,7 @@ export const openBetPoolForGame = async (
   const assignmentBySeat = new Map<number, BettingRoleSnapshot['role']>();
   for (const assignment of roleAssignments || []) {
     const seat = Number(assignment?.seat_number);
-    const role = normalizeRole(assignment?.role);
+    const role = normalizeGameRole(assignment?.role);
     if (!Number.isInteger(seat) || seat < 1 || seat > 10 || !role) {
       throw new BettingValidationError('Некорректные роли для открытия ставок');
     }
@@ -175,7 +165,7 @@ export const openBetPoolForGame = async (
         player_id: String(result.player_id),
         nickname: String(result.display_name || `Игрок ${seat}`),
         role,
-        team: roleTeam(role),
+        team: GAME_ROLES[role].team,
       };
     })
     .sort((a: BettingRoleSnapshot, b: BettingRoleSnapshot) => a.seat_number - b.seat_number);

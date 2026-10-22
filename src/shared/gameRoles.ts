@@ -17,12 +17,42 @@ export function getGameRoleDefinition(role: string | null | undefined): GameRole
   return role && Object.hasOwn(GAME_ROLES, role) ? GAME_ROLES[role as GameRole] : null;
 }
 
-/** Decode role names used by the existing judge engine at the presentation boundary. */
-export function normalizeGameRole(role: string | null | undefined): GameRole | null {
-  if (!role) return null;
-  const value = role.trim().toLowerCase();
-  const direct = getGameRoleDefinition(value);
-  if (direct) return direct.key;
-  return GAME_ROLE_KEYS.find(key => GAME_ROLES[key].label.toLowerCase() === value)
-    ?? (value === 'мирный житель' ? 'citizen' : null);
+const gameToken = (value: unknown): string => String(value ?? '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+
+/**
+ * Every spelling a stored or typed role may have: API keys, the judge engine's Russian names and legacy aliases.
+ * The one place roles are parsed (domain model, 2026-10-22). A team colour is not a role (black may be the don);
+ * colours are read only by `gameTeamOfRole`.
+ */
+const GAME_ROLE_ALIASES: Record<string, GameRole> = {
+  citizen: 'citizen', 'мирный': 'citizen', 'мирный житель': 'citizen', 'мирянин': 'citizen',
+  sheriff: 'sheriff', 'шериф': 'sheriff',
+  mafia: 'mafia', 'мафия': 'mafia', 'маф': 'mafia',
+  don: 'don', 'дон': 'don',
+};
+
+/** Role key of any stored or typed role spelling; null when it is not a role. */
+export function normalizeGameRole(role: unknown): GameRole | null {
+  const token = gameToken(role);
+  return Object.hasOwn(GAME_ROLE_ALIASES, token) ? GAME_ROLE_ALIASES[token] : null;
+}
+
+export type GameTeam = 'red' | 'black';
+
+/** Team of a role in any spelling (red: мирный, шериф; black: мафия, дон), or of a team colour stored instead of a role. */
+export function gameTeamOfRole(role: unknown): GameTeam | null {
+  const key = normalizeGameRole(role);
+  if (key) return GAME_ROLES[key].team;
+  const token = gameToken(role);
+  if (token === 'red' || token === 'красный') return 'red';
+  if (token === 'black' || token === 'черный') return 'black';
+  return null;
+}
+
+/** Winning team of a stored result in any spelling: `red`/`black`, «Красные»/«Чёрные», «Город»/«Мафия». */
+export function normalizeWinnerTeam(value: unknown): GameTeam | null {
+  const token = gameToken(value);
+  if (['red', 'красные', 'красная', 'город'].includes(token)) return 'red';
+  if (['black', 'черные', 'черная', 'мафия'].includes(token)) return 'black';
+  return null;
 }

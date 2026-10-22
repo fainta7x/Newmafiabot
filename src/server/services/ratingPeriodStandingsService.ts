@@ -6,10 +6,9 @@ import {
   calculateCiRate,
   calculateCiThreshold,
   calculateGameCi,
-  normalizeRole,
   roundToTwo,
 } from '../utils/ciHelper.ts';
-import { winnerTeamFromLabel } from './clubGameTeams.ts';
+import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
@@ -30,8 +29,6 @@ const autoIncludesEvening = (period: any, evening: any): boolean => {
 const booleanOverride = (value: unknown): boolean | null => (
   value === null || value === undefined ? null : Boolean(value)
 );
-
-const normalizeWinner = winnerTeamFromLabel;
 
 type IncludedGame = {
   id: number;
@@ -77,7 +74,7 @@ const loadIncludedCompletedGames = async (db: DatabaseWrapper, period: any) => {
     if (!payload || payload.version !== 1 || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') {
       continue;
     }
-    const winner = normalizeWinner(payload.protocol?.winner_team);
+    const winner = normalizeWinnerTeam(payload.protocol?.winner_team);
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
     if (!winner || results.length !== 10) {
       warnings.push(`Игра №${row.global_game_number}: завершённый протокол неполный и не попал в расчёт.`);
@@ -170,8 +167,7 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
     if (!firstKilledParticipantId) continue;
     const result = results.find((item: any) => String(item.participant_id || '') === firstKilledParticipantId);
     const playerId = String(result?.player_id || '');
-    const role = normalizeRole(result?.role);
-    if (playerId && (role === 'citizen' || role === 'sheriff')) {
+    if (playerId && gameTeamOfRole(result?.role) === 'red') {
       redFirstKilledCounts.set(playerId, (redFirstKilledCounts.get(playerId) || 0) + 1);
     }
   }
@@ -215,8 +211,7 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
     const firstKilledBestMove = bestMoves.find((move) => move.source === 'first_killed' && move.participant_id === firstKilledParticipantId) || null;
     const hasBlackInFirstKilledBestMove = Boolean(firstKilledBestMove?.seat_numbers.some((seatNumber) => {
       const seat = seats.find((item) => Number(item.seat_number) === Number(seatNumber));
-      const role = normalizeRole(seat?.role);
-      return role === 'mafia' || role === 'don';
+      return gameTeamOfRole(seat?.role) === 'black';
     }));
 
     for (const result of results) {
@@ -227,7 +222,7 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
       if (!statsMap.has(playerId)) statsMap.set(playerId, createEmptyStats(player));
       const stats = statsMap.get(playerId)!;
 
-      const role = normalizeRole(result?.role);
+      const role = normalizeGameRole(result?.role);
       const judgeBonus = Number(result?.judge_bonus || 0);
       const protocolBonus = Number(result?.protocol_bonus || 0);
       const isPpkCulprit = protocol.end_reason === 'ppk'

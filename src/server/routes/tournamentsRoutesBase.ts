@@ -11,13 +11,13 @@ import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { internalGetNominations } from '../services/tournamentStandingsService.ts';
 import { recordTournamentGameEdit, tournamentGameEditPermission } from '../services/tournamentGameEditPolicy.ts';
 import { insertRowSafe, validateTournamentBackupData } from '../services/tournamentBackupService.ts';
-import { normalizeRole } from '../utils/ciHelper.ts';
 import {
   normalizeRoleValue,
   calculateRoleCounts,
   validateRoleCountsTransition,
   SeatRoleInput
 } from '../../lib/tournamentRoleValidation.ts';
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
@@ -475,7 +475,7 @@ router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: Authen
     };
 
     for (const seat of seats) {
-      const r = normalizeRole(seat.role);
+      const r = normalizeGameRole(seat.role);
       if (r && roleCounts[r] !== undefined) {
         roleCounts[r]++;
       }

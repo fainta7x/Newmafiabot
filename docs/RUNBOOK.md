@@ -295,6 +295,10 @@ If a conducted game exists but final save/retry reports a roster conflict:
 
 Do not mutate production game identity by guessing from an old browser payload.
 
+### SQLite connection settings
+
+Every WAL connection opens with `synchronous = NORMAL` (owner decision 2026-10-22: faster writes on the network disk; an app crash loses nothing and the file never corrupts, but a power loss or host crash may drop the last committed seconds) and a ~32 MB page cache (`cache_size = -32000`). Schema guards that workers call on every tick run once per connection (`src/db/oncePerDatabase.ts`), never remembered inside a transaction. Slow statements are listed for organizers at `/api/health/performance/queries`.
+
 ## 9. Combined Amvera deployment
 
 Canonical target: one Docker application from `fainta7x/Newmafiabot` `main` running nginx + Node + Python bot.

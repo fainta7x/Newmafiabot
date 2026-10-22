@@ -85,6 +85,9 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   const sqlite = new Database(resolvedDbPath);
   const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.runtime.sqlite' && process.env.NODE_ENV !== 'production';
   if (isPreviewTournamentDB) sqlite.pragma('journal_mode = DELETE'); else sqlite.pragma('journal_mode = WAL');
+  // WAL + synchronous=NORMAL: a commit no longer waits for the network disk to flush (owner «да», 2026-10-22). An app
+  // crash loses nothing and the file never corrupts; a power loss or host crash may drop the last committed seconds.
+  if (!isPreviewTournamentDB) sqlite.pragma('synchronous = NORMAL');
   sqlite.pragma('foreign_keys = ON');
   // Keep up to ~32 MB of database pages in memory (the default is ~2 MB): on production every point lookup that missed
   // the cache waited 100–200 ms for the network disk (owner question 2026-10-22). Reads only; durability is unchanged.

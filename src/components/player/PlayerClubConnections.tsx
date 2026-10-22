@@ -2,6 +2,7 @@ import ClubConnectionStories from './ClubConnectionStories.tsx';
 import type { ClubConnectionStories as ClubStories } from '../../shared/clubConnectionStories.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type PersonRelationship = {
   player_id: string;
@@ -71,9 +72,7 @@ export default function PlayerClubConnections() {
     setError(null);
     setData(null);
     try {
-      const response = await fetch('/api/player/relationships', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить связи игроков');
+      const body = await getJson('/api/player/relationships', 'Не удалось загрузить связи игроков');
       if (!body?.club_duos?.red || !body?.club_duos?.black) throw new Error('Не удалось загрузить связи игроков');
       if (requestId === requestSeq.current) setData(body as RelationshipData);
     } catch (loadError: any) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { getJson } from '../../lib/requestJson.ts';
 
 interface StaffPlayer {
   id: string;
@@ -25,9 +26,7 @@ export function EveningStaffCard({ eveningId }: { eveningId: string }) {
   const load = async () => {
     setError(null);
     try {
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/staff`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить команду вечера');
+      const body = await getJson(`/api/evenings/${encodeURIComponent(eveningId)}/staff`, 'Не удалось загрузить команду вечера');
       setData(body as StaffResponse);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить команду вечера');

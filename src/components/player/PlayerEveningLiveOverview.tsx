@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Game = {
   id: number;
@@ -43,9 +44,7 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
     let alive = true;
     const load = async () => {
       try {
-        const response = await fetch('/api/player/evening-journey', { credentials: 'include', cache: 'no-store' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить вечер');
+        const body = await getJson('/api/player/evening-journey', 'Не удалось загрузить вечер', { cache: 'no-store' });
         if (alive) { setJourney(body.journey || null); setError(''); }
       } catch (err: any) {
         if (alive) setError(err?.message || 'Не удалось обновить вечер');

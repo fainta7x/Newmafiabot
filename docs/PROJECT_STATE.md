@@ -176,7 +176,9 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 - d. Start-up data migrations moved to `src/server/dataMigrations/`, one-off repairs run from `server.ts` (same order); `db/index.ts ↔ seed.ts` fixed (done, with c and e). Deleting the one-off repairs waits for a read of production `migration_history` (no access path yet).
 - e. Start bundle: «Ведение», poker, «Часовая башня» and `/guide` load on demand; start JS 1978 → 972 KB (done, PR after c).
 - f. Evening lifecycle service ring (11 modules): broken by moving the two slot writes to `eveningSlotWritesService.ts` and loading the VK sync on demand from guest changes; no runtime import cycles remain (owner: «всё разрешаю», 2026-10-22). Existing evening/slot/VK/Telegram integration tests pass unchanged except import paths.
-- Later passes not yet done: route-by-route auth review, SQLite query plans, coverage of the hotspots (`LiveGameEngine.tsx`, `CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `lib/api.ts`).
+- Owner 2026-10-22: **security review postponed** («безопасность пока точно отложим»); do everything else.
+- g. Follow-up PR: 38 hand-written requests → `getJson`/`sendJson`, `TournamentStandingsView` card dedup, tournament backup service, sandbox schema layer (0 violations), `npm audit` 0, coverage measured (see AUDIT_LOG).
+- Next: characterization tests for `GameProtocolModal` and `TournamentDetailViewBase` handlers, then extract their state into hooks; remaining request shapes screen by screen; `LiveGameEngine` only with scenario tests and a plan shown to the owner first; SQLite query plans.
 
 **Acceptance for each slice:** existing values, fallbacks, API results and user-visible copy remain unchanged unless a specific change was explicitly approved; no unreviewed layout shift; test evidence for affected behaviour; exact PR/head SHA and CI result recorded; separately note deployment and runtime verification. If tests cannot be run locally through GitHub-only access, rely on PR CI and do not label unverified code as safe/merged.
 

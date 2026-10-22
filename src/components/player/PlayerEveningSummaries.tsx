@@ -2,6 +2,7 @@ import { countGames } from '../../lib/russianPlural';
 import { RoleMark, TeamResultGraphic } from './PlayerGameGraphics.tsx';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Award = {
   category: string;
@@ -75,9 +76,7 @@ export default function PlayerEveningSummaries({
     setSummaries(null);
     setError(null);
     try {
-      const response = await fetch('/api/player/evening-summaries', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить итоги вечеров');
+      const body = await getJson('/api/player/evening-summaries', 'Не удалось загрузить итоги вечеров');
       if (requestId !== summaryRequestSeq.current) return;
       const items = Array.isArray(body?.summaries) ? body.summaries as Summary[] : [];
       setSummaries(items);

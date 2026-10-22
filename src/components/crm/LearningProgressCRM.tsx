@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { ChevronRight, RefreshCw, Search } from 'lucide-react';
 import LearningActivityCRM from './LearningActivityCRM.tsx';
 import { SPLIT_VOTE_LEVELS, type LearningPlayerRow, type SplitVoteLevelId } from '../../lib/learningProgress.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Status = 'passed' | 'not_passed' | 'nothing';
 type Sort = 'recent' | 'name' | 'progress';
@@ -44,9 +45,7 @@ function SplitVoteProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: stri
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/learning/split-vote', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить результаты');
+      const body = await getJson('/api/learning/split-vote', 'Не удалось загрузить результаты');
       setRows(Array.isArray(body.players) ? body.players : []);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить результаты');

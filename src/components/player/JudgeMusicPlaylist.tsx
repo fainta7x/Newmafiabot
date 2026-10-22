@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { openExternalMusicUrl } from '../../lib/openExternalMusicUrl.ts';
-import { getJson } from '../../lib/requestJson.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type UploadTrack = {
   id: string;
@@ -103,9 +103,7 @@ export default function JudgeMusicPlaylist() {
     if (busy || !window.confirm(`Удалить «${track.title}»?`)) return;
     setBusy(true);
     try {
-      const response = await fetch(`/api/player/judge-music/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось удалить трек.');
+      await sendJson(`/api/player/judge-music/tracks/${encodeURIComponent(track.id)}`, 'DELETE', undefined, 'Не удалось удалить трек.');
       if (preview === `upload:${track.id}`) setPreview(null);
       await reload();
     } catch (removeError: any) {
@@ -119,9 +117,7 @@ export default function JudgeMusicPlaylist() {
     if (busy || !window.confirm(`Удалить «${track.title}»?`)) return;
     setBusy(true);
     try {
-      const response = await fetch(`/api/player/music-library/organizer/links/${encodeURIComponent(track.id)}`, { method: 'DELETE', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось удалить ссылку.');
+      await sendJson(`/api/player/music-library/organizer/links/${encodeURIComponent(track.id)}`, 'DELETE', undefined, 'Не удалось удалить ссылку.');
       if (preview === `yandex:${track.id}`) setPreview(null);
       await reload();
     } catch (removeError: any) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import MobileSheet from '../ui/MobileSheet.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Game = { number: number; starts_at: string; registered: number; target: number };
 
@@ -22,9 +23,7 @@ export default function TodayPostSheet({ eveningId, open, onClose, onDone }: {
     setError('');
     try {
       const query = number ? `?game=${number}` : '';
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/today-post${query}`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось подготовить пост');
+      const body = await getJson(`/api/evenings/${encodeURIComponent(eveningId)}/today-post${query}`, 'Не удалось подготовить пост');
       setGames(body?.draft?.games || []);
       setGame(body?.draft?.game_number ?? null);
       // A post that reached only one channel is retried with the text that went out.

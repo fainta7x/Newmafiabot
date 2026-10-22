@@ -2,6 +2,9 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { sanitizeUiActionName, sanitizeUiScreenName } from '../../lib/uiUsageNames.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { parseAnalyticsPeriod, type AnalyticsRange } from '../../lib/analyticsPeriod.ts';
+import { ensureUiUsageSchema } from '../../db/ensureUiUsageSchema.ts';
+
+export { ensureUiUsageSchema };
 
 /**
  * UI usage events: which screens are opened and which buttons are pressed. No free text is stored — only a per-tab
@@ -17,27 +20,6 @@ const MAX_EVENTS_PER_BATCH = 50;
 const RETENTION_DAYS = 180;
 const NAME_PATTERN = /^[a-z0-9/:_.-]{1,80}$/;
 const SESSION_PATTERN = /^[a-z0-9-]{8,64}$/;
-const ensured = new WeakSet<object>();
-
-export async function ensureUiUsageSchema(db: DatabaseWrapper) {
-  if (ensured.has(db)) return;
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS ui_usage_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      created_at TEXT NOT NULL,
-      session_key TEXT NOT NULL,
-      surface TEXT NOT NULL,
-      role TEXT NOT NULL,
-      kind TEXT NOT NULL,
-      name TEXT NOT NULL
-    )
-  `);
-  await db.run('CREATE INDEX IF NOT EXISTS idx_ui_usage_events_created ON ui_usage_events(created_at)');
-  const columns = await db.all<{ name: string }>('PRAGMA table_info(ui_usage_events)');
-  if (!columns.some((column) => column.name === 'player_id')) await db.run('ALTER TABLE ui_usage_events ADD COLUMN player_id TEXT');
-  await db.run('CREATE INDEX IF NOT EXISTS idx_ui_usage_events_player ON ui_usage_events(player_id, created_at)');
-  ensured.add(db);
-}
 
 /** Re-sanitizes on the server so an old or tampered client cannot store entity ids. */
 export const normalizeUiEventName = (kind: UiEventKind, value: unknown): string | null => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type ClubHighlight = {
   player_id: string;
@@ -94,9 +95,7 @@ export default function PlayerClubActivity() {
     setError(null);
     setData(null);
     try {
-      const response = await fetch('/api/player/pulse', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить активность клуба');
+      const body = await getJson('/api/player/pulse', 'Не удалось загрузить активность клуба');
       if (!Array.isArray(body?.power_ranking) || !Array.isArray(body?.highlights)) throw new Error('Не удалось загрузить активность клуба');
       if (requestId === requestSeq.current) setData(body as ClubFormData);
     } catch (loadError: any) {

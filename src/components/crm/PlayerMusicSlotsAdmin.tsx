@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type MusicEntry = { id: string; title: string; source_url: string };
 type Slot = { slot: 1 | 2; entry: MusicEntry | null };
@@ -19,9 +20,7 @@ export default function PlayerMusicSlotsAdmin({ playerId }: { playerId: string }
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = async () => {
-    const response = await fetch(base(playerId), { credentials: 'include' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить музыку игрока.');
+    const body = await getJson(base(playerId), 'Не удалось загрузить музыку игрока.');
     const next = body.slots as Slot[];
     setSlots(next);
     setDrafts(Object.fromEntries(next.map(({ slot, entry }) => [slot, entry?.source_url || ''])));

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { groupByDirection, type BoardCard, type BoardStage, type BoardStatus } from '../../lib/projectBoard.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Tab = 'waiting' | 'roadmap' | 'prs';
 interface Pull { number: number; title: string; url: string; colour: 'merged' | 'working' | 'ready' | 'failed' | 'closed'; author: 'claude' | 'gpt'; state: 'open' | 'merged' | 'closed'; updated_at: string; checks: { passed: number; total: number } | null }
@@ -73,9 +74,7 @@ export default function ProjectBoardCRM() {
       setCards(body.cards || []); setUpdatedAt(body.updated_at || '');
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось загрузить'); }
     try {
-      const response = await fetch('/api/project-board/pulls', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'GitHub недоступен');
+      const body = await getJson('/api/project-board/pulls', 'GitHub недоступен');
       setPulls(body.pulls || []);
     } catch (reason) { setPulls(null); setPullError(reason instanceof Error ? reason.message : 'GitHub недоступен'); }
     setLoading(false);

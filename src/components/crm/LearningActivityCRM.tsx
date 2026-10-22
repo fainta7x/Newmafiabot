@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { LEARNING_STUCK_AFTER_TRIES, LEARNING_TRACKS, learningItemKey, type LearningActivityItem, type LearningActivityRow } from '../../lib/learningActivity.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Status = 'all' | 'stuck' | 'passed' | 'tried' | 'nothing';
 const STATUSES: Array<{ id: Status; label: string }> = [
@@ -52,9 +53,7 @@ export default function LearningActivityCRM({ onOpenPlayer }: { onOpenPlayer?: (
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const response = await fetch('/api/learning/activity', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить результаты');
+      const body = await getJson('/api/learning/activity', 'Не удалось загрузить результаты');
       setRows(Array.isArray(body.players) ? body.players : []);
     } catch (loadError: any) { setError(loadError?.message || 'Не удалось загрузить результаты'); }
     finally { setLoading(false); }

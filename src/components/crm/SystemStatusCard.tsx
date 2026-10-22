@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Archive, Bot, CheckCircle2, Database, Globe2, RefreshCw, Send, Server } from 'lucide-react';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type StatusData = {
   checked_at: string;
@@ -101,9 +102,7 @@ export const SystemStatusCard: React.FC = () => {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/system-status', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось проверить систему');
+      const body = await getJson('/api/system-status', 'Не удалось проверить систему');
       setData(body as StatusData);
     } catch (err: any) {
       setError(err?.message || 'Не удалось проверить систему');
@@ -117,12 +116,7 @@ export const SystemStatusCard: React.FC = () => {
     setVkLoading(true);
     setVkError(null);
     try {
-      const response = await fetch('/api/integrations/vk/runtime-health', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось проверить VK');
+      const body = await sendJson('/api/integrations/vk/runtime-health', 'POST', undefined, 'Не удалось проверить VK');
       setVkData(body as VkRuntimeHealth);
     } catch (err: any) {
       setVkError(err?.message || 'Не удалось проверить VK');

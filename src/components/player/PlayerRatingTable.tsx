@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type RatingPlayer = { place: number; player_id: string; nickname: string; elo: number; avatar_url?: string | null };
 
@@ -62,9 +63,7 @@ export default function PlayerRatingTable({ playerId }: { playerId: string }) {
     setError(null);
     setPlayers(null);
     try {
-      const response = await fetch('/api/rating', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить рейтинг');
+      const body = await getJson('/api/rating', 'Не удалось загрузить рейтинг');
       if (!Array.isArray(body?.players)) throw new Error('Не удалось загрузить рейтинг');
       if (requestId === requestSeq.current) setPlayers(body.players);
     } catch (err: any) {

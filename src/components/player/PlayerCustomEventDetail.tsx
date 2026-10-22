@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import VenueAddress from '../public/VenueAddress.tsx';
 import { getJson } from '../../lib/requestJson.ts';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type CustomEvent = {
   id: string; title: string; description?: string; cover_image_data_url?: string | null;
@@ -38,7 +39,7 @@ export default function PlayerCustomEventDetail({ eventId, onBack, onSaved }: { 
       {event.description ? <section className="mt-3 whitespace-pre-wrap rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5 text-sm leading-6 text-white/75">{event.description}</section> : null}
       <section className="mt-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5 text-sm">
         <div className="flex justify-between gap-3"><span className="text-white/45">Участники</span><b>{event.participant_count}/{event.participant_limit}</b></div>
-        <div className="mt-2 flex justify-between gap-3"><span className="text-white/45">Стоимость</span><b>{Number(event.price_rub) ? `${event.price_rub} ₽` : 'Бесплатно'}</b></div>
+        <div className="mt-2 flex justify-between gap-3"><span className="text-white/45">Стоимость</span><b>{Number(event.price_rub) ? `${formatRubles(event.price_rub)}` : 'Бесплатно'}</b></div>
         {event.signup_deadline ? <div className="mt-2 flex justify-between gap-3"><span className="text-white/45">Запись до</span><b className="text-right">{date(event.signup_deadline)}</b></div> : null}
       </section>
       {!registered && Number(event.allow_guest) ? <label className="mt-3 flex min-h-12 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] px-3.5 text-sm"><span>Возьму с собой +1</span><input type="checkbox" checked={guest} onChange={(e) => setGuest(e.target.checked)} className="h-5 w-5" /></label> : null}

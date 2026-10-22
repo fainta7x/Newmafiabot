@@ -297,7 +297,7 @@ Do not mutate production game identity by guessing from an old browser payload.
 
 ### SQLite connection settings
 
-Every WAL connection opens with `synchronous = NORMAL` (owner decision 2026-10-22: faster writes on the network disk; an app crash loses nothing and the file never corrupts, but a power loss or host crash may drop the last committed seconds) and a ~32 MB page cache (`cache_size = -32000`). Schema guards that workers call on every tick run once per connection (`src/db/oncePerDatabase.ts`), never remembered inside a transaction. Slow statements are listed for organizers at `/api/health/performance/queries`.
+Every WAL connection opens with `synchronous = NORMAL` (owner decision 2026-10-22: faster writes on the network disk; an app crash loses nothing and the file never corrupts, but a power loss or host crash may drop the last committed seconds) and a ~32 MB page cache (`cache_size = -32000`). Schema guards that workers call on every tick run once per connection (`src/db/oncePerDatabase.ts`), never remembered inside a transaction. Slow statements are listed for organizers at `/api/health/performance/queries`. To name what blocks the event loop, an organizer can take a summarised CPU profile of the next 5–90 seconds with `GET /api/health/performance/profile?seconds=65`; it returns top functions by self time and the longest busy stretches with stacks. One profile runs at a time, and it is read-only.
 
 ## 9. Combined Amvera deployment
 

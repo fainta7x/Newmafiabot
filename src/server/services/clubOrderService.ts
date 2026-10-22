@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
 import { loadEveningShortfall } from './eveningShortfallService.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /**
  * «Порядок в клубе» (user-approved 2026-09-24): an automatic list of things that need the organizer.
@@ -45,13 +46,7 @@ const INACTIVE_DAYS = 90;
 const LOOKBACK_DAYS = 60;
 
 const iso = (ms: number) => new Date(ms).toISOString();
-const plural = (n: number, one: string, few: string, many: string) => {
-  const mod10 = n % 10; const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-};
-const players = (n: number) => `${n} ${plural(n, 'игрок', 'игрока', 'игроков')}`;
+const players = (n: number) => `${n} ${russianPlural(n, 'игрок', 'игрока', 'игроков')}`;
 const dayLabel = (value: unknown) => {
   const date = new Date(String(value || ''));
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });
@@ -227,7 +222,7 @@ async function profileItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
     )).map((row: any) => [String(row.player_id), Number(row.count || 0)]));
     items.push({
       id, category: 'profiles', title: `Двойной профиль? «${String(rows[0].nickname).trim()}»`,
-      detail: `${rows.length} ${plural(rows.length, 'профиль', 'профиля', 'профилей')} с одним ником. Если это один человек — архивируй пустой; если разные — нажми «Это разные игроки»`,
+      detail: `${rows.length} ${russianPlural(rows.length, 'профиль', 'профиля', 'профилей')} с одним ником. Если это один человек — архивируй пустой; если разные — нажми «Это разные игроки»`,
       action: { type: 'player', player_id: String(rows[0].id) }, action_label: 'Проверить',
       people: rows.slice(0, PEOPLE_LIMIT).map((row: any) => {
         const count = visits.get(String(row.id)) || 0;
@@ -311,7 +306,7 @@ async function moneyItems(db: DatabaseWrapper, now: number): Promise<ClubOrderIt
   for (const [eveningId, { row, count }] of unfinished) {
     items.push({
       id: `protocols:${eveningId}`, category: 'money', title: 'Протоколы игр не завершены',
-      detail: `${eveningName(row)} — ${count} ${plural(count, 'игра', 'игры', 'игр')} без итога, баллы и жетоны за них не начислены`,
+      detail: `${eveningName(row)} — ${count} ${russianPlural(count, 'игра', 'игры', 'игр')} без итога, баллы и жетоны за них не начислены`,
       action: { type: 'evening', evening_id: eveningId, section: 'games' }, action_label: 'Открыть игры',
     });
   }

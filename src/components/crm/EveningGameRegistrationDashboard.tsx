@@ -5,6 +5,7 @@ import { Check, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 import { guestContactHref } from '../../lib/guestContact.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
 type Filter = 'all' | RegistrationState;
@@ -424,7 +425,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
             {editing ? <div className="mt-3 border-t border-border-soft pt-3">
               <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
                 <span>Точные игры</span>
-                <span>{countGames(editingSlotIds.length)} · {editTotal} ₽</span>
+                <span>{countGames(editingSlotIds.length)} · {formatRubles(editTotal)}</span>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {allSlots.map((slot) => {
@@ -437,7 +438,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
                     className={`min-h-[54px] rounded-[11px] border px-3 text-left disabled:opacity-40 ${selected ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
                   >
                     <strong className="block text-[11px]">Игра {slot.slot_number}</strong>
-                    <span className="mt-0.5 block text-[10px] text-text-muted">{slotTime(slot.starts_at)} · {Number(slot.price || 0)} ₽ {selected ? '· ✓' : ''}</span>
+                    <span className="mt-0.5 block text-[10px] text-text-muted">{slotTime(slot.starts_at)} · {formatRubles(Number(slot.price || 0))} {selected ? '· ✓' : ''}</span>
                   </button>;
                 })}
               </div>

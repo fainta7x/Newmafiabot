@@ -1441,6 +1441,13 @@ The owner asked: «все элементы подчинялись единым �
 - **B2 fixed:** the inline PPK block is removed, and `processPPK` is the one rule for draft and completion; an unknown culprit role is an error. The betting `roleTeam` was not a bug, because roles are validated just above it.
 - **Still open:** exit types and removal reasons, points formulas, and the rest of A.
 
+**Progress (step 3, UI primitives, first slice):**
+- **Fixed — money.** `lib/formatRubleAmount.ts` `formatRubles` is the one money format: whole rubles, Russian thousands separator, zero for junk and negative amounts unless `signed`. It replaces the local `rubles`/`money`/`formatMoney` helpers and about 40 inline `… ₽` in 27 screens.
+  - Visible change: amounts of 1 000 ₽ and more now show the separator everywhere.
+  - The CRM analytics and command-center keep negative amounts.
+- **Fixed — plural forms.** `lib/russianPlural.ts` is the one plural rule: 5 server copies, `guideCatalog.pluralRu`, `AppUsagePanel.times` and the `StaffWorkStats` alias are removed.
+- **Still open:** dates, avatars, loading states, status labels.
+
 **B. Bugs (fixable without a rule decision)**
 - `EveningGameProtocolModal.tsx:416-419` shows the role counter as `/6 /1 /2 /1` even for a table of 8–9 players, while the server checks `roleCountsMatchTable`.
 - Unknown roles are treated as red in two places:
@@ -1482,4 +1489,9 @@ The owner asked: «все элементы подчинялись единым �
 - The worst event-loop stall is 1.97 s (it was 3.6 s).
 - `personal_notifications` spends 0.3–0.6 s in SQLite (it was 0.7–1.7 s), and `rsvp_nudges` 0.3 s (it was 0.7–0.9 s).
 - **New top cost:** the `personal_notifications/club_results` step takes 1.3–1.8 s every minute but only 0.17–0.21 s of that is SQLite, so the rest is either network waits or synchronous JS work, which wall time cannot tell apart. **Measuring (this PR):** the probe now also records the process CPU time of a job (`cpu_ms`, network waits excluded), and the nine parts of the club-results scan are timed separately (`personal_notifications/club_results/<part>`). The fix follows the next production reading. **open**
+  - Reading after #1002 was deployed (2026-10-22 20:02 UTC):
+    - The worst stall is 1.94 s.
+    - `personal_notifications/club_results` uses 0.6–0.83 s of CPU (0.1–0.36 s SQLite), and no single part reaches 100 ms.
+    - In the same second `telegram_sync_outbox` uses 0.74–1.0 s of CPU with only 3 SQLite calls.
+    - The two jobs overlap, and process CPU cannot be split between them. **Next (this PR):** an organizer-only `GET /api/health/performance/profile?seconds=65` takes a V8 CPU profile in-process. It returns the top functions by self time and the longest busy stretches with their stacks, so the blocking function is named, not guessed.
 

@@ -12,6 +12,7 @@ import { CURATOR_AREAS, curatorAreaLabel, normalizeCuratorAreas, type CuratorAre
 import { getPlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
 import { membershipOfPlayer } from '../../lib/playerAccess.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /**
  * «Дела» (owner, 2026-09-30: «возьми полностью в проработку логику, навигацию, задачи, интерфейс»).
@@ -76,13 +77,7 @@ const CONTACT_QUIET_DAYS: Record<ContactReason, number> = {
   curator: CURATOR_QUIET_DAYS,
 };
 const iso = (ms: number) => new Date(ms).toISOString();
-const plural = (n: number, one: string, few: string, many: string) => {
-  const mod10 = n % 10; const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-};
-const players = (n: number) => `${n} ${plural(n, 'игрок', 'игрока', 'игроков')}`;
+const players = (n: number) => `${n} ${russianPlural(n, 'игрок', 'игрока', 'игроков')}`;
 const dayLabel = (value: unknown) => {
   const date = new Date(String(value || ''));
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });

@@ -37,4 +37,4 @@ The status column says whether the concept is **one** (a single definition), **d
 | Outgoing message queue | to create: one retry policy | dup: 4 retry policies, 8 status sets |
 | Publication of a post (per channel) | to create: one publish-once module | dup: 2 designs; one can double-post after a timeout |
 | Post text (Telegram vs VK) | `postTemplateService.ts` | rule?: Telegram ignores the editable template, and the price lines differ |
-| UI: avatar, role badge, money, date, plural, loading | `ui/PlayerAvatar`, `ui/GameRole`, `lib/formatRubleAmount`, `lib/playerGameDate`, `lib/russianPlural`, `ui/AsyncState` | dup: many bypasses with small differences |
+| UI: avatar, role badge, money, date, plural, loading | `ui/PlayerAvatar`, `ui/GameRole`, `lib/formatRubleAmount`, `lib/playerGameDate`, `lib/russianPlural`, `ui/AsyncState` | money and plural: **one** (2026-10-22, `formatRubles`, `russianPlural`); avatar, date, loading, status labels: dup |

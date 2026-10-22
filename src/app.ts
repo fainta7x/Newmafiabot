@@ -37,6 +37,7 @@ import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts
 import { applyBogdanaTournamentStaff, applyUnifiedTournamentFlowMigration } from './db/applyUnifiedTournamentFlowMigration.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 import { slowQueriesSnapshot } from './lib/performanceProbe.ts';
+import { captureCpuProfile } from './server/services/cpuProfileService.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
 import playerClaimRoutes from './server/routes/playerClaimRoutes.ts';
@@ -279,6 +280,16 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.get('/api/health/performance/queries', requireOrganizerAuth, (_req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ checked_at: new Date().toISOString(), slow_queries: slowQueriesSnapshot() });
+  });
+  // A CPU profile of the next N seconds (5–90), summarised: what holds the event loop during the stalls. Organizers only.
+  app.get('/api/health/performance/profile', requireOrganizerAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const seconds = Math.max(5, Math.min(90, Number(req.query.seconds) || 65));
+    try {
+      res.json({ checked_at: new Date().toISOString(), seconds, profile: await captureCpuProfile(seconds) });
+    } catch (error: any) {
+      res.status(error?.message === 'profile_running' ? 409 : 500).json({ error: error?.message === 'profile_running' ? 'Профиль уже снимается' : 'Не удалось снять профиль' });
+    }
   });
 
   app.use('/api/test-environment', testEnvironmentRoutes);

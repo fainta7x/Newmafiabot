@@ -16,6 +16,7 @@ import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
 import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /**
  * Club chat results (owner, 2026-10-01): after each completed game the bot posts the game blank,
@@ -358,13 +359,6 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
 }
 
 const ROLE_LABELS: Record<string, string> = GAME_ROLE_LABELS;
-const plural = (count: number, one: string, few: string, many: string) => {
-  const tens = count % 100; const ones = count % 10;
-  if (tens >= 11 && tens <= 14) return many;
-  if (ones === 1) return one;
-  if (ones >= 2 && ones <= 4) return few;
-  return many;
-};
 const comma = (value: number) => {
   const rounded = Math.round(value * 100) / 100;
   return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${String(Math.abs(rounded)).replace('.', ',')}`;
@@ -386,7 +380,7 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
   let queued = 0;
   for (const player of evening.players) {
     const lines = [`🏁 Твой вечер · ${evening.title}${evening.dateLabel ? `, ${evening.dateLabel}` : ''}`];
-    lines.push(`Сыграно: ${player.games.length} ${plural(player.games.length, 'игра', 'игры', 'игр')} · ${player.wins} ${plural(player.wins, 'победа', 'победы', 'побед')}`);
+    lines.push(`Сыграно: ${player.games.length} ${russianPlural(player.games.length, 'игра', 'игры', 'игр')} · ${player.wins} ${russianPlural(player.wins, 'победа', 'победы', 'побед')}`);
     for (const game of player.games) {
       lines.push(`№${game.number} ${game.role ? ROLE_LABELS[game.role] || game.role : 'роль не указана'} — ${game.won ? 'победа' : 'поражение'}`);
     }

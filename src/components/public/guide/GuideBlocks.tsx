@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { GuideBlock, ScenarioStep } from '../../../lib/clubGuide.ts';
-import { pluralRu } from '../../../lib/guideCatalog.ts';
+import { russianPlural } from '../../../lib/russianPlural.ts';
 
 /** Shared pieces of «Школа мафии»: use them for new lessons, articles and trainers. */
 
@@ -41,7 +41,7 @@ export const Accordion = ({ blocks, defaultOpen = 0 }: { blocks: GuideBlock[]; d
             <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : index)} className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left">
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] font-semibold leading-5 text-white">{topic.title}</span>
-                {grouped && !expanded ? <span className="mt-0.5 block text-[12px] text-white/45">{topic.blocks.length} {pluralRu(topic.blocks.length, 'короткая часть', 'короткие части', 'коротких частей')}</span> : null}
+                {grouped && !expanded ? <span className="mt-0.5 block text-[12px] text-white/45">{topic.blocks.length} {russianPlural(topic.blocks.length, 'короткая часть', 'короткие части', 'коротких частей')}</span> : null}
               </span>
               <ChevronDown className={`h-5 w-5 shrink-0 text-white/45 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>

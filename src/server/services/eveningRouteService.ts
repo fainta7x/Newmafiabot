@@ -9,6 +9,7 @@ import { loadTodayPost } from './eveningTodayPostService.ts';
 import { loadCancelPost } from './eveningCancelService.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /**
  * The evening route (user-approved 2026-09-24): one ordered path from preparation to «after»,
@@ -35,13 +36,7 @@ const STAGES: Array<{ id: RouteStageId; title: string; hint: string }> = [
   { id: 'closeout', title: 'Закрытие', hint: 'Оплаты сверены — закрываем вечер: итоги, долги и статистика сохранятся.' },
 ];
 
-const plural = (n: number, one: string, few: string, many: string) => {
-  const mod10 = n % 10; const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-};
-const players = (n: number) => `${n} ${plural(n, 'игрок', 'игрока', 'игроков')}`;
+const players = (n: number) => `${n} ${russianPlural(n, 'игрок', 'игрока', 'игроков')}`;
 
 async function tables(db: DatabaseWrapper) {
   const rows = await db.all<any>("SELECT name FROM sqlite_master WHERE type = 'table'");
@@ -134,7 +129,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК)${['draft', 'published'].includes(String(evening.status)) ? ' · нажми, чтобы перенести' : ''}`, status: Number.isFinite(startMs) ? 'done' : 'attention' },
     { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
-    { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
+    { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${russianPlural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
     published
       ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }
       : { id: 'publish', title: 'Открыть запись', detail: 'Игроки увидят вечер в календаре и смогут записаться. Анонсы в Telegram и ВК — отдельный шаг', status: 'todo', action: 'publish' },
@@ -154,7 +149,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: (assembled || decidedToPlay || (slots.length > 0 && fullSlots.length >= neededSlots)) ? 'done' : silent ? 'attention' : coming + answers.thinking + answers.declined ? 'done' : 'todo', target: 'participants' },
     {
       id: 'shortfall',
-      title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : decidedToPlay ? `Играем: набрано ${fullSlots.length} из ${neededSlots} игр, решение организатора` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
+      title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${russianPlural(slots.length, 'игры', 'игр', 'игр')} набраны` : decidedToPlay ? `Играем: набрано ${fullSlots.length} из ${neededSlots} игр, решение организатора` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
       detail: slots.length ? `Сбор — ${perSlot} человек с судьёй. ${gameList}` : 'Игры не настроены',
       status: slots.length && (assembled || decidedToPlay) ? 'done' : 'attention',
       target: 'participants',
@@ -189,7 +184,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         ? { id: 'today-post', title: 'Играем сегодня? Реши про пост', detail: 'В 17:00 набралось меньше нужных игр — пост сам не ушёл. Опубликуй или реши, что не публикуем', status: 'attention', action: canPostToday ? 'today_post' : undefined }
       : todayPost.state === 'partial'
         ? { id: 'today-post', title: 'Пост «Сегодня играем» дошёл не везде', detail: `${todayLegs} — можно повторить`, status: 'attention', action: 'today_post' }
-        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: `Уйдёт сам в 17:00, если набрано ${neededSlots} ${plural(neededSlots, 'игра', 'игры', 'игр')}. Можно выложить раньше`, status: 'info', action: canPostToday ? 'today_post' : undefined },
+        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: `Уйдёт сам в 17:00, если набрано ${neededSlots} ${russianPlural(neededSlots, 'игра', 'игры', 'игр')}. Можно выложить раньше`, status: 'info', action: canPostToday ? 'today_post' : undefined },
   );
   steps.gather.push(
     evening.status === 'active' || evening.status === 'completed' || Boolean(evening.settled_at)

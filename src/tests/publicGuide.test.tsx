@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PublicGuide, guideTabFromSearch } from '../components/public/PublicGuide.tsx';
 import { GLOSSARY, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary } from '../lib/clubGuide.ts';
-import { GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, pluralRu } from '../lib/guideCatalog.ts';
+import { GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES } from '../lib/guideCatalog.ts';
+import { russianPlural } from '../lib/russianPlural.ts';
 
 afterEach(cleanup);
 
@@ -127,7 +128,7 @@ describe('public guide for novices', () => {
     for (const lesson of GUIDE_LESSONS) {
       if (lesson.content.kind === 'blocks') expect(lesson.content.blocks.length).toBeGreaterThan(0);
     }
-    expect([1, 2, 5, 11, 22].map((count) => pluralRu(count, 'часть', 'части', 'частей'))).toEqual(['часть', 'части', 'частей', 'частей', 'части']);
+    expect([1, 2, 5, 11, 22].map((count) => russianPlural(count, 'часть', 'части', 'частей'))).toEqual(['часть', 'части', 'частей', 'частей', 'части']);
   });
 
   it('opens an article from its shelf and groups a long topic', () => {

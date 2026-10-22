@@ -5,6 +5,7 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import { getPlayerGameRoleLabel as roleLabel } from '../../lib/playerGameRoleLabels.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import CuratorTasksCard from './CuratorTasksCard.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type PlayerEvening = {
   id: string;
@@ -188,7 +189,7 @@ export default function PlayerHomeDashboard({
         {debt > 0 && onOpenWallet ? (
           <section data-testid="player-home-debt" className="rounded-[28px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-rose-100/70">Оплата</div>
-            <p className="mt-2 text-base font-semibold">Долг за прошлые вечера: {debt.toLocaleString('ru-RU')} ₽</p>
+            <p className="mt-2 text-base font-semibold">Долг за прошлые вечера: {formatRubles(debt)}</p>
             <p className="mt-1 text-sm leading-5 text-white/55">Оплатить можно в удобное время — способы оплаты в кошельке.</p>
             <button type="button" onClick={onOpenWallet} className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
               <span>Оплатить</span><span>→</span>

@@ -4,7 +4,7 @@ import {
   Moon, Scale, Sparkles, Users, Vote, ArrowUpRight,
 } from 'lucide-react';
 import {
-  GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, findGuideShelf, isGuideScreen, pluralRu,
+  GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, findGuideShelf, isGuideScreen,
   type GuideEntry, type GuideIcon, type GuideShelf, type GuideView,
 } from '../../lib/guideCatalog.ts';
 import { scrollPageTop } from '../../lib/scrollPageTop.ts';
@@ -20,6 +20,7 @@ import PlayerBottomNavigation from '../player/PlayerBottomNavigation.tsx';
 import MafiaReasoningCourse from './guide/MafiaReasoningCourse.tsx';
 import { PLAYER_NAV_SECTION, type PlayerCabinetNavId } from '../player/playerCabinetNavigation.ts';
 import { playerPathForSection } from '../../lib/appNavigation.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /** 'home', 'lessons', a section (shelf id) or a catalog entry id (see src/lib/guideCatalog.ts). */
 export type GuideTab = string;
@@ -121,7 +122,7 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
     <div className="space-y-5">
       <section className="grid grid-cols-2 gap-2" data-testid="guide-sections" aria-label="Разделы">
         <SectionCard id="lessons" icon={GraduationCap} title="Уроки" onOpen={() => go({ tab: 'lessons' })}
-          detail={started ? `Пройдено ${doneCount} из ${total}` : `${GUIDE_LESSONS.length} ${pluralRu(GUIDE_LESSONS.length, 'короткий урок', 'коротких урока', 'коротких уроков')} для новичка`}>
+          detail={started ? `Пройдено ${doneCount} из ${total}` : `${GUIDE_LESSONS.length} ${russianPlural(GUIDE_LESSONS.length, 'короткий урок', 'коротких урока', 'коротких уроков')} для новичка`}>
           <span className="mt-2 flex gap-0.5" aria-hidden="true">
             {Array.from({ length: total }, (_, index) => <span key={index} className={`h-1 flex-1 rounded-full ${index < doneCount ? 'bg-white' : 'bg-white/15'}`} />)}
           </span>

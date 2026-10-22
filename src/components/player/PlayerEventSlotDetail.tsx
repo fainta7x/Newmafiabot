@@ -7,6 +7,7 @@ import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
 import VenueAddress from '../public/VenueAddress.tsx';
 import PlayerEveningWorkspace from './PlayerEveningWorkspace.tsx';
 import { getJson } from '../../lib/requestJson.ts';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type EventItem = {
   id: string;
@@ -174,7 +175,7 @@ export default function PlayerEventSlotDetail({
                 <div>
                   <div className="text-sm font-semibold">{plan.event.assembled ? 'Стол собран' : 'Стол собирается'}</div>
                   <div className="mt-1 text-[11px] text-white/30">
-                    {price > 0 ? `${price} ₽ за игру` : 'Бесплатно'}{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
+                    {price > 0 ? `${formatRubles(price)} за игру` : 'Бесплатно'}{maxEveningPrice > 0 ? ` · максимум ${formatRubles(maxEveningPrice)} за вечер` : ''} · нужно 4 собранные игры
                   </div>
                 </div>
                 <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}/4</div><div className="text-[11px] text-white/25">игр</div></div>
@@ -212,10 +213,10 @@ export default function PlayerEventSlotDetail({
             <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
               <div className="flex items-end justify-between gap-3">
                 <div><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">Мой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
-                <div className="text-right"><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
+                <div className="text-right"><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{formatRubles(total)}</div></div>
               </div>
               {maxEveningPrice > 0 && draft.length > 4 && (
-                <div className="mt-2 text-right text-[11px] text-emerald-200/60">Лимит клубного вечера применён: не больше {maxEveningPrice} ₽</div>
+                <div className="mt-2 text-right text-[11px] text-emerald-200/60">Лимит клубного вечера применён: не больше {formatRubles(maxEveningPrice)}</div>
               )}
               {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-emerald-200/70">План сохранён</div>}
               {saveError ? (

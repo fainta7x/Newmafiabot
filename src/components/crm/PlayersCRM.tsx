@@ -53,6 +53,7 @@ import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfi
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
 import { useClubOwner } from './useClubOwner.ts';
 import PlayerMusicSlotsAdmin from './PlayerMusicSlotsAdmin.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -462,7 +463,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     const when = formatEveningDateTime(evening.starts_at, evening.timezone);
     const tableName = table?.name || 'без предварительного стола';
     const price = table?.default_price ?? evening.default_price ?? 0;
-    setInviteMessage(`Привет, ${player.nickname}! 👋\nПриглашаем тебя на «${evening.title}».\n\n📅 ${when}\n📍 ${evening.venue || 'Клуб'}\n🪑 ${tableName}\n💰 ${price > 0 ? `${price} ₽` : 'Бесплатно'}\n\nЖдём тебя на игре!`);
+    setInviteMessage(`Привет, ${player.nickname}! 👋\nПриглашаем тебя на «${evening.title}».\n\n📅 ${when}\n📍 ${evening.venue || 'Клуб'}\n🪑 ${tableName}\n💰 ${price > 0 ? `${formatRubles(price)}` : 'Бесплатно'}\n\nЖдём тебя на игре!`);
   };
 
   const openInviteSheet = async () => {

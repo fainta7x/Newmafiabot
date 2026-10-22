@@ -72,7 +72,9 @@ After a coherent batch:
 npm run project:verify:fast
 ```
 
-This is release audit + TypeScript + ESLint without full Vitest/build/Playwright.
+This is release audit + dependency guard + TypeScript + ESLint without full Vitest/build/Playwright.
+
+`npm run project:deps` fails on a new runtime import cycle or a new import against the layer direction (`lib/shared → db → services → routes`; UI never imports server/db code). Fix it by moving the shared code down a layer. When a PR removes cycles or violations, run `npx tsx src/scripts/checkDependencyCycles.ts --update` and commit the smaller `config/dependency-cycles-baseline.json`; never grow the baseline to make CI pass without the owner's agreement.
 
 ### Level C — release verification
 

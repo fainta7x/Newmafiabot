@@ -83,6 +83,9 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Dependency cycles and layer direction
+        run: npm run project:deps
+
       - name: Release test group manifest
         run: |
           for group in smoke crm live-game telegram vk regression; do

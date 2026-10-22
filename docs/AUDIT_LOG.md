@@ -1327,3 +1327,10 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.
 
 Second-block connected checks:41 tests across8 suites,14 isolated Python-copy cases, TypeScript, changed-file ESLint and isolated UI/production builds passed. Baseline components frozen from mainbdc59 for same-fixture360/390 game+recap comparisons. No protocol/game score/finance writer changed.
+
+## 2026-10-19 · Evening summary of 16 Oct (owner screenshot)
+
+- `clubResultData.ts` «Больше всех побед»: a player with 1 win in 1 game took third place because the list had no minimum. **fixed:** only 2+ wins.
+- `clubResultData.ts` best by role on unscored evenings counted wins only, so after an evening of five black wins the sheriff and citizen nominations were empty. **fixed:** effectiveness per game (rules in BUSINESS_RULES, evening summary); empty only when nobody played the role.
+- Elo growth looked wrong to the owner: **open** — waiting for the owner to say what is wrong (no production data here); the number comes from `loadPlayerEloHistory`, unchanged.
+- Season table role nominations: **fixed** — two lists, by wins and by effectiveness (owner choice).

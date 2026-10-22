@@ -215,7 +215,8 @@ export function seasonTableSvg(season: SeasonTable) {
   const pendingHeight = pendingLines.length ? 60 + pendingLines.length * 34 : 0;
   const pendingTop = top + rowsHeight + 10;
   const rolesTop = top + rowsHeight + pendingHeight + 30;
-  const height = rolesTop + 2 * 150 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const effectTop = rolesTop + 2 * 150 + 60;
+  const height = effectTop + 2 * 150 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
   const medal = [C.gold, C.silver, C.bronze];
   const rows = season.rows.map((row, index) => {
     const y = top + 50 + index * rowHeight;
@@ -226,14 +227,16 @@ export function seasonTableSvg(season: SeasonTable) {
       <text x="${W - M - 24}" y="${y + 44}" text-anchor="end" font-size="30" font-weight="700" fill="${C.warmText}">${esc(row.value)}</text>
       <text x="${W - M - 24}" y="${y + 68}" text-anchor="end" font-size="16" font-weight="600" fill="${C.subduedText}">${esc(row.detail)}</text>`;
   }).join('');
-  const roleCells = season.bestByRole.map((entry, index) => {
+  const cellsAt = (entries: SeasonTable['bestByRole'], blockTop: number) => entries.map((entry, index) => {
     const column = index % 2; const row = Math.floor(index / 2);
     const cellWidth = (W - M * 2 - 24) / 2;
     const x = M + column * (cellWidth + 24);
-    const y = rolesTop + 50 + row * 150;
+    const y = blockTop + 50 + row * 150;
     return `<rect x="${x}" y="${y}" width="${cellWidth}" height="136" rx="22" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.07)"/>
       ${personRow(x + 24, y + 4, cellWidth - 48, ROLE_BEST[entry.role], entry.player, ROLE_COLORS[entry.role])}`;
   }).join('');
+  const roleCells = cellsAt(season.bestByRole, rolesTop);
+  const effectCells = cellsAt(season.bestByRoleEffect, effectTop);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
   ${renderNoirExportBackground(W, height)}
   ${renderNoirExportBrandHeader('СЕЗОН · ПРОМЕЖУТОЧНАЯ ТАБЛИЦА')}
@@ -243,8 +246,10 @@ export function seasonTableSvg(season: SeasonTable) {
   ${rows || `<text x="${M}" y="${top + 100}" font-size="24" font-weight="500" fill="${C.subduedText}">Пока никто не набрал минимум игр</text>`}
   ${pendingLines.length ? `<text x="${M}" y="${pendingTop + 30}" font-size="17" font-weight="700" letter-spacing="2" fill="${C.subduedText}">${esc(`БЛИЗКО К ЗАЧЁТУ · НУЖНО ${season.minGames} ${season.minGames && season.minGames % 10 === 1 && season.minGames % 100 !== 11 ? 'ИГРА' : season.minGames && [2, 3, 4].includes(season.minGames % 10) && ![12, 13, 14].includes(season.minGames % 100) ? 'ИГРЫ' : 'ИГР'}`)}</text>
   ${pendingLines.map((line, index) => `<text x="${M}" y="${pendingTop + 66 + index * 34}" font-size="22" font-weight="500" fill="${C.mutedText}">${esc(line)}</text>`).join('')}` : ''}
-  <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ ЗА СЕЗОН</text>
+  <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ · ПО ПОБЕДАМ</text>
   ${roleCells}
+  <text x="${M}" y="${effectTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ · ПО ПОКАЗАТЕЛЯМ</text>
+  ${effectCells}
   ${renderNoirExportFooter(W, height, season.scored ? 'средний балл = сумма баллов / число игр' : 'победы за сезон')}
 </svg>`;
 }

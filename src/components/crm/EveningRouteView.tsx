@@ -7,6 +7,7 @@ import TodayPostSheet from './TodayPostSheet.tsx';
 import CancelEveningSheet from './CancelEveningSheet.tsx';
 import EveningStartTimeEditor from './EveningStartTimeEditor.tsx';
 import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 
 type StepStatus = 'done' | 'todo' | 'attention' | 'info';
 type Step = {
@@ -15,7 +16,7 @@ type Step = {
   detail?: string;
   status: StepStatus;
   target?: EveningSection;
-  action?: 'publish' | 'start' | 'gathered_post' | 'today_post' | 'cancel_evening';
+  action?: 'publish' | 'start' | 'unstart' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 type Stage = { id: string; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: Step[] };
@@ -24,6 +25,7 @@ type RoutePayload = { evening: { id: string; status: string; starts_at: string; 
 const ACTION_LABELS: Record<NonNullable<Step['action']>, string> = {
   publish: 'Опубликовать',
   start: 'Начать вечер',
+  unstart: 'Вернуть запись',
   gathered_post: 'Сделать фото',
   today_post: 'Подготовить пост',
   cancel_evening: 'Отменить',
@@ -54,6 +56,8 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
   const [gatheredOpen, setGatheredOpen] = useState(false);
   const [todayOpen, setTodayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // «Начать вечер» asks first (owner, 2026-10-22: a mistaken tap started an evening that was not full).
+  const [startAsk, setStartAsk] = useState<Step | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -76,8 +80,9 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [load]);
 
-  const run = async (step: Step) => {
+  const run = async (step: Step, confirmed = false) => {
     if (busy) return;
+    if (step.action === 'start' && !confirmed) { setStartAsk(step); return; }
     if (step.action === 'gathered_post') { setGatheredOpen(true); return; }
     if (step.action === 'today_post') { setTodayOpen(true); return; }
     if (step.action === 'cancel_evening') { setCancelOpen(true); return; }
@@ -90,6 +95,8 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
         await api.updateEvening(eveningId, { status: 'published' } as any);
       } else if (step.action === 'start') {
         await api.updateEvening(eveningId, { status: 'active' } as any);
+      } else if (step.action === 'unstart') {
+        await api.updateEvening(eveningId, { status: 'published' } as any);
       }
       onChanged?.();
       await load();
@@ -106,8 +113,27 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
       : <div className="flex min-h-24 items-center justify-center"><RefreshCw className="h-5 w-5 animate-spin text-accent" /></div>;
   }
 
+  const startWarning = (() => {
+    const lines: string[] = [];
+    const shortfall = route.stages.flatMap((stage) => stage.steps).find((step) => step.id === 'shortfall' && step.status === 'attention');
+    if (shortfall) lines.push(`${shortfall.title}.${shortfall.detail ? ` ${shortfall.detail}` : ''}`);
+    const hours = (new Date(route.evening.starts_at).getTime() - Date.now()) / 3_600_000;
+    if (hours > 3) lines.push(`До начала вечера ещё ${Math.round(hours)} ч.`);
+    lines.push('«Начать вечер» нажимают, когда игроки уже собрались. Если нажали случайно, вечер можно вернуть, пока нет игр.');
+    return lines.join('\n');
+  })();
+
   return (
     <section className="space-y-2" aria-label="Маршрут вечера" data-testid="evening-route">
+      <ConfirmDialog
+        open={Boolean(startAsk)}
+        title="Начать вечер?"
+        description={startWarning}
+        confirmLabel="Начать"
+        busy={Boolean(busy)}
+        onCancel={() => setStartAsk(null)}
+        onConfirm={async () => { const step = startAsk; setStartAsk(null); if (step) await run(step, true); }}
+      />
       <GatheredPostSheet eveningId={eveningId} open={gatheredOpen} onClose={() => setGatheredOpen(false)} onDone={() => { setGatheredOpen(false); onChanged?.(); void load(); }} />
       <CancelEveningSheet eveningId={eveningId} open={cancelOpen} onClose={() => setCancelOpen(false)} onDone={() => { setCancelOpen(false); onChanged?.(); void load(); }} />
       <TodayPostSheet eveningId={eveningId} open={todayOpen} onClose={() => setTodayOpen(false)} onDone={() => { setTodayOpen(false); onChanged?.(); void load(); }} />
@@ -190,8 +216,8 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
                         <button type="button" disabled={busy === step.id} onClick={() => void run(step)} className={`min-h-10 shrink-0 rounded-[10px] px-3 text-[12px] font-bold disabled:opacity-50 ${step.status === 'done' ? 'bg-surface-1 text-text-secondary' : 'bg-success-soft text-success'}`}>
                           {step.status === 'done' ? 'Вернуть' : 'Сделано'}
                         </button>
-                      ) : step.action && step.status !== 'done' ? (
-                        <button type="button" disabled={busy === step.id} onClick={() => void run(step)} className="min-h-10 shrink-0 rounded-[10px] bg-accent px-3 text-[12px] font-bold text-white disabled:opacity-50">
+                      ) : step.action && (step.status !== 'done' || step.action === 'unstart') ? (
+                        <button type="button" disabled={busy === step.id} onClick={() => void run(step)} className={`min-h-10 shrink-0 rounded-[10px] px-3 text-[12px] font-bold disabled:opacity-50 ${step.action === 'unstart' ? 'bg-surface-1 text-text-secondary' : 'bg-accent text-white'}`}>
                           {busy === step.id ? '…' : ACTION_LABELS[step.action]}
                         </button>
                       ) : null}

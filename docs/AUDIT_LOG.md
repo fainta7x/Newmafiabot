@@ -1327,3 +1327,17 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.
 
 Second-block connected checks:41 tests across8 suites,14 isolated Python-copy cases, TypeScript, changed-file ESLint and isolated UI/production builds passed. Baseline components frozen from mainbdc59 for same-fixture360/390 game+recap comparisons. No protocol/game score/finance writer changed.
+
+## 2026-10-19 · Evening summary of 16 Oct (owner screenshot)
+
+- `clubResultData.ts` «Больше всех побед»: a player with 1 win in 1 game took third place because the list had no minimum. **fixed:** only 2+ wins.
+- `clubResultData.ts` best by role on unscored evenings counted wins only, so after an evening of five black wins the sheriff and citizen nominations were empty. **fixed:** effectiveness per game (rules in BUSINESS_RULES, evening summary); empty only when nobody played the role.
+- Elo growth looked wrong to the owner: **open** — waiting for the owner to say what is wrong (no production data here); the number comes from `loadPlayerEloHistory`, unchanged.
+- Season table role nominations: **fixed** — two lists, by wins and by effectiveness (owner choice).
+
+## 2026-10-22 · Novice evening of 16 Oct «disappeared» (owner question; checked on the running app, read-only)
+
+- The evening was **not cancelled** (an earlier guess that the shortfall check had cancelled it was wrong): status `published`, never started or closed — 10 answered «going», 3 «declined», nobody marked as attended, no games; the route shows «Закрыть вечер» as an open task and «Автоотмены нет» for novices. It lives in «Актуальное» as an overdue open evening and is not in «История» because history lists only closed evenings. **open** — owner to say whether it was held (then mark attendance and close; else cancel).
+- «Недобор: набрано 0 из 2 нужных игр» screenshot: the roster of 9 included 3 «не идут» and 2 «молчат»; only the 4 «Идут» count (4/9 per game), matching «Ответы игроков». Counting is right, the wording is misleading. **open** — wording proposal pending.
+- Elo of the 16 Oct evening: all five games were black wins; one player was black in 4 of 5, one in 2, the rest once or never, so +36 / +16 / ~+8 for the blacks and minus for the reds is what the system gives. No defect found.
+- Judges of games 1–4 (numbers 12–15): 12–13 already «Спящий», 14–15 «Чагин». Change to «Спящий» waits for the owner's explicit «да» (a production write).

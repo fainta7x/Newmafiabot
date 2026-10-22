@@ -23,7 +23,7 @@ export type RouteStep = {
   detail?: string;
   status: RouteStepStatus;
   target?: RouteTarget;
-  action?: 'publish' | 'start' | 'gathered_post' | 'today_post' | 'cancel_evening';
+  action?: 'publish' | 'start' | 'unstart' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: RouteStep[] };
@@ -193,7 +193,10 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   );
   steps.gather.push(
     evening.status === 'active' || evening.status === 'completed' || Boolean(evening.settled_at)
-      ? { id: 'start', title: 'Вечер начат', status: 'done' }
+      // Started by a mistaken tap (owner, 2026-10-22): while no game exists the start can be taken back.
+      ? (evening.status === 'active' && !(await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]))
+        ? { id: 'start', title: 'Вечер начат', detail: 'Нажали по ошибке? Пока нет игр, можно вернуть запись.', status: 'done', action: 'unstart' }
+        : { id: 'start', title: 'Вечер начат', status: 'done' })
       : { id: 'start', title: 'Начать вечер', detail: 'Нажимают, когда игроки собираются', status: published && new Date(String(evening.starts_at)).getTime() - now <= 3 * 60 * 60 * 1000 ? 'todo' : 'info', action: evening.status === 'published' ? 'start' : undefined },
   );
 

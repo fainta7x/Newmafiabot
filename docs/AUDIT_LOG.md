@@ -1334,3 +1334,7 @@ Second-block connected checks:41 tests across8 suites,14 isolated Python-copy ca
 - `clubResultData.ts` best by role on unscored evenings counted wins only, so after an evening of five black wins the sheriff and citizen nominations were empty. **fixed:** effectiveness per game (rules in BUSINESS_RULES, evening summary); empty only when nobody played the role.
 - Elo growth looked wrong to the owner: **open** — waiting for the owner to say what is wrong (no production data here); the number comes from `loadPlayerEloHistory`, unchanged.
 - Season table role nominations: **fixed** — two lists, by wins and by effectiveness (owner choice).
+
+## 2026-10-22 · Novice evening of 16 Oct «disappeared» (owner question)
+
+- No production data here, so the evening itself was not inspected. The code path that removes an evening from the lists is the shortfall check: `eveningShortfallService.runEveningShortfallChecks` cancels a published evening automatically an hour before the start when fewer than 8 (novice) / 10 players are registered, and the evening moves to the separate «Отменённые» list under «История» in `EveningsList.tsx`. **open** — waiting for the owner to look there; nothing changed.

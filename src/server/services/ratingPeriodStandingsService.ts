@@ -1,7 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
-import { calculateBestMovePoints } from '../routes/tournamentProtocolRoutes.ts';
+import { calculateBestMovePoints } from './bestMovePoints.ts';
 import {
   calculateCiRate,
   calculateCiThreshold,

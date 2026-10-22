@@ -1,5 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { internalGetNominations } from '../routes/tournamentsRoutesBase.ts';
+import { internalGetNominations } from './tournamentStandingsService.ts';
 import { getFlexibleTournamentStandings as internalGetStandings } from './flexibleTournamentStandingsService.ts';
 
 export type TournamentAwardKind = 'placement' | 'nomination';

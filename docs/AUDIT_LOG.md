@@ -1341,3 +1341,32 @@ Second-block connected checks:41 tests across8 suites,14 isolated Python-copy ca
 - «Недобор: набрано 0 из 2 нужных игр» screenshot: the roster of 9 included 3 «не идут» and 2 «молчат»; only the 4 «Идут» count (4/9 per game), matching «Ответы игроков». Counting is right, the wording is misleading. **open** — wording proposal pending.
 - Elo of the 16 Oct evening: all five games were black wins; one player was black in 4 of 5, one in 2, the rest once or never, so +36 / +16 / ~+8 for the blacks and minus for the reds is what the system gives. No defect found.
 - Judges of games 1–4 (numbers 12–15): 12–13 already «Спящий», 14–15 «Чагин». Change to «Спящий» waits for the owner's explicit «да» (a production write).
+
+## 2026-10-22 · Architecture and dependency audit (owner request: «пора заняться рефакторингом … какие аудиты?»; approved plan)
+
+Scope: all of `src/**` and `server.ts` on `main` `54a86b1` (848 non-test modules, 145k lines), static analysis only, no production data. Tools: own guard `npm run project:deps` (`src/scripts/checkDependencyCycles.ts`), madge 8, knip 5, jscpd 4, `npm audit`, `vite build`, churn from `git log` (90 days). Not done in this pass: route-by-route auth/permission review, SQLite query plans, test-coverage numbers (each is a separate pass).
+
+**Dependency cycles and layers (guarded in CI from now on; baseline `config/dependency-cycles-baseline.json`, new entries fail CI, removed ones shrink the baseline).**
+- Runtime cycles (type-only and dynamic imports excluded): **2 groups, 13 modules, 19 edges.** madge reports 66 because it also counts `import type` and `await import()`; the alarming chain `db/index.ts → one-off migrations → services → routes → db/index.ts` is closed only by type-only/dynamic imports, so it is a layering smell, not a start-up cycle. **open**
+  - `src/db/index.ts ↔ src/db/seed.ts`. **open**
+  - Evening lifecycle ring of 11 services: `eveningSlotPlanningService → eveningRescheduleService → eveningTodayPostService → eveningShortfallService → eveningRecruitmentService → eveningPeopleService → guestPlayerService → vkLiveEveningSyncWorker → vkDirectJoinPublishingService → eveningSlotPlanningService`, plus `personalNotificationRouterService → vkMessageOutboxService → vkLiveEveningSyncWorker`. High risk (programme item 6, evening lifecycle): untangle only with integration tests. **open**
+- Layer direction (`lib/shared → db → services → routes`, UI never imports server/db at runtime): **16 violations, 10 left after the same PR.**
+  - Services import code from route files (5): `calculateBestMovePoints` lived in `routes/tournamentProtocolRoutes.ts`, `internalGetStandings` / `internalGetNominations` in `routes/tournamentsRoutesBase.ts`; used by `flexibleTournamentStandingsService`, `gameResultCardService`, `playerTournamentViewService`, `ratingPeriodStandingsService`, `tournamentAwardsService`. **fixed** — moved unchanged to `services/bestMovePoints.ts` and `services/tournamentStandingsService.ts`; routes import them.
+  - `db/` imports services (10): one-off data migrations (`fixFandorinAug28…`, `fixSep4Chagin…`, `applyEloScaleMigration`, `applyPlayerStarterTokenGrant`) and `ensureIsolatedTestRuntimeSchema` call ledger/Elo/payment services. They run at start-up from `db/index.ts`. Fix: a migrations runner one level above `db/` (no change to what migrations do). **open**
+  - UI imports a server file at runtime (1): `ProtocolImportModal.tsx → server/services/recognition/types.ts`, types only. **fixed** — `import type`.
+
+**Unused code (knip, each candidate confirmed by grep; tests that only read a file's text do not count as use).**
+- Files with no importer: `src/lib/uiPreviewProductionBootstrap.ts`; `src/components/crm/EveningAnnouncementPanel.tsx`, `EveningAttendanceQuickControls.tsx`, `EveningOverviewView.tsx`, `EveningParticipantsWorkboard.tsx`, `PlayerProfileContent.tsx` + `PlayerProfileContentBase.tsx` (only import each other), `tournaments/CreateTournamentModal.tsx`, `tournaments/TournamentBackupBlock.tsx`; `src/components/player/PlayerProgressionPanel.tsx`; `src/components/ui/Badge.tsx` (only listed in the CI fast-path list); `src/server/services/vkJoinRouter.ts`, `vkJoinCallbackRouter.ts`, `vkJoinCallbackProbeRouter.ts`; `src/db/tursoHttpDatabase.ts` (only its own test; Turso is retired). Source-text tests guard three of them: `legacyRuntimeContracts.test.ts`, `instantCrmRowActions.test.ts`. **open**
+- Broken browser harness: `e2e/club-pilot-harness.tsx` imports `src/components/player/PlayerClubHub.tsx`, which does not exist in history; `club-pilot.spec.mjs` is in no Playwright config. **open**
+- npm packages never imported: `bcryptjs`, `canvas-confetti`, `motion`, `recharts` (also deprecated 2.x); stub types `@types/bcryptjs`, `@types/helmet`, and `@types/canvas-confetti`. (`tailwindcss` is a false positive, used from CSS.) **open**
+- 310 unused exports and 331 unused exported types: informational, cleaned only together with their owners.
+
+**Duplication (jscpd, ≥15 lines):** 0.48 % overall, 17 clones. Real one: `TournamentStandingsView.tsx` repeats ~540 lines inside itself (three blocks). Others are 17–25 lines (route helpers, `App.tsx` / `App.vk-direct.tsx`). **open**
+
+**Size × change hotspots (lines × commits in 90 days):** `LiveGameEngine.tsx` (1836 lines, highest), `LiveGameEngine/CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `PlayerGameDetail.tsx`, `lib/api.ts`, `eveningSlotPlanningService.ts`, `metricRatingService.ts`, `eveningStaffRoutes.ts`. Largest files that rarely change (`tournamentResultsExport.ts`, `tournamentsRoutesBase.ts`, `GameProtocolModal.tsx`, `tournamentProtocolRoutes.ts`) are lower priority. Live Game stays programme item 9 (audit first, owner scope). **open**
+
+**Client bundle:** the start bundle is 1.95 MB (503 KB gzip) plus 416 KB CSS; `OrganizerCRM` 932 KB is already split. Phones download all of the player cabinet up front. **open — measure what is in it before splitting**
+
+**Data fetching:** `fetch(` is called directly in 131 components; the shared `getJson` helper is used by 16 (programme item 5). **open**
+
+**Dependencies/security:** `npm audit --omit=dev`: 0. Dev tools: 3 (vitest, @vitest/mocker moderate; brace-expansion high), not shipped. **open (upgrade with vitest)**

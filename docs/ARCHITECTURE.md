@@ -369,6 +369,7 @@ Green GitHub main still does not prove an Amvera deployment or runtime verificat
 - `e2e/` — isolated mobile Playwright.
 - `.github/workflows/ci.yml` — authoritative ordinary CI workflow.
 - `src/scripts/projectContext.ts` — read-only handoff/project-state check.
+- `src/scripts/checkDependencyCycles.ts` (`npm run project:deps`) — import direction `lib/shared → db → server services → server routes`, UI does not import server/db at runtime; existing exceptions in `config/dependency-cycles-baseline.json`.
 
 ## 19. Navigation rule
 

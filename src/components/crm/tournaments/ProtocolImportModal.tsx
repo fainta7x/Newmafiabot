@@ -13,7 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import { api, TournamentGame } from '../../../lib/api.ts';
-import { DetectedGame, RecognizedRole, WinnerTeam } from '../../../server/services/recognition/types.ts';
+import type { DetectedGame, RecognizedRole, WinnerTeam } from '../../../server/services/recognition/types.ts';
 
 interface ProtocolImportModalProps {
   tournamentId: string;

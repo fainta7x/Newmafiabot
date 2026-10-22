@@ -169,6 +169,15 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 9. **Live Game/judge/OBS (LATER, HIGH RISK).** Audit state machines and already extracted pure models; only extract proven safe helpers with phase/snapshot/recovery tests and mobile game screenshots. Never mix visual layout changes into domain refactors.
 10. **Guardrails and handoff.** Add targeted unit/integration tests for shared contracts; document owners in `FEATURE_MAP`/`ARCHITECTURE` only if ownership changes. Small focused PRs, no parallel writers on one branch, no full-suite retry loops; run affected checks then required CI. Keep this queue updated as work lands.
 
+**Resumed 2026-10-22 (owner: «пора заняться рефакторингом … какие аудиты?», then «согласен со всем планом, приступай»).** Audit results with file lists: `docs/AUDIT_LOG.md` → «Architecture and dependency audit». CI now runs `npm run project:deps`: no new runtime import cycle and no new import against the layer direction (`lib/shared → db → services → routes`, UI never imports server/db); the existing ones are listed in `config/dependency-cycles-baseline.json` and the list may only shrink. Order of slices, one PR each:
+- a. Audit + guard (this step).
+- b. Services stop importing route files: `calculateBestMovePoints` → `services/bestMovePoints.ts`, `internalGetStandings` / `internalGetNominations` → `services/tournamentStandingsService.ts` (unchanged code); done in the same PR as a.
+- c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages.
+- d. Start-up data migrations out of `db/` into a runner above it (what they do stays the same); `db/index.ts ↔ seed.ts`.
+- e. Measure the 1.95 MB start bundle and split the player cabinet by screen (needs 390 px screenshots).
+- f. Evening lifecycle service ring (11 modules) — high risk, integration tests first, owner sees the plan before code.
+- Later passes not yet done: route-by-route auth review, SQLite query plans, coverage of the hotspots (`LiveGameEngine.tsx`, `CenterPanel.tsx`, `EveningLiveGameModal.tsx`, `lib/api.ts`).
+
 **Acceptance for each slice:** existing values, fallbacks, API results and user-visible copy remain unchanged unless a specific change was explicitly approved; no unreviewed layout shift; test evidence for affected behaviour; exact PR/head SHA and CI result recorded; separately note deployment and runtime verification. If tests cannot be run locally through GitHub-only access, rely on PR CI and do not label unverified code as safe/merged.
 
 **Parallel architecture collaboration (2026-10-12):** Claude has merged #818 (shared date/plurals), #819 (identical server game team mappers), and #820 (first read-only `getJson` consumer). GPT owns the independent CRM participant-projection slice, not those files. Keep one writer per branch and reopen work from current `main`; do not update a shared document from an outdated snapshot. Next high-value *audit* target is the different RSVP legacy fallbacks across Node/player/CRM/Telegram/VK; require fixture-based and persisted-row evidence before unifying business rules. Financial, identity, Live Game and notification writers are out of scope pending separate review.
@@ -1080,7 +1089,7 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 - Multi-city/multi-club expansion is not a current priority.
 - Manual guests can be added while forming a game without fabricating an RSVP. Completed-game seat identity corrections are explicit organizer actions that preserve gameplay by seat and rerun dependent calculations; no date/nickname-based historical rewrite is allowed.
 - Historical official awards/photos from before the application remain organizer-curated data-entry/import work; they are not inferred from nicknames, fake tournaments or synthetic games.
-- Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested work.
+- Refactoring follows the architecture unification programme (owner resumed it 2026-10-22, see that section); no unrelated cleanup outside it.
 
 ### Desktop CRM and player profile (owner request, 2026-10-06; implemented in PR #719)
 [PR #719](https://github.com/fainta7x/Newmafiabot/pull/719) implements a bounded desktop work area, two-column CRM cards/player lists/analytics and profile game/role lists, aligned profile identity/navigation, tablet bottom-nav clearance below 768 px, removal of the duplicated More heading and corrected empty-list instructions. Existing history/filter/admin disclosures and mobile order remain. Browser evidence covers 390/700/1024/1440 px; PR merged; exact-head CI, CodeQL, Gitleaks and UI preview passed, and fresh screenshots were inspected at every listed width. Merged main CI passed. Production monitor reported healthy; deployment of this UI revision is not verified.

@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
-import { internalGetNominations } from './tournamentsRoutesBase.ts';
+import { internalGetNominations } from '../services/tournamentStandingsService.ts';
 import { notifyTournamentResultsPublished } from '../services/tournamentResultsNotificationService.ts';
 import { postTournamentResults } from '../services/clubResultPostService.ts';
 import { isEveningPublishingPaused } from '../services/eveningPublishingPause.ts';

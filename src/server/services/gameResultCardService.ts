@@ -1,5 +1,5 @@
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
-import { calculateBestMovePoints } from '../routes/tournamentProtocolRoutes.ts';
+import { calculateBestMovePoints } from './bestMovePoints.ts';
 import { normalizeRole, roundToTwo } from '../utils/ciHelper.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 

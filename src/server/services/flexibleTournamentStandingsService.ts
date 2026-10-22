@@ -1,5 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { internalGetStandings as getLegacyTournamentStandings } from '../routes/tournamentsRoutesBase.ts';
+import { internalGetStandings as getLegacyTournamentStandings } from './tournamentStandingsService.ts';
 import { calculateCiRate, calculateCiThreshold, roundToTwo } from '../utils/ciHelper.ts';
 import { normalizeTournamentGameCount } from './tournamentDistanceService.ts';
 

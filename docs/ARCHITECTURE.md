@@ -128,7 +128,6 @@ Main areas:
 - `CRMOverview.tsx`;
 - `EveningsList.tsx`;
 - `EveningWorkspace.tsx`;
-- `EveningParticipantsWorkboard.tsx`;
 - `EveningCloseoutPanel.tsx`;
 - `PlayersCRM.tsx`;
 - `TasksCRM.tsx`;
@@ -149,7 +148,7 @@ Quick CRM row actions should update affected local state without forcing a full 
 
 Primary UI:
 
-- `EveningParticipantsWorkboard.tsx`;
+- `EveningActiveRosterView.tsx`;
 - `EveningCloseoutPanel.tsx`;
 - `EveningPaymentsPanel.tsx` where mounted.
 
@@ -303,7 +302,6 @@ Primary ownership:
 
 - `deploy/start-web.sh` — storage contract; pins production to `/data/mafia_crm.sqlite` and the in-app sandbox to `/data/mafia_crm.test.sqlite`;
 - `src/db/index.ts` — generic DB wrapper/bootstrap logic used by production SQLite and tests;
-- `src/db/tursoHttpDatabase.ts` — retained legacy adapter; it is not selected by the canonical Amvera start script;
 - `src/db/` + `drizzle/` — schema/migrations/ensure logic.
 
 ### Production backend selection

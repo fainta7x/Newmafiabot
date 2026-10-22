@@ -118,7 +118,7 @@ Primary organizer surfaces:
 - `src/components/crm/EveningCloseoutPanel.tsx` — closeout reconciliation;
 - `src/components/crm/EveningPaymentsPanel.tsx` — mounted payment view, including closed-evening edits.
 
-The shared EveningListControls provides list search and filters. EveningManagementView owns the roster/payment mounts and collapsed staff assignment. EveningParticipantsWorkboard is unmounted legacy code.
+The shared EveningListControls provides list search and filters. EveningManagementView owns the roster/payment mounts and collapsed staff assignment.
 
 Server ownership:
 

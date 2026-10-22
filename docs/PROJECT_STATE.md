@@ -172,7 +172,7 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 **Resumed 2026-10-22 (owner: «пора заняться рефакторингом … какие аудиты?», then «согласен со всем планом, приступай»).** Audit results with file lists: `docs/AUDIT_LOG.md` → «Architecture and dependency audit». CI now runs `npm run project:deps`: no new runtime import cycle and no new import against the layer direction (`lib/shared → db → services → routes`, UI never imports server/db); the existing ones are listed in `config/dependency-cycles-baseline.json` and the list may only shrink. Order of slices, one PR each:
 - a. Audit + guard (this step).
 - b. Services stop importing route files: `calculateBestMovePoints` → `services/bestMovePoints.ts`, `internalGetStandings` / `internalGetNominations` → `services/tournamentStandingsService.ts` (unchanged code); done in the same PR as a.
-- c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages.
+- c. Remove confirmed unused files, the broken `club-pilot` harness and never-imported npm packages (done, second PR).
 - d. Start-up data migrations out of `db/` into a runner above it (what they do stays the same); `db/index.ts ↔ seed.ts`.
 - e. Measure the 1.95 MB start bundle and split the player cabinet by screen (needs 390 px screenshots).
 - f. Evening lifecycle service ring (11 modules) — high risk, integration tests first, owner sees the plan before code.

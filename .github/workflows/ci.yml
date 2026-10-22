@@ -36,7 +36,7 @@ jobs:
                 # Fail closed: only individually reviewed presentational files enter fast mode.
                 # All other TS/TSX, game, payments, CRM, bot, API, DB, config require full CI.
                 case "$file" in
-                  docs/*|*.md|*.css|*.scss|src/components/ui/Badge.tsx|src/components/ui/Button.tsx|src/components/ui/Card.tsx|src/components/ui/Input.tsx|src/components/ui/TokenIcon.tsx|src/components/player/PlayerGameGraphics.tsx|src/components/player/PlayerProfileStatsHero.tsx|src/components/player/PlayerBottomNavigation.tsx|src/components/crm/EveningListControls.tsx|src/lib/eventDisplayPriority.ts) ;;
+                  docs/*|*.md|*.css|*.scss|src/components/ui/Button.tsx|src/components/ui/Card.tsx|src/components/ui/Input.tsx|src/components/ui/TokenIcon.tsx|src/components/player/PlayerGameGraphics.tsx|src/components/player/PlayerProfileStatsHero.tsx|src/components/player/PlayerBottomNavigation.tsx|src/components/crm/EveningListControls.tsx|src/lib/eventDisplayPriority.ts) ;;
                   *) mode=full; break ;;
                 esac
               done <<< "$files"

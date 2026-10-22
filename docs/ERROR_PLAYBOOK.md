@@ -56,7 +56,7 @@ Check the unique source identity:
 
 A valid retry/reconciliation must be idempotent. Existing adjustment rows should be updated/accumulated according to service semantics, not blindly inserted again.
 
-Then verify the UI path that triggered it (`EveningParticipantsWorkboard`, `EveningCloseoutPanel`, dedicated payment panel) and add a regression test with the conflicting adjustment already present.
+Then verify the UI path that triggered it (`EveningActiveRosterView`, `EveningCloseoutPanel`, dedicated payment panel) and add a regression test with the conflicting adjustment already present.
 
 Never “fix” this by:
 

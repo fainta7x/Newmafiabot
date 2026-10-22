@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type EveningInfo = {
   id: string;
@@ -228,7 +229,7 @@ export default function PlayerLiveCenter({ compact = false }: { compact?: boolea
         {journey.phase === 'upcoming' && <>
           <section className="mt-3 rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-4">
             <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] uppercase tracking-[0.14em] text-white/30">До вечера</div><div className="mt-1 text-lg font-semibold">{responseLabel(journey.participation.response_status)}</div></div><div className="text-right"><div className="text-lg font-black">{journey.attending_count}</div><div className="text-[11px] text-white/25">уже идут</div></div></div>
-            {journey.evening.default_price != null && <div className="mt-3 text-[11px] text-white/35">Стоимость: {journey.evening.default_price.toLocaleString('ru-RU')} ₽</div>}
+            {journey.evening.default_price != null && <div className="mt-3 text-[11px] text-white/35">Стоимость: {formatRubles(journey.evening.default_price)}</div>}
             <div className="mt-4 grid grid-cols-2 gap-2">{responseOptions.map((option) => {
               const selected = journey.participation.response_status === option.id;
               return <button key={option.id} type="button" disabled={savingResponse} onClick={() => void respond(option.id)} className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${selected ? 'border-white/30 bg-white text-black' : 'border-white/10 bg-white/[0.04] text-white/65'} disabled:opacity-50`}>{option.label}</button>;

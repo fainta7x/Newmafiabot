@@ -11,6 +11,7 @@ import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /**
  * «Сегодня играем» (owner, 2026-10-02): on the evening day the organizer posts a bright invitation
@@ -47,13 +48,6 @@ export async function ensureEveningTodayPostSchema(db: DatabaseWrapper) {
 }
 
 const time = (value: unknown) => new Date(String(value)).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
-const plural = (n: number, one: string, few: string, many: string) => {
-  const mod10 = n % 10; const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-};
-
 /** The default text for the chosen game; the organizer may edit it before publishing. */
 export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string, gameNumber?: unknown) {
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
@@ -109,7 +103,7 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     const short = slots.find((slot: any) => slot.registered_count < perSlot && (!chosen || slot.slot_number >= chosen.slot_number));
     if (short) {
       const missing = perSlot - short.registered_count;
-      lines.push(`🔥 На ${short.slot_number}-ю игру не хватает ${missing} ${plural(missing, 'человека', 'человек', 'человек')} — присоединяйся, будет жарко!`);
+      lines.push(`🔥 На ${short.slot_number}-ю игру не хватает ${missing} ${russianPlural(missing, 'человека', 'человек', 'человек')} — присоединяйся, будет жарко!`);
     } else {
       lines.push('🔥 Столы собраны — но место для новых лиц всегда найдём. Зови друзей!');
     }

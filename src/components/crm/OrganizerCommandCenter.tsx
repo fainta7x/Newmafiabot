@@ -7,6 +7,7 @@ import { api, type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import OrganizerAgenda from './OrganizerAgenda.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type OpsPlayer = {
   participant_id: string;
@@ -96,7 +97,7 @@ const formatPaymentDate = (value: string | null) => {
   return new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });
 };
 
-const formatMoney = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
+const formatMoney = (value: number) => formatRubles(value, { signed: true });
 
 const communicationLabel = (status: string) => {
   if (status === 'failed') return 'Ошибка доставки';

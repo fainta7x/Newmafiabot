@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Coins, Pencil, Plus, RefreshCw, Send, Target } from 'lucide-react';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type TokenPackage = {
   id: string;
@@ -50,7 +51,7 @@ type VkStatus = {
 
 type Sheet = { kind: 'tokens'; item?: TokenPackage } | { kind: 'campaign'; item?: Campaign } | null;
 
-const rubles = (value: number | null | undefined) => `${Math.max(0, Math.trunc(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
+const rubles = (value: number | null | undefined) => formatRubles(value);
 
 const request = async (url: string, options?: RequestInit) => {
   const response = await fetch(url, {

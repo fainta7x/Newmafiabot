@@ -3,6 +3,7 @@ import { CalendarPlus } from 'lucide-react';
 import { api, type GameEvening, type PlayerDetails } from '../../lib/api.ts';
 import { getSortedAddableEvenings } from '../../lib/dateUtils.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type QuickAddContextValue = {
   openForPlayer: (player: PlayerDetails) => void;
@@ -126,7 +127,7 @@ export function PlayerEveningQuickAddProvider({
                 <div className="rounded-[15px] border border-border-soft bg-surface-2 p-3">
                   <div className="text-[13px] font-semibold text-text-primary">{selectedEvening.title}</div>
                   <div className="mt-1 text-[11px] text-text-secondary">{formatWhen(selectedEvening.starts_at)} · {selectedEvening.venue || 'Площадка не указана'}</div>
-                  <div className="mt-2 text-[11px] text-text-muted">{alreadyBooked ? 'Игрок уже есть в составе этого вечера.' : `Будет добавлен со статусом «Иду»${selectedEvening.default_price ? ` · ${selectedEvening.default_price} ₽` : ''}.`}</div>
+                  <div className="mt-2 text-[11px] text-text-muted">{alreadyBooked ? 'Игрок уже есть в составе этого вечера.' : `Будет добавлен со статусом «Иду»${selectedEvening.default_price ? ` · ${formatRubles(selectedEvening.default_price)}` : ''}.`}</div>
                 </div>
               ) : null}
             </>

@@ -3,6 +3,7 @@ import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerEconomyPanel, { type WalletEconomyView } from './PlayerEconomyPanel.tsx';
 import PlayerPayments from './PlayerPayments.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type WalletView = 'payments' | WalletEconomyView;
 
@@ -13,9 +14,7 @@ const NAV: Array<{ id: WalletView; label: string; icon: string }> = [
   { id: 'history', label: 'История', icon: '↺' },
 ];
 
-const rubles = (value: number | null) => value == null
-  ? '…'
-  : `${Math.max(0, Math.trunc(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
+const rubles = (value: number | null) => value == null ? '…' : formatRubles(value);
 
 export default function PlayerWalletHub({
   tokenBalance,

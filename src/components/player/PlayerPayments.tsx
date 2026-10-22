@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type PaymentItem = {
   participant_id: string;
@@ -81,7 +82,7 @@ const PURPOSE_HINT: Record<PaymentPurpose['id'], string> = {
   fundraiser: 'В конкретную цель клуба',
 };
 
-const rubles = (value: number) => `${Math.max(0, Math.trunc(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
+const rubles = (value: number) => formatRubles(value);
 const dateLabel = formatPlayerGameDateTime;
 const statusLabel = (status: string) => {
   if (status === 'paid') return 'Оплачено';

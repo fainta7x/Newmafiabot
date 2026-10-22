@@ -8,12 +8,13 @@ import { GameStatsPanel } from './GameStatsPanel.tsx';
 import { StaffReportPanel } from './StaffReportPanel.tsx';
 import { AppUsagePanel } from './AppUsagePanel.tsx';
 import { OnlineNowPanel } from './OnlineNowPanel.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type Tab = 'club' | 'now' | 'finance' | 'games';
 const tabs: Array<[Tab,string]> = [['now','Сейчас'],['club','Клуб'],['finance','Деньги'],['games','Игры и люди']];
 const presets = [['7d','7 дней'],['30d','30 дней'],['90d','90 дней'],['season','Сезон'],['all','Всё время']];
 const number = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const money = (value: unknown) => number(value).toLocaleString('ru-RU') + ' ₽';
+const money = (value: unknown) => formatRubles(value, { signed: true });
 function savedTab(): Tab {
   try { const value = sessionStorage.getItem('club-analytics-tab'); if (tabs.some(([id])=>id===value)) return value as Tab; } catch { /* storage may be disabled in WebViews */ }
   return 'club';

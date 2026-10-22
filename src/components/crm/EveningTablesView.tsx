@@ -3,6 +3,7 @@ import { ArrowLeft, Edit, Plus, Trash2 } from 'lucide-react';
 import { api, type EveningTable, type GameEvening } from '../../lib/api';
 import ConfirmDialog from '../ui/ConfirmDialog.tsx';
 import MobileSheet from '../ui/MobileSheet.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 interface EveningTablesViewProps {
   eveningId: string;
@@ -191,7 +192,7 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
               </div>
               <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Тариф</span>
-                <strong className="mt-1 block text-[11px] text-success">{table.default_price ?? evening.default_price} ₽</strong>
+                <strong className="mt-1 block text-[11px] text-success">{formatRubles(table.default_price ?? evening.default_price)}</strong>
               </div>
               <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Мест</span>

@@ -2,7 +2,6 @@ type Breakdown = { total: number; by_format: Array<{ format: string; label: stri
 import { russianPlural } from '../../lib/russianPlural.ts';
 export type StaffWorkStatsData = { judged: Breakdown | null; organized: Breakdown | null } | null | undefined;
 
-const plural = russianPlural;
 
 /**
  * Judging and organizing on a profile. The server sends `judged` only for players who judged and
@@ -10,8 +9,8 @@ const plural = russianPlural;
  */
 export default function StaffWorkStats({ stats, variant = 'player', testId }: { stats: StaffWorkStatsData; variant?: 'player' | 'crm'; testId?: string }) {
   const rows = [
-    stats?.judged ? { icon: '⚖️', title: `Отсудил ${stats.judged.total} ${plural(stats.judged.total, 'игру', 'игры', 'игр')}`, data: stats.judged } : null,
-    stats?.organized ? { icon: '🎩', title: `Провёл ${stats.organized.total} ${plural(stats.organized.total, 'вечер', 'вечера', 'вечеров')}`, data: stats.organized } : null,
+    stats?.judged ? { icon: '⚖️', title: `Отсудил ${stats.judged.total} ${russianPlural(stats.judged.total, 'игру', 'игры', 'игр')}`, data: stats.judged } : null,
+    stats?.organized ? { icon: '🎩', title: `Провёл ${stats.organized.total} ${russianPlural(stats.organized.total, 'вечер', 'вечера', 'вечеров')}`, data: stats.organized } : null,
   ].filter(Boolean) as Array<{ icon: string; title: string; data: Breakdown }>;
   if (!rows.length) return null;
 

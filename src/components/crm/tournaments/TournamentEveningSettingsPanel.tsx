@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
 import { canOrganizeTournaments } from '../../../lib/organizeFormats.ts';
+import { formatRubles } from '../../../lib/formatRubleAmount.ts';
 
 type PrizeRow = { place: string; amount_rub: number };
 type TournamentDetail = {
@@ -111,7 +112,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
 
   const save = () => {
     if (allocated !== Number(prizeFund || 0)) {
-      setError(`Распределено ${allocated} ₽, а призовой фонд ${Number(prizeFund || 0)} ₽.`);
+      setError(`Распределено ${formatRubles(allocated)}, а призовой фонд ${formatRubles(Number(prizeFund || 0))}.`);
       return;
     }
     void requestAction('', 'PUT', {
@@ -151,7 +152,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
     <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-border-soft bg-surface-2 p-3 text-center">
       <div><div className="text-[10px] uppercase text-text-muted">Состав</div><b className="text-sm">{detail.confirmed_count}/{detail.player_capacity}</b></div>
       <div><div className="text-[10px] uppercase text-text-muted">Свободно</div><b className="text-sm">{detail.remaining_places}</b></div>
-      <div><div className="text-[10px] uppercase text-text-muted">Взнос</div><b className="text-sm">{Number(detail.entry_fee_rub || 0)} ₽</b></div>
+      <div><div className="text-[10px] uppercase text-text-muted">Взнос</div><b className="text-sm">{formatRubles(Number(detail.entry_fee_rub || 0))}</b></div>
     </div>
 
     <div className={`mt-3 rounded-2xl border p-3 ${readinessBlockers.length ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`} data-testid="tournament-readiness-summary">
@@ -178,7 +179,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
         <label className="text-[11px] font-semibold text-text-secondary">Взнос, ₽<input disabled={!editable || busy} type="number" min={0} step={1} value={entryFee} onChange={(e) => setEntryFee(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Призовой фонд, ₽<input disabled={!editable || busy} type="number" min={0} step={1} value={prizeFund} onChange={(e) => setPrizeFund(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         <div className="sm:col-span-2 rounded-xl border border-border-soft bg-surface-1 p-3">
-          <div className="mb-2 flex items-center justify-between text-[11px]"><b>Распределение призов</b><span className={allocated === prizeFund ? 'text-success' : 'text-warning'}>{allocated} / {prizeFund} ₽</span></div>
+          <div className="mb-2 flex items-center justify-between text-[11px]"><b>Распределение призов</b><span className={allocated === prizeFund ? 'text-success' : 'text-warning'}>{allocated} / {formatRubles(prizeFund)}</span></div>
           <div className="space-y-2">{prizes.map((row, index) => <div key={index} className="grid grid-cols-[1fr_110px] gap-2"><input disabled={!editable || busy} value={row.place} onChange={(e) => setPrizes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, place: e.target.value } : item))} className={field} /><input disabled={!editable || busy} type="number" min={0} value={row.amount_rub} onChange={(e) => setPrizes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, amount_rub: Math.max(0, Number(e.target.value) || 0) } : item))} className={`${field} font-mono`} /></div>)}</div>
           {editable ? <button type="button" disabled={busy} onClick={() => setPrizes((current) => [...current, { place: `${current.length + 1} место`, amount_rub: 0 }])} className="mt-2 min-h-10 rounded-xl border border-border-soft px-3 text-[11px] font-bold">+ Добавить приз</button> : null}
         </div>

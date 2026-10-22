@@ -10,6 +10,7 @@ import { getEveningAttendanceFact } from '../../lib/eveningResponse';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
 import TableScoutingCard from './TableScoutingCard.tsx';
+import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 interface EveningGameCreateSheetProps {
   evening: GameEvening;
@@ -351,7 +352,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
                 <div key={row.participant_id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5">
                   <span className="min-w-0 flex-1">
                     <strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong>
-                    <span className="text-[12px] text-text-muted">к оплате {Math.max(0, row.amount_due - row.amount_paid).toLocaleString('ru-RU')} ₽</span>
+                    <span className="text-[12px] text-text-muted">к оплате {formatRubles(row.amount_due - row.amount_paid)}</span>
                   </span>
                   <button type="button" disabled={Boolean(payingId)} onClick={() => void markPrepaid(row)} className="min-h-10 shrink-0 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">
                     {payingId === row.participant_id ? 'Сохраняем…' : 'Оплатил'}

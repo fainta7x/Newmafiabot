@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
+import { formatRubles } from '../../../lib/formatRubleAmount.ts';
 
 type CreatedTournament = { id: string; title: string; date: string };
 type PrizeRow = { place: string; amount_rub: number };
@@ -55,7 +56,7 @@ export function CreateTournamentEveningModal({ isOpen, onClose, onCreated }: {
       return;
     }
     if (allocated !== Number(prizeFund || 0)) {
-      setError(`Распределено ${allocated} ₽, а призовой фонд ${Number(prizeFund || 0)} ₽.`);
+      setError(`Распределено ${formatRubles(allocated)}, а призовой фонд ${formatRubles(Number(prizeFund || 0))}.`);
       return;
     }
     setSaving(true); setError('');
@@ -98,7 +99,7 @@ export function CreateTournamentEveningModal({ isOpen, onClose, onCreated }: {
           <label className="text-xs font-semibold text-text-secondary">Призовой фонд, ₽<input type="number" min={0} step={1} value={prizeFund} onChange={(e) => setPrizeFund(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         </div>
         <div className="rounded-2xl border border-border-soft bg-surface-2 p-3">
-          <div className="mb-2 flex items-center justify-between text-xs"><b>Распределение призов</b><span className={allocated === prizeFund ? 'text-success' : 'text-warning'}>{allocated} / {prizeFund} ₽</span></div>
+          <div className="mb-2 flex items-center justify-between text-xs"><b>Распределение призов</b><span className={allocated === prizeFund ? 'text-success' : 'text-warning'}>{allocated} / {formatRubles(prizeFund)}</span></div>
           <div className="space-y-2">{prizes.map((row, index) => <div key={index} className="grid grid-cols-[1fr_120px] gap-2"><input value={row.place} onChange={(e) => setPrizes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, place: e.target.value } : item))} className={field} /><input type="number" min={0} step={1} value={row.amount_rub} onChange={(e) => setPrizes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, amount_rub: Math.max(0, Number(e.target.value) || 0) } : item))} className={`${field} font-mono`} /></div>)}</div>
           <button type="button" onClick={() => setPrizes((current) => [...current, { place: `${current.length + 1} место`, amount_rub: 0 }])} className="mt-2 min-h-10 rounded-xl border border-border-soft px-3 text-xs font-bold text-text-secondary">+ Добавить приз</button>
         </div>

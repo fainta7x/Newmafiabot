@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, ListChecks, Moon, Search } from 'lucide-react';
 import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary } from '../../../lib/clubGuide.ts';
 import { GUIDE_QUIZ } from '../../../lib/clubGuideQuiz.ts';
-import { GUIDE_LESSONS, pluralRu } from '../../../lib/guideCatalog.ts';
+import { GUIDE_LESSONS } from '../../../lib/guideCatalog.ts';
 import { Accordion, ProgressBar, Segmented, Timeline } from './GuideBlocks.tsx';
+import { russianPlural } from '../../../lib/russianPlural.ts';
 
 /* Reading progress lives only in this browser: a convenience, never a requirement. */
 export type GuideProgress = { lessons: string[]; quizBest: number | null; /** The last trainer, article or reference screen opened. */ recent: string | null };
@@ -121,7 +122,7 @@ export const GlossaryScreen = () => {
         </article>
       ))}
       {!terms.length ? <p className="py-8 text-center text-[14px] text-white/45">Такого слова пока нет. Уточнить можно у судьи перед игрой.</p> : null}
-      <p className="text-center text-[12px] text-white/35">В словаре {GLOSSARY.length} {pluralRu(GLOSSARY.length, 'слово', 'слова', 'слов')}.</p>
+      <p className="text-center text-[12px] text-white/35">В словаре {GLOSSARY.length} {russianPlural(GLOSSARY.length, 'слово', 'слова', 'слов')}.</p>
     </div>
   );
 };

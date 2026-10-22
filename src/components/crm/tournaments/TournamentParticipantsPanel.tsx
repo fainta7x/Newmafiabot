@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, CreditCard, UserPlus, Users, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
+import { formatRubles } from '../../../lib/formatRubleAmount.ts';
 
 type PaymentState = 'unpaid' | 'pending' | 'confirmed' | 'rejected' | 'waived' | 'refunded';
 type RosterEditMode = 'full' | 'replacement_only' | 'locked';
@@ -247,8 +248,8 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
         <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
           <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Основной состав</div><div className="mt-0.5 font-black text-text-primary">{detail.confirmed_count}/10</div></div>
           <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Ждут места · подменят</div><div className="mt-0.5 font-black text-text-primary">{detail.reserves.filter((row) => (row.response || 'play') === 'play').length} · {detail.reserves.filter((row) => row.response === 'substitute').length}</div></div>
-          <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Подтверждено оплат</div><div className="mt-0.5 font-black text-text-primary">{payment?.confirmed_rub || 0} ₽</div></div>
-          <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Ожидается</div><div className="mt-0.5 font-black text-text-primary">{payment?.expected_rub || 0} ₽</div></div>
+          <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Подтверждено оплат</div><div className="mt-0.5 font-black text-text-primary">{formatRubles(payment?.confirmed_rub || 0)}</div></div>
+          <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Ожидается</div><div className="mt-0.5 font-black text-text-primary">{formatRubles(payment?.expected_rub || 0)}</div></div>
         </div>
       ) : null}
 
@@ -300,7 +301,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-1 text-[11px] font-black text-text-muted">{index + 1}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold text-text-primary">{row?.nickname || 'Свободное место'}</div>
-                {row ? <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}{row.reported_amount_rub != null ? ` · заявлено ${row.reported_amount_rub} ₽` : ''}{row.confirmed_amount_rub != null ? ` · подтверждено ${row.confirmed_amount_rub} ₽` : ''}</div> : null}
+                {row ? <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}{row.reported_amount_rub != null ? ` · заявлено ${formatRubles(row.reported_amount_rub)}` : ''}{row.confirmed_amount_rub != null ? ` · подтверждено ${formatRubles(row.confirmed_amount_rub)}` : ''}</div> : null}
               </div>
               {row ? (
                 <>
@@ -326,7 +327,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-1 text-[11px] font-black text-text-muted">{index + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[12px] font-bold text-text-primary">{row.nickname}</div>
-              <div className="text-[10px] text-text-muted">{row.response === 'substitute' ? 'Готов подменить' : 'Играю · ждёт места'}{row.reported_amount_rub != null ? ` · ${row.reported_amount_rub} ₽ заявлено` : ''}</div>
+              <div className="text-[10px] text-text-muted">{row.response === 'substitute' ? 'Готов подменить' : 'Играю · ждёт места'}{row.reported_amount_rub != null ? ` · ${formatRubles(row.reported_amount_rub)} заявлено` : ''}</div>
             </div>
             {fullEdit ? (
               <div className="flex shrink-0 items-center gap-1">
@@ -350,7 +351,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
             <div key={row.id} className="flex min-h-[50px] items-center gap-2 rounded-xl border border-border-soft bg-surface-2 px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold text-text-primary">{row.nickname}</div>
-                <div className="text-[10px] text-text-muted">Снят с турнира · {paymentLabels[row.payment_state]}{row.reported_amount_rub != null ? ` · заявлено ${row.reported_amount_rub} ₽` : ''}{row.confirmed_amount_rub != null ? ` · подтверждено ${row.confirmed_amount_rub} ₽` : ''}</div>
+                <div className="text-[10px] text-text-muted">Снят с турнира · {paymentLabels[row.payment_state]}{row.reported_amount_rub != null ? ` · заявлено ${formatRubles(row.reported_amount_rub)}` : ''}{row.confirmed_amount_rub != null ? ` · подтверждено ${formatRubles(row.confirmed_amount_rub)}` : ''}</div>
               </div>
               <select value={row.payment_state || 'unpaid'} disabled={!!busyKey} onChange={(event) => void updatePayment(row, event.target.value as PaymentState)} className="max-w-[145px] rounded-lg border border-border-soft bg-surface-1 px-2 py-1.5 text-[10px] text-text-primary">
                 {row.payment_state === 'pending' ? <option value="pending" disabled>{paymentLabels.pending}</option> : null}
@@ -364,7 +365,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
       {detail && detail.confirmed.length ? (
         <div className="mt-4 rounded-xl bg-surface-2 p-3 text-[10px] leading-4 text-text-muted">
           <div className="flex items-center gap-2 font-black uppercase tracking-wide text-text-primary"><CreditCard className="h-3.5 w-3.5" /> Оплаты</div>
-          <div className="mt-1">Взнос: {detail.entry_fee_rub || 0} ₽ · заявлено к проверке: {payment?.reported_rub || 0} ₽ · подтверждено: {payment?.confirmed_rub || 0} ₽ · не закрыто оплат: {payment?.unpaid_count || 0}</div>
+          <div className="mt-1">Взнос: {formatRubles(detail.entry_fee_rub || 0)} · заявлено к проверке: {formatRubles(payment?.reported_rub || 0)} · подтверждено: {formatRubles(payment?.confirmed_rub || 0)} · не закрыто оплат: {payment?.unpaid_count || 0}</div>
         </div>
       ) : null}
     </section>

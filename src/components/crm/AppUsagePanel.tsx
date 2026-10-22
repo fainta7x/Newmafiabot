@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { AnalyticsHeading, AnalyticsStatus, analyticsCard, useAnalyticsQuery } from './analyticsShared.tsx';
 import { screenLabel as screenName } from '../../lib/screenLabels.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 type PlayerUsage = { player_id: string; nickname: string; visits: number; active_days: number; last_seen_at: string; screens: Array<{ name: string; visits: number }> };
 type PlayersUsage = { players: PlayerUsage[] };
 
 const lastSeen = (iso: string) => new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
-const times = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? `${count} раз` : `${count} раз${count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? 'а' : ''}`);
+const times = (count: number) => `${count} ${russianPlural(count, 'раз', 'раза', 'раз')}`;
 
 /**
  * Where every player went (owner, 2026-10-13): one row per player — how many times he came, when he was last seen and the

@@ -4,6 +4,7 @@ import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts
 import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
 import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 import EveningStartTimeEditor from './EveningStartTimeEditor.tsx';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 
 interface EveningOverviewViewProps {
@@ -35,6 +36,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
   const [showAnnouncementSettings, setShowAnnouncementSettings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [startAsk, setStartAsk] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -82,6 +84,15 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   return (
     <div className="space-y-3.5 pb-4">
+      <ConfirmDialog
+        open={startAsk}
+        title="Начать вечер?"
+        description={'«Начать вечер» нажимают, когда игроки уже собрались. Если нажали случайно, вечер можно вернуть, пока нет игр.'}
+        confirmLabel="Начать"
+        busy={busy}
+        onCancel={() => setStartAsk(false)}
+        onConfirm={async () => { setStartAsk(false); await updateStatus('active'); }}
+      />
       {(!hideStatusActions && !readonly && ['draft', 'published'].includes(evening.status)) || message || error ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
         {!hideStatusActions && !readonly && evening.status !== 'cancelled' ? <div>
           {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Открыть запись</button> : null}
@@ -95,7 +106,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
             const plural = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? 'день' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'дня' : 'дней');
             return <>
               {early ? <p className="mb-2 text-[12px] leading-4 text-text-secondary">{days === 1 ? 'Вечер завтра' : days > 1 ? `Вечер через ${days} ${plural(days)}` : `Вечер через ${Math.round(hoursToStart)} ч`} — «Начать вечер» нажимают в день вечера, когда игроки собираются.</p> : null}
-              <button disabled={busy} onClick={() => void updateStatus('active')} className={`inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] text-[13px] font-bold disabled:opacity-50 ${early ? 'border border-border-soft bg-surface-2 text-text-secondary' : 'bg-success text-white'}`}><Play className="h-4 w-4" /> Начать вечер</button>
+              <button disabled={busy} onClick={() => setStartAsk(true)} className={`inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] text-[13px] font-bold disabled:opacity-50 ${early ? 'border border-border-soft bg-surface-2 text-text-secondary' : 'bg-success text-white'}`}><Play className="h-4 w-4" /> Начать вечер</button>
             </>;
           })() : null}
         </div> : null}

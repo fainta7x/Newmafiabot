@@ -213,6 +213,13 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
     if (evening.status === 'completed' || evening.settled_at) return res.status(400).json({ error: 'Завершённый вечер доступен только для чтения' });
 
+    // Taking back a mistaken «Начать вечер» (owner, 2026-10-22): only while the evening has no game yet.
+    if (evening.status === 'active' && data.status && data.status !== 'active') {
+      if (!['published', 'draft'].includes(String(data.status))) return res.status(400).json({ error: 'Из «Идёт» можно вернуть только в «Запись открыта»' });
+      const game = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
+      if (game) return res.status(409).json({ error: 'По вечеру уже есть игры — вернуть статус нельзя', code: 'evening_has_games' });
+    }
+
     // Every evening has an organizer (user-approved 2026-09-24): starting needs one. The signed-in
     // organizer is assigned automatically when their CRM login is linked to an «Организатор» profile.
     if (data.status === 'active' && evening.status !== 'active') {

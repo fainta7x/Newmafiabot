@@ -1678,3 +1678,10 @@ New safe boundary: `liveRosterCorrections.ts` rejects partial, duplicate or miss
 ## 2026-10-23 — Live roster journal reload audit
 
 Finding (before fix): `LiveGameEngine.tsx` on reload seeded its correction comparison from the *current* CRM roster rather than a durable original mapping; `player_reseated` events alone cannot reconstruct the pre-change identities. No historical identity may be inferred. Fix in separate PR: store `player_assigned` baseline records when a new complete roster is first observed; replay these plus subsequent `player_reseated` commands on reload, independent of judge Undo. Legacy journals with corrections but no baseline adopt the current roster without forging a past mapping. Seat-indexed votes, discipline, and elimination remain untouched. Focused regression covers replay of a swap and absent legacy baseline. CI pending; no Amvera or production changes.
+
+
+## 2026-10-23 — Domain model Messaging retry audit
+
+Finding before repair: `telegramMessageOutboxService.ts` and `vkMessageOutboxService.ts` each hard-coded 17 attempts, 2-second doubling and a 15-minute cap. This is one unchanged business-neutral policy with duplicate implementations. Fixed in this PR via `personalMessageRetryPolicy.ts` and focused numeric regressions. Preserve Telegram 429 Retry-After support, VK stable random_id, and Telegram cancellation ambiguity protections.
+
+Still open: `telegramSyncOutboxService.ts` uses a distinct 12-attempt/15-second policy, and publishing outcomes after timeout can be uncertain; do not silently use the personal-message schedule for public post reconciliation. Before a single publish-once policy, characterize result states and remote IDs for both channels and enforce no duplicate publication on ambiguous failures. No live API/prod writes; runtime verification deferred.

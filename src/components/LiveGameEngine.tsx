@@ -435,7 +435,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
     if (!events.length) return;
     // The same commands project current state and every Undo frame; the CRM is the role authority.
-    journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(journalEvents, events) } };
+    journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(existing, events) } };
     nativeJournalEnabledRef.current = true;
     const corrected = projectLiveRoleSnapshot(snapshot, assignments, events);
     setActivePlayers(corrected.activePlayers);

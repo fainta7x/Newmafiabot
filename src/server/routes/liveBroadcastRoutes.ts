@@ -120,7 +120,8 @@ const loadCanonicalTournamentBroadcastGame = async (
   const players = rows.map((player: any) => ({
     seat: Number(player.seat_number),
     playerId: player.player_id ? String(player.player_id) : null,
-    nickname: String(player.display_name || player.club_nickname || `Игрок ${player.seat_number}`),
+    // Owner, 2026-10-23: the club nickname everywhere in tournaments; the tournament name only for a guest without a profile.
+    nickname: String(player.club_nickname || player.display_name || `Игрок ${player.seat_number}`),
   }));
 
   if (!isSupportedTableSize(players.length)) return null;

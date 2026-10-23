@@ -74,8 +74,10 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
 
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
-export const buildPlayerProfileStats = (games: PlayerGameHistoryItem[]): PlayerGameProfileStats => {
-  const completed = games.filter((game) => game.status === 'completed' && game.winner_team !== null);
+// Owner, 2026-10-23: the statistics count completed games only; a draft or a planned game is in the history, not in the numbers.
+export const buildPlayerProfileStats = (history: PlayerGameHistoryItem[]): PlayerGameProfileStats => {
+  const games = history.filter((game) => game.status === 'completed');
+  const completed = games.filter((game) => game.winner_team !== null);
   const wins = completed.filter((game) => game.won === true).length;
   const roleCounts = { citizen: 0, sheriff: 0, mafia: 0, don: 0, unknown: 0 };
 
@@ -119,6 +121,7 @@ export const loadPlayerGameProfile = async (db: any, playerId: string) => {
      WHERE g.evening_id IS NOT NULL
        AND g.archived_at IS NULL
        AND g.protocol_text IS NOT NULL
+       AND COALESCE(e.status, '') <> 'cancelled'
   ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC, g.id DESC
   `);
 

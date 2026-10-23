@@ -420,4 +420,24 @@ def test_telegram_lineup_counts_guests_and_their_plus_rows(monkeypatch):
     text = asyncio.run(crm_booking.build_crm_evening_stats_text("e1"))
     assert "Иван" in text
     assert "Иван +1" in text
-    assert "Идут / думают: <b>3</b>" in text
+    assert "Идут: <b>3</b> · думают: <b>0</b>" in text
+
+
+def test_telegram_lineup_keeps_thinking_out_of_going(monkeypatch):
+    import asyncio
+    from handlers import crm_booking
+
+    async def fake(_evening_id):
+        return {"success": True, "data": {
+            "evening": {"title": "Вечер", "starts_at": "2026-10-16T18:00:00Z"},
+            "participants": [
+                {"nickname": "Лиса", "response_status": "going"},
+                {"nickname": "Волк", "response_status": "late"},
+                {"nickname": "Сова", "response_status": "thinking"},
+            ],
+        }}
+
+    monkeypatch.setattr(crm_booking, "get_evening_participants", fake)
+    text = asyncio.run(crm_booking.build_crm_evening_stats_text("e1"))
+    # Owner, 2026-10-23: «Думаю» is not «Идут».
+    assert "Идут: <b>2</b> · думают: <b>1</b>" in text

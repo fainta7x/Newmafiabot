@@ -20,7 +20,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
 
   const participants = await db.all<any>(
     `SELECT tp.id as participant_id, tp.player_id, tp.participant_number, (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at,
-            COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
+            COALESCE(p.nickname, tp.display_name, 'Участник') as display_name
      FROM tournament_participants tp
      LEFT JOIN players p ON tp.player_id = p.id
      WHERE tp.tournament_id = ?
@@ -427,7 +427,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
 
   const participants = await db.all<any>(
     `SELECT tp.id as participant_id, tp.participant_number,
-            COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
+            COALESCE(p.nickname, tp.display_name, 'Участник') as display_name
        FROM tournament_participants tp
        LEFT JOIN players p ON tp.player_id = p.id
       WHERE tp.tournament_id = ?

@@ -72,6 +72,7 @@ async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGam
        WHERE g.evening_id IS NOT NULL
          AND g.archived_at IS NULL
          AND g.protocol_text IS NOT NULL
+         AND COALESCE(e.status, '') <> 'cancelled'
     `),
     db.all(`
       SELECT t.id AS tournament_id, tg.id AS game_id, tg.game_number, tg.winner_team, tg.completed_at,
@@ -83,6 +84,8 @@ async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGam
         JOIN tournaments t ON t.id = tg.tournament_id
    LEFT JOIN players p ON p.id = tp.player_id
        WHERE tg.status = 'completed'
+         -- Owner, 2026-10-23: a tournament game counts when the game and its protocol are both completed.
+         AND EXISTS (SELECT 1 FROM tournament_game_protocols tgp WHERE tgp.game_id = tg.id AND tgp.status = 'completed')
     `),
   ]);
 

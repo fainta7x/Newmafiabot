@@ -3,6 +3,7 @@ import { judgeRewardFor } from './staffRewards.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 
 
 export type ClubGameSettlementContext = 'completion' | 'correction' | 'reopen' | 'archive' | 'restore';
@@ -92,28 +93,6 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
-const calculateBestMovePoints = (seatNumbers: unknown, playerResults: any[]): number => {
-  if (!Array.isArray(seatNumbers)) return 0;
-  const roles = new Map<number, 'red' | 'black' | null>();
-  for (const result of playerResults) roles.set(Number(result?.seat_number), gameTeamOfRole(result?.role));
-  let blackCount = 0;
-  for (const seat of seatNumbers) if (roles.get(Number(seat)) === 'black') blackCount += 1;
-  if (blackCount >= 3) return 0.6;
-  if (blackCount === 2) return 0.3;
-  if (blackCount === 1) return 0.1;
-  return 0;
-};
-
-const bestMovePointsForParticipant = (protocol: any, participantId: string, playerResults: any[]): number => {
-  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
-  const firstKilledParticipantId = String(protocol?.first_killed_participant_id || '');
-  if (!participantId || participantId !== firstKilledParticipantId) return 0;
-  const relevant = modern.filter((move: any) => move?.source === 'first_killed' && String(move?.participant_id || '') === participantId);
-  if (relevant.length) return relevant.reduce((sum: number, move: any) => sum + calculateBestMovePoints(move?.seat_numbers, playerResults), 0);
-  if (String(protocol?.best_move_participant_id || '') === participantId && (!protocol?.best_move_source || protocol.best_move_source === 'first_killed')) return calculateBestMovePoints(protocol?.best_move_seats, playerResults);
-  return 0;
-};
-
 const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<string, DesiredTarget>> => {
   const desired = new Map<string, DesiredTarget>();
   if (!game?.evening_id || game.archived_at) return desired;
@@ -137,7 +116,7 @@ const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<
   for (const result of linkedResults) {
     const playerId = String(result.player_id);
     const participantId = String(result.participant_id || '');
-    const breakdown = calculateClubGamePlayerTokens({ role: result.role, winnerTeam, judgeBonus: result.judge_bonus, protocolBonus: result.protocol_bonus, bestMovePoints: bestMovePointsForParticipant(payload.protocol, participantId, results), ciPoints: result.ci_points, disciplinaryPoints: result.disciplinary_penalty_points, regularFouls: result.regular_fouls, minorTechnicalFouls: result.minor_technical_fouls, majorTechnicalFouls: result.major_technical_fouls, removed: result.exit_type === 'removed', ppkCulprit: Boolean(participantId && participantId === ppkParticipantId) });
+    const breakdown = calculateClubGamePlayerTokens({ role: result.role, winnerTeam, judgeBonus: result.judge_bonus, protocolBonus: result.protocol_bonus, bestMovePoints: clubBestMovePointsForParticipant(payload.protocol, participantId, results), ciPoints: result.ci_points, disciplinaryPoints: result.disciplinary_penalty_points, regularFouls: result.regular_fouls, minorTechnicalFouls: result.minor_technical_fouls, majorTechnicalFouls: result.major_technical_fouls, removed: result.exit_type === 'removed', ppkCulprit: Boolean(participantId && participantId === ppkParticipantId) });
     desired.set(`player:${playerId}`, { subjectType: 'player', playerId, amount: breakdown.total, breakdown });
   }
   if (game.judge_player_id) {

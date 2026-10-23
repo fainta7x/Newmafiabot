@@ -183,13 +183,13 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 **Domain model — whole app (owner, 2026-10-22: «все элементы подчинялись единым правилам, сценариям, не было задвоений, были единые и правильные сущности»; «да, делай»).** This continues this programme across the whole app. The target map is [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md); the findings are in `AUDIT_LOG` → «Domain model audit». The owner explicitly includes the judge engine, done in this order: scenario tests first, then canonical vocabulary, then the event log as the one source for engine and protocol. Order:
 Status of each step as of 2026-10-23 (merged in #1002–#1006; details in AUDIT_LOG):
 1. Game vocabulary. **Done:** one role, team and winner module, one exit-type and removal-reason list, `roleToProtocol` removed, B1–B2 fixed. Also one game-score formula (`gameScore.ts`), Elo and its history sharing their inputs, and one win-rate rule.
-2. «What is a game» for statistics. **Waits for the owner's answer** (question 1).
-3. UI primitives. **Money, plural forms and dates done.** Avatars, the loading state and status labels are open; they need before/after screenshots.
+2. «What is a game» for statistics. **Done** (BUSINESS_RULES «Domain model decisions» items 1–2).
+3. UI primitives. **Money, plural forms and dates done.** Avatars, the loading state and status labels are open; they need before/after screenshots. From the answers (BUSINESS_RULES items 8–9): the tournament nickname is done; achievements are next.
 4. Messaging. **B4 mitigated in wording.** One retry policy and a real «uncertain» state are open.
-5. Evening domain. **Dead shadowed handlers removed; the bot's «недобор» minimum fixed.** «Going», «open», price and debt wait for the owner's answers (questions 5–6).
+5. Evening domain. **Dead shadowed handlers removed; the bot's «недобор» minimum fixed.** Owner rules on «Думаю», prices, free visits and the post template: BUSINESS_RULES «Domain model decisions» items 5–7. «Думаю» in the Telegram roster is done; prices, the free-visit gift and one template are next to build. «Open evening» still has four status sets and waits on the owner (see «Waiting on the owner»).
 6. Engine. **Six scenario tests done; 7a done:** every reading of the engine's roles and teams goes through the shared vocabulary. **Next, 7b:** the engine stores canonical keys and translates old saved games on restore. It also touches the broadcast overlay, so it needs screenshots.
 7. The event log becomes the source; CRM role and seat fixes become events.
-8. One protocol rule set for club and tournament (waits for the owner's answer, question 3).
+8. One protocol rule set for club and tournament. **Answered:** the club gets the tournament checks; live-game saving stays as it is.
 
 **Acceptance for each slice:** existing values, fallbacks, API results and user-visible copy remain unchanged unless a specific change was explicitly approved; no unreviewed layout shift; test evidence for affected behaviour; exact PR/head SHA and CI result recorded; separately note deployment and runtime verification. If tests cannot be run locally through GitHub-only access, rely on PR CI and do not label unverified code as safe/merged.
 
@@ -1045,17 +1045,11 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 **Robokassa continuation (2026-10-09):** owner reports completed NPD registration, a created store and submitted activation request. Screenshot at 11:29 Moscow confirms non-secret MerchantLogin `2LANoire`; live hash currently MD5, test hash unselected, password values masked, and Result/Success/Fail URLs all point to the application origin with GET. Password contents are unknown and must not enter chat/Git. Owner setup step: select SHA256 for both hash blocks, configure distinct test Password1/Password2 in the lower test block, choose POST for Result and GET for browser returns, save. Actual callback/return endpoints are still to implement/deploy, so origin-only URLs are placeholders, not working payment confirmation. Store activation and Robocheki SMZ authorization remain unverified. Pure test adapter merged in PR #754; wallet checkout, authenticated callback settlement and receipt evidence remain to implement. Future server env: `ROBOKASSA_MERCHANT_LOGIN=2LANoire`, matching SHA256 plus separately stored test passwords. No configured provider test or live payment verified.
 
 ### Waiting on the owner
+- **«Open evening» (domain-model audit, not answered on 2026-10-23):** the code uses four different status sets for an evening that is still «open» (AUDIT_LOG, Domain model audit, C). Owner to say which evenings count as open: for example, published only, or published and in progress.
+- **Quick actions in organizer notifications (owner idea, 2026-10-23):** the organizer wants to answer the bot's notifications right there — quick buttons for tasks and reminders instead of opening the CRM. Proposal sent to the owner, waiting for «да» before building.
+- **Zero round in ordinary and novice games (owner, 2026-10-23):** «из обычных игр и игр новичков убрали слом в нуле в принципе», it is possible only in tournament and rating games (recorded in BUSINESS_RULES, Domain model decisions item 2). Owner to say what the app should do in ordinary and novice games: hide «Заголосован в нулевой» and «Кто сломал попил» in their protocol and engine, or only leave them unused.
 - Tournament live game (2026-10-22, from the #1001 review): the engine keeps the old roles if they are fixed in the CRM mid-game; today the judge only sees a warning banner. **Owner «да» 2026-10-22: it is part of the domain-model programme (steps 6–7).**
-- **Domain model: rules that differ between copies (2026-10-22, owner to decide; details in AUDIT_LOG «Domain model audit» C):**
-  (1) Which games count in statistics (proposed: completed protocol, evening not cancelled; tournament game and protocol both completed).
-  (2) The best-move source for tokens is first-killed only, while Elo uses any source.
-  (3) Club and tournament protocol checks differ.
-  (4) A live evening game is saved as completed, a live tournament game as a draft.
-  (5) Whether «думаю» counts among those coming, and what an «open» evening is.
-  (6) The default evening price.
-  (7) The Telegram post ignores the editable template, and the price line differs from VK.
-  (8) Tournament display name vs nickname.
-  (9) Two achievement systems, and the «strongest role» threshold of 5 vs 10 games.
+- **Domain model: rules that differ between copies — ANSWERED by the owner on 2026-10-23.** See BUSINESS_RULES «Domain model decisions»; the work is queued in the programme below (steps 2, 3, 5, 8 and the new price-settings, free-visit-gift, single-template and achievements items).
 - Owner request (2026-10-22), BUILT (needs deploy to take effect): organizer reminders in Telegram — route of the evening, unclosed evening, debts, overdue tasks (rules in BUSINESS_RULES, evening summary section). Next, to agree: forward a player's free-text message, a player «Я перевёл» button, a separate alert for «Приду позже» in the last 3 hours, failed announcement alerts.
 - Owner question (2026-10-22), answered from the running app: the novice evening of 16 Oct is not lost or cancelled — it is an open `published` evening (10 going, none marked attended, no games). Owner to say whether it was held; then close or cancel it. The «Недобор» screen counts only «Идут» (wording may be clarified).
 - Evening summary: the Elo growth block looked wrong on 16 Oct; owner to say what exactly (numbers, players). Owner's note: only one player showed +36 and nobody above +16 — needs the roles of each game and the player Elo history to judge; nothing changed in Elo. Role nominations of the evening summary now use effectiveness (see BUSINESS_RULES).

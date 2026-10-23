@@ -12,7 +12,7 @@ const game = (patch: Partial<PlayerGameHistoryItem> = {}): PlayerGameHistoryItem
 });
 
 describe('player profile stats', () => {
-  it('counts wins, roles, sources and protocol markers', () => {
+  it('counts wins, roles, sources and protocol markers of completed games only', () => {
     const stats = buildPlayerProfileStats([
       game({ role: 'citizen', team: 'red', won: true, best_move: true }),
       game({ id: '2', role: 'mafia', team: 'black', winner_team: 'red', won: false, first_killed: true }),
@@ -20,14 +20,15 @@ describe('player profile stats', () => {
       game({ id: '4', source: 'tournament', tournament_id: 't1', evening_id: null, role: 'sheriff', team: 'red', status: 'planned', winner_team: null, won: null }),
     ]);
 
-    expect(stats.totalGames).toBe(4);
+    // Owner, 2026-10-23: only completed games count; the planned tournament game is left out of every number.
+    expect(stats.totalGames).toBe(3);
     expect(stats.completedGames).toBe(3);
     expect(stats.wins).toBe(2);
     expect(stats.losses).toBe(1);
     expect(stats.winRate).toBe(66.7);
     expect(stats.clubGames).toBe(2);
-    expect(stats.tournamentGames).toBe(2);
-    expect(stats.roleCounts).toEqual({ citizen: 1, sheriff: 1, mafia: 1, don: 1, unknown: 0 });
+    expect(stats.tournamentGames).toBe(1);
+    expect(stats.roleCounts).toEqual({ citizen: 1, sheriff: 0, mafia: 1, don: 1, unknown: 0 });
     expect(stats.bestMoves).toBe(1);
     expect(stats.firstKilled).toBe(1);
     expect(stats.zeroRoundVoted).toBe(1);

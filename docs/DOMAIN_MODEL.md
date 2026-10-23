@@ -22,18 +22,18 @@ The status column says whether the concept is **one** (a single definition), **d
 | Engine vocabulary («Мирный», «Красные») | the engine is translated once by `setupRoles.ts` / `roleToProtocol`, target: the engine uses canonical keys | the engine still stores its Russian names, but every reading goes through `normalizeGameRole` / `teamOfPlayer` / `normalizeWinnerTeam` (2026-10-23); storing canonical keys is next |
 | Exit type and removal reason | `src/shared/` game discipline constants | dup: the 5 exit values are listed 3 times, removal reasons 4 times |
 | Fouls, technical fouls, PPK, Ci, bonus | one protocol rules module for club and tournament | rule?: the club and tournament validators differ |
-| Best move (ЛХ) points | `server/services/bestMovePoints.ts` | rule?: tokens count only the first-killed source, Elo counts any source |
+| Best move (ЛХ) points | `server/services/bestMovePoints.ts` | **one** (2026-10-23): both sources count for Elo and tokens (`clubBestMovePointsForParticipant`) |
 | Protocol (draft → completed) | one protocol pipeline | structural: club JSON in `games.protocol_text` versus the tournament tables |
 | Game event log | `src/shared/liveGameEvents.ts` | one; target: the engine and protocols are built from it |
 | A «game» for statistics | `server/services/completedClubGame.ts` (+ tournament twin) | rule?: drafts and planned games are counted in some places |
 | Win rate | `src/shared/stats.ts` | dup: three integer copies |
 | Achievements | `playerAchievementsService.ts` | structural: a second list lives in `playerProgressionRoutes.ts` |
 | Evening status and transitions | to create: `src/lib/eveningStatus.ts` | rule?: four meanings of an «open» evening |
-| Response (RSVP) | `src/lib/eveningDomain.ts`, `eveningResponse.ts` | dup and rule?: «going» is counted 5 ways; Python has 3 label sets |
+| Response (RSVP) | `src/lib/eveningDomain.ts`, `eveningResponse.ts` | dup: the rule is decided («Думаю» is not «Идут», owner 2026-10-23) and the Telegram roster follows it; Python still has 3 label sets |
 | Attendance, guest | `src/lib/eveningDomain.ts` | dup: «guest» means three different things |
 | Price, debt, paid | to create: one pricing and debt module | rule?: defaults 0/100/400/500; debt over attended players vs registered |
 | Capacity, «недобор» | to create: one threshold module | rule?: 8/10 vs 9/11 vs per-game 11/4; the bot hard-codes 10 |
-| Player display name | to create: one display-name helper | rule?: the order of nickname vs tournament name differs |
+| Player display name | to create: one display-name helper | decided (owner 2026-10-23): club nickname first; standings, nominations, awards and the broadcast follow it |
 | Outgoing message queue | to create: one retry policy | dup: 4 retry policies, 8 status sets |
 | Publication of a post (per channel) | to create: one publish-once module | dup: 2 designs; one can double-post after a timeout |
 | Post text (Telegram vs VK) | `postTemplateService.ts` | rule?: Telegram ignores the editable template, and the price lines differ |

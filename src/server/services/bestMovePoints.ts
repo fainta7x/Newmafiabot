@@ -22,3 +22,23 @@ export function calculateBestMovePoints(
 
   return { guessedBlacks, bonusPoints };
 }
+
+/** ЛХ points of seat numbers given as the protocol's player results (seat_number + role). */
+const bestMovePointsOfSeats = (seatNumbers: unknown, results: any[]): number => (Array.isArray(seatNumbers)
+  ? calculateBestMovePoints(seatNumbers.map(Number), results.map((result: any) => ({ seat_number: Number(result?.seat_number), role: result?.role ?? null }))).bonusPoints
+  : 0);
+
+/**
+ * A participant's best-move points in a club protocol, from either source: the first player killed at night or the
+ * player voted out in the zero round (owner, 2026-10-23: both count for Elo and for tokens). Legacy single-move fields
+ * are read when the protocol has no list.
+ */
+export function clubBestMovePointsForParticipant(protocol: any, participantId: string, results: any[]): number {
+  if (!participantId) return 0;
+  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
+  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
+  if (relevant.length) return relevant.reduce((sum: number, move: any) => sum + bestMovePointsOfSeats(move?.seat_numbers, results), 0);
+  if (String(protocol?.best_move_participant_id || '') === participantId) return bestMovePointsOfSeats(protocol?.best_move_seats, results);
+  return 0;
+}
+

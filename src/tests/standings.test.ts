@@ -203,6 +203,27 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
     expect(p0Standing.total_points).toBe(1.5);
   });
 
+  it('shows the club nickname, not the tournament name, for club players', async () => {
+    const completeRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red', first_killed_participant_id: game1Seats[0].participant_id },
+        player_results: game1Seats.map((seat, idx) => ({
+          participant_id: seat.participant_id, role: seat.role, exit_type: idx === 0 ? 'killed' : 'alive',
+          regular_fouls: 0, technical_fouls: 0, protocol_bonus: 0, judge_bonus: 0, penalty_points: 0, ci_points: 0,
+        })),
+      });
+    expect(completeRes.status).toBe(200);
+
+    const standingsRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/standings`)
+      .set('Cookie', organizerCookie);
+    const names = standingsRes.body.standings.map((s: any) => s.display_name);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((name: string) => name.startsWith('Player_'))).toBe(true);
+  });
+
   it('only adds ci_points to first_killed_participant_id and ignores ci_points sent for other players', async () => {
     const p0Id = game1Seats[0].participant_id;
     const p1Id = game1Seats[1].participant_id;

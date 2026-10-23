@@ -67,11 +67,13 @@ async def build_crm_evening_stats_text(evening_id: str) -> str | None:
             continue
         grouped[status].append(escape(str(participant.get("nickname") or "Игрок без профиля")))
 
-    active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"])
+    # Owner, 2026-10-23: «Думаю» is not «Идут»; the two numbers are shown apart.
+    going_total = len(grouped["going"]) + len(grouped["late"])
+    thinking_total = len(grouped["thinking"])
     title = escape(str(evening.get("title") or "Игровой вечер"))
     starts = _format_start(evening.get("starts_at"))
 
-    sections = [f"📊 <b>{title}</b>\n🕗 {starts}\nИдут / думают: <b>{active_total}</b>"]
+    sections = [f"📊 <b>{title}</b>\n🕗 {starts}\nИдут: <b>{going_total}</b> · думают: <b>{thinking_total}</b>"]
     next_number = 1
     for status, label in (
         ("going", "✅ Идут"),

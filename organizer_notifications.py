@@ -7,6 +7,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import config
 from bot_announcement_api import (
@@ -15,6 +16,7 @@ from bot_announcement_api import (
     get_organizer_operations,
 )
 from bot_api import get_evening_participants, get_open_evenings
+from handlers.organizer_quick_actions import task_button_rows
 
 logger = logging.getLogger(__name__)
 MOSCOW = ZoneInfo("Europe/Moscow")
@@ -165,7 +167,18 @@ def build_organizer_digest(
     return "🚨 <b>Клуб · важно</b>\n\n" + "\n\n".join(sections)
 
 
-async def collect_organizer_digest() -> str | None:
+def build_organizer_digest_keyboard(operations: dict[str, Any] | None) -> InlineKeyboardMarkup | None:
+    """Quick answers under the digest (owner, 2026-10-23): close or postpone a task, open the CRM."""
+    operations = operations or {}
+    tasks = operations.get("tasks") if isinstance(operations.get("tasks"), list) else []
+    rows = task_button_rows(tasks)
+    app_url = str(config.PLAYER_APP_URL or config.BOT_API_BASE_URL or "").rstrip("/")
+    if app_url.startswith("https://"):
+        rows.append([InlineKeyboardButton(text="📋 Открыть CRM", web_app=WebAppInfo(url=f"{app_url}/admin"))])
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+
+
+async def collect_organizer_digest() -> tuple[str, InlineKeyboardMarkup | None] | None:
     evenings_result, operations_result = await asyncio.gather(get_open_evenings(), get_organizer_operations())
     if not evenings_result.get("success"):
         raise RuntimeError(f"open_evenings:{evenings_result.get('error') or 'unavailable'}")
@@ -194,13 +207,15 @@ async def collect_organizer_digest() -> str | None:
                 recruitment_payload["unanswered_recipients"] = recipients
         recruitment[evening_id] = recruitment_payload
 
-    return build_organizer_digest(evenings, details, recruitment, operations)
+    digest = build_organizer_digest(evenings, details, recruitment, operations)
+    return (digest, build_organizer_digest_keyboard(operations)) if digest else None
 
 
 async def send_organizer_digest_if_needed(bot: Bot, *, force: bool = False) -> bool:
-    digest = await collect_organizer_digest()
-    if not digest:
+    collected = await collect_organizer_digest()
+    if not collected:
         return False
+    digest, keyboard = collected
 
     digest_hash = hashlib.sha256(digest.encode("utf-8")).hexdigest()
     now = dt.datetime.now(MOSCOW)
@@ -212,7 +227,7 @@ async def send_organizer_digest_if_needed(bot: Bot, *, force: bool = False) -> b
         if not force and not changed and not repeat_due:
             continue
         try:
-            await bot.send_message(chat_id, digest, parse_mode="HTML")
+            await bot.send_message(chat_id, digest, parse_mode="HTML", reply_markup=keyboard)
             _DELIVERY_STATE[chat_id] = (digest_hash, now)
             sent_any = True
         except Exception as exc:

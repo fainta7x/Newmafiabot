@@ -18,6 +18,7 @@ from handlers import achievements
 from handlers import admin_crm
 from handlers import legacy_retired_actions
 from handlers import crm_booking
+from handlers import organizer_quick_actions
 from handlers import crm_evening_response
 from handlers import profile
 from handlers import registration
@@ -230,6 +231,7 @@ def setup_handlers():
         crm_evening_response.router,
         crm_booking.router,
         achievements.router,
+        organizer_quick_actions.router,
     ]
 
     roots = []

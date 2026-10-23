@@ -580,6 +580,8 @@ def novice_invitation_text(
 
     Order (owner, 2026-09-29): that it is for novices, when and where, how to sign up and the groups,
     and only then why the game is fun — so the essentials are not lost under the promo."""
+    if evening.get("announcement_text"):
+        return escape(str(evening["announcement_text"]))
     # Organizer-entered fields are capped so the post always fits one Telegram message.
     bounded = {
         **evening,

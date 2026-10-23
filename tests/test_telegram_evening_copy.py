@@ -201,3 +201,9 @@ def test_saved_template_is_used_for_every_evening_format_and_escaped_at_transpor
     for kind in ("CASUAL", "NOVICE", "RATING"):
         text = thematic_event_text({"format": kind, "announcement_text": "Приходи <друг>! & до встречи", "starts_at": "2030-10-16T18:00:00Z"}, [], [])
         assert text.startswith("Приходи &lt;друг&gt;! &amp; до встречи")
+
+
+def test_public_announcement_uses_the_shared_template_without_a_second_promo():
+    from handlers.telegram_evening_copy import novice_invitation_text
+    evening = {"format": "NOVICE", "announcement_text": "Текст владельца <друг> & ссылка", "starts_at": "2030-10-16T18:00:00Z"}
+    assert novice_invitation_text(evening, [], signup_url="https://t.me/test") == "Текст владельца &lt;друг&gt; &amp; ссылка"

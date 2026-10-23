@@ -32,7 +32,7 @@ describe('CRM roster event boundary', () => {
     expect(restoreJournalRosterIdentity(events)).toEqual(swap);
     expect(liveRosterCorrectionEvents(restoreJournalRosterIdentity(events)!, swap, ctx)).toEqual([]);
     expect(events.find(e => e.kind === 'vote')).toMatchObject({ seat: 1, target: 2 });
-    expect(restoreJournalRosterIdentity([{ ...ctx, kind: 'player_reseated', seat: 1, value: 'b' }])).toBeNull();
+    expect(restoreJournalRosterIdentity([{ ...ctx, seq: 20, kind: 'player_reseated', seat: 1, value: 'b' }])).toBeNull();
   });
   it('records a replacement without assigning past actions to the incoming player', () => {
     const previous = { 1: 'a', 2: 'b' };

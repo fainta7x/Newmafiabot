@@ -1190,3 +1190,6 @@ Pending before implementing collectible portraits: what a part means and whether
 ## Replay workstream — 2026-10-16
 
 Replacement PR for conflicted #970 stores bounded actual OBS-state frames during a club game, serves them in replay and reuses the broadcast overlay. Legacy events remain a fallback. CI and live end-to-end replay validation are prerequisites for calling this fully complete.
+
+
+**2026-10-23 · approved CRM player/seat event work:** Branch `feat/live-roster-identity-events-20261023` (stacked on open #1020) introduces complete roster identity validation, typed `player_reseated` events and focused swap/replacement/replay tests. This is only a boundary slice, **not live engine integration**: current-seat identity must not rewrite historical votes/fouls/exits. Next: test separate current roster projection and hook the observer into the journal while retaining historical seat evidence. Do not merge #1020 without explicit approval. Amvera out of scope by owner request.

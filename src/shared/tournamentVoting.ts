@@ -377,7 +377,7 @@ export function safeRenumberVotes(votesList: VotingRound[]): VotingRound[] {
 /**
  * Filter, sync, propagate and renumber a list of voting rounds.
  */
-export function cleanAndSyncVotes(votesList: VotingRound[]): VotingRound[] {
+export function cleanAndSyncVotes(votesList: VotingRound[], tableSize = 10): VotingRound[] {
   let current = [...votesList];
 
   // Helper: recursively filter out revotes whose parents are missing or not tie_revote/pending
@@ -425,7 +425,7 @@ export function cleanAndSyncVotes(votesList: VotingRound[]): VotingRound[] {
     if (!r.is_revote && r.day_number === 0) {
       return {
         ...r,
-        eligible_voters: 10
+        eligible_voters: tableSize
       };
     }
     if (r.is_revote && r.parent_round_number !== undefined && r.parent_round_number !== null) {
@@ -434,7 +434,7 @@ export function cleanAndSyncVotes(votesList: VotingRound[]): VotingRound[] {
         return {
           ...r,
           day_number: parent.day_number ?? 0,
-          eligible_voters: parent.eligible_voters ?? 10,
+          eligible_voters: (parent.day_number ?? 0) === 0 ? tableSize : (parent.eligible_voters ?? tableSize),
           parent_nominated_seats: [...parent.nominated_seats],
           parent_vote_counts: { ...parent.vote_counts },
         };

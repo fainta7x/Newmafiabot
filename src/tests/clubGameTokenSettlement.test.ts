@@ -146,6 +146,19 @@ describe('canonical club-game token settlement routes', () => {
     expect(await ledgerCount()).toBe(0);
   });
 
+  it('rejects an unconfirmed recorded ballot before protocol storage or token settlement', async () => {
+    const before = await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [gameId]);
+    const completed = protocol('completed', results, {
+      zero_round_rule: 'club',
+      votes: [{ round_number: 1, day_number: 1, is_revote: false, nominated_seats: [2, 5], vote_counts: { 2: 6, 5: 4 }, eligible_voters: 10, outcome: 'pending', eliminated_seats: [] }],
+    });
+    const response = await save({ protocol: completed.protocol, player_results: completed.player_results });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('не подтверждён');
+    expect((await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [gameId])).protocol_text).toBe(before.protocol_text);
+    expect(await ledgerCount()).toBe(0);
+  });
+
   it('first completion settles all ten UUID players plus linked judge, replay is exact no-op, and metadata is readable', async () => {
     const completed = protocol('completed', results, {
       first_killed_participant_id:'ep-1', zero_round_voted_participant_id:'ep-2',

@@ -1,3 +1,4 @@
+import { validateVotes } from '../../lib/protocolVotingValidation.ts';
 import { isZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { validateBestMoves as validateSharedBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../lib/protocolConsistency.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
@@ -178,6 +179,12 @@ export const canonicalizeClubGameSave = (
     || (status === 'completed' ? validateSharedBestMoves(incomingProtocol?.best_moves || [], firstKilledId, zeroRoundId, [...participantIds], playerResults, tableSize)
       || validateFirstKilled(firstKilledId, playerResults, playerResults, incomingProtocol?.shots) : null);
   if (consistencyError) throw new Error(consistencyError);
+  // No ballot evidence in a historical/manual game is not permission to fabricate it. Validate every recorded round.
+  const votes = incomingProtocol?.votes;
+  if (status === 'completed' && votes != null && (!Array.isArray(votes) || votes.length > 0)) {
+    const voteError = validateVotes(votes, true, playerResults, zeroRoundId, { tableSize, zeroRoundRule });
+    if (voteError) throw new Error(voteError);
+  }
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const replay_frames = sanitizeBroadcastReplayFrames(incomingProtocol?.replay_frames ?? previousPayload?.protocol?.replay_frames);
   const blackIds = blackParticipantIds(playerResults);

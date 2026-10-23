@@ -1,3 +1,4 @@
+import type { ZeroRoundRule } from '../../../../shared/zeroRoundRule.ts';
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { TournamentGameProtocolData, PlayerResultData } from '../../../../lib/api';
@@ -15,6 +16,8 @@ import {
 } from './protocolVotingEditorUtils';
 
 export interface ProtocolVotingTabProps {
+  zeroRoundRule?: ZeroRoundRule;
+  tableSize?: number;
   protocol: TournamentGameProtocolData;
   playerResults: PlayerResultData[];
   voteDrafts: Record<string, string>;
@@ -31,6 +34,8 @@ export interface ProtocolVotingTabProps {
 
 export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
   protocol,
+  zeroRoundRule = 'tournament',
+  tableSize = 10,
   playerResults,
   voteDrafts,
   setVoteDrafts,
@@ -47,7 +52,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
   const renderRoundCard = (round: VotingRound, rIdx: number, isNested = false) => {
     const roundNum = round.round_number || rIdx + 1;
     const dayNum = round.day_number ?? (rIdx === 0 ? 0 : 1);
-    const eligibleVoters = round.eligible_voters ?? 10;
+    const eligibleVoters = round.eligible_voters ?? tableSize;
     const nominatedSeats = round.nominated_seats || [];
     const voteCounts = round.vote_counts || {};
     const sumVotes = nominatedSeats.reduce((sum: number, s: number) => sum + (voteCounts[s] || 0), 0);
@@ -55,8 +60,11 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
 
     const votingResult = determineVotingResult(round);
     const winners = votingResult.winners;
-    const calculatedOutcome = votingResult.resolvedOutcome || (votingResult.outcome === 'requires_table_decision' ? 'pending' : votingResult.outcome);
-    const outcomeDescription = votingResult.outcome === 'requires_table_decision' && votingResult.resolvedOutcome === undefined
+    const clubBreak = zeroRoundRule === 'club' && dayNum === 0 && votingResult.outcome === 'single_eliminated';
+    const calculatedOutcome = clubBreak ? 'no_elimination' : votingResult.resolvedOutcome || (votingResult.outcome === 'requires_table_decision' ? 'pending' : votingResult.outcome);
+    const outcomeDescription = clubBreak
+      ? `Клубная настройка: игрок #${winners[0]} остаётся за столом, 30 секунд дополнительной речи, без ЛХ.`
+      : votingResult.outcome === 'requires_table_decision' && votingResult.resolvedOutcome === undefined
       ? 'Введите количество голосов за уход всех игроков для подведения итогов переголосования'
       : votingResult.description;
 
@@ -111,7 +119,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   value={dayNum}
                   onChange={(e) => {
                     onRoundChange(rIdx, (r) =>
-                      updateVotingDay(r, e.target.value)
+                      updateVotingDay(r, e.target.value, tableSize)
                     );
                   }}
                   className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
@@ -139,7 +147,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   }}
                   className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
                 >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  {Array.from({ length: tableSize }, (_, index) => index + 1).map((n) => (
                     <option key={n} value={n} className="bg-slate-900 text-slate-200">
                       {n}
                     </option>

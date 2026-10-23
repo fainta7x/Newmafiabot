@@ -54,3 +54,36 @@ describe('protocol editor autosave', () => {
     expect(save).not.toHaveBeenCalled();
   });
 });
+
+
+describe('club voting confirmation', () => {
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+  it('confirms a broken club split without removing the player or creating a zero-round best move', async () => {
+    const source = makeGame('draft', 'red');
+    source.club_protocol.protocol.zero_round_rule = 'club';
+    source.club_protocol.protocol.votes = [{ round_number: 1, day_number: 0, is_revote: false, nominated_seats: [2, 5], eligible_voters: 10, vote_counts: { 2: 6, 5: 4 }, outcome: 'pending', eliminated_seats: [] }];
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    render(<EveningGameProtocolModal game={source} isOpen onClose={() => {}} onUpdated={() => {}} />);
+    fireEvent.click(screen.getByText('Голосование'));
+    expect(screen.getByText(/Клубная настройка: игрок #2 остаётся/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Подтвердить исход'));
+    await act(async () => { fireEvent.click(screen.getByText('Завершить игру')); });
+    const payload = save.mock.calls.at(-1)![1];
+    expect(payload.protocol.status).toBe('completed');
+    expect(payload.protocol.votes[0]).toMatchObject({ outcome: 'no_elimination', eliminated_seats: [] });
+    expect(payload.protocol.zero_round_voted_participant_id).toBeNull();
+    expect(payload.player_results.every((player: any) => player.exit_type === 'alive')).toBe(true);
+  });
+
+  it('blocks an unconfirmed round before saving completion and focuses voting', async () => {
+    const source = makeGame('draft', 'red');
+    source.club_protocol.protocol.votes = [{ round_number: 1, day_number: 1, is_revote: false, nominated_seats: [2, 5], eligible_voters: 10, vote_counts: { 2: 6, 5: 4 }, outcome: 'pending', eliminated_seats: [] }];
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    render(<EveningGameProtocolModal game={source} isOpen onClose={() => {}} onUpdated={() => {}} />);
+    fireEvent.click(screen.getByText('Завершить игру'));
+    expect(screen.getByRole('alert').textContent).toContain('не подтверждён');
+    expect(screen.getByText('Подтвердить исход')).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
+});

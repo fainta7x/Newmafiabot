@@ -17,7 +17,7 @@ import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { evictReplayFrames, replayFramesKey, setItemFreeingSpace } from '../../lib/liveStorageBudget';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
-import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
+import { ClubLiveSessionRecorder, renumberVotingRoundsSequentially } from '../../lib/liveClubSession';
 import { buildFinalChronology } from '../../lib/liveGameEventLog';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
@@ -146,7 +146,7 @@ export const mapEngineResultToProtocol = (
     best_move_participant_id: bestMoves[0]?.participant_id || previousProtocol.best_move_participant_id || null,
     best_move_source: bestMoves[0]?.source || previousProtocol.best_move_source || null,
     best_move_seats: bestMoves[0]?.seat_numbers || previousProtocol.best_move_seats || [],
-    votes: Array.isArray(gameData.votes) ? gameData.votes : (previousProtocol.votes || []),
+    votes: Array.isArray(gameData.votes) ? renumberVotingRoundsSequentially(gameData.votes) : (previousProtocol.votes || []),
     shots: Array.isArray(gameData.shots) ? gameData.shots : (previousProtocol.shots || []),
     events: Array.isArray(gameData.events) ? gameData.events : (previousProtocol.events || []),
     judge_notes: [previousProtocol.judge_notes, gameData.protocol_text].filter(Boolean).join('\n') || null,

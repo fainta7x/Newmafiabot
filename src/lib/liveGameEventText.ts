@@ -74,6 +74,7 @@ export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: n
       case 'restored': text = `${seat} возвращён в игру`; break;
       case 'first_killed': text = `Первый убитый: ${seat}`; break;
       case 'zero_round_voted': text = `Заголосован в нулевом круге: ${seat}`; break;
+      case 'zero_round_break': text = event.seat ? `Сломал попил в нулевом круге: ${seat}` : 'Отметка «сломал попил» снята'; break;
       case 'best_move': text = `ЛХ ${seat}: ${value.split(',').map((n) => `#${n}`).join(', ')}`; break;
       case 'ppk': text = `ППК: ${seat}`; break;
       case 'death_protocol': {

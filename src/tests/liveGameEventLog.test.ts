@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { appendLiveGameEvents, deriveLiveGameEvents, type LiveEventSnapshot } from '../lib/liveGameEventLog';
-import { sanitizeLiveGameEvents, MAX_LIVE_GAME_EVENTS } from '../shared/liveGameEvents';
+import { sanitizeLiveGameEvents, MAX_LIVE_GAME_EVENTS, zeroRoundBreakerSeat } from '../shared/liveGameEvents';
 import { liveEvidenceSignature, updateLiveProtocolEvidence } from '../lib/liveClubSession';
 
 const players = (patch: Record<number, Record<string, unknown>> = {}) =>
@@ -124,5 +124,18 @@ describe('events that happen in the very last moment of a game', () => {
     const night = snapshot({ phase: 'night', votingRounds: [] });
     const evidence = updateLiveProtocolEvidence({ votes: [], shots: [], events: [] }, night as any, voting as any);
     expect(evidence.events?.some((event) => event.kind === 'vote_round_result')).toBe(true);
+  });
+  it('records who broke the zero-round split in round 1 and a cleared mark without a seat', () => {
+    const markers = { firstKilledSlot: null, zeroRoundVotedSlot: null, bestMoveSeats: [] };
+    const before = snapshot({ roundNumber: 1, phase: 'day_voting', protocolMarkers: markers });
+    const named = snapshot({ roundNumber: 1, phase: 'day_voting', protocolMarkers: { ...markers, zeroRoundBreakerSlot: 7 } });
+    expect(deriveLiveGameEvents(before, named, 1, 'now')).toEqual([
+      { seq: 1, at: 'now', round: 1, phase: 'day_voting', kind: 'zero_round_break', seat: 7 },
+    ]);
+    const cleared = deriveLiveGameEvents(named, before, 2, 'now');
+    expect(cleared).toHaveLength(1);
+    expect(cleared[0]).toMatchObject({ kind: 'zero_round_break', round: 1 });
+    expect(cleared[0].seat).toBeUndefined();
+    expect(zeroRoundBreakerSeat([...deriveLiveGameEvents(before, named, 1, 'now'), ...cleared])).toBeNull();
   });
 });

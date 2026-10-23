@@ -11,6 +11,8 @@ export interface LiveProtocolMarkers {
    * sessions saved before this existed); a game can have two — the zero-round one and the first-killed one.
    */
   bestMoves?: Partial<Record<BestMoveSource, { slot: number; seats: number[] }>>;
+  /** «Кто сломал попил?» — the seat the judge named when the zero-round split was broken; never derived from votes. */
+  zeroRoundBreakerSlot?: number | null;
 }
 
 export interface ConfirmedBestMove { source: BestMoveSource; slot: number; seats: number[]; }
@@ -69,6 +71,13 @@ export function registerZeroRoundVoted(state: LiveProtocolMarkers, slot: number)
     ...state,
     zeroRoundVotedSlot: slot,
   };
+}
+
+/** Names (or with `null` clears) the player who broke the zero-round split. */
+export function setZeroRoundBreaker(state: LiveProtocolMarkers, slot: number | null): LiveProtocolMarkers {
+  if (slot !== null && !isValidSeat(slot)) return state;
+  if ((state.zeroRoundBreakerSlot ?? null) === slot) return state;
+  return { ...state, zeroRoundBreakerSlot: slot };
 }
 
 export function isBestMoveAvailable(state: LiveProtocolMarkers, source: BestMoveSource): boolean {

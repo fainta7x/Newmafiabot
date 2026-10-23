@@ -29,6 +29,7 @@ export type LiveEventSnapshot = {
     zeroRoundVotedSlot?: number | null;
     bestMoveSourceSlot?: number | null;
     bestMoveSeats?: number[];
+    zeroRoundBreakerSlot?: number | null;
   };
   activePlayers?: Array<{
     slot_num?: number;
@@ -70,7 +71,7 @@ export const deriveLiveGameEvents = (
   const round = asNumber(current.roundNumber);
   const phase = String(current.phase || '');
   const out: LiveGameEvent[] = [];
-  const push = (event: Omit<LiveGameEvent, 'seq' | 'at' | 'round' | 'phase'>) => {
+  const push = (event: Omit<LiveGameEvent, 'seq' | 'at' | 'round' | 'phase'> & { round?: number }) => {
     out.push({ seq: startSeq + out.length, at, round, phase, ...event });
   };
 
@@ -158,6 +159,11 @@ export const deriveLiveGameEvents = (
   if (firstKilled !== null && firstKilled !== seatOrNull(previousMarkers?.firstKilledSlot)) push({ kind: 'first_killed', seat: firstKilled });
   const zeroVoted = seatOrNull(markers?.zeroRoundVotedSlot);
   if (zeroVoted !== null && zeroVoted !== seatOrNull(previousMarkers?.zeroRoundVotedSlot)) push({ kind: 'zero_round_voted', seat: zeroVoted });
+  // The breaker always belongs to the zero circle (round 1); an event without a seat means the judge cleared the mark.
+  const breaker = seatOrNull(markers?.zeroRoundBreakerSlot);
+  if (breaker !== seatOrNull(previousMarkers?.zeroRoundBreakerSlot)) {
+    push(breaker === null ? { kind: 'zero_round_break', round: 1 } : { kind: 'zero_round_break', round: 1, seat: breaker });
+  }
   const bestMoveSeats = markers?.bestMoveSeats || [];
   if (bestMoveSeats.length && bestMoveSeats.join(',') !== (previousMarkers?.bestMoveSeats || []).join(',')) {
     push({ kind: 'best_move', seat: seatOrNull(markers?.bestMoveSourceSlot), value: bestMoveSeats.join(',') });

@@ -1,0 +1,32 @@
+import { describe, expect, it } from 'vitest';
+import { completeLiveRosterIdentity, liveRosterCorrectionEvents, replayLiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
+import { sanitizeLiveGameEvents } from '../shared/liveGameEvents.ts';
+const rows = (ids: string[]) => ids.map((id, index) => ({ seat_number: index + 1, participant_id: id }));
+const ctx = { nextSeq: 10, at: '2026-10-23T17:00:00Z', round: 3, phase: 'day' };
+describe('CRM roster event boundary', () => {
+  it('rejects partial, duplicate and unidentifiable rosters', () => {
+    expect(completeLiveRosterIdentity(rows(['a', 'b']), 2)).toEqual({ 1: 'a', 2: 'b' });
+    expect(completeLiveRosterIdentity(rows(['a']), 2)).toBeNull();
+    expect(completeLiveRosterIdentity(rows(['a', 'a']), 2)).toBeNull();
+    expect(completeLiveRosterIdentity(rows(['a', '']), 2)).toBeNull();
+    expect(completeLiveRosterIdentity([{ seat_number: 1, participant_id: 'a' }, { seat_number: 1, participant_id: 'b' }], 2)).toBeNull();
+  });
+  it('writes both sides of a swap once and replays only current identities', () => {
+    const before = completeLiveRosterIdentity(rows(['a', 'b']), 2)!;
+    const after = completeLiveRosterIdentity(rows(['b', 'a']), 2)!;
+    const events = liveRosterCorrectionEvents(before, after, ctx);
+    expect(events.map(e => [e.kind, e.seat, e.value])).toEqual([['player_reseated', 1, 'b'], ['player_reseated', 2, 'a']]);
+    const originalHistory = [{ kind: 'vote', seat: 1, target: 2 }];
+    expect(replayLiveRosterIdentity(before, sanitizeLiveGameEvents(events))).toEqual(after);
+    expect(originalHistory).toEqual([{ kind: 'vote', seat: 1, target: 2 }]);
+    expect(liveRosterCorrectionEvents(after, after, ctx)).toEqual([]);
+  });
+  it('records a replacement without assigning past actions to the incoming player', () => {
+    const previous = { 1: 'a', 2: 'b' };
+    const incoming = { 1: 'a', 2: 'c' };
+    const events = liveRosterCorrectionEvents(previous, incoming, ctx);
+    expect(events).toHaveLength(1);
+    expect(replayLiveRosterIdentity(previous, events)).toEqual(incoming);
+    expect(liveRosterCorrectionEvents(previous, { 1: 'a' }, ctx)).toEqual([]);
+  });
+});

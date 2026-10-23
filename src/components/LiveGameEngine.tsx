@@ -1,4 +1,5 @@
 import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
+import { liveRosterCorrectionEvents, replayLiveRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
 import { liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
 import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { GAME_ROLES, ENGINE_TEAM_NAMES } from '../shared/gameRoles.ts';
@@ -112,7 +113,7 @@ import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFl
 import { teamOfPlayer } from '../shared/gameRoles.ts';
 import { CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS, isZeroRoundRule, type ZeroRoundRule } from '../shared/zeroRoundRule.ts';
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, roleAssignments, readProtocolEvidence, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, roleAssignments, rosterIdentity, readProtocolEvidence, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -163,6 +164,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const journalRef = useRef<LiveEngineJournal | null>(null);
   const nativeJournalEnabledRef = useRef(false);
   const roleAuthorityRef = useRef<LiveRoleAssignments | null>(null);
+  const rosterBaselineRef = useRef<LiveRosterIdentity | null>(null);
+  const [rosterJournalRevision, setRosterJournalRevision] = useState(0);
   if (roleAssignments) roleAuthorityRef.current = roleAssignments;
 
   const [nominations, setNominations] = useState<number[]>([]);
@@ -416,6 +419,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
     zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, historyStack,
+    rosterJournalRevision,
   ]);
 
   useEffect(() => {
@@ -440,6 +444,31 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setSheriffCheckResult(corrected.sheriffCheckResult);
     setHistoryStack(previous => previous.map(frame => projectLiveRoleSnapshot(frame, assignments)));
   }, [roleAssignments, activePlayers, phase]);
+
+  // CRM identity corrections are journal facts, not judge actions or retroactive changes to seat-indexed history.
+  useEffect(() => {
+    if (!rosterIdentity || phase === 'setup' || gameFinishedRef.current) return;
+    const snapshot = takeSnapshot();
+    const journal = journalRef.current || {
+      snapshot, evidence: readProtocolEvidence?.() || { votes: [], shots: [], events: [] },
+    };
+    const existing = journal.evidence.events || [];
+    // On restoration, start from persisted identity changes rather than treating them as a new CRM edit.
+    const previous = rosterBaselineRef.current ||
+      replayLiveRosterIdentity(rosterIdentity, existing);
+    rosterBaselineRef.current = previous;
+    const events = liveRosterCorrectionEvents(previous, rosterIdentity, {
+      nextSeq: (existing.at(-1)?.seq || 0) + 1,
+      at: new Date().toISOString(), round: roundNumber, phase,
+    });
+    if (!events.length) return;
+    journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(existing, events) } };
+    nativeJournalEnabledRef.current = true;
+    rosterBaselineRef.current = rosterIdentity;
+    // Persist external events immediately, even if the judge makes no subsequent move.
+    setRosterJournalRevision(previous => previous + 1);
+    // Do not mutate activePlayers, discipline, votes or Undo frames: these are historical seat facts.
+  }, [rosterIdentity, phase]);
 
   // Judge record of reveals; every change is one Undo step like the other judge actions.
   const handleAddReveal = (seat: number) => { saveSnapshot(); setReveals((previous) => addReveal(previous, seat, tableSize)); };

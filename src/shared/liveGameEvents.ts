@@ -6,6 +6,7 @@
 
 export type LiveGameEventKind =
   | 'role_corrected'
+  | 'player_reseated'
   | 'game_start'
   | 'phase'
   | 'night_step'

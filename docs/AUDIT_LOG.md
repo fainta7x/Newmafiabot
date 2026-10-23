@@ -1534,3 +1534,20 @@ The owner asked: «все элементы подчинялись единым �
 - `organizer_notifications.py` hard-coded «недобор» at 10. **fixed:** it now uses the server's minimum (8 for a novice evening, 10 otherwise), capped by capacity. Test `test_novice_evening_needs_eight_not_ten`.
 - The «unpaid» count over going and late players is **not a bug**: it is the digest *before* the evening (who will owe), not the debt after closeout. **wontfix.**
 
+**Re-profile after #1005 was deployed (production, 2026-10-23 ~00:01 UTC, 40 s): the stalls are gone.**
+- Busy time: 0.54 s in 40 s (it was 2.74 s). The longest busy stretch is 189 ms (it was 1 688 ms).
+- The worst event-loop stall in the 5-minute window is 989 ms, and that window still includes time before the deploy; it was 2–3.6 s every minute.
+- Betting reconciliation now takes 48 ms per screen open; the MVP card is no longer drawn.
+- **Stall audit: fixed.** The remaining small costs are personal-notification outbox lookups (17 ms) and VK notice expiry (55 ms).
+
+**Judge engine scenario tests (step 6, owner «да» 2026-10-22): `src/tests/liveGameScenarios.test.tsx`.**
+Six whole-game positions are played to the end with the judge's own buttons, pinning what the engine hands over:
+- a night shot to parity → black win;
+- a day vote of the last black → the confirm question, then a red win;
+- ППК → immediate win of the other team, with culprit and reason;
+- a 4th foul → removed with `4th_foul`;
+- the first killed with a best move → marker and seats;
+- «подняли в нуле» (two ties in the zero round, the table raises both) → both `voted_zero_round`.
+
+These are the safety net for moving the engine to the shared vocabulary.
+

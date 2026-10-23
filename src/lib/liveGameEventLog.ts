@@ -1,5 +1,6 @@
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 import { MAX_LIVE_GAME_EVENTS } from '../shared/liveGameEvents';
+import { normalizeWinnerTeam } from '../shared/gameRoles.ts';
 
 /** The part of the engine's saved session the chronology is read from. Everything is optional: old snapshots exist. */
 export type LiveEventSnapshot = {
@@ -240,7 +241,7 @@ export const buildFinalChronology = (input: {
         kind: 'death_protocol', seat: Number(seat),
         value: `red:${protocol.red.join('.')}|black:${protocol.black.join('.')}|sheriff:${protocol.sheriff.join('.')}`,
       })),
-      { kind: 'game_end', value: input.gameData?.winning_team === 'Красные' ? 'red' : 'black' },
+      { kind: 'game_end', value: (normalizeWinnerTeam(input.gameData?.winning_team) ?? 'black') },
     ].map((event) => ({ seq: 0, at: input.at, round, phase, ...event })),
   ].map((event, index) => ({ ...event, seq: lastSeq + index + 1 }));
   return [...existing, ...closing];

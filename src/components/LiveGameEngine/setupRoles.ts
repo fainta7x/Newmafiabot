@@ -1,39 +1,28 @@
 import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import type { ActivePlayerState } from './types.js';
 import { isSupportedTableSize, roleCountsMatchTable } from '../../lib/tableComposition.ts';
+import { GAME_ROLES, normalizeGameRole } from '../../shared/gameRoles.ts';
 
 export type LiveRole = ActivePlayerState['role'];
 
+// The engine's Russian role names are translated only through the shared role vocabulary (domain model, 2026-10-23).
 export const protocolRoleToLiveRole = (value: string): LiveRole | null => {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === 'citizen' || normalized === 'мирный') return 'Мирный';
-  if (normalized === 'sheriff' || normalized === 'шериф') return 'Шериф';
-  if (normalized === 'mafia' || normalized === 'мафия') return 'Мафия';
-  if (normalized === 'don' || normalized === 'дон') return 'Дон';
-  return null;
+  const key = normalizeGameRole(value);
+  return key ? GAME_ROLES[key].label : null;
 };
 
-export const liveRoleToPhysical = (role: LiveRole): PhysicalRole => {
-  if (role === 'Шериф') return 'sheriff';
-  if (role === 'Мафия') return 'mafia';
-  if (role === 'Дон') return 'don';
-  return 'citizen';
-};
+export const liveRoleToPhysical = (role: LiveRole): PhysicalRole => normalizeGameRole(role) ?? 'citizen';
 
-export const physicalRoleToLive = (role: PhysicalRole): LiveRole => {
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return 'Мирный';
-};
+export const physicalRoleToLive = (role: PhysicalRole): LiveRole => GAME_ROLES[role].label;
 
 /** Roles must match the table size: 10 classic, 9 and 8 at a novice table (see tableComposition). */
 export const roleDistributionIsValid = (players: ActivePlayerState[]): boolean => {
   const counts = players.reduce<Record<string, number>>((acc, player) => {
-    acc[player.role] = (acc[player.role] || 0) + 1;
+    const key = normalizeGameRole(player.role);
+    if (key) acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
-  return roleCountsMatchTable({ citizen: counts['Мирный'], sheriff: counts['Шериф'], mafia: counts['Мафия'], don: counts['Дон'] }, players.length);
+  return roleCountsMatchTable(counts, players.length);
 };
 
 export const roleSetupIsValid = (players: ActivePlayerState[]): boolean => {

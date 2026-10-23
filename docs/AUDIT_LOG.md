@@ -1525,3 +1525,40 @@ The owner asked: «все элементы подчинялись единым �
 - New test `mvpCardDrawnOnlyWhenPosted.test.ts`: the card is drawn once for the first post and never on later scans. It fails on the old code.
 - **fixed in code; deploy and re-profile pending.** `telegram_sync_outbox` once took 11 s of CPU in 36 s of wall time (23:43); it did not show in this profile window and is watched next.
 
+**B4 (publications that may double-post), 2026-10-23: mitigated in wording.**
+- Retries of «Сегодня играем», «Мы собрались» and cancel posts are manual only: the scheduler skips any evening that already has a status, so the risk is an organizer re-tapping after a timeout.
+- A Telegram request that throws (no HTTP answer) now says «Telegram не ответил … пост мог выйти, проверьте группу перед повтором». A VK error says the same about the wall.
+- A full «uncertain» state with a confirm-before-repost button is a UI change and is left as a proposal. **mitigated**
+
+**Python bot findings (B), 2026-10-23:**
+- `organizer_notifications.py` hard-coded «недобор» at 10. **fixed:** it now uses the server's minimum (8 for a novice evening, 10 otherwise). Like the shortfall cancellation, capacity does not lower this minimum. Test `test_novice_evening_needs_eight_not_ten`.
+- The «unpaid» count over going and late players is **not a bug**: it is the digest *before* the evening (who will owe), not the debt after closeout. **wontfix.**
+
+**Re-profile after #1005 was deployed (production, 2026-10-23 ~00:01 UTC, 40 s): the stalls are gone.**
+- Busy time: 0.54 s in 40 s (it was 2.74 s). The longest busy stretch is 189 ms (it was 1 688 ms).
+- The worst event-loop stall in the 5-minute window is 989 ms, and that window still includes time before the deploy; it was 2–3.6 s every minute.
+- Betting reconciliation now takes 48 ms per screen open; the MVP card is no longer drawn.
+- **Stall audit: fixed.** The remaining small costs are personal-notification outbox lookups (17 ms) and VK notice expiry (55 ms).
+
+**Judge engine scenario tests (step 6, owner «да» 2026-10-22): `src/tests/liveGameScenarios.test.tsx`.**
+Six whole-game positions are played to the end with the judge's own buttons, pinning what the engine hands over:
+- a night shot to parity → black win;
+- a day vote of the last black → the confirm question, then a red win;
+- ППК → immediate win of the other team, with culprit and reason;
+- a 4th foul → removed with `4th_foul`;
+- the first killed with a best move → marker and seats;
+- «подняли в нуле» (two ties in the zero round, the table raises both) → both `voted_zero_round`.
+
+These are the safety net for moving the engine to the shared vocabulary.
+
+**Step 7a: the engine reads roles and teams through the shared vocabulary (2026-10-23).**
+- Every place that compared the engine's Russian names now goes through `shared/gameRoles.ts`: `normalizeGameRole`, `teamOfPlayer`, `normalizeWinnerTeam` and `ENGINE_TEAM_NAMES`. This covers:
+  - the win check (`liveGameFlow`) and the night checks;
+  - Don and mafia lookup, setup roles and teams;
+  - the training model and the live state summary;
+  - `winning_team` in both live windows and in the event log;
+  - the club slot teams in `gamesRoutes` and `gamesRoutesBase`.
+- The stored engine state and the screen wording are unchanged: the Russian names are still what the engine saves, so a game in progress during a deploy restores as before.
+- Next, step 7b: the stored state moves to canonical keys, translating old saved games on restore.
+- 91 live, engine and judge test files pass, including the six scenarios.
+

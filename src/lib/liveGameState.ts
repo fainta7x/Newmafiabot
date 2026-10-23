@@ -1,3 +1,4 @@
+import { teamOfPlayer } from '../shared/gameRoles.ts';
 export type LiveGameStatePlayer = {
   seat: number;
   nickname: string;
@@ -268,8 +269,8 @@ export const buildLiveGameStateView = (rawSnapshot: unknown): LiveGameStateView 
     nextStep: deriveNextStep(snapshot, playersRaw, roundNumber),
     roundNumber,
     aliveCount: alivePlayers.length,
-    redAlive: alivePlayers.filter((player) => player.team === 'Красные').length,
-    blackAlive: alivePlayers.filter((player) => player.team === 'Чёрные').length,
+    redAlive: alivePlayers.filter((player) => teamOfPlayer(player) === 'red').length,
+    blackAlive: alivePlayers.filter((player) => teamOfPlayer(player) === 'black').length,
     currentSpeakerSeat,
     timerText,
     players,

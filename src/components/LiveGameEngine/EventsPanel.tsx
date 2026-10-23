@@ -3,6 +3,7 @@ import { Check, ChevronDown, ChevronUp, ClipboardList, Copy } from "lucide-react
 import { ActivePlayerState, Phase } from "./types.js";
 import LiveGameStateSheet from "../crm/LiveGameStateSheet.js";
 import { LEGACY_PROTOCOL_NOTES_KEY } from "../../lib/liveClubSession.js";
+import { teamOfPlayer } from '../../shared/gameRoles.ts';
 
 interface EventsPanelProps {
   phase?: Phase;
@@ -70,7 +71,7 @@ export default function EventsPanel({
     if (player.will_protocol_points) score += parseFloat(player.will_protocol_points as any) || 0;
 
     if (player.best_move_guesses && player.best_move_guesses.length === 3 && !player.lh_points) {
-      const blackSlots = activePlayers.filter((p) => p.team === "Чёрные").map((p) => p.slot_num);
+      const blackSlots = activePlayers.filter((p) => teamOfPlayer(p) === 'black').map((p) => p.slot_num);
       const correctGuesses = player.best_move_guesses.filter((g) => blackSlots.includes(g)).length;
       if (correctGuesses === 3) score += 0.5;
       else if (correctGuesses === 2) score += 0.25;

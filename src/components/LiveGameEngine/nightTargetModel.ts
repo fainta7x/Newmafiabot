@@ -1,5 +1,6 @@
 import { canRegisterFirstKilled } from '../../lib/liveVoting.js';
 import type { ActivePlayerState } from './types.js';
+import { normalizeGameRole, teamOfPlayer } from '../../shared/gameRoles.ts';
 
 export const findNightTarget = (
   players: ActivePlayerState[],
@@ -23,8 +24,8 @@ export const canNightTargetGiveFirstKilledBestMove = (
   return canRegisterFirstKilled(roundNumber, target.role, true);
 };
 
-export const getDonCheckResult = (player: ActivePlayerState): boolean => player.role === 'Шериф';
+export const getDonCheckResult = (player: ActivePlayerState): boolean => normalizeGameRole(player.role) === 'sheriff';
 
 export const getSheriffCheckResult = (player: ActivePlayerState): 'ЧЁРНЫЙ!' | 'Красный' => (
-  player.team === 'Чёрные' ? 'ЧЁРНЫЙ!' : 'Красный'
+  teamOfPlayer(player) === 'black' ? 'ЧЁРНЫЙ!' : 'Красный'
 );

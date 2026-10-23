@@ -186,7 +186,7 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 3. UI primitives: avatar, money, date, plural, loading state, status labels.
 4. Messaging: one retry policy, publish-once with `uncertain` (B4).
 5. Evening domain: open, going, debt, price, «недобор», including the bot copies (after the owner's answers).
-6. Engine scenario tests, then the engine uses canonical keys and players.
+6. Engine scenario tests (**first six done**, `liveGameScenarios.test.tsx`), then the engine uses canonical keys and players.
 7. The event log becomes the source; CRM role and seat fixes become events.
 8. One protocol rule set for club and tournament.
 

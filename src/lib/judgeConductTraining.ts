@@ -2,6 +2,7 @@ import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSess
 import { determineLiveWinner } from './liveGameFlow.ts';
 import { TRAINING_BEST_MOVE_SEATS, getTrainingDeathProtocolPlan, getTrainingDeathMarkSteps } from './judgeTrainingProtocols.ts';
 import { determineVotingResult } from '../shared/tournamentVoting.ts';
+import { normalizeGameRole, teamOfPlayer } from '../shared/gameRoles.ts';
 
 export type TrainingPrompt = {
   title: string;
@@ -29,7 +30,7 @@ export const planTrainingDay = (session: PersistedLiveSession) => {
 };
 
 export const trainingNightTarget = (session: PersistedLiveSession) => {
-  const reds = session.activePlayers.filter((p) => p.alive && p.team === 'Красные');
+  const reds = session.activePlayers.filter((p) => p.alive && teamOfPlayer(p) === 'red');
   if (session.roundNumber === 1 && reds.some((p) => p.slot_num === 7)) return 7;
   return reds[session.roundNumber % reds.length]?.slot_num ?? session.activePlayers.find((p) => p.alive)?.slot_num ?? 1;
 };
@@ -184,8 +185,8 @@ export const trainingCheckTarget = (s: PersistedLiveSession, kind: 'don' | 'sher
   if (!targets.length) return alive[0]?.slot_num ?? 1;
 
   const initial = kind === 'don'
-    ? targets.find((p) => p.role === 'Шериф')?.slot_num
-    : targets.find((p) => p.team === 'Чёрные')?.slot_num;
+    ? targets.find((p) => normalizeGameRole(p.role) === 'sheriff')?.slot_num
+    : targets.find((p) => teamOfPlayer(p) === 'black')?.slot_num;
   const start = Math.max(0, targets.findIndex((p) => p.slot_num === initial));
   const round = Math.max(1, s.roundNumber || 1);
   const ordered = targets.map((_, index) => targets[(start + round - 1 + index) % targets.length].slot_num);

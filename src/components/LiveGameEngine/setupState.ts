@@ -2,6 +2,7 @@ import type { Player } from '../../types.js';
 import type { ActivePlayerState } from './types.js';
 import { roleDistributionIsValid, type LiveRole } from './setupRoles.js';
 import { isSupportedTableSize, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
+import { ENGINE_TEAM_NAMES, gameTeamOfRole } from '../../shared/gameRoles.ts';
 
 /** The deck for a table of this size: 10 classic, 9 and 8 at a novice table. */
 const rolesForTable = (size: number): LiveRole[] => {
@@ -14,9 +15,7 @@ const rolesForTable = (size: number): LiveRole[] => {
   ];
 };
 
-const teamForRole = (role: LiveRole): ActivePlayerState['team'] => (
-  role === 'Мафия' || role === 'Дон' ? 'Чёрные' : 'Красные'
-);
+const teamForRole = (role: LiveRole): ActivePlayerState['team'] => ENGINE_TEAM_NAMES[gameTeamOfRole(role) ?? 'red'];
 
 export const autoFillSetupPlayers = (
   seats: ActivePlayerState[],

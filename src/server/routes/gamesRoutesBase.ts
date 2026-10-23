@@ -5,6 +5,7 @@ import { evaluateAchievementsForPlayers } from '../services/playerAchievementsSe
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { ENGINE_TEAM_NAMES, gameTeamOfRole } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
@@ -130,11 +131,7 @@ const clubSlotsFromResults = (playerResults: any[]) => (playerResults || [])
     player_id: result.player_id,
     nickname: result.display_name,
     role: result.role,
-    team: result.role === 'mafia' || result.role === 'don' || result.role === 'Мафия' || result.role === 'Дон'
-      ? 'Чёрные'
-      : result.role
-        ? 'Красные'
-        : null,
+    team: result.role ? ENGINE_TEAM_NAMES[gameTeamOfRole(result.role) ?? 'red'] : null,
     exit_reason: result.exit_type || 'alive',
     fouls: result.regular_fouls || 0,
     minor_technical_fouls: result.minor_technical_fouls || 0,

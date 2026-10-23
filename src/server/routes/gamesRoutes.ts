@@ -13,6 +13,7 @@ import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
 import { replaceGuestWithRegisteredPlayer, replaceSeatWithGuest, setGuestAttendance } from '../services/guestPlayerService.ts';
+import { ENGINE_TEAM_NAMES, gameTeamOfRole } from '../../shared/gameRoles.ts';
 
 const router = Router();
 
@@ -120,7 +121,7 @@ const buildInitialClubProtocol = (seats: any[]) => ({
 const clubSlotsFromResults = (results: any[]) => results.slice().sort((a, b) => Number(a.seat_number) - Number(b.seat_number)).map((result) => ({
   slot_num: Number(result.seat_number), participant_id: result.participant_id, player_id: result.player_id || null,
   guest_placeholder_id: result.guest_placeholder_id || null, nickname: result.display_name, role: result.role,
-  team: result.role === 'mafia' || result.role === 'don' || result.role === 'Мафия' || result.role === 'Дон' ? 'Чёрные' : result.role ? 'Красные' : null,
+  team: result.role ? ENGINE_TEAM_NAMES[gameTeamOfRole(result.role) ?? 'red'] : null,
   exit_reason: result.exit_type || 'alive', fouls: result.regular_fouls || 0,
   minor_technical_fouls: result.minor_technical_fouls || 0, major_technical_fouls: result.major_technical_fouls || 0,
 }));

@@ -1,3 +1,5 @@
+import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
+import { liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
 import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { GAME_ROLES, ENGINE_TEAM_NAMES } from '../shared/gameRoles.ts';
 import { consumeAutoRestore } from "../lib/liveGameResume.ts";
@@ -110,7 +112,7 @@ import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFl
 import { teamOfPlayer } from '../shared/gameRoles.ts';
 import { CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS, isZeroRoundRule, type ZeroRoundRule } from '../shared/zeroRoundRule.ts';
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, roleAssignments, readProtocolEvidence, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -160,6 +162,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const gameFinishedRef = useRef(false);
   const journalRef = useRef<LiveEngineJournal | null>(null);
   const nativeJournalEnabledRef = useRef(false);
+  const roleAuthorityRef = useRef<LiveRoleAssignments | null>(null);
+  if (roleAssignments) roleAuthorityRef.current = roleAssignments;
 
   const [nominations, setNominations] = useState<number[]>([]);
   const [nominationsMap, setNominationsMap] = useState<Record<number, number>>({});
@@ -251,8 +255,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-59), takeSnapshot()]);
 
-  const restoreSnapshot = (snapshot: LiveSnapshot) => {
-    const restored = normalizeLiveSnapshotForRestore(snapshot);
+  const restoreSnapshot = (snapshot: LiveSnapshot, keepRestoredRoles = false) => {
+    const normalized = normalizeLiveSnapshotForRestore(snapshot);
+    const restored = !keepRestoredRoles && roleAuthorityRef.current
+      ? projectLiveRoleSnapshot(normalized, roleAuthorityRef.current) : normalized;
     restoreTableDecisionSelection(
       restored.tableDecisionSelectionKey ?? null,
       restored.tableDecisionSelectedVoterSlots ?? [],
@@ -412,6 +418,29 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, historyStack,
   ]);
 
+  useEffect(() => {
+    const assignments = roleAuthorityRef.current;
+    if (!assignments || phase === 'setup' || gameFinishedRef.current) return;
+    const snapshot = takeSnapshot();
+    const journal = journalRef.current || {
+      snapshot, evidence: readProtocolEvidence?.() || { votes: [], shots: [], events: [] },
+    };
+    const existing = journal.evidence.events || [];
+    const events = liveRoleCorrectionEvents(activePlayers, assignments, {
+      nextSeq: (existing.at(-1)?.seq || 0) + 1, at: new Date().toISOString(), round: roundNumber, phase,
+    });
+    if (!events.length) return;
+    // The same commands project current state and every Undo frame; the CRM is the role authority.
+    journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(existing, events) } };
+    nativeJournalEnabledRef.current = true;
+    const corrected = projectLiveRoleSnapshot(snapshot, assignments, events);
+    setActivePlayers(corrected.activePlayers);
+    setDiscipline(corrected.discipline);
+    setDonCheckResult(corrected.donCheckResult);
+    setSheriffCheckResult(corrected.sheriffCheckResult);
+    setHistoryStack(previous => previous.map(frame => projectLiveRoleSnapshot(frame, assignments)));
+  }, [roleAssignments, activePlayers, phase]);
+
   // Judge record of reveals; every change is one Undo step like the other judge actions.
   const handleAddReveal = (seat: number) => { saveSnapshot(); setReveals((previous) => addReveal(previous, seat, tableSize)); };
   const handleRemoveReveal = (seat: number) => { saveSnapshot(); setReveals((previous) => removeReveal(previous, seat)); };
@@ -440,7 +469,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       ? { ...restored, zeroNightMusicState: 'pending' as const }
       : restored;
     if (restored.phase === 'zero_night') requestJudgeGameMusicStop();
-    restoreSnapshot(recoverySnapshot);
+    restoreSnapshot(recoverySnapshot, true);
     const restoredHistory = Array.isArray(restorableSession.historyStack)
       ? restorableSession.historyStack
           .slice(-20)
@@ -1562,6 +1591,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   useEffect(() => {
     if (phase === 'setup' || gameFinishedRef.current) return;
+    // A CRM update is committed before evaluating a winner from the corrected deal.
+    if (roleAuthorityRef.current && liveRoleCorrectionEvents(activePlayers, roleAuthorityRef.current,
+      { nextSeq: 1, at: '', round: roundNumber, phase }).length) return;
     const winner = determineLiveWinner(activePlayers);
     if (!winner) return;
 

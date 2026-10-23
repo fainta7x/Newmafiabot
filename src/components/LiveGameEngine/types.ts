@@ -1,3 +1,4 @@
+import type { LiveRoleAssignments } from '../../lib/liveRoleCorrections.ts';
 import type { LiveProtocolEvidence, LiveSessionSnapshot } from '../../lib/liveClubSession.ts';
 import type { GameRole, GameTeam } from '../../shared/gameRoles.ts';
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
@@ -39,6 +40,9 @@ export type NightSubPhase = "intro" | "shooting" | "don" | "sheriff" | "best_mov
 
 export interface LiveGameEngineProps {
   players: Player[];
+  /** Latest complete role assignment observed in the tournament CRM. */
+  roleAssignments?: LiveRoleAssignments | null;
+  readProtocolEvidence?: () => LiveProtocolEvidence;
   initialJudgeId: number;
   onGameFinished: (gameData: { winning_team: "Красные" | "Чёрные"; protocol_text: string; slots: GameSlot[]; judge_id: number; protocol_evidence?: LiveProtocolEvidence; protocol_snapshot?: LiveSessionSnapshot }) => void;
   onCancel: () => void;

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 /** After a reload the resumed game window takes its saved game by itself (owner, 2026-10-18). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LiveGameEngine from '../components/LiveGameEngine';
 import { markAutoRestore, resetLiveGameResumeClaim } from '../lib/liveGameResume';
 import { createInitialGameDiscipline } from '../lib/gameDiscipline';
@@ -157,6 +157,35 @@ const baseSnapshot = (patch: Record<string, unknown> = {}) => {
 };
 
 describe('Live Game after a reload', () => {
+  it('applies observed CRM roles once, preserves legacy evidence and retains corrections through Undo/reload', async () => {
+    resetLiveGameResumeClaim();
+    const initial = baseSnapshot();
+    const frame = baseSnapshot();
+    initial.activePlayers[0].fouls = 1;
+    localStorage.setItem('mafia_live_session', JSON.stringify({ ...initial, historyStack: [frame] }));
+    const seed = { votes: [], shots: [], events: [{ seq: 1, at: '2026-10-23', round: 1, phase: 'zero_night', kind: 'game_start' }] };
+    const props = { players: [], initialJudgeId: 777, onGameFinished: vi.fn(), onCancel: vi.fn(), readProtocolEvidence: () => seed };
+    const view = render(<LiveGameEngine {...props} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    const roles = Object.fromEntries(initial.activePlayers.map((p: any) => [p.slot_num,
+      p.slot_num === 1 ? 'mafia' : p.slot_num === 8 ? 'citizen' : p.slot_num === 10 ? 'don' : p.slot_num === 7 ? 'sheriff' : p.slot_num >= 8 ? 'mafia' : 'citizen'])) as any;
+    view.rerender(<LiveGameEngine {...props} roleAssignments={roles} />);
+    const saved = () => JSON.parse(localStorage.getItem('mafia_live_session')!);
+    await waitFor(() => expect(saved().activePlayers[0]).toMatchObject({ role: 'mafia', team: 'black', fouls: 1 }));
+    expect(saved().protocolEvidence.events.filter((e: any) => e.kind === 'role_corrected')).toHaveLength(2);
+    expect(saved().protocolEvidence.events[0]).toEqual(seed.events[0]);
+    expect(saved().historyStack[0].activePlayers[0].role).toBe('mafia');
+    view.rerender(<LiveGameEngine {...props} roleAssignments={null} />); // incomplete CRM edit retains the last complete deal
+    fireEvent.click(screen.getByRole('button', { name: /Назад/ }));
+    await waitFor(() => expect(saved().activePlayers[0]).toMatchObject({ role: 'mafia', team: 'black', fouls: 0 }));
+    expect(saved().protocolEvidence.events.filter((e: any) => e.kind === 'role_corrected')).toHaveLength(2);
+    view.unmount();
+    render(<LiveGameEngine {...props} roleAssignments={roles} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    await waitFor(() => expect(saved().activePlayers[0].role).toBe('mafia'));
+    expect(saved().protocolEvidence.events.filter((e: any) => e.kind === 'role_corrected')).toHaveLength(2);
+  });
+
   it('restores the saved game without the «Восстановить» question when the window was resumed', async () => {
     resetLiveGameResumeClaim();
     markAutoRestore();

@@ -405,3 +405,7 @@ System tariff settings: eveningPriceSettingsService.ts (settings API: /api/eveni
 
 ### Live engine role boundaries
 `ActivePlayerState` stores `GameRole`/`GameTeam` keys. `setupRoles.ts` parses external role spellings; `canonicalizeLivePlayers` in `engineStateModel.ts` normalizes legacy current/Undo players and rejects unknown or conflicting roles. `liveSessionStorage.ts` reads old snapshots without rewriting them and serializes canonical current/history state. UI labels, `liveGameState.ts` broadcast/state-sheet projections and the finished legacy `GameSlot` callback preserve their established human-readable format. Phase, timer and discipline ownership is unchanged.
+
+### Observed CRM role commands
+
+`liveRoleCorrections.ts` validates complete CRM role assignments, builds `role_corrected` events and projects those commands onto active players and recovery/Undo snapshots. TournamentLiveGameModal passes complete assignments observed by its serialized 20-second GET; incomplete assignments keep the previous authority. External role corrections are not judge Undo steps. LiveGameEngine records commands before applying them and retains legacy evidence when adopting a native journal. `liveNightChecks.ts` owns current Don/Sheriff answers for both targeting and role correction. Historical night logs stay factual; the completed tournament result still goes to draft review. Seat identity changes and final-fetch concurrency are not handled by this role-only path.

@@ -1,3 +1,4 @@
+import { completeLiveRoleAssignments } from '../../lib/liveRoleCorrections.ts';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -174,6 +175,8 @@ export default function TournamentLiveGameModal({
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
   const [movedSeats, setMovedSeats] = useState<number[]>([]);
   const [changedRoleSeats, setChangedRoleSeats] = useState<number[]>([]);
+  const [latestRoleResults, setLatestRoleResults] = useState<PlayerResultData[] | null>(null);
+  const roleAssignments = useMemo(() => completeLiveRoleAssignments(latestRoleResults || payload?.player_results || []), [latestRoleResults, payload]);
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
   const lastSnapshotRef = useRef<any>(null);
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
@@ -182,19 +185,26 @@ export default function TournamentLiveGameModal({
     return { protocol: body.protocol, player_results: body.player_results || [], game: body.game || null };
   };
 
-  // While the game runs, notice a seat changed in the CRM and tell the judge (the engine keeps its own seating).
+  // Observe complete CRM role assignments; identity/seat changes still use the separate warning path.
   useEffect(() => {
     if (!payload || reviewMode) return;
+    let disposed = false;
+    let inFlight = false;
     const check = () => {
+      if (inFlight) return;
+      inFlight = true;
       void loadLivePayload()
         .then((fresh) => {
+          if (disposed) return;
+          setLatestRoleResults(fresh.player_results);
           setMovedSeats(changedSeats(payload.player_results, fresh.player_results));
           setChangedRoleSeats(changedRoles(payload.player_results, fresh.player_results));
         })
-        .catch(() => { /* the next check tries again */ });
+        .catch(() => { /* the next check tries again */ })
+        .finally(() => { inFlight = false; });
     };
     const interval = window.setInterval(check, 20_000);
-    return () => window.clearInterval(interval);
+    return () => { disposed = true; window.clearInterval(interval); };
   }, [payload, reviewMode]);
 
   // Records the votes and shots of the running game, exactly as the club evening does: the engine drops its
@@ -486,7 +496,7 @@ export default function TournamentLiveGameModal({
       ) : null}
       {changedRoleSeats.length ? (
         <div className="mx-4 mt-2 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100" data-testid="tournament-live-roles-changed">
-          В CRM изменены роли: {changedRoleSeats.map((seat) => `№${seat}`).join(', ')}. Ведущий продолжает игру со старыми ролями; в протокол запишутся новые роли — перед подтверждением проверьте победителя и ночные действия.
+          В CRM изменены роли: {changedRoleSeats.map((seat) => `№${seat}`).join(', ')}. {roleAssignments ? 'Движок применяет исправления и записывает их в журнал. Прошлые ночные действия проверьте перед подтверждением протокола.' : 'Назначение ролей не заполнено полностью; движок сохраняет последнее полное назначение до завершения правки.'}
         </div>
       ) : null}
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
@@ -496,6 +506,13 @@ export default function TournamentLiveGameModal({
           <LiveGameEngine
             players={legacyPlayers}
             initialJudgeId={10001}
+            roleAssignments={roleAssignments}
+            readProtocolEvidence={() => {
+              try {
+                const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);
+                return raw ? updateLiveProtocolEvidence(evidenceRef.current, JSON.parse(raw), lastSnapshotRef.current) : evidenceRef.current;
+              } catch { return evidenceRef.current; }
+            }}
             sessionKey={`tournament:${gameId}`}
             onCancel={onClose}
             onPhaseChange={setLivePhase}

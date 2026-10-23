@@ -26,6 +26,8 @@ const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === '
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 const TRAINING_MODE = new URLSearchParams(window.location.search).get('mode') === 'training';
 const TRAINING_FINISH_MODE = new URLSearchParams(window.location.search).get('mode') === 'training-finish';
+/** A zero-round vote where the split was broken into #2 (six against four); `zeroRule` picks the game setting. */
+const ZERO_ROUND_RULE = new URLSearchParams(window.location.search).get('zeroRule');
 
 const buildRecoveryPlayers = () => {
   const roles = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'] as const;
@@ -108,6 +110,36 @@ const seedRecoverySession = () => {
 };
 
 if (RECOVERY_MODE || AUDIT_MODE) seedRecoverySession();
+
+const seedZeroRoundBreak = () => {
+  const activePlayers = buildRecoveryPlayers().map((p) => ({ ...p, has_spoken_this_round: true }));
+  const discipline = createInitialGameDiscipline(activePlayers.map((player) => ({
+    id: String(player.slot_num),
+    team: player.team === 'Чёрные' ? 'black' as const : 'red' as const,
+  })));
+  localStorage.setItem('mafia_live_session', JSON.stringify({
+    activePlayers, nominations: [2, 5], nominationsMap: { 1: 2, 3: 5 },
+    phase: 'day_voting', roundNumber: 1, dayStarterSlot: 1, nightSubPhase: 'intro', postNightStage: 'none',
+    protocolMarkers: createEmptyLiveProtocolMarkers(),
+    activeBestMoveSource: null, activeBestMoveSlot: null, pendingBestMoveSeats: [], bestMoveDeadlineMs: null,
+    votingRounds: [{
+      round_number: 1, is_revote: false, nominated_seats: [2, 5], vote_counts: { 2: 6, 5: 4 }, eligible_voters: 10, day_number: 0,
+      outcome: 'pending', eliminated_seats: [], table_leave_votes: null,
+    }],
+    activeVotingRoundIndex: 0,
+    votesByPlayer: { 1: 2, 3: 2, 4: 2, 6: 2, 7: 2, 8: 2, 2: 5, 5: 5, 9: 5, 10: 5 },
+    votes: { 2: 6, 5: 4 }, votingStage: 'round_result', revoteSpeakerIndex: 0,
+    tableLeaveVotesInput: null, currentVotingNomineeIndex: 1,
+    activeSpeakerSlot: null, customTimerLabel: null, timeLeft: 60, timerMax: 60, isTimerRunning: false,
+    zeroNightSubPhase: null, zeroNightMusicState: 'stopped',
+    shotPlayerSlot: null, donCheckSlot: null, donCheckResult: null, sheriffCheckSlot: null, sheriffCheckResult: null,
+    nightLogs: [], votingFarewellQueue: [], votingFarewellIndex: 0,
+    zeroRoundRule: ZERO_ROUND_RULE === 'club' ? 'club' : 'tournament',
+    discipline, savedAt: '18:00',
+  }));
+};
+
+if (ZERO_ROUND_RULE) seedZeroRoundBreak();
 
 function RecoveryShell({ onResult }: { onResult: (result: 'completed' | 'cancelled') => void }) {
   return (
@@ -195,7 +227,7 @@ function Harness() {
       {result === 'running' ? (
         TRAINING_FINISH_MODE ? (
           <TrainingFinishShell onResult={setResult} />
-        ) : RECOVERY_MODE || AUDIT_MODE ? (
+        ) : RECOVERY_MODE || AUDIT_MODE || ZERO_ROUND_RULE ? (
           <RecoveryShell onResult={setResult} />
         ) : (
           <JudgeTestGameModal

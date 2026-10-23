@@ -1,3 +1,4 @@
+import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import React from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
@@ -84,6 +85,10 @@ interface CenterPanelProps {
   tableLeaveVotesInput?: number | null;
   setTableLeaveVotesInput?: React.Dispatch<React.SetStateAction<number | null>>;
   handleConfirmSingleElimination?: (slotNum: number) => void;
+  /** Club zero-round rule: the player the split was broken into stays and speaks 30 more seconds. */
+  handleClubZeroRoundBreak?: (slotNum: number) => void;
+  zeroRoundRule?: ZeroRoundRule;
+  breakSpeechSlot?: number | null;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
   handleAdvanceRevoteSpeaker?: (slot: number, nextIndex: number) => void;
   handleBackWithinRevoteSpeeches?: (previousSlot: number, previousIndex: number) => void;
@@ -184,6 +189,9 @@ export default function CenterPanel(props: CenterPanelProps) {
     setRevoteSpeakerIndex,
     setTableLeaveVotesInput,
     handleConfirmSingleElimination,
+    handleClubZeroRoundBreak,
+    zeroRoundRule = 'tournament',
+    breakSpeechSlot = null,
     handleGoToRevoteSpeeches,
     handleAdvanceRevoteSpeaker,
     handleBackWithinRevoteSpeeches,
@@ -386,6 +394,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     }
     if (votingStage === 'round_result') return 'Голосование · итог';
     if (votingStage === 'table_decision') return 'Голосование · решение стола';
+    if (votingStage === 'resolved' && breakSpeechSlot !== null) return `Доп. речь · #${breakSpeechSlot}`;
     if (votingStage === 'resolved' && activeSpeakerSlot !== null) return `Последняя речь · #${activeSpeakerSlot}`;
     return 'Голосование · завершено';
   })();
@@ -676,6 +685,18 @@ export default function CenterPanel(props: CenterPanelProps) {
     }
 
     if (votingStage === 'round_result') {
+      if (result.outcome === 'single_eliminated' && zeroRoundRule === 'club' && currentRound?.day_number === 0) {
+        const seat = result.winners[0];
+        return (
+          <div className="live-judge-hud__stack">
+            <div className="live-judge-hud__eyebrow">Нулевой круг · клубная настройка</div>
+            <div className="live-judge-hud__title">Попил сломан в <strong>#{seat}</strong></div>
+            <div className="live-judge-hud__hint">#{seat} остаётся за столом, без ЛХ: 30 секунд дополнительной речи, затем ночь.</div>
+            <button type="button" onClick={() => handleClubZeroRoundBreak?.(seat)} className="live-judge-action live-judge-action--primary">Доп. речь #{seat} · 30 сек</button>
+          </div>
+        );
+      }
+
       if (result.outcome === 'single_eliminated') {
         return (
           <div className="live-judge-hud__stack">

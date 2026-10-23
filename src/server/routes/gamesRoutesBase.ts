@@ -144,7 +144,7 @@ router.get('/', async (req, res) => {
     const { evening_id, archived } = req.query;
     const db = req.db || (await getDb());
 
-    let query = `SELECT g.*, et.name AS table_name
+    let query = `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format
                    FROM games g
               LEFT JOIN evening_tables et ON et.id = g.evening_table_id
                   WHERE 1=1`;
@@ -208,7 +208,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req, res) => {
     await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(initialProtocol), gameId]);
 
     const row = await db.get(
-      `SELECT g.*, et.name AS table_name
+      `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format
          FROM games g
     LEFT JOIN evening_tables et ON et.id = g.evening_table_id
         WHERE g.id = ?`,
@@ -310,7 +310,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
     }
 
     const row = await db.get(
-      `SELECT g.*, et.name AS table_name
+      `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format
          FROM games g
     LEFT JOIN evening_tables et ON et.id = g.evening_table_id
         WHERE g.id = ?`,
@@ -343,7 +343,7 @@ router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
       if (protocol.protocol?.status === 'completed') await rebuildCanonicalEloRatings(db);
     }
     const row = await db.get(
-      `SELECT g.*, et.name AS table_name FROM games g
+      `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g
        LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,
       [gameId],
     );
@@ -371,7 +371,7 @@ router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) =
     });
     if (protocol.protocol?.status === 'completed') await rebuildCanonicalEloRatings(db);
     const row = await db.get(
-      `SELECT g.*, et.name AS table_name FROM games g
+      `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g
        LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,
       [gameId],
     );

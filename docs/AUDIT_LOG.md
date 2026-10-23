@@ -1685,3 +1685,8 @@ Finding (before fix): `LiveGameEngine.tsx` on reload seeded its correction compa
 Finding before repair: `telegramMessageOutboxService.ts` and `vkMessageOutboxService.ts` each hard-coded 17 attempts, 2-second doubling and a 15-minute cap. This is one unchanged business-neutral policy with duplicate implementations. Fixed in this PR via `personalMessageRetryPolicy.ts` and focused numeric regressions. Preserve Telegram 429 Retry-After support, VK stable random_id, and Telegram cancellation ambiguity protections.
 
 Still open: `telegramSyncOutboxService.ts` uses a distinct 12-attempt/15-second policy, and publishing outcomes after timeout can be uncertain; do not silently use the personal-message schedule for public post reconciliation. Before a single publish-once policy, characterize result states and remote IDs for both channels and enforce no duplicate publication on ambiguous failures. No live API/prod writes; runtime verification deferred.
+
+
+## 2026-10-23 — Messaging ambiguous Telegram acknowledgements
+
+Audit: Telegram sender already had an implicit ambiguous boolean (5xx or thrown fetch); cancellation and shortfall notifications avoid retry on such outcomes to prevent duplicates, but ordinary personal messages still retry. VK uses a stable `random_id` on retry, unlike Telegram. The underlying delivery state does not yet expose a durable distinct `uncertain` status, and the Telegram sync outbox has its own 12-attempt policy. This slice factors the existing classification as a pure `messageDeliveryCertainty.ts` contract with tests and reuses it in Telegram, retaining current behavior. This **does not claim** reliable exactly-once Telegram delivery or resolve public-post ambiguity. No production writes or deployment.

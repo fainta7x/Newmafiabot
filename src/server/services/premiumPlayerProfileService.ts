@@ -1,3 +1,4 @@
+import { rankRolePerformance } from '../../lib/rolePerformance.ts';
 import { GAME_ROLE_LABELS, GAME_ROLE_KEYS, type GameRole } from '../../shared/gameRoles.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -118,9 +119,7 @@ const strongestRole = (games: PlayerGameHistoryItem[]) => {
     return { role, games: roleGames.length, wins, win_rate: winRatePercent(wins, roleGames.length) };
   }).filter((item) => item.games > 0);
   if (!candidates.length) return null;
-  const reliable = candidates.filter((item) => item.games >= 3);
-  const source = reliable.length ? reliable : candidates;
-  source.sort((a, b) => b.win_rate - a.win_rate || b.games - a.games);
+  const source = rankRolePerformance(candidates);
   return { ...source[0], label: ROLE_LABELS[source[0].role], small_sample: source[0].games < 5 };
 };
 

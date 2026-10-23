@@ -1,3 +1,4 @@
+import { rankRolePerformance } from '../../lib/rolePerformance.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
@@ -117,7 +118,7 @@ router.get('/insights', async (req, res) => {
 
     const last30Days = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const month = summarize(personal.filter((item) => item.dateMs >= last30Days));
-    const trend = recent10.games >= 5 && career.games >= 10
+    const trend = recent10.games > 0 && career.games > 0
       ? recent10.win_rate - career.win_rate
       : null;
 
@@ -179,8 +180,8 @@ router.get('/insights', async (req, res) => {
         closeness: Math.min(1, item.total_games / Math.max(1, Math.max(...[...together.values()].map((value) => value.total_games)))),
       }));
 
-    const strongestRole = roles.filter((item) => item.games >= 2).sort((a, b) => b.win_rate - a.win_rate || b.games - a.games)[0] || null;
-    const weakestRole = roles.filter((item) => item.games >= 2).sort((a, b) => a.win_rate - b.win_rate || b.games - a.games)[0] || null;
+    const strongestRole = rankRolePerformance(roles)[0] || null;
+    const weakestRole = rankRolePerformance(roles, true)[0] || null;
     const insights: Array<{ kind: string; title: string; text: string }> = [];
     if (trend != null && Math.abs(trend) >= 10) {
       insights.push({
@@ -196,7 +197,7 @@ router.get('/insights', async (req, res) => {
         text: `Лучше всего выходит ${strongestRole.role} (${strongestRole.win_rate}% побед), сложнее всего — ${weakestRole.role} (${weakestRole.win_rate}%).`,
       });
     }
-    if (red.games >= 5 && black.games >= 5 && Math.abs(red.win_rate - black.win_rate) >= 15) {
+    if (red.games > 0 && black.games > 0 && Math.abs(red.win_rate - black.win_rate) >= 15) {
       const better = red.win_rate > black.win_rate ? 'красных' : 'чёрных';
       insights.push({
         kind: 'side_gap',

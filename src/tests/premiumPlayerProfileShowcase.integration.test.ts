@@ -39,6 +39,20 @@ describe('premium profile showcase API', () => {
     expect(tooMany.status).toBe(400);
   });
 
+  it('uses one editable achievement catalog with the same manual grant and date in progression and showcase', async () => {
+    await db.run("UPDATE achievement_definitions SET name = 'Дебют организатора', threshold = 3 WHERE id = 'first_game'");
+    await db.run("INSERT INTO player_achievement_overrides (player_id, achievement_id, state, updated_at) VALUES ('p1', 'first_game', 'grant', ?)", [stamp]);
+    await db.run("INSERT INTO player_achievements (id, player_id, achievement_id, earned_at, source, created_at) VALUES ('manual-first', 'p1', 'first_game', ?, 'manual', ?)", [stamp, stamp]);
+    const progression = await request(app).get('/api/player/progression').set('Cookie', playerCookie);
+    const showcase = await request(app).get('/api/player/profiles/p1/showcase').set('Cookie', playerCookie);
+    expect(progression.status).toBe(200);
+    expect(showcase.status).toBe(200);
+    const canonical = showcase.body.achievements.categories.flatMap((category: any) => category.achievements);
+    expect(progression.body.achievements.map((item: any) => item.id).sort()).toEqual(canonical.map((item: any) => item.id).sort());
+    expect(progression.body.achievements.find((item: any) => item.id === 'first_game')).toMatchObject({ name: 'Дебют организатора', target: 3, completed: true, earned_at: stamp });
+    expect((await request(app).get('/api/player/progression')).status).toBe(401);
+  });
+
   it('allows organizer to add a verified club milestone visible on the timeline', async () => {
     const response = await request(app)
       .post('/api/player/profiles/p1/milestones')

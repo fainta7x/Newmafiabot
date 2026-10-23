@@ -14,12 +14,12 @@ export function EveningPriceSettingsCard() {
   useEffect(() => { void requestJson('/api/evening-prices', undefined, 'Не удалось загрузить цены').then(data => { setPrices(data); setReady(true); }).catch(() => setMessage('Не удалось загрузить цены')); }, []);
   const save = async () => {
     setBusy(true); setMessage('');
-    try { setPrices(await requestJson('/api/evening-prices', { method: 'PUT', body: JSON.stringify(prices) }, 'Не удалось сохранить цены')); setMessage('Сохранено. Цены действуют для новых вечеров.'); }
+    try { setPrices(await requestJson('/api/evening-prices', { method: 'PUT', body: JSON.stringify(prices) }, 'Не удалось сохранить цены')); setMessage('Сохранено. Новые цены действуют для всех незакрытых вечеров.'); }
     catch (error: any) { setMessage(error.message || 'Не удалось сохранить'); } finally { setBusy(false); }
   };
   return <section className="space-y-3 rounded-2xl border border-border-soft bg-surface-1 p-4" data-testid="evening-price-settings">
     <h3 className="text-[15px] font-bold">Стоимость вечеров</h3>
-    <p className="text-[13px] leading-5 text-text-secondary">Для вечеров, созданных после сохранения. Уже созданные вечера сохраняют свои цены. Бесплатное участие — подарок организатора в оплатах вечера.</p>
+    <p className="text-[13px] leading-5 text-text-secondary">Цены действуют сразу для всех незакрытых вечеров. Закрытые вечера сохраняют свои цены. Бесплатное участие — подарок организатора в оплатах вечера.</p>
     <div className="grid gap-3 sm:grid-cols-2">{fields.map(({ key, label }) => <label key={key} className="min-w-0 text-[12px] text-text-secondary">{label}, ₽
       <input type="number" min={0} max={100000} step={1} disabled={!ready || busy} aria-label={label} className="mobile-field mt-1 min-h-11 w-full" placeholder={key === 'novice_cap' ? 'Без ограничения' : undefined} value={prices[key] ?? ''} onChange={event => setPrices(current => ({ ...current, [key]: key === 'novice_cap' && event.target.value === '' ? null : Number(event.target.value) }))} />
     </label>)}</div>

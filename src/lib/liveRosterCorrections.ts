@@ -50,3 +50,26 @@ export function replayLiveRosterIdentity(
   }
   return current;
 }
+
+/** Persist the initial identity map once. Without it old corrections cannot be replayed after reload. */
+export function initialLiveRosterEvents(
+  roster: LiveRosterIdentity,
+  context: { nextSeq: number; at: string; round: number; phase: string },
+): LiveGameEvent[] {
+  return Object.entries(roster).sort(([a], [b]) => Number(a) - Number(b)).map(([seat, identity], index) => ({
+    ...context, seq: context.nextSeq + index, kind: 'player_assigned', seat: Number(seat), value: identity,
+  }));
+}
+
+/** Rebuild the current identities only when a trustworthy initial map was journaled. */
+export function restoreJournalRosterIdentity(events: readonly LiveGameEvent[]): LiveRosterIdentity | null {
+  const assigned: Record<number, string> = {};
+  const changes: LiveGameEvent[] = [];
+  for (const event of events) {
+    if (event.kind === 'player_assigned' && typeof event.seat === 'number' &&
+        typeof event.value === 'string' && event.value.trim()) assigned[event.seat] = event.value;
+    else if (event.kind === 'player_reseated') changes.push(event);
+  }
+  if (!Object.keys(assigned).length || new Set(Object.values(assigned)).size !== Object.keys(assigned).length) return null;
+  return replayLiveRosterIdentity(assigned, changes);
+}

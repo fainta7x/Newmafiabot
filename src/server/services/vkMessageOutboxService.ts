@@ -1,3 +1,4 @@
+import { PERSONAL_MESSAGE_MAX_RETRIES as MAX_RETRIES, personalMessageRetryDelayMs as retryDelayMs } from './personalMessageRetryPolicy.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { enqueueTelegramMessage, expireStaleEveningNotices, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
 import { telegramTextWithAction } from './personalNotificationText.ts';
@@ -23,9 +24,6 @@ export interface VkMessageInput {
 }
 
 // About two hours of retries, like the Telegram outbox; a row is final when `next_attempt_at` is NULL.
-const MAX_RETRIES = 17;
-const BASE_BACKOFF_MS = 2_000;
-const MAX_BACKOFF_MS = 15 * 60_000;
 const WORKER_INTERVAL_MS = 5_000;
 let workerTimer: ReturnType<typeof setInterval> | null = null;
 let drainInFlight = false;
@@ -36,7 +34,6 @@ const stableRandomId = (messageKey: string) => {
   const digest = crypto.createHash('sha256').update(messageKey).digest();
   return Math.max(1, digest.readUInt32BE(0) & 0x7fffffff);
 };
-const retryDelayMs = (attempt: number) => Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * (2 ** Math.max(0, attempt - 1)));
 const playerAppBaseUrl = () => String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
 
 export async function enqueueVkMessage(db: DatabaseWrapper, input: VkMessageInput) {

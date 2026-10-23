@@ -1,3 +1,4 @@
+import { PERSONAL_MESSAGE_MAX_RETRIES as MAX_RETRIES, personalMessageRetryDelayMs as retryDelayMs } from './personalMessageRetryPolicy.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
@@ -27,11 +28,8 @@ export interface TelegramDeliveryDiagnostics {
 
 // 17 attempts with a 2 s base doubling up to a 15 minute cap keep a message alive for about two hours, so a Telegram
 // outage or a redeploy of a few minutes does not lose it (owner, 2026-10-05). A row is final when `next_attempt_at` is NULL.
-const MAX_RETRIES = 17;
 const STALE_EVENING_NOTICE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_CONCURRENCY = 4;
-const BASE_BACKOFF_MS = 2_000;
-const MAX_BACKOFF_MS = 15 * 60_000;
 const WORKER_INTERVAL_MS = 5_000;
 let workerTimer: ReturnType<typeof setInterval> | null = null;
 let drainInFlight = false;
@@ -39,12 +37,6 @@ const messageKeysInFlight = new Set<string>();
 
 const nowIso = () => new Date().toISOString();
 
-const retryDelayMs = (retryCount: number, retryAfterSeconds?: number | null) => {
-  if (retryAfterSeconds && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-    return Math.min(MAX_BACKOFF_MS, Math.max(BASE_BACKOFF_MS, retryAfterSeconds * 1000));
-  }
-  return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * (2 ** Math.max(0, retryCount - 1)));
-};
 
 export async function enqueueTelegramMessage(db: DatabaseWrapper, input: TelegramMessageInput) {
   await ensureTelegramDirectMessageSchema(db);

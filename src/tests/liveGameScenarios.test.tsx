@@ -107,14 +107,15 @@ describe('judge engine: whole-game scenarios', () => {
     expect(result.slots.filter((s: any) => s.alive).map((s: any) => s.slot_num)).toEqual([1, 2, 7]);
   });
 
-  it('ППК by a black player ends the game at once for red, with the culprit and the reason in the result', async () => {
-    const done = await play(position('day_speeches', [{ slot: 4, exit: 'killed' }]));
+  it.each(['club', 'tournament'] as const)('ППК by a black player retains the %s setting and ends for red with culprit and reason', async (rule) => {
+    const done = await play(position('day_speeches', [{ slot: 4, exit: 'killed' }], { zeroRoundRule: rule }));
     fireEvent.click(seat(9));
     await press('ППК');
     await press('Подтвердить ППК');
     const result = finished(done);
     expect(result?.winning_team).toBe('Красные');
     expect(result.end_reason).toBe('ppk');
+    expect(result.zero_round_rule).toBe(rule);
     expect(result.slots.find((s: any) => s.slot_num === 9)?.ppk).toBe(true);
   });
 

@@ -1,10 +1,11 @@
+import { validateProtocolVoting } from '../../lib/protocolVotingValidation.ts';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileCheck, Moon, PencilLine, Save, Users, Vote, X } from 'lucide-react';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { CLASSIC_TABLE_SIZE, isSupportedTableSize, roleCountsMatchTable, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
 import {
-  cleanAndSyncVotes,
+  cleanAndSyncVotes as cleanVotes,
   createNextRevoteRound,
 } from '../../shared/tournamentVoting';
 import { ProtocolVotingTab } from './tournaments/protocol/ProtocolVotingTab';
@@ -63,6 +64,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     judge_notes: null,
   } as TournamentGameProtocolData));
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>(source?.player_results || []);
+  const cleanAndSyncVotes = (votes: Parameters<typeof cleanVotes>[0]) => cleanVotes(votes, playerResults.length);
   const [activeTab, setActiveTab] = useState<Tab>('players');
   const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
   const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
@@ -361,6 +363,15 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       setActiveTab('summary');
       return;
     }
+    if (protocol.votes?.length) {
+      const voting = validateProtocolVoting(protocol.votes, playerResults, protocol.zero_round_voted_participant_id, true, { tableSize: playerResults.length, zeroRoundRule: protocol.zero_round_rule ?? 'tournament' });
+      if (voting.errorMsg) {
+        setCompleteHint(voting.errorMsg);
+        setHighlightedRoundIdx(voting.roundIndexWithError);
+        setActiveTab('votes');
+        return;
+      }
+    }
     setCompleteHint(null);
     const completed = { ...protocol, status: 'completed' as const };
     await save(completed, playerResults, { replaceEditor: true });
@@ -452,6 +463,8 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
 
             {activeTab === 'votes' && (
               <ProtocolVotingTab
+                zeroRoundRule={protocol.zero_round_rule ?? 'tournament'}
+                tableSize={playerResults.length}
                 protocol={protocol}
                 playerResults={playerResults}
                 voteDrafts={voteDrafts}

@@ -1605,3 +1605,20 @@ Scope: remove competing tournament voting completion rules before connecting clu
 Acceptance: one pure voting validator for server and completion form, exact failing-round focus preserved, existing tournament API rules unchanged. Club voting remains separate until its saved zero-round setting is carried in the protocol contract.
 
 Implementation: both tournament callers now use `protocolVotingValidation.ts`; server draft/completion rules are unchanged. Form accepts documented later removal and reports structural/revote errors before submission, preserving round focus. Five old form fixtures now carry the required `is_revote: false`, matching real editor rounds and the existing API contract. No layout, scoring, production data or live-game save changes.
+
+## Saved zero-round rule — protocol contract, 2026-10-23
+Scope: prerequisite for applying shared voting consistency to club games.
+- Open: `LiveGameEngine.tsx` saves `zeroRoundRule` in the resumable session but omits it from `onGameFinished`; `EveningLiveGameModal.tsx` therefore cannot preserve the chosen rule in the protocol. After finishing, future checks cannot distinguish an approved club zero-round broken split from an invalid tournament outcome.
+Acceptance: both explicit settings reach the finished protocol and survive subsequent manual saves; absent historical settings retain tournament semantics; invalid incoming settings are rejected. No changes to voting, engine transitions, rendering, scoring or historical records.
+
+Implementation: finished engine result includes the selected rule; club mapping and server saves retain it. Explicit invalid settings fail; legacy payloads preserve a stored setting or use tournament semantics. Whole-engine PPK scenarios exercise both settings through the actual finish callback, plus mapping and canonical-save regressions. Historical database rows are not rewritten.
+
+## Club voting consistency — same protocol workstream, 2026-10-23
+- Open: club completed saves do not validate recorded ballot structure, outcome or player exits; tournament saves do.
+- Open: the club protocol editor reuses tournament outcome presentation, and `cleanAndSyncVotes` forces ten voters on novice zero-round tables.
+- Open: club live-result mapping does not renumber day-local voting round IDs, unlike the tournament mapping.
+Scope: reuse canonical voting validation for completed club protocols with actual ballot evidence, parameterized by fixed table size and stored zero-round rule. Preserve missing historical ballot evidence, autosave drafts, live-engine transitions and all scoring. Acceptance: 8/9/10-player cases, club broken split vs tournament elimination, double revote, day voting, malformed rejection and editor confirmation tested.
+
+Implementation: common validator now takes fixed table-size and zero-round-rule options; tournament callers retain default ten/tournament. Club completion validates recorded ballots in API and form; an empty historical ballot log stays absent. Club manual confirmation preserves non-elimination/no ЛХ for a broken zero-round split, while double revotes and later days retain normal exits. Novice parent/child rounds preserve their actual table size, and live-result mapping normalizes day-local round IDs without altering voter data. No production records are rewritten.
+
+Local verification of the combined protocol work: 91 focused pure/editor/engine tests, TypeScript, ESLint, zero dependency cycles/layer violations. HTTP+SQLite rejected-ballot regression is included in the normal CI suite to verify neither protocol storage nor token ledger changes. No external messages or production writes were initiated.

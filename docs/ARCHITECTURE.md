@@ -161,7 +161,7 @@ Both financial adjustment paths must respect the unique source identity `(source
 
 ## 9. Games / protocol correction / pending-save recovery
 
-Organizer game workflow lives in CRM evening-game components and current game/protocol routes. Pure player/discipline, shots and first-killed/best-move consistency belongs to `src/lib/protocolConsistency.ts`; club save service, tournament routes and tournament completion UI consume it. Tournament voting structure, hierarchy and completion are owned by `src/lib/protocolVotingValidation.ts` and reused by server and completion form. Club voting integration waits until the zero-round setting is carried through the protocol contract.
+Organizer game workflow lives in CRM evening-game components and current game/protocol routes. Pure player/discipline, shots and first-killed/best-move consistency belongs to `src/lib/protocolConsistency.ts`; club save service, tournament routes and tournament completion UI consume it. Club and tournament voting structure, hierarchy and completion are owned by `src/lib/protocolVotingValidation.ts` and reused by both servers and completion forms, parameterized by fixed table size and the stored club zero-round rule. Club protocols without historical ballot evidence retain their legacy save path; no ballots are invented. Tournament rules always use the tournament default.
 
 Important ownership split:
 

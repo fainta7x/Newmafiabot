@@ -1,3 +1,4 @@
+import type { ZeroRoundRule } from '../shared/zeroRoundRule.ts';
 import { leftAs } from './protocolConsistency.ts';
 import { determineVotingResult, validateVotingHierarchy } from '../shared/tournamentVoting.ts';
 
@@ -6,12 +7,15 @@ export interface ProtocolVotingValidationResult {
   roundIndexWithError: number | null;
 }
 
+export interface ProtocolVotingOptions { tableSize?: number; zeroRoundRule?: ZeroRoundRule; }
+
 function validateVotesCore(
   votes: any,
   isComplete: boolean = false,
   playerResults?: any[],
   zeroRoundVotedId?: string | null,
   setRound: (index: number | null) => void = () => {},
+  { tableSize = 10, zeroRoundRule = 'tournament' }: ProtocolVotingOptions = {},
 ): string | null {
   if (votes === undefined || votes === null) return null;
   if (!Array.isArray(votes)) {
@@ -54,12 +58,12 @@ function validateVotesCore(
 
     const roundNum = r.round_number;
     const dayNum = r.day_number ?? (rIdx === 0 ? 0 : 1);
-    const eligibleVoters = r.eligible_voters !== undefined && r.eligible_voters !== null ? Number(r.eligible_voters) : 10;
+    const eligibleVoters = r.eligible_voters !== undefined && r.eligible_voters !== null ? Number(r.eligible_voters) : tableSize;
 
     // Requirement 1: Zero round voters count
     if (dayNum === 0) {
-      if (eligibleVoters !== 10) {
-        return `Голосование (этап #${roundNum}, день ${dayNum}): количество голосующих в нулевом круге должно быть строго равно 10.`;
+      if (eligibleVoters !== tableSize) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): количество голосующих в нулевом круге должно быть строго равно ${tableSize}.`;
       }
     }
 
@@ -108,7 +112,7 @@ function validateVotesCore(
       }
 
       const parentDayNum = parentRound.day_number ?? 0;
-      const parentEligibleVoters = parentRound.eligible_voters !== undefined && parentRound.eligible_voters !== null ? Number(parentRound.eligible_voters) : 10;
+      const parentEligibleVoters = parentRound.eligible_voters !== undefined && parentRound.eligible_voters !== null ? Number(parentRound.eligible_voters) : tableSize;
 
       if (dayNum !== parentDayNum) {
         return `Голосование (этап #${roundNum}, день ${dayNum}): день переголосования (${dayNum}) должен совпадать с днём родительского голосования (${parentDayNum}).`;
@@ -133,8 +137,8 @@ function validateVotesCore(
     const nominatedSet = new Set<number>();
     for (const seat of r.nominated_seats) {
       const num = Number(seat);
-      if (!Number.isInteger(num) || num < 1 || num > 10) {
-        return 'Номера кандидатов должны быть целыми числами от 1 до 10';
+      if (!Number.isInteger(num) || num < 1 || num > tableSize) {
+        return `Номера кандидатов должны быть целыми числами от 1 до ${tableSize}`;
       }
       if (nominatedSet.has(num)) {
         return 'Кандидаты на голосование не могут повторяться в одном круге';
@@ -151,13 +155,13 @@ function validateVotesCore(
     let sumVotes = 0;
     for (const [key, val] of Object.entries(r.vote_counts)) {
       const seatKey = Number(key);
-      if (!Number.isInteger(seatKey) || seatKey < 1 || seatKey > 10 || !nominatedSet.has(seatKey)) {
+      if (!Number.isInteger(seatKey) || seatKey < 1 || seatKey > tableSize || !nominatedSet.has(seatKey)) {
         return 'Лишние кандидаты в vote_counts запрещены';
       }
 
       const count = Number(val);
-      if (!Number.isInteger(count) || count < 0 || count > 10) {
-        return 'Количество голосов должно быть целым числом от 0 до 10';
+      if (!Number.isInteger(count) || count < 0 || count > tableSize) {
+        return `Количество голосов должно быть целым числом от 0 до ${tableSize}`;
       }
       sumVotes += count;
     }
@@ -171,7 +175,7 @@ function validateVotesCore(
 
     const noms = r.nominated_seats || [];
     if (noms.length > 0) {
-      const eligible = Number(r.eligible_voters ?? 10);
+      const eligible = Number(r.eligible_voters ?? tableSize);
       if (noms.length === 1) {
         const onlySeat = noms[0];
         const count = Number(r.vote_counts[onlySeat] ?? r.vote_counts[String(onlySeat)] ?? 0);
@@ -211,7 +215,11 @@ function validateVotesCore(
       });
       const winners = votingResult.winners;
 
-      if (votingResult.outcome === 'single_eliminated') {
+      if (zeroRoundRule === 'club' && dayNum === 0 && votingResult.outcome === 'single_eliminated') {
+        if (r.outcome !== 'no_elimination' || !Array.isArray(r.eliminated_seats) || r.eliminated_seats.length) {
+          return `Голосование (этап #${roundNum}, день 0): при клубной настройке игрок #${winners[0]} остаётся за столом; исход должен быть no_elimination без выбывших.`;
+        }
+      } else if (votingResult.outcome === 'single_eliminated') {
         if (r.outcome !== 'single_eliminated') {
           return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается выбывание игрока #${winners[0]}).`;
         }
@@ -342,12 +350,13 @@ export function validateProtocolVoting(
   playerResults?: any[],
   zeroRoundVotedId?: string | null,
   isComplete = true,
+  options: ProtocolVotingOptions = {},
 ): ProtocolVotingValidationResult {
   let roundIndexWithError: number | null = null;
-  const errorMsg = validateVotesCore(votes, isComplete, playerResults, zeroRoundVotedId, index => { roundIndexWithError = index; });
+  const errorMsg = validateVotesCore(votes, isComplete, playerResults, zeroRoundVotedId, index => { roundIndexWithError = index; }, options);
   return { errorMsg, roundIndexWithError: errorMsg ? roundIndexWithError : null };
 }
 
-export function validateVotes(votes: any, isComplete = false, playerResults?: any[], zeroRoundVotedId?: string | null): string | null {
-  return validateProtocolVoting(votes, playerResults, zeroRoundVotedId, isComplete).errorMsg;
+export function validateVotes(votes: any, isComplete = false, playerResults?: any[], zeroRoundVotedId?: string | null, options: ProtocolVotingOptions = {}): string | null {
+  return validateProtocolVoting(votes, playerResults, zeroRoundVotedId, isComplete, options).errorMsg;
 }

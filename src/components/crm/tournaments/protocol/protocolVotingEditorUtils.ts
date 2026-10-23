@@ -28,14 +28,15 @@ const parseBoundedDigits = (
 
 export const updateVotingDay = (
   round: VotingRound,
-  rawDay: string
+  rawDay: string,
+  tableSize = 10,
 ): VotingRound => {
   const dayNumber = parseInt(rawDay, 10) || 0;
 
   return {
     ...round,
     day_number: dayNumber,
-    eligible_voters: dayNumber === 0 ? 10 : round.eligible_voters
+    eligible_voters: dayNumber === 0 ? tableSize : round.eligible_voters
   };
 };
 

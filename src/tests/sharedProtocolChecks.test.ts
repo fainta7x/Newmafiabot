@@ -25,3 +25,22 @@ describe('one discipline contract for club and tournament saves', () => {
     expect(() => canonicalizeClubGameSave({ player_results: players() }, protocol, results, 'completed')).not.toThrow();
   });
 });
+
+describe('club protocol zero-round setting persistence', () => {
+  it.each(['club', 'tournament'] as const)('saves the selected %s setting and preserves it on old-client manual edits', rule => {
+    const source = { protocol: {}, player_results: players() };
+    const saved = canonicalizeClubGameSave(source, { ...protocol, zero_round_rule: rule }, players(), 'completed');
+    expect(saved.protocol.zero_round_rule).toBe(rule);
+    const edited = canonicalizeClubGameSave({ protocol: saved.protocol, player_results: saved.playerResults }, protocol, players(), 'completed');
+    expect(edited.protocol.zero_round_rule).toBe(rule);
+  });
+
+  it('keeps historical missing settings on tournament semantics without deriving them from evening type', () => {
+    const saved = canonicalizeClubGameSave({ player_results: players() }, protocol, players(), 'completed');
+    expect(saved.protocol.zero_round_rule).toBe('tournament');
+  });
+
+  it.each([null, '', 'invalid', 0])('rejects an invalid explicit setting %j', rule => {
+    expect(() => canonicalizeClubGameSave({ player_results: players() }, { ...protocol, zero_round_rule: rule }, players(), 'draft')).toThrow('настройка нулевого круга');
+  });
+});

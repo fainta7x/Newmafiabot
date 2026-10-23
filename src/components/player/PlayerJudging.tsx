@@ -129,7 +129,7 @@ export default function PlayerJudging({ onBack, evenings = [], onCreated }: { on
     setDashboard((current) => current ? {
       ...current,
       club_games: current.club_games.map((game) => game.id === updated.id
-        ? { ...game, ...updated, can_conduct: updated.status !== 'completed' && game.can_conduct }
+        ? { ...game, ...updated, evening_format: updated.evening_format ?? game.evening_format, can_conduct: updated.status !== 'completed' && game.can_conduct }
         : game),
     } : current);
   };

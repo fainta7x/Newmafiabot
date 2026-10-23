@@ -906,6 +906,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Живая игра: перед стартом выбирается «Настройка игры» — клубная или турнирная (подставляется по типу вечера). В клубной игрок, в которого сломали попил в нулевом круге, остаётся за столом и получает 30 секунд дополнительной речи, без ЛХ.
 - «Сообщество» → «Мини-игры»: сюда переехал покер, а рядом появилась шуточная «Кровь на часовой башне» — комнаты, приглашения друзей и правила (самой игры в приложении нет).
 - Личный кабинет стал компактнее: история игр, итоги вечера, связи и статистика собраны в общие блоки; убрана лишняя декоративная графика, сохранены роли, результаты и переходы в протоколы. _(слито в main, #947; ждёт деплоя и проверки владельца)_
 
@@ -1047,7 +1048,6 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 ### Waiting on the owner
 - **«Open evening» (domain-model audit, not answered on 2026-10-23):** the code uses four different status sets for an evening that is still «open» (AUDIT_LOG, Domain model audit, C). Owner to say which evenings count as open: for example, published only, or published and in progress.
 - **Quick actions in organizer notifications (owner idea, 2026-10-23):** the organizer wants to answer the bot's notifications right there — quick buttons for tasks and reminders instead of opening the CRM. Proposal sent to the owner, waiting for «да» before building.
-- **Zero round in ordinary and novice games (owner, 2026-10-23):** «из обычных игр и игр новичков убрали слом в нуле в принципе», it is possible only in tournament and rating games (recorded in BUSINESS_RULES, Domain model decisions item 2). Owner to say what the app should do in ordinary and novice games: hide «Заголосован в нулевой» and «Кто сломал попил» in their protocol and engine, or only leave them unused.
 - Tournament live game (2026-10-22, from the #1001 review): the engine keeps the old roles if they are fixed in the CRM mid-game; today the judge only sees a warning banner. **Owner «да» 2026-10-22: it is part of the domain-model programme (steps 6–7).**
 - **Domain model: rules that differ between copies — ANSWERED by the owner on 2026-10-23.** See BUSINESS_RULES «Domain model decisions»; the work is queued in the programme below (steps 2, 3, 5, 8 and the new price-settings, free-visit-gift, single-template and achievements items).
 - Owner request (2026-10-22), BUILT (needs deploy to take effect): organizer reminders in Telegram — route of the evening, unclosed evening, debts, overdue tasks (rules in BUSINESS_RULES, evening summary section). Next, to agree: forward a player's free-text message, a player «Я перевёл» button, a separate alert for «Приду позже» in the last 3 hours, failed announcement alerts.

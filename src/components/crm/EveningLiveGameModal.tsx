@@ -1,3 +1,4 @@
+import { defaultZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -822,6 +823,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           initialJudgeId={getClubJudgeIdentity(game)}
           sessionKey={`club:${game.id}`}
           trainingRoles={trainingMode ? JUDGE_TRAINING_ROLES : undefined}
+          zeroRoundRule={trainingMode ? 'tournament' : defaultZeroRoundRule(game.evening_format)}
           onCancel={onClose}
           onPhaseChange={setLivePhase}
           rolesHidden={rolesHidden}

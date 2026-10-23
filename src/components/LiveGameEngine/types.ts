@@ -1,3 +1,4 @@
+import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { Player, GameSlot } from "../../types.js";
 import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import type { GameExitType, RemovalReason } from '../../shared/gameExit.ts';
@@ -45,4 +46,6 @@ export interface LiveGameEngineProps {
   /** Identity of the game this engine runs (for example `tournament:<gameId>`): a saved session of another game is never offered. */
   sessionKey?: string;
   trainingRoles?: Record<number, PhysicalRole>;
+  /** What a broken zero-round split does; the judge may change it on the setup screen. Default: tournament. */
+  zeroRoundRule?: ZeroRoundRule;
 }

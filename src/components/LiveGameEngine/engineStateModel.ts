@@ -1,3 +1,4 @@
+import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import type { VotingRound } from '../../shared/tournamentVoting.js';
 import {
   createInitialGameDiscipline,
@@ -66,6 +67,9 @@ export type LiveSnapshot = {
   nightLogs: { round: number; log: string }[];
   votingFarewellQueue: number[];
   votingFarewellIndex: number;
+  /** Optional for snapshots saved before the rule existed (they ran the tournament rule). */
+  zeroRoundRule?: ZeroRoundRule;
+  breakSpeechSlot?: number | null;
   discipline: GameDiscipline;
 };
 
@@ -221,6 +225,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     nightLogs: snapshot.nightLogs || [],
     votingFarewellQueue: votingFinalActionActive ? (snapshot.votingFarewellQueue || []) : [],
     votingFarewellIndex: votingFinalActionActive ? (snapshot.votingFarewellIndex || 0) : 0,
+    breakSpeechSlot: votingFinalActionActive ? (snapshot.breakSpeechSlot ?? null) : null,
     discipline: snapshot.discipline || createInitialLiveDiscipline(snapshotTableSize(snapshot)),
   };
 };

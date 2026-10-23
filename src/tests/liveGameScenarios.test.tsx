@@ -205,5 +205,60 @@ describe('judge engine: whole-game scenarios', () => {
     expect(saved.activePlayers.filter((p: any) => !p.alive).map((p: any) => p.slot_num)).toEqual([2, 5]);
     expect(done).not.toHaveBeenCalled();
   });
-});
+  const zeroRoundVote = (extra: Record<string, unknown> = {}) => position('day_voting', [], {
+    roundNumber: 1,
+    protocolMarkers: { firstKilledSlot: null, zeroRoundVotedSlot: null, bestMoveSource: null, bestMoveSourceSlot: null, bestMoveSeats: [] },
+    nominations: [2, 5],
+    votingRounds: [{
+      round_number: 1, is_revote: false, nominated_seats: [2, 5], vote_counts: { 2: 0, 5: 0 }, eligible_voters: 10, day_number: 0,
+      outcome: 'pending', eliminated_seats: [], table_leave_votes: null,
+    }],
+    votingStage: 'collecting',
+    ...extra,
+  });
+  // The split is broken: six vote against #2, four against #5.
+  const breakSplit = async () => {
+    for (const slot of [1, 3, 4, 6, 7, 8]) fireEvent.click(seat(slot));
+    await press(/Следующий/);
+    for (const slot of [2, 5, 9, 10]) fireEvent.click(seat(slot));
+    await press('Подвести итог');
+  };
 
+  it('club rule: the player the zero-round split was broken into stays, speaks 30 more seconds, and the night starts without a best move', async () => {
+    const done = await play(zeroRoundVote({ zeroRoundRule: 'club' }));
+    await breakSplit();
+    await screen.findByText(/клубная настройка/);
+    await press('Доп. речь #2 · 30 сек');
+    await press('К ночи');
+    await screen.findByRole('button', { name: /Включить музыку ночи/ });
+    const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+    expect(saved.activePlayers.every((p: any) => p.alive)).toBe(true);
+    expect(saved.protocolMarkers.zeroRoundVotedSlot).toBeNull();
+    expect(saved.activeBestMoveSource).toBeNull();
+    expect(saved.zeroRoundRule).toBe('club');
+    expect(saved.breakSpeechSlot).toBeNull();
+    expect(done).not.toHaveBeenCalled();
+  });
+
+  it('a game saved before the setting existed goes on under the tournament rule, even in a club evening', async () => {
+    const onGameFinished = vi.fn();
+    localStorage.setItem('mafia_live_session', JSON.stringify(zeroRoundVote()));
+    render(<LiveGameEngine players={[]} initialJudgeId={777} onGameFinished={onGameFinished} onCancel={vi.fn()} onPhaseChange={vi.fn()} zeroRoundRule="club" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    await breakSplit();
+    await press('Подтвердить');
+    const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+    expect(saved.zeroRoundRule).toBe('tournament');
+    expect(saved.protocolMarkers.zeroRoundVotedSlot).toBe(2);
+  });
+
+  it('tournament rule: the player voted out in the zero round leaves the table and gives a best move', async () => {
+    await play(zeroRoundVote());
+    await breakSplit();
+    await press('Подтвердить');
+    await screen.findByText(/Лучший ход/);
+    const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+    expect(saved.activePlayers.find((p: any) => p.slot_num === 2)?.exit_reason).toBe('voted_zero_round');
+    expect(saved.protocolMarkers.zeroRoundVotedSlot).toBe(2);
+  });
+});

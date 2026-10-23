@@ -15,6 +15,8 @@ export interface ClubGameRecord {
   evening_id: string;
   evening_table_id?: string | null;
   table_name?: string | null;
+  /** Format of the evening (NOVICE, CASUAL, RATING, …); it picks the default zero-round rule. */
+  evening_format?: string | null;
   global_game_number: number;
   game_date: string;
   winner_team: string;

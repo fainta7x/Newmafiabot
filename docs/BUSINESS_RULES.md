@@ -169,6 +169,16 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 
 - The zero round happens **after the agreement** with **10 alive players**.
 
+#### Game setting: what a broken split does (owner, 2026-10-23)
+
+Owner: «это нужно оставить про слом, только разные механики сделать в настройках игр».
+
+- **Турнирная настройка.** A broken split («слом») works as before: the player voted out in the zero round leaves the table and gives a best move (ЛХ).
+- **Клубная настройка.** The player the split was broken into **does not leave the table and gives no best move**. He gets **30 seconds of extra speech**, then the night starts.
+- «Подняли в нуле» (a double revote where the table raises both players) works **as in a tournament** under both settings: both leave.
+- **Default by evening type:** tournament and rating games use the tournament setting; ordinary and novice games use the club setting. The judge of a club or rating evening may change it on the setup screen before the game. A tournament game always uses the tournament setting (its protocol checks the votes by tournament rules). A game saved before the setting existed continues under the tournament setting.
+- The breaker («Сломал в нуле») is recorded under both settings.
+
 ### First killed player: «Лучший ход» and «Протокол убитого» (owner, 2026-10-18)
 
 The first killed player gives his opinion twice. **Right after his death — «Лучший ход» (ЛХ)**: the three seats he names (never called a «protocol» in the app). **After his last speech — «Протокол убитого»**: a window where he marks who is red, who is black and who is the Sheriff. The window must open after the last speech of a killed player.
@@ -965,7 +975,7 @@ These are the owner's answers to the questions where copies in the code disagree
 
 1. **Games counted in profile statistics** (total games, win rate, roles): only **completed** games. For a club game the protocol is closed and the evening is not cancelled. For a tournament game both the game and its protocol are completed. Drafts and planned games are not counted.
 2. **Best move (ЛХ) sources.** The best move of the player **voted out in the zero round** counts exactly like the best move of the first player killed at night. It counts for Elo **and** for tokens.
-   - **Where it can happen** (owner, 2026-10-23): «Мы сейчас из обычных игр и игр новичков убрали слом в нуле в принципе. Т.е. это возможно сделать только на турнире или на рейтинговой игре». So a broken zero-round split («Сломал в нуле») happens only in tournament and rating games. What the app should do about it in ordinary and novice games is still to be decided by the owner.
+   - **Where it applies** (owner, 2026-10-23): the zero-round best move exists only under the tournament game setting; see «Zero round → Game setting» below.
 3. **Protocol checks.** The club evening protocol gets the same consistency checks as the tournament protocol. For example, a player with 4 fouls must be marked removed, and the protocol cannot be saved otherwise. Table size stays as it is: 8–10 for novice evenings, 10 otherwise.
 4. **Saving a live game.** Unchanged: a live evening game is saved as a completed protocol, and a live tournament game is saved as a draft for review.
 5. **«Думаю» is not «Идут».** «Идут» counts only «Иду» and «Приду позже», and so does the shortfall («недобор»). «Думаю» is shown separately.

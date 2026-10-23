@@ -201,7 +201,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       if (evening.status === 'published') await tx.run('UPDATE game_evenings SET status = ?, updated_at = ? WHERE id = ? AND status = ?', ['active', now, eveningId, 'published']);
       return id;
     });
-    const row = await db.get(`SELECT g.*, et.name AS table_name FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [createdId]);
+    const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [createdId]);
     return res.status(201).json(normalizeGame(row));
   } catch (err: any) { return res.status(400).json({ error: err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось создать игру') }); }
 });
@@ -234,7 +234,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
       await tx.run(`UPDATE games SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ? WHERE id = ?`, [winner || 'draft', winner ? `Победа ${winner}` : 'Черновик', judge.judge_name, judge.judge_player_id, JSON.stringify(nextProtocol), JSON.stringify(clubSlotsFromResults(canonical.playerResults)), gameId]);
       await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: previousStatus !== 'completed' && status === 'completed', context: settlementContext });
     });
-    const row = await db.get(`SELECT g.*, et.name AS table_name FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameId]);
+    const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameId]);
     if (!row) throw new Error('Сохранённая игра не найдена после фиксации протокола');
     await runClubGamePostSaveTasks(db, { gameId, previousStatus, status, playerIds: canonical.playerResults.map((item: any) => String(item.player_id || '')).filter(Boolean), judgePlayerId: judge.judge_player_id || null });
     return res.json(normalizeGame(row));
@@ -268,7 +268,7 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
       const playerIds = [...new Set([...replacement.envelope.player_results.map((item: any) => String(item.player_id || '')), String((replacement as any).oldPlayerId || '')].filter(Boolean))];
       await runClubGamePostSaveTasks(db, { gameId, eveningId: String(existing.evening_id), previousStatus: 'completed', status: 'completed', playerIds, judgePlayerId: existing.judge_player_id || null });
     }
-    const row = await db.get(`SELECT g.*, et.name AS table_name FROM games g LEFT JOIN evening_tables et ON et.id=g.evening_table_id WHERE g.id=?`, [gameId]);
+    const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id=g.evening_table_id WHERE g.id=?`, [gameId]);
     return res.json(normalizeGame(row));
   } catch (err: any) { return res.status(400).json({ error: err.message || 'Не удалось заменить гостя' }); }
 });

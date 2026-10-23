@@ -105,8 +105,9 @@ import {
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
 import { teamOfPlayer } from '../shared/gameRoles.ts';
+import { CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS, isZeroRoundRule, type ZeroRoundRule } from '../shared/zeroRoundRule.ts';
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -166,6 +167,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [revoteSpeakerIndex, setRevoteSpeakerIndex] = useState(0);
   const [tableLeaveVotesInput, setTableLeaveVotesInput] = useState<number | null>(null);
   const [votingFarewellQueue, setVotingFarewellQueue] = useState<number[]>([]);
+  const [zeroRoundRule, setZeroRoundRule] = useState<ZeroRoundRule>(initialZeroRoundRule);
+  /** Club rule: the seat the zero-round split was broken into, speaking its extra 30 seconds before the night. */
+  const [breakSpeechSlot, setBreakSpeechSlot] = useState<number | null>(null);
   const [votingFarewellIndex, setVotingFarewellIndex] = useState(0);
 
   const [shotPlayerSlot, setShotPlayerSlot] = useState<number | null>(null);
@@ -234,6 +238,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       nightLogs,
       votingFarewellQueue,
       votingFarewellIndex,
+      zeroRoundRule,
+      breakSpeechSlot,
       discipline,
     });
   };
@@ -284,6 +290,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setNightLogs(restored.nightLogs);
     setVotingFarewellQueue(restored.votingFarewellQueue);
     setVotingFarewellIndex(restored.votingFarewellIndex);
+    // A game saved before the setting existed ran the tournament rule; it goes on under it.
+    setZeroRoundRule(isZeroRoundRule(restored.zeroRoundRule) ? restored.zeroRoundRule : 'tournament');
+    setBreakSpeechSlot(restored.breakSpeechSlot ?? null);
     setDiscipline(restored.discipline);
   };
 
@@ -392,7 +401,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, speechExtendedSlot, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
-    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, historyStack,
+    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, historyStack,
   ]);
 
   // Judge record of reveals; every change is one Undo step like the other judge actions.
@@ -1091,6 +1100,31 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotingStage('resolved');
   };
 
+  /** Club rule: the split was broken in the zero round. The player stays, speaks 30 more seconds, then the night. */
+  const handleClubZeroRoundBreak = (slot: number) => {
+    const current = votingRounds[activeVotingRoundIndex];
+    if (!current) return;
+    saveSnapshot();
+    setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
+      ? { ...round, outcome: 'no_elimination', eliminated_seats: [] }
+      : round));
+    setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: попил сломан в #${slot}; клубная настройка — остаётся за столом, доп. речь ${CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS} сек, без ЛХ.` }]);
+    setVotingStage('resolved');
+    setBreakSpeechSlot(slot);
+    setActiveSpeakerSlot(slot);
+    setCustomTimerLabel(`Доп. речь #${slot}`);
+    setTimerMax(CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS);
+    setTimeLeft(CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS);
+    setIsTimerRunning(true);
+  };
+
+  const finishBreakSpeech = () => {
+    saveSnapshot();
+    setBreakSpeechSlot(null);
+    setCustomTimerLabel(null);
+    startNightPhase();
+  };
+
   const handleGoToRevoteSpeeches = (winners: number[]) => {
     if (!winners.length) return;
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex ? { ...round, outcome: 'tie_revote' } : round));
@@ -1157,6 +1191,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const startNightPhase = () => {
+    setBreakSpeechSlot(null);
     // A farewell queue left over from a voting that ended early must not keep blocking the winner check.
     setVotingFarewellQueue([]);
     setVotingFarewellIndex(0);
@@ -1314,7 +1349,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const isFarewellSpeechActive = () => activeSpeakerSlot !== null && (
     (phase === 'night' && postNightStage === 'farewell') ||
-    (phase === 'day_voting' && votingFarewellQueue.length > 0)
+    (phase === 'day_voting' && (votingFarewellQueue.length > 0 || breakSpeechSlot !== null))
   );
 
   const handleSeatClick = (slot: number) => {
@@ -1368,6 +1403,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       return { label: 'К голосованию', onClick: handleTransitionToVoting };
     }
     if (phase === 'day_voting') {
+      if (breakSpeechSlot !== null) return { label: 'К ночи', onClick: finishBreakSpeech };
       if (votingFarewellQueue.length > 0 && activeSpeakerSlot !== null) {
         const hasNext = votingFarewellIndex + 1 < votingFarewellQueue.length;
         const nextSlot = votingFarewellQueue[votingFarewellIndex + 1];
@@ -1670,6 +1706,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       tableLeaveVotesInput,
       setTableLeaveVotesInput,
       handleConfirmSingleElimination,
+      handleClubZeroRoundBreak,
+      zeroRoundRule,
+      breakSpeechSlot,
       handleGoToRevoteSpeeches,
       handleAdvanceRevoteSpeaker,
       handleBackWithinRevoteSpeeches,
@@ -1802,6 +1841,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           validateSetupAndStart={validateSetupAndStart}
           trainingRoles={trainingRoles}
           onCancel={onCancel}
+          zeroRoundRule={zeroRoundRule}
+          onZeroRoundRuleChange={setZeroRoundRule}
         />
       ) : (
         <div className="space-y-4">

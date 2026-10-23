@@ -1,5 +1,5 @@
 import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
-import { liveRosterCorrectionEvents, replayLiveRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
+import { initialLiveRosterEvents, liveRosterCorrectionEvents, restoreJournalRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
 import { liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
 import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { GAME_ROLES, ENGINE_TEAM_NAMES } from '../shared/gameRoles.ts';
@@ -435,7 +435,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
     if (!events.length) return;
     // The same commands project current state and every Undo frame; the CRM is the role authority.
-    journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(existing, events) } };
+    journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(journalEvents, events) } };
     nativeJournalEnabledRef.current = true;
     const corrected = projectLiveRoleSnapshot(snapshot, assignments, events);
     setActivePlayers(corrected.activePlayers);
@@ -453,12 +453,26 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       snapshot, evidence: readProtocolEvidence?.() || { votes: [], shots: [], events: [] },
     };
     const existing = journal.evidence.events || [];
-    // On restoration, start from persisted identity changes rather than treating them as a new CRM edit.
-    const previous = rosterBaselineRef.current ||
-      replayLiveRosterIdentity(rosterIdentity, existing);
+    // Preserve the initial identity mapping for deterministic replay after reload.
+    // A legacy journal lacking a baseline cannot be reconstructed: adopt the current CRM roster
+    // without inventing old identities or applying historical votes to different participants.
+    let previous = rosterBaselineRef.current || restoreJournalRosterIdentity(existing);
+    if (!previous) {
+      previous = rosterIdentity;
+      if (!existing.some(event => event.kind === 'player_reseated')) {
+        const seed = initialLiveRosterEvents(rosterIdentity, {
+          nextSeq: (existing.at(-1)?.seq || 0) + 1,
+          at: new Date().toISOString(), round: roundNumber, phase,
+        });
+        journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(existing, seed) } };
+        nativeJournalEnabledRef.current = true;
+        setRosterJournalRevision(revision => revision + 1);
+      }
+    }
     rosterBaselineRef.current = previous;
+    const journalEvents = journalRef.current?.evidence.events || existing;
     const events = liveRosterCorrectionEvents(previous, rosterIdentity, {
-      nextSeq: (existing.at(-1)?.seq || 0) + 1,
+      nextSeq: (journalEvents.at(-1)?.seq || 0) + 1,
       at: new Date().toISOString(), round: roundNumber, phase,
     });
     if (!events.length) return;

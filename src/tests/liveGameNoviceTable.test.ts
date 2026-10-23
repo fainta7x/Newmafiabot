@@ -16,14 +16,14 @@ describe('live game at a novice table', () => {
     for (const [size, mafia, citizens] of [[8, 1, 5], [9, 2, 5], [10, 2, 6]] as const) {
       const dealt = shuffleSetupRoles(table(size));
       const roles = dealt.map((player) => player.role);
-      expect([count(roles, 'Мафия'), count(roles, 'Мирный'), count(roles, 'Дон'), count(roles, 'Шериф')]).toEqual([mafia, citizens, 1, 1]);
+      expect([count(roles, 'mafia'), count(roles, 'citizen'), count(roles, 'don'), count(roles, 'sheriff')]).toEqual([mafia, citizens, 1, 1]);
       expect(roleSetupIsValid(dealt)).toBe(true);
       expect(getSetupStartValidationError(1, dealt)).toBeNull();
     }
   });
 
   it('refuses the classic deck at a table of 8', () => {
-    const seats = table(8).map((player, index) => ({ ...player, role: (index < 2 ? 'Мафия' : index === 2 ? 'Дон' : index === 3 ? 'Шериф' : 'Мирный') as any }));
+    const seats = table(8).map((player, index) => ({ ...player, role: (index < 2 ? 'mafia' : index === 2 ? 'don' : index === 3 ? 'sheriff' : 'citizen') as any }));
     expect(roleSetupIsValid(seats)).toBe(false);
     expect(getSetupStartValidationError(1, seats)).toBe('Нужны роли: 5 мирных, Шериф, 1 мафия и Дон');
   });

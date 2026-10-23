@@ -25,7 +25,7 @@ interface SetupPhaseProps {
   handleAutoFillSetupPlayers: () => void;
   handleAutoFillSetupRoles: () => void;
   handleSelectSetupPlayer: (slotNum: number, userId: number) => void;
-  handleSelectSetupRole: (slotNum: number, role: "Мирный" | "Шериф" | "Мафия" | "Дон") => void;
+  handleSelectSetupRole: (slotNum: number, role: ActivePlayerState['role']) => void;
   onCancel: () => void;
   validateSetupAndStart: () => void;
   onRoleDealActiveChange?: (active: boolean) => void;
@@ -132,9 +132,9 @@ export default function SetupPhase({
           const uids = activePlayers.filter((p) => p.slot_num !== s.slot_num && p.user_id > 0).map((p) => p.user_id);
           if (judgeId > 0) uids.push(judgeId);
           const avail = players.filter((p) => !uids.includes(p.user_id) && p.notes !== CLUB_EVENING_ENGINE_JUDGE_NOTE && p.notes !== TOURNAMENT_ENGINE_JUDGE_NOTE);
-          const isMir = s.role === "Мирный";
-          const isSheriff = s.role === "Шериф";
-          const isMafia = s.role === "Мафия";
+          const isMir = s.role === "citizen";
+          const isSheriff = s.role === "sheriff";
+          const isMafia = s.role === "mafia";
           const roleButtonClass = (active: boolean, activeClass: string) => `py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all ${isTournamentEngine ? 'cursor-default' : 'cursor-pointer'} ${active ? activeClass : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`;
           return (
             <div key={s.slot_num} className={`p-3.5 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3 ${isMir ? "bg-rose-950/5 border-rose-900/25 hover:border-rose-800/60" : isSheriff ? "bg-emerald-950/5 border-emerald-900/25 hover:border-emerald-800/60" : isMafia ? "bg-slate-900/10 border-slate-800/55 hover:border-slate-600" : "bg-purple-950/5 border-purple-900/25 hover:border-purple-800/60"}`}>
@@ -152,8 +152,8 @@ export default function SetupPhase({
                 <div className="grid grid-cols-4 gap-1">
                   {GAME_ROLE_KEYS.map(key => {
                     const role = GAME_ROLES[key];
-                    const selected = s.role === role.label;
-                    return <button key={key} disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, role.label)}
+                    const selected = s.role === key;
+                    return <button key={key} disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, key)}
                       className={roleButtonClass(selected, "scale-105 shadow-md")}
                       style={selected ? { backgroundColor: role.accent + '18', borderColor: role.foreground + '80', color: role.foreground } : undefined}
                       title={`${role.label} (${role.team === 'red' ? 'Красный' : 'Чёрный'})`}>
@@ -178,7 +178,7 @@ export default function SetupPhase({
             {(() => {
               const currentP = activePlayers.find((p) => p.slot_num === passSlot);
               if (!currentP) return null;
-              const roleText = currentP.role;
+              const roleText = GAME_ROLES[currentP.role].label;
               const isRed = roleText === "Мирный" || roleText === "Шериф";
               return (
                 <div className="space-y-5">

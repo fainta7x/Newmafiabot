@@ -8,7 +8,7 @@ import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
 
 const names = ['Богданчик', 'Алоэ', 'Дина', 'Знак с очень длинным ником', 'Дон Эль', 'Тень', 'Маша', 'Игорь', 'Вера', 'Чагин'];
-const players = names.map((nickname, index) => ({ ...createEmptyActivePlayer(index + 1), nickname, role: index === 4 ? ('Дон' as const) : ('Мирный' as const), alive: index !== 5 }));
+const players = names.map((nickname, index) => ({ ...createEmptyActivePlayer(index + 1), nickname, role: index === 4 ? ('don' as const) : ('citizen' as const), team: index === 4 ? 'black' as const : 'red' as const, alive: index !== 5 }));
 
 function Harness() {
   const [reveals, setReveals] = useState<LiveReveal[]>([{ seat: 5, checks: [{ target: 8, color: 'red' }, { target: 2, color: 'black' }] }]);

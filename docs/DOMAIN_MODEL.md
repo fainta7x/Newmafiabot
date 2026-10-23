@@ -19,7 +19,7 @@ The status column says whether the concept is **one** (a single definition), **d
 |---|---|---|
 | Role (citizen, sheriff, mafia, don) | `src/shared/gameRoles.ts` `normalizeGameRole` | **one** (2026-10-22). A colour is never a role; only `tournamentRoleValidation` keeps the documented colour compatibility for historic assignment input |
 | Team and winner (red, black) | `src/shared/gameRoles.ts` `gameTeamOfRole`, `normalizeWinnerTeam` | **one** (2026-10-22); `clubGameTeams.ts` removed |
-| Engine vocabulary («Мирный», «Красные») | the engine is translated once by `setupRoles.ts` / `roleToProtocol`, target: the engine uses canonical keys | the engine still stores its Russian names, but every reading goes through `normalizeGameRole` / `teamOfPlayer` / `normalizeWinnerTeam` (2026-10-23); storing canonical keys is next |
+| Engine role/team state | canonical `GameRole` / `GameTeam`; `setupRoles.ts` parses inputs, `engineStateModel.ts` / `liveSessionStorage.ts` normalize legacy recovery | runtime/current and Undo snapshots use canonical keys; Russian labels remain UI/result/broadcast boundaries; invalid/conflicting recovery roles are not guessed (7b workstream, CI/runtime pending) |
 | Exit type and removal reason | `src/shared/` game discipline constants | dup: the 5 exit values are listed 3 times, removal reasons 4 times |
 | Fouls, technical fouls, PPK, Ci, bonus | one protocol rules module for club and tournament | rule?: the club and tournament validators differ |
 | Best move (ЛХ) points | `server/services/bestMovePoints.ts` | **one** (2026-10-23): both sources count for Elo and tokens (`clubBestMovePointsForParticipant`) |

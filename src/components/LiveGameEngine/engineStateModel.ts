@@ -1,3 +1,4 @@
+import { GAME_ROLES, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import type { VotingRound } from '../../shared/tournamentVoting.js';
 import {
@@ -73,14 +74,24 @@ export type LiveSnapshot = {
   discipline: GameDiscipline;
 };
 
+/** Convert only vocabulary: all game facts and identities remain untouched. Invalid roles never become guessed citizens. */
+export const canonicalizeLivePlayers = (players: readonly (Omit<ActivePlayerState, 'role' | 'team'> & { role: unknown; team?: unknown })[]): ActivePlayerState[] => players.map(player => {
+  const role = normalizeGameRole(player.role);
+  if (!role) throw new Error(`Неизвестная роль на месте #${player.slot_num}`);
+  const team = GAME_ROLES[role].team;
+  const storedTeam = normalizeWinnerTeam(player.team);
+  if (player.team != null && (!storedTeam || storedTeam !== team)) throw new Error(`Роль и команда не совпадают на месте #${player.slot_num}`);
+  return { ...player, role, team };
+});
+
 const jsonClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 export const createEmptyActivePlayer = (slot: number): ActivePlayerState => ({
   slot_num: slot,
   user_id: 0,
   nickname: '',
-  role: 'Мирный',
-  team: 'Красные',
+  role: 'citizen',
+  team: 'red',
   fouls: 0,
   minor_tech_fouls: 0,
   major_tech_fouls: 0,
@@ -141,7 +152,7 @@ export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => {
   const tableDecisionSelection = getSnapshotTableDecisionSelection(snapshot);
   const cloned: LiveSnapshot = {
     ...snapshot,
-    activePlayers: jsonClone(snapshot.activePlayers),
+    activePlayers: canonicalizeLivePlayers(jsonClone(snapshot.activePlayers)),
     nominations: [...snapshot.nominations],
     nominationsMap: { ...snapshot.nominationsMap },
     protocolMarkers: jsonClone(snapshot.protocolMarkers),
@@ -190,6 +201,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
 
   return {
     ...snapshot,
+    activePlayers: canonicalizeLivePlayers(snapshot.activePlayers),
     dayStarterSlot: snapshot.dayStarterSlot ?? (((snapshot.roundNumber - 1) % snapshotTableSize(snapshot)) + 1),
     nominationsMap: snapshot.nominationsMap || {},
     postNightStage: nightFinalActionActive ? (snapshot.postNightStage || 'none') : 'none',

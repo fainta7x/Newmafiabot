@@ -180,8 +180,8 @@ const regularFouls = (s: PersistedLiveSession, slot: number): number =>
  */
 export const trainingCheckTarget = (s: PersistedLiveSession, kind: 'don' | 'sheriff'): number => {
   const alive = s.activePlayers.filter((p) => p.alive).sort((a, b) => a.slot_num - b.slot_num);
-  const actorRole = kind === 'don' ? 'Дон' : 'Шериф';
-  const targets = alive.filter((p) => p.role !== actorRole);
+  const actorRole = kind;
+  const targets = alive.filter((p) => normalizeGameRole(p.role) !== actorRole);
   if (!targets.length) return alive[0]?.slot_num ?? 1;
 
   const initial = kind === 'don'

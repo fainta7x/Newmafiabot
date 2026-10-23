@@ -1,4 +1,4 @@
-import type { LiveSnapshot } from './engineStateModel.js';
+import { canonicalizeLivePlayers, type LiveSnapshot } from './engineStateModel.js';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
 import { setItemFreeingSpace } from '../../lib/liveStorageBudget.ts';
@@ -39,7 +39,9 @@ export function readRestorableLiveSession(
     const parsed = JSON.parse(raw) as PersistedLiveSession;
     const size = Number(parsed?.activePlayers?.length);
     if (parsed?.phase && parsed.phase !== 'setup' && isSupportedTableSize(size) && (expectedTableSize === undefined || size === expectedTableSize) && sessionKeyMatches(parsed.sessionKey, expectedSessionKey)) {
-      return parsed;
+      return { ...parsed, activePlayers: canonicalizeLivePlayers(parsed.activePlayers),
+        historyStack: parsed.historyStack?.map(snapshot => ({ ...snapshot, activePlayers: canonicalizeLivePlayers(snapshot.activePlayers) })),
+      };
     }
   } catch {
     return null;
@@ -53,7 +55,9 @@ export function writeLiveSession(
   storage: StorageLike = browserStorage(),
 ): void {
   try {
-    const value = JSON.stringify(session);
+    const value = JSON.stringify({ ...session, activePlayers: canonicalizeLivePlayers(session.activePlayers),
+      historyStack: session.historyStack?.map(snapshot => ({ ...snapshot, activePlayers: canonicalizeLivePlayers(snapshot.activePlayers) })),
+    });
     try {
       storage.setItem(LIVE_GAME_SESSION_STORAGE_KEY, value);
     } catch {

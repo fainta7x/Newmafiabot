@@ -1,3 +1,4 @@
+import { GAME_ROLES, ENGINE_TEAM_NAMES } from '../shared/gameRoles.ts';
 import { consumeAutoRestore } from "../lib/liveGameResume.ts";
 import { useEffect, useRef, useState } from "react";
 import { GameSlot } from "../types.js";
@@ -1508,8 +1509,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       slot_num: p.slot_num,
       user_id: p.user_id,
       nickname: p.nickname,
-      role: p.role,
-      team: p.team,
+      role: GAME_ROLES[p.role].label,
+      team: ENGINE_TEAM_NAMES[p.team],
       bonus_points: p.bonus_points,
       lh_points: p.lh_points,
       will_protocol_points: p.will_protocol_points,

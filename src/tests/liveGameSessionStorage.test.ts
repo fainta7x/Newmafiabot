@@ -142,3 +142,39 @@ describe('session ownership by game', () => {
     expect(readRestorableLiveSession(storage, 10, 'club:61')).toBeNull();
   });
 });
+
+
+describe('canonical role/team persistence and legacy recovery', () => {
+  it('translates legacy current and Undo players while preserving every other saved fact', () => {
+    const storage = makeStorage();
+    const legacy: any = JSON.parse(JSON.stringify(makeSnapshot()));
+    legacy.activePlayers[0] = { ...legacy.activePlayers[0], role: 'Шериф', team: 'Красные', fouls: 3, note: 'Сохранить заметку' };
+    legacy.activePlayers[9] = { ...legacy.activePlayers[9], role: 'Дон', team: 'Чёрные', alive: false, exit_reason: 'voted_day' };
+    legacy.historyStack = [JSON.parse(JSON.stringify(legacy))];
+    legacy.historyStack[0].activePlayers[0].fouls = 2;
+    const raw = JSON.stringify(legacy);
+    storage.setItem(LIVE_GAME_SESSION_STORAGE_KEY, raw);
+    const restored = readRestorableLiveSession(storage, 10)!;
+    expect(restored.activePlayers[0]).toEqual({ ...legacy.activePlayers[0], role: 'sheriff', team: 'red' });
+    expect(restored.activePlayers[9]).toEqual({ ...legacy.activePlayers[9], role: 'don', team: 'black' });
+    expect(restored.historyStack![0].activePlayers[0]).toMatchObject({ role: 'sheriff', team: 'red', fouls: 2 });
+    expect({ ...restored, activePlayers: [], historyStack: [] }).toEqual({ ...legacy, activePlayers: [], historyStack: [] });
+    expect(storage.getItem(LIVE_GAME_SESSION_STORAGE_KEY)).toBe(raw);
+    writeLiveSession(restored, storage);
+    const persisted = JSON.parse(storage.getItem(LIVE_GAME_SESSION_STORAGE_KEY)!);
+    expect(persisted.activePlayers[9]).toMatchObject({ role: 'don', team: 'black', alive: false });
+    expect(persisted.historyStack[0].activePlayers[0].role).toBe('sheriff');
+    expect(readRestorableLiveSession(storage, 10)).toEqual(restored);
+  });
+
+  it.each([
+    { role: 'unknown', team: 'Красные' },
+    { role: 'Дон', team: 'Красные' },
+  ])('never guesses a replacement role for malformed saved data: %j', patch => {
+    const storage = makeStorage();
+    const legacy: any = makeSnapshot(); legacy.activePlayers[0] = { ...legacy.activePlayers[0], ...patch };
+    const raw = JSON.stringify(legacy); storage.setItem(LIVE_GAME_SESSION_STORAGE_KEY, raw);
+    expect(readRestorableLiveSession(storage)).toBeNull();
+    expect(storage.getItem(LIVE_GAME_SESSION_STORAGE_KEY)).toBe(raw);
+  });
+});

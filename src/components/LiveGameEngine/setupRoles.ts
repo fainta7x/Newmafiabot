@@ -1,19 +1,19 @@
 import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import type { ActivePlayerState } from './types.js';
 import { isSupportedTableSize, roleCountsMatchTable } from '../../lib/tableComposition.ts';
-import { GAME_ROLES, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 export type LiveRole = ActivePlayerState['role'];
 
-// The engine's Russian role names are translated only through the shared role vocabulary (domain model, 2026-10-23).
+// Legacy/API role spellings enter the engine through the canonical vocabulary.
 export const protocolRoleToLiveRole = (value: string): LiveRole | null => {
   const key = normalizeGameRole(value);
-  return key ? GAME_ROLES[key].label : null;
+  return key;
 };
 
 export const liveRoleToPhysical = (role: LiveRole): PhysicalRole => normalizeGameRole(role) ?? 'citizen';
 
-export const physicalRoleToLive = (role: PhysicalRole): LiveRole => GAME_ROLES[role].label;
+export const physicalRoleToLive = (role: PhysicalRole): LiveRole => role;
 
 /** Roles must match the table size: 10 classic, 9 and 8 at a novice table (see tableComposition). */
 export const roleDistributionIsValid = (players: ActivePlayerState[]): boolean => {

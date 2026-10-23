@@ -57,7 +57,7 @@ export function normalizeWinnerTeam(value: unknown): GameTeam | null {
   return null;
 }
 
-/** The judge engine still stores the Russian names («Мирный», «Красные»); this is where they are spoken. */
+/** Human-readable team names at UI/result boundaries; engine state uses canonical role/team keys. */
 export const ENGINE_TEAM_NAMES = { red: 'Красные', black: 'Чёрные' } as const;
 export type EngineRoleName = GameRoleDefinition['label'];
 

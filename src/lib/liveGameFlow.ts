@@ -3,7 +3,7 @@ export type LiveWinnerTeam = 'Красные' | 'Чёрные';
 
 export interface LiveFlowPlayer {
   slot_num: number;
-  team: 'Красные' | 'Чёрные';
+  team: 'red' | 'black' | 'Красные' | 'Чёрные';
   alive: boolean;
 }
 

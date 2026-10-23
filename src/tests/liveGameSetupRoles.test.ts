@@ -17,40 +17,40 @@ const seat = (role: LiveRole, userId = 1, slotNum = 1): ActivePlayerState => ({
 } as ActivePlayerState);
 
 const validSetup = (): ActivePlayerState[] => [
-  ...Array.from({ length: 6 }, (_, index) => seat('Мирный', 1, index + 1)),
-  seat('Шериф', 1, 7),
-  seat('Мафия', 1, 8),
-  seat('Мафия', 1, 9),
-  seat('Дон', 1, 10),
+  ...Array.from({ length: 6 }, (_, index) => seat('citizen', 1, index + 1)),
+  seat('sheriff', 1, 7),
+  seat('mafia', 1, 8),
+  seat('mafia', 1, 9),
+  seat('don', 1, 10),
 ];
 
 describe('Live Game setup role helpers', () => {
   it('maps physical and live roles in both directions', () => {
-    expect(physicalRoleToLive('citizen')).toBe('Мирный');
-    expect(physicalRoleToLive('sheriff')).toBe('Шериф');
-    expect(physicalRoleToLive('mafia')).toBe('Мафия');
-    expect(physicalRoleToLive('don')).toBe('Дон');
-    expect(liveRoleToPhysical('Мирный')).toBe('citizen');
-    expect(liveRoleToPhysical('Шериф')).toBe('sheriff');
-    expect(liveRoleToPhysical('Мафия')).toBe('mafia');
-    expect(liveRoleToPhysical('Дон')).toBe('don');
+    expect(physicalRoleToLive('citizen')).toBe('citizen');
+    expect(physicalRoleToLive('sheriff')).toBe('sheriff');
+    expect(physicalRoleToLive('mafia')).toBe('mafia');
+    expect(physicalRoleToLive('don')).toBe('don');
+    expect(liveRoleToPhysical('citizen')).toBe('citizen');
+    expect(liveRoleToPhysical('sheriff')).toBe('sheriff');
+    expect(liveRoleToPhysical('mafia')).toBe('mafia');
+    expect(liveRoleToPhysical('don')).toBe('don');
   });
 
   it('normalizes tournament protocol roles without widening the accepted vocabulary', () => {
-    expect(protocolRoleToLiveRole(' citizen ')).toBe('Мирный');
-    expect(protocolRoleToLiveRole('МИРНЫЙ')).toBe('Мирный');
-    expect(protocolRoleToLiveRole('Sheriff')).toBe('Шериф');
-    expect(protocolRoleToLiveRole('шериф')).toBe('Шериф');
-    expect(protocolRoleToLiveRole('MAFIA')).toBe('Мафия');
-    expect(protocolRoleToLiveRole('мафия')).toBe('Мафия');
-    expect(protocolRoleToLiveRole('Don')).toBe('Дон');
-    expect(protocolRoleToLiveRole('дон')).toBe('Дон');
+    expect(protocolRoleToLiveRole(' citizen ')).toBe('citizen');
+    expect(protocolRoleToLiveRole('МИРНЫЙ')).toBe('citizen');
+    expect(protocolRoleToLiveRole('Sheriff')).toBe('sheriff');
+    expect(protocolRoleToLiveRole('шериф')).toBe('sheriff');
+    expect(protocolRoleToLiveRole('MAFIA')).toBe('mafia');
+    expect(protocolRoleToLiveRole('мафия')).toBe('mafia');
+    expect(protocolRoleToLiveRole('Don')).toBe('don');
+    expect(protocolRoleToLiveRole('дон')).toBe('don');
     expect(protocolRoleToLiveRole('unknown')).toBeNull();
   });
 
   it('separates a valid 6/1/2/1 role distribution from a fully assigned setup', () => {
     const players = validSetup();
-    players[0] = seat('Мирный', 0, 1);
+    players[0] = seat('citizen', 0, 1);
     expect(roleDistributionIsValid(players)).toBe(true);
     expect(roleSetupIsValid(players)).toBe(false);
   });
@@ -63,7 +63,7 @@ describe('Live Game setup role helpers', () => {
   it('rejects the wrong seat count or role distribution', () => {
     expect(roleSetupIsValid(validSetup().slice(0, 9))).toBe(false);
     const players = validSetup();
-    players[0] = seat('Мафия', 1, 1);
+    players[0] = seat('mafia', 1, 1);
     expect(roleDistributionIsValid(players)).toBe(false);
     expect(roleSetupIsValid(players)).toBe(false);
     expect(buildPhysicalRoleAssignments(players)).toEqual({});

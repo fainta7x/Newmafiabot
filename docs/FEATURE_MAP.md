@@ -302,6 +302,8 @@ Read `docs/BUSINESS_RULES.md` before changing game behavior.
 
 ## Tournaments / protocols / awards / results
 
+- Shared player/discipline, shots, first-killed and best-move checks: `src/lib/protocolConsistency.ts`, consumed by club save service, tournament routes and tournament completion UI. Voting consistency remains in its existing owner.
+
 - API: `tournamentsRoutes.ts`, `protocolImportsRoutes.ts`, `tournamentProtocolRoutes.ts`, `tournamentAwardsRoutes.ts`, `flexibleTournamentResultsRoutes.ts`, `tournamentTokenSettlementRoutes.ts`, `judgeAuthorityAdminRoutes.ts`.
 - Schema: `drizzle/` and matching `src/db/ensure*.ts`.
 - Wrong result: trace persisted protocol -> calculation/service -> publication/UI; do not patch only the final number.

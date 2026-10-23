@@ -1,3 +1,5 @@
+import { validateBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../../../lib/protocolConsistency.ts';
+import { normalizeGameRole } from '../../../../shared/gameRoles.ts';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../../../lib/api';
 import {
   determineVotingResult,
@@ -314,12 +316,8 @@ export const validateProtocolCompletion = (
 
   const roleCounts: Record<string, number> = { citizen: 0, sheriff: 0, mafia: 0, don: 0 };
   for (const player of playerResults) {
-    const role = (player.role || '').toLowerCase();
-    if (role === 'мирянин' || role === 'мирный') roleCounts.citizen++;
-    else if (role === 'шериф') roleCounts.sheriff++;
-    else if (role === 'мафия') roleCounts.mafia++;
-    else if (role === 'дон') roleCounts.don++;
-    else if (roleCounts[role] !== undefined) roleCounts[role]++;
+    const role = normalizeGameRole(player.role);
+    if (role) roleCounts[role]++;
   }
   if (
     roleCounts.citizen !== 6 ||
@@ -332,68 +330,11 @@ export const validateProtocolCompletion = (
     );
   }
 
-  if (protocol.first_killed_participant_id) {
-    const firstKilled = playerResults.find(
-      (player) => player.participant_id === protocol.first_killed_participant_id,
-    );
-    if (firstKilled && firstKilled.exit_type !== 'killed') {
-      return generalValidationError('Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)');
-    }
-  }
-
-  if (protocol.zero_round_voted_participant_id) {
-    const zeroRoundVoted = playerResults.find(
-      (player) => player.participant_id === protocol.zero_round_voted_participant_id,
-    );
-    if (zeroRoundVoted && zeroRoundVoted.exit_type !== 'voted_zero_round') {
-      return generalValidationError(
-        'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"',
-      );
-    }
-  }
-
-  if (
-    protocol.first_killed_participant_id &&
-    protocol.zero_round_voted_participant_id &&
-    protocol.first_killed_participant_id === protocol.zero_round_voted_participant_id
-  ) {
-    return generalValidationError(
-      'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком',
-    );
-  }
-
-  if (protocol.best_moves && protocol.best_moves.length > 0) {
-    const seenParticipants = new Set<string>();
-    const seenSources = new Set<string>();
-    for (const bestMove of protocol.best_moves) {
-      if (seenParticipants.has(bestMove.participant_id)) {
-        return generalValidationError('Один участник не может иметь два ЛХ');
-      }
-      seenParticipants.add(bestMove.participant_id);
-
-      if (seenSources.has(bestMove.source)) {
-        return generalValidationError('Источник ЛХ не может повторяться');
-      }
-      seenSources.add(bestMove.source);
-
-      if (
-        bestMove.source === 'first_killed' &&
-        bestMove.participant_id !== protocol.first_killed_participant_id
-      ) {
-        return generalValidationError(
-          'Для ЛХ первого убитого участник обязан совпадать с первоубиенным',
-        );
-      }
-      if (
-        bestMove.source === 'zero_round_voted' &&
-        bestMove.participant_id !== protocol.zero_round_voted_participant_id
-      ) {
-        return generalValidationError(
-          'Лучший ход после нулевого круга может оставить только игрок, заголосованный в нулевом круге',
-        );
-      }
-    }
-  }
+  const consistencyError = validatePlayerResults(playerResults, playerResults, protocol.first_killed_participant_id)
+    || validateShots(protocol.shots)
+    || validateBestMoves(protocol.best_moves || [], protocol.first_killed_participant_id, protocol.zero_round_voted_participant_id, playerResults.map(player => player.participant_id), playerResults)
+    || validateFirstKilled(protocol.first_killed_participant_id, playerResults, playerResults, protocol.shots || []);
+  if (consistencyError) return generalValidationError(consistencyError);
 
   if (hasUnclassifiedLegacyTechFouls) {
     return generalValidationError(

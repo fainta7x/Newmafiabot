@@ -1,3 +1,4 @@
+import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -30,7 +31,7 @@ export async function loadInvitationContextsForRecipients(db: DatabaseWrapper, i
     SELECT e.id,e.title,e.starts_at,e.venue,e.format,e.status,e.settled_at,
            iep.response_status AS inviter_response, iep.registration_status AS inviter_registration, iep.arrival_status AS inviter_arrival
       FROM game_evenings e JOIN evening_participants iep ON iep.evening_id=e.id AND iep.player_id=?
-     WHERE e.settled_at IS NULL AND datetime(e.starts_at)>=datetime('now','-6 hours') AND e.status IN ('published','active')
+     WHERE ${openEveningSql('e')}
      ORDER BY datetime(e.starts_at) ASC LIMIT 12
   `,[inviterPlayerId]) : [];
   const eveningIds = evenings.map((row:any) => String(row.id));
@@ -55,7 +56,7 @@ export async function loadInvitationContextsForRecipients(db: DatabaseWrapper, i
       const registration = String(ep?.registration_status || '').trim().toLowerCase(), rawResponse = String(ep?.response_status || '').trim();
       const response = normalizeCanonicalEveningResponse(rawResponse || registration, ep?.arrival_status);
       let state: InvitationEveningState = 'eligible';
-      if (String(row.status) !== 'published') state='registration_closed'; else if (response === 'going' || response === 'late') state='registered'; else if (registration === 'reserve' || registration === 'waiting' || rawResponse.toLowerCase() === 'reserve') state='reserve'; else if (existing) state='already_invited'; else if (!playerLevelAllowsEveningFormat(recipient.game_level,row.format) || (invitePrefs.get(id)?.blocked_kinds || []).includes(inviteKindOfEvening(row.format))) state='unavailable_format'; else if (Number(countMap.get(String(row.id))||0)>=5) state='sender_limit';
+      if (!isOpenEvening(row)) state='registration_closed'; else if (response === 'going' || response === 'late') state='registered'; else if (registration === 'reserve' || registration === 'waiting' || rawResponse.toLowerCase() === 'reserve') state='reserve'; else if (existing) state='already_invited'; else if (!playerLevelAllowsEveningFormat(recipient.game_level,row.format) || (invitePrefs.get(id)?.blocked_kinds || []).includes(inviteKindOfEvening(row.format))) state='unavailable_format'; else if (Number(countMap.get(String(row.id))||0)>=5) state='sender_limit';
       return { id:String(row.id),title:String(row.title||'Игровой вечер'),starts_at:row.starts_at||null,venue:row.venue||null,format:String(row.format||'CASUAL'),state,existing_invitation:existing };
     });
     const eligible = payload.some((item) => item.state==='eligible'), reason = eligible ? null : payload.length ? payload[0].state : 'no_active_evening';

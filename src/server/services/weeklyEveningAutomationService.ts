@@ -1,3 +1,4 @@
+import { loadPriceSettings } from './eveningPriceSettingsService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { randomUUID } from 'node:crypto';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
@@ -6,7 +7,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
 import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishingSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
-import { ensureSlotsForEvening, SLOT_PRICE } from './eveningSlotPlanningService.ts';
+import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
 import { ensureEveningCloseoutTask } from './eveningCloseoutService.ts';
 import { needsEveningStartConfirmation } from './eveningStartConfirmationStore.ts';
 import { assignDefaultEveningStaff } from './eveningStaffService.ts';
@@ -135,7 +136,7 @@ async function createPublishedFridayEvening(db: DatabaseWrapper, date: Date) {
         template?.timezone || 'Europe/Moscow',
         template?.venue || 'Суп с Котом',
         Number(template?.capacity || 20),
-        SLOT_PRICE,
+        (await loadPriceSettings(db)).casual_game,
         now,
         now,
       ],

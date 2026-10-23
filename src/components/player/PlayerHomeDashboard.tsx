@@ -214,7 +214,7 @@ export default function PlayerHomeDashboard({
                 <ol className="mt-2 space-y-1 text-sm leading-5 text-white/65">
                   <li>1. Выбор пути: новичок или уже играет.</li>
                   <li>2. Новичок сразу записывается на вечер; опытного игрока сначала проверит организатор.</li>
-                  <li>3. Новичкам первые два вечера бесплатно.</li>
+                  <li>3. Стоимость — в карточке вечера. Бесплатное участие дарит организатор.</li>
                 </ol>
                 <button type="button" onClick={() => onOpenEvents()} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
                   <span>Выбрать путь</span>
@@ -250,7 +250,7 @@ export default function PlayerHomeDashboard({
               </div>
               {onNovicePath && normalizeEveningFormat(nextEvening.format) === 'NOVICE' && novice ? (
                 <div className="mt-3 rounded-2xl bg-emerald-300/[0.08] px-3 py-2 text-[13px] text-emerald-100/80">
-                  {novice.free_visits_remaining > 0 ? `Бесплатных вечеров осталось: ${novice.free_visits_remaining}` : 'Дальше — 200 ₽ за игру'}
+                  Стоимость — в карточке вечера. Подарок отмечает организатор.
                 </div>
               ) : null}
               <button type="button" onClick={() => onOpenEvents(nextEvening.id)} className={`mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl px-4 text-sm font-semibold ${awaitingFirstApplication ? 'bg-white/[0.08] text-white/80' : 'bg-white text-black'}`}>

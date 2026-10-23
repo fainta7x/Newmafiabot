@@ -22,7 +22,7 @@ async function setup(format: 'NOVICE' | 'CASUAL') {
   for (let seat = 1; seat <= 10; seat += 1) {
     await db.run("INSERT INTO players (id,nickname,game_level,tokens,created_at,updated_at) VALUES (?,?,'novice',0,?,?)", [`p${seat}`, `Игрок ${seat}`, now, now]);
     await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
-      VALUES (?,?,?,'going','going','attended','on_time','waived',0,0,?,?)`, [`ep${seat}`, 'ev', `p${seat}`, now, now]);
+      VALUES (?,?,?,'going','going','attended','on_time','paid',200,200,?,?)`, [`ep${seat}`, 'ev', `p${seat}`, now, now]);
   }
   const create = async (count: number) => Object.assign(await request(app).post('/api/games/evening/ev').set('Cookie', cookie()).send({
     judge_player_id: 'org', judge_name: 'Судья',

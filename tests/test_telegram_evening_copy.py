@@ -1,10 +1,11 @@
 from handlers.telegram_evening_copy import event_base_text
 
 
-def test_novice_announcement_shows_briefing_and_free_first_evenings():
+def test_novice_announcement_shows_briefing_and_paid_tariff():
     text = event_base_text({"format": "NOVICE", "title": "Школа", "starts_at": "2026-09-25T16:00:00.000Z", "default_price": 200})
     assert "🎓 Рассказываем правила — 18:30, первая игра — 19:00" in text
-    assert "Первые 2 вечера — бесплатно, дальше 200 ₽ за игру" in text
+    assert "200 ₽ за игру" in text
+    assert "бесплатно" not in text
 
 
 def test_casual_announcement_has_no_briefing():
@@ -193,3 +194,16 @@ def test_slot_marked_host_is_not_in_arrival_list_without_evening_identity():
     assert "<b>8</b> игроков + 1 ведущий ✅" in text
     assert "Записались на игры: 8" in text
     assert text.count("Спящий") == 1
+
+
+def test_saved_template_is_used_for_every_evening_format_and_escaped_at_transport_boundary():
+    from handlers.telegram_evening_copy import thematic_event_text
+    for kind in ("CASUAL", "NOVICE", "RATING"):
+        text = thematic_event_text({"format": kind, "announcement_text": "Приходи <друг>! & до встречи", "starts_at": "2030-10-16T18:00:00Z"}, [], [])
+        assert text.startswith("Приходи &lt;друг&gt;! &amp; до встречи")
+
+
+def test_public_announcement_uses_the_shared_template_without_a_second_promo():
+    from handlers.telegram_evening_copy import novice_invitation_text
+    evening = {"format": "NOVICE", "announcement_text": "Текст владельца <друг> & ссылка", "starts_at": "2030-10-16T18:00:00Z"}
+    assert novice_invitation_text(evening, [], signup_url="https://t.me/test") == "Текст владельца &lt;друг&gt; &amp; ссылка"

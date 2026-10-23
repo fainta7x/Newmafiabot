@@ -1,3 +1,4 @@
+import { loadEveningPrices } from './eveningPriceSettingsService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -35,9 +36,11 @@ export async function replaceOrganizerPlayerSlotSelection(
     throw Object.assign(new Error('В выборе есть недоступная игра'), { statusCode: 400 });
   }
 
+  const policy = await loadEveningPrices(db, eveningId);
   const estimate = calculateEveningSelectionTotal(
     evening.format,
     slotIds.map((slotId) => Number(byId.get(slotId)?.price_rub || 0)),
+    policy,
   );
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const now = new Date().toISOString();

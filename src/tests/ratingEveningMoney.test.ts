@@ -3,7 +3,6 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { RATING_ENTRY_FEE, ratingEveningSplit } from '../lib/ratingEveningMoney.ts';
 import { calculateEveningSelectionTotal, reconcileNoviceEveningCharges } from '../server/services/eveningSlotPlanningService.ts';
-import { announcementPriceLine } from '../server/services/vkDirectJoinPublishingService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -18,7 +17,6 @@ describe('rating evening money', () => {
   it('charges one entry fee per evening, whatever the number of picked games', () => {
     expect(calculateEveningSelectionTotal('RATING', [100, 100, 100])).toBe(500);
     expect(calculateEveningSelectionTotal('RATING', [])).toBe(0);
-    expect(announcementPriceLine('RATING', 100)).toBe('💳 Взнос 500 ₽ за вечер — до начала игр');
   });
 
   it('brings everyone who comes to the 500 ₽ fee and keeps recorded payments', async () => {

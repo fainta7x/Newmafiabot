@@ -3,7 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import type { NoviceApplicationStatus, NoviceEntryRoute } from '../../shared/novice.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
-import { NOVICE_FREE_VISITS } from './eveningSlotPlanningService.ts';
+import { loadPriceSettings } from './eveningPriceSettingsService.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
 import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
@@ -124,9 +124,9 @@ export async function getNovicePlayerState(db: DatabaseWrapper, playerId: string
     },
     applications,
     novice_visits: noviceVisits,
-    // Same eligibility as the charged price (novicePriceForPlayer): only the «Новичок» level gets free visits.
-    free_visits_remaining: String(player.game_level || '') === 'novice' ? Math.max(0, NOVICE_FREE_VISITS - noviceVisits) : 0,
-    next_novice_price_per_game: noviceVisits < 2 ? 0 : 200,
+    // Kept for old clients; free participation requires an explicit CRM gift.
+    free_visits_remaining: 0,
+    next_novice_price_per_game: (await loadPriceSettings(db)).novice_game,
     can_self_register: ['NOVICE_ACTIVE', 'NOVICE_COMPLETED', 'CLUB_PLAYER'].includes(String(player.club_stage || 'NEW')),
   };
 }
@@ -270,7 +270,7 @@ export async function updateNoviceApplicationStatus(
   if (application.player_id && ['CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(status)) {
     const text = status === 'CONFIRMED'
       ? (normalizeRoute(application.entry_route) === 'NOVICE'
-        ? 'Ваша заявка в 2LA Noire подтверждена — добро пожаловать в Школу мафии! Записывайтесь на ближайший новичковый вечер в «Событиях»: первые два вечера бесплатно.'
+        ? 'Ваша заявка в 2LA Noire подтверждена — добро пожаловать в Школу мафии! Записывайтесь на ближайший новичковый вечер в «Событиях»: стоимость указана в карточке вечера. Организатор может подарить участие.'
         : normalizeRoute(application.entry_route) === 'OTHER_CITY'
           ? 'Ваша заявка в 2LA Noire подтверждена — рады гостю из другого города! Записывайтесь на вечера в «Событиях»; о рейтинговых вечерах и турнирах мы напишем вам сами.'
           : 'Ваша первая заявка в 2LA Noire подтверждена. Теперь можно самостоятельно записываться на клубные вечера в «Событиях».')

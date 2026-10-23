@@ -1,3 +1,5 @@
+import { loadEveningPrices, loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { loadEveningPeople } from '../services/eveningPeopleService.ts';
 import { Router, type Response } from 'express';
 import { notifyEveningCancelled, recordEveningCancellation } from '../services/eveningShortfallService.ts';
@@ -31,7 +33,6 @@ import { assignDefaultEveningStaff, autoAssignEveningOrganizer, eveningOrganizer
 
 const router = Router();
 const expectedSql = "response_status IN ('going','late')";
-const REGULAR_PRICE = 100;
 const participantSelect = `SELECT ep.* FROM (
   SELECT raw.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
     FROM evening_participants raw
@@ -59,7 +60,7 @@ const insertRegularSlotSettings = async (db: DatabaseWrapper, eveningId: string,
       (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at)
      VALUES (?, 6, 60, ?, 4, 11, ?, ?)
      ON CONFLICT(evening_id) DO UPDATE SET price_per_game = excluded.price_per_game, updated_at = excluded.updated_at`,
-    [eveningId, REGULAR_PRICE, now, now],
+    [eveningId, (await loadEveningPrices(db, eveningId)).casual_game, now, now],
   );
 };
 
@@ -74,6 +75,7 @@ const loadEveningParticipants = loadEveningPeople;
 router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
+    const policy = await loadPriceSettings(db);
     await ensureEveningSlotsSchema(db);
     // Weekday, hour and date are Moscow wall-clock values (UTC+3, no DST),
     // independent of the server's time zone.
@@ -95,13 +97,13 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
       await tx.run(
         `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
          VALUES (?, ?, ?, 'Europe/Moscow', 'Суп с Котом', 'CASUAL', 'draft', 20, ?, ?, ?)`,
-        [eveningId, title, startsAtIso, REGULAR_PRICE, nowIso, nowIso],
+        [eveningId, title, startsAtIso, policy.casual_game, nowIso, nowIso],
       );
       await insertRegularSlotSettings(tx, eveningId, nowIso);
     });
     await assignDefaultEveningStaff(db, eveningId);
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
-    return res.status(201).json({ ...withCanonicalFormat(evening), price_per_game: REGULAR_PRICE, tables: [] });
+    return res.status(201).json({ ...withCanonicalFormat(evening), price_per_game: policy.casual_game, tables: [] });
   } catch (err: any) {
     return res.status(500).json({ error: 'Database error', message: err.message });
   }
@@ -112,12 +114,13 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createEveningSchema.parse(req.body);
     const db = req.db || (await getDb());
+    const policy = await loadPriceSettings(db);
     const regular = isRegularEvening(data.format);
     if (regular) await ensureEveningSlotsSchema(db);
     if ((req as AuthenticatedRequest).eventHostPlayerId) await ensureClubOperationsSchema(db);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const defaultPrice = regular ? REGULAR_PRICE : data.default_price;
+    const defaultPrice = regular ? policy.casual_game : normalizeEveningFormat(data.format) === 'NOVICE' ? policy.novice_game : normalizeEveningFormat(data.format) === 'RATING' ? policy.rating_entry : data.default_price;
 
     await db.transaction(async (tx) => {
       await tx.run(
@@ -141,7 +144,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
     const created = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
     return res.status(201).json({
       ...withCanonicalFormat(created),
-      ...(regular ? { price_per_game: REGULAR_PRICE } : {}),
+      ...(regular ? { price_per_game: policy.casual_game } : {}),
     });
   } catch (err: any) {
     return res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
@@ -152,6 +155,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
 router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
+    const policy = await loadPriceSettings(db);
     const lastEvening = await db.get<any>('SELECT * FROM game_evenings ORDER BY starts_at DESC LIMIT 1');
     if (!lastEvening) return res.status(404).json({ error: 'Предыдущий вечер не найден' });
     const lastTables = await db.all<any>('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC', [lastEvening.id]);
@@ -173,7 +177,7 @@ router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
           lastEvening.venue || 'Суп с Котом',
           lastEvening.format || 'STANDARD',
           lastEvening.capacity || 20,
-          regular ? REGULAR_PRICE : (lastEvening.default_price || 500),
+          regular ? policy.casual_game : (lastEvening.default_price || 500),
           lastEvening.notes || null,
           now,
           now,
@@ -185,9 +189,9 @@ router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
         await tx.run(
           `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [tableId, newEveningId, table.name, table.format, table.capacity, table.host_name, regular ? REGULAR_PRICE : table.default_price, table.notes, table.sort_order, now, now],
+          [tableId, newEveningId, table.name, table.format, table.capacity, table.host_name, regular ? policy.casual_game : table.default_price, table.notes, table.sort_order, now, now],
         );
-        newTables.push({ ...table, id: tableId, evening_id: newEveningId, default_price: regular ? REGULAR_PRICE : table.default_price, created_at: now, updated_at: now });
+        newTables.push({ ...table, id: tableId, evening_id: newEveningId, default_price: regular ? policy.casual_game : table.default_price, created_at: now, updated_at: now });
       }
     });
 
@@ -195,7 +199,7 @@ router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [newEveningId]);
     return res.status(201).json({
       ...withCanonicalFormat(evening),
-      ...(regular ? { price_per_game: REGULAR_PRICE } : {}),
+      ...(regular ? { price_per_game: policy.casual_game } : {}),
       tables: newTables,
     });
   } catch (err: any) {
@@ -250,7 +254,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     }
     if (data.default_price !== undefined || regular) {
       fields.push('default_price = ?');
-      values.push(regular ? REGULAR_PRICE : data.default_price);
+      values.push(regular ? (await loadEveningPrices(db, eveningId)).casual_game : data.default_price);
     }
     const now = new Date().toISOString();
 
@@ -284,7 +288,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
         console.warn('[EVENING UPDATE] cancellation post failed:', error instanceof Error ? error.message : String(error));
       }
     }
-    const pricePerGame = regular ? REGULAR_PRICE : await loadEveningPricePerGame(db, eveningId);
+    const pricePerGame = regular ? (await loadEveningPrices(db, eveningId)).casual_game : await loadEveningPricePerGame(db, eveningId);
     return res.json({
       ...withCanonicalFormat(updated),
       ...(pricePerGame !== undefined ? { price_per_game: pricePerGame } : {}),
@@ -304,7 +308,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     // «Проводит вечера» sees every evening like an organizer, without the money totals.
     const eventHost = req.userRole !== 'ORGANIZER' && await canUseEventHostRoute(req);
     if (req.userRole !== 'ORGANIZER' && !eventHost) {
-      const rows = await db.all<any>(`SELECT e.*, ${pricePerGame} AS price_per_game, (${regularCount} + ${guestCount}) AS registered_count FROM game_evenings e WHERE e.status IN ('published','active') ORDER BY e.starts_at ASC`);
+      const rows = await db.all<any>(`SELECT e.*, ${pricePerGame} AS price_per_game, (${regularCount} + ${guestCount}) AS registered_count FROM game_evenings e WHERE ${openEveningSql('e')} ORDER BY e.starts_at ASC`);
       return res.json(rows.map((e) => ({ id:e.id,title:e.title,starts_at:e.starts_at,ends_at:e.ends_at,venue:e.venue,format:normalizeEveningFormat(e.format),status:e.status,capacity:e.capacity,default_price:e.default_price,price_per_game:e.price_per_game,registered_count:e.registered_count,available_spots:Math.max(0,Number(e.capacity||0)-Number(e.registered_count||0)) })));
     }
     const rows = await db.all<any>(`SELECT e.*,

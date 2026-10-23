@@ -1562,3 +1562,30 @@ These are the safety net for moving the engine to the shared vocabulary.
 - Next, step 7b: the stored state moves to canonical keys, translating old saved games on restore.
 - 91 live, engine and judge test files pass, including the six scenarios.
 
+
+## Evening domain — owner request 2026-10-23
+Scope: prices, explicit gifts, one announcement template and one open-evening rule.
+- Open: eveningSlotPlanningService.ts and eveningPaymentPricingService.ts duplicate fixed tariffs; settings must feed future evenings without rewriting historic accounts.
+- Open: novicePriceForPlayer and noviceService automatically grant free visits, contrary to Domain model decisions 6.
+- Open: telegram_evening_copy.py ignores post_text_templates used by VK.
+- Open: playerInvitationEligibilityService.ts closes active evenings and hides old open ones after six hours.
+Acceptance: shared settings and tariffs, explicit gifts retained, common post text, published/active unsettled evenings visible and bookable; focused tests, CI and deployment separately.
+
+Implementation: shared tariff defaults and frozen per-evening policies, no automatic novice-free visits, existing full-evening gift preserved, one announcement renderer, common open predicate at player/bot/invitation boundaries. Focused 61 tests passed; final-head CI pending. Runtime after #1012: health OK, build.sha changed 8e10dfb → 4516fa8; mirror ancestry unavailable because this session exposes no getCommitHistory or signed-in Amvera tab. No production data writes.
+Local verification constraint: automatic approval review stopped the full test run after an unmocked Telegram request. It was not retried; focused verification uses a temporary default fetch guard rejecting unmocked network calls. Local Playwright browser download returned a truncated ZIP; mobile evidence uses the existing isolated GitHub UI preview workflow, with a 360/390 price-settings before/after fixture and save/reload checks.
+
+## PR #1013 CI follow-up — 2026-10-23
+- Open: noviceTableSize.integration.test.ts still creates unpaid novice fixtures assuming automatic free visits; seed actual prepayment so the table-size/token assertions exercise their intended rule.
+- Open: eveningPostTextService.ts dropped novice instructions, group/contact and cabinet links while sharing the template; restore them as optional values of the same template for both channels, retaining stored custom text.
+- Open: vkPlayerAuthRouting.test.ts checks a removed implementation string instead of the relocated shared renderer; preserve its cabinet-link requirement and update the source location, backed by rendered announcement tests.
+- Evidence: exact head e09532a, CI 39923194875; 8 failures in shards 1/5 and 3/5. UI preview 39923194896 passed, artifact SHA256 564fe37b33cdb52a995d6169a1d5fdcb78403d6626caa1ed33b40f6568e578bc.
+
+Follow-up: restored novice introduction, briefing, groups, contacts and cabinet link as optional placeholders of the shared template. Existing customized templates remain unchanged; bot and VK share the same rendered text. Table-size fixtures now include factual prepayment. Focused failed-test group: 42 passed; before/after 390px inspected, no clipping; 360px inspection and final-head CI remain separate gates.
+- Open follow-up: handlers/crm_telegram_publishing.py sends public announcements through novice_invitation_text; that Python entry point still ignored announcement_text. Reproduction with announcement_text='Текст владельца' returns the legacy promo instead. Fix the boundary reader and test it, rather than considering the Node render test sufficient.
+
+Resolved public-announcement boundary: novice_invitation_text now consumes and HTML-escapes the server-rendered announcement_text; legacy fallback only applies when no rendered template is supplied. Python copy tests: 17 passed. Source head 2a35a41 passed all five CI test shards, release gate, CodeQL, Gitleaks and UI preview before this final Python boundary fix; final-head CI remains required. Both 360/390 images inspected and comparison delivered.
+
+## PR #1013 review P2 — fallback FAQ, 2026-10-23
+Open: handlers/bot_home.py fallback still advertises fixed 100/400 prices and expired automatic novice-free visits; src/db/botFaqSeed.ts retains the latter in the payment answer too. Replace both with the evening-card tariff and explicit gifts. Migrate only untouched legacy FAQ defaults, preserving organizer edits. The other two review findings (novice VK content and public Telegram template) are covered by passing regression checks on 4abaf3c.
+
+P2 fixed in both FAQ sources; untouched legacy payment answers migrate by exact text, organizer edits remain. Node FAQ tests: 4 passed. Python fallback regression verifies no fixed tariffs and explicit-gift prepayment wording.

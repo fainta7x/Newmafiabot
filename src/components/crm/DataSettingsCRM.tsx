@@ -1,3 +1,4 @@
+import { EveningPriceSettingsCard } from './EveningPriceSettingsCard.tsx';
 import React, { useEffect, useState } from 'react';
 import { Award, Database, History, RefreshCw, ShoppingBag } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -312,6 +313,7 @@ export const DataSettingsCRM: React.FC = () => {
         <p className="mt-1 text-[13px] text-text-secondary">Ачивки и товары магазина жетонов. «Правка» — прямое исправление записей, только на крайний случай. Настройки конкретного игрока — в его карточке.</p>
       </div>
 
+      <EveningPriceSettingsCard />
       {error ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
 
       <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">

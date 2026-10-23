@@ -1,3 +1,4 @@
+import { loadEveningPrices } from '../services/eveningPriceSettingsService.ts';
 import { Router } from 'express';
 import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
@@ -8,7 +9,6 @@ import { withdrawAttendanceRewards } from '../services/eveningAttendanceRewardSe
 // The evening list, card, create/update, participants and settle live in eveningsRoutes.ts; this file keeps only
 // deletion, adjustments and tables (the shadowed legacy copies were removed, domain model audit 2026-10-23).
 const router = Router();
-const REGULAR_PRICE = 100;
 const isRegularEvening = (format: unknown) => normalizeEveningFormat(format) === 'CASUAL';
 
 // DELETE /api/evenings/:id - Delete evening (Auth required, completed evenings cannot be deleted)
@@ -106,7 +106,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
     // Table price is owned by the parent evening pricing policy. Legacy 400/500/600
     // input must never be persisted for CASUAL/legacy STANDARD evenings.
     const defaultPrice = isRegularEvening(evening.format)
-      ? REGULAR_PRICE
+      ? (await loadEveningPrices(db, String(evening.id))).casual_game
       : (req.body.default_price ?? evening.default_price ?? 500);
     await db.run(
       `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
@@ -149,7 +149,7 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
 
     const now = new Date().toISOString();
     const defaultPrice = isRegularEvening(evening?.format)
-      ? REGULAR_PRICE
+      ? (await loadEveningPrices(db, String(evening.id))).casual_game
       : (req.body.default_price !== undefined ? req.body.default_price : table.default_price);
     await db.run(
       `UPDATE evening_tables 

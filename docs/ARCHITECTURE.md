@@ -393,3 +393,7 @@ Any flow where a player asks for something an organizer must confirm (a GoMafia 
 ### Sporting role presentation
 
 `GameRole` has four stable keys: citizen, sheriff, mafia, don. `gameRoles.ts` owns names, team, icon token and palette. `GameRoleIcon`, `GameRoleMark` and `GameRoleBadge` render this metadata. Existing `TournamentRole`, `PhysicalRole`, `StatRole` and label exports are compatibility names for the same identity. The player API adapter accepts canonical keys only: missing roles and team-only colours do not infer a role. Judge-engine names are decoded at the presentation boundary; legacy assignment normalization and visibility guards keep their behavior. Light/dark foregrounds provide contrast within one role palette.
+
+### Evening domain ownership (2026-10-23)
+
+System tariff defaults and frozen per-evening policies: eveningPriceSettingsService.ts (settings API: /api/evening-prices). Shared formulas and price copy: lib/eveningPrices.ts. Explicit full-evening gifts retain evening_fee_waivers and the existing CRM payment action. Open-evening status and SQL predicate: lib/eveningStatus.ts. The shared Telegram/VK announcement renderer: eveningPostTextService.ts, using postTemplateService.ts and the existing persisted template key for backward compatibility.

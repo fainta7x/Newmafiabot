@@ -22,6 +22,15 @@ export async function ensureBotFaqSchema(db: Pick<DatabaseWrapper, 'run' | 'get'
       await db.run('INSERT INTO bot_faq_entries (id, button, title, answer, position, enabled, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?)', [item.id, item.button, item.title, item.answer, index, now]);
     }
   }
+  // Replace only untouched legacy defaults; preserve every organizer-edited FAQ.
+  for (const old of [
+    { id: "pay", answer: "Оплатить можно прямо на вечере — организатору. На вечере для новичков, когда бесплатные вечера уже закончились, оплату нужно передать до первой игры — без неё игру не начнём.\n\nСколько с тебя, всегда видно в приложении, в разделе «Оплата»." },
+    { id: "price", answer: "На клубном вечере одна игра стоит 100 ₽, но за весь вечер ты заплатишь не больше 400 ₽ — сколько бы ни сыграл.\n\nЕсли ты новичок, первые два вечера для тебя бесплатные 🎁 Дальше — 200 ₽ за игру.\n\nСчитать самому ничего не нужно: приложение всё посчитает за тебя." },
+    { id: "friend", answer: "Конечно, с другом даже веселее! Попроси его тоже записаться через бота — так мы будем знать, сколько столов подготовить.\n\nЕсли он новичок, его первые два вечера бесплатные 🎁" },
+  ]) {
+    const replacement = BOT_FAQ_SEED.find(item => item.id === old.id);
+    if (replacement) await db.run('UPDATE bot_faq_entries SET answer = ?, updated_at = ? WHERE id = ? AND answer = ?', [replacement.answer, new Date().toISOString(), old.id, old.answer]);
+  }
   ready.add(db as object);
 }
 

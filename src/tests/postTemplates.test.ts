@@ -9,7 +9,7 @@ let db: DatabaseWrapper;
 beforeEach(() => { resetPostTemplateSchemaForTests(); db = createDatabaseConnection(':memory:'); });
 afterEach(() => { try { db.sqlite.close(); } catch {} });
 
-const values = { 'когда': 'В пятницу, 16 октября', 'время': '21:00', 'место': 'Суп с Котом', 'где_и_когда': 'Суп с Котом, 21:00', 'цена': '100 ₽ за игру', 'ссылка': 'https://x/e', 'название': 'Вечер' };
+const values = { 'для_новичков': '', 'подробности_новичкам': '', 'когда': 'В пятницу, 16 октября', 'время': '21:00', 'место': 'Суп с Котом', 'где_и_когда': 'Суп с Котом, 21:00', 'цена': '100 ₽ за игру', 'ссылка': 'https://x/e', 'название': 'Вечер' };
 
 describe('organizer-editable post text', () => {
   it('uses the owner\'s original words until a text is saved', async () => {

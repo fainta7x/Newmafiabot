@@ -11,11 +11,13 @@ describe('bot «Частые вопросы» kept in the CRM', () => {
   it('starts with the eight answers the bot always had, switched on', async () => {
     const all = await listBotFaq(db, true);
     expect(all.map((entry) => entry.id)).toEqual(['signup', 'price', 'place', 'novice', 'friend', 'pay', 'tokens', 'cancel']);
-    expect(all[1].answer).toContain('400 ₽');
+    expect(all[1].answer).toContain('в карточке вечера');
+    expect(all[1].answer).not.toContain('первые два');
   });
 
   it('edits an answer, hides a question from the bot and brings it back', async () => {
     await updateBotFaq(db, 'price', { answer: 'Новая цена.' });
+    resetBotFaqSchemaForTests();
     expect((await listBotFaq(db, true)).find((entry) => entry.id === 'price')?.answer).toBe('Новая цена.');
     await updateBotFaq(db, 'price', { enabled: false });
     expect((await listBotFaq(db, true)).some((entry) => entry.id === 'price')).toBe(false);

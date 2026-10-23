@@ -7,19 +7,8 @@ import {
   type VkDestination,
 } from './vkPublishingService.ts';
 import { editVkWallPostWithPublisher } from './vkWallPostEditor.ts';
-import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
-import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
-import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
-import { venueDetails, venueLine } from '../../lib/venues.ts';
-import { shortCabinetLink, shortEveningLink } from './announcementShortLinks.ts';
-import {
-  clubVkGroupUrl,
-  noviceAboutText,
-  noviceHeadlineText,
-  noviceTelegramGroupFallback,
-  organizerContactLinks,
-} from '../../lib/novicePromo.ts';
-import { loadPostTemplate, renderPostTemplate } from './postTemplateService.ts';
+import { shortEveningLink } from './announcementShortLinks.ts';
+import { buildEveningPostText } from './eveningPostTextService.ts';
 import { announcementPhotoPath, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
 
 type EveningRow = {
@@ -86,93 +75,8 @@ const formatDate = (evening: EveningRow) => {
  * edit wall posts, so live registration (who and how many) lives on the public
  * evening page the post links to, which never goes stale.
  */
-/** The price as a newcomer or a regular should read it in the post. */
-export const announcementPriceLine = (format: unknown, pricePerGame: number) => {
-  const normalized = normalizeEveningFormat(format);
-  if (normalized === 'NOVICE') return `💳 Первые ${NOVICE_FREE_VISITS} вечера — бесплатно, дальше ${NOVICE_PAID_GAME_PRICE} ₽ за игру`;
-  if (normalized === 'CASUAL') return `💳 ${pricePerGame.toLocaleString('ru-RU')} ₽ за игру, не больше ${CLUB_EVENING_MAX_PRICE} ₽ за вечер`;
-  if (normalized === 'RATING') return `💳 Взнос ${RATING_ENTRY_FEE.toLocaleString('ru-RU')} ₽ за вечер — до начала игр`;
-  return `💳 ${pricePerGame.toLocaleString('ru-RU')} ₽ за игру`;
-};
-
-/** The invite link of the Telegram novice chat, as set in the organizer's Telegram settings. */
-const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> => {
-  try {
-    // The invite link stays valid even while the bot does not post to that group.
-    const row = await db.get<{ invite_url: string | null }>("SELECT invite_url FROM telegram_destinations WHERE id = 'novice'");
-    const url = String(row?.invite_url || '').trim();
-    // A t.me/c/… link opens only for members; a newcomer needs a join link.
-    return url.startsWith('https://t.me/') && !url.startsWith('https://t.me/c/') ? url : noviceTelegramGroupFallback();
-  } catch {
-    return noviceTelegramGroupFallback();
-  }
-};
-
-const WEEKDAYS_ON = ['В воскресенье', 'В понедельник', 'Во вторник', 'В среду', 'В четверг', 'В пятницу', 'В субботу'];
-
-/** The club evening post in the owner's words (2026-09-29), with the sign-up link instead of a button. */
-const clubShortVkText = async (db: DatabaseWrapper, evening: EveningRow, pricePerGame: number, signupUrl: string) => {
-  const date = new Date(evening.starts_at);
-  const zone = evening.timezone || 'Europe/Moscow';
-  let when = 'Скоро';
-  let clock = '';
-  if (!Number.isNaN(date.getTime())) {
-    const part = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('ru-RU', { timeZone: zone, ...options }).format(date);
-    const weekday = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'short' }).format(date);
-    const index = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
-    when = `${WEEKDAYS_ON[index] ?? 'Скоро'}, ${part({ day: 'numeric', month: 'long' })}`;
-    clock = part({ hour: '2-digit', minute: '2-digit' });
-  }
-  const venue = String(evening.venue || '').trim();
-  const price = announcementPriceLine('CASUAL', pricePerGame || 100).replace(/^💳 /, '');
-  // The text is the organizer's: «Ещё → Публикации и каналы → Текст постов»; the default is his words of 2026-09-29.
-  return renderPostTemplate(await loadPostTemplate(db, 'vk_club_evening'), {
-    'когда': when, 'время': clock, 'место': venue, 'где_и_когда': [venue, clock].filter(Boolean).join(', '),
-    'цена': price, 'ссылка': signupUrl, 'название': evening.title,
-  });
-};
-
-export const buildDirectVkEveningAnnouncement = async (
-  db: DatabaseWrapper,
-  evening: EveningRow,
-  baseUrl: string,
-) => {
-  const plan = await loadEveningSlotPlan(db, evening.id);
-  if (normalizeEveningFormat(plan.event.format) === 'CASUAL') {
-    return clubShortVkText(db, evening, Number(plan.event.price_per_game || 0), await shortEveningLink(db, baseUrl, evening.id));
-  }
-  const novice = normalizeEveningFormat(plan.event.format) === 'NOVICE';
-  // A novice post starts with who it is for (owner, 2026-09-29); why the game is fun comes last.
-  const headline = novice ? noviceHeadlineText() : '';
-  const lines = [...(headline ? [headline, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
-  if (evening.venue) {
-    lines.push(`📍 ${venueLine(evening.venue)}`);
-    const map = venueDetails(evening.venue).mapUrl;
-    if (map) lines.push(`🗺 Как добраться: ${map}`);
-  }
-  const briefing = novice ? noviceScheduleLine(evening.starts_at) : null;
-  if (briefing) lines.push(`🎓 ${briefing}`);
-  lines.push(
-    announcementPriceLine(plan.event.format, Number(plan.event.price_per_game || 0)),
-    '',
-    `📝 Записаться и посмотреть, кто идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
-    `👤 Личный кабинет: ${await shortCabinetLink(db, baseUrl)}`,
-  );
-  if (novice) {
-    const chat = await noviceChatInviteUrl(db);
-    const vkGroup = clubVkGroupUrl();
-    if (chat || vkGroup) {
-      lines.push('', '👥 Группа для новичков:');
-      if (chat) lines.push(`Telegram: ${chat}`);
-      if (vkGroup) lines.push(`VK: ${vkGroup}`);
-    }
-    const contacts = organizerContactLinks();
-    if (contacts.length) lines.push('', '✉️ Остались вопросы? Пишите:', ...contacts.map((contact) => `${contact.label}: ${contact.url}`));
-    const about = noviceAboutText();
-    if (about) lines.push('', about);
-  }
-  return lines.join('\n');
-};
+export const buildDirectVkEveningAnnouncement = async (db: DatabaseWrapper, evening: EveningRow, baseUrl: string) =>
+  buildEveningPostText(db, evening, await shortEveningLink(db, baseUrl, evening.id), baseUrl);
 
 const buildClosedVkEveningAnnouncement = (evening: EveningRow) => {
   const cancelled = String(evening.status || '') === 'cancelled';

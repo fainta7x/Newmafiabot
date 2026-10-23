@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { loadEveningPrices } from './eveningPriceSettingsService.ts';
+import { DEFAULT_EVENING_PRICES, type EveningPrices } from '../../lib/eveningPrices.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
@@ -15,12 +17,12 @@ export const isRegularFeeFreeByStaffRule = (_startsAt: unknown, playerId: string
   return assignedOrganizerId !== null && assignedOrganizerId === playerId;
 };
 
-export const REGULAR_GAME_PRICE = 100;
-export const REGULAR_EVENING_MAX_PRICE = 400;
+export const REGULAR_GAME_PRICE = DEFAULT_EVENING_PRICES.casual_game;
+export const REGULAR_EVENING_MAX_PRICE = DEFAULT_EVENING_PRICES.casual_cap;
 
-export const calculateRegularEveningPlayedAmount = (gamesPlayed: number): number => {
+export const calculateRegularEveningPlayedAmount = (gamesPlayed: number, policy: EveningPrices = DEFAULT_EVENING_PRICES): number => {
   const count = Math.max(0, Math.floor(Number(gamesPlayed || 0)));
-  return Math.min(count * REGULAR_GAME_PRICE, REGULAR_EVENING_MAX_PRICE);
+  return Math.min(count * policy.casual_game, policy.casual_cap);
 };
 
 const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
@@ -214,6 +216,7 @@ export async function reconcileRegularEveningPayments(
     [eveningId],
   );
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  const policy = await loadEveningPrices(db, eveningId);
   if (normalizeEveningFormat(evening.format) !== 'CASUAL') {
     return { applied: false, games_by_participant: {} };
   }
@@ -273,7 +276,7 @@ export async function reconcileRegularEveningPayments(
         || isRegularFeeFreeByStaffRule(evening.starts_at, playerId, assignedStaffPlayerId);
       const gamesPlayed = playedCounts.get(participantId) || 0;
       const extensionDue = !feeExempt ? (extensionShares.get(participantId) || 0) : 0;
-      const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed) + extensionDue;
+      const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed, policy) + extensionDue;
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
 
       if (closed) {

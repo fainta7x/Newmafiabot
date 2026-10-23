@@ -1,3 +1,4 @@
+import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
@@ -295,7 +296,7 @@ router.get('/evenings', async (req, res) => {
        FROM game_evenings e
        LEFT JOIN evening_participants ep
          ON ep.evening_id = e.id AND ep.player_id = ?
-       WHERE e.status IN ('published', 'active') AND e.settled_at IS NULL
+       WHERE ${openEveningSql('e')}
        ORDER BY e.starts_at ASC`,
       [playerId],
     );
@@ -347,7 +348,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       [req.params.eveningId],
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
-    if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+    if (!isOpenEvening(evening)) {
       return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны', code: 'closed' });
     }
     if (!playerLevelAllowsEveningFormat(player.game_level, evening.format)) {

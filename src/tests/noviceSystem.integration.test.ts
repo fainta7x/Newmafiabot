@@ -227,7 +227,7 @@ describe('NOVICE-001 funnel', () => {
       .toMatchObject({ status: 'CONFIRMED' });
   });
 
-  it('uses two free novice visits and then charges 200 rubles per selected game', async () => {
+  it('charges selected novice games without changing old completed visits', async () => {
     const db = makeDb();
     await createApp(db);
     const registered = await registerNewPlayer(db, { telegramUserId: '773', nickname: 'Ученик' });
@@ -248,7 +248,7 @@ describe('NOVICE-001 funnel', () => {
     expect(participant).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
   });
 
-  it('prices each novice evening by the visits before it, even when attendance is marked on it or it was booked early', async () => {
+  it('keeps novice prices independent of earlier visit counts and attendance corrections', async () => {
     const db = makeDb();
     await createApp(db);
     const { player } = await registerNewPlayer(db, { telegramUserId: '774', nickname: 'Ранняя запись' });
@@ -264,23 +264,23 @@ describe('NOVICE-001 funnel', () => {
       await replacePlayerSlotSelection(db, eveningId, player.id, plan.slots.slice(0, 2).map((slot: any) => String(slot.id)));
     }
     const due = (eveningId: string) => db.get<any>('SELECT amount_due, payment_status FROM evening_participants WHERE evening_id=? AND player_id=?', [eveningId, player.id]);
-    expect(await due('nb3')).toMatchObject({ amount_due: 0, payment_status: 'waived' }); // estimate made before visit 2
+    expect(await due('nb3')).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
 
-    // Visit 2 is marked: it stays free, and evening 3 becomes the paid third visit.
+    // Attendance never creates an automatic gift. Both evenings retain their tariff.
     await db.run("UPDATE evening_participants SET attendance_status='attended' WHERE evening_id='nb2' AND player_id=?", [player.id]);
     await reconcileNoviceEveningCharges(db, 'nb2');
     await reconcileNoviceEveningCharges(db, 'nb3');
-    expect(await due('nb2')).toMatchObject({ amount_due: 0, payment_status: 'waived' });
+    expect(await due('nb2')).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
     expect(await due('nb3')).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
   });
 
-  it('gives free novice visits only to real novices; an experienced guest pays from the first game', async () => {
+  it('charges both novices and experienced guests from the first game; only an explicit gift is free', async () => {
     const db = makeDb();
     await createApp(db);
     const now = new Date().toISOString();
     await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES ('ng1','Новички',?,'NOVICE','published',200,?,?)`, [new Date(Date.now() + 86400000).toISOString(), now, now]);
     await db.run(`INSERT INTO players (id,nickname,game_level,created_at,updated_at) VALUES ('fresh','Новичок','novice',?,?), ('guest','Гость из Казани','club',?,?)`, [now, now, now, now]);
-    expect(await novicePriceForPlayer(db, 'fresh', 'ng1')).toBe(0);
+    expect(await novicePriceForPlayer(db, 'fresh', 'ng1')).toBe(200);
     expect(await novicePriceForPlayer(db, 'guest', 'ng1')).toBe(NOVICE_PAID_GAME_PRICE);
     // The evening's organizer never pays on a novice evening, even with a club level.
     await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES ('g1','ng1','guest','going','going','attended','on_time','unpaid',200,0,?,?)`, [now, now]);
@@ -289,7 +289,7 @@ describe('NOVICE-001 funnel', () => {
     expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'g1'")).toEqual({ amount_due: 0 });
     // The «free evenings left» banner follows the same rule as the price.
     await db.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE' WHERE id IN ('fresh', 'guest')");
-    expect((await getNovicePlayerState(db, 'fresh'))?.free_visits_remaining).toBe(2);
+    expect((await getNovicePlayerState(db, 'fresh'))?.free_visits_remaining).toBe(0);
     expect((await getNovicePlayerState(db, 'guest'))?.free_visits_remaining).toBe(0);
   });
 
@@ -310,14 +310,14 @@ describe('NOVICE-001 funnel', () => {
     await reconcileNoviceEveningCharges(db, 'nw3');
     expect(await db.get<any>("SELECT amount_due, payment_status FROM evening_participants WHERE id='ew3'")).toMatchObject({ amount_due: 200 * plan.slots.length, payment_status: 'unpaid' });
 
-    // An earlier visit is corrected away after the player prepaid: the evening is free again, the payment stays paid.
+    // Correcting an earlier visit does not change the tariff or lose the prepayment.
     await db.run("UPDATE evening_participants SET amount_paid = 400 WHERE id='ew3'");
     await db.run("UPDATE evening_participants SET attendance_status='no_show' WHERE id='ew2'");
     await reconcileNoviceEveningCharges(db, 'nw3');
-    expect(await db.get<any>("SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id='ew3'")).toMatchObject({ amount_due: 0, amount_paid: 400, payment_status: 'paid' });
+    expect(await db.get<any>("SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id='ew3'")).toMatchObject({ amount_due: 200 * plan.slots.length, amount_paid: 400, payment_status: 'paid' });
   });
 
-  it('marks only a newcomer\'s free visit as «вечер новичка» in the payments list', async () => {
+  it('does not label an automatic free novice visit in the payments list', async () => {
     const db = makeDb();
     const app = await createApp(db);
     const { player: novice } = await registerNewPlayer(db, { telegramUserId: '776', nickname: 'Ученица' });
@@ -332,7 +332,7 @@ describe('NOVICE-001 funnel', () => {
     const response = await request(app).get('/api/evenings/np1/payments').set('Cookie', organizerCookie());
     expect(response.status).toBe(200);
     const byId = Object.fromEntries(response.body.participants.map((row: any) => [row.id, row.novice_free]));
-    expect(byId).toEqual({ epn: true, eph: false });
+    expect(byId).toEqual({ epn: false, eph: false });
 
     // The evening's assigned organizer is flagged so the list does not read as a pending CASUAL charge.
     await db.run('INSERT INTO evening_staff_assignments (evening_id,organizer_player_id,assigned_at,updated_at) VALUES (?,?,?,?)', ['np1', host.id, now, now]);

@@ -76,7 +76,7 @@ const formatDate = (evening: EveningRow) => {
  * evening page the post links to, which never goes stale.
  */
 export const buildDirectVkEveningAnnouncement = async (db: DatabaseWrapper, evening: EveningRow, baseUrl: string) =>
-  buildEveningPostText(db, evening, await shortEveningLink(db, baseUrl, evening.id));
+  buildEveningPostText(db, evening, await shortEveningLink(db, baseUrl, evening.id), baseUrl);
 
 const buildClosedVkEveningAnnouncement = (evening: EveningRow) => {
   const cancelled = String(evening.status || '') === 'cancelled';

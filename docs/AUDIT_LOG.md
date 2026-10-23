@@ -1573,3 +1573,11 @@ Acceptance: shared settings and tariffs, explicit gifts retained, common post te
 
 Implementation: shared tariff defaults and frozen per-evening policies, no automatic novice-free visits, existing full-evening gift preserved, one announcement renderer, common open predicate at player/bot/invitation boundaries. Focused 61 tests passed; final-head CI pending. Runtime after #1012: health OK, build.sha changed 8e10dfb → 4516fa8; mirror ancestry unavailable because this session exposes no getCommitHistory or signed-in Amvera tab. No production data writes.
 Local verification constraint: automatic approval review stopped the full test run after an unmocked Telegram request. It was not retried; focused verification uses a temporary default fetch guard rejecting unmocked network calls. Local Playwright browser download returned a truncated ZIP; mobile evidence uses the existing isolated GitHub UI preview workflow, with a 360/390 price-settings before/after fixture and save/reload checks.
+
+## PR #1013 CI follow-up — 2026-10-23
+- Open: noviceTableSize.integration.test.ts still creates unpaid novice fixtures assuming automatic free visits; seed actual prepayment so the table-size/token assertions exercise their intended rule.
+- Open: eveningPostTextService.ts dropped novice instructions, group/contact and cabinet links while sharing the template; restore them as optional values of the same template for both channels, retaining stored custom text.
+- Open: vkPlayerAuthRouting.test.ts checks a removed implementation string instead of the relocated shared renderer; preserve its cabinet-link requirement and update the source location, backed by rendered announcement tests.
+- Evidence: exact head e09532a, CI 39923194875; 8 failures in shards 1/5 and 3/5. UI preview 39923194896 passed, artifact SHA256 564fe37b33cdb52a995d6169a1d5fdcb78403d6626caa1ed33b40f6568e578bc.
+
+Follow-up: restored novice introduction, briefing, groups, contacts and cabinet link as optional placeholders of the shared template. Existing customized templates remain unchanged; bot and VK share the same rendered text. Table-size fixtures now include factual prepayment. Focused failed-test group: 42 passed; before/after 390px inspected, no clipping; 360px inspection and final-head CI remain separate gates.

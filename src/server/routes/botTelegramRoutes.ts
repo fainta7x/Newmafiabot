@@ -82,7 +82,7 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
         canonical_format: canonicalFormat,
         price_per_game: Number(slotPlan.event.price_per_game || slotPlan.slots[0]?.price || 0),
         max_price: slotPlan.event.max_evening_price,
-        announcement_text: await buildEveningPostText(db, evening, await shortEveningLink(db, getPublicAppBaseUrl(), evening.id)),
+        announcement_text: await buildEveningPostText(db, evening, await shortEveningLink(db, getPublicAppBaseUrl(), evening.id), getPublicAppBaseUrl()),
         cover_url: await announcementCoverUrl(db, getPublicAppBaseUrl(), evening.id, evening.format),
       },
       slots: slotPlan.slots,

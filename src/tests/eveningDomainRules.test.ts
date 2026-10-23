@@ -1,3 +1,4 @@
+import { getPublicAppBaseUrl } from '../server/runtimeConfig.ts';
 import { loadInvitationContextsForRecipients } from '../server/services/playerInvitationEligibilityService.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
@@ -55,18 +56,18 @@ describe('owner-approved evening domain', () => {
     expect((await db.get<any>("SELECT amount_due FROM evening_participants WHERE id='ep'"))?.amount_due).toBe(400);
   });
 
-  it('uses the very same saved announcement in the Telegram plan and VK, including escaped owner text', async () => {
+  it.each(['CASUAL', 'NOVICE', 'RATING'])('uses the very same saved announcement in Telegram and VK for %s', async (format) => {
     const { db, app } = await setup();
     vi.stubEnv('BOT_API_SECRET', 'evening-domain-test');
-    await evening(db, 'post');
+    await evening(db, 'post', 'published', format);
     await savePostTemplate(db, 'vk_club_evening', 'Приходи <друг>! {название}\n{цена}\n{ссылка}');
     const row = await db.get<any>("SELECT * FROM game_evenings WHERE id='post'");
     const tg = await request(app).get('/api/bot/evenings/post/telegram-plan').set('X-Bot-Token', 'evening-domain-test');
     expect(tg.status).toBe(200);
-    const vk = await buildDirectVkEveningAnnouncement(db, row, 'https://example.test');
-    expect(tg.body.evening.announcement_text.split('\n').slice(0, 2)).toEqual(vk.split('\n').slice(0, 2));
+    const vk = await buildDirectVkEveningAnnouncement(db, row, getPublicAppBaseUrl());
+    expect(tg.body.evening.announcement_text).toBe(vk);
     expect(vk).toContain('Приходи <друг>! post');
-    expect(vk).toContain('100 ₽ за игру, не больше 400 ₽ за вечер');
+    expect(vk).toContain(format === 'NOVICE' ? '200 ₽ за игру' : format === 'RATING' ? '500 ₽ за вечер' : '100 ₽ за игру, не больше 400 ₽ за вечер');
   });
 
   it('lists old still-open evenings, excludes drafts and settled evenings, and allows active invitations', async () => {

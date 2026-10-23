@@ -240,6 +240,18 @@ describe('judge engine: whole-game scenarios', () => {
     expect(done).not.toHaveBeenCalled();
   });
 
+  it('a game saved before the setting existed goes on under the tournament rule, even in a club evening', async () => {
+    const onGameFinished = vi.fn();
+    localStorage.setItem('mafia_live_session', JSON.stringify(zeroRoundVote()));
+    render(<LiveGameEngine players={[]} initialJudgeId={777} onGameFinished={onGameFinished} onCancel={vi.fn()} onPhaseChange={vi.fn()} zeroRoundRule="club" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    await breakSplit();
+    await press('Подтвердить');
+    const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+    expect(saved.zeroRoundRule).toBe('tournament');
+    expect(saved.protocolMarkers.zeroRoundVotedSlot).toBe(2);
+  });
+
   it('tournament rule: the player voted out in the zero round leaves the table and gives a best move', async () => {
     await play(zeroRoundVote());
     await breakSplit();

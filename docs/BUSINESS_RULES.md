@@ -176,7 +176,7 @@ Owner: «это нужно оставить про слом, только раз
 - **Турнирная настройка.** A broken split («слом») works as before: the player voted out in the zero round leaves the table and gives a best move (ЛХ).
 - **Клубная настройка.** The player the split was broken into **does not leave the table and gives no best move**. He gets **30 seconds of extra speech**, then the night starts.
 - «Подняли в нуле» (a double revote where the table raises both players) works **as in a tournament** under both settings: both leave.
-- **Default by evening type:** tournament and rating games use the tournament setting; ordinary and novice games use the club setting. The judge may change it on the setup screen before the game.
+- **Default by evening type:** tournament and rating games use the tournament setting; ordinary and novice games use the club setting. The judge of a club or rating evening may change it on the setup screen before the game. A tournament game always uses the tournament setting (its protocol checks the votes by tournament rules). A game saved before the setting existed continues under the tournament setting.
 - The breaker («Сломал в нуле») is recorded under both settings.
 
 ### First killed player: «Лучший ход» and «Протокол убитого» (owner, 2026-10-18)

@@ -26,7 +26,7 @@ describe('live best move back navigation', () => {
 
   it('persists bounded undo history so blocking overlays stay reversible after recovery', () => {
     expect(engineSource).toContain('historyStack: historyStack.slice(-20).map(cloneLiveSnapshot),');
-    expect(engineSource).toContain('zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, historyStack,');
+    expect(engineSource).toContain('zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, historyStack,');
     expect(engineSource).toContain('Array.isArray(restorableSession.historyStack)');
     expect(engineSource).toContain('.map((snapshot: LiveSnapshot) => normalizeLiveSnapshotForRestore(snapshot))');
     expect(engineSource).toContain('setHistoryStack(restoredHistory);');

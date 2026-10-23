@@ -120,6 +120,7 @@ export default function SetupPhase(props: SetupPhaseProps) {
     });
   };
 
+  // Only club evenings choose: a tournament game always runs the tournament rule, which its protocol checks expect.
   const ruleControl = props.zeroRoundRule && props.onZeroRoundRuleChange && !props.trainingRoles
     ? <ZeroRoundRuleControl value={props.zeroRoundRule} onChange={props.onZeroRoundRuleChange} />
     : null;
@@ -145,7 +146,6 @@ export default function SetupPhase(props: SetupPhaseProps) {
 
   return (
     <div className="space-y-3">
-      {ruleControl}
       <SpeechRecordingPilot />
       <GeneralSetupPhase {...props} />
     </div>

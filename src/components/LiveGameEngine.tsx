@@ -290,7 +290,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setNightLogs(restored.nightLogs);
     setVotingFarewellQueue(restored.votingFarewellQueue);
     setVotingFarewellIndex(restored.votingFarewellIndex);
-    if (isZeroRoundRule(restored.zeroRoundRule)) setZeroRoundRule(restored.zeroRoundRule);
+    // A game saved before the setting existed ran the tournament rule; it goes on under it.
+    setZeroRoundRule(isZeroRoundRule(restored.zeroRoundRule) ? restored.zeroRoundRule : 'tournament');
     setBreakSpeechSlot(restored.breakSpeechSlot ?? null);
     setDiscipline(restored.discipline);
   };

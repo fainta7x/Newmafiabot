@@ -400,3 +400,6 @@ System tariff defaults and frozen per-evening policies: eveningPriceSettingsServ
 
 ### Achievement read projections and role indicators
 `playerAchievementsService.ts` owns the active editable catalog, earned state, organizer overrides and earned dates; the mounted progression API projects that same profile. `src/lib/rolePerformance.ts` ranks played roles by observed win rate, breaking equal rates by games played and stable input order. Profile, progression and insights consume it without minimum-game eligibility thresholds. Titles and challenge requirements remain separate product facts.
+
+### Live engine role boundaries
+`ActivePlayerState` stores `GameRole`/`GameTeam` keys. `setupRoles.ts` parses external role spellings; `canonicalizeLivePlayers` in `engineStateModel.ts` normalizes legacy current/Undo players and rejects unknown or conflicting roles. `liveSessionStorage.ts` reads old snapshots without rewriting them and serializes canonical current/history state. UI labels, `liveGameState.ts` broadcast/state-sheet projections and the finished legacy `GameSlot` callback preserve their established human-readable format. Phase, timer and discipline ownership is unchanged.

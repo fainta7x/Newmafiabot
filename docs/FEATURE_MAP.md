@@ -248,7 +248,7 @@ Closed evenings must not have their old useful Telegram announcement replaced wh
 - Auto mode («Авто», next step after a timer): `CenterPanel.tsx` (`autoStep`, `toggleAutoAdvance`), key `mafia_live_auto_advance`.
 - Announcement step before each voting/revote: `CenterPanel.tsx` (`renderVotingAnnouncement`) + `handleStartVoting` / `handleZeroRoundSingleToNight` in `LiveGameEngine.tsx`, stage `votingStage === 'setup'`.
 - Seat presentation: `seatPresentationModel.ts`.
-- Snapshot schema/restore: `engineStateModel.ts`.
+- Snapshot schema/restore: `engineStateModel.ts`; canonical role/team recovery: `canonicalizeLivePlayers`, used by `liveSessionStorage.ts` for current and Undo players. UI/result/OBS labels remain at presentation boundaries.
 - Overlays/actions/best move: `LiveGameOverlays.tsx`.
 - Game chronology (events of a live game: nominations, who voted for whom, shots, Don/Sheriff checks, fouls, exits, colour protocols): model and cleaning `src/shared/liveGameEvents.ts`; derived from the engine's saved session by `src/lib/liveGameEventLog.ts`, collected in the evidence of `src/lib/liveClubSession.ts`; saved by the tournament engine (`TournamentLiveGameModal.tsx`) into `tournament_game_protocols.events_json` through `tournamentProtocolRoutes.ts`; shown as «Журнал партии» by `protocol/GameEventLog.tsx` + `src/lib/liveGameEventText.ts`.
 - Voting outcomes: `src/shared/tournamentVoting.ts`.

@@ -22,7 +22,7 @@ interface SetupPhaseProps {
   handleAutoFillSetupPlayers: () => void;
   handleAutoFillSetupRoles: () => void;
   handleSelectSetupPlayer: (slotNum: number, userId: number) => void;
-  handleSelectSetupRole: (slotNum: number, role: 'Мирный' | 'Шериф' | 'Мафия' | 'Дон') => void;
+  handleSelectSetupRole: (slotNum: number, role: ActivePlayerState['role']) => void;
   onCancel: () => void;
   validateSetupAndStart: () => void;
   onRoleDealActiveChange?: (active: boolean) => void;

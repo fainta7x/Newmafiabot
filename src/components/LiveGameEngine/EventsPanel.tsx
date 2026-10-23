@@ -3,7 +3,7 @@ import { Check, ChevronDown, ChevronUp, ClipboardList, Copy } from "lucide-react
 import { ActivePlayerState, Phase } from "./types.js";
 import LiveGameStateSheet from "../crm/LiveGameStateSheet.js";
 import { LEGACY_PROTOCOL_NOTES_KEY } from "../../lib/liveClubSession.js";
-import { teamOfPlayer } from '../../shared/gameRoles.ts';
+import { GAME_ROLES, normalizeWinnerTeam, teamOfPlayer } from '../../shared/gameRoles.ts';
 
 interface EventsPanelProps {
   phase?: Phase;
@@ -63,7 +63,7 @@ export default function EventsPanel({
 
   const calculatePlayerScore = (player: ActivePlayerState) => {
     let score = 0;
-    const isWin = winTeam && player.team === winTeam;
+    const isWin = winTeam && teamOfPlayer(player) === normalizeWinnerTeam(winTeam);
     if (isWin) score += 1.0;
 
     if (player.bonus_points) score += parseFloat(player.bonus_points as any) || 0;
@@ -96,7 +96,7 @@ export default function EventsPanel({
       const bmText = s.best_move_guesses && s.best_move_guesses.length > 0 ? ` | ЛХ: [${s.best_move_guesses.join(", ")}]` : "";
       const dcText = s.dc_points ? ` (Доп: ${s.dc_points > 0 ? "+" : ""}${s.dc_points})` : "";
       const noteText = s.note ? ` [Заметка: ${s.note}]` : "";
-      text += `${s.slot_num}. *${s.nickname || "Игрок " + s.slot_num}* (${s.role}) — *${pts} б.*${dcText}${bmText}${noteText}\n`;
+      text += `${s.slot_num}. *${s.nickname || "Игрок " + s.slot_num}* (${GAME_ROLES[s.role].label}) — *${pts} б.*${dcText}${bmText}${noteText}\n`;
     });
 
     if (nightLogs.length > 0) {

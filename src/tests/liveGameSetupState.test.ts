@@ -32,12 +32,12 @@ describe('Live Game setup state', () => {
 
     expect(random).toHaveBeenCalledTimes(9);
     expect(result.map((seat) => seat.role)).toEqual([
-      'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный',
-      'Шериф', 'Мафия', 'Мафия', 'Дон', 'Мирный',
+      'citizen', 'citizen', 'citizen', 'citizen', 'citizen',
+      'sheriff', 'mafia', 'mafia', 'don', 'citizen',
     ]);
     expect(result.map((seat) => seat.team)).toEqual([
-      'Красные', 'Красные', 'Красные', 'Красные', 'Красные',
-      'Красные', 'Чёрные', 'Чёрные', 'Чёрные', 'Красные',
+      'red', 'red', 'red', 'red', 'red',
+      'red', 'black', 'black', 'black', 'red',
     ]);
   });
 
@@ -53,12 +53,12 @@ describe('Live Game setup state', () => {
 
   it('updates role and team only on the selected seat', () => {
     const seats = createSeats();
-    const black = selectSetupRole(seats, 2, 'Дон');
-    expect(black[1]).toMatchObject({ role: 'Дон', team: 'Чёрные' });
+    const black = selectSetupRole(seats, 2, 'don');
+    expect(black[1]).toMatchObject({ role: 'don', team: 'black' });
     expect(black[0]).toBe(seats[0]);
 
-    const red = selectSetupRole(black, 2, 'Шериф');
-    expect(red[1]).toMatchObject({ role: 'Шериф', team: 'Красные' });
+    const red = selectSetupRole(black, 2, 'sheriff');
+    expect(red[1]).toMatchObject({ role: 'sheriff', team: 'red' });
   });
 
   it('preserves setup validation order and exact user-facing errors', () => {
@@ -72,8 +72,8 @@ describe('Live Game setup state', () => {
     expect(getSetupStartValidationError(1, filled)).toBe('Нужны роли ФСМ: 6 мирных, Шериф, 2 мафии и Дон');
 
     const roles: LiveRole[] = [
-      'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный',
-      'Шериф', 'Мафия', 'Мафия', 'Дон',
+      'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen',
+      'sheriff', 'mafia', 'mafia', 'don',
     ];
     const valid = roles.reduce(
       (state, role, index) => selectSetupRole(state, index + 1, role),

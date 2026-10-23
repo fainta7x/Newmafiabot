@@ -81,7 +81,7 @@ describe('reveals in the saved session', () => {
 });
 
 describe('judge panel «Вскрытие»', () => {
-  const players = Array.from({ length: 10 }, (_, index) => ({ ...createEmptyActivePlayer(index + 1), nickname: `Игрок${index + 1}`, role: index === 4 ? 'Дон' as const : 'Мирный' as const }));
+  const players = Array.from({ length: 10 }, (_, index) => ({ ...createEmptyActivePlayer(index + 1), nickname: `Игрок${index + 1}`, role: index === 4 ? 'don' as const : 'citizen' as const, team: index === 4 ? 'black' as const : 'red' as const }));
   const handlers = () => ({ onAddReveal: vi.fn(), onRemoveReveal: vi.fn(), onSetCheck: vi.fn(), onRemoveCheck: vi.fn(), onClose: vi.fn() });
 
   it('marks who revealed and records the announced checks with a colour', () => {

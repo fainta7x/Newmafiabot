@@ -237,6 +237,8 @@ describe('judge engine: whole-game scenarios', () => {
     expect(saved.protocolMarkers.zeroRoundVotedSlot).toBeNull();
     expect(saved.activeBestMoveSource).toBeNull();
     expect(saved.zeroRoundRule).toBe('club');
+    expect(saved.activePlayers.every((player: any) => ['citizen', 'sheriff', 'mafia', 'don'].includes(player.role))).toBe(true);
+    expect(saved.activePlayers.every((player: any) => ['red', 'black'].includes(player.team))).toBe(true);
     expect(saved.breakSpeechSlot).toBeNull();
     expect(done).not.toHaveBeenCalled();
   });

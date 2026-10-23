@@ -1,3 +1,5 @@
+import { normalizeGameRole, normalizeWinnerTeam } from '../shared/gameRoles.ts';
+import { buildLiveGameStateView } from '../lib/liveGameState.ts';
 import { describe, expect, it } from 'vitest';
 import { buildLiveBroadcastState, mergeBroadcastDayVotes, parseBroadcastTimeline } from '../lib/liveBroadcast';
 
@@ -221,4 +223,12 @@ describe('live broadcast audience state', () => {
       { round: 3, assignments: { 2: 7 } },
     ]);
   });
+});
+
+
+it('renders identical state-sheet and OBS data from legacy and canonical engine snapshots', () => {
+  const legacy = snapshot();
+  const canonical = { ...legacy, activePlayers: legacy.activePlayers.map(player => ({ ...player, role: normalizeGameRole(player.role), team: normalizeWinnerTeam(player.team) })) };
+  expect(buildLiveGameStateView(canonical)).toEqual(buildLiveGameStateView(legacy));
+  expect(buildLiveBroadcastState(canonical, metadata)).toEqual(buildLiveBroadcastState(legacy, metadata));
 });

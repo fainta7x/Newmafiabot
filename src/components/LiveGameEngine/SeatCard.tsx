@@ -1,3 +1,4 @@
+import { GAME_ROLES } from '../../shared/gameRoles.ts';
 import React from "react";
 import { ListPlus, Skull, Star } from "lucide-react";
 import { GameRoleIcon } from '../ui/GameRole.tsx';
@@ -387,7 +388,7 @@ export default function SeatCard(props: SeatCardProps) {
           <span className="live-seat-footer__name">{player.nickname || `Игрок ${slotNum}`}</span>
         </div>
         {showRolesOnTable ? (
-          <div className="live-seat-role" title={player.role === "Мирный" ? "Красный" : player.role}>
+          <div className="live-seat-role" title={player.role === "citizen" ? "Красный" : GAME_ROLES[player.role].label}>
             <GameRoleIcon role={player.role} />
           </div>
         ) : (

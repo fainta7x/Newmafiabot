@@ -10,13 +10,13 @@ import {
 
 const createPlayer = (
   slot: number,
-  role: 'Мирный' | 'Шериф' | 'Мафия' | 'Дон' = 'Мирный',
+  role: 'citizen' | 'sheriff' | 'mafia' | 'don' = 'citizen',
 ) => ({
   ...createEmptyActivePlayer(slot),
   user_id: 100 + slot,
   nickname: `Player ${slot}`,
   role,
-  team: role === 'Мафия' || role === 'Дон' ? 'Чёрные' as const : 'Красные' as const,
+  team: role === 'mafia' || role === 'don' ? 'black' as const : 'red' as const,
 });
 
 describe('Live Game night target model', () => {
@@ -34,9 +34,9 @@ describe('Live Game night target model', () => {
   });
 
   it('gives the first-night victim the best-move step whatever his role (owner, 2026-10-10)', () => {
-    const citizen = createPlayer(3, 'Мирный');
-    const sheriff = createPlayer(4, 'Шериф');
-    const mafia = createPlayer(5, 'Мафия');
+    const citizen = createPlayer(3, 'citizen');
+    const sheriff = createPlayer(4, 'sheriff');
+    const mafia = createPlayer(5, 'mafia');
 
     expect(canNightTargetGiveFirstKilledBestMove(null, null, 1)).toBe(false);
     expect(canNightTargetGiveFirstKilledBestMove(citizen, null, 1)).toBe(true);
@@ -48,13 +48,13 @@ describe('Live Game night target model', () => {
   });
 
   it('preserves Don and Sheriff check result mapping', () => {
-    expect(getDonCheckResult(createPlayer(1, 'Шериф'))).toBe(true);
-    expect(getDonCheckResult(createPlayer(2, 'Мирный'))).toBe(false);
-    expect(getDonCheckResult(createPlayer(3, 'Мафия'))).toBe(false);
+    expect(getDonCheckResult(createPlayer(1, 'sheriff'))).toBe(true);
+    expect(getDonCheckResult(createPlayer(2, 'citizen'))).toBe(false);
+    expect(getDonCheckResult(createPlayer(3, 'mafia'))).toBe(false);
 
-    expect(getSheriffCheckResult(createPlayer(4, 'Мафия'))).toBe('ЧЁРНЫЙ!');
-    expect(getSheriffCheckResult(createPlayer(5, 'Дон'))).toBe('ЧЁРНЫЙ!');
-    expect(getSheriffCheckResult(createPlayer(6, 'Мирный'))).toBe('Красный');
-    expect(getSheriffCheckResult(createPlayer(7, 'Шериф'))).toBe('Красный');
+    expect(getSheriffCheckResult(createPlayer(4, 'mafia'))).toBe('ЧЁРНЫЙ!');
+    expect(getSheriffCheckResult(createPlayer(5, 'don'))).toBe('ЧЁРНЫЙ!');
+    expect(getSheriffCheckResult(createPlayer(6, 'citizen'))).toBe('Красный');
+    expect(getSheriffCheckResult(createPlayer(7, 'sheriff'))).toBe('Красный');
   });
 });

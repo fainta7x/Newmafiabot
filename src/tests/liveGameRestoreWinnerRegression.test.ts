@@ -55,7 +55,8 @@ describe('live game restore winner regression', () => {
     const snapshot = makeSnapshot('day_speeches');
     snapshot.activePlayers = snapshot.activePlayers.map((player, index) => ({
       ...player,
-      team: index >= 7 ? 'Чёрные' : 'Красные',
+      team: index >= 7 ? 'black' : 'red',
+      role: index >= 7 ? 'mafia' : 'citizen',
       alive: index < 7,
     }));
     snapshot.votingFarewellQueue = [9];

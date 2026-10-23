@@ -1,3 +1,4 @@
+import type { GameRole, GameTeam } from '../../shared/gameRoles.ts';
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { Player, GameSlot } from "../../types.js";
 import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
@@ -7,8 +8,8 @@ export interface ActivePlayerState {
   slot_num: number;
   user_id: number;
   nickname: string;
-  role: "Мирный" | "Шериф" | "Мафия" | "Дон";
-  team: "Красные" | "Чёрные";
+  role: GameRole;
+  team: GameTeam;
   fouls: number;
   minor_tech_fouls?: number;
   major_tech_fouls?: number;

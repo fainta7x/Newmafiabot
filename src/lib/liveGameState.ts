@@ -1,4 +1,4 @@
-import { teamOfPlayer } from '../shared/gameRoles.ts';
+import { GAME_ROLES, ENGINE_TEAM_NAMES, normalizeGameRole, normalizeWinnerTeam, teamOfPlayer } from '../shared/gameRoles.ts';
 export type LiveGameStatePlayer = {
   seat: number;
   nickname: string;
@@ -184,12 +184,14 @@ export const buildLiveGameStateView = (rawSnapshot: unknown): LiveGameStateView 
     .map((player) => {
       const seat = toSeat(player.slot_num);
       if (!seat) return null;
+      const role = normalizeGameRole(player.role);
+      const team = normalizeWinnerTeam(player.team);
       const disciplinePlayer = asObject(disciplinePlayers[String(seat)]) || {};
       return {
         seat,
         nickname: String(player.nickname || `Игрок ${seat}`),
-        role: String(player.role || '—'),
-        team: String(player.team || '—'),
+        role: role ? GAME_ROLES[role].label : String(player.role || '—'),
+        team: team ? ENGINE_TEAM_NAMES[team] : String(player.team || '—'),
         alive: player.alive !== false,
         status: exitLabel(player),
         fouls: Number(disciplinePlayer.regularFouls ?? player.fouls ?? 0),

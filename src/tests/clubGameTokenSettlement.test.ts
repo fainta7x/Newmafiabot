@@ -152,7 +152,8 @@ describe('canonical club-game token settlement routes', () => {
     expect(response.status).toBe(200);
     expect(await ledgerCount()).toBe(11);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-1'")).tokens)).toBe(315);
-    expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-2'")).tokens)).toBe(215);
+    // Owner, 2026-10-23: the zero-round best move gives tokens too (three blacks: +0.6 → +60).
+    expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-2'")).tokens)).toBe(275);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-11'")).tokens)).toBe(100);
     const playerLedger = await db.get<any>("SELECT * FROM token_ledger WHERE reason_type='club_game_player' AND player_id='p-1'");
     expect(playerLedger.description).toContain('Игра №501');

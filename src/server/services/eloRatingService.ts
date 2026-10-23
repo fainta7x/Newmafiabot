@@ -3,7 +3,7 @@ import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
-import { calculateBestMovePoints } from './bestMovePoints.ts';
+import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 
 
 export const DEFAULT_ELO = DEFAULT_ELO_SEED;
@@ -84,19 +84,6 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
-};
-
-// The best-move points are the shared rule (bestMovePoints.ts); the seat roles come from the protocol results.
-const bestMovePoints = (seatNumbers: unknown, results: any[]): number => (Array.isArray(seatNumbers)
-  ? calculateBestMovePoints(seatNumbers.map(Number), results.map((result: any) => ({ seat_number: Number(result?.seat_number), role: result?.role ?? null }))).bonusPoints
-  : 0);
-
-const clubBestMovePointsForParticipant = (protocol: any, participantId: string, results: any[]): number => {
-  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
-  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
-  if (relevant.length) return relevant.reduce((sum: number, move: any) => sum + bestMovePoints(move?.seat_numbers, results), 0);
-  if (String(protocol?.best_move_participant_id || '') === participantId) return bestMovePoints(protocol?.best_move_seats, results);
-  return 0;
 };
 
 /** A player's personal points in a club game (judge and protocol bonus, best move, Ci, minus discipline): Elo and its history. */

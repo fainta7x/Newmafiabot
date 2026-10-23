@@ -215,6 +215,7 @@ router.get('/games/all', async (req, res) => {
          WHERE g.evening_id IS NOT NULL
            AND g.archived_at IS NULL
            AND g.protocol_text IS NOT NULL
+           AND COALESCE(e.status, '') <> 'cancelled'
          ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC, g.id DESC
          LIMIT 250
       `),
@@ -224,6 +225,7 @@ router.get('/games/all', async (req, res) => {
           FROM tournament_games tg
           JOIN tournaments t ON t.id = tg.tournament_id
          WHERE tg.status = 'completed'
+           AND EXISTS (SELECT 1 FROM tournament_game_protocols tgp WHERE tgp.game_id = tg.id AND tgp.status = 'completed')
          ORDER BY COALESCE(tg.completed_at, t.date) DESC, tg.game_number DESC
          LIMIT 250
       `),

@@ -76,8 +76,7 @@ const buildDesiredTargets = async (db: DatabaseWrapper, gameId: string): Promise
   const bestMoveRows = await db.all<any>('SELECT participant_id, source, seat_numbers_json FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
   const bestMoveByParticipant = new Map<string, number>();
   for (const move of bestMoveRows) {
-    // Keep the same token semantics as club games: token bonus is for the first-killed best move.
-    if (move.source !== 'first_killed') continue;
+    // Owner, 2026-10-23: the best move of the first killed and of the player voted out in the zero round both count.
     const participantId = String(move.participant_id || '');
     const points = calculateBestMovePoints(safeJsonParse(move.seat_numbers_json, []), seats);
     bestMoveByParticipant.set(participantId, (bestMoveByParticipant.get(participantId) || 0) + points);

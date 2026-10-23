@@ -207,8 +207,13 @@ def _price_text(evening: dict, slots: list[dict] | None = None) -> str | None:
         return None
     if amount <= 0:
         return None
+    if canonical_format == "RATING":
+        # A rating evening is one entry fee for the whole evening (price settings), not a per-game price.
+        return f"Взнос {amount} ₽ за вечер — до начала игр"
     if is_club:
-        return f"{amount} ₽ за игру · максимум {_CLUB_EVENING_MAX_PRICE} ₽ за вечер"
+        cap = evening.get("max_price")
+        cap = _CLUB_EVENING_MAX_PRICE if cap is None else cap
+        return f"{amount} ₽ за игру · максимум {cap} ₽ за вечер"
     return f"{amount} ₽ за игру"
 
 
@@ -382,8 +387,6 @@ _CLUB_ACTION = "Нажми «✅ Буду» — запишем на все иг�
 
 def club_short_text(evening: dict, slots: list[dict] | None = None, *, action: bool = True) -> str:
     """The club evening post in the owner's words (2026-09-29): a greeting, where and when, the price, what to press."""
-    if evening.get("announcement_text"):
-        return escape(str(evening["announcement_text"]))
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     try:
         start = _local_datetime(evening.get("starts_at"), timezone_name)
@@ -412,8 +415,6 @@ def _is_novice_evening(evening: dict) -> bool:
 
 def novice_short_text(evening: dict, slots: list[dict] | None = None, *, action: bool = True) -> str:
     """The novice evening post in the same friendly style as the club one (owner, 2026-09-29): it invites to play."""
-    if evening.get("announcement_text"):
-        return escape(str(evening["announcement_text"]))
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     try:
         start = _local_datetime(evening.get("starts_at"), timezone_name)
@@ -533,9 +534,7 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
     def compose(max_players: int, names: bool) -> str:
         # Club evenings open with the owner's short text (2026-09-29) and keep the lists of who is coming.
         # Club and novice posts open with a short friendly text (owner, 2026-09-29) and keep who is coming.
-        if evening.get("announcement_text"):
-            head = [escape(str(evening["announcement_text"]))]
-        elif club:
+        if club:
             head = [club_short_text(evening, slot_rows, action=False)]
         elif novice:
             head = [novice_short_text(evening, slot_rows, action=False)]
@@ -580,8 +579,6 @@ def novice_invitation_text(
 
     Order (owner, 2026-09-29): that it is for novices, when and where, how to sign up and the groups,
     and only then why the game is fun — so the essentials are not lost under the promo."""
-    if evening.get("announcement_text"):
-        return escape(str(evening["announcement_text"]))
     # Organizer-entered fields are capped so the post always fits one Telegram message.
     bounded = {
         **evening,

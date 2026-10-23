@@ -196,14 +196,18 @@ def test_slot_marked_host_is_not_in_arrival_list_without_evening_identity():
     assert text.count("Спящий") == 1
 
 
-def test_saved_template_is_used_for_every_evening_format_and_escaped_at_transport_boundary():
+def test_each_evening_format_has_its_own_telegram_text():
+    """Owner, 2026-10-23: «у каждого поста свой текст»; prices come from the server's price settings."""
     from handlers.telegram_evening_copy import thematic_event_text
-    for kind in ("CASUAL", "NOVICE", "RATING"):
-        text = thematic_event_text({"format": kind, "announcement_text": "Приходи <друг>! & до встречи", "starts_at": "2030-10-16T18:00:00Z"}, [], [])
-        assert text.startswith("Приходи &lt;друг&gt;! &amp; до встречи")
-
-
-def test_public_announcement_uses_the_shared_template_without_a_second_promo():
-    from handlers.telegram_evening_copy import novice_invitation_text
-    evening = {"format": "NOVICE", "announcement_text": "Текст владельца <друг> & ссылка", "starts_at": "2030-10-16T18:00:00Z"}
-    assert novice_invitation_text(evening, [], signup_url="https://t.me/test") == "Текст владельца &lt;друг&gt; &amp; ссылка"
+    start = "2030-10-18T18:00:00Z"
+    club = thematic_event_text({"format": "CASUAL", "starts_at": start, "price_per_game": 150, "max_price": 600}, [], [])
+    assert club.startswith("Привет! ")
+    assert "150 ₽ за игру, не больше 600 ₽ за вечер" in club
+    assert "Отметь, придёшь ли" not in club
+    novice = thematic_event_text({"format": "NOVICE", "starts_at": start, "price_per_game": 250, "max_price": None}, [], [])
+    assert "играем в мафию с новичками — приходи" in novice
+    assert "Никогда не играл — не страшно" in novice
+    assert "250 ₽ за игру" in novice
+    rating = thematic_event_text({"format": "RATING", "title": "Рейтинг", "starts_at": start, "price_per_game": 700}, [], [])
+    assert "Взнос 700 ₽ за вечер — до начала игр" in rating
+    assert "Привет! " not in rating

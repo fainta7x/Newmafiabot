@@ -1,5 +1,3 @@
-import { buildEveningPostText } from '../services/eveningPostTextService.ts';
-import { shortEveningLink } from '../services/announcementShortLinks.ts';
 import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { isTelegramDestinationId } from '../../db/ensureTelegramPublishingSchema.ts';
@@ -82,7 +80,6 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
         canonical_format: canonicalFormat,
         price_per_game: Number(slotPlan.event.price_per_game || slotPlan.slots[0]?.price || 0),
         max_price: slotPlan.event.max_evening_price,
-        announcement_text: await buildEveningPostText(db, evening, await shortEveningLink(db, getPublicAppBaseUrl(), evening.id), getPublicAppBaseUrl()),
         cover_url: await announcementCoverUrl(db, getPublicAppBaseUrl(), evening.id, evening.format),
       },
       slots: slotPlan.slots,
@@ -229,19 +226,20 @@ router.get('/telegram/public-router', async (req, res) => {
     const noviceDestination = destinations.find((item: any) => item.id === 'novice') || null;
     const clubDestination = destinations.find((item: any) => item.id === 'club') || null;
 
+    // An evening that is over but not closed yet stays open (owner rule 10), but a newcomer is sent to the next one.
     const novice = await db.get(
       `SELECT id, title, starts_at, venue, default_price, format
          FROM game_evenings
         WHERE ${openEveningSql()}
           AND format = 'NOVICE'
-        ORDER BY datetime(starts_at) ASC LIMIT 1`,
+        ORDER BY datetime(starts_at) < datetime('now', '-6 hours'), datetime(starts_at) ASC LIMIT 1`,
     );
     const club = await db.get(
       `SELECT id, title, starts_at, venue, default_price, format
          FROM game_evenings
         WHERE ${openEveningSql()}
           AND format IN ('CASUAL', 'STANDARD')
-        ORDER BY datetime(starts_at) ASC LIMIT 1`,
+        ORDER BY datetime(starts_at) < datetime('now', '-6 hours'), datetime(starts_at) ASC LIMIT 1`,
     );
 
     res.json({

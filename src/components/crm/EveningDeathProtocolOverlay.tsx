@@ -209,8 +209,9 @@ export const EveningDeathProtocolBridge: React.FC = () => {
         const flowPlayers: LiveFlowPlayer[] = [];
         for (const player of activePlayers) {
           const slot = Number(player?.slot_num);
+          // The engine saves canonical teams (red / black) since #1018; sessions saved before it hold the Russian names.
           const team = player?.team;
-          if (!Number.isInteger(slot) || (team !== 'Красные' && team !== 'Чёрные')) continue;
+          if (!Number.isInteger(slot) || !['red', 'black', 'Красные', 'Чёрные'].includes(team)) continue;
           flowPlayers.push({ slot_num: slot, team, alive: Boolean(player?.alive) });
         }
         const winner = flowPlayers.length ? determineLiveWinner(flowPlayers) : null;

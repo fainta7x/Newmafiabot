@@ -79,7 +79,7 @@ export const buildPlayerAwardStats = (awards: Array<Pick<PlayerTournamentAward, 
 
 const getParticipants = async (db: DatabaseWrapper, tournamentId: string) => db.all<any>(`
   SELECT tp.id AS participant_id, tp.player_id,
-         COALESCE(tp.display_name, p.nickname, 'Участник') AS display_name
+         COALESCE(p.nickname, tp.display_name, 'Участник') AS display_name
     FROM tournament_participants tp
     LEFT JOIN players p ON p.id = tp.player_id
    WHERE tp.tournament_id = ?

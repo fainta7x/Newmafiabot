@@ -965,6 +965,7 @@ These are the owner's answers to the questions where copies in the code disagree
 
 1. **Games counted in profile statistics** (total games, win rate, roles): only **completed** games. For a club game the protocol is closed and the evening is not cancelled. For a tournament game both the game and its protocol are completed. Drafts and planned games are not counted.
 2. **Best move (ЛХ) sources.** The best move of the player **voted out in the zero round** counts exactly like the best move of the first player killed at night. It counts for Elo **and** for tokens.
+   - **Where it can happen** (owner, 2026-10-23): «Мы сейчас из обычных игр и игр новичков убрали слом в нуле в принципе. Т.е. это возможно сделать только на турнире или на рейтинговой игре». So a broken zero-round split («Сломал в нуле») happens only in tournament and rating games. What the app should do about it in ordinary and novice games is still to be decided by the owner.
 3. **Protocol checks.** The club evening protocol gets the same consistency checks as the tournament protocol. For example, a player with 4 fouls must be marked removed, and the protocol cannot be saved otherwise. Table size stays as it is: 8–10 for novice evenings, 10 otherwise.
 4. **Saving a live game.** Unchanged: a live evening game is saved as a completed protocol, and a live tournament game is saved as a draft for review.
 5. **«Думаю» is not «Идут».** «Идут» counts only «Иду» and «Приду позже», and so does the shortfall («недобор»). «Думаю» is shown separately.

@@ -137,6 +137,15 @@ describe('canonical club-game token settlement routes', () => {
   const save = (body: any) => request(app).put(`/api/games/${gameId}/evening-protocol`).set('Cookie',cookie).send(body);
   const ledgerCount = async () => Number((await db.get<{n:number}>('SELECT COUNT(*) AS n FROM token_ledger'))?.n || 0);
 
+  it('rejects contradictory discipline before saving a protocol or settling tokens', async () => {
+    const before = await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [gameId]);
+    const completed = protocol('completed', results.map((row, index) => ({ ...row, regular_fouls: index === 0 ? 4 : 0 })));
+    const response = await save({ protocol: completed.protocol, player_results: completed.player_results });
+    expect(response.status).toBe(400);
+    expect((await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [gameId])).protocol_text).toBe(before.protocol_text);
+    expect(await ledgerCount()).toBe(0);
+  });
+
   it('first completion settles all ten UUID players plus linked judge, replay is exact no-op, and metadata is readable', async () => {
     const completed = protocol('completed', results, {
       first_killed_participant_id:'ep-1', zero_round_voted_participant_id:'ep-2',
@@ -145,6 +154,8 @@ describe('canonical club-game token settlement routes', () => {
         {participant_id:'ep-2',source:'zero_round_voted',seat_numbers:[8,9,10]},
       ],
     });
+    completed.player_results[0].exit_type = 'killed';
+    completed.player_results[1].exit_type = 'voted_zero_round';
     completed.player_results[0].judge_bonus = 0.3;
     completed.player_results[0].protocol_bonus = -0.1;
     completed.player_results[0].ci_points = 0.2;

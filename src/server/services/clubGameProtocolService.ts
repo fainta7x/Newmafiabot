@@ -1,3 +1,4 @@
+import { validateBestMoves as validateSharedBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../lib/protocolConsistency.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
@@ -167,6 +168,11 @@ export const canonicalizeClubGameSave = (
     const eligible = result.participant_id === firstKilledParticipantId && (result.role === 'citizen' || result.role === 'sheriff') && firstKilledNamesBlack;
     result.ci_points = normalizeCi(result.ci_points, eligible, ciCeiling);
   }
+  const consistencyError = validatePlayerResults(playerResults, playerResults, firstKilledParticipantId, tableSize)
+    || validateShots(incomingProtocol?.shots, tableSize)
+    || (status === 'completed' ? validateSharedBestMoves(incomingProtocol?.best_moves || [], firstKilledId, zeroRoundId, [...participantIds], playerResults, tableSize)
+      || validateFirstKilled(firstKilledId, playerResults, playerResults, incomingProtocol?.shots) : null);
+  if (consistencyError) throw new Error(consistencyError);
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const replay_frames = sanitizeBroadcastReplayFrames(incomingProtocol?.replay_frames ?? previousPayload?.protocol?.replay_frames);
   const blackIds = blackParticipantIds(playerResults);

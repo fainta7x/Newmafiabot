@@ -161,7 +161,7 @@ Both financial adjustment paths must respect the unique source identity `(source
 
 ## 9. Games / protocol correction / pending-save recovery
 
-Organizer game workflow lives in CRM evening-game components and current game/protocol routes.
+Organizer game workflow lives in CRM evening-game components and current game/protocol routes. Pure player/discipline, shots and first-killed/best-move consistency belongs to `src/lib/protocolConsistency.ts`; club save service, tournament routes and tournament completion UI consume it. Voting hierarchy/completion remains separate until the club zero-round setting is carried through the protocol contract.
 
 Important ownership split:
 

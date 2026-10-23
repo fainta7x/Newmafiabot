@@ -14,6 +14,8 @@ const save = (mutate: (rows: any[]) => void, options: { firstKilled?: string | n
   const rows = base();
   mutate(rows);
   const firstKilled = options.firstKilled === undefined ? 'pt1' : options.firstKilled;
+  const firstKilledRow = rows.find(row => row.participant_id === firstKilled);
+  if (firstKilledRow) firstKilledRow.exit_type = 'killed';
   const saved = canonicalizeClubGameSave(previous, {
     status: 'completed', winner_team: options.winner || 'black', first_killed_participant_id: firstKilled, best_moves: options.bestMoves === undefined ? goodMove : options.bestMoves,
   }, rows, 'completed');

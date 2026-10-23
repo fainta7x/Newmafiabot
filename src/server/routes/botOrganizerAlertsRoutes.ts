@@ -71,7 +71,7 @@ router.post('/organizer-tasks/:id/action', async (req, res) => {
       telegramUserId: req.body?.telegram_user_id,
     });
     if (result.ok) return res.json(result.task);
-    const status = result.error === 'forbidden' ? 403 : result.error === 'not_found' ? 404 : 400;
+    const status = result.error === 'forbidden' ? 403 : result.error === 'not_found' ? 404 : result.error === 'closed' ? 409 : 400;
     return res.status(status).json({ error: result.error });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить задачу' });

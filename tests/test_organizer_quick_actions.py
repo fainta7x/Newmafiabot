@@ -22,6 +22,11 @@ class OrganizerQuickActionsTest(unittest.TestCase):
         self.assertEqual(rows[0][0].text, "✅ Позвонить новичку после…")
         self.assertEqual(rows[1][1].text, "⏰ Завтра")
 
+    def test_every_task_listed_in_the_digest_gets_buttons(self):
+        keyboard = build_organizer_digest_keyboard({"tasks": [{"id": f"t-{i}", "title": f"Задача {i}"} for i in range(10)]})
+        task_rows = [row for row in keyboard.inline_keyboard if (row[0].callback_data or "").startswith("otask:")]
+        self.assertEqual(len(task_rows), 10)
+
     def test_task_id_over_telegram_limit_gets_no_buttons(self):
         self.assertEqual(quick.task_button_rows([{"id": "x" * 60, "title": "Длинный id"}]), [])
 

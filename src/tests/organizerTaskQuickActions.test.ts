@@ -62,6 +62,19 @@ describe('quick answers to organizer tasks from Telegram (owner, 2026-10-23)', (
     expect(noToken.status).toBe(401);
   });
 
+  it('a task closed elsewhere is not postponed, and «Сделано» on it does not reopen or fail', async () => {
+    const { db, app } = await seed();
+    expect((await press(app, 'done', '777')).status).toBe(200);
+    const doneAt = (await db.get<any>("SELECT completed_at FROM organizer_tasks WHERE id = 't1'")).completed_at;
+    expect((await press(app, 'snooze', '777')).status).toBe(409);
+    expect((await press(app, 'done', '777')).status).toBe(200);
+    const task = await db.get<any>("SELECT status, completed_at FROM organizer_tasks WHERE id = 't1'");
+    expect(task).toEqual({ status: 'done', completed_at: doneAt });
+    await db.run("UPDATE organizer_tasks SET status = 'cancelled' WHERE id = 't1'");
+    expect((await press(app, 'done', '777')).status).toBe(409);
+    expect((await db.get<any>("SELECT status FROM organizer_tasks WHERE id = 't1'")).status).toBe('cancelled');
+  });
+
   it('tomorrow 10:00 Moscow is the same just before and after Moscow midnight', () => {
     expect(tomorrowMorningMoscow(Date.parse('2026-10-22T20:59:00Z'))).toBe('2026-10-23T07:00:00.000Z');
     expect(tomorrowMorningMoscow(Date.parse('2026-10-22T21:01:00Z'))).toBe('2026-10-24T07:00:00.000Z');

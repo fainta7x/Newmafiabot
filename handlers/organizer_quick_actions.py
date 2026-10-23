@@ -28,7 +28,7 @@ def _short(title: str, limit: int = 24) -> str:
     return title if len(title) <= limit else f"{title[: limit - 1]}…"
 
 
-def task_button_rows(tasks: list[dict], limit: int = 5) -> list[list[InlineKeyboardButton]]:
+def task_button_rows(tasks: list[dict], limit: int = 10) -> list[list[InlineKeyboardButton]]:
     """One row per task: «✅ <title>» and «⏰ Завтра»; a task whose id does not fit Telegram's limit gets no row."""
     rows: list[list[InlineKeyboardButton]] = []
     for task in tasks[:limit]:
@@ -56,6 +56,7 @@ def _without_task(markup: InlineKeyboardMarkup | None, task_id: str) -> InlineKe
 _ERRORS = {
     "authorization": "Это действие доступно только организаторам.",
     "not_found": "Задача не найдена — возможно, её удалили.",
+    "closed": "Задача уже закрыта.",
     "invalid": "Не понял действие.",
 }
 

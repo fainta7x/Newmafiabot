@@ -171,7 +171,7 @@ def build_organizer_digest_keyboard(operations: dict[str, Any] | None) -> Inline
     """Quick answers under the digest (owner, 2026-10-23): close or postpone a task, open the CRM."""
     operations = operations or {}
     tasks = operations.get("tasks") if isinstance(operations.get("tasks"), list) else []
-    rows = task_button_rows(tasks)
+    rows = task_button_rows(tasks, limit=10)  # the digest lists up to ten tasks; each listed one gets its buttons
     app_url = str(config.PLAYER_APP_URL or config.BOT_API_BASE_URL or "").rstrip("/")
     if app_url.startswith("https://"):
         rows.append([InlineKeyboardButton(text="📋 Открыть CRM", web_app=WebAppInfo(url=f"{app_url}/admin"))])

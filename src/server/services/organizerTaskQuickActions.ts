@@ -37,7 +37,7 @@ export function tomorrowMorningMoscow(now = Date.now()) {
 
 export type OrganizerTaskActionResult =
   | { ok: true; task: { id: string; title: string; status: string; due_at: string | null } }
-  | { ok: false; error: 'forbidden' | 'not_found' | 'invalid' };
+  | { ok: false; error: 'forbidden' | 'not_found' | 'invalid' | 'closed' };
 
 export async function applyOrganizerTaskAction(
   db: DatabaseWrapper,
@@ -53,12 +53,14 @@ export async function applyOrganizerTaskAction(
   const task = await db.get<any>('SELECT id, title, status, due_at FROM organizer_tasks WHERE id = ?', [input.taskId]);
   if (!task) return { ok: false, error: 'not_found' };
   const stamp = new Date(now).toISOString();
+  // Old messages keep their buttons: a task closed elsewhere is not postponed or reopened. «Сделано» on a done task
+  // is a harmless repeat; the status check sits in the update itself so two presses at once cannot race.
   if (action === 'done') {
-    if (task.status !== 'done') {
-      await db.run('UPDATE organizer_tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?', ['done', stamp, stamp, task.id]);
-    }
+    if (task.status === 'cancelled') return { ok: false, error: 'closed' };
+    await db.run(`UPDATE organizer_tasks SET status = 'done', completed_at = ?, updated_at = ? WHERE id = ? AND status NOT IN ('done', 'cancelled')`, [stamp, stamp, task.id]);
   } else {
-    await db.run('UPDATE organizer_tasks SET due_at = ?, updated_at = ? WHERE id = ?', [tomorrowMorningMoscow(now), stamp, task.id]);
+    const result = await db.run(`UPDATE organizer_tasks SET due_at = ?, updated_at = ? WHERE id = ? AND status NOT IN ('done', 'cancelled')`, [tomorrowMorningMoscow(now), stamp, task.id]);
+    if (!result?.changes) return { ok: false, error: 'closed' };
   }
   const updated = await db.get<any>('SELECT id, title, status, due_at FROM organizer_tasks WHERE id = ?', [task.id]);
   return { ok: true, task: { id: String(updated.id), title: String(updated.title || 'Задача'), status: String(updated.status), due_at: updated.due_at ?? null } };

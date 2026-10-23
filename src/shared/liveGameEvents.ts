@@ -97,3 +97,15 @@ export const sanitizeLiveGameEvents = (value: unknown): LiveGameEvent[] => {
   }
   return result;
 };
+
+/**
+ * Who broke the zero-round split, as the judge named it (live game «Кто сломал попил?» or the protocol form). The
+ * latest mark wins: a later event replaces an earlier one, and an event without a seat clears it.
+ */
+export const zeroRoundBreakerSeat = (events: ReadonlyArray<Pick<LiveGameEvent, 'kind' | 'round' | 'seat'>> | null | undefined): number | null => {
+  let seat: number | null = null;
+  for (const event of events || []) {
+    if (event.kind === 'zero_round_break' && event.round === 1) seat = cleanSeat(event.seat);
+  }
+  return seat;
+};

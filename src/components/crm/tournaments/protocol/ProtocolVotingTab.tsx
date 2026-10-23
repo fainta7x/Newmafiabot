@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { TournamentGameProtocolData, PlayerResultData } from '../../../../lib/api';
 import { VotingRound, determineVotingResult } from '../../../../shared/tournamentVoting';
+import { zeroRoundBreakerSeat } from '../../../../shared/liveGameEvents';
 import {
   moveNominatedSeat,
   parseOptionalVoteInput,
@@ -426,9 +427,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
 
       <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3">
         <label htmlFor="zero-round-breaker" className="block text-xs font-semibold text-amber-100">Кто сломал попил в нуле?</label>
-        <p className="mt-1 text-[11px] leading-4 text-slate-400">Указывайте только если ведущий точно зафиксировал, кто не поставил руку. По результату голосования игрок не определяется автоматически.</p>
+        <p className="mt-1 text-[11px] leading-4 text-slate-400">Указывайте только если ведущий точно зафиксировал, кто не поставил руку. Отметка из живой игры подставляется сама. По результату голосования игрок не определяется автоматически.</p>
         <select id="zero-round-breaker" aria-label="Сломал в нуле" disabled={protocol.status === 'completed'}
-          value={protocol.events?.find(event => event.kind === 'zero_round_break' && event.round === 1)?.seat ?? ''}
+          value={zeroRoundBreakerSeat(protocol.events) ?? ''}
           onChange={event => onSetZeroBreakSeat(event.target.value ? Number(event.target.value) : null)}
           className="mt-2 min-h-11 w-full rounded-xl border border-white/15 bg-slate-900 px-3 text-sm text-white">
           <option value="">Не отмечен</option>

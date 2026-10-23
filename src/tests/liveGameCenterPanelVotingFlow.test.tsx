@@ -235,4 +235,36 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
     expect(screen.getByRole('button', { name: /Подвести итог/i })).toBeTruthy();
   });
+  it.each(['club', 'tournament'] as const)('asks who broke the zero-round split under the %s setting and toggles the mark', (zeroRoundRule) => {
+    const onSetZeroRoundBreaker = vi.fn();
+    const currentRound: VotingRound = {
+      round_number: 1, is_revote: false, nominated_seats: [2, 5], vote_counts: { 2: 6, 5: 4 }, eligible_voters: 10,
+      day_number: 0, outcome: 'pending', eliminated_seats: [], table_leave_votes: null,
+    };
+    const props = { ...baseProps(), phase: 'day_voting' as const, nextSpeaker: null, nominations: [2, 5], votingRounds: [currentRound],
+      activeVotingRoundIndex: 0, votingStage: 'round_result' as const, zeroRoundRule, onSetZeroRoundBreaker };
+    const { rerender } = render(<CenterPanel {...props} zeroRoundBreakerSlot={null} />);
+    // The primary step stays on the card; the seats open only on demand.
+    expect(screen.getByRole('button', { name: zeroRoundRule === 'club' ? /Доп. речь #2/ : 'Подтвердить' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '#4' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Кто сломал попил?' }));
+    fireEvent.click(screen.getByRole('button', { name: '#4' }));
+    expect(onSetZeroRoundBreaker).toHaveBeenLastCalledWith(4);
+    rerender(<CenterPanel {...props} zeroRoundBreakerSlot={4} />);
+    expect(screen.queryByRole('button', { name: '#4' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Сломал попил: #4' }));
+    expect(screen.getByRole('button', { name: '#4' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Не знаю' }));
+    expect(onSetZeroRoundBreaker).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not ask who broke a split outside the zero round', () => {
+    const currentRound: VotingRound = {
+      round_number: 1, is_revote: false, nominated_seats: [2, 5], vote_counts: { 2: 6, 5: 4 }, eligible_voters: 10,
+      day_number: 1, outcome: 'pending', eliminated_seats: [], table_leave_votes: null,
+    };
+    render(<CenterPanel {...baseProps()} phase="day_voting" nextSpeaker={null} nominations={[2, 5]} votingRounds={[currentRound]}
+      activeVotingRoundIndex={0} votingStage="round_result" onSetZeroRoundBreaker={vi.fn()} />);
+    expect(screen.queryByText(/Кто сломал попил/)).toBeNull();
+  });
 });

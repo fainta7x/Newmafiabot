@@ -41,4 +41,16 @@ describe('zero round player indicators', () => {
     expect(counts.has('p2')).toBe(false);
   });
 
+  it('takes the latest breaker mark: a later seat replaces an earlier one, a mark without a seat clears it', () => {
+    const counts = buildZeroRoundPlayerCounts([game([
+      { seq: 1, at: '', round: 1, phase: 'day_voting', kind: 'zero_round_break', seat: 3 },
+      { seq: 2, at: '', round: 1, phase: 'day_voting', kind: 'zero_round_break', seat: 4 },
+    ]), game([
+      { seq: 1, at: '', round: 1, phase: 'day_voting', kind: 'zero_round_break', seat: 1 },
+      { seq: 2, at: '', round: 1, phase: 'day_voting', kind: 'zero_round_break' },
+    ])]);
+    expect(counts.get('p4')?.broke).toBe(1);
+    expect(counts.has('p3')).toBe(false);
+    expect(counts.has('p1')).toBe(false);
+  });
 });

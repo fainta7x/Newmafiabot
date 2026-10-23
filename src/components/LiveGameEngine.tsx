@@ -101,6 +101,7 @@ import {
   savedBestMoveSeats,
   registerFirstKilled,
   registerZeroRoundVoted,
+  setZeroRoundBreaker,
   setBestMove,
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
@@ -1118,6 +1119,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setIsTimerRunning(true);
   };
 
+  const handleSetZeroRoundBreaker = (slot: number | null) => {
+    setProtocolMarkers((previous) => setZeroRoundBreaker(previous, slot));
+  };
+
   const finishBreakSpeech = () => {
     saveSnapshot();
     setBreakSpeechSlot(null);
@@ -1709,6 +1714,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleClubZeroRoundBreak,
       zeroRoundRule,
       breakSpeechSlot,
+      zeroRoundBreakerSlot: protocolMarkers.zeroRoundBreakerSlot ?? null,
+      onSetZeroRoundBreaker: handleSetZeroRoundBreaker,
       handleGoToRevoteSpeeches,
       handleAdvanceRevoteSpeaker,
       handleBackWithinRevoteSpeeches,

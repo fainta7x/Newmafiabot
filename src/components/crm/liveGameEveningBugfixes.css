@@ -491,3 +491,34 @@ html body .evening-live-engine-shell .live-judge-hud__auto span {
     display: none !important;
   }
 }
+
+/* «Кто сломал попил?» on the zero-round result: a plain action under the primary step; the seats open on demand
+   in the same centre cell (ten compact seats in two rows). */
+html body .live-judge-breaker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+html body .live-judge-breaker__seats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+html body .live-judge-breaker__seat {
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+html body .live-judge-breaker__seat[aria-pressed='true'] {
+  border-color: rgba(251, 191, 36, 0.7);
+  background: rgba(245, 158, 11, 0.22);
+  color: #fff3d6;
+}

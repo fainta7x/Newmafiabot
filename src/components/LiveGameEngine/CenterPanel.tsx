@@ -89,6 +89,9 @@ interface CenterPanelProps {
   handleClubZeroRoundBreak?: (slotNum: number) => void;
   zeroRoundRule?: ZeroRoundRule;
   breakSpeechSlot?: number | null;
+  /** «Кто сломал попил?»: the seat the judge named for a broken zero-round split (optional, never derived from votes). */
+  zeroRoundBreakerSlot?: number | null;
+  onSetZeroRoundBreaker?: (slotNum: number | null) => void;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
   handleAdvanceRevoteSpeaker?: (slot: number, nextIndex: number) => void;
   handleBackWithinRevoteSpeeches?: (previousSlot: number, previousIndex: number) => void;
@@ -192,6 +195,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleClubZeroRoundBreak,
     zeroRoundRule = 'tournament',
     breakSpeechSlot = null,
+    zeroRoundBreakerSlot = null,
+    onSetZeroRoundBreaker,
     handleGoToRevoteSpeeches,
     handleAdvanceRevoteSpeaker,
     handleBackWithinRevoteSpeeches,
@@ -210,6 +215,8 @@ export default function CenterPanel(props: CenterPanelProps) {
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
+  const [breakerPicking, setBreakerPicking] = React.useState(false);
+  React.useEffect(() => { if (votingStage !== 'round_result') setBreakerPicking(false); }, [votingStage]);
   const [autoAdvance, setAutoAdvance] = React.useState<boolean>(() => {
     try { return localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === '1'; } catch { return false; }
   });
@@ -685,7 +692,39 @@ export default function CenterPanel(props: CenterPanelProps) {
     }
 
     if (votingStage === 'round_result') {
-      if (result.outcome === 'single_eliminated' && zeroRoundRule === 'club' && currentRound?.day_number === 0) {
+      const zeroRoundSplitBroken = result.outcome === 'single_eliminated' && currentRound?.day_number === 0;
+      // Under both settings the judge may name who broke the split; skipping it is fine (the protocol form still asks).
+      // The seats open on demand so the primary step keeps its place in the small centre cell on a phone.
+      const breakerQuestion = zeroRoundSplitBroken && onSetZeroRoundBreaker ? (
+        <button type="button" data-testid="live-zero-breaker" onClick={() => setBreakerPicking(true)} className="live-judge-action">
+          {zeroRoundBreakerSlot ? `Сломал попил: #${zeroRoundBreakerSlot}` : 'Кто сломал попил?'}
+        </button>
+      ) : null;
+
+      if (breakerQuestion && breakerPicking) {
+        const choose = (seat: number | null) => { onSetZeroRoundBreaker?.(seat); setBreakerPicking(false); };
+        return (
+          <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-breaker">
+            <div className="live-judge-breaker__head">
+              <div className="live-judge-hud__hint">Кто сломал попил?</div>
+              <button type="button" onClick={() => choose(null)} className="live-judge-action">Не знаю</button>
+            </div>
+            <div className="live-judge-breaker__seats" role="group" aria-label="Кто сломал попил">
+              {eligibleVoterSeats.map((seat) => (
+                <button
+                  key={seat}
+                  type="button"
+                  aria-pressed={zeroRoundBreakerSlot === seat}
+                  onClick={() => choose(seat)}
+                  className="live-judge-breaker__seat"
+                >#{seat}</button>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      if (zeroRoundSplitBroken && zeroRoundRule === 'club') {
         const seat = result.winners[0];
         return (
           <div className="live-judge-hud__stack">
@@ -693,6 +732,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             <div className="live-judge-hud__title">Попил сломан в <strong>#{seat}</strong></div>
             <div className="live-judge-hud__hint">#{seat} остаётся за столом, без ЛХ: 30 секунд дополнительной речи, затем ночь.</div>
             <button type="button" onClick={() => handleClubZeroRoundBreak?.(seat)} className="live-judge-action live-judge-action--primary">Доп. речь #{seat} · 30 сек</button>
+            {breakerQuestion}
           </div>
         );
       }
@@ -703,6 +743,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             <div className="live-judge-hud__eyebrow">Итог голосования</div>
             <div className="live-judge-hud__title">Заголосован <strong>#{result.winners[0]}</strong></div>
             <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="live-judge-action live-judge-action--primary">Подтвердить</button>
+            {breakerQuestion}
           </div>
         );
       }

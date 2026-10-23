@@ -177,7 +177,7 @@ Owner: «это нужно оставить про слом, только раз
 - **Клубная настройка.** The player the split was broken into **does not leave the table and gives no best move**. He gets **30 seconds of extra speech**, then the night starts.
 - «Подняли в нуле» (a double revote where the table raises both players) works **as in a tournament** under both settings: both leave.
 - **Default by evening type:** tournament and rating games use the tournament setting; ordinary and novice games use the club setting. The judge of a club or rating evening may change it on the setup screen before the game. A tournament game always uses the tournament setting (its protocol checks the votes by tournament rules). A game saved before the setting existed continues under the tournament setting.
-- The breaker («Сломал в нуле») is recorded under both settings.
+- The breaker («Сломал в нуле») is recorded under both settings. **Owner «да», 2026-10-23:** the live game asks «Кто сломал попил?» on the zero-round result when one player is voted out (under both settings). The answer is optional («Не знаю» clears it); the judge never gets a guess from the votes. The live game and the protocol form write the same mark, and the latest mark wins, so the judge can correct it in the protocol afterwards.
 
 ### First killed player: «Лучший ход» and «Протокол убитого» (owner, 2026-10-18)
 

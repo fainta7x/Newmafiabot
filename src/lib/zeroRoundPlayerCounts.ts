@@ -1,4 +1,5 @@
 import type { StatGame } from './gameStatistics.ts';
+import { zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
 
 export interface ZeroRoundPlayerCounts { broke: number; raised: number }
 
@@ -12,14 +13,9 @@ export function buildZeroRoundPlayerCounts(games: StatGame[]): Map<string, ZeroR
   };
   for (const game of games) {
     const seatToPlayer = new Map(game.seats.filter(seat => seat.playerId).map(seat => [seat.seat, seat.playerId!]));
-    const breaks = new Set<number>();
-    for (const event of game.events || []) {
-      if (event.kind === 'zero_round_break' && event.round === 1 && event.seat) breaks.add(event.seat);
-    }
-    for (const seat of breaks) {
-      const playerId = seatToPlayer.get(seat);
-      if (playerId) add(playerId, 'broke');
-    }
+    const breaker = zeroRoundBreakerSeat(game.events);
+    const breakerId = breaker === null ? undefined : seatToPlayer.get(breaker);
+    if (breakerId) add(breakerId, 'broke');
 
     // "Raised in zero" = two players eliminated together after a double revote.
     const raised = new Set<number>();

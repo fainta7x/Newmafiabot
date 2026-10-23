@@ -1,3 +1,4 @@
+import type { LiveProtocolEvidence } from '../../lib/liveClubSession.ts';
 import { canonicalizeLivePlayers, type LiveSnapshot } from './engineStateModel.js';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
@@ -6,6 +7,7 @@ import { setItemFreeingSpace } from '../../lib/liveStorageBudget.ts';
 export const LIVE_GAME_SESSION_STORAGE_KEY = 'mafia_live_session';
 
 export type PersistedLiveSession = LiveSnapshot & {
+  protocolEvidence?: LiveProtocolEvidence;
   historyStack?: LiveSnapshot[];
   savedAt?: string;
   /** The game this session belongs to; absent for sessions saved before the key existed. */

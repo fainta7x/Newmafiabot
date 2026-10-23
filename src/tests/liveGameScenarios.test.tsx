@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import LiveGameEngine from '../components/LiveGameEngine';
+import { advanceLiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { createInitialGameDiscipline } from '../lib/gameDiscipline';
 import { deactivateTableDecisionSelection } from '../components/LiveGameEngine/tableDecisionSelectionStore';
 
@@ -68,9 +69,10 @@ beforeEach(() => { localStorage.clear(); sessionStorage.clear(); deactivateTable
 afterEach(() => { cleanup(); deactivateTableDecisionSelection(); localStorage.clear(); sessionStorage.clear(); });
 
 describe('judge engine: whole-game scenarios', () => {
-  it('a night shot that leaves two red against two black ends the game for black', async () => {
+  it.each([false, true])('a night shot ends the game for black (native journal: %s)', async (native) => {
     // Three red (1, 2, 7) and two black (8, 10) are left; the mafia shoots the sheriff.
-    const done = await play(position('night', [{ slot: 3 }, { slot: 4, exit: 'killed' }, { slot: 5 }, { slot: 6 }, { slot: 9 }]));
+    const initial = position('night', [{ slot: 3 }, { slot: 4, exit: 'killed' }, { slot: 5 }, { slot: 6 }, { slot: 9 }]);
+    const done = await play({ ...initial, ...(native ? { protocolEvidence: advanceLiveEngineJournal(null, initial).evidence } : {}) });
     await press(/Включить музыку ночи/);
     await press(/^Отстрел$/);
     fireEvent.click(seat(7));
@@ -85,6 +87,12 @@ describe('judge engine: whole-game scenarios', () => {
     expect(result?.winning_team).toBe('Чёрные');
     expect(exitOf(result, 7)).toBe('killed');
     expect(result.end_reason).toBe('normal');
+    if (native) {
+      const events = result.protocol_evidence.events;
+      expect(events.filter((e: any) => e.kind === 'shot_target' && e.target === 7)).toHaveLength(1);
+      expect(events.filter((e: any) => e.kind === 'exit' && e.seat === 7)).toHaveLength(1);
+      expect(result.protocol_snapshot.activePlayers.find((p: any) => p.slot_num === 7).alive).toBe(false);
+    } else expect(result.protocol_evidence).toBeUndefined();
   });
 
   it('a day vote that takes out the last black player asks once, then ends the game for red', async () => {
@@ -108,7 +116,8 @@ describe('judge engine: whole-game scenarios', () => {
   });
 
   it.each(['club', 'tournament'] as const)('ППК by a black player retains the %s setting and ends for red with culprit and reason', async (rule) => {
-    const done = await play(position('day_speeches', [{ slot: 4, exit: 'killed' }], { zeroRoundRule: rule }));
+    const initial = position('day_speeches', [{ slot: 4, exit: 'killed' }], { zeroRoundRule: rule });
+    const done = await play({ ...initial, protocolEvidence: advanceLiveEngineJournal(null, initial).evidence });
     fireEvent.click(seat(9));
     await press('ППК');
     await press('Подтвердить ППК');
@@ -116,6 +125,7 @@ describe('judge engine: whole-game scenarios', () => {
     expect(result?.winning_team).toBe('Красные');
     expect(result.end_reason).toBe('ppk');
     expect(result.zero_round_rule).toBe(rule);
+    expect(result.protocol_evidence.events.filter((e: any) => e.kind === 'ppk' && e.seat === 9)).toHaveLength(1);
     expect(result.slots.find((s: any) => s.slot_num === 9)?.ppk).toBe(true);
   });
 

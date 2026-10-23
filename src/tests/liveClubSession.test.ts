@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
+import { advanceLiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { createNextRevoteRound, type VotingRound } from '../shared/tournamentVoting';
 import {
   ClubLiveSessionRecorder,
@@ -33,6 +34,24 @@ const round = (partial: Partial<VotingRound>): VotingRound => ({
 
 describe('club live session evidence', () => {
   beforeEach(() => localStorage.clear());
+
+  it('copies the native journal even when the recorder missed both intermediate states', () => {
+    const recorder = new ClubLiveSessionRecorder(71);
+    recorder.mount();
+    const initial = { phase: 'day_speeches', roundNumber: 2, nominations: [] };
+    let journal = advanceLiveEngineJournal(null, initial);
+    journal = advanceLiveEngineJournal(journal, { ...initial, nominations: [4] });
+    journal = advanceLiveEngineJournal(journal, initial);
+    localStorage.setItem(LEGACY_LIVE_SESSION_KEY, JSON.stringify({ ...initial, protocolEvidence: journal.evidence }));
+    recorder.sync();
+    recorder.sync();
+    expect(recorder.getEvidence().events?.map(e => e.kind)).toEqual(['game_start', 'nomination', 'nomination_removed']);
+    recorder.unmount();
+    const reopened = new ClubLiveSessionRecorder(71);
+    reopened.mount();
+    expect(reopened.getEvidence()).toEqual(journal.evidence);
+    reopened.unmount();
+  });
 
   it('isolates autosave keys by club game id', () => {
     expect(clubLiveSessionKey(41)).toBe('mafia_live_session:club:41');

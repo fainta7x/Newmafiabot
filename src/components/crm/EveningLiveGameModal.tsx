@@ -846,12 +846,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                 });
                 return;
               }
-              const evidence = liveRecorder.getEvidence();
+              const evidence = gameData.protocol_evidence || liveRecorder.getEvidence();
               // The same chronology as in a tournament game: recorded events, the last changes the recorder could miss,
               // the colour protocols of the killed players and the end of the game.
               const events = buildFinalChronology({
                 events: evidence.events,
-                lastSnapshot: liveRecorder.getLastSnapshot(),
+                lastSnapshot: gameData.protocol_snapshot || liveRecorder.getLastSnapshot(),
                 gameData,
                 deathProtocols: readStoredDeathProtocols(),
                 at: new Date().toISOString(),

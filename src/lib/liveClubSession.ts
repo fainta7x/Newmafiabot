@@ -29,7 +29,9 @@ export type LiveProtocolEvidence = {
   events?: LiveGameEvent[];
 };
 
-type LiveSessionSnapshot = {
+export type LiveSessionSnapshot = LiveEventSnapshot & {
+  /** Producer-owned evidence; absent in sessions from older builds. */
+  protocolEvidence?: LiveProtocolEvidence;
   phase?: string;
   roundNumber?: number;
   nightSubPhase?: string;
@@ -146,11 +148,20 @@ const mergeShots = (existing: ShotEntry[], incoming: ShotEntry): ShotEntry[] => 
   return next.sort((a, b) => Number(a.night_number) - Number(b.night_number));
 };
 
+export const cloneLiveProtocolEvidence = (evidence: LiveProtocolEvidence): LiveProtocolEvidence => ({
+  votes: evidence.votes.map(cloneRound),
+  shots: evidence.shots.map(shot => ({ ...shot })),
+  events: evidence.events?.map(event => ({ ...event })),
+});
+
 export const updateLiveProtocolEvidence = (
   evidence: LiveProtocolEvidence,
   current: LiveSessionSnapshot,
   previous: LiveSessionSnapshot | null,
 ): LiveProtocolEvidence => {
+  // A current engine journals each persisted transition. Polling only copies that evidence;
+  // deriving again here would duplicate events and miss intermediate actions.
+  if (current.protocolEvidence) return cloneLiveProtocolEvidence(current.protocolEvidence);
   let votes = mergeLiveVotingRounds(evidence.votes, current.votingRounds || []);
   let shots = [...evidence.shots];
 

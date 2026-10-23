@@ -1199,3 +1199,6 @@ Replacement PR for conflicted #970 stores bounded actual OBS-state frames during
 
 
 **Messaging — 2026-10-23 working slice:** shared personal-message timing (17 attempts, exponential backoff capped at 15 minutes) extracted from Telegram/VK senders in `refactor/messaging-shared-retry-policy-20261023`, with boundary tests and no functional changes. Separate Telegram sync retry (12 attempts) and uncertain public post delivery remain an explicit audit item; do not conflate personal notification and publish-once workflows. CI/merge/deploy are separate gates.
+
+
+**Messaging follow-up, 2026-10-23:** explicit delivery certainty classification extracted from Telegram's 5xx/network failure logic with cancellation-specific no-duplicate retry behavior, plus tests. Pure classification only; status persistence remains `pending/sent/failed`, ordinary Telegram sends may retry after uncertain outcome; public-post reconciliation and the distinct Telegram sync policy are still pending. Never describe this as exactly-once delivery.

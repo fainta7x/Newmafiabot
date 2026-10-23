@@ -1597,3 +1597,11 @@ Scope: common player/discipline, shots, first-killed and best-move consistency v
 Acceptance: persisted save cannot accept the documented contradictory discipline combinations, same common validators on both APIs and tournament completion UI, focused tests plus required CI. New owner ideas remain pending their separate approval.
 
 Implementation: extracted the existing tournament validators into a pure shared module, parameterized seat bounds for novice tables, connected club saves and tournament completion UI. The five contradictory discipline cases fail before the fix and pass after it; six existing scoring fixture failures were traced to alive first-killed/zero-round markers and corrected without changing score expectations. API regression checks that rejection changes neither protocol storage nor token ledger. PR #1013 merged as 4b6f2429 after exact-head CI and all review threads were resolved; deployment remains unconfirmed.
+
+## Protocol voting validation — programme continuation, 2026-10-23
+Scope: remove competing tournament voting completion rules before connecting club voting settings.
+- Open: `protocolValidationUtils.ts` rejects a voted-out player subsequently removed for a documented reason, while `tournamentProtocolRoutes.ts` correctly preserves the previous exit (`leftAs`).
+- Open: browser completion lacks server structural/revote-parent checks, so the same protocol can pass the form and fail API save.
+Acceptance: one pure voting validator for server and completion form, exact failing-round focus preserved, existing tournament API rules unchanged. Club voting remains separate until its saved zero-round setting is carried in the protocol contract.
+
+Implementation: both tournament callers now use `protocolVotingValidation.ts`; server draft/completion rules are unchanged. Form accepts documented later removal and reports structural/revote errors before submission, preserving round focus. Five old form fixtures now carry the required `is_revote: false`, matching real editor rounds and the existing API contract. No layout, scoring, production data or live-game save changes.

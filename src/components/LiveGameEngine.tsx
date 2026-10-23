@@ -1535,6 +1535,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       slots,
       judge_id: judgeId,
       protocol_markers: protocolMarkers,
+      zero_round_rule: zeroRoundRule,
       end_reason: endReason,
     } as any);
   };

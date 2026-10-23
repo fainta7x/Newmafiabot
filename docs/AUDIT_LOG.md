@@ -1605,3 +1605,10 @@ Scope: remove competing tournament voting completion rules before connecting clu
 Acceptance: one pure voting validator for server and completion form, exact failing-round focus preserved, existing tournament API rules unchanged. Club voting remains separate until its saved zero-round setting is carried in the protocol contract.
 
 Implementation: both tournament callers now use `protocolVotingValidation.ts`; server draft/completion rules are unchanged. Form accepts documented later removal and reports structural/revote errors before submission, preserving round focus. Five old form fixtures now carry the required `is_revote: false`, matching real editor rounds and the existing API contract. No layout, scoring, production data or live-game save changes.
+
+## Saved zero-round rule — protocol contract, 2026-10-23
+Scope: prerequisite for applying shared voting consistency to club games.
+- Open: `LiveGameEngine.tsx` saves `zeroRoundRule` in the resumable session but omits it from `onGameFinished`; `EveningLiveGameModal.tsx` therefore cannot preserve the chosen rule in the protocol. After finishing, future checks cannot distinguish an approved club zero-round broken split from an invalid tournament outcome.
+Acceptance: both explicit settings reach the finished protocol and survive subsequent manual saves; absent historical settings retain tournament semantics; invalid incoming settings are rejected. No changes to voting, engine transitions, rendering, scoring or historical records.
+
+Implementation: finished engine result includes the selected rule; club mapping and server saves retain it. Explicit invalid settings fail; legacy payloads preserve a stored setting or use tournament semantics. Whole-engine PPK scenarios exercise both settings through the actual finish callback, plus mapping and canonical-save regressions. Historical database rows are not rewritten.

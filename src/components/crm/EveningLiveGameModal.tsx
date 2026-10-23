@@ -1,4 +1,4 @@
-import { defaultZeroRoundRule } from '../../shared/zeroRoundRule.ts';
+import { defaultZeroRoundRule, isZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -135,6 +135,8 @@ export const mapEngineResultToProtocol = (
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'completed',
+    zero_round_rule: isZeroRoundRule(gameData.zero_round_rule) ? gameData.zero_round_rule
+      : isZeroRoundRule(previousProtocol.zero_round_rule) ? previousProtocol.zero_round_rule : 'tournament',
     winner_team: winnerTeam,
     end_reason: (gameData.end_reason || 'normal') as any,
     ppk_culprit_participant_id: ppkPlayer?.participant_id || previousProtocol.ppk_culprit_participant_id || null,

@@ -236,6 +236,18 @@ describe('club live result -> persisted protocol', () => {
     expect(player7.exit_type).toBe('removed');
   });
 
+  it.each(['club', 'tournament'] as const)('retains the engine-selected %s setting in the finished protocol', (rule) => {
+    const result = mapEngineResultToProtocol(game(), { winning_team: 'Красные', slots: [], zero_round_rule: rule });
+    expect(result.protocol.zero_round_rule).toBe(rule);
+  });
+
+  it('keeps the previously stored rule for older result payloads and uses tournament for historical games', () => {
+    const source = game();
+    expect(mapEngineResultToProtocol(source, {}).protocol.zero_round_rule).toBe('tournament');
+    source.club_protocol!.protocol.zero_round_rule = 'club';
+    expect(mapEngineResultToProtocol(source, {}).protocol.zero_round_rule).toBe('club');
+  });
+
   it('refuses a game without a club protocol', () => {
     const source = game();
     delete (source as any).club_protocol;

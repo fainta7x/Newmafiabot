@@ -1,3 +1,4 @@
+import { isZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { validateBestMoves as validateSharedBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../lib/protocolConsistency.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
@@ -63,6 +64,10 @@ export const canonicalizeClubGameSave = (
   incomingResults: any[],
   status: 'draft' | 'completed',
 ): CanonicalClubGameSave => {
+  const incomingRule = incomingProtocol?.zero_round_rule;
+  if (incomingRule !== undefined && !isZeroRoundRule(incomingRule)) throw new Error('Некорректная настройка нулевого круга');
+  // Old clients may omit the field during a manual edit; retain a stored setting before falling back for historical games.
+  const zeroRoundRule = incomingRule ?? (isZeroRoundRule(previousPayload?.protocol?.zero_round_rule) ? previousPayload.protocol.zero_round_rule : 'tournament');
   const previousResults = Array.isArray(previousPayload?.player_results) ? previousPayload.player_results : [];
   // The table size is fixed when the game is created (10, or 8–9 on a novice evening).
   const tableSize = previousResults.length;
@@ -176,6 +181,6 @@ export const canonicalizeClubGameSave = (
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const replay_frames = sanitizeBroadcastReplayFrames(incomingProtocol?.replay_frames ?? previousPayload?.protocol?.replay_frames);
   const blackIds = blackParticipantIds(playerResults);
-  const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, replay_frames, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
+  const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, zero_round_rule: zeroRoundRule, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, replay_frames, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
   return { protocol, playerResults };
 };

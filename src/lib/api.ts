@@ -547,6 +547,8 @@ const withoutLiveEvents = <T extends { events?: unknown }>(protocol: T): Omit<T,
 };
 
 export interface TournamentGameProtocolData {
+  /** Selected live-game rule; missing historical values mean tournament rules. Tournament games always use tournament rules. */
+  zero_round_rule?: import('../shared/zeroRoundRule').ZeroRoundRule;
   id?: string;
   game_id: string;
   status: 'draft' | 'completed';

@@ -397,3 +397,6 @@ Any flow where a player asks for something an organizer must confirm (a GoMafia 
 ### Evening domain ownership (2026-10-23)
 
 System tariff defaults and frozen per-evening policies: eveningPriceSettingsService.ts (settings API: /api/evening-prices). Shared formulas and price copy: lib/eveningPrices.ts. Explicit full-evening gifts retain evening_fee_waivers and the existing CRM payment action. Open-evening status and SQL predicate: lib/eveningStatus.ts. The shared Telegram/VK announcement renderer: eveningPostTextService.ts, using postTemplateService.ts and the existing persisted template key for backward compatibility.
+
+### Achievement read projections and role indicators
+`playerAchievementsService.ts` owns the active editable catalog, earned state, organizer overrides and earned dates; the mounted progression API projects that same profile. `src/lib/rolePerformance.ts` ranks played roles by observed win rate, breaking equal rates by games played and stable input order. Profile, progression and insights consume it without minimum-game eligibility thresholds. Titles and challenge requirements remain separate product facts.

@@ -430,3 +430,5 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 
 - Evening tariff settings: EveningPriceSettingsCard.tsx in DataSettingsCRM → /api/evening-prices → eveningPriceSettingsService.ts; shared defaults/formulas in lib/eveningPrices.ts. Frozen evening tariffs: evening_price_policies; changing defaults does not reprice existing evenings.
 - Shared evening post: eveningPostTextService.ts renders the same saved postTemplateService template for VK and botTelegramRoutes.ts. Python escapes announcement_text at the Telegram boundary. Open evening predicate: lib/eveningStatus.ts.
+
+- Achievement progression API (`playerProgressionRoutes.ts`) projects `loadPlayerAchievementProfile` through `achievementProgressionFromProfile` in `playerAchievementsService.ts`; it has no separate achievement catalog. Shared observed-role ranking without minimum-game eligibility: `src/lib/rolePerformance.ts`, used by profile, progression and insights.

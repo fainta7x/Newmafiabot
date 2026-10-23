@@ -1,3 +1,5 @@
+import { rankRolePerformance } from '../../lib/rolePerformance.ts';
+import { achievementProgressionFromProfile, loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { Router } from 'express';
 import { PLAYER_TITLES, type PlayerTitleId } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId } from '../auth.ts';
@@ -8,8 +10,6 @@ import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
 type Role = typeof ROLES[number];
-type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
-type AchievementCategory = 'career' | 'wins' | 'form' | 'sides' | 'roles' | 'special';
 
 type PersonalGame = {
   dateMs: number;
@@ -44,17 +44,6 @@ type ProgressStats = {
 };
 
 type Requirement = { label: string; current: number; target: number; completed: boolean };
-
-type AchievementDefinition = {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  rarity: Rarity;
-  category: AchievementCategory;
-  current: (stats: ProgressStats) => number;
-  target: number;
-};
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
@@ -127,15 +116,7 @@ const buildStats = (games: PersonalGame[]): ProgressStats => {
     roleBestStreak[role] = bestWinStreak(games.filter((game) => game.role === role));
   }
 
-  const roleCandidates = ROLES
-    .filter((role) => roleGames[role] > 0)
-    .sort((a, b) => {
-      const aRate = roleWins[a] / roleGames[a];
-      const bRate = roleWins[b] / roleGames[b];
-      const aReliable = roleGames[a] >= 5 ? 1 : 0;
-      const bReliable = roleGames[b] >= 5 ? 1 : 0;
-      return bReliable - aReliable || bRate - aRate || roleGames[b] - roleGames[a];
-    });
+  const roleCandidates = rankRolePerformance(ROLES.map(role => ({ role, games: roleGames[role], wins: roleWins[role] })));
 
   const eventMap = new Map<string, PersonalGame[]>();
   for (const game of games) {
@@ -165,7 +146,7 @@ const buildStats = (games: PersonalGame[]): ProgressStats => {
     roleBestStreak,
     rolesPlayed: ROLES.filter((role) => roleGames[role] > 0).length,
     rolesWon: ROLES.filter((role) => roleWins[role] > 0).length,
-    strongestRole: roleCandidates[0] || null,
+    strongestRole: roleCandidates[0]?.role || null,
     form: games.slice(0, 10).map((game) => game.won),
     recent7Wins: games.slice(0, 7).filter((game) => game.won).length,
     recent10Wins: games.slice(0, 10).filter((game) => game.won).length,
@@ -173,66 +154,6 @@ const buildStats = (games: PersonalGame[]): ProgressStats => {
     maxGamesInEvening,
   };
 };
-
-const achievement = (
-  id: string,
-  name: string,
-  description: string,
-  icon: string,
-  rarity: Rarity,
-  category: AchievementCategory,
-  target: number,
-  current: (stats: ProgressStats) => number,
-): AchievementDefinition => ({ id, name, description, icon, rarity, category, target, current });
-
-const ACHIEVEMENTS_V2: AchievementDefinition[] = [
-  achievement('games_10', 'Дебют пройден', 'Сыграть 10 завершённых игр', '🎭', 'common', 'career', 10, (s) => s.games),
-  achievement('games_25', 'Свой за столом', 'Сыграть 25 завершённых игр', '🪑', 'common', 'career', 25, (s) => s.games),
-  achievement('games_50', 'Завсегдатай', 'Сыграть 50 завершённых игр', '🎲', 'rare', 'career', 50, (s) => s.games),
-  achievement('games_100', 'Сотня партий', 'Сыграть 100 завершённых игр', '💯', 'epic', 'career', 100, (s) => s.games),
-  achievement('games_150', 'Старая гвардия', 'Сыграть 150 завершённых игр', '🎖️', 'epic', 'career', 150, (s) => s.games),
-  achievement('games_200', 'История клуба', 'Сыграть 200 завершённых игр', '📜', 'legendary', 'career', 200, (s) => s.games),
-
-  achievement('wins_10', 'Первые трофеи', 'Одержать 10 побед', '🏆', 'common', 'wins', 10, (s) => s.wins),
-  achievement('wins_25', 'Победная привычка', 'Одержать 25 побед', '🥇', 'rare', 'wins', 25, (s) => s.wins),
-  achievement('wins_50', 'Полтинник', 'Одержать 50 побед', '🏅', 'epic', 'wins', 50, (s) => s.wins),
-  achievement('wins_75', 'Хищник стола', 'Одержать 75 побед', '🐺', 'epic', 'wins', 75, (s) => s.wins),
-  achievement('wins_100', 'Сотник', 'Одержать 100 побед', '👑', 'legendary', 'wins', 100, (s) => s.wins),
-
-  achievement('streak_3', 'Поймал волну', 'Выиграть 3 игры подряд', '🔥', 'common', 'form', 3, (s) => s.bestStreak),
-  achievement('streak_5', 'На ходу', 'Выиграть 5 игр подряд', '⚡', 'rare', 'form', 5, (s) => s.bestStreak),
-  achievement('streak_7', 'Без тормозов', 'Выиграть 7 игр подряд', '🚀', 'epic', 'form', 7, (s) => s.bestStreak),
-  achievement('streak_10', 'Недосягаемый', 'Выиграть 10 игр подряд', '☄️', 'legendary', 'form', 10, (s) => s.bestStreak),
-
-  achievement('red_10', 'За город', 'Одержать 10 побед за красных', '🔴', 'common', 'sides', 10, (s) => s.redWins),
-  achievement('red_25', 'Красный костяк', 'Одержать 25 побед за красных', '❤️', 'rare', 'sides', 25, (s) => s.redWins),
-  achievement('red_45', 'Красная машина', 'Одержать 45 побед за красных', '❤️‍🔥', 'epic', 'sides', 45, (s) => s.redWins),
-  achievement('black_5', 'Тёмная сторона', 'Одержать 5 побед за чёрных', '⚫', 'common', 'sides', 5, (s) => s.blackWins),
-  achievement('black_15', 'Чёрная работа', 'Одержать 15 побед за чёрных', '♠️', 'rare', 'sides', 15, (s) => s.blackWins),
-  achievement('black_25', 'Ночная смена', 'Одержать 25 побед за чёрных', '🌑', 'epic', 'sides', 25, (s) => s.blackWins),
-
-  achievement('citizen_5', 'Голос города', 'Одержать 5 побед Мирным', '🗣️', 'common', 'roles', 5, (s) => s.roleWins.citizen),
-  achievement('citizen_15', 'Гражданская позиция', 'Одержать 15 побед Мирным', '🏙️', 'rare', 'roles', 15, (s) => s.roleWins.citizen),
-  achievement('citizen_30', 'Опора города', 'Одержать 30 побед Мирным', '🛡️', 'epic', 'roles', 30, (s) => s.roleWins.citizen),
-  achievement('sheriff_3', 'Первый жетон', 'Одержать 3 победы Шерифом', '⭐', 'common', 'roles', 3, (s) => s.roleWins.sheriff),
-  achievement('sheriff_8', 'Следователь', 'Одержать 8 побед Шерифом', '🔎', 'rare', 'roles', 8, (s) => s.roleWins.sheriff),
-  achievement('sheriff_15', 'Комиссар', 'Одержать 15 побед Шерифом', '🚨', 'epic', 'roles', 15, (s) => s.roleWins.sheriff),
-  achievement('mafia_3', 'Вошёл в семью', 'Одержать 3 победы Мафией', '🕴️', 'common', 'roles', 3, (s) => s.roleWins.mafia),
-  achievement('mafia_8', 'Тихая работа', 'Одержать 8 побед Мафией', '🔪', 'rare', 'roles', 8, (s) => s.roleWins.mafia),
-  achievement('mafia_15', 'Серый кардинал', 'Одержать 15 побед Мафией', '♠️', 'epic', 'roles', 15, (s) => s.roleWins.mafia),
-  achievement('don_2', 'За главным столом', 'Одержать 2 победы Доном', '🎩', 'common', 'roles', 2, (s) => s.roleWins.don),
-  achievement('don_5', 'Авторитет', 'Одержать 5 побед Доном', '💼', 'rare', 'roles', 5, (s) => s.roleWins.don),
-  achievement('don_8', 'Крёстный путь', 'Одержать 8 побед Доном', '🥃', 'epic', 'roles', 8, (s) => s.roleWins.don),
-
-  achievement('roles_played_5', 'Четыре роли', 'Сыграть минимум по 5 игр каждой ролью', '🎭', 'rare', 'roles', 5, (s) => Math.min(...ROLES.map((role) => s.roleGames[role]))),
-  achievement('roles_won_3', 'Без любимчиков', 'Одержать минимум по 3 победы каждой ролью', '🃏', 'rare', 'roles', 3, (s) => Math.min(...ROLES.map((role) => s.roleWins[role]))),
-  achievement('roles_won_5', 'Универсал', 'Одержать минимум по 5 побед каждой ролью', '🎭', 'epic', 'roles', 5, (s) => Math.min(...ROLES.map((role) => s.roleWins[role]))),
-  achievement('roles_won_10', 'Четыре лица', 'Одержать минимум по 10 побед каждой ролью', '🃏', 'legendary', 'roles', 10, (s) => Math.min(...ROLES.map((role) => s.roleWins[role]))),
-
-  achievement('perfect_evening', 'Идеальный вечер', 'Выиграть все свои игры за вечер, сыграв минимум 4', '🌟', 'epic', 'special', 1, (s) => s.perfectEvenings),
-  achievement('perfect_evenings_3', 'Стабильное безумие', 'Провести 3 идеальных вечера минимум по 4 игры', '✨', 'legendary', 'special', 3, (s) => s.perfectEvenings),
-  achievement('evening_marathon', 'Марафонец', 'Сыграть 6 игр за один вечер', '🏃', 'rare', 'special', 6, (s) => s.maxGamesInEvening),
-];
 
 const requirement = (label: string, current: number, target: number): Requirement => ({ label, current: Math.min(current, target), target, completed: current >= target });
 
@@ -315,20 +236,7 @@ const buildProgression = async (db: any, playerId: string) => {
   }).sort((a, b) => b.dateMs - a.dateMs);
 
   const stats = buildStats(personalGames);
-  const achievements = ACHIEVEMENTS_V2.map((item) => {
-    const rawCurrent = item.current(stats);
-    return {
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      icon: item.icon,
-      rarity: item.rarity,
-      category: item.category,
-      progress: Math.min(rawCurrent, item.target),
-      target: item.target,
-      completed: rawCurrent >= item.target,
-    };
-  });
+  const achievements = achievementProgressionFromProfile(await loadPlayerAchievementProfile(db, playerId));
 
   const titles = PLAYER_TITLES.map((title) => {
     const requirements = titleRequirements(title.id, stats);

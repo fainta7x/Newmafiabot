@@ -433,3 +433,18 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
   const staff = { judged_games: stats.judgedGames, organized_evenings: stats.organizedEvenings };
   return { earned, total, percentage: total ? Math.round((earned / total) * 100) : 0, categories, staff };
 };
+
+
+/** Flat compatibility projection of the same editable/earned catalog used by the profile. */
+export const achievementProgressionFromProfile = (profile: PlayerAchievementProfile) => profile.categories.flatMap(category =>
+  category.achievements.map(achievement => {
+    const target = achievement.progress?.target ?? 1;
+    const current = achievement.progress?.current ?? 0;
+    return {
+      id: achievement.id, name: achievement.name, description: achievement.description, icon: achievement.icon,
+      rarity: achievement.rarity, category: category.id,
+      progress: Math.min(achievement.earned ? Math.max(current, target) : current, target), target,
+      completed: achievement.earned, earned_at: achievement.earned_at,
+    };
+  }),
+);

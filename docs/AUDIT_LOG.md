@@ -1551,3 +1551,14 @@ Six whole-game positions are played to the end with the judge's own buttons, pin
 
 These are the safety net for moving the engine to the shared vocabulary.
 
+**Step 7a: the engine reads roles and teams through the shared vocabulary (2026-10-23).**
+- Every place that compared the engine's Russian names now goes through `shared/gameRoles.ts`: `normalizeGameRole`, `teamOfPlayer`, `normalizeWinnerTeam` and `ENGINE_TEAM_NAMES`. This covers:
+  - the win check (`liveGameFlow`) and the night checks;
+  - Don and mafia lookup, setup roles and teams;
+  - the training model and the live state summary;
+  - `winning_team` in both live windows and in the event log;
+  - the club slot teams in `gamesRoutes` and `gamesRoutesBase`.
+- The stored engine state and the screen wording are unchanged: the Russian names are still what the engine saves, so a game in progress during a deploy restores as before.
+- Next, step 7b: the stored state moves to canonical keys, translating old saved games on restore.
+- 91 live, engine and judge test files pass, including the six scenarios.
+

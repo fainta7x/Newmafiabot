@@ -21,7 +21,7 @@ import { buildFinalChronology } from '../../lib/liveGameEventLog';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
-import { normalizeGameRole } from '../../shared/gameRoles.ts';
+import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -130,7 +130,7 @@ export const mapEngineResultToProtocol = (
     } as PlayerResultData;
   }));
 
-  const winnerTeam = gameData.winning_team === 'Красные' ? 'red' : 'black';
+  const winnerTeam = (normalizeWinnerTeam(gameData.winning_team) ?? 'black');
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'completed',
@@ -837,7 +837,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                 finishConfirmedSave({
                   ...game,
                   status: 'completed',
-                  winner_team: gameData.winning_team === 'Красные' ? 'red' : 'black',
+                  winner_team: (normalizeWinnerTeam(gameData.winning_team) ?? 'black'),
                   winner_label: gameData.winning_team,
                 });
                 return;

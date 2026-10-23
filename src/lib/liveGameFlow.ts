@@ -1,3 +1,4 @@
+import { teamOfPlayer } from '../shared/gameRoles.ts';
 export type LiveWinnerTeam = 'Красные' | 'Чёрные';
 
 export interface LiveFlowPlayer {
@@ -13,8 +14,8 @@ export interface LiveFlowPlayer {
  */
 export function determineLiveWinner(players: LiveFlowPlayer[]): LiveWinnerTeam | null {
   const alive = players.filter((player) => player.alive);
-  const red = alive.filter((player) => player.team === 'Красные').length;
-  const black = alive.filter((player) => player.team === 'Чёрные').length;
+  const red = alive.filter((player) => teamOfPlayer(player) === 'red').length;
+  const black = alive.filter((player) => teamOfPlayer(player) === 'black').length;
 
   if (black === 0) return 'Красные';
   if (black >= red) return 'Чёрные';

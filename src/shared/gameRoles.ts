@@ -56,3 +56,12 @@ export function normalizeWinnerTeam(value: unknown): GameTeam | null {
   if (['black', 'черные', 'черная', 'мафия'].includes(token)) return 'black';
   return null;
 }
+
+/** The judge engine still stores the Russian names («Мирный», «Красные»); this is where they are spoken. */
+export const ENGINE_TEAM_NAMES = { red: 'Красные', black: 'Чёрные' } as const;
+export type EngineRoleName = GameRoleDefinition['label'];
+
+/** The team of a player of the engine or of a protocol: its team label first, else its role. */
+export function teamOfPlayer(player: { team?: unknown; role?: unknown } | null | undefined): GameTeam | null {
+  return normalizeWinnerTeam(player?.team) ?? gameTeamOfRole(player?.role);
+}

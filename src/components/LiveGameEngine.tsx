@@ -104,6 +104,7 @@ import {
   setBestMove,
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
+import { teamOfPlayer } from '../shared/gameRoles.ts';
 
 export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
@@ -549,7 +550,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     saveSnapshot();
     setDiscipline(createInitialGameDiscipline(activePlayers.map((p) => ({
       id: String(p.slot_num),
-      team: p.team === 'Чёрные' ? 'black' : 'red',
+      team: teamOfPlayer(p) ?? 'red',
     }))));
     removeLiveSession();
     setZeroNightMusicState('pending');

@@ -22,7 +22,7 @@ import {
   type LiveProtocolEvidence,
 } from '../../lib/liveClubSession.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
-import { normalizeGameRole } from '../../shared/gameRoles.ts';
+import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | null | undefined): LegacyPlayer[] => {
   const players: LegacyPlayer[] = results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player, index) => ({
@@ -99,7 +99,7 @@ export const mapEngineResult = (
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'draft',
-    winner_team: gameData?.winning_team === 'Красные' ? 'red' : 'black',
+    winner_team: (normalizeWinnerTeam(gameData?.winning_team) ?? 'black'),
     end_reason: (gameData?.end_reason || 'normal') as any,
     ppk_culprit_participant_id: gameData?.end_reason === 'ppk' ? (ppkPlayer?.participant_id || null) : null,
     first_killed_participant_id: firstKilled?.participant_id || null,

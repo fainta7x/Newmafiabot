@@ -19,7 +19,7 @@ The status column says whether the concept is **one** (a single definition), **d
 |---|---|---|
 | Role (citizen, sheriff, mafia, don) | `src/shared/gameRoles.ts` `normalizeGameRole` | **one** (2026-10-22). A colour is never a role; only `tournamentRoleValidation` keeps the documented colour compatibility for historic assignment input |
 | Team and winner (red, black) | `src/shared/gameRoles.ts` `gameTeamOfRole`, `normalizeWinnerTeam` | **one** (2026-10-22); `clubGameTeams.ts` removed |
-| Engine vocabulary («Мирный», «Красные») | the engine is translated once by `setupRoles.ts` / `roleToProtocol`, target: the engine uses canonical keys | engine names are read by `normalizeGameRole`; the two `roleToProtocol` copies are removed |
+| Engine vocabulary («Мирный», «Красные») | the engine is translated once by `setupRoles.ts` / `roleToProtocol`, target: the engine uses canonical keys | the engine still stores its Russian names, but every reading goes through `normalizeGameRole` / `teamOfPlayer` / `normalizeWinnerTeam` (2026-10-23); storing canonical keys is next |
 | Exit type and removal reason | `src/shared/` game discipline constants | dup: the 5 exit values are listed 3 times, removal reasons 4 times |
 | Fouls, technical fouls, PPK, Ci, bonus | one protocol rules module for club and tournament | rule?: the club and tournament validators differ |
 | Best move (ЛХ) points | `server/services/bestMovePoints.ts` | rule?: tokens count only the first-killed source, Elo counts any source |

@@ -26,6 +26,7 @@ import {
   deactivateTableDecisionSelection,
   useTableDecisionSelection,
 } from "./tableDecisionSelectionStore.js";
+import { normalizeGameRole } from '../../shared/gameRoles.ts';
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -213,8 +214,8 @@ export default function CenterPanel(props: CenterPanelProps) {
   const tableDecisionSelection = useTableDecisionSelection();
 
   const activeSpeaker = activePlayers.find((player) => player.slot_num === activeSpeakerSlot);
-  const donPlayer = activePlayers.find((player) => player.role === 'Дон');
-  const mafiaPlayers = activePlayers.filter((player) => player.role === 'Мафия');
+  const donPlayer = activePlayers.find((player) => normalizeGameRole(player.role) === 'don');
+  const mafiaPlayers = activePlayers.filter((player) => normalizeGameRole(player.role) === 'mafia');
   const currentRound = votingRounds[activeVotingRoundIndex];
   const currentVotingResult = currentRound ? determineVotingResult(currentRound) : null;
   const isDeathProtocolTimer = phase === 'night' && Boolean(customTimerLabel?.startsWith('Протокол убитого'));

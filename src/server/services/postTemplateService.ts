@@ -8,9 +8,6 @@ export type PostTemplateKey = 'vk_club_evening';
 
 export const POST_TEMPLATE_PLACEHOLDERS: Record<PostTemplateKey, Array<{ token: string; meaning: string; example: string }>> = {
   vk_club_evening: [
-    { token: '{для_новичков}', meaning: 'приглашение новичкам и время инструктажа; пусто в остальных форматах', example: '🎓 Правила объясним с нуля' },
-    { token: '{подробности_новичкам}', meaning: 'ссылки на группы, кабинет и контакты для новичков; пусто в остальных форматах', example: '👥 Группа для новичков' },
-    { token: '{ведущий}', meaning: 'назначенный ведущий вечера', example: 'Спящий' },
     { token: '{когда}', meaning: 'день: «В пятницу, 16 октября»', example: 'В пятницу, 16 октября' },
     { token: '{время}', meaning: 'время начала', example: '21:00' },
     { token: '{место}', meaning: 'площадка', example: 'Суп с Котом' },
@@ -22,11 +19,11 @@ export const POST_TEMPLATE_PLACEHOLDERS: Record<PostTemplateKey, Array<{ token: 
 };
 
 export const DEFAULT_POST_TEMPLATES: Record<PostTemplateKey, string> = {
-  vk_club_evening: '{для_новичков}\nПривет! {когда}, играем в мафию — ждём тебя 🎭\n📍 {где_и_когда} · {цена}\nОтметь, придёшь ли, и выбери игры: {ссылка}\n{подробности_новичкам}',
+  vk_club_evening: 'Привет! {когда}, играем в мафию — ждём тебя 🎭\n📍 {где_и_когда} · {цена}\nОтметь, придёшь ли, и выбери игры: {ссылка}',
 };
 
 export const POST_TEMPLATE_LABELS: Record<PostTemplateKey, string> = {
-  vk_club_evening: 'Анонс вечера: Telegram и ВК',
+  vk_club_evening: 'Пост в ВК: клубный вечер',
 };
 
 export const isPostTemplateKey = (value: unknown): value is PostTemplateKey => Object.prototype.hasOwnProperty.call(DEFAULT_POST_TEMPLATES, String(value));

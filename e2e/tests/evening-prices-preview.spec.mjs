@@ -16,7 +16,7 @@ for (const width of [360, 390]) test(`evening price settings at ${width}px`, asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByLabel('Обычный вечер · за игру', { exact: true }).fill('150');
   await page.getByRole('button', { name: 'Сохранить цены' }).click();
-  await expect(page.getByRole('status')).toHaveText('Сохранено. Цены действуют для новых вечеров.');
+  await expect(page.getByRole('status')).toHaveText('Сохранено. Новые цены действуют для всех незакрытых вечеров.');
   expect(policy.casual_game).toBe(150);
   await page.reload();
   await expect(page.getByLabel('Обычный вечер · за игру', { exact: true })).toHaveValue('150');

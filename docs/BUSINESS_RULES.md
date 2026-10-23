@@ -424,7 +424,7 @@ The current operating default is the established main club and its regular CASUA
 - Every new player starts with `game_level=novice` («Новичок»); there is no «unknown» level (owner decision 2026-09-28, replaces the former `unrated`). The organizer's confirmation of «Я уже умею играть» is the assessment: it moves the player to `CLUB_PLAYER` and `game_level=club` («Играет в клубе»). Experience must never be fabricated from club tenure alone.
 - One-time migration `2026-09-retire-unrated-level`: players still `unrated` become `club` when they are `CLUB_PLAYER` or attended a non-NOVICE evening, otherwise `novice`. The legacy value `unrated`, if it ever appears, is treated as `novice`.
 - Promotion from the novice route to the main club is manual; attendance never auto-promotes or auto-removes a player. The organizer's «Перевести в основной клуб» also raises `game_level` from `novice`/`unrated` to `club`, so CASUAL booking opens at once; a higher level already set by the organizer is kept (user-approved 2026-09-24).
-- The first two factually attended NOVICE evenings are free. Starting with the third attended NOVICE evening, the player price is **200 ₽ per selected game**.
+- Automatic free visits are retired (owner, 2026-10-23). Pricing and explicit CRM gifts follow «Domain model decisions», item 6. Historical closed accounts are not repriced.
 - The standard Friday operation is briefing at 18:30, rules-aware arrival at 19:00 and CASUAL continuation at 21:00. A NOVICE evening's start time is its first game (default 19:00); the briefing is shown 30 minutes earlier and has no game slot (user-approved 2026-09-24). Organizers check the group on Thursday at 20:00 and decide by Friday at 15:00; the system must not cancel automatically.
 - A novice is invited only to NOVICE evenings until the organizer raises the level. Telegram and VK use the same canonical player/application state.
 
@@ -672,7 +672,7 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
 - **Novices stay novices** until the organizer decides to transfer them. The app never suggests a transfer based on a number of visits. A novice rating or tournament may later become a path into the club.
 - **Payment by evening type (target):**
   - **Prepayment at the table (NOVICE and RATING, user-approved 2026-09-24).** A game cannot start while a player seated at its table owes a prepayment for the evening. The organizer sees who owes right at the table and marks the payment with one tap. Players who owe nothing (paid, exempt or free) never block the game.
-  - **NOVICE:** prepayment before the player's first game for players who owe. The first two attended novice evenings stay free, but only for real novices: people who have never played mafia (game level «Новичок»). An experienced player at a novice evening, for example a guest from another city, pays.
+  - **NOVICE:** prepayment before the player's first game for players who owe. Free participation requires an explicit organizer gift (Domain model decisions 6).
   - **CASUAL:** postpayment by played games (current rule above).
   - **RATING:** a 500 ₽ entry fee before the games. The collected money is split (user-approved 2026-09-24):
     - 50 % to the evening's winner;

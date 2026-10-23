@@ -1,8 +1,11 @@
+import { buildEveningPostText } from '../services/eveningPostTextService.ts';
+import { shortEveningLink } from '../services/announcementShortLinks.ts';
+import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { isTelegramDestinationId } from '../../db/ensureTelegramPublishingSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { botServiceAuth } from '../botServiceAuth.ts';
-import { CLUB_EVENING_MAX_PRICE, loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
 import { reconcileWeeklyEveningAutomation } from '../services/weeklyEveningAutomationService.ts';
 import { announcementCoverUrl } from '../services/announcementPhotoService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
@@ -23,7 +26,7 @@ const listDestinations = async (db: any) => {
 
 const desiredDestinationIds = (formatRaw: unknown, statusRaw: unknown, settledAt: unknown): string[] => {
   const status = String(statusRaw || '');
-  if (!['published', 'active'].includes(status) || settledAt) return [];
+  if (!isOpenEvening({ status, settled_at: settledAt })) return [];
   const format = normalizeEveningFormat(formatRaw);
   if (format === 'NOVICE') return ['public', 'novice'];
   if (format === 'CASUAL') return ['public', 'club'];
@@ -78,7 +81,8 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
         ...evening,
         canonical_format: canonicalFormat,
         price_per_game: Number(slotPlan.event.price_per_game || slotPlan.slots[0]?.price || 0),
-        max_price: canonicalFormat === 'CASUAL' ? CLUB_EVENING_MAX_PRICE : null,
+        max_price: slotPlan.event.max_evening_price,
+        announcement_text: await buildEveningPostText(db, evening, await shortEveningLink(db, getPublicAppBaseUrl(), evening.id)),
         cover_url: await announcementCoverUrl(db, getPublicAppBaseUrl(), evening.id, evening.format),
       },
       slots: slotPlan.slots,
@@ -228,15 +232,15 @@ router.get('/telegram/public-router', async (req, res) => {
     const novice = await db.get(
       `SELECT id, title, starts_at, venue, default_price, format
          FROM game_evenings
-        WHERE status IN ('published', 'active') AND settled_at IS NULL
-          AND format = 'NOVICE' AND datetime(starts_at) >= datetime('now')
+        WHERE ${openEveningSql()}
+          AND format = 'NOVICE'
         ORDER BY datetime(starts_at) ASC LIMIT 1`,
     );
     const club = await db.get(
       `SELECT id, title, starts_at, venue, default_price, format
          FROM game_evenings
-        WHERE status IN ('published', 'active') AND settled_at IS NULL
-          AND format IN ('CASUAL', 'STANDARD') AND datetime(starts_at) >= datetime('now')
+        WHERE ${openEveningSql()}
+          AND format IN ('CASUAL', 'STANDARD')
         ORDER BY datetime(starts_at) ASC LIMIT 1`,
     );
 

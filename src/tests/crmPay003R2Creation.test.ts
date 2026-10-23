@@ -257,7 +257,7 @@ describe('CRM-PAY-003-R2 canonical regular evening writes', () => {
     expect(JSON.stringify(publicRead.body)).not.toContain('"default_price":600');
   });
 
-  it('does not rewrite NOVICE, RATING or TOURNAMENT pricing, including table routes', async () => {
+  it('uses domain defaults for novice and rating evenings; preserves tournament fee and table overrides', async () => {
     for (const format of ['NOVICE', 'RATING', 'TOURNAMENT'] as const) {
       const response = await request(app)
         .post('/api/evenings')
@@ -271,9 +271,9 @@ describe('CRM-PAY-003-R2 canonical regular evening writes', () => {
           default_price: 600,
         });
       expect(response.status, JSON.stringify(response.body)).toBe(201);
-      expect(response.body.default_price).toBe(600);
+      expect(response.body.default_price).toBe(format === 'NOVICE' ? 200 : format === 'RATING' ? 500 : 600);
       const stored = await db.get<any>('SELECT default_price FROM game_evenings WHERE id = ?', [response.body.id]);
-      expect(Number(stored?.default_price)).toBe(600);
+      expect(Number(stored?.default_price)).toBe(format === 'NOVICE' ? 200 : format === 'RATING' ? 500 : 600);
 
       const table = await request(app)
         .post(`/api/evenings/${response.body.id}/tables`)

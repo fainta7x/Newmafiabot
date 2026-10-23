@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
   EVENING_ATTENDANCE_FACTS,
@@ -69,7 +70,7 @@ export async function registerGoingParticipantsForAllGames(db: DatabaseWrapper, 
        JOIN game_evenings e ON e.id = ep.evening_id
        JOIN evening_game_slots s ON s.evening_id = ep.evening_id AND s.status = 'open'
       WHERE ep.response_status = 'going' AND ep.player_id IS NOT NULL
-        AND e.status IN ('published', 'active') AND e.settled_at IS NULL
+        AND ${openEveningSql('e')}
         AND NOT EXISTS (SELECT 1 FROM evening_slot_registrations r WHERE r.participant_id = ep.id)
         ${participantId ? 'AND ep.id = ?' : ''}`,
     participantId ? [now, now, participantId] : [now, now],

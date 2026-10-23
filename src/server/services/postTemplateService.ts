@@ -8,6 +8,7 @@ export type PostTemplateKey = 'vk_club_evening';
 
 export const POST_TEMPLATE_PLACEHOLDERS: Record<PostTemplateKey, Array<{ token: string; meaning: string; example: string }>> = {
   vk_club_evening: [
+    { token: '{ведущий}', meaning: 'назначенный ведущий вечера', example: 'Спящий' },
     { token: '{когда}', meaning: 'день: «В пятницу, 16 октября»', example: 'В пятницу, 16 октября' },
     { token: '{время}', meaning: 'время начала', example: '21:00' },
     { token: '{место}', meaning: 'площадка', example: 'Суп с Котом' },
@@ -23,7 +24,7 @@ export const DEFAULT_POST_TEMPLATES: Record<PostTemplateKey, string> = {
 };
 
 export const POST_TEMPLATE_LABELS: Record<PostTemplateKey, string> = {
-  vk_club_evening: 'Пост в ВК: клубный вечер',
+  vk_club_evening: 'Анонс вечера: Telegram и ВК',
 };
 
 export const isPostTemplateKey = (value: unknown): value is PostTemplateKey => Object.prototype.hasOwnProperty.call(DEFAULT_POST_TEMPLATES, String(value));

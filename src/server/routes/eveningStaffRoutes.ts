@@ -8,7 +8,7 @@ import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeA
 import { paymentStatusForAmount, setClosedEveningParticipantPaid, setClosedEveningParticipantPaidAmount } from '../services/closedEveningPaymentService.ts';
 import { countCompletedEveningGames, isRegularFeeFreeByStaffRule, reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { EXTENSION_MAX_AMOUNT, EXTENSION_MAX_GAMES } from '../services/eveningExtensionService.ts';
-import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
+import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { manualReminderSlot, sendEveningPaymentReminders } from '../services/eveningPaymentReminderService.ts';
 import { enqueueTelegramEveningSync } from '../services/telegramSyncOutboxService.ts';
 import { kickVkLiveEveningSync } from '../services/vkLiveEveningSyncWorker.ts';
@@ -150,13 +150,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
     },
     participants: await Promise.all(participants.map(async (participant: any) => ({
       ...participant,
-      // Free because it is one of this newcomer's first two NOVICE visits — not a
-      // staff or organizer exemption, which also shows as a zero «waived» row.
-      novice_free: normalizeEveningFormat(evening.format) === 'NOVICE'
-        && String(participant.payment_status) === 'waived'
-        && !participant.fee_waived
-        && ['novice', 'unrated'].includes(String(participant.game_level || ''))
-        && await novicePriceForPlayer(db, String(participant.player_id), eveningId) === 0,
+      novice_free: false,
       fee_waived: Boolean(participant.fee_waived),
       // CASUAL follows the owner's 2026-10-06 rule (only the owner, and the assigned organizer on older evenings); other formats keep the organizer free.
       staff_exempt: normalizeEveningFormat(evening.format) === 'CASUAL'

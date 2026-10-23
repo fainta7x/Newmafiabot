@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -222,9 +223,7 @@ router.get('/evening-journey', async (req, res) => {
              (SELECT COUNT(*) FROM evening_participants x WHERE x.evening_id = e.id AND x.response_status = 'thinking') AS thinking_count
         FROM game_evenings e
    LEFT JOIN evening_participants ep ON ep.evening_id = e.id AND ep.player_id = ?
-       WHERE e.status = 'published'
-         AND e.settled_at IS NULL
-         AND datetime(e.starts_at) >= datetime('now', '-6 hours')
+       WHERE ${openEveningSql('e')}
        ORDER BY datetime(e.starts_at) ASC
        LIMIT 12
     `, [playerId]);

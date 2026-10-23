@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import {
@@ -120,7 +121,7 @@ const requireOpenEvening = async (db: any, eveningId: string): Promise<OpenEveni
     [eveningId],
   );
   if (!evening) return { error: 'not_found' };
-  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     return { error: 'closed' };
   }
   return { evening };

@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { announcementPriceLine } from '../server/services/vkDirectJoinPublishingService.ts';
-
-describe('announcement price line', () => {
-  it('tells newcomers the first evenings are free and regulars the evening cap', () => {
-    expect(announcementPriceLine('NOVICE', 200)).toBe('💳 Первые 2 вечера — бесплатно, дальше 200 ₽ за игру');
-    expect(announcementPriceLine('CASUAL', 100)).toBe('💳 100 ₽ за игру, не больше 400 ₽ за вечер');
-    expect(announcementPriceLine('RATING', 150)).toBe('💳 Взнос 500 ₽ за вечер — до начала игр');
-    expect(announcementPriceLine('TOURNAMENT', 150)).toBe('💳 150 ₽ за игру');
+import { eveningPriceLabel, DEFAULT_EVENING_PRICES } from '../lib/eveningPrices.ts';
+describe('canonical evening price copy', () => {
+  it('uses configured prices and caps without promising automatic gifts', () => {
+    expect(eveningPriceLabel('NOVICE')).toBe('200 ₽ за игру');
+    expect(eveningPriceLabel('CASUAL')).toBe('100 ₽ за игру, не больше 400 ₽ за вечер');
+    expect(eveningPriceLabel('RATING')).toBe('500 ₽ за вечер');
+    expect(eveningPriceLabel('NOVICE', { ...DEFAULT_EVENING_PRICES, novice_game: 250, novice_cap: 500 })).toBe('250 ₽ за игру, не больше 500 ₽ за вечер');
   });
 });

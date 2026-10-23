@@ -295,7 +295,7 @@ export default function PlayerEventsCalendar({
 
   const nearest = useMemo(() => {
     const now = Date.now();
-    return visible.find((event) => new Date(event.starts_at).getTime() >= now - 6 * 60 * 60 * 1000) || null;
+    return visible.find((event) => (!event.event_type || event.event_type === 'evening') || new Date(event.starts_at).getTime() >= now - 6 * 60 * 60 * 1000) || null;
   }, [visible]);
 
   const pendingApplication = noviceState?.applications.find((application) => application.status === 'NEW') || null;
@@ -305,7 +305,7 @@ export default function PlayerEventsCalendar({
     setApplicationMessage('');
     const expectedKind = entryRoute === 'NOVICE' ? 'novice' : 'club';
     const target = events
-      .filter((event) => eventKind(event) === expectedKind && new Date(event.starts_at).getTime() >= Date.now() - 6 * 60 * 60 * 1000)
+      .filter((event) => eventKind(event) === expectedKind && ((!event.event_type || event.event_type === 'evening') || new Date(event.starts_at).getTime() >= Date.now() - 6 * 60 * 60 * 1000))
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
     try {
       const response = await fetch('/api/player/novice/applications', {
@@ -397,7 +397,7 @@ export default function PlayerEventsCalendar({
               <h2 className="mt-1 text-[18px] font-semibold">Подходящий путь</h2>
               <p className="mt-1 text-[13px] leading-5 text-white/55">Новичкам запись на вечера новичков открывается сразу. Тем, кто уже умеет играть, организатор сначала подтверждает уровень.</p>
               <div className="mt-3 grid gap-2">
-                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Запись откроется сразу · первые 2 посещения бесплатно</span></button>
+                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Запись откроется сразу · стоимость в карточке вечера</span></button>
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('OTHER_CITY', null)} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я гость из другого города</strong><span className="text-[12px] text-white/45">Уже играю у себя · пишем лично только о рейтинговых вечерах и турнирах</span></button>
               </div>
@@ -408,7 +408,7 @@ export default function PlayerEventsCalendar({
 
         {noviceState?.player.club_stage === 'NOVICE_ACTIVE' ? <section className="mb-3 rounded-[20px] border border-emerald-300/15 bg-emerald-300/[0.07] p-3">
           <strong className="text-[14px] text-emerald-100">Новичковый маршрут активен</strong>
-          <p className="mt-1 text-[12px] leading-5 text-white/55">Посещений: {noviceState.novice_visits}. {noviceState.free_visits_remaining > 0 ? `Осталось бесплатных посещений: ${noviceState.free_visits_remaining}.` : 'Следующие игры — 200 ₽ за игру.'}</p>
+          <p className="mt-1 text-[12px] leading-5 text-white/55">Посещений: {noviceState.novice_visits}. Стоимость — в карточке вечера. Подарок отмечает организатор.</p>
           {applicationMessage ? <p role="status" className="mt-2 text-[13px] leading-5 text-emerald-100/80">{applicationMessage}</p> : null}
         </section> : null}
 

@@ -1562,3 +1562,14 @@ These are the safety net for moving the engine to the shared vocabulary.
 - Next, step 7b: the stored state moves to canonical keys, translating old saved games on restore.
 - 91 live, engine and judge test files pass, including the six scenarios.
 
+
+## Evening domain — owner request 2026-10-23
+Scope: prices, explicit gifts, one announcement template and one open-evening rule.
+- Open: eveningSlotPlanningService.ts and eveningPaymentPricingService.ts duplicate fixed tariffs; settings must feed future evenings without rewriting historic accounts.
+- Open: novicePriceForPlayer and noviceService automatically grant free visits, contrary to Domain model decisions 6.
+- Open: telegram_evening_copy.py ignores post_text_templates used by VK.
+- Open: playerInvitationEligibilityService.ts closes active evenings and hides old open ones after six hours.
+Acceptance: shared settings and tariffs, explicit gifts retained, common post text, published/active unsettled evenings visible and bookable; focused tests, CI and deployment separately.
+
+Implementation: shared tariff defaults and frozen per-evening policies, no automatic novice-free visits, existing full-evening gift preserved, one announcement renderer, common open predicate at player/bot/invitation boundaries. Focused 61 tests passed; final-head CI pending. Runtime after #1012: health OK, build.sha changed 8e10dfb → 4516fa8; mirror ancestry unavailable because this session exposes no getCommitHistory or signed-in Amvera tab. No production data writes.
+Local verification constraint: automatic approval review stopped the full test run after an unmocked Telegram request. It was not retried; focused verification uses a temporary default fetch guard rejecting unmocked network calls. Local Playwright browser download returned a truncated ZIP; mobile evidence uses the existing isolated GitHub UI preview workflow, with a 360/390 price-settings before/after fixture and save/reload checks.

@@ -1,3 +1,4 @@
+import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
 import { appUrl } from '../services/gameResultCardService.ts';
@@ -184,7 +185,7 @@ router.get('/evenings/open', async (req, res) => {
          (SELECT COUNT(*) FROM evening_participants ep
            WHERE ep.evening_id = e.id AND ep.response_status = 'declined') AS declined_count
        FROM game_evenings e
-       WHERE e.status IN ('published', 'active') AND e.settled_at IS NULL
+       WHERE ${openEveningSql('e')}
        ORDER BY e.starts_at ASC`,
     );
     res.json(evenings);
@@ -200,7 +201,7 @@ router.get('/evenings/:eveningId/slots', async (req, res) => {
       "SELECT id, status, settled_at FROM game_evenings WHERE id = ?",
       [req.params.eveningId],
     );
-    if (!evening || !['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+    if (!evening || !isOpenEvening(evening)) {
       return res.status(404).json({ error: 'Вечер недоступен' });
     }
     const plan = await loadEveningSlotPlan(db, String(evening.id));
@@ -264,7 +265,7 @@ router.post('/evenings/:eveningId/followup', async (req, res) => {
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     const evening = await db.get('SELECT id, status, settled_at, starts_at FROM game_evenings WHERE id = ?', [req.params.eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
-    if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+    if (!isOpenEvening(evening)) {
       return res.status(409).json({ error: 'Вечер уже закрыт', code: 'closed' });
     }
     await ensureEveningRsvpFollowupSchema(db);
@@ -355,7 +356,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       [req.params.eveningId],
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
-    if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+    if (!isOpenEvening(evening)) {
       return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны', code: 'closed' });
     }
 
@@ -498,7 +499,7 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
          FROM evening_participants ep
          JOIN game_evenings e ON e.id = ep.evening_id
         WHERE ep.player_id = ?
-          AND e.status IN ('published', 'active') AND e.settled_at IS NULL
+          AND ${openEveningSql('e')}
           AND ep.response_status IN ('going', 'late', 'thinking')
         ORDER BY e.starts_at ASC
         LIMIT 10`,

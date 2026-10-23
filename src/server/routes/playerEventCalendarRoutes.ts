@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -18,7 +19,7 @@ router.get('/calendar', async (req,res) => {
     const player=await db.get('SELECT id, game_level, club_stage FROM players WHERE id = ? LIMIT 1',[playerId]);
     if(!player)return res.status(404).json({error:'Игрок не найден'});
     const bounds=monthBounds(req.query.month);
-    const rows=await db.all("SELECT id, title, starts_at, ends_at, timezone, venue, format, status FROM game_evenings WHERE status IN ('published','active') AND settled_at IS NULL AND starts_at >= ? AND starts_at < ? ORDER BY starts_at",[bounds.start,bounds.end]);
+    const rows=await db.all(`SELECT id, title, starts_at, ends_at, timezone, venue, format, status FROM game_evenings WHERE ${openEveningSql()} AND starts_at >= ? AND starts_at < ? ORDER BY starts_at`,[bounds.start,bounds.end]);
     const events:any[]=[];
     for(const row of rows){
       if(!playerLevelAllowsEveningFormat(player.game_level,row.format))continue;

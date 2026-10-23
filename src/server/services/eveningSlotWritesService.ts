@@ -1,3 +1,5 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
+import { loadEveningPrices } from './eveningPriceSettingsService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -38,7 +40,7 @@ export async function updateEveningSlotSettings(
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const nextCount = Math.max(1, Math.min(12, Math.round(Number(input.planned_slots ?? settings.planned_slots ?? 6))));
   const nextPrice = isCasual
-    ? SLOT_PRICE
+    ? (await loadEveningPrices(db, eveningId)).casual_game
     : Math.max(0, Math.round(Number(input.price_per_game ?? settings.price_per_game ?? SLOT_PRICE)));
   const nextDuration = Math.max(15, Math.min(180, Math.round(Number(input.slot_duration_minutes ?? settings.slot_duration_minutes ?? 60))));
   const nextStartsAt = normalizeStartsAt(input.starts_at, evening.starts_at);
@@ -110,7 +112,7 @@ export async function replacePlayerSlotSelection(
   options: { notifyOrganizer?: boolean; source?: string } = {},
 ) {
   const { evening } = await ensureSlotsForEvening(db, eveningId);
-  if (!['published','active'].includes(String(evening.status || '')) || evening.settled_at) throw Object.assign(new Error('Запись на это событие закрыта'), { statusCode: 409 });
+  if (!isOpenEvening(evening)) throw Object.assign(new Error('Запись на это событие закрыта'), { statusCode: 409 });
   const available = await db.all<any>("SELECT id, price_rub FROM evening_game_slots WHERE evening_id = ? AND status = 'open'", [eveningId]);
   const byId = new Map(available.map(s => [String(s.id), s]));
   const ids = Array.isArray(raw) ? Array.from(new Set(raw.map(v => String(v || '').trim()).filter(Boolean))) : [];
@@ -118,9 +120,11 @@ export async function replacePlayerSlotSelection(
   const personalNovicePrice = normalizeEveningFormat(evening.format) === 'NOVICE'
     ? await novicePriceForPlayer(db, playerId, eveningId)
     : null;
+  const policy = await loadEveningPrices(db, eveningId);
   const estimate = calculateEveningSelectionTotal(
     evening.format,
     ids.map((id) => personalNovicePrice == null ? Number(byId.get(id)?.price_rub || 0) : personalNovicePrice),
+    policy,
   );
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const now = new Date().toISOString();

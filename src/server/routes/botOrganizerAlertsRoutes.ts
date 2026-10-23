@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
+import { applyOrganizerTaskAction } from '../services/organizerTaskQuickActions.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -58,6 +59,22 @@ router.get('/organizer-operations', async (req, res) => {
     return res.json({ generated_at: now.toISOString(), tasks, draft_games: draftGames });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось собрать организационные уведомления' });
+  }
+});
+
+/** A quick answer pressed under an organizer notification in Telegram: «done» or «snooze» (to tomorrow morning). */
+router.post('/organizer-tasks/:id/action', async (req, res) => {
+  try {
+    const result = await applyOrganizerTaskAction(req.db, {
+      taskId: String(req.params.id),
+      action: req.body?.action,
+      telegramUserId: req.body?.telegram_user_id,
+    });
+    if (result.ok) return res.json(result.task);
+    const status = result.error === 'forbidden' ? 403 : result.error === 'not_found' ? 404 : result.error === 'closed' ? 409 : 400;
+    return res.status(status).json({ error: result.error });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось обновить задачу' });
   }
 });
 

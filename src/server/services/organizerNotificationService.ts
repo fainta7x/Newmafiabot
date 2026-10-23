@@ -66,6 +66,8 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
   eventType: string;
   entityId: string;
   text: string;
+  /** Inline buttons under the message (quick actions, owner request 2026-10-23). */
+  replyMarkup?: Record<string, unknown> | null;
 }, options: { kick?: boolean } = {}) {
   const config = await resolveOrganizerNotificationRecipientsWithAccess(db);
   for (const chatId of config.recipients) {
@@ -76,6 +78,7 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
       entityId: input.entityId,
       chatId,
       text: input.text,
+      replyMarkup: input.replyMarkup ?? null,
     });
   }
   // Inside a transaction the outbox worker (every few seconds) sends it instead of an immediate kick.

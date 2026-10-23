@@ -132,3 +132,12 @@ async def save_evening_reminder_attempt(
     if error:
         payload["error"] = str(error)[:1000]
     return await _request("POST", f"/api/bot/evenings/{evening_id}/reminder-attempt", payload)
+
+
+async def apply_organizer_task_action(task_id: str, action: str, telegram_user_id: int) -> dict[str, Any]:
+    """Quick answer to an organizer task pressed in Telegram: ``done`` or ``snooze`` (to tomorrow morning)."""
+    return await _request(
+        "POST",
+        f"/api/bot/organizer-tasks/{task_id}/action",
+        {"action": action, "telegram_user_id": str(telegram_user_id)},
+    )

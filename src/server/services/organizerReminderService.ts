@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadEveningRoute } from './eveningRouteService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
+import { organizerTaskButtons } from './organizerTaskQuickActions.ts';
 
 /**
  * Reminders for the organizer in Telegram (owner request, 2026-10-22): what is still open on the route of an evening,
@@ -25,9 +26,9 @@ async function queued(db: DatabaseWrapper, key: string) {
   return Boolean(row);
 }
 
-async function send(db: DatabaseWrapper, key: string, entityId: string, text: string) {
+async function send(db: DatabaseWrapper, key: string, entityId: string, text: string, replyMarkup: Record<string, unknown> | null = null) {
   if (await queued(db, key)) return 0;
-  const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'organizer_reminder', entityId, text });
+  const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'organizer_reminder', entityId, text, replyMarkup });
   return result.queued > 0 ? 1 : 0;
 }
 
@@ -94,13 +95,13 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
   // Overdue organizer tasks, once a day.
   if (hour >= DAILY_HOUR) {
     const tasks = await db.all<any>(
-      `SELECT title FROM organizer_tasks
+      `SELECT id, title FROM organizer_tasks
         WHERE status IN ('todo', 'in_progress') AND due_at IS NOT NULL AND datetime(due_at) < datetime(?)
         ORDER BY due_at ASC`,
       [new Date(now).toISOString()],
     ).catch(() => [] as any[]);
     if (tasks.length && !(await queued(db, `organizer-tasks:${today}`))) {
-      sent += await send(db, `organizer-tasks:${today}`, 'tasks', `🗒 Просроченные задачи: ${tasks.length}\n${lines(tasks.map((task) => String(task.title || 'Задача'))).join('\n')}`);
+      sent += await send(db, `organizer-tasks:${today}`, 'tasks', `🗒 Просроченные задачи: ${tasks.length}\n${lines(tasks.map((task) => String(task.title || 'Задача'))).join('\n')}`, organizerTaskButtons(tasks));
     }
   }
   return sent;

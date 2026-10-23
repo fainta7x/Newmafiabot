@@ -958,3 +958,21 @@ New club stories also reject original protocols with any unidentifiable or uncla
 - Gathering readiness counts people, including guests and their separately recorded companions, once each. A separately assigned evening judge counts once even without an RSVP row; if that player already has a response, do not add another person or turn a thinking/declined response into going. Raw signup totals remain separate from judge-inclusive gathering totals. Ordinary evenings require 11 people (10 players + judge); novice evenings require 9 (8 players + judge). These are recruitment thresholds, not a change to playable seat counts, prices or the minimum for cancelling a game already in progress.
 - Organizer event worklists show regular club/novice evenings first, ratings/tournaments second, other events last; date orders each group. Historical chronology remains chronological.
 - Approved beginner-card copy and the two final PNG assets: [SPORTS_MAFIA_BEGINNER_CARDS.md](SPORTS_MAFIA_BEGINNER_CARDS.md). In the cards the first-killed best move and penalty consequences are intentionally omitted. They remain part of the full rules and game engine. «Убитый или заголосованный говорит прощальную минуту, затем покидает игру». General discussion is absent; players speak in turn. The Don's task is to lead the mafia and find/kill the Sheriff or play the Sheriff himself.
+
+## Domain model decisions (owner, 2026-10-23, answers to the domain-model audit)
+
+These are the owner's answers to the questions where copies in the code disagreed. The code is brought in line with them step by step; see `PROJECT_STATE` (Domain model programme) for status.
+
+1. **Games counted in profile statistics** (total games, win rate, roles): only **completed** games. For a club game the protocol is closed and the evening is not cancelled. For a tournament game both the game and its protocol are completed. Drafts and planned games are not counted.
+2. **Best move (ЛХ) sources.** The best move of the player **voted out in the zero round** counts exactly like the best move of the first player killed at night. It counts for Elo **and** for tokens.
+3. **Protocol checks.** The club evening protocol gets the same consistency checks as the tournament protocol. For example, a player with 4 fouls must be marked removed, and the protocol cannot be saved otherwise. Table size stays as it is: 8–10 for novice evenings, 10 otherwise.
+4. **Saving a live game.** Unchanged: a live evening game is saved as a completed protocol, and a live tournament game is saved as a draft for review.
+5. **«Думаю» is not «Идут».** «Идут» counts only «Иду» and «Приду позже», and so does the shortfall («недобор»). «Думаю» is shown separately.
+6. **Evening price.**
+   - Novice and ordinary evenings use the existing rules (per-game price with an evening cap). The numbers are **system settings the owner can change in the app**, for example to raise prices.
+   - Rating evenings cost **500 ₽** by default.
+   - The tournament fee is entered when the tournament is created.
+   - **Free first visits are only a gift from the owner:** nobody gets them automatically. The organizer gives a specific person free games or evenings in the CRM.
+7. **Evening post template.** **One** template, editable in the CRM, is used for both the VK and the Telegram post.
+8. **Player name in tournaments.** The **club nickname** is shown everywhere. The tournament display name is used only for guests without a profile.
+9. **Achievements.** There is **one** set of achievements; the separate list in «Прогресс» is merged into it. There are **no minimum-game cut-offs**: «strongest role» and similar indicators have no 5- or 10-game minimum (owner: «без отсечек и ограничений»).

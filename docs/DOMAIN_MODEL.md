@@ -19,12 +19,12 @@ The status column says whether the concept is **one** (a single definition), **d
 |---|---|---|
 | Role (citizen, sheriff, mafia, don) | `src/shared/gameRoles.ts` `normalizeGameRole` | **one** (2026-10-22). A colour is never a role; only `tournamentRoleValidation` keeps the documented colour compatibility for historic assignment input |
 | Team and winner (red, black) | `src/shared/gameRoles.ts` `gameTeamOfRole`, `normalizeWinnerTeam` | **one** (2026-10-22); `clubGameTeams.ts` removed |
-| Engine role/team state | canonical `GameRole` / `GameTeam`; `setupRoles.ts` parses inputs, `engineStateModel.ts` / `liveSessionStorage.ts` normalize legacy recovery | runtime/current and Undo snapshots use canonical keys; Russian labels remain UI/result/broadcast boundaries; invalid/conflicting recovery roles are not guessed (7b workstream, CI/runtime pending) |
+| Engine role/team state | canonical `GameRole` / `GameTeam`; `setupRoles.ts` parses inputs, `engineStateModel.ts` / `liveSessionStorage.ts` normalize legacy recovery | runtime/current and Undo snapshots use canonical keys; Russian labels remain UI/result/broadcast boundaries; invalid/conflicting recovery roles are not guessed (#1018 merged; runtime verification separate) |
 | Exit type and removal reason | `src/shared/` game discipline constants | dup: the 5 exit values are listed 3 times, removal reasons 4 times |
 | Fouls, technical fouls, PPK, Ci, bonus | one protocol rules module for club and tournament | rule?: the club and tournament validators differ |
 | Best move (ЛХ) points | `server/services/bestMovePoints.ts` | **one** (2026-10-23): both sources count for Elo and tokens (`clubBestMovePointsForParticipant`) |
 | Protocol (draft → completed) | one protocol pipeline | structural: club JSON in `games.protocol_text` versus the tournament tables |
-| Game event log | `src/shared/liveGameEvents.ts` | one; target: the engine and protocols are built from it |
+| Game event log | `src/shared/liveGameEvents.ts` | producer captures native protocol evidence at each persisted transition (`liveEngineJournal.ts`), consumers copy it; legacy recovery keeps polling. Target remains full event replay for engine state and CRM corrections |
 | A «game» for statistics | `server/services/completedClubGame.ts` (+ tournament twin) | rule?: drafts and planned games are counted in some places |
 | Win rate | `src/shared/stats.ts` | dup: three integer copies |
 | Achievements | `playerAchievementsService.ts` | structural: a second list lives in `playerProgressionRoutes.ts` |

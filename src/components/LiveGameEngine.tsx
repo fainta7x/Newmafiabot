@@ -1,3 +1,4 @@
+import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { GAME_ROLES, ENGINE_TEAM_NAMES } from '../shared/gameRoles.ts';
 import { consumeAutoRestore } from "../lib/liveGameResume.ts";
 import { useEffect, useRef, useState } from "react";
@@ -157,6 +158,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [zeroNightSubPhase, setZeroNightSubPhase] = useState<"agreement" | "sheriff" | "seating" | null>(null);
   const [zeroNightMusicState, setZeroNightMusicState] = useState<ZeroNightMusicState>('pending');
   const gameFinishedRef = useRef(false);
+  const journalRef = useRef<LiveEngineJournal | null>(null);
+  const nativeJournalEnabledRef = useRef(false);
 
   const [nominations, setNominations] = useState<number[]>([]);
   const [nominationsMap, setNominationsMap] = useState<Record<number, number>>({});
@@ -396,7 +399,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       sessionKey,
       savedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }),
     };
-    writeLiveSession(data);
+    if (nativeJournalEnabledRef.current) {
+      journalRef.current = advanceLiveEngineJournal(journalRef.current, data);
+      writeLiveSession({ ...data, protocolEvidence: journalRef.current.evidence });
+    } else writeLiveSession(data);
   }, [
     activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers, reveals,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, bestMoveDeadlineMs, votingRounds, activeVotingRoundIndex,
@@ -427,6 +433,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
+    journalRef.current = restoreLiveEngineJournal(restorableSession);
+    nativeJournalEnabledRef.current = Boolean(journalRef.current);
     const restored = normalizeLiveSnapshotForRestore(restorableSession);
     const recoverySnapshot = restored.phase === 'zero_night' && restored.zeroNightMusicState === 'playing'
       ? { ...restored, zeroNightMusicState: 'pending' as const }
@@ -564,6 +572,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       team: teamOfPlayer(p) ?? 'red',
     }))));
     removeLiveSession();
+    journalRef.current = null;
+    nativeJournalEnabledRef.current = true;
     setZeroNightMusicState('pending');
     setPhase('zero_night');
   };
@@ -1529,8 +1539,17 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       major_tech_fouls: p.major_tech_fouls || 0,
       removal_reason: p.removal_reason || null,
     } as any));
+    if (nativeJournalEnabledRef.current) {
+      journalRef.current = advanceLiveEngineJournal(journalRef.current, {
+        ...takeSnapshot(), activePlayers: activePlayers.map(p => ({ ...p, ppk: p.ppk || p.slot_num === ppkSlot })),
+      });
+    }
     removeLiveSession();
     onGameFinished({
+      ...(nativeJournalEnabledRef.current && journalRef.current ? {
+        protocol_evidence: journalRef.current.evidence,
+        protocol_snapshot: journalRef.current.snapshot,
+      } : {}),
       winning_team: winner,
       protocol_text: `Спортивная игра ФСМ. Победили ${winner}.${protocolNotes.trim() ? ` Примечания: ${protocolNotes.trim()}` : ''}`,
       slots,

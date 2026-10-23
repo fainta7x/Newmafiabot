@@ -346,17 +346,18 @@ export default function TournamentLiveGameModal({
     setError(null);
     try {
       const now = new Date().toISOString();
+      const evidence = gameData.protocol_evidence || evidenceRef.current;
       const events = buildFinalChronology({
-        events: evidenceRef.current.events,
-        lastSnapshot: lastSnapshotRef.current,
+        events: evidence.events,
+        lastSnapshot: gameData.protocol_snapshot || lastSnapshotRef.current,
         gameData,
         deathProtocols: readStoredDeathProtocols(),
         at: now,
       });
       const next = mapEngineResult(current.protocol, current.player_results, {
         ...gameData,
-        votes: evidenceRef.current.votes,
-        shots: evidenceRef.current.shots,
+        votes: evidence.votes,
+        shots: evidence.shots,
         events,
       });
       // The colour protocols the judge filled in for the killed players go into the protocol (as in the club evening).

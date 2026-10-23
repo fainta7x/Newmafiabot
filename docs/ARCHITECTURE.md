@@ -197,6 +197,8 @@ Durable helper boundaries include:
 
 Game state/action ownership remains primarily in `LiveGameEngine.tsx`; seat actions remain in `SeatCard.tsx`.
 
+`liveEngineJournal.ts` captures protocol evidence at the engine persistence boundary, using the existing voting/night/event projector in `liveClubSession.ts`. New sessions persist `protocolEvidence` beside the recovery snapshot; native reload restores that producer cursor separately from Undo. Club/tournament pollers copy native evidence; legacy interrupted sessions retain polling derivation. The final callback carries `protocol_evidence` and `protocol_snapshot` before the shared session is removed. This closes sampling loss for persisted transitions; the engine still restores state from snapshots, not event replay.
+
 Voting outcomes remain authoritative in `src/shared/tournamentVoting.ts`.
 
 Before changing voting/fouls/removals/PPK/speech timing/zero round/game completion, read `docs/BUSINESS_RULES.md` and focused tests.

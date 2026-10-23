@@ -24,6 +24,7 @@ describe('protocol voting completion validation', () => {
     expect(validateProtocolVoting([
       {
         round_number: 4,
+        is_revote: false,
         day_number: 2,
         nominated_seats: [],
         vote_counts: {},
@@ -41,6 +42,7 @@ describe('protocol voting completion validation', () => {
     const result = validateProtocolVoting([
       {
         round_number: 1,
+        is_revote: false,
         day_number: 1,
         nominated_seats: [2, 5],
         vote_counts: { 2: 4, 5: 3 },
@@ -58,6 +60,7 @@ describe('protocol voting completion validation', () => {
     const result = validateProtocolVoting([
       {
         round_number: 1,
+        is_revote: false,
         day_number: 1,
         nominated_seats: [2, 5],
         vote_counts: { 2: 6, 5: 4 },
@@ -76,6 +79,7 @@ describe('protocol voting completion validation', () => {
   it('accepts one zero-round elimination only when player status and selected participant match', () => {
     const votes = [{
       round_number: 1,
+        is_revote: false,
       day_number: 0,
       nominated_seats: [3],
       vote_counts: { 3: 10 },
@@ -168,6 +172,7 @@ describe('protocol completion validation', () => {
       ...validProtocol(),
       votes: [{
         round_number: 2,
+        is_revote: false,
         day_number: 1,
         nominated_seats: [],
         vote_counts: {},

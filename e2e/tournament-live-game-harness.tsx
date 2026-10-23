@@ -137,6 +137,7 @@ localStorage.setItem('mafia_live_session', JSON.stringify({
   savedAt: '20:00',
 }));
 
+let protocolReads = 0;
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -145,7 +146,11 @@ window.fetch = async (input, init) => {
     if (String(init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase() === 'PUT') {
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
-    return new Response(JSON.stringify({ protocol, player_results: playerResults }), {
+    protocolReads += 1;
+    const observedResults = mode === 'role-correction' && protocolReads > 1
+      ? playerResults.map((row, index) => index < 2 ? { ...row, role: index === 0 ? 'mafia' : 'citizen', team: index === 0 ? 'black' : 'red' } : row)
+      : playerResults;
+    return new Response(JSON.stringify({ protocol, player_results: observedResults }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

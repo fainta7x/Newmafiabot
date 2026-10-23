@@ -5,6 +5,7 @@
  */
 
 export type LiveGameEventKind =
+  | 'role_corrected'
   | 'game_start'
   | 'phase'
   | 'night_step'

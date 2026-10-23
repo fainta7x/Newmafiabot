@@ -153,3 +153,25 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
     }
   });
 }
+
+for (const width of [360, 390]) {
+  test(`Tournament CRM role corrections reach the live engine at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.clock.install();
+    await page.goto('/e2e/tournament-live-game.html?mode=role-correction');
+    await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+    await expect(page.locator('.live-seat-card[data-seat="1"]')).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`crm-roles-before-${width}.png`), fullPage: true });
+    await page.clock.fastForward(20_100);
+    await expect(page.getByTestId('tournament-live-roles-changed')).toContainText('Движок применяет исправления');
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('mafia_live_session')).activePlayers[0].role)).toBe('mafia');
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('mafia_live_session')));
+    expect(saved.activePlayers[0].team).toBe('black');
+    expect(saved.activePlayers[1].role).toBe('citizen');
+    expect(saved.protocolEvidence.events.filter(event => event.kind === 'role_corrected')).toHaveLength(2);
+    await page.clock.fastForward(20_100);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('mafia_live_session')).protocolEvidence.events.filter(event => event.kind === 'role_corrected').length)).toBe(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`crm-roles-after-${width}.png`), fullPage: true });
+  });
+}

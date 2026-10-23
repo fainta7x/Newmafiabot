@@ -48,10 +48,10 @@ const position = (phase: string, out: Seat[], extra: Record<string, unknown> = {
   };
 };
 
-const play = async (snapshot: Record<string, unknown>) => {
+const play = async (snapshot: Record<string, unknown>, props: Partial<React.ComponentProps<typeof LiveGameEngine>> = {}) => {
   const onGameFinished = vi.fn();
   localStorage.setItem('mafia_live_session', JSON.stringify(snapshot));
-  render(<LiveGameEngine players={[]} initialJudgeId={777} onGameFinished={onGameFinished} onCancel={vi.fn()} onPhaseChange={vi.fn()} />);
+  render(<LiveGameEngine players={[]} initialJudgeId={777} onGameFinished={onGameFinished} onCancel={vi.fn()} onPhaseChange={vi.fn()} {...props} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
   return onGameFinished;
 };
@@ -127,6 +127,21 @@ describe('judge engine: whole-game scenarios', () => {
     expect(result.zero_round_rule).toBe(rule);
     expect(result.protocol_evidence.events.filter((e: any) => e.kind === 'ppk' && e.seat === 9)).toHaveLength(1);
     expect(result.slots.find((s: any) => s.slot_num === 9)?.ppk).toBe(true);
+  });
+
+  it('a CRM role correction changes the PPK winner and is carried in the final journal', async () => {
+    const initial = position('day_speeches', [{ slot: 4, exit: 'killed' }]);
+    const roles: any = Object.fromEntries(initial.activePlayers.map((p: any) => [p.slot_num,
+      p.slot_num === 1 ? 'mafia' : p.slot_num === 9 ? 'citizen' : p.slot_num === 10 ? 'don' : p.slot_num === 7 ? 'sheriff' : p.slot_num >= 8 ? 'mafia' : 'citizen']));
+    const done = await play({ ...initial, protocolEvidence: advanceLiveEngineJournal(null, initial).evidence }, { roleAssignments: roles });
+    fireEvent.click(seat(9));
+    await press('ППК');
+    await press('Подтвердить ППК');
+    const result = finished(done);
+    expect(result.winning_team).toBe('Чёрные');
+    expect(result.slots.find((s: any) => s.slot_num === 9)).toMatchObject({ role: 'Мирный', team: 'Красные', ppk: true });
+    expect(result.protocol_evidence.events.filter((e: any) => e.kind === 'role_corrected')).toHaveLength(2);
+    expect(result.protocol_evidence.events.filter((e: any) => e.kind === 'ppk')).toHaveLength(1);
   });
 
   it('a fourth foul removes the player, and the removal reason travels with the result', async () => {

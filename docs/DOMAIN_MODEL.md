@@ -24,7 +24,7 @@ The status column says whether the concept is **one** (a single definition), **d
 | Fouls, technical fouls, PPK, Ci, bonus | one protocol rules module for club and tournament | rule?: the club and tournament validators differ |
 | Best move (ЛХ) points | `server/services/bestMovePoints.ts` | **one** (2026-10-23): both sources count for Elo and tokens (`clubBestMovePointsForParticipant`) |
 | Protocol (draft → completed) | one protocol pipeline | structural: club JSON in `games.protocol_text` versus the tournament tables |
-| Game event log | `src/shared/liveGameEvents.ts` | producer captures native protocol evidence at each persisted transition (`liveEngineJournal.ts`), consumers copy it; legacy recovery keeps polling. Target remains full event replay for engine state and CRM corrections |
+| Game event log | `src/shared/liveGameEvents.ts` | producer captures native protocol evidence at each persisted transition (`liveEngineJournal.ts`), consumers copy it; legacy recovery keeps polling until an observed role correction adopts its evidence. `role_corrected` commands project complete CRM roles onto current/Undo state. Target remains full engine event replay and seat/identity correction events |
 | A «game» for statistics | `server/services/completedClubGame.ts` (+ tournament twin) | rule?: drafts and planned games are counted in some places |
 | Win rate | `src/shared/stats.ts` | dup: three integer copies |
 | Achievements | `playerAchievementsService.ts` | structural: a second list lives in `playerProgressionRoutes.ts` |

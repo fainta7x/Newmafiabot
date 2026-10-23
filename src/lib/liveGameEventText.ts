@@ -1,3 +1,4 @@
+import { GAME_ROLES, normalizeGameRole } from '../shared/gameRoles.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 
 const PHASES: Record<string, string> = {
@@ -48,6 +49,7 @@ export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: n
     let text = '';
     let heading = false;
     switch (event.kind) {
+      case 'role_corrected': { const role = normalizeGameRole(value); text = `CRM: роль ${seat} исправлена — ${role ? GAME_ROLES[role].label : value}`; break; }
       case 'game_start': text = 'Игра началась'; heading = true; break;
       case 'phase': text = `${PHASES[value] || value}${event.round >= 1 ? ` · круг ${event.round}` : ''}`; heading = true; break;
       case 'night_step': text = `Ночь: ${NIGHT_STEPS[value] || value}`; break;

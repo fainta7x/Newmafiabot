@@ -181,14 +181,15 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 - Next: characterization tests for `GameProtocolModal` and `TournamentDetailViewBase` handlers, then extract their state into hooks; remaining request shapes screen by screen; `LiveGameEngine` only with scenario tests and a plan shown to the owner first; SQLite query plans.
 
 **Domain model — whole app (owner, 2026-10-22: «все элементы подчинялись единым правилам, сценариям, не было задвоений, были единые и правильные сущности»; «да, делай»).** This continues this programme across the whole app. The target map is [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md); the findings are in `AUDIT_LOG` → «Domain model audit». The owner explicitly includes the judge engine, done in this order: scenario tests first, then canonical vocabulary, then the event log as the one source for engine and protocol. Order:
-1. Game vocabulary: one role, team and winner module; one exit-type and removal-reason list; one `roleToProtocol`; fixes for bugs B1–B2.
-2. «What is a game» for statistics, and the shared points formula (after the owner's answer).
-3. UI primitives: avatar, money, date, plural, loading state, status labels.
-4. Messaging: one retry policy, publish-once with `uncertain` (B4).
-5. Evening domain: open, going, debt, price, «недобор», including the bot copies (after the owner's answers).
-6. Engine scenario tests (**first six done**, `liveGameScenarios.test.tsx`), then the engine uses canonical keys and players.
+Status of each step as of 2026-10-23 (merged in #1002–#1006; details in AUDIT_LOG):
+1. Game vocabulary. **Done:** one role, team and winner module, one exit-type and removal-reason list, `roleToProtocol` removed, B1–B2 fixed. Also one game-score formula (`gameScore.ts`), Elo and its history sharing their inputs, and one win-rate rule.
+2. «What is a game» for statistics. **Waits for the owner's answer** (question 1).
+3. UI primitives. **Money, plural forms and dates done.** Avatars, the loading state and status labels are open; they need before/after screenshots.
+4. Messaging. **B4 mitigated in wording.** One retry policy and a real «uncertain» state are open.
+5. Evening domain. **Dead shadowed handlers removed; the bot's «недобор» minimum fixed.** «Going», «open», price and debt wait for the owner's answers (questions 5–6).
+6. Engine. **Six scenario tests done; 7a done:** every reading of the engine's roles and teams goes through the shared vocabulary. **Next, 7b:** the engine stores canonical keys and translates old saved games on restore. It also touches the broadcast overlay, so it needs screenshots.
 7. The event log becomes the source; CRM role and seat fixes become events.
-8. One protocol rule set for club and tournament.
+8. One protocol rule set for club and tournament (waits for the owner's answer, question 3).
 
 **Acceptance for each slice:** existing values, fallbacks, API results and user-visible copy remain unchanged unless a specific change was explicitly approved; no unreviewed layout shift; test evidence for affected behaviour; exact PR/head SHA and CI result recorded; separately note deployment and runtime verification. If tests cannot be run locally through GitHub-only access, rely on PR CI and do not label unverified code as safe/merged.
 

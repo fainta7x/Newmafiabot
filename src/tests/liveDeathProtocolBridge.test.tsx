@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EveningDeathProtocolBridge } from '../components/crm/EveningDeathProtocolOverlay';
 
-const writeSession = (activePlayers: Array<{ slot_num: number; nickname: string; team: 'Красные' | 'Чёрные'; alive: boolean }>) => {
+const writeSession = (activePlayers: Array<{ slot_num: number; nickname: string; team: 'Красные' | 'Чёрные' | 'red' | 'black'; alive: boolean }>) => {
   localStorage.setItem('mafia_live_session', JSON.stringify({
     postNightStage: 'death_protocol',
     shotPlayerSlot: 4,
@@ -40,6 +40,24 @@ describe('EveningDeathProtocolBridge final-night routing', () => {
 
     expect(finishGame).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/не найдена кнопка перехода к дневным речам/i)).toBeNull();
+  });
+
+  it('reads the canonical teams the engine saves since #1018 and still finishes the game', async () => {
+    writeSession([
+      { slot_num: 1, nickname: 'Красный 1', team: 'red', alive: true },
+      { slot_num: 2, nickname: 'Красный 2', team: 'red', alive: true },
+      { slot_num: 3, nickname: 'Красный 3', team: 'red', alive: true },
+      { slot_num: 4, nickname: 'Последняя мафия', team: 'black', alive: false },
+    ]);
+    const finishGame = vi.fn();
+    render(<>
+      <div className="evening-live-engine-shell">
+        <button type="button" onClick={finishGame}>Завершить игру</button>
+      </div>
+      <EveningDeathProtocolBridge />
+    </>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Сохранить → протокол' }));
+    expect(finishGame).toHaveBeenCalledTimes(1);
   });
 
   it('continues to the next day when the kill has not decided the winner', async () => {

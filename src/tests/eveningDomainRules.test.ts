@@ -56,6 +56,19 @@ describe('owner-approved evening domain', () => {
     expect((await db.get<any>("SELECT amount_due FROM evening_participants WHERE id='ep'"))?.amount_due).toBe(400);
   });
 
+  it('the public bot router offers the next evening first; an unclosed past evening is the fallback only', async () => {
+    const { db, app } = await setup();
+    vi.stubEnv('BOT_API_SECRET', 'evening-domain-test');
+    const at = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+    const add = (id: string, startsAt: string) => db.run('INSERT INTO game_evenings (id,title,starts_at,format,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)', [id, id, startsAt, 'NOVICE', 'published', at(-30), at(-30)]);
+    await add('past-unclosed', at(-7));
+    const router = () => request(app).get('/api/bot/telegram/public-router').set('X-Bot-Token', 'evening-domain-test');
+    expect((await router()).body.novice_evening?.id).toBe('past-unclosed');
+    await add('next', at(7));
+    await add('later', at(14));
+    expect((await router()).body.novice_evening?.id).toBe('next');
+  });
+
   it.each(['CASUAL', 'NOVICE', 'RATING'])('uses the very same saved announcement in Telegram and VK for %s', async (format) => {
     const { db, app } = await setup();
     vi.stubEnv('BOT_API_SECRET', 'evening-domain-test');

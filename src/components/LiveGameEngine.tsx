@@ -165,6 +165,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const nativeJournalEnabledRef = useRef(false);
   const roleAuthorityRef = useRef<LiveRoleAssignments | null>(null);
   const rosterBaselineRef = useRef<LiveRosterIdentity | null>(null);
+  const [rosterJournalRevision, setRosterJournalRevision] = useState(0);
   if (roleAssignments) roleAuthorityRef.current = roleAssignments;
 
   const [nominations, setNominations] = useState<number[]>([]);
@@ -418,6 +419,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
     zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, historyStack,
+    rosterJournalRevision,
   ]);
 
   useEffect(() => {
@@ -463,6 +465,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     journalRef.current = { ...journal, evidence: { ...journal.evidence, events: appendLiveGameEvents(existing, events) } };
     nativeJournalEnabledRef.current = true;
     rosterBaselineRef.current = rosterIdentity;
+    // Persist external events immediately, even if the judge makes no subsequent move.
+    setRosterJournalRevision(previous => previous + 1);
     // Do not mutate activePlayers, discipline, votes or Undo frames: these are historical seat facts.
   }, [rosterIdentity, phase]);
 

@@ -1,3 +1,4 @@
+import { needsEveningStartConfirmation } from './eveningStartConfirmationStore.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -68,13 +69,13 @@ const defaultDispatchDeliverer: TelegramDispatchDeliverer = async (job) => {
 
 type AutomaticEveningSyncPolicy = { deliver: boolean; reason?: string };
 
-async function automaticEveningSyncPolicy(
+export async function automaticEveningSyncPolicy(
   db: DatabaseWrapper,
   eveningId: string,
   now: Date,
 ): Promise<AutomaticEveningSyncPolicy> {
   const evening = await db.get<any>(
-    'SELECT starts_at, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
+    'SELECT id, format, starts_at, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
     [eveningId],
   );
   if (!evening) return { deliver: false, reason: 'evening_missing' };
@@ -97,6 +98,8 @@ async function automaticEveningSyncPolicy(
     // stale publication row exists from an older deployment.
     return { deliver: false, reason: 'before_announcement_window' };
   }
+  // An ordinary evening is not posted before the organizer chose its first-game time (owner, 2026-10-23).
+  if (await needsEveningStartConfirmation(db, evening)) return { deliver: false, reason: 'awaiting_start_time' };
   return { deliver: true };
 }
 

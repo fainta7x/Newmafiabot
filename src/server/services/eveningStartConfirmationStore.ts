@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
+import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishingSchema.ts';
 
 /**
  * The organizer confirms when the first game of an ordinary (CASUAL) evening starts before its weekly announcement
@@ -18,10 +19,15 @@ export async function ensureEveningStartConfirmationSchema(db: DatabaseWrapper) 
   `);
 }
 
-/** True once the weekly announcement of this evening has started (it is never sent twice). */
+/** True once the evening is announced: its weekly announcement started, or it already has a channel post (e.g. by hand). */
 export async function weeklyAnnouncementStarted(db: DatabaseWrapper, eveningId: string) {
   await ensureWeeklyEveningAutomationSchema(db);
-  const row = await db.get('SELECT 1 AS present FROM club_weekly_automation_runs WHERE automation_key = ? LIMIT 1', [`weekly-announcement:${eveningId}`]);
+  await ensureTelegramPublishingSchema(db);
+  const row = await db.get(
+    `SELECT 1 AS present FROM club_weekly_automation_runs WHERE automation_key = ?
+     UNION ALL SELECT 1 FROM evening_telegram_publications WHERE evening_id = ? LIMIT 1`,
+    [`weekly-announcement:${eveningId}`, eveningId],
+  );
   return Boolean(row);
 }
 

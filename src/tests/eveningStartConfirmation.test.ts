@@ -5,6 +5,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { runEveningStartQuestions } from '../server/services/eveningStartConfirmationService.ts';
 import { needsEveningStartConfirmation } from '../server/services/eveningStartConfirmationStore.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../db/ensureWeeklyEveningAutomationSchema.ts';
+import { automaticEveningSyncPolicy } from '../server/services/telegramSyncOutboxService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
@@ -62,6 +63,20 @@ describe('first-game time asked before the weekly announcement (owner, 2026-10-2
     await db.run(`INSERT INTO club_weekly_automation_runs (automation_key, evening_id, kind, status, created_at, updated_at)
       VALUES ('weekly-announcement:ev', 'ev', 'weekly_announcement', 'done', 'x', 'x')`);
     expect((await answer(app, '20:00')).status).toBe(409);
+    expect(await needsEveningStartConfirmation(db, { id: 'ev', format: 'CASUAL' })).toBe(false);
+  });
+
+  it('no channel post is created while the evening waits for its time, even within the hour before the announcement', async () => {
+    const { db, app } = await seed();
+    expect(await automaticEveningSyncPolicy(db, 'ev', new Date(mondayAt('18:30')))).toEqual({ deliver: false, reason: 'awaiting_start_time' });
+    expect((await answer(app, '20:00')).status).toBe(200);
+    expect(await automaticEveningSyncPolicy(db, 'ev', new Date(mondayAt('18:30')))).toEqual({ deliver: true });
+  });
+
+  it('an evening already posted by hand does not wait', async () => {
+    const { db } = await seed();
+    await db.run(`INSERT INTO evening_telegram_publications (evening_id, destination_id, chat_id, message_id, sent_at, updated_at)
+      VALUES ('ev', 'club', '-100', 1, 'x', 'x')`);
     expect(await needsEveningStartConfirmation(db, { id: 'ev', format: 'CASUAL' })).toBe(false);
   });
 

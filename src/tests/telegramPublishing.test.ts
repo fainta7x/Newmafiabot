@@ -1,3 +1,4 @@
+import { ensureEveningStartConfirmationSchema } from '../server/services/eveningStartConfirmationStore.ts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
@@ -232,7 +233,14 @@ describe('Telegram publishing destinations', () => {
       [now.toISOString(), now.toISOString()],
     );
     let deliveries = 0;
-    await drainTelegramSyncOutbox(db, { now, deliver: async () => { deliveries += 1; return { success: true, status: 200 }; } });
+    const deliver = async () => { deliveries += 1; return { success: true, status: 200 }; };
+    // An ordinary evening waits for the organizer's first-game time (owner, 2026-10-23).
+    await drainTelegramSyncOutbox(db, { now, deliver });
+    expect(deliveries).toBe(0);
+    await ensureEveningStartConfirmationSchema(db);
+    await db.run("INSERT INTO evening_start_confirmations (evening_id, starts_at, confirmed_at) VALUES ('ev-friday-21', '2026-10-02T21:00:00+03:00', 'x')");
+    await db.run("UPDATE game_evenings SET updated_at = updated_at WHERE id = 'ev-friday-21'");
+    await drainTelegramSyncOutbox(db, { now, deliver });
     expect(deliveries).toBe(1);
   });
 

@@ -28,8 +28,9 @@ export async function updateEveningSlotSettings(
     slot_duration_minutes?: unknown;
     starts_at?: unknown;
   },
-  /** `notifyReschedule: false` — the evening was not announced yet, so a moved start sends no «перенос» notice. */
-  options: { notifyReschedule?: boolean } = {},
+  /** `notAnnouncedYet` — nothing is posted yet: a moved start sends no «перенос» notice and no channel/VK sync
+   *  (a sync close to the announcement time could create the post early). */
+  options: { notAnnouncedYet?: boolean } = {},
 ) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
   if (evening.status === 'completed' || evening.settled_at) throw Object.assign(new Error('Завершённый вечер менять нельзя'), { statusCode: 409 });
@@ -90,10 +91,10 @@ export async function updateEveningSlotSettings(
     );
   });
   // Existing announcements update as before; an actual move also gets its own notice.
-  if (String(evening.status || '') === 'published') {
+  if (String(evening.status || '') === 'published' && !options.notAnnouncedYet) {
     await enqueueTelegramEveningSync(db, eveningId).catch((error) => console.warn('[SLOTS] Telegram evening sync failed:', error));
     kickVkLiveEveningSync(db);
-    if (startMoved && options.notifyReschedule !== false) {
+    if (startMoved) {
       await notifyEveningRescheduled(db, eveningId, String(evening.starts_at), nextStartsAt)
         .catch((error) => console.warn('[SLOTS] Reschedule notice failed:', error));
     }

@@ -88,8 +88,8 @@ export async function confirmEveningStart(
   }
 
   const startsAt = `${mskDate(new Date(evening.starts_at).getTime())}T${time}:00+03:00`;
-  // Nothing is announced yet, so there is nobody to tell about a «перенос».
-  await updateEveningSlotSettings(db, String(evening.id), { starts_at: startsAt }, { notifyReschedule: false });
+  // Nothing is announced yet: no «перенос» notice and no channel sync (the announcement itself posts the new time).
+  await updateEveningSlotSettings(db, String(evening.id), { starts_at: startsAt }, { notAnnouncedYet: true });
   await ensureEveningStartConfirmationSchema(db);
   const stamp = new Date(now).toISOString();
   await db.run(

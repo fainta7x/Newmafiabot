@@ -114,12 +114,11 @@ def build_organizer_digest(
         reminder_recipients = recruitment.get("unanswered_recipients")
         unanswered = reminder_recipients if isinstance(reminder_recipients, list) else participant_unanswered
         underfilled_slots = recruitment.get("underfilled_slots") if isinstance(recruitment.get("underfilled_slots"), list) else []
-        capacity = max(0, int(evening.get("capacity") or 10))
         attending_count = len(attending) if participants else int(evening.get("attending_count") or 0)
 
         # The same minimum as the server's shortfall check (eveningMinimumPlayers): 8 for a novice evening, else 10.
-        minimum = 8 if str(evening.get("format") or "").upper() == "NOVICE" else 10
-        needed = min(minimum, capacity or minimum)
+        # Not capped by capacity: the shortfall check cancels below this number whatever the capacity.
+        needed = 8 if str(evening.get("format") or "").upper() == "NOVICE" else 10
         lines: list[str] = []
         if hours_to_start <= 48 and hours_to_start > -6 and attending_count < needed:
             lines.append(f"⚠️ Запись: {attending_count}/{needed} — не хватает {needed - attending_count}")

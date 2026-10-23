@@ -10,7 +10,7 @@ import logging
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from bot_announcement_api import apply_organizer_task_action
+from bot_announcement_api import apply_organizer_task_action, confirm_evening_first_game_start
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -80,3 +80,35 @@ async def handle_organizer_task_action(callback: CallbackQuery) -> None:
             await callback.message.edit_reply_markup(reply_markup=_without_task(callback.message.reply_markup, task_id))
         except Exception as exc:  # the message may be too old to edit; the task itself is already updated
             logger.info("Organizer task buttons not updated: %s", exc)
+
+
+EVENING_START_PREFIX = "estart:"
+
+
+@router.callback_query(F.data.startswith(EVENING_START_PREFIX))
+async def handle_evening_first_game_start(callback: CallbackQuery) -> None:
+    """«Во сколько первая игра?» before the weekly announcement (owner, 2026-10-23): ``estart:<evening>:<HHMM>``."""
+    parts = (callback.data or "").split(":")
+    if len(parts) != 3 or len(parts[2]) != 4 or not parts[2].isdigit() or not callback.from_user:
+        await callback.answer("Не понял время.", show_alert=True)
+        return
+    _, evening_id, hhmm = parts
+    time = f"{hhmm[:2]}:{hhmm[2:]}"
+    result = await confirm_evening_first_game_start(evening_id, time, callback.from_user.id)
+    if not result.get("success"):
+        errors = {
+            "authorization": "Это действие доступно только организаторам.",
+            "not_found": "Вечер не найден.",
+            "closed": "Анонс уже ушёл — время теперь меняется в CRM (с уведомлением о переносе).",
+        }
+        await callback.answer(errors.get(str(result.get("error")), "Не получилось, попробуйте ещё раз."), show_alert=True)
+        return
+    data = result.get("data") or {}
+    note = "анонс уходит сейчас" if data.get("announcement_due") else "анонс уйдёт в понедельник в 19:00"
+    await callback.answer(f"Первая игра в {time}, {note}.")
+    if callback.message is not None:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+            await callback.message.reply(f"✅ Первая игра в {time} — {note}.")
+        except Exception as exc:  # an old message may not be editable; the time is already saved
+            logger.info("Evening start message not updated: %s", exc)

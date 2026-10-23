@@ -7,6 +7,14 @@ import {
   reconcileWeeklyEveningAutomation,
   runDueWeeklyAnnouncements,
 } from '../server/services/weeklyEveningAutomationService.ts';
+import { ensureEveningStartConfirmationSchema } from '../server/services/eveningStartConfirmationStore.ts';
+
+/** The organizer already answered «Во сколько первая игра?» for every evening (owner rule, 2026-10-23). */
+const confirmAllStarts = async (db: DatabaseWrapper) => {
+  await ensureEveningStartConfirmationSchema(db);
+  await db.run(`INSERT OR IGNORE INTO evening_start_confirmations (evening_id, starts_at, confirmed_at)
+    SELECT id, starts_at, '2026-08-22T00:00:00.000Z' FROM game_evenings`);
+};
 
 const openDatabases: DatabaseWrapper[] = [];
 const previousAutomationFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
@@ -60,6 +68,7 @@ describe('weekly Friday evening automation', () => {
   it('announces the upcoming Friday after Monday 19:00 Moscow exactly once across Telegram channel, DMs and VK', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await confirmAllStarts(db);
 
     const monday1901Moscow = new Date('2026-08-24T16:01:00.000Z');
     const calls = { channel: [] as string[], dm: [] as string[], vk: [] as string[], drain: 0 };
@@ -113,9 +122,29 @@ describe('weekly Friday evening automation', () => {
     expect(run?.completed_at).toBeTruthy();
   });
 
+  it('an ordinary evening waits for the organizer\'s first-game time before its announcement', async () => {
+    const db = createDb();
+    await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    const announced: string[] = [];
+    const delivery = {
+      enqueueTelegramChannel: async (_db: DatabaseWrapper, eveningId: string) => { announced.push(eveningId); },
+      enqueueTelegramDm: async () => {},
+      drainTelegram: async () => ({ failed: 0 }),
+      syncVk: async () => {},
+    };
+    const now = new Date('2026-08-24T16:01:00.000Z');
+    const waiting = await runDueWeeklyAnnouncements(db, { now, baseUrl: 'https://example.test', delivery });
+    expect(announced).toEqual([]);
+    expect(waiting.every((item) => item.status === 'skipped')).toBe(true);
+    await confirmAllStarts(db);
+    await runDueWeeklyAnnouncements(db, { now, baseUrl: 'https://example.test', delivery });
+    expect(announced).toHaveLength(1);
+  });
+
   it('keeps the Monday 19:00 announcement when the Friday start is moved to 21:00', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await confirmAllStarts(db);
     await db.run("UPDATE game_evenings SET starts_at = '2026-08-28T21:00:00+03:00' WHERE substr(starts_at,1,10)='2026-08-28'");
     const announced: string[] = [];
     const delivery = {
@@ -135,6 +164,7 @@ describe('weekly Friday evening automation', () => {
   it('does not repeat a completed weekly run when the Telegram publication record is missing', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await confirmAllStarts(db);
     await ensureWeeklyEveningAutomationSchema(db);
     const target = await db.get<any>("SELECT id FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'");
     const now = new Date('2026-08-24T16:01:00.000Z');
@@ -176,6 +206,7 @@ describe('weekly Friday evening automation', () => {
   it('does not mark the weekly run done when Telegram delivery fails', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await confirmAllStarts(db);
     await db.run("UPDATE telegram_destinations SET active=0 WHERE id='club'");
     const now = new Date('2026-08-24T16:01:00.000Z');
 
@@ -204,6 +235,7 @@ describe('weekly Friday evening automation', () => {
   it('posts to VK even when some personal invitations fail, and retries later without messaging players again', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await confirmAllStarts(db);
     const now = new Date('2026-08-24T16:01:00.000Z');
     await db.run("UPDATE telegram_destinations SET active=0");
     const calls = { channel: 0, dm: 0, vk: 0 };
@@ -227,6 +259,7 @@ describe('weekly Friday evening automation', () => {
   it('checks the public entry channel post of a novice evening too', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await confirmAllStarts(db);
     await db.run("UPDATE game_evenings SET format='NOVICE', starts_at='2026-08-28T19:00:00+03:00' WHERE substr(starts_at,1,10)='2026-08-28'");
     await db.run("UPDATE telegram_destinations SET active=0");
     await db.run("UPDATE telegram_destinations SET chat_id='-100555', active=1 WHERE id='public'");

@@ -8,6 +8,7 @@ import { runEveningShortfallChecks } from './eveningShortfallService.ts';
 import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
 import { runClubResultPosts } from './clubResultPostService.ts';
 import { runOrganizerReminders } from './organizerReminderService.ts';
+import { runEveningStartQuestions } from './eveningStartConfirmationService.ts';
 import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
@@ -34,7 +35,8 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).
   + (await step('today_post', () => runTodayPostSchedule(db)).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }))
   // The organizer's own reminders: the evening route, an unclosed evening, debts, overdue tasks (organizerReminderService).
-  + (await isolated('ORGANIZER REMINDERS', step('organizer_reminders', () => runOrganizerReminders(db))));
+  + (await isolated('ORGANIZER REMINDERS', step('organizer_reminders', () => runOrganizerReminders(db))))
+  + (await isolated('EVENING START QUESTIONS', step('evening_start_questions', () => runEveningStartQuestions(db))));
 
 // A tournament Elo note is news only shortly after the game; older games never get one.
 const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

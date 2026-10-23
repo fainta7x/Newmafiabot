@@ -63,5 +63,22 @@ class OrganizerQuickActionsTest(unittest.TestCase):
         callback.message.edit_reply_markup.assert_not_awaited()
 
 
+    def test_first_game_time_answer_saves_and_drops_the_buttons(self):
+        callback = self._callback("estart:ev-1:2000")
+        callback.message.reply = AsyncMock()
+        api = AsyncMock(return_value={"success": True, "data": {"announcement_due": False}})
+        with patch.object(quick, "confirm_evening_first_game_start", api):
+            asyncio.run(quick.handle_evening_first_game_start(callback))
+        api.assert_awaited_once_with("ev-1", "20:00", 42)
+        callback.answer.assert_awaited_once_with("Первая игра в 20:00, анонс уйдёт в понедельник в 19:00.")
+        self.assertIsNone(callback.message.edit_reply_markup.await_args.kwargs["reply_markup"])
+
+    def test_first_game_time_after_the_announcement_points_to_the_crm(self):
+        callback = self._callback("estart:ev-1:2000")
+        with patch.object(quick, "confirm_evening_first_game_start", AsyncMock(return_value={"success": False, "error": "closed"})):
+            asyncio.run(quick.handle_evening_first_game_start(callback))
+        self.assertIn("Анонс уже ушёл", callback.answer.await_args.args[0])
+
+
 if __name__ == "__main__":
     unittest.main()

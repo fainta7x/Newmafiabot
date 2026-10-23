@@ -3,7 +3,7 @@ import { PERSONAL_MESSAGE_MAX_RETRIES, personalMessageRetryDelayMs } from '../se
 describe('shared Telegram/VK personal-message retry timing', () => {
   it('preserves the existing 17-attempt exponential timing and 15 minute cap', () => {
     expect(PERSONAL_MESSAGE_MAX_RETRIES).toBe(17);
-    expect([1, 2, 3, 10, 17].map(personalMessageRetryDelayMs)).toEqual([2000, 4000, 8000, 900000, 900000]);
+    expect([1, 2, 3, 10, 17].map(attempt => personalMessageRetryDelayMs(attempt))).toEqual([2000, 4000, 8000, 900000, 900000]);
   });
   it('respects Telegram Retry-After within the existing bounds', () => {
     expect(personalMessageRetryDelayMs(2, 1)).toBe(2000);

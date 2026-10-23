@@ -8,6 +8,7 @@ import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishin
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensureSlotsForEvening, SLOT_PRICE } from './eveningSlotPlanningService.ts';
 import { ensureEveningCloseoutTask } from './eveningCloseoutService.ts';
+import { needsEveningStartConfirmation } from './eveningStartConfirmationStore.ts';
 import { assignDefaultEveningStaff } from './eveningStaffService.ts';
 import {
   drainTelegramSyncOutbox,
@@ -267,6 +268,11 @@ export async function runDueWeeklyAnnouncements(
     // Monday 19:00 Moscow of the evening's week, whatever time the evening starts (a Friday moved to 21:00 too).
     const dueMs = weeklyAnnouncementDueMs(startMs);
     if (nowMs < dueMs) continue;
+    // An ordinary evening waits for the organizer's first-game time (owner, 2026-10-23); the bot asks for it.
+    if (await needsEveningStartConfirmation(db, evening)) {
+      results.push({ evening_id: String(evening.id), status: 'skipped' });
+      continue;
+    }
 
     const key = `weekly-announcement:${String(evening.id)}`;
     const attempt = await acquireRun(

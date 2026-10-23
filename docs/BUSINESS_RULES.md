@@ -485,6 +485,7 @@ The regular club cadence is automatic rather than organizer-maintained by hand.
 - If the service was asleep at the exact due time, the next safe reconciliation should catch up the still-upcoming Friday instead of silently skipping the week.
 - Existing manually created Friday drafts inside the rolling window may be promoted to registration-open/published state rather than duplicated.
 - A cancelled Friday remains cancelled; rolling calendar reconciliation must not create another evening for that date.
+- **First-game time is asked before the announcement** (owner, 2026-10-23): ordinary evenings are created at 21:00, but without a novice evening the club may start at 20:00. From Monday 12:00 Moscow (and again each day from 12:00) the bot asks the organizer «Во сколько первая игра?» with 19:00 / 20:00 / 21:00. The weekly announcement of an ordinary evening **waits for the answer**; at 19:00 the bot says it is waiting, and it goes out as soon as the time is chosen. Choosing the time before the announcement sends no «перенос» notice. Novice and rating evenings are not asked. After the announcement the time changes only in the CRM, as a real move with its notice.
 - A weekly announcement that has started delivery must not retry automatically after an uncertain delivery result; investigate the publication and resume manually to avoid duplicate posts.
 - Periodic VK refresh only updates existing posts; a missing or uncertain VK publication requires explicit reconciliation before another creation attempt.
 

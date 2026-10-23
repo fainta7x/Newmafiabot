@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { applyOrganizerTaskAction } from '../services/organizerTaskQuickActions.ts';
+import { confirmEveningStart } from '../services/eveningStartConfirmationService.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -75,6 +76,22 @@ router.post('/organizer-tasks/:id/action', async (req, res) => {
     return res.status(status).json({ error: result.error });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить задачу' });
+  }
+});
+
+/** The organizer's answer to «Во сколько первая игра?» before the weekly announcement (owner, 2026-10-23). */
+router.post('/evenings/:id/first-game-start', async (req, res) => {
+  try {
+    const result = await confirmEveningStart(req.db, {
+      eveningId: String(req.params.id),
+      time: req.body?.time,
+      telegramUserId: req.body?.telegram_user_id,
+    });
+    if (result.ok) return res.json({ ...result.evening, announcement_due: result.announcement_due });
+    const status = result.error === 'forbidden' ? 403 : result.error === 'not_found' ? 404 : result.error === 'closed' ? 409 : 400;
+    return res.status(status).json({ error: result.error });
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось сохранить время' });
   }
 });
 

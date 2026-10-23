@@ -141,3 +141,12 @@ async def apply_organizer_task_action(task_id: str, action: str, telegram_user_i
         f"/api/bot/organizer-tasks/{task_id}/action",
         {"action": action, "telegram_user_id": str(telegram_user_id)},
     )
+
+
+async def confirm_evening_first_game_start(evening_id: str, time: str, telegram_user_id: int) -> dict[str, Any]:
+    """The organizer's answer to «Во сколько первая игра?» before the weekly announcement (``19:00``/``20:00``/``21:00``)."""
+    return await _request(
+        "POST",
+        f"/api/bot/evenings/{evening_id}/first-game-start",
+        {"time": time, "telegram_user_id": str(telegram_user_id)},
+    )

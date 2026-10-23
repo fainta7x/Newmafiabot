@@ -1531,7 +1531,7 @@ The owner asked: «все элементы подчинялись единым �
 - A full «uncertain» state with a confirm-before-repost button is a UI change and is left as a proposal. **mitigated**
 
 **Python bot findings (B), 2026-10-23:**
-- `organizer_notifications.py` hard-coded «недобор» at 10. **fixed:** it now uses the server's minimum (8 for a novice evening, 10 otherwise), capped by capacity. Test `test_novice_evening_needs_eight_not_ten`.
+- `organizer_notifications.py` hard-coded «недобор» at 10. **fixed:** it now uses the server's minimum (8 for a novice evening, 10 otherwise). Like the shortfall cancellation, capacity does not lower this minimum. Test `test_novice_evening_needs_eight_not_ten`.
 - The «unpaid» count over going and late players is **not a bug**: it is the digest *before* the evening (who will owe), not the debt after closeout. **wontfix.**
 
 **Re-profile after #1005 was deployed (production, 2026-10-23 ~00:01 UTC, 40 s): the stalls are gone.**

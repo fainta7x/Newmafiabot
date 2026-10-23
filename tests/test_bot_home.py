@@ -441,3 +441,12 @@ def test_telegram_lineup_keeps_thinking_out_of_going(monkeypatch):
     text = asyncio.run(crm_booking.build_crm_evening_stats_text("e1"))
     # Owner, 2026-10-23: «Думаю» is not «Идут».
     assert "Идут: <b>2</b> · думают: <b>1</b>" in text
+
+
+def test_fallback_faq_defers_tariffs_to_the_evening_and_only_promises_explicit_gifts():
+    price, _ = bot_home.faq_answer_view("price")
+    payment, _ = bot_home.faq_answer_view("pay")
+    assert "в карточке вечера" in price
+    assert "100 ₽" not in price and "400 ₽" not in price
+    assert "бесплатные вечера" not in payment
+    assert "организатор не подарил участие" in payment

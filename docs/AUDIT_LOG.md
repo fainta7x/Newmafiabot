@@ -1584,3 +1584,8 @@ Follow-up: restored novice introduction, briefing, groups, contacts and cabinet 
 - Open follow-up: handlers/crm_telegram_publishing.py sends public announcements through novice_invitation_text; that Python entry point still ignored announcement_text. Reproduction with announcement_text='Текст владельца' returns the legacy promo instead. Fix the boundary reader and test it, rather than considering the Node render test sufficient.
 
 Resolved public-announcement boundary: novice_invitation_text now consumes and HTML-escapes the server-rendered announcement_text; legacy fallback only applies when no rendered template is supplied. Python copy tests: 17 passed. Source head 2a35a41 passed all five CI test shards, release gate, CodeQL, Gitleaks and UI preview before this final Python boundary fix; final-head CI remains required. Both 360/390 images inspected and comparison delivered.
+
+## PR #1013 review P2 — fallback FAQ, 2026-10-23
+Open: handlers/bot_home.py fallback still advertises fixed 100/400 prices and expired automatic novice-free visits; src/db/botFaqSeed.ts retains the latter in the payment answer too. Replace both with the evening-card tariff and explicit gifts. Migrate only untouched legacy FAQ defaults, preserving organizer edits. The other two review findings (novice VK content and public Telegram template) are covered by passing regression checks on 4abaf3c.
+
+P2 fixed in both FAQ sources; untouched legacy payment answers migrate by exact text, organizer edits remain. Node FAQ tests: 4 passed. Python fallback regression verifies no fixed tariffs and explicit-gift prepayment wording.

@@ -1196,3 +1196,6 @@ Replacement PR for conflicted #970 stores bounded actual OBS-state frames during
 
 
 **2026-10-23 · Live roster reload / Undo follow-up:** `fix/live-roster-reload-replay-20261023` records initial `player_assigned` identities and restores the current roster projection by replaying external CRM corrections after reload; Undo retains journal authority and historical seat actions are not rewritten. Prior journals lacking identity baselines cannot reconstruct history and use the current CRM roster without inventing earlier occupants. Merge/CI/deployment are separate gates. Full event-sourced engine state and participant-aware attribution remain subsequent work.
+
+
+**Messaging — 2026-10-23 working slice:** shared personal-message timing (17 attempts, exponential backoff capped at 15 minutes) extracted from Telegram/VK senders in `refactor/messaging-shared-retry-policy-20261023`, with boundary tests and no functional changes. Separate Telegram sync retry (12 attempts) and uncertain public post delivery remain an explicit audit item; do not conflate personal notification and publish-once workflows. CI/merge/deploy are separate gates.

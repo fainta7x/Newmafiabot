@@ -1,3 +1,4 @@
+import { completeLiveRosterIdentity } from '../../lib/liveRosterCorrections.ts';
 import { completeLiveRoleAssignments } from '../../lib/liveRoleCorrections.ts';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
@@ -177,6 +178,7 @@ export default function TournamentLiveGameModal({
   const [changedRoleSeats, setChangedRoleSeats] = useState<number[]>([]);
   const [latestRoleResults, setLatestRoleResults] = useState<PlayerResultData[] | null>(null);
   const roleAssignments = useMemo(() => completeLiveRoleAssignments(latestRoleResults || payload?.player_results || []), [latestRoleResults, payload]);
+  const rosterIdentity = useMemo(() => completeLiveRosterIdentity(latestRoleResults || payload?.player_results || []), [latestRoleResults, payload]);
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
   const lastSnapshotRef = useRef<any>(null);
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
@@ -507,6 +509,7 @@ export default function TournamentLiveGameModal({
             players={legacyPlayers}
             initialJudgeId={10001}
             roleAssignments={roleAssignments}
+            rosterIdentity={rosterIdentity}
             readProtocolEvidence={() => {
               try {
                 const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);

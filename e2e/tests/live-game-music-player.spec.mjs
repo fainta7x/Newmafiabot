@@ -38,7 +38,7 @@ test.describe('Live game music player', () => {
       await page.getByRole('button', { name: new RegExp(role) }).click();
     }
     await page.getByRole('button', { name: /Роли зафиксированы/ }).click();
-    await page.getByRole('button', { name: /Включить музыку ночи/ }).click();
+    await page.getByRole('button', { name: /Включите музыку/ }).click();
 
     const player = page.getByTestId('judge-music-player');
     const toggle = page.getByTestId('judge-music-player-toggle');

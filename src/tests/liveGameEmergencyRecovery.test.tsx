@@ -223,7 +223,7 @@ describe('live game emergency recovery', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
 
-    const resumeMusic = await screen.findByRole('button', { name: /Включить музыку ночи/i });
+    const resumeMusic = await screen.findByRole('button', { name: /Включите музыку/i });
     expect(screen.queryByRole('button', { name: /Вызов шерифа · 10с/i })).toBeNull();
 
     fireEvent.click(resumeMusic);

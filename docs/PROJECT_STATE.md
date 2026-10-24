@@ -1216,3 +1216,4 @@ Replacement PR for conflicted #970 stores bounded actual OBS-state frames during
 
 
 **Messaging follow-up, 2026-10-23:** explicit delivery certainty classification extracted from Telegram's 5xx/network failure logic with cancellation-specific no-duplicate retry behavior, plus tests. Pure classification only; status persistence remains `pending/sent/failed`, ordinary Telegram sends may retry after uncertain outcome; public-post reconciliation and the distinct Telegram sync policy are still pending. Never describe this as exactly-once delivery.
+- Music menu switched off (owner 2026-10-24): the live engine shows plain «♫ Включите музыку» / «♫ Выключите музыку» steps and no longer starts or stops the judge music controller; `JUDGE_MUSIC_MENU_ENABLED` in `CenterPanel.tsx` brings it back.

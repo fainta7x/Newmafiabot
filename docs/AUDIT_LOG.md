@@ -1732,5 +1732,6 @@ Scope: each `LiveGameEventKind` in `src/shared/liveGameEvents.ts` checked for be
 | C1 | `reveal` / `announced_check` (вскрытия, announced colours, competing table versions) were not shown or editable anywhere in the window | fixed — `RevealsCard` in «Итог» (add/remove reveal, announced red/black per player, versions of the table). «1 or 2 versions» is derived from the number of reveals, not stored |
 | C2 | Killed player's «протокол убитого» was visible only inside the player sheet | fixed — tag on the player row («Протокол убитого» / «Нет протокола убитого») |
 | C3 | Player status could differ from the votes/shots record with no warning | fixed — issue «статус не совпадает с записью игры» + «Как в записи» button in the player sheet |
+| C6 | No way to state «one / two versions» of the table | fixed — `reveal_versions` switch in «Вскрытия» drives the checks `reveal-*` |
 | C4 | `role_corrected`, `player_reseated`, `table_vote`, `nomination_removed`, `shot_target`, `speech_start`, `game_end` have no dedicated view (only in the raw event log in «Итог») | open — judge to decide which of them deserve their own place |
 | C5 | Nominations and Don/Sheriff checks are display-only (no structured field) | open |

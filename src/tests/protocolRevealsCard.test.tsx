@@ -8,8 +8,9 @@ const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'ma
 const results = ROLES.map((role, i) => ({ participant_id: `p${i + 1}`, seat_number: i + 1, display_name: `Игрок ${i + 1}`, role, exit_type: 'alive' })) as any[];
 
 const Harness: React.FC = () => {
+  const [versions, setVersions] = React.useState<any>(null);
   const [events, setEvents] = React.useState<any[]>([]);
-  const api = { protocol: { events }, results, locked: false, tableSize: 10, setEvents: (fn: (list: any[]) => any[]) => setEvents((prev) => fn(prev)) } as any;
+  const api = { protocol: { events, reveal_versions: versions }, setRevealVersions: (v: any) => setVersions(v), results, locked: false, tableSize: 10, setEvents: (fn: (list: any[]) => any[]) => setEvents((prev) => fn(prev)) } as any;
   return <RevealsCard api={api} />;
 };
 
@@ -20,6 +21,8 @@ describe('reveals in the protocol', () => {
     fireEvent.click(screen.getByRole('button', { name: /Добавить вскрытие/ }));
     fireEvent.click(screen.getByRole('button', { name: /^4\b/ }));
     fireEvent.click(screen.getAllByRole('radio', { name: /Чёрн/ })[0]);
-    expect(screen.getByText('Игра в одной версии')).toBeTruthy();
+    expect(screen.getByText('Вскрытий: 1')).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Две' }));
+    expect((screen.getByRole('radio', { name: 'Две' }) as HTMLElement).getAttribute('aria-checked')).toBe('true');
   });
 });

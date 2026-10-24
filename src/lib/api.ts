@@ -551,6 +551,8 @@ const withoutLiveEvents = <T extends { events?: unknown }>(protocol: T): Omit<T,
 export interface TournamentGameProtocolData {
   /** Selected live-game rule; missing historical values mean tournament rules. Tournament games always use tournament rules. */
   zero_round_rule?: import('../shared/zeroRoundRule').ZeroRoundRule;
+  /** Judge's switch: the table played in one version or in two competing versions of the Sheriff (reveals). Missing = not decided. */
+  reveal_versions?: 1 | 2 | null;
   id?: string;
   game_id: string;
   status: 'draft' | 'completed';

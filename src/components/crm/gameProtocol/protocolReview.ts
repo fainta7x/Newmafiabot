@@ -6,6 +6,7 @@ import type { ZeroRoundRule } from '../../../shared/zeroRoundRule';
 import { validateBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../../lib/protocolConsistency';
 import { validateProtocolVoting } from '../../../lib/protocolVotingValidation';
 import { roleCountsMatchTable, tableRolesLabel, isSupportedTableSize, CLASSIC_TABLE_SIZE } from '../../../lib/tableComposition';
+import { finalRevealsOfEvents } from '../../../lib/revealStats';
 import { getPlayerGameRoleLabel } from '../../../lib/playerGameRoleLabels';
 import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 
@@ -178,6 +179,28 @@ export type Issue = {
  * Everything that needs the judge. `error` is what the shared protocol checks refuse (the game cannot be confirmed
  * with it); `check` is only something the game's chronology says may have been left out.
  */
+/** The «одна / две версии» switch decides what the reveals must contain. */
+export const revealIssues = (protocol: TournamentGameProtocolData, results: PlayerResultData[]): Issue[] => {
+  const events = (Array.isArray(protocol.events) ? protocol.events : []) as LiveGameEvent[];
+  const records = [...finalRevealsOfEvents(events).values()];
+  const mode = protocol.reveal_versions ?? null;
+  const out: Issue[] = [];
+  const black = records.filter((record) => teamOfRole(results.find((player) => player.seat_number === record.seat)?.role) === 'black');
+  if (mode === null && records.length >= 2) out.push({ id: 'reveal-mode', severity: 'check', title: 'Было несколько вскрытий — укажите, игра в одной или в двух версиях', tab: 'result' });
+  if (mode === 1 && records.length >= 2) out.push({ id: 'reveal-one', severity: 'check', title: 'Выбрана одна версия, но вскрытий несколько', sub: 'Либо переключите на две версии, либо уберите лишнее вскрытие', tab: 'result' });
+  if (mode === 2) {
+    if (records.length < 2) out.push({ id: 'reveal-few', severity: 'check', title: 'Две версии — добавьте оба вскрытия', sub: 'Шериф и чёрный, который назвал себя Шерифом', tab: 'result' });
+    if (!black.length) out.push({ id: 'reveal-black', severity: 'check', title: 'Две версии — выберите, кто из чёрных вскрылся', tab: 'result' });
+    for (const record of black) {
+      if (!record.checks.size) {
+        const name = results.find((player) => player.seat_number === record.seat)?.display_name || '';
+        out.push({ id: `reveal-checks-${record.seat}`, severity: 'check', title: `#${record.seat} ${name}: нет названных проверок`, sub: 'Кого чёрный назвал красным или чёрным при вскрытии', tab: 'result' });
+      }
+    }
+  }
+  return out;
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];
@@ -216,6 +239,8 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
       issues.push({ id: `exit-${player.seat_number}`, severity: 'check', title: `#${player.seat_number} ${player.display_name}: статус не совпадает с записью игры`, sub: 'По голосованиям и ночам игрок вышел иначе, чем указано в карточке', tab: 'players', seat: player.seat_number });
     }
   }
+
+  issues.push(...revealIssues(protocol, results));
 
   // What the chronology says may have been left out. Only a game that has a chronology can say it.
   const events = Array.isArray(protocol.events) ? protocol.events : [];

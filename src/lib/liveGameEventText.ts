@@ -40,8 +40,10 @@ const timeOf = (at: string): string => {
 };
 
 /** One readable line per event, for the game log screen. `nameOf` turns a seat into «#3 Игрок». */
+// `player_assigned` is the roster baseline the engine needs for replay after a reload, not something that happened at the
+// table; its value is an internal participant id, so the log does not show it.
 export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: number) => string): LiveGameEventLine[] =>
-  events.map((event) => {
+  events.filter((event) => event.kind !== 'player_assigned').map((event) => {
     const seat = event.seat ? nameOf(event.seat) : '';
     const target = event.target ? nameOf(event.target) : '';
     const by = event.by ? nameOf(event.by) : '';
@@ -49,6 +51,7 @@ export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: n
     let text = '';
     let heading = false;
     switch (event.kind) {
+      case 'player_reseated': text = `CRM: на место ${event.seat ? `#${event.seat}` : ''} посажен другой игрок`; break;
       case 'role_corrected': { const role = normalizeGameRole(value); text = `CRM: роль ${seat} исправлена — ${role ? GAME_ROLES[role].label : value}`; break; }
       case 'game_start': text = 'Игра началась'; heading = true; break;
       case 'phase': text = `${PHASES[value] || value}${event.round >= 1 ? ` · круг ${event.round}` : ''}`; heading = true; break;

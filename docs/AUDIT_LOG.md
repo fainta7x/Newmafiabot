@@ -1686,6 +1686,16 @@ Finding before repair: `telegramMessageOutboxService.ts` and `vkMessageOutboxSer
 
 Still open: `telegramSyncOutboxService.ts` uses a distinct 12-attempt/15-second policy, and publishing outcomes after timeout can be uncertain; do not silently use the personal-message schedule for public post reconciliation. Before a single publish-once policy, characterize result states and remote IDs for both channels and enforce no duplicate publication on ambiguous failures. No live API/prod writes; runtime verification deferred.
 
+## 2026-10-23 — Claude review of GPT's #1020, #1023–#1026 (owner: «проверь, у меня есть подозрения»)
+
+Scope: everything merged after #1022 (696a1af..8330f47) and the open #1026. Checked that #1022 (own text per post, prices at once, BUSINESS_RULES 6–7) is intact on main, read every diff, checked exact-head CI of each merged head and of main, and the deployed mirror.
+
+- **No regression of owner decisions.** `eveningPostTextService.ts` and `announcement_text` stay removed; price, post and death-protocol overlay files are unchanged since #1022.
+- **CI.** Every merged head (#1020 6b889cc, #1023 7e85af1, #1024 c478eb2, #1025 9d9e556) and main 8330f47 were green.
+- **Fixed.** `liveGameEventText.ts`: #1023/#1024 add `player_assigned` (ten per tournament game) and `player_reseated` events without log text, so the CRM game log showed the raw kinds and internal participant ids. The baseline is hidden; a reseat reads «CRM: на место #N посажен другой игрок».
+- **Limit, recorded.** Roster events are journal-only: the engine keeps the old nickname at a seat after a CRM swap, while #1020 applies the swapped seat's role. The existing «moved seats» banner stays the judge's warning; identity-aware projection is still open (PROJECT_STATE).
+- **No defect.** #1025 and the open #1026 move the retry/«uncertain» rules into shared helpers with identical behaviour (17 attempts, 2 s doubling to 15 min, Retry-After bounds; cancellation not retried after an ambiguous failure).
+- **Deploy.** Amvera mirror cd0b2f1 = main at #1023; #1024 and #1025 were missed (RUNBOOK §9), the next merge brings them.
 
 ## 2026-10-23 — Messaging ambiguous Telegram acknowledgements
 

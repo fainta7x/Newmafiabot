@@ -57,13 +57,25 @@
   font-size: 11px;
 }
 
-.live-broadcast-timer {
-  padding: 4px 12px;
+.live-broadcast-canvas .live-broadcast-timer {
+  padding: 3px 12px;
+  overflow: hidden;
 }
 
-.live-broadcast-timer-value {
+/* The block is a fixed 56px tall: label + value + bar must fit inside it, otherwise the label is pushed above the frame
+   (owner screenshot 2026-10-24). The selectors are scoped so they win over liveBroadcastOverlay.css regardless of load order. */
+.live-broadcast-canvas .live-broadcast-timer-label {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.live-broadcast-canvas .live-broadcast-timer-value {
   margin-top: 0;
-  font-size: 34px;
+  font-size: 26px;
+}
+
+.live-broadcast-canvas .live-broadcast-timer-bar {
+  margin-top: 3px;
 }
 
 .live-broadcast-info-row {

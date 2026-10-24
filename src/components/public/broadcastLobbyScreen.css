@@ -197,7 +197,7 @@
   width: 100%;
   min-height: 7.9vh;
   display: grid;
-  grid-template-columns: 1fr 1px 1fr;
+  grid-template-columns: auto 1px minmax(0, 1fr);
   align-items: center;
   gap: 1.2vw;
   padding: 1.15vh 1.25vw;

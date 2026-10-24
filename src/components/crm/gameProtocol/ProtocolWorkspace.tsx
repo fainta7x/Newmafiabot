@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { validateProtocolVoting } from '../../../lib/protocolVotingValidation';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../../lib/tableComposition';
 import { ProtocolWindow, type ProtocolTab } from './ProtocolWindow';
@@ -47,7 +47,11 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
   const [reviewed, setReviewed] = useState<Record<number, boolean>>({});
   const [completeHint, setCompleteHint] = useState<string | null>(null);
 
+  // A different game starts again from the overview; the first mount already is that, and must not undo an early click.
+  const shownKey = useRef(resetKey);
   useEffect(() => {
+    if (shownKey.current === resetKey) return;
+    shownKey.current = resetKey;
     setActiveTab('overview'); setCircle(0); setSelectedSeat(null); setReviewed({}); setCompleteHint(null);
   }, [resetKey]);
 

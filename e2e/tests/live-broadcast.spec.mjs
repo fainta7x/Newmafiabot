@@ -95,6 +95,22 @@ test('OBS overlay fits 1920x1080 and reveals only a fixed vote', async ({ page }
   await testInfo.attach('live-broadcast-1920x1080.png', { path: screenshot, contentType: 'image/png' });
 });
 
+test('OBS overlay timer label, value and bar stay inside the timer block', async ({ page }) => {
+  await page.route('**/api/public/broadcast/e2e-token', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixedVote) });
+  });
+  await page.goto('/broadcast/e2e-token');
+  await expect(page.locator('.live-broadcast-timer-value')).toBeVisible();
+  const box = await page.evaluate(() => {
+    const block = document.querySelector(".live-broadcast-timer").getBoundingClientRect();
+    const parts = ['.live-broadcast-timer-label', '.live-broadcast-timer-value', '.live-broadcast-timer-bar']
+      .map((selector) => document.querySelector(selector)?.getBoundingClientRect()).filter(Boolean);
+    return { top: block.top, bottom: block.bottom, partTop: Math.min(...parts.map((r) => r.top)), partBottom: Math.max(...parts.map((r) => r.bottom)) };
+  });
+  expect(box.partTop).toBeGreaterThanOrEqual(box.top - 0.5);
+  expect(box.partBottom).toBeLessThanOrEqual(box.bottom + 0.5);
+});
+
 test('OBS overlay withholds partial assignments during vote collection', async ({ page }) => {
   const collecting = {
     ...fixedVote,

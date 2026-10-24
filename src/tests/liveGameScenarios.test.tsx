@@ -73,12 +73,12 @@ describe('judge engine: whole-game scenarios', () => {
     // Three red (1, 2, 7) and two black (8, 10) are left; the mafia shoots the sheriff.
     const initial = position('night', [{ slot: 3 }, { slot: 4, exit: 'killed' }, { slot: 5 }, { slot: 6 }, { slot: 9 }]);
     const done = await play({ ...initial, ...(native ? { protocolEvidence: advanceLiveEngineJournal(null, initial).evidence } : {}) });
-    await press(/Включить музыку ночи/);
+    await press(/Включите музыку/);
     await press(/^Отстрел$/);
     fireEvent.click(seat(7));
     await press(/Проверка Дона/);
     await press(/Проверка Шерифа/);
-    await press(/Выключить музыку/);
+    await press(/Выключите музыку/);
     await press(/Итоги ночи/);
     await press(/Зафиксировать ночь/);
     await press(/Протокол убитого/);
@@ -166,12 +166,12 @@ describe('judge engine: whole-game scenarios', () => {
       roundNumber: 1,
       protocolMarkers: { firstKilledSlot: null, zeroRoundVotedSlot: null, bestMoveSource: null, bestMoveSourceSlot: null, bestMoveSeats: [] },
     }));
-    await press(/Включить музыку ночи/);
+    await press(/Включите музыку/);
     await press(/^Отстрел$/);
     fireEvent.click(seat(2));
     await press(/Проверка Дона/);
     await press(/Проверка Шерифа/);
-    await press(/Выключить музыку/);
+    await press(/Выключите музыку/);
     await press(/ЛХ первого убитого/);
     const sheet = await screen.findByTestId('live-best-move-sheet');
     for (const pick of [8, 9, 5]) fireEvent.click(sheet.querySelector(`[data-seat="${pick}"]`) as HTMLElement);
@@ -223,7 +223,7 @@ describe('judge engine: whole-game scenarios', () => {
     // Both give their last speech, then the game goes on into the night: the saved game holds the result.
     await press(/Завершить последние речи|Последняя речь/);
     if (screen.queryByRole('button', { name: /Завершить последние речи/ })) await press(/Завершить последние речи/);
-    await screen.findByRole('button', { name: /Включить музыку ночи/ });
+    await screen.findByRole('button', { name: /Включите музыку/ });
     const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
     const exit = (slot: number) => saved.activePlayers.find((p: any) => p.slot_num === slot)?.exit_reason;
     expect(exit(2)).toBe('voted_zero_round');
@@ -256,7 +256,7 @@ describe('judge engine: whole-game scenarios', () => {
     await screen.findByText(/клубная настройка/);
     await press('Доп. речь #2 · 30 сек');
     await press('К ночи');
-    await screen.findByRole('button', { name: /Включить музыку ночи/ });
+    await screen.findByRole('button', { name: /Включите музыку/ });
     const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
     expect(saved.activePlayers.every((p: any) => p.alive)).toBe(true);
     expect(saved.protocolMarkers.zeroRoundVotedSlot).toBeNull();

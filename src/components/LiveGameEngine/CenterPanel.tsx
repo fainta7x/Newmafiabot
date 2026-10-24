@@ -5,6 +5,8 @@ import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX
 import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
+
+const JUDGE_MUSIC_MENU_ENABLED = false;
 import type { ZeroNightMusicState } from "./engineStateModel.js";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
@@ -860,12 +862,16 @@ export default function CenterPanel(props: CenterPanelProps) {
   };
 
   const baseNextStep = getNextStepInfo();
+  // Owner decision 2026-10-24: the automatic music menu is switched off, not removed. The judge only gets a plain
+  // «Включите музыку» / «Выключите музыку» step and plays the music by hand; set JUDGE_MUSIC_MENU_ENABLED to bring it back.
+  const startNightMusic = () => (JUDGE_MUSIC_MENU_ENABLED ? requestJudgeNightMusicStart() : true);
+  const stopGameMusic = () => { if (JUDGE_MUSIC_MENU_ENABLED) requestJudgeGameMusicStop(); };
   const nextStep = (() => {
     if (phase === 'zero_night' && zeroNightMusicState === 'pending') {
       return {
-        label: '♫ Включить музыку ночи',
+        label: '♫ Включите музыку',
         onClick: () => {
-          requestJudgeNightMusicStart();
+          startNightMusic();
           setZeroNightMusicState('playing');
         },
       };
@@ -873,9 +879,9 @@ export default function CenterPanel(props: CenterPanelProps) {
 
     if (phase === 'zero_night' && zeroNightSubPhase === 'seating' && zeroNightMusicState === 'playing') {
       return {
-        label: '♫ Выключить музыку',
+        label: '♫ Выключите музыку',
         onClick: () => {
-          requestJudgeGameMusicStop();
+          stopGameMusic();
           setZeroNightMusicState('stopped');
         },
       };
@@ -883,9 +889,9 @@ export default function CenterPanel(props: CenterPanelProps) {
 
     if (isRegularNightIntro && musicStartedRound !== roundNumber) {
       return {
-        label: '♫ Включить музыку ночи',
+        label: '♫ Включите музыку',
         onClick: () => {
-          const started = requestJudgeNightMusicStart();
+          const started = startNightMusic();
           setMusicStartedRound(roundNumber);
           if (!started) setMusicStoppedRound(roundNumber);
         },
@@ -894,9 +900,9 @@ export default function CenterPanel(props: CenterPanelProps) {
 
     if (phase === 'night' && nightSubPhase === 'sheriff' && musicStartedRound === roundNumber && musicStoppedRound !== roundNumber) {
       return {
-        label: '♫ Выключить музыку',
+        label: '♫ Выключите музыку',
         onClick: () => {
-          requestJudgeGameMusicStop();
+          stopGameMusic();
           setMusicStoppedRound(roundNumber);
         },
       };
@@ -990,6 +996,12 @@ export default function CenterPanel(props: CenterPanelProps) {
           </div>
         </div>
 
+        {autoCountdown !== null && (
+          <div data-testid="live-auto-notice" className="live-judge-hud__auto-notice" role="status">
+            <span>Авто: переход к следующему шагу через <b>{autoCountdown}</b></span>
+            <button type="button" onClick={stopAutoAdvance}>Остановить</button>
+          </div>
+        )}
         <div className="live-judge-hud__body">
           {phase === 'day_voting' && votingStage === 'revote_speeches'
             ? renderVoting()

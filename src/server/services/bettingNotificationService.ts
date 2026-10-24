@@ -66,7 +66,7 @@ export async function notifyBettingSpectators(
       eventType: 'betting_pool_opened',
       entityId: input.poolId,
       text,
-      actionPath: '/player',
+      actionPath: '/player/wallet?tab=bets',
       telegramReplyMarkup: {
         inline_keyboard: [[{
           text: '🎲 Сделать ставку',

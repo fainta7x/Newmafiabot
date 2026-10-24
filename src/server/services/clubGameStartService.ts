@@ -92,7 +92,7 @@ export async function startClubGameLifecycle(
       closesAt: String(pool.closes_at),
       judgePlayerId: String(pool.judge_player_id || game.judge_player_id),
       roleSnapshot,
-      webAppUrl: input.webAppUrl || canonicalPlayerAppUrl(),
+      webAppUrl: input.webAppUrl || `${canonicalPlayerAppUrl()}/player/wallet?tab=bets`,
     });
   } catch (error: any) {
     console.error('[BETS][START] Notification preparation failed; pool stays usable', {

@@ -122,13 +122,13 @@ const prepareGame = async (page, testInfo) => {
   await expect(page.getByText('Нулевая ночь', { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page, 'zero night');
 
-  const zeroNightMusicStart = page.getByRole('button', { name: /Включить музыку ночи/ });
+  const zeroNightMusicStart = page.getByRole('button', { name: /Включите музыку/ });
   await expect(zeroNightMusicStart).toBeVisible();
   await zeroNightMusicStart.click();
   await page.getByRole('button', { name: /Договорка · 75с/ }).click();
   await page.getByRole('button', { name: /Вызов шерифа · 10с/i }).click();
   await page.getByRole('button', { name: /Свободная посадка · 40с/ }).click();
-  const zeroNightMusicStop = page.getByRole('button', { name: /Выключить музыку/ });
+  const zeroNightMusicStop = page.getByRole('button', { name: /Выключите музыку/ });
   await expect(zeroNightMusicStop).toBeVisible();
   await zeroNightMusicStop.click();
   await page.getByRole('button', { name: /Открыть нулевой круг/ }).click();
@@ -276,7 +276,7 @@ test.describe('Live Game browser stabilization', () => {
     const eliminatedAvatarOpacity = await eliminatedAvatar.evaluate((node) => Number(getComputedStyle(node).opacity));
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar remains secondary').toBeGreaterThanOrEqual(0.25);
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar must not compete with status').toBeLessThanOrEqual(0.5);
-    await clickOptional(page.getByRole('button', { name: /Включить музыку ночи/ }));
+    await clickOptional(page.getByRole('button', { name: /Включите музыку/ }));
     await page.getByRole('button', { name: 'Отстрел', exact: true }).click();
     await seatCard(page, 1).click();
     await expect(page.getByTestId('live-game-night-status')).toHaveText('Отстрел: #1');
@@ -295,7 +295,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(seatCard(page, 6).getByText('Шериф', { exact: true })).toBeVisible();
     await expectNightMarkerIcon(page, 6, 'sheriff');
     await attachViewport(page, testInfo, '05-night-checks.png');
-    await clickOptional(page.getByRole('button', { name: /Выключить музыку/ }));
+    await clickOptional(page.getByRole('button', { name: /Выключите музыку/ }));
 
     await page.getByRole('button', { name: 'ЛХ первого убитого', exact: true }).click();
     await fillBestMove(page, [2, 6, 8]);

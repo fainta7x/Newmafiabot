@@ -324,6 +324,8 @@ Required runtime contract includes:
 
 Do not configure Turso variables: Turso is no longer a supported runtime database. Do not import a checkpoint during an ordinary deploy.
 
+**Bot outage alerts (Python `runtime_alerts.py`).** The bot probes `/api/health/runtime` every `RUNTIME_ALERT_INTERVAL_SECONDS` (30) and tells the recipients in `RUNTIME_ALERT_RECIPIENT_IDS` about an outage only after `RUNTIME_ALERT_FAILURE_THRESHOLD` (2) consecutive failures that last at least `RUNTIME_ALERT_MIN_OUTAGE_SECONDS` (420, so a restart after a new build stays silent); a «recovered» message is sent only after such an alert.
+
 ### After every meaningful deploy
 
 1. identify the exact intended `main` SHA;

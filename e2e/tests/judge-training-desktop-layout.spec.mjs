@@ -127,7 +127,7 @@ for (const width of [1366, 1600]) {
     await expect(page.getByTestId('judge-training-task-dialog')).toBeHidden();
     await page.getByTestId('judge-training-desktop-highlight').click();
     await page.getByTestId('judge-training-desktop-highlight').click();
-    await page.getByRole('button', { name: /Включить музыку ночи/ }).click();
+    await page.getByRole('button', { name: /Включите музыку/ }).click();
     await expect(page.getByRole('button', { name: /Договорка.*75с/ })).toBeVisible();
     await expect(page.getByText('Player authentication required.')).toHaveCount(0);
 
@@ -135,7 +135,7 @@ for (const width of [1366, 1600]) {
     await page.getByRole('button', { name: /Договорка.*75с/ }).click();
     await page.getByRole('button', { name: /Вызов шерифа.*10с/i }).click();
     await page.getByRole('button', { name: /Свободная посадка.*40с/ }).click();
-    await page.getByRole('button', { name: /Выключить музыку/ }).click();
+    await page.getByRole('button', { name: /Выключите музыку/ }).click();
     await page.getByRole('button', { name: /Открыть нулевой круг/ }).click();
 
     const board = shell.locator('div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card)');
@@ -229,7 +229,7 @@ for (const width of [1366, 1600]) {
     // First real night: the lesson scripts shot, Don and Sheriff, then asks
     // the first killed player for three exact LH places (not free input).
     const hud = page.getByTestId('live-judge-hud');
-    await hud.getByRole('button', { name: /Включить музыку ночи/ }).click();
+    await hud.getByRole('button', { name: /Включите музыку/ }).click();
     await hud.getByRole('button', { name: 'Отстрел', exact: true }).click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Мафия стреляет в #7/);
     await shell.locator('.live-seat-card[data-seat="7"]').click();
@@ -239,7 +239,7 @@ for (const width of [1366, 1600]) {
     await hud.getByRole('button', { name: /Проверка Шерифа/ }).click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Шериф проверяет #3/);
     await shell.locator('.live-seat-card[data-seat="3"]').click();
-    await hud.getByRole('button', { name: /Выключить музыку/ }).click();
+    await hud.getByRole('button', { name: /Выключите музыку/ }).click();
     await hud.getByRole('button', { name: /ЛХ первого убитого/ }).click();
 
     const bestMove = page.getByTestId('live-best-move-sheet');

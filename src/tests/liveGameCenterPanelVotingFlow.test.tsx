@@ -72,7 +72,7 @@ describe('CenterPanel live flow guardrails', () => {
       getNextStepInfo={() => ({ label: 'Договорка · 75с', onClick: agreement })}
     />);
 
-    const musicStart = screen.getByRole('button', { name: /Включить музыку ночи/i });
+    const musicStart = screen.getByRole('button', { name: /Включите музыку/i });
     expect(musicStart).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Договорка · 75с/i })).toBeNull();
     expect(screen.getByText('Договорка', { exact: true })).toBeTruthy();
@@ -102,7 +102,7 @@ describe('CenterPanel live flow guardrails', () => {
       getNextStepInfo={() => ({ label: 'Открыть нулевой круг', onClick: openZeroRound })}
     />);
 
-    const musicStop = screen.getByRole('button', { name: /Выключить музыку/i });
+    const musicStop = screen.getByRole('button', { name: /Выключите музыку/i });
     expect(musicStop).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Открыть нулевой круг/i })).toBeNull();
 

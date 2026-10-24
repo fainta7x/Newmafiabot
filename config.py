@@ -35,6 +35,8 @@ RUNTIME_ALERT_RECIPIENT_IDS = [
 ]
 RUNTIME_ALERT_INTERVAL_SECONDS = max(15, int(os.getenv('RUNTIME_ALERT_INTERVAL_SECONDS', '30')))
 RUNTIME_ALERT_FAILURE_THRESHOLD = max(1, int(os.getenv('RUNTIME_ALERT_FAILURE_THRESHOLD', '2')))
+# A restart after a new build takes a few minutes of «503»: an outage is reported only when it lasts this long (owner, 2026-10-24).
+RUNTIME_ALERT_MIN_OUTAGE_SECONDS = max(0, int(os.getenv('RUNTIME_ALERT_MIN_OUTAGE_SECONDS', '420')))
 PHONE = os.getenv('ORGANIZER_PHONE', '')
 BANK = os.getenv('ORGANIZER_BANK', 'Сбербанк')
 

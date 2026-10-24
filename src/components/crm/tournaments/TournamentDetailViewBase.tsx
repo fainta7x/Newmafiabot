@@ -1,6 +1,6 @@
 import { useResumeLiveGame } from '../../../lib/useResumeLiveGame.ts';
 import { countGames } from '../../../lib/russianPlural';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ArrowLeft,
   RefreshCw,
@@ -21,7 +21,7 @@ import {
   Trophy,
   RotateCcw,
 } from 'lucide-react';
-import { api, Tournament, TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
+import { TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
 import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
@@ -45,6 +45,7 @@ import {
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 import { tournamentGameEditRights } from './tournamentGameEditRights.ts';
 import { useTournamentActions } from './useTournamentActions.ts';
+import { useTournamentDetail } from './useTournamentDetail.ts';
 
 type TournamentTab = 'organization' | 'games' | 'standings' | 'nominations';
 
@@ -71,11 +72,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   hideHeader = false,
   tabs = ALL_TABS,
 }) => {
-  const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
-  const [selectedGameIdx, setSelectedGameIdx] = useState(0);
-  const autoSelectedGameRef = useRef(false);
+  // The card's own message line is owned by the actions below; a failed silent refresh reports through it.
+  const reportRef = useRef<(message: string) => void>(() => undefined);
+  const { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, refresh, loadDetail } = useTournamentDetail({ tournamentId, onSilentError: (message) => reportRef.current(message) });
   const [activeTab, setActiveTabRaw] = useState<TournamentTab>(tabs[0] || 'organization');
   // A step screen shows only its own tabs; a jump to another tab (e.g. to games after the start) stays inside them.
   const setActiveTab = (tab: TournamentTab) => setActiveTabRaw(tabs.includes(tab) ? tab : tabs[0]);
@@ -108,8 +107,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [exportGameNumber, setExportGameNumber] = useState<number | undefined>(undefined);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
   const {
     feedbackMsg, setFeedbackMsg, actionLoading,
     showStartModal, setShowStartModal, startModalLoading, startModalError,
@@ -120,49 +117,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     handleOpenStartModal, handleConfirmStartTournament, handleRegenerateSeating, handleCancelTournament,
     handleResetGameToPlanned, handleDropLastGame, handleSendSeatMessages, handleSwapSeats, handleAssignRole, handleSaveJudge,
   } = useTournamentActions({ tournamentId, tournament, selectedGameIdx, loadDetail: (opts) => loadDetail(opts), setTournament, goToGames: () => setActiveTab('games') });
-
-  useEffect(() => {
-    loadDetail();
-  }, [tournamentId, refreshTrigger]);
-
-  // The card opens on the game that is being played (or the next one to play), not on game 1 (audit 2026-10-04).
-  useEffect(() => {
-    const list: any[] = tournament?.games || [];
-    if (autoSelectedGameRef.current || list.length === 0) return;
-    autoSelectedGameRef.current = true;
-    const live = list.findIndex((game) => game.status === 'active');
-    const next = list.findIndex((game) => game.status !== 'completed');
-    const target = live >= 0 ? live : next >= 0 ? next : 0;
-    if (target > 0) setSelectedGameIdx(target);
-  }, [tournament]);
-
-  const loadDetail = async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
-    if (!silent) {
-      setLoading(true);
-      setLoadError(null);
-    }
-    try {
-      const data = await api.getTournament(tournamentId);
-      setTournament(data);
-      setLoadError(null);
-    } catch (err: any) {
-      const message = err?.message || 'Ошибка загрузки турнира';
-      if (silent && tournament) {
-        setFeedbackMsg({ type: 'error', text: message });
-      } else {
-        setTournament(null);
-        setLoadError({
-          status: typeof err?.status === 'number' ? err.status : null,
-          message,
-        });
-      }
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  };
+  reportRef.current = (message) => setFeedbackMsg({ type: 'error', text: message });
 
   if (loading) {
     return <div className="py-20 text-center text-text-muted text-xs">Загрузка данных турнира...</div>;
@@ -646,7 +601,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <TournamentOfficialResults
                   tournamentId={tournamentId}
                   refreshTrigger={refreshTrigger}
-                  onResolve={() => setRefreshTrigger((prev) => prev + 1)}
+                  onResolve={() => refresh()}
                 />
               </div>
             )}

@@ -1722,3 +1722,15 @@ Review of the first build against real game #21 (and a synthetic fixture in CI) 
 - **Owner feedback applied:** results are now a sentence (`describeVoting`), then bars, then «Кто за кого» as rows; statuses, roles, outcomes and checks are tags with colour + icon + word (`tags.tsx`).
 - **Open:** nominations and Don/Sheriff checks are display-only (no structured field); tournament protocol window not yet migrated; the «Вы изменили» list also shows exits recalculated after a ballot change (correct, but it reads as a change the judge did not make).
 
+
+## 2026-10-24 — Protocol completeness sweep (every live-game event kind vs. the protocol window)
+
+Scope: each `LiveGameEventKind` in `src/shared/liveGameEvents.ts` checked for being shown or editable in `src/components/crm/gameProtocol/`.
+
+| # | Finding | Status |
+|---|---------|--------|
+| C1 | `reveal` / `announced_check` (вскрытия, announced colours, competing table versions) were not shown or editable anywhere in the window | fixed — `RevealsCard` in «Итог» (add/remove reveal, announced red/black per player, versions of the table). «1 or 2 versions» is derived from the number of reveals, not stored |
+| C2 | Killed player's «протокол убитого» was visible only inside the player sheet | fixed — tag on the player row («Протокол убитого» / «Нет протокола убитого») |
+| C3 | Player status could differ from the votes/shots record with no warning | fixed — issue «статус не совпадает с записью игры» + «Как в записи» button in the player sheet |
+| C4 | `role_corrected`, `player_reseated`, `table_vote`, `nomination_removed`, `shot_target`, `speech_start`, `game_end` have no dedicated view (only in the raw event log in «Итог») | open — judge to decide which of them deserve their own place |
+| C5 | Nominations and Don/Sheriff checks are display-only (no structured field) | open |

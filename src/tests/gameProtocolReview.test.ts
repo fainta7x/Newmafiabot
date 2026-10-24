@@ -63,6 +63,13 @@ describe('game protocol review model', () => {
     expect(broken.filter((issue) => issue.severity === 'error').map((issue) => issue.id)).toEqual(expect.arrayContaining(['roles', 'winner']));
   });
 
+  it('flags a player whose status differs from the game record', () => {
+    const wrong = computeIssues({ protocol: protocol(), results: results({ 7: { exit_type: 'voted_day' } }) });
+    expect(wrong.map((issue) => issue.id)).toEqual(expect.arrayContaining(['exit-5', 'exit-9']));
+    const right = computeIssues({ protocol: protocol(), results: results({ 5: { exit_type: 'killed' }, 7: { exit_type: 'voted_day' }, 9: { exit_type: 'killed' } }) });
+    expect(right.some((issue) => issue.id.startsWith('exit-'))).toBe(false);
+  });
+
   it('lists what the judge changed and undoes each change', () => {
     const base = { protocol: protocol(), results: results() };
     const current = {

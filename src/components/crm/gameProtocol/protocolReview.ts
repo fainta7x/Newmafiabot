@@ -7,6 +7,7 @@ import { validateBestMoves, validateFirstKilled, validatePlayerResults, validate
 import { validateProtocolVoting } from '../../../lib/protocolVotingValidation';
 import { roleCountsMatchTable, tableRolesLabel, isSupportedTableSize, CLASSIC_TABLE_SIZE } from '../../../lib/tableComposition';
 import { getPlayerGameRoleLabel } from '../../../lib/playerGameRoleLabels';
+import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 
 /**
  * What the protocol window shows and checks, as plain functions of the saved protocol: the circles of the game, the
@@ -205,6 +206,14 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
       // The check speaks of «этап #3, день 1»; the window speaks of circles.
       const title = voting.errorMsg.replace(/^Голосование \(этап #\d+, день \d+\):?\s*/, `${circleTitle(day)}: `).replace(/^Голосование:\s*/, `${circleTitle(day)}: `);
       issues.push({ id: 'voting', severity: 'error', title, tab: 'game', circle: day });
+    }
+  }
+
+  const derivedExits = deriveExitTypes((protocol.votes || []) as any[], (protocol.shots || []) as any[], firstKilled, results);
+  for (const player of results) {
+    const derived = derivedExits.get(player.seat_number);
+    if (derived && derived !== 'alive' && derived !== player.exit_type) {
+      issues.push({ id: `exit-${player.seat_number}`, severity: 'check', title: `#${player.seat_number} ${player.display_name}: статус не совпадает с записью игры`, sub: 'По голосованиям и ночам игрок вышел иначе, чем указано в карточке', tab: 'players', seat: player.seat_number });
     }
   }
 

@@ -1,3 +1,4 @@
+import type { LiveGameEvent } from '../../../shared/liveGameEvents';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../../lib/api';
 import type { ZeroRoundRule } from '../../../shared/zeroRoundRule';
 import type { TechFoulType } from '../tournaments/protocol/protocolDisciplineUtils';
@@ -27,6 +28,7 @@ export type ProtocolApi = {
   resetOutcome: (index: number) => void;
   addVoting: (day: number) => void;
   deleteVoting: (index: number) => void;
+  setEvents: (updater: (events: LiveGameEvent[]) => LiveGameEvent[]) => void;
   setZeroBreakSeat: (seat: number | null) => void;
 
   changeFirstKilled: (participantId: string | null) => void;

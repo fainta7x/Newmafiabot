@@ -4,7 +4,8 @@ import type { PlayerResultData } from '../../../lib/api';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
 import type { ProtocolApi } from './types';
 import { teamOfRole, type Issue } from './protocolReview';
-import { BestMoveTag, ExitTag, FirstKilledTag, FoulTag, InfoTag, NeedsTag, PpkTag, RoleTag } from './tags';
+import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
+import { BestMoveTag, ConfirmedTag, ExitTag, FirstKilledTag, FoulTag, InfoTag, NeedsTag, PpkTag, RoleTag } from './tags';
 
 const ROLE_OPTIONS = [
   { value: 'citizen', label: 'Мирный' },
@@ -37,6 +38,12 @@ const marksOf = (player: PlayerResultData): Record<MarkKey, number[]> => {
 const toColorProtocol = (marks: Record<MarkKey, number[]>): PlayerResultData['color_protocol'] =>
   MARKS.filter((item) => marks[item.key].length).map((item) => ({ mark: item.key, seat_numbers: [...marks[item.key]].sort((a, b) => a - b) })) as PlayerResultData['color_protocol'];
 
+/** What the votes, the shots and the first-killed mark say about how the player left, or null when they say nothing. */
+export const recordedExit = (api: ProtocolApi, player: PlayerResultData): PlayerResultData['exit_type'] | null => {
+  const derived = deriveExitTypes((api.protocol.votes || []) as any[], (api.protocol.shots || []) as any[], api.protocol.first_killed_participant_id ?? null, api.results).get(player.seat_number);
+  return derived && derived !== 'alive' ? (derived as PlayerResultData['exit_type']) : null;
+};
+
 type ListProps = { api: ProtocolApi; issues: Issue[]; onOpen: (seat: number) => void };
 
 export const PlayersList: React.FC<ListProps> = ({ api, issues, onOpen }) => {
@@ -62,6 +69,7 @@ export const PlayersList: React.FC<ListProps> = ({ api, issues, onOpen }) => {
                   <span className="mt-1 flex flex-wrap items-center gap-1">
                     <RoleTag role={player.role} />
                     <ExitTag exit={player.exit_type} />
+                    {player.exit_type === 'killed' ? ((player.color_protocol || []).length ? <ConfirmedTag>Протокол убитого</ConfirmedTag> : <NeedsTag>Нет протокола убитого</NeedsTag>) : null}
                     {isFirstKilled ? <FirstKilledTag /> : null}
                     {hasMove ? <BestMoveTag /> : null}
                     {isPpk ? <PpkTag /> : null}
@@ -99,6 +107,7 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
   const removedByJudge = player.removal_reason === 'direct';
   const tech = (player.minor_technical_fouls || 0) + (player.major_technical_fouls || 0);
 
+  const recorded = recordedExit(api, player);
   const setMark = (key: MarkKey, target: number) => {
     const next = { red: [...marks.red], black: [...marks.black], sheriff: [...marks.sheriff] };
     const has = next[key].includes(target);
@@ -117,6 +126,13 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
       <div className="space-y-5 pb-2 pt-1">
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Состояние игрока"><RoleTag role={player.role} /><ExitTag exit={player.exit_type} />{isPpk ? <PpkTag /> : null}{tech ? <FoulTag count={tech} kind="minor" /> : null}{(player.regular_fouls || 0) ? <FoulTag count={player.regular_fouls || 0} /> : null}{removedByJudge ? <InfoTag tone="removed">Удалён судьёй</InfoTag> : null}</div>
         {locked ? <LockedNote /> : null}
+
+        {recorded && recorded !== player.exit_type ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] p-3" role="alert">
+            <div className="min-w-0 flex-1 text-[13px] leading-5">По записи игры: <ExitTag exit={recorded} /> В карточке стоит другой статус.</div>
+            <Btn kind="soft" disabled={locked} className="shrink-0 px-3 text-[13px]" onClick={() => api.updateResult(player.participant_id, { exit_type: recorded })}>Как в записи</Btn>
+          </div>
+        ) : null}
 
         <section aria-label="Роль" className="space-y-2">
           <Eyebrow>Роль</Eyebrow>

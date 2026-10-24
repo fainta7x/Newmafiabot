@@ -8,6 +8,7 @@ import type { ProtocolApi } from './types';
 import { LockedNote } from './PlayersView';
 import { teamOfRole } from './protocolReview';
 import { ExitTag, FoulTag, RoleTag } from './tags';
+import { RevealsCard } from './RevealsCard';
 
 type Props = { api: ProtocolApi };
 
@@ -110,6 +111,8 @@ export const ResultView: React.FC<Props> = ({ api }) => {
       ) : null}
 
       <GuestSeatReplacement api={api} />
+
+      <RevealsCard api={api} />
 
       <section aria-label="Замена в игре" className="space-y-2">
         <div className="flex items-center justify-between px-1"><Eyebrow>Замена в игре</Eyebrow>

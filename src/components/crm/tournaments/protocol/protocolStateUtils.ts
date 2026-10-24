@@ -42,7 +42,7 @@ type DerivedExit = PlayerResultData['exit_type'];
  * How every seat left the game according to the rounds, the shots and the first-killed mark. A seat the evidence does not
  * mention is 'alive' here: that means «no evidence», not «still at the table».
  */
-const deriveExitTypes = (
+export const deriveExitTypes = (
   votes: any[],
   shots: any[],
   firstKilledId: string | null,

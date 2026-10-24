@@ -40,9 +40,9 @@ export const RevealsCard: React.FC<{ api: ProtocolApi }> = ({ api }) => {
   return (
     <Card className="space-y-3">
       <div className="flex items-baseline justify-between gap-2"><Eyebrow>Вскрытия</Eyebrow><InfoTag tone="info">{records.length === 0 ? 'Вскрытий нет' : `Вскрытий: ${records.length}`}</InfoTag></div>
-      <div className="space-y-1.5"><div className="text-[13px] font-semibold">Игра в одной или в двух версиях?</div>
+      <div className="space-y-1.5"><div className="text-[13px] font-semibold">Сколько версий в игре?</div>
         <Segmented label="Версии игры" disabled={api.locked} value={String(api.protocol.reveal_versions ?? '')} options={[{ value: '', label: 'Не указано' }, { value: '1', label: 'Одна' }, { value: '2', label: 'Две' }]} cols={3} onChange={(value) => api.setRevealVersions(value === '1' ? 1 : value === '2' ? 2 : null)} />
-        <p className="text-[12px] leading-4 text-white/45">Две версии — когда чёрный назвал себя Шерифом против настоящего. Тогда нужно выбрать, кто из чёрных вскрылся, и его проверки.</p>
+        <p className="text-[12px] leading-4 text-white/45">Версия — это вскрытие: сколько версий, столько и вскрытий. Одна версия — вскрылся только Шериф. Две — против Шерифа вскрылся ещё и чёрный: добавьте его и его проверки.</p>
       </div>
       {api.locked ? <LockedNote /> : null}
       {records.length === 0 ? <p className="text-[13px] leading-5 text-white/55">Никто не называл себя Шерифом. Если вскрытие было (Шериф или чёрный), добавьте его.</p> : (

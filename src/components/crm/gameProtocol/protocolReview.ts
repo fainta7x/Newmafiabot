@@ -186,10 +186,9 @@ export const revealIssues = (protocol: TournamentGameProtocolData, results: Play
   const mode = protocol.reveal_versions ?? null;
   const out: Issue[] = [];
   const black = records.filter((record) => teamOfRole(results.find((player) => player.seat_number === record.seat)?.role) === 'black');
-  if (mode === null && records.length >= 2) out.push({ id: 'reveal-mode', severity: 'check', title: 'Было несколько вскрытий — укажите, игра в одной или в двух версиях', tab: 'result' });
-  if (mode === 1 && records.length >= 2) out.push({ id: 'reveal-one', severity: 'check', title: 'Выбрана одна версия, но вскрытий несколько', sub: 'Либо переключите на две версии, либо уберите лишнее вскрытие', tab: 'result' });
+  if (mode === null && records.length >= 2) out.push({ id: 'reveal-mode', severity: 'check', title: `Вскрытий ${records.length} — укажите число версий игры`, sub: 'Сколько версий, столько и вскрытий', tab: 'result' });
+  if (mode !== null && records.length !== mode) out.push({ id: 'reveal-count', severity: 'check', title: `Версий ${mode}, а вскрытий ${records.length}`, sub: 'Сколько версий, столько и вскрытий: добавьте или уберите вскрытие либо поменяйте число версий', tab: 'result' });
   if (mode === 2) {
-    if (records.length < 2) out.push({ id: 'reveal-few', severity: 'check', title: 'Две версии — добавьте оба вскрытия', sub: 'Шериф и чёрный, который назвал себя Шерифом', tab: 'result' });
     if (!black.length) out.push({ id: 'reveal-black', severity: 'check', title: 'Две версии — выберите, кто из чёрных вскрылся', tab: 'result' });
     for (const record of black) {
       if (!record.checks.size) {

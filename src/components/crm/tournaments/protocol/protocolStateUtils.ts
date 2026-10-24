@@ -33,13 +33,21 @@ export const calculateGuessedBlacks = (
   return { guessedBlacks, bonusPoints };
 };
 
-export const syncAllEventsToResults = (
+/** What the protocol's rounds, shots and first-killed mark said before an edit. */
+export type ProtocolEvidenceBaseline = { votes: any[]; shots: any[]; firstKilledId: string | null };
+
+type DerivedExit = PlayerResultData['exit_type'];
+
+/**
+ * How every seat left the game according to the rounds, the shots and the first-killed mark. A seat the evidence does not
+ * mention is 'alive' here: that means «no evidence», not «still at the table».
+ */
+const deriveExitTypes = (
   votes: any[],
   shots: any[],
   firstKilledId: string | null,
   results: PlayerResultData[],
-  proto: TournamentGameProtocolData
-) => {
+): Map<number, DerivedExit> => {
   const confirmedVotes = votes.filter((v: any) => v.outcome && v.outcome !== 'pending');
 
   const zeroRoundEliminatedSeats = new Set<number>();
@@ -65,30 +73,44 @@ export const syncAllEventsToResults = (
     ? results.find(p => p.participant_id === firstKilledId)?.seat_number || null
     : null;
 
-  const removedSeats = new Set<number>();
+  const exits = new Map<number, DerivedExit>();
   for (const pr of results) {
+    const seat = Number(pr.seat_number);
     const techSum = (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0);
     const isRemovedByRules = pr.regular_fouls === 4 || techSum === 2 || Boolean(pr.removal_reason) || pr.exit_type === 'removed';
-    if (isRemovedByRules) {
-      removedSeats.add(Number(pr.seat_number));
-    }
+    if (isRemovedByRules) exits.set(seat, 'removed');
+    else if (zeroRoundEliminatedSeats.has(seat)) exits.set(seat, 'voted_zero_round');
+    else if (otherDayEliminatedSeats.has(seat)) exits.set(seat, 'voted_day');
+    else if (seat === firstKilledSeat || shotSeats.has(seat)) exits.set(seat, 'killed');
+    else exits.set(seat, 'alive');
   }
+  return exits;
+};
+
+/**
+ * Brings the players' exits in line with an edited vote / shot / first-killed mark.
+ *
+ * With a `baseline` (the evidence before the edit) only the seats whose derived exit the edit actually changed are
+ * touched. Without it every seat is recomputed from the evidence, which turns any exit the evidence cannot explain (a
+ * voting that was never recorded) into «alive»: one unrelated edit then silently rewrote how a player left the game.
+ */
+export const syncAllEventsToResults = (
+  votes: any[],
+  shots: any[],
+  firstKilledId: string | null,
+  results: PlayerResultData[],
+  proto: TournamentGameProtocolData,
+  baseline?: ProtocolEvidenceBaseline,
+) => {
+  const confirmedVotes = votes.filter((v: any) => v.outcome && v.outcome !== 'pending');
+  const nextExits = deriveExitTypes(votes, shots, firstKilledId, results);
+  const previousExits = baseline ? deriveExitTypes(baseline.votes || [], baseline.shots || [], baseline.firstKilledId, results) : null;
 
   const updatedResults = results.map(pr => {
     const seat = Number(pr.seat_number);
-    let nextExitType = pr.exit_type;
-
-    if (removedSeats.has(seat)) {
-      nextExitType = 'removed';
-    } else if (zeroRoundEliminatedSeats.has(seat)) {
-      nextExitType = 'voted_zero_round';
-    } else if (otherDayEliminatedSeats.has(seat)) {
-      nextExitType = 'voted_day';
-    } else if (seat === firstKilledSeat || shotSeats.has(seat)) {
-      nextExitType = 'killed';
-    } else {
-      nextExitType = 'alive';
-    }
+    const derived = nextExits.get(seat) ?? 'alive';
+    if (previousExits && previousExits.get(seat) === derived) return pr;
+    const nextExitType = derived;
 
     const isAlive = nextExitType === 'alive';
     return {

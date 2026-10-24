@@ -204,6 +204,13 @@ describe('Tournament Voting Logic Tests', () => {
       expect(err).toContain('раунд #3 завершился ничьей, но для него отсутствует связанное переголосование');
     });
 
+    test('1b. A tie whose revote was cancelled by a removal is not a gap', () => {
+      const votes: VotingRound[] = [
+        { round_number: 3, day_number: 1, is_revote: false, nominated_seats: [4, 5], vote_counts: { 4: 5, 5: 5 }, eligible_voters: 10, outcome: 'tie_revote', cancelled_by_removal: true },
+      ];
+      expect(validateVotingHierarchy(votes)).toBeNull();
+    });
+
     test('2. Complete chain is valid', () => {
       const votes: VotingRound[] = [
         {

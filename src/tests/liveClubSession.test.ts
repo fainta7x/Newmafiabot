@@ -231,6 +231,13 @@ describe('club live session evidence', () => {
     })).toEqual({ night_number: 1, target_seat: 4, result: 'killed' });
   });
 
+  it('records the target as killed whether or not the engine has already applied the kill', () => {
+    expect(shotFromResolvedNight({
+      phase: 'night', roundNumber: 1, nightSubPhase: 'morning', shotPlayerSlot: 4,
+      activePlayers: [{ slot_num: 4, alive: false }],
+    })).toEqual({ night_number: 1, target_seat: 4, result: 'killed' });
+  });
+
   it('records a night without a target as agreement failure', () => {
     expect(shotFromResolvedNight({
       phase: 'night', roundNumber: 2, nightSubPhase: 'morning', shotPlayerSlot: null,
@@ -247,6 +254,28 @@ describe('a voting cancelled without a result', () => {
     const during = updateLiveProtocolEvidence({ votes: [], shots: [] }, voting, null);
     expect(during.votes).toHaveLength(1);
     const after = updateLiveProtocolEvidence(during, night, voting);
+    expect(after.votes).toEqual([]);
+  });
+});
+
+describe('a revote cancelled by a removal', () => {
+  const tie = round({ day_number: 1, round_number: 1, nominated_seats: [2, 5], vote_counts: { 2: 4, 5: 4 }, outcome: 'tie_revote', eligible_voters: 8 });
+  const revote = round({ day_number: 1, round_number: 2, is_revote: true, parent_round_number: 1, nominated_seats: [2, 5], vote_counts: { 2: 0, 5: 0 }, eligible_voters: 8 });
+
+  it('keeps the tie on record, marked, and drops the revote that never took place', () => {
+    const voting = { phase: 'day_voting', votingRounds: [tie, revote], activeVotingRoundIndex: 1, roundNumber: 2 } as any;
+    const night = { phase: 'night', votingRounds: [], roundNumber: 2 } as any;
+    const during = updateLiveProtocolEvidence({ votes: [], shots: [] }, voting, null);
+    const after = updateLiveProtocolEvidence(during, night, voting);
+    expect(after.votes).toHaveLength(1);
+    expect(after.votes[0]).toMatchObject({ round_number: 1, outcome: 'tie_revote', cancelled_by_removal: true });
+  });
+
+  it('marks nothing when the voting that was cancelled had no tie before it', () => {
+    const first = round({ day_number: 1, round_number: 1, nominated_seats: [2, 5], vote_counts: { 2: 0, 5: 0 }, eligible_voters: 8 });
+    const voting = { phase: 'day_voting', votingRounds: [first], activeVotingRoundIndex: 0, roundNumber: 2 } as any;
+    const during = updateLiveProtocolEvidence({ votes: [], shots: [] }, voting, null);
+    const after = updateLiveProtocolEvidence(during, { phase: 'night', votingRounds: [], roundNumber: 2 } as any, voting);
     expect(after.votes).toEqual([]);
   });
 });

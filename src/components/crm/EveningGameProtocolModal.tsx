@@ -26,6 +26,7 @@ import {
   type TechFoulType,
 } from './tournaments/protocol/protocolDisciplineUtils';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
+import { describeLegacyRepairs, repairLegacyClubProtocol } from '../../lib/legacyClubProtocol.ts';
 
 interface EveningGameProtocolModalProps {
   game: ClubGameRecord;
@@ -48,7 +49,11 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   onUpdated,
 }) => {
   const source = game.club_protocol;
-  const [protocol, setProtocol] = useState<TournamentGameProtocolData>(() => source?.protocol || ({
+  // A game saved by an older build may hold facts the checks now refuse (a killed player's night recorded as a miss, repeated
+  // round numbers); they are put right from the game's own record when the protocol opens, and said so on screen.
+  const repairedSource = useMemo(() => source ? repairLegacyClubProtocol(source.protocol, source.player_results) : null, [source]);
+  const [repairNotes, setRepairNotes] = useState<string[]>(() => repairedSource ? describeLegacyRepairs(repairedSource.repairs) : []);
+  const [protocol, setProtocol] = useState<TournamentGameProtocolData>(() => repairedSource?.protocol || ({
     game_id: String(game.id),
     status: 'draft',
     winner_team: null,
@@ -65,6 +70,8 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   } as TournamentGameProtocolData));
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>(source?.player_results || []);
   const cleanAndSyncVotes = (votes: Parameters<typeof cleanVotes>[0]) => cleanVotes(votes, playerResults.length);
+  // An edit may only change the exits it really changes: a game whose evidence is incomplete keeps the exits it has.
+  const evidenceBefore = (before: TournamentGameProtocolData) => ({ votes: before.votes || [], shots: before.shots || [], firstKilledId: before.first_killed_participant_id ?? null });
   const [activeTab, setActiveTab] = useState<Tab>('players');
   const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
   const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
@@ -75,7 +82,8 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   // What the server last confirmed. The autosave only runs when the editor differs from it, so the server's own
   // echo (a fresh object every time) can never start another save, and an unchanged protocol is never re-sent.
   const snapshot = (nextProtocol: TournamentGameProtocolData, nextResults: PlayerResultData[]) => JSON.stringify({ nextProtocol, nextResults });
-  const savedSnapshotRef = useRef<string>(snapshot(protocol, playerResults));
+  // What the server holds: after an automatic repair the editor differs from it, so a draft saves the repaired record.
+  const savedSnapshotRef = useRef<string>(snapshot(source?.protocol || protocol, playerResults));
   const latestRef = useRef({ protocol, playerResults });
   latestRef.current = { protocol, playerResults };
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
@@ -83,8 +91,10 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
 
   useEffect(() => {
     if (!isOpen || !game.club_protocol) return;
-    setProtocol(game.club_protocol.protocol);
+    const repaired = repairLegacyClubProtocol(game.club_protocol.protocol, game.club_protocol.player_results);
+    setProtocol(repaired.protocol);
     setPlayerResults(game.club_protocol.player_results);
+    setRepairNotes(describeLegacyRepairs(repaired.repairs));
     savedSnapshotRef.current = snapshot(game.club_protocol.protocol, game.club_protocol.player_results);
     setSaveState('saved');
     setSaveError(null);
@@ -196,6 +206,12 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     }));
   };
 
+  const handleCancelPpk = () => {
+    if (protocol.status === 'completed') return;
+    if (!confirm('Отменить ППК? Игра снова станет незавершённой, победителя нужно будет указать заново.')) return;
+    setProtocol((prev) => ({ ...prev, end_reason: 'normal', ppk_culprit_participant_id: null, winner_team: null }));
+  };
+
   const handleRoundChange = (index: number, updater: (round: any) => any) => {
     setProtocol((prev) => {
       const votes = [...(prev.votes || [])];
@@ -208,7 +224,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       }
       votes[index] = round;
       const nextVotes = cleanAndSyncVotes(votes as any) as any;
-      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes });
+      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -235,7 +251,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
         };
       }
       const nextVotes = cleanAndSyncVotes(votes as any) as any;
-      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes });
+      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -246,7 +262,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       const votes = [...(prev.votes || [])] as any[];
       votes[index] = { ...votes[index], outcome: 'pending', eliminated_seats: [], table_leave_votes: undefined };
       const nextVotes = cleanAndSyncVotes(votes as any) as any;
-      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes });
+      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -274,7 +290,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const handleDeleteVoting = (index: number) => {
     setProtocol((prev) => {
       const nextVotes = cleanAndSyncVotes((prev.votes || []).filter((_, i) => i !== index) as any) as any;
-      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes });
+      const synced = syncAllEventsToResults(nextVotes, prev.shots || [], prev.first_killed_participant_id, playerResults, { ...prev, votes: nextVotes }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -285,7 +301,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       const moves = (prev.best_moves || []).filter((move) => move.source !== 'first_killed');
       if (participantId) moves.push({ participant_id: participantId, source: 'first_killed', seat_numbers: [] });
       const next = { ...prev, first_killed_participant_id: participantId, best_moves: moves };
-      const synced = syncAllEventsToResults(prev.votes || [], prev.shots || [], participantId, playerResults, next);
+      const synced = syncAllEventsToResults(prev.votes || [], prev.shots || [], participantId, playerResults, next, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -319,7 +335,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const handleAddNight = () => {
     setProtocol((prev) => {
       const shots = [...(prev.shots || []), { night_number: (prev.shots || []).length + 1, target_seat: 1, result: 'killed' as const }];
-      const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots });
+      const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -328,7 +344,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const handleDeleteNight = (index: number) => {
     setProtocol((prev) => {
       const shots = (prev.shots || []).filter((_, i) => i !== index).map((shot, i) => ({ ...shot, night_number: i + 1 }));
-      const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots });
+      const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -338,7 +354,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setProtocol((prev) => {
       const shots = [...(prev.shots || [])];
       shots[index] = { ...shots[index], target_seat: targetSeat, result };
-      const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots });
+      const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;
     });
@@ -407,6 +423,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
               </div>
               <p className="text-xs text-slate-400 mt-1">{game.table_name || 'Стол не указан'}{game.judge_name ? ` • Ведущий: ${game.judge_name}` : ''}</p>
               {protocol.status === 'completed' ? <button type="button" onClick={reopenDraft} disabled={saveState === 'saving'} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 text-[11px] font-black text-amber-200 disabled:opacity-50"><PencilLine className="h-4 w-4" />Исправить протокол</button> : null}
+              {repairNotes.length ? <p data-testid="legacy-repair-note" className="mt-2 text-[11px] leading-4 text-sky-300">Исправлено автоматически по записи игры: {repairNotes.join('; ')}. Сохранится вместе с исправлением протокола.</p> : null}
               {completeHint ? <p role="alert" className="mt-2 text-[11px] font-bold text-amber-300">{completeHint}</p> : null}
               {saveState === 'error' && saveError ? <p role="alert" className="mt-2 text-[11px] font-bold text-rose-300">Не сохранилось: {saveError}</p> : null}
             </div>
@@ -438,7 +455,9 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
                     <div key={player.participant_id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0"><strong className="text-sm text-white">#{player.seat_number} {player.display_name}</strong><div className="text-[10px] text-slate-500">{roleLabel(player.role)} • {exitLabel(player.exit_type)}</div></div>
-                        {protocol.status === 'draft' && <button type="button" onClick={() => handlePpk(player)} className="px-2 py-1 rounded-lg border border-rose-900/50 bg-rose-950/30 text-rose-400 text-[10px] font-black">ППК</button>}
+                        {protocol.status === 'draft' && (protocol.end_reason === 'ppk' && protocol.ppk_culprit_participant_id === player.participant_id
+                          ? <button type="button" onClick={handleCancelPpk} className="px-2 py-1 rounded-lg border border-amber-700/50 bg-amber-950/30 text-amber-300 text-[10px] font-black">Отменить ППК</button>
+                          : <button type="button" onClick={() => handlePpk(player)} className="px-2 py-1 rounded-lg border border-rose-900/50 bg-rose-950/30 text-rose-400 text-[10px] font-black">ППК</button>)}
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -452,7 +471,9 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
                         <div className="flex flex-wrap gap-1.5">
                           {(player.minor_technical_fouls || 0) > 0 && <button onClick={() => changeTechFoul(player, 'minor', -1)} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-[10px]">− малый тех</button>}
                           {(player.major_technical_fouls || 0) > 0 && <button onClick={() => changeTechFoul(player, 'major', -1)} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-[10px]">− большой тех</button>}
-                          <button onClick={() => { if (confirm(`Удалить игрока #${player.seat_number} решением судьи?`)) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' }); }} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-[10px]">Удалить судьёй</button>
+                          {player.removal_reason === 'direct'
+                            ? <button onClick={() => { if (confirm(`Вернуть игрока #${player.seat_number}: отменить удаление судьёй?`)) updatePlayerResult(player.participant_id, { exit_type: 'alive', removal_reason: null }); }} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-300 text-[10px]">Отменить удаление</button>
+                            : <button onClick={() => { if (confirm(`Удалить игрока #${player.seat_number} решением судьи?`)) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' }); }} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-[10px]">Удалить судьёй</button>}
                         </div>
                       )}
                     </div>

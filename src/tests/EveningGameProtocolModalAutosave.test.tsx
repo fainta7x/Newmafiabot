@@ -5,7 +5,7 @@ import { EveningGameProtocolModal } from '../components/crm/EveningGameProtocolM
 import { clubGamesApi } from '../lib/clubGamesApi.ts';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
-const makeGame = (status: 'draft' | 'completed', winner: 'red' | null = null): any => ({
+const makeGame = (status: 'draft' | 'completed', winner: 'red' | 'black' | null = null): any => ({
   id: 7, global_game_number: 7, table_name: 'Стол 1', judge_name: 'Судья',
   club_protocol: {
     protocol: { game_id: '7', status, winner_team: winner, votes: [], shots: [], best_moves: [], best_move_seats: [] },
@@ -85,5 +85,67 @@ describe('club voting confirmation', () => {
     expect(screen.getByRole('alert').textContent).toContain('не подтверждён');
     expect(screen.getByText('Подтвердить исход')).toBeTruthy();
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe('a game saved by an older build', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  const legacyGame = () => {
+    const game = makeGame('draft', 'black');
+    game.club_protocol.protocol.first_killed_participant_id = 'p8';
+    game.club_protocol.protocol.shots = [{ night_number: 1, target_seat: 8, result: 'miss' }];
+    game.club_protocol.player_results[7].exit_type = 'killed';
+    return game;
+  };
+
+  it('opens with the night put right from the record, says so, and saves the repaired record', async () => {
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    render(<EveningGameProtocolModal game={legacyGame()} isOpen onClose={() => {}} onUpdated={() => {}} />);
+    expect(screen.getByTestId('legacy-repair-note').textContent).toContain('ночь 1: игрок #8 убит (в записи было «промах»)');
+    for (let i = 0; i < 4; i += 1) await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0][1].protocol.shots).toEqual([{ night_number: 1, target_seat: 8, result: 'killed' }]);
+  });
+
+  it('keeps how a player left when an unrelated night is edited', async () => {
+    const game = makeGame('draft', 'black');
+    game.club_protocol.player_results[2].exit_type = 'voted_day'; // the day vote that left him was never recorded
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    render(<EveningGameProtocolModal game={game} isOpen onClose={() => {}} onUpdated={() => {}} />);
+    fireEvent.click(screen.getByText('Ночи и ЛХ'));
+    fireEvent.click(screen.getByText('Добавить ночь'));
+    for (let i = 0; i < 4; i += 1) await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    const saved = save.mock.calls.at(-1)![1];
+    expect(saved.player_results[2].exit_type).toBe('voted_day');
+    expect(saved.player_results[0].exit_type).toBe('killed'); // the new night's default target is seat 1
+  });
+});
+
+
+describe('undoing a PPK and a judge removal in the club protocol', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.spyOn(window, 'confirm').mockReturnValue(true); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  it('«Отменить ППК» gives the game back its winner choice', async () => {
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    render(<EveningGameProtocolModal game={makeGame('draft', 'red')} isOpen onClose={() => {}} onUpdated={() => {}} />);
+    fireEvent.click(screen.getAllByText('ППК')[7]); // a black player (seat 8) causes it
+    fireEvent.click(screen.getByText('Отменить ППК'));
+    for (let i = 0; i < 4; i += 1) await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    const saved = save.mock.calls.at(-1)![1];
+    expect(saved.protocol).toMatchObject({ end_reason: 'normal', ppk_culprit_participant_id: null, winner_team: null });
+    expect(screen.queryByText('Отменить ППК')).toBeNull();
+  });
+
+  it('«Отменить удаление» returns a player removed by the judge', async () => {
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    render(<EveningGameProtocolModal game={makeGame('draft', 'red')} isOpen onClose={() => {}} onUpdated={() => {}} />);
+    fireEvent.click(screen.getAllByText('Удалить судьёй')[2]);
+    fireEvent.click(screen.getByText('Отменить удаление'));
+    for (let i = 0; i < 4; i += 1) await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    const saved = save.mock.calls.at(-1)![1];
+    expect(saved.player_results[2]).toMatchObject({ exit_type: 'alive', removal_reason: null });
   });
 });

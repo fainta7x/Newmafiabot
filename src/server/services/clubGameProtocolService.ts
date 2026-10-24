@@ -7,6 +7,7 @@ import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { blackParticipantIds, withoutBlackBestMoves, withoutBlackLegacyBestMove } from './blackBestMoves.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { repairLegacyClubProtocol } from '../../lib/legacyClubProtocol.ts';
 import { isGameExitType, isRemovalReason } from '../../shared/gameExit.ts';
 
 const ROLE_ORDER = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -126,6 +127,8 @@ export const canonicalizeClubGameSave = (
   }).sort((a, b) => a.seat_number - b.seat_number);
 
   if (new Set(playerResults.map((result) => result.seat_number)).size !== tableSize) throw new Error(`В протоколе должны быть уникальные места 1–${tableSize}`);
+  // Games saved by older builds: put right what follows from the game's own record, so a correction can be saved at all.
+  incomingProtocol = repairLegacyClubProtocol(incomingProtocol, playerResults).protocol;
   let winnerTeam = incomingProtocol?.winner_team === 'red' || incomingProtocol?.winner_team === 'black' ? incomingProtocol.winner_team : null;
   if (status === 'completed') {
     const roleCounts = new Map<CanonicalRole, number>(ROLE_ORDER.map((role) => [role, 0]));

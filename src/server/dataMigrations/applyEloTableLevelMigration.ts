@@ -1,10 +1,10 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { EXPECTATION_DIVISOR, PROTECTION_DIVISOR, rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP, rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
 
 const MIGRATION_NAME = '2026-10-elo-table-level-400-v1';
 
 /**
- * One-time rebuild after the table-level distances went back to 400 / 200 (owner, 2026-10-24). Ratings are derived from the
+ * One-time rebuild after the table level became three steps (same up to 150, different 150–250, huge above 250) (owner, 2026-10-24). Ratings are derived from the
  * game history, so nothing but `players.elo` changes; a failed rebuild is repeated by the next completed game.
  */
 export async function applyEloTableLevelMigration(db: DatabaseWrapper): Promise<{ applied: boolean }> {
@@ -15,7 +15,7 @@ export async function applyEloTableLevelMigration(db: DatabaseWrapper): Promise<
   await rebuildCanonicalEloRatings(db);
   await db.run(
     'INSERT INTO migration_history (id, migration_name, status, details_json, executed_at) VALUES (?, ?, ?, ?, ?)',
-    [MIGRATION_NAME, MIGRATION_NAME, 'completed', JSON.stringify({ expectation_divisor: EXPECTATION_DIVISOR, protection_divisor: PROTECTION_DIVISOR }), new Date().toISOString()],
+    [MIGRATION_NAME, MIGRATION_NAME, 'completed', JSON.stringify({ same_level_gap: SAME_LEVEL_GAP, strong_level_gap: STRONG_LEVEL_GAP }), new Date().toISOString()],
   );
   return { applied: true };
 }

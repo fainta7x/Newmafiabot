@@ -2,25 +2,30 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureEloSeedSchema } from '../db/ensureEloSeedSchema.ts';
 import { applyEloTableLevelMigration } from '../server/dataMigrations/applyEloTableLevelMigration.ts';
-import { calculateCanonicalEloGame, EXPECTATION_DIVISOR, PROTECTION_DIVISOR } from '../server/services/eloRatingService.ts';
+import { calculateCanonicalEloGame, levelGap } from '../server/services/eloRatingService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
 
 describe('table level uses unstretched distances (owner, 2026-10-24)', () => {
-  it('keeps the distances at 400 / 200', () => {
-    expect(EXPECTATION_DIVISOR).toBe(400);
-    expect(PROTECTION_DIVISOR).toBe(200);
+  it('levels: up to 150 the same, 150–250 clearly different, above 250 huge', () => {
+    expect([0, 100, 150, -150].map(levelGap)).toEqual([0, 0, 0, 0]);
+    expect(levelGap(200)).toBe(50);
+    expect(levelGap(250)).toBe(100);
+    expect(levelGap(300)).toBe(200);
+    expect(levelGap(-300)).toBe(-200);
+    expect(levelGap(900)).toBe(300);
   });
 
-  it('a 200-point table gap is a real level: red expectation moves from 0.30 to about 0.54 and back', () => {
+  it('the red expectation follows the levels: equal up to 150, then 0.43 at 200, 0.58 at 250, 0.81 at 300', () => {
     const table = (redElo: number, blackElo: number) => Array.from({ length: 10 }, (_, i) => ({ playerId: `p${i}`, team: (i < 7 ? 'red' : 'black') as 'red' | 'black', elo: i < 7 ? redElo : blackElo, canonicalPersonalGamePoints: 0 }));
-    const equal = calculateCanonicalEloGame(table(1000, 1000), 'red')[0].expectedTeamResult;
-    const redStronger = calculateCanonicalEloGame(table(1100, 900), 'red')[0].expectedTeamResult;
-    const redWeaker = calculateCanonicalEloGame(table(900, 1100), 'red')[0].expectedTeamResult;
-    expect(equal).toBeCloseTo(0.30, 6);
-    expect(redStronger).toBeGreaterThan(0.5);
-    expect(redWeaker).toBeLessThan(0.17);
+    const expected = (gap: number) => calculateCanonicalEloGame(table(1000 + gap, 1000), 'red')[0].expectedTeamResult;
+    expect(expected(0)).toBeCloseTo(0.30, 6);
+    expect(expected(140)).toBeCloseTo(0.30, 6);
+    expect(expected(200)).toBeCloseTo(0.433, 2);
+    expect(expected(250)).toBeCloseTo(0.575, 2);
+    expect(expected(300)).toBeCloseTo(0.811, 2);
+    expect(expected(-250)).toBeLessThan(0.12);
   });
 
   it('rebuilds the ratings once', async () => {

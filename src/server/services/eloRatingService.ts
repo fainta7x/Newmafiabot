@@ -52,12 +52,26 @@ export const ELO_SCALE = 5;
 const RESULT_WEIGHT = 10 * ELO_SCALE;
 const PERSONAL_POINT_WEIGHT = 8 * ELO_SCALE;
 /**
- * Table level (owner, 2026-10-24: «значения не нужно было растягивать, между 900 и 1100 уже огромная разница»): the
- * real ratings never spread ×5, so the win-expectation and protection distances are back to 400 / 200 Elo. Only these two
- * are unstretched; the weight of a game and of a personal point stay on the ×5 scale.
+ * Table level (owner, 2026-10-24: «в пределах 150 Elo уровень одинаковый, от 150 до 250 уровень сильно различается, от 250 огромная
+ * разница»). A gap between two averages is first turned into an effective level gap, then the usual 10^(gap / divisor) odds are used:
+ *  - up to 150 Elo the levels are the same (no effect);
+ *  - 150–250: the effect grows one-for-one (0…100);
+ *  - above 250: «huge», the effect grows twice as fast, up to 300 (gap 350 and more is the same);
+ * The distances are not stretched ×5 any more; the weight of a game and of a personal point stay on the ×5 scale.
  */
-export const EXPECTATION_DIVISOR = 400;
+export const SAME_LEVEL_GAP = 150;
+export const STRONG_LEVEL_GAP = 250;
+const MAX_LEVEL_EFFECT = 300;
+export const EXPECTATION_DIVISOR = 200;
 export const PROTECTION_DIVISOR = 200;
+export const levelGap = (gap: number): number => {
+  const size = Math.abs(gap);
+  if (size <= SAME_LEVEL_GAP) return 0;
+  const effect = size <= STRONG_LEVEL_GAP
+    ? size - SAME_LEVEL_GAP
+    : (STRONG_LEVEL_GAP - SAME_LEVEL_GAP) + 2 * (size - STRONG_LEVEL_GAP);
+  return Math.sign(gap) * Math.min(MAX_LEVEL_EFFECT, effect);
+};
 
 export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam): CanonicalEloPlayerDelta[] {
   const redPlayers = players.filter((player) => player.team === 'red');
@@ -65,14 +79,14 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
   if (!redPlayers.length || !blackPlayers.length) throw new Error('Canonical Elo requires both red and black teams.');
   const redTeamAvg = average(redPlayers.map((player) => player.elo));
   const blackTeamAvg = average(blackPlayers.map((player) => player.elo));
-  const redOdds = (0.30 / 0.70) * (10 ** ((redTeamAvg - blackTeamAvg) / EXPECTATION_DIVISOR));
+  const redOdds = (0.30 / 0.70) * (10 ** (levelGap(redTeamAvg - blackTeamAvg) / EXPECTATION_DIVISOR));
   const pRed = redOdds / (1 + redOdds);
   const pBlack = 1 - pRed;
   return players.map((player) => {
     const teamPlayers = player.team === 'red' ? redPlayers : blackPlayers;
     const allies = teamPlayers.filter((ally) => ally.playerId !== player.playerId);
     const allyAvgExcludingSelf = allies.length ? average(allies.map((ally) => ally.elo)) : player.elo;
-    const n = clamp((player.elo - allyAvgExcludingSelf) / PROTECTION_DIVISOR, -1, 1);
+    const n = clamp(levelGap(player.elo - allyAvgExcludingSelf) / PROTECTION_DIVISOR, -1, 1);
     const won = player.team === winnerTeam;
     let carryModifier: number;
     if (won) carryModifier = n > 0 ? 1 + 0.30 * n : 1 - 0.20 * Math.abs(n);

@@ -54,9 +54,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const markField = async (field: string, status: 'not_requested' | 'missing' | 'declined') => {
     setBusy(true); setError(null);
     try {
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/profile-field-status`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ field, status }) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось обновить статус');
+      await sendJson(`/api/players/${encodeURIComponent(player.id)}/profile-field-status`, 'PATCH', { field, status }, 'Не удалось обновить статус');
       await load();
     } catch (fieldError: any) { setError(fieldError?.message || 'Не удалось обновить статус'); } finally { setBusy(false); }
   };
@@ -72,9 +70,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const createAward = async () => {
     if (!awardTitle.trim() || busy) return; setBusy(true); setError(null);
     try {
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/verified-awards`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: awardKind, title: awardTitle.trim(), tournament_name: awardTournament.trim() || null, place_result: awardResult.trim() || null, source_type: 'historical' }) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить награду');
+      await sendJson(`/api/players/${encodeURIComponent(player.id)}/verified-awards`, 'POST', { kind: awardKind, title: awardTitle.trim(), tournament_name: awardTournament.trim() || null, place_result: awardResult.trim() || null, source_type: 'historical' }, 'Не удалось сохранить награду');
       setAwardTitle(''); setAwardTournament(''); setAwardResult(''); setShowAwardForm(false); await load();
     } catch (awardError: any) { setError(awardError?.message || 'Не удалось сохранить награду'); } finally { setBusy(false); }
   };
@@ -82,9 +78,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const review = async (id: string, action: 'approve' | 'reject') => {
     if (busy) return; setBusy(true); setError(null);
     try {
-      const response = await fetch(`/api/players/award-suggestions/${encodeURIComponent(id)}/review`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось обработать предложение');
+      await sendJson(`/api/players/award-suggestions/${encodeURIComponent(id)}/review`, 'POST', { action }, 'Не удалось обработать предложение');
       await load();
     } catch (reviewError: any) { setError(reviewError?.message || 'Не удалось обработать предложение'); } finally { setBusy(false); }
   };

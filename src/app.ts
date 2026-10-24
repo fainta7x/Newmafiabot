@@ -147,6 +147,7 @@ import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts'
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSchema.ts';
 import { applyEloScaleMigration } from './server/dataMigrations/applyEloScaleMigration.ts';
+import { applyEloTableLevelMigration } from './server/dataMigrations/applyEloTableLevelMigration.ts';
 import { applyPlayerStarterTokenGrant } from './server/dataMigrations/applyPlayerStarterTokenGrant.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
@@ -215,6 +216,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
   if (db.dbPath !== ':memory:') {
     try { await applyEloScaleMigration(db); } catch (error) { console.error('[ELO] ×5 scale switch failed:', error); }
+    try { await applyEloTableLevelMigration(db); } catch (error) { console.error('[ELO] Table-level rebuild failed:', error); }
   }
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   // One tournament format for everybody and the forced judge/organizer of Bogdan's tournaments (owner, 2026-10-06): a file snapshot

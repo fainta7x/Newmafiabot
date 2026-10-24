@@ -1816,7 +1816,7 @@ Method: every writer of an evening's status, of a participant's response and of 
 
 | # | Finding | Status |
 |---|---------|--------|
-| I1 | Lookup of a player by Telegram id: one owner (`getPlayerByTelegramId`, `playerRegistrationService`), but `botRoutes.ts` repeats the SQL 7 times with different column lists (`id`; `id, nickname, telegram_user_id`; `id, nickname, tokens, game_level`) | open, low risk — a small `findPlayerRowByTelegramId(db, id, columns)` would remove them; not done in this slice because the bot routes have no tests of their own |
+| I1 | Lookup of a player by Telegram id: one owner (`getPlayerByTelegramId`, `playerRegistrationService`), but `botRoutes.ts` repeated the SQL 7 times with different column lists (`id`; `id, nickname, telegram_user_id`; `id, nickname, tokens, game_level`) | partly fixed — the three identical `id` lookups use `playerIdByTelegramId`; the four with their own column lists stay (different projections, not a duplicate rule) |
 | I2 | Lookup by VK id lives in three services (`vkEveningIntegrationService` 11 times, `vkIdentityClaimService`, `vkPlayerAuthService`) | open — same remark |
 | I3 | «Is this protocol seat the viewer?» is one function (`resultBelongsToPlayer`, replay routes) plus four inline `String(row.player_id) === viewerId` comparisons | open, low risk |
 | I4 | Protocol results carry `player_id` (the profile) and `participant_id` (the seat's record); nothing re-keys either on read (rule kept: never mutate by stale local ids) | checked |

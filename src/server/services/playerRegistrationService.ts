@@ -65,6 +65,11 @@ const selectPlayer = async (db: DatabaseWrapper, playerId: string): Promise<Regi
   };
 };
 
+/** Just the profile id for a Telegram account (the bot's quick answers), or `undefined` when nobody is linked. */
+export async function playerIdByTelegramId(db: DatabaseWrapper, telegramUserId: string | number) {
+  return db.get<{ id: string }>('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+}
+
 export async function getPlayerByTelegramId(db: DatabaseWrapper, telegramUserId: string | number) {
   const id = String(telegramUserId ?? '').trim();
   if (!id) return null;

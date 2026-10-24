@@ -20,6 +20,7 @@ import { isNicknameClaimable, isNicknameVkOnlyProfile, requestTelegramProfileLin
 import {
   findPlayersByNickname,
   getPlayerByTelegramId,
+  playerIdByTelegramId,
   PlayerRegistrationError,
   registerNewPlayer,
 } from '../services/playerRegistrationService.ts';
@@ -261,7 +262,7 @@ router.post('/evenings/:eveningId/followup', async (req, res) => {
     const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
     const option = String(req.body?.when ?? '').trim() as RsvpFollowupOption;
     if (!telegramUserId || !RSVP_FOLLOWUP_OPTIONS.includes(option)) return res.status(400).json({ error: 'Некорректный запрос' });
-    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    const player = await playerIdByTelegramId(db, telegramUserId);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     const evening = await db.get('SELECT id, status, settled_at, starts_at FROM game_evenings WHERE id = ?', [req.params.eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
@@ -291,7 +292,7 @@ router.post('/evenings/:eveningId/vote', async (req, res) => {
     const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
     const nominee = String(req.body?.nominee ?? '').trim();
     if (!telegramUserId || !nominee) return res.status(400).json({ error: 'Некорректный запрос' });
-    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    const player = await playerIdByTelegramId(db, telegramUserId);
     if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
     const result = await castEveningVote(db, String(req.params.eveningId), String(player.id), nominee, { allowPrefix: true });
     if (!result.ok) {
@@ -311,7 +312,7 @@ router.post('/evenings/:eveningId/mvp-decision', async (req, res) => {
     const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
     const nominee = String(req.body?.nominee ?? '').trim();
     if (!telegramUserId || !nominee) return res.status(400).json({ error: 'Некорректный запрос' });
-    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    const player = await playerIdByTelegramId(db, telegramUserId);
     if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
     const result = await decideEveningMvp(db, String(req.params.eveningId), String(player.id), nominee);
     if (!result.ok) {

@@ -1771,3 +1771,71 @@ Risk: T3 (`handleCorrectGame` ↔ `handleReopenTournament`) is a two-step chain 
 `CustomEventsPanel.tsx` had 7 hand-written `fetch` + `json().catch` + `if (!r.ok)` blocks (list, players, create/edit, invitations, status, registration, delete, announce). All moved to `getJson` / `sendJson` with the same URLs, payloads and Russian fallback messages (a network error now reaches the same on-screen error line instead of an unhandled rejection). 4 tests in `CustomEventsPanelRequests.test.tsx` (list with cookie, publish + refusal text, delete + fallback text, list failure text). No layout change. Status: fixed. Next screens by raw `fetch` count: `PlayerPoker`, `PlayerEventsCalendar`, `PlayerHomeDashboard`.
 Follow-up (same day): `PlayerEventsCalendar.tsx` (lookups for a linked event, the novice fallback and the novice application) and `PlayerHomeDashboard.tsx` (payments, news, novice, evenings, rating) moved to the new `getJsonIfOk` helper (`requestJson.ts`: a non-OK answer is `null`, a network failure still throws; 3 tests) and `sendJson`; behaviour and copy unchanged, existing calendar/home tests pass. `PlayerPoker.tsx` is left on purpose: it has its own `readBody`, `keepalive` leave beacon and request-sequence guards inside a live table, so it needs its own plan. Status: fixed for the two screens, PlayerPoker open (deferred).
 Follow-up (same day): `EveningOrganizerTasksPanel` (template/manual task) and `OrganizerCommandCenter` (level decision, onboarding-link decision) and `PlayerProfileIntegrityPanel` (field status, award, suggestion review) moved to `sendJson`, same URLs/payloads/texts. `EveningPaymentsPanel` is left on purpose (payments: audit only), `PlayerAccessSettings` has its own `readJson` and a read-back guard. Found by a CI failure of the tournament protocol window test: `ProtocolWorkspace` reset itself to the overview on its first mount, which could undo a click made immediately after the window appeared; it now resets only when the game changes. Status: fixed.
+
+## 2026-10-24 — Architecture programme, step «one definition»: open evening, win rate, capacity
+
+Scope: concept map rows of `docs/DOMAIN_MODEL.md` re-checked against the code, one by one.
+
+| # | Finding | Status |
+|---|---------|--------|
+| D1 | «Open evening» (published or active, not settled) was written out in 23 places (services, routes, SQL, one component) next to `eveningStatus.ts` | fixed — the 11 JS and 8 SQL copies that mean exactly that rule call `isOpenEvening` / `openEveningSql`; `openEveningSingleOwner.test.ts` pins the rest (12 files, each with its reason) so a new copy fails the test |
+| D2 | Two inline win-rate formulas (`PlayerGoMafiaLink`, `playerConnectionAnalyticsService`) next to `winRatePercent` | fixed |
+| D3 | Capacity: the map said «8/10 vs 9/11 vs 11/4, the bot hard-codes 10» | stale — one module in TypeScript (`eveningMinimumPlayers`), no other threshold found; map updated |
+| D4 | **Rounding to two decimals is written 20 times, with two behaviours:** 5 files add `Number.EPSILON` (`1.005` → `1.01`), 15 do not (`1.005` → `1`). Money (`closedEveningPaymentService`, `eveningStaffRoutes`) is among the plain ones | open — needs an owner decision before merging: values are stored with at most 2 decimals today, so the difference shows only on a 3-decimal value, but the same number can print differently on two screens. Money stays untouched |
+| D5 | The word for a player in a protocol: club nickname first (owner rule); replay routes read the stored `display_name` of the game snapshot | checked — consistent for club games (the snapshot is made from the club nickname); no change |
+| D6 | «A finished club game» was written out in 27 places in 5 variants: kind+status (11 identical copies), kind+status+`version 1` (Elo, rating periods, token settlement), kind+status+player results (the two statistics services), status only, and `status or winner_team` (`publicLiveRoutes`, which therefore calls a draft with a decided winner «finished») | fixed for the 11 identical copies (`isCompletedClubGame`, pinned by `completedClubGameSingleOwner.test.ts`); the `version 1` ones wait for the Elo answers and money paths stay untouched; **open for the owner:** may a draft with a winner count as played on the public live list? |
+| D7 | «Guest» is four concepts: a seat without a profile (`guest_placeholder_id`, `is_guest`, 75+ uses of `guest_player_placeholders`), friends a player brings (`guest_count`), an event setting (`allow_guest`), a judge outside the club (`judge_guest`) | open — not a duplicate to merge; a naming decision for the owner |
+| D8 | Club and tournament protocol validators | checked — both servers call the same `protocolConsistency` validators; row updated |
+| D9 | Achievements: «second list in `playerProgressionRoutes`» | stale — one catalog; row updated |
+| D10 | Python bot compares response words of its own | pinned — `pythonResponseStatuses.test.ts` fails on a word that is not canonical |
+
+### Programme step 5 — query/state consistency (audit, 2026-10-24)
+
+Method: module-level caches, browser storage of API data, and cross-screen refresh signals searched in `src/components` and `src/lib`.
+
+| # | Finding | Status |
+|---|---------|--------|
+| Q1 | There is **no shared API cache**: each screen fetches its own data. The only module-level caches are the avatar image caches (`PlayerAvatar`, `ResultsImageExportModal`); browser storage holds drafts, the theme and the live-game resume key, not API answers | checked — no change; the programme rule «no premature global cache» holds |
+| Q2 | The only cross-screen refresh signal is `requestPlayerProfileCompletenessRefresh` (a window event) | checked — one writer/one reader, no stale-data case found |
+| Q3 | After a write, screens reload their own list (`loadDetail`, `load`, `refreshAll`); the new hooks `useTournamentDetail` / `useTournamentActions` keep that chain in one place for the tournament card | done for the tournament card; other cards follow the same pattern by hand |
+| Q4 | Request shapes: the remaining hand-written `fetch` blocks (about 220) | in progress — screen by screen, see the request-shape entries above; `PlayerPoker`, payments and the two screens with their own `readJson` are left on purpose |
+
+### Programme step 6 — event lifecycle (audit + first slice, 2026-10-24)
+
+Method: every writer of an evening's status, of a participant's response and of attendance was listed from the code.
+
+| # | Finding | Status |
+|---|---------|--------|
+| E1 | **Response and attendance have one writer**: `eveningParticipantState.ts` (`setParticipantResponse`, `setParticipantAttendance`). Every route and service (bot, VK, player cabinet, CRM, novice, slot selection, closeout) calls it. The only other writers are guest placeholders (their own table, `guestPlayerService`) and two frozen migrations | checked — no change |
+| E2 | **Evening status writers**: `draft→published` (weekly automation, one-time plans), `published→active` (`gamesRoutes`), `→cancelled` (two services), `→completed` (`eveningCloseoutService`) | checked |
+| E3 | Cancelling an evening was written twice with the same four steps (status change guarded by the status the caller saw, record the cancellation, notify, post): `eveningCancelService.cancelEvening` (organizer, only `published`) and `cancelEveningForShortfall` (automatic, `published` or `active`) | fixed — one `commitEveningCancellation` (status guard + record + notify); the guards and the post (awaited by the organizer, only logged by the automatic path) stay with the callers; 66 cancel/shortfall tests pass unchanged |
+| E4 | `eveningCancelService` accepts only `published` while the shortfall path also cancels an `active` evening | open — probably intended (an organizer should not cancel a running evening), asked below |
+| E5 | Waitlist exists only for tournaments and slot-limited games; not a separate concept for evenings | checked |
+
+### Programme step 7 — player/game identity (audit, 2026-10-24; scan level, nothing changed)
+
+| # | Finding | Status |
+|---|---------|--------|
+| I1 | Lookup of a player by Telegram id: one owner (`getPlayerByTelegramId`, `playerRegistrationService`), but `botRoutes.ts` repeats the SQL 7 times with different column lists (`id`; `id, nickname, telegram_user_id`; `id, nickname, tokens, game_level`) | open, low risk — a small `findPlayerRowByTelegramId(db, id, columns)` would remove them; not done in this slice because the bot routes have no tests of their own |
+| I2 | Lookup by VK id lives in three services (`vkEveningIntegrationService` 11 times, `vkIdentityClaimService`, `vkPlayerAuthService`) | open — same remark |
+| I3 | «Is this protocol seat the viewer?» is one function (`resultBelongsToPlayer`, replay routes) plus four inline `String(row.player_id) === viewerId` comparisons | open, low risk |
+| I4 | Protocol results carry `player_id` (the profile) and `participant_id` (the seat's record); nothing re-keys either on read (rule kept: never mutate by stale local ids) | checked |
+
+### Programme step 8 — finance (AUDIT ONLY, 2026-10-24)
+
+| # | Finding | Status |
+|---|---------|--------|
+| F1 | **«Debt» of an evening participant has four definitions.** Common core: attended, not waived, `amount_due > amount_paid`, evening completed or settled. Differences: (a) CRM player list `outstanding_debt` — no date window, does not look at `payment_status = 'paid'`; (b) organizer reminder — 60-day window, **also excludes `payment_status = 'paid'`**; (c) `clubOrderService` — a `since` window, does not exclude `paid`; (d) the player cabinet `historical_debt` — summed in JS from `serializePayment().outstanding` over settled evenings, per row, with its own payment-expected filter | open — a participant whose `payment_status` says `paid` while `amount_paid < amount_due` (a contradiction) is a debtor in (a), (c), (d) and not in (b). Needs the owner's decision which rule is right and then one shared SQL fragment; **no accounting code is changed in a refactor** |
+| F2 | `SUM(ep.amount_due - ep.amount_paid)` without a per-row clamp exists only where `amount_due > amount_paid` is also filtered, so an overpayment cannot offset another debt | checked |
+| F3 | Money rounding is plain `Math.round(x*100)/100` in the payment services (see D4); not touched | open (D4) |
+
+### Programme step 9 — live game / OBS (audit and plan, 2026-10-24; nothing changed)
+
+Facts: `LiveGameEngine.tsx` 1981 lines plus 14 files in `LiveGameEngine/` (7500 lines in all); the pure models already extracted are `engineStateModel`, the night-target, day-speech, hotkey, flow, clock and journal models, each with its own test; the engine has scenario tests for reload/restore, emergency recovery, voting flow, death protocol, exited-player actions and winner restore.
+
+| # | Finding / plan | Status |
+|---|----------------|--------|
+| L1 | The next safe extraction candidates are the vote-round bookkeeping and the winner check that still sit inside the component (`current.day_number === 0 ? 'voted_zero_round' : 'voted_day'` appears twice in `LiveGameEngine.tsx`; the exit reason texts are written again in `SeatCard`, `liveGameState`, `liveBroadcast`) | planned — each as a pure function with a scenario test first, no layout change |
+| L2 | The engine has no single exit-reason label function: five copies of «Заголосован…» wording with small differences (`SeatCard`, `liveGameState`, `PlayerGameCard`, `PlayerGameDetail`, the protocol tags) | open — the wording differs on purpose per screen (lower case, «в 0 круге» / «в нулевой круг»); a shared function with a `style` argument is possible, needs the owner to confirm the wording |
+| L3 | Engine state is snapshot-driven; the event journal copies native evidence (`liveEngineJournal`); restoring every field from the journal alone and the CRM seat/identity correction events remain the target of domain-model step 7 | open — design to be shown to the owner before code |
+| L4 | No engine layout or state-machine change is made in a refactor (owner constraint) | rule |

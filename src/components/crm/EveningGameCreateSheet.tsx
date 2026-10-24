@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { AlertCircle, Search, Shuffle, UserPlus, Users, X } from 'lucide-react';
@@ -147,7 +148,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   // Seats are numbered from #1 without gaps, so a smaller table takes the first seats.
   const seatsContiguous = seats.slice(0, selectedCount).every(Boolean);
   const sizeReady = tableSizes.includes(selectedCount) && seatsContiguous;
-  const eveningCanStart = ['published', 'active'].includes(String(evening.status || '')) && !evening.settled_at;
+  const eveningCanStart = isOpenEvening(evening);
   const missingPresent = Math.max(0, minTable - eligible.length);
   // Registered or answered «going» but attendance not marked yet: the usual reason for a short list.
   const awaitingArrival = roster.filter((participant) => !eligibleIds.has(participant.id) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined').length;

@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -349,7 +350,7 @@ const ensureParticipantForVk = async (db: DatabaseWrapper, evening: EveningRow, 
   if (!playerLevelAllowsEveningFormat(player.game_level, evening.format)) {
     return { participant: null, blocked: 'Формат вечера недоступен этому игроку' };
   }
-  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     return { participant: null, blocked: 'Ответы на этот вечер уже недоступны' };
   }
 

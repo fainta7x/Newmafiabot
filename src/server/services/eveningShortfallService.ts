@@ -1,3 +1,4 @@
+import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -21,12 +22,26 @@ export const CANCEL_PROMPT_HOURS = 1;
 
 export const eveningMinimumPlayers = (format: unknown) => (normalizeEveningFormat(format) === 'NOVICE' ? 8 : 10);
 
+/**
+ * The one way an evening becomes «cancelled» (organizer or shortfall): the status changes only from the status the caller
+ * saw and only while the evening is not settled, then the cancellation is recorded and the players and the organizer
+ * are told. `false` means somebody else changed the evening first, nothing was recorded or sent. The announcement post
+ * is published by the caller, because it differs (the organizer waits for it, the automatic path only logs a failure).
+ */
+export async function commitEveningCancellation(db: DatabaseWrapper, eveningId: string, reason: string, fromStatus: string, at = new Date().toISOString()): Promise<boolean> {
+  const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = ? AND settled_at IS NULL", [at, eveningId, fromStatus]);
+  if (!changed.changes) return false;
+  await recordEveningCancellation(db, eveningId, reason);
+  await notifyEveningCancelled(db, eveningId, reason);
+  return true;
+}
+
 export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: string, now = Date.now(), automatic = false) {
   await ensureGuestPlayerPlaceholderSchema(db);
   const evening = await db.get<any>('SELECT id, format, status, starts_at, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   if (evening.status === 'cancelled') return false;
-  if (!['published', 'active'].includes(evening.status) || evening.settled_at || normalizeEveningFormat(evening.format) === 'TOURNAMENT')
+  if (!isOpenEvening(evening) || normalizeEveningFormat(evening.format) === 'TOURNAMENT')
     throw Object.assign(new Error('Этот вечер нельзя отменить из-за недобора'), { statusCode: 409 });
   const games = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
   if (games) throw Object.assign(new Error('По вечеру уже есть игры; сначала проверьте их результаты'), { statusCode: 409 });
@@ -36,10 +51,7 @@ export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: 
   if (attended >= eveningMinimumPlayers(evening.format))
     throw Object.assign(new Error('На вечер пришло достаточно игроков'), { statusCode: 409 });
   if (automatic && !['published', 'active'].includes(evening.status)) return false;
-  const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = ? AND settled_at IS NULL", [new Date(now).toISOString(), eveningId, evening.status]);
-  if (!changed.changes) return false;
-  await recordEveningCancellation(db, eveningId, 'shortfall');
-  await notifyEveningCancelled(db, eveningId, 'shortfall');
+  if (!await commitEveningCancellation(db, eveningId, 'shortfall', evening.status, new Date(now).toISOString())) return false;
   // The old announcements stay as they were; the group and VK get a new message about it (owner, 2026-10-02).
   const { publishCancelPost } = await import('./eveningCancelService.ts');
   await publishCancelPost(db, eveningId, { reason: 'shortfall' }).catch((error) => console.warn('[SHORTFALL] cancellation post failed:', error));
@@ -140,7 +152,7 @@ export async function runEveningShortfallChecks(
   // After the start, act on attendance only once the organizer has checked every expected
   // player. Unmarked attendance is unknown, not evidence that nobody came.
   for (const evening of await db.all<any>(
-    `SELECT id, format FROM game_evenings WHERE status IN ('published','active') AND settled_at IS NULL
+    `SELECT id, format FROM game_evenings WHERE ${openEveningSql()}
        AND UPPER(COALESCE(format, '')) <> 'TOURNAMENT' AND datetime(starts_at) <= datetime(?)
        AND datetime(starts_at) > datetime(?)`,
     [new Date(now).toISOString(), new Date(now - 14 * 24 * HOUR).toISOString()],

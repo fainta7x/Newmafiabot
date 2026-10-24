@@ -1,3 +1,4 @@
+import { winRatePercent } from '../../shared/stats.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { GOMAFIA_NOMINATIONS, classifyGoMafiaTournamentSize, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
 import { useEffect, useState } from 'react';
@@ -71,7 +72,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const playedGames = displayed.flatMap((t: any) => Array.isArray(t.games) ? t.games : []);
   const resolvedGames = playedGames.filter((game: any) => game.result === 'win' || game.result === 'loss');
   const wins = resolvedGames.filter((game: any) => game.result === 'win').length;
-  const winRate = resolvedGames.length ? Math.round(wins * 1000 / resolvedGames.length) / 10 : null;
+  const winRate = resolvedGames.length ? winRatePercent(wins, resolvedGames.length) : null;
   const statPeriod = typeof snap?.year === 'number' ? `За ${snap.year} год` : snap?.tournamentFilter === 'Все турниры' ? 'За всё время' : 'Период источника не определён';
   const save = async () => {
     setBusy(true);

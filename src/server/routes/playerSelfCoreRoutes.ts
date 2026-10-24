@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
@@ -234,7 +235,7 @@ router.get('/games/all', async (req, res) => {
 
     const clubGames = clubRows.flatMap((row: any) => {
       const payload = safeJsonParse(row.protocol_text);
-      if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') return [];
+      if (!isCompletedClubGame(payload)) return [];
       return [{
         id: `club:${row.id}`,
         source: 'club',

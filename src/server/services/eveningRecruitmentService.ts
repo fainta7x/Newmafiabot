@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { loadEveningPeople } from './eveningPeopleService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -78,6 +79,6 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
     all_slots_ready: activeSlots.length > 0 && underfilledSlots.length === 0,
     slots: activeSlots,
     underfilled_slots: underfilledSlots,
-    can_recruit: ['published', 'active'].includes(String(evening.status)) && !evening.settled_at && underfilledSlots.length > 0,
+    can_recruit: isOpenEvening(evening) && underfilledSlots.length > 0,
   };
 }

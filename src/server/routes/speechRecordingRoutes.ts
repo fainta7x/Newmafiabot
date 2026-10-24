@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import express, { Router, type NextFunction, type Response } from 'express';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 
@@ -69,7 +70,7 @@ const getAuthorizedClubGame = async (req: AuthenticatedRequest, res: Response, a
   }
 
   const payload = safeParse(game.protocol_text);
-  if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') {
+  if (!isCompletedClubGame(payload)) {
     res.status(409).json({ error: 'Записи игроков доступны после завершения игры.' });
     return null;
   }

@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
@@ -62,8 +63,7 @@ const buildNotifications = async (db: any, playerId: string) => {
       JOIN players p ON p.id = i.inviter_player_id
      WHERE i.recipient_player_id = ?
        AND i.status IN ('sent', 'opened', 'accepted')
-       AND e.status IN ('published', 'active')
-       AND e.settled_at IS NULL
+       AND ${openEveningSql('e')}
        AND datetime(e.starts_at) >= datetime('now', '-6 hours')
      ORDER BY datetime(i.created_at) DESC
      LIMIT 1
@@ -87,8 +87,7 @@ const buildNotifications = async (db: any, playerId: string) => {
       JOIN game_evenings e ON e.id = ep.evening_id
      WHERE ep.player_id = ?
        AND ep.response_status IN ('going', 'late')
-       AND e.status IN ('published', 'active')
-       AND e.settled_at IS NULL
+       AND ${openEveningSql('e')}
        AND datetime(e.starts_at) >= datetime('now')
      ORDER BY datetime(e.starts_at) ASC
      LIMIT 1
@@ -121,8 +120,7 @@ const buildNotifications = async (db: any, playerId: string) => {
        WHERE t.player_id = ?
          AND t.first_sent_at IS NOT NULL
          AND COALESCE(ep.response_status, 'unanswered') NOT IN ('going', 'late', 'thinking', 'declined')
-         AND e.status IN ('published', 'active')
-         AND e.settled_at IS NULL
+         AND ${openEveningSql('e')}
          AND datetime(e.starts_at) >= datetime('now')
        ORDER BY datetime(e.starts_at) ASC
        LIMIT 1

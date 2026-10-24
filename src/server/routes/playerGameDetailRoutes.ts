@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { Router } from 'express';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
@@ -214,7 +215,7 @@ router.get('/games/:gameKey', async (req, res) => {
 
       const payload = safeJsonParse<any>(row.protocol_text);
       const protocol = payload?.protocol || {};
-      if (!payload || payload.kind !== 'club_evening_protocol' || protocol.status !== 'completed') {
+      if (!isCompletedClubGame(payload)) {
         return res.status(409).json({ error: 'Игра ещё не завершена' });
       }
 

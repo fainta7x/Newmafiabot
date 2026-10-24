@@ -1,6 +1,10 @@
 /** One shared completed-club-game read rule for seasonal snapshots and move statistics.
  * Never infer a result from a draft, an invalid protocol or an incomplete player-results array.
  */
+/** A finished (confirmed) club game envelope: the protocol is of the club kind and its status is «completed». The weaker rule of the screens that list or count games; the statistics add the player results (below). */
+export const isCompletedClubGame = (envelope: any): boolean =>
+  Boolean(envelope && envelope.kind === 'club_evening_protocol' && envelope.protocol?.status === 'completed');
+
 export const isCompletedClubGamePayload = (payload: any): boolean =>
   Boolean(payload && payload.kind === 'club_evening_protocol' &&
     payload.protocol?.status === 'completed' && Array.isArray(payload.player_results));

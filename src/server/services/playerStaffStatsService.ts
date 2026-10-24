@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from './completedClubGame.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
 
@@ -42,7 +43,7 @@ async function judgedByFormat(db: DatabaseWrapper, playerId: string, tables: Set
      WHERE g.judge_player_id = ? AND g.archived_at IS NULL AND (e.status IS NULL OR e.status != 'cancelled')`, [playerId]);
   for (const game of clubGames) {
     const payload = parse(game.protocol_text);
-    if (payload?.kind === 'club_evening_protocol' && payload.protocol?.status === 'completed') bump(normalizeEveningFormat(game.format));
+    if (isCompletedClubGame(payload)) bump(normalizeEveningFormat(game.format));
   }
   if (tables.has('tournament_games') && tables.has('tournament_game_protocols')) {
     const judge = (await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')

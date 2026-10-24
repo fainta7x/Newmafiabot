@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -188,7 +189,7 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
   await ensureEveningTodayPostSchema(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
-  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     throw Object.assign(new Error('Пост «Сегодня играем» можно выложить только для открытого вечера'), { statusCode: 409 });
   }
   const now = new Date().toISOString();

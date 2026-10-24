@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
 import { eveningSlotRoutes } from './eveningSlotRoutes.ts';
@@ -50,7 +51,7 @@ async function loadActionableEvening(db: any, eveningId: string) {
     [eveningId],
   );
   if (!evening) return { error: 'Игровой вечер не найден', status: 404 as const, evening: null };
-  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     return {
       error: 'Действие доступно только для опубликованного или активного вечера',
       status: 409 as const,

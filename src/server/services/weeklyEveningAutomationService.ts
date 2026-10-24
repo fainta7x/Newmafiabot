@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { loadPriceSettings } from './eveningPriceSettingsService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { randomUUID } from 'node:crypto';
@@ -257,8 +258,7 @@ export async function runDueWeeklyAnnouncements(
   const rows = await db.all<any>(`
     SELECT id, title, starts_at, format, status, settled_at
       FROM game_evenings
-     WHERE status IN ('published', 'active')
-       AND settled_at IS NULL
+     WHERE ${openEveningSql()}
      ORDER BY starts_at ASC
   `);
 

@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { NoviceApplicationStatus, NoviceEntryRoute } from '../../shared/novice.ts';
@@ -16,7 +17,7 @@ async function syncSelectedEvening(db: DatabaseWrapper, eveningId: string) {
 /** A selected evening becomes an actual «Иду», not an indefinite application-only hold. */
 async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string, playerId: string, byPlayer: boolean) {
   const evening = await db.get<any>("SELECT id, status, settled_at FROM game_evenings WHERE id = ?", [eveningId]);
-  if (!evening || !['published', 'active'].includes(String(evening.status)) || evening.settled_at) return false;
+  if (!evening || !isOpenEvening(evening)) return false;
   const stamp = now();
   await db.run(`INSERT OR IGNORE INTO evening_participants
     (id, evening_id, player_id, response_status, registration_status, attendance_status, arrival_status,

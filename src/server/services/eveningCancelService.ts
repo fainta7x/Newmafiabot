@@ -2,7 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
-import { notifyEveningCancelled, recordEveningCancellation } from './eveningShortfallService.ts';
+import { commitEveningCancellation } from './eveningShortfallService.ts';
 import { sendTelegram, sendVk } from './eveningTodayPostService.ts';
 
 /**
@@ -99,11 +99,8 @@ export async function cancelEveningByOrganizer(db: DatabaseWrapper, eveningId: s
   if (evening.status !== 'published' || evening.settled_at) throw Object.assign(new Error('Отменить можно только вечер, который ещё не начался'), { statusCode: 409 });
   const games = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
   if (games) throw Object.assign(new Error('По вечеру уже есть игры'), { statusCode: 409 });
-  const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'published' AND settled_at IS NULL", [new Date().toISOString(), eveningId]);
-  if (!changed.changes) return loadCancelPost(db, eveningId);
   const reason = input.reason || 'organizer';
-  await recordEveningCancellation(db, eveningId, reason);
-  await notifyEveningCancelled(db, eveningId, reason);
+  if (!await commitEveningCancellation(db, eveningId, reason, 'published')) return loadCancelPost(db, eveningId);
   // The old announcements stay as they were: the cancellation is a new message (owner, 2026-10-02).
   return publishCancelPost(db, eveningId, { text: input.text, reason }, fetchImpl);
 }

@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { Router } from 'express';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { generateAnonymousTestamentExercises } from '../../lib/anonymousTestamentTraining.ts';
@@ -16,7 +17,7 @@ router.get('/anonymous-testaments', async (req, res) => {
     );
     for (const game of games) {
       const payload = json(game.protocol_text);
-      if (payload?.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') continue;
+      if (!isCompletedClubGame(payload)) continue;
       source.push({
         gameKey: 'club:' + game.id,
         events: sanitizeLiveGameEvents(payload.protocol?.events),

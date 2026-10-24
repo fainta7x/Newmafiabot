@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from './completedClubGame.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { AnalyticsRange } from '../../lib/analyticsPeriod.ts';
 import { MEMBER_SQL } from './organizerAgendaService.ts';
@@ -37,7 +38,7 @@ export async function loadClubStaff(db: DatabaseWrapper, range: AnalyticsRange) 
        WHERE g.archived_at IS NULL AND julianday(COALESCE(e.starts_at, g.created_at)) >= julianday(?) AND julianday(COALESCE(e.starts_at, g.created_at)) < julianday(?)`, [since, until]);
     for (const game of clubGames) {
       let completed = false;
-      try { const payload = JSON.parse(String(game.protocol_text || '')); completed = payload?.kind === 'club_evening_protocol' && payload.protocol?.status === 'completed'; } catch { completed = false; }
+      try { const payload = JSON.parse(String(game.protocol_text || '')); completed = isCompletedClubGame(payload); } catch { completed = false; }
       if (completed) bump(String(game.id), String(game.nickname), 'games', 1);
     }
     if (tables.has('tournament_games')) {

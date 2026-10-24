@@ -1748,3 +1748,18 @@ Scope: each `LiveGameEventKind` in `src/shared/liveGameEvents.ts` checked for be
 | C7 | Two protocol editors (club copy of the tournament one) | fixed — one hook + one workspace, two thin adapters; old `ProtocolVotingTab` / `ProtocolNightsTab` / `ProtocolSummaryTab` / `PlayerColorProtocolEditor` / `GameEventLog` removed |
 | C8 | Shot target change left the chronology's `shot_target` event stale (replay/analysis showed the old target) | fixed |
 | C9 | Night shot had a third result «не договорились» nobody asked for | fixed — only killed / miss |
+
+## 2026-10-24 — TournamentDetailViewBase inventory (before extracting its state)
+
+Scope: `src/components/crm/tournaments/TournamentDetailViewBase.tsx` (1620 lines, 34 `useState`, no component test of its own; only the step-screen path is exercised indirectly by `protocolModal`-era tests that no longer exist). Read-only inventory; nothing changed yet.
+
+| # | Cluster | State / handlers | Proposed owner |
+|---|---------|------------------|----------------|
+| T1 | Loading | `tournament`, `loading`, `loadError`, `refreshTrigger`, `loadDetail({silent})`, first-game auto-select | `useTournamentDetail` (load + silent refresh + error with status) |
+| T2 | Lifecycle actions | `handleCompleteTournament`, `handleReopenTournament`, `handleCancelTournament`, start modal (`handleOpenStartModal`, `handleConfirmStartTournament`), `actionLoading`, `feedbackMsg` | `useTournamentLifecycle` (one place for confirm → API → feedback → reload) |
+| T3 | Game corrections | `handleCorrectGame` (+ `correctGameAfterReopen` chain), `handleResetGameToPlanned`, `handleDropLastGame` | `useTournamentGameCorrections` |
+| T4 | Seating | `handleRegenerateSeating`, `handleSwapSeats`, `handleAssignRole`, `handleSaveJudge`, `handleSendSeatMessages`, swap modal state | `useTournamentSeating` |
+| T5 | Modals | start, edit data, edit roster, seating export, protocol import, protocol window, results PNG export, live game, roles fix | keep local (pure UI flags) |
+| T6 | Rights | `tournamentGameEditRights` | already a pure function — keep |
+
+Risk: T3 (`handleCorrectGame` ↔ `handleReopenTournament`) is a two-step chain with a partial-failure branch — characterization tests first. No behaviour or copy may change. Status: open.

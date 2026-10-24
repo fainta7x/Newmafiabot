@@ -347,7 +347,7 @@ export const computeChanges = (base: ProtocolState, current: ProtocolState): Cha
     const before = (base.protocol.shots || []).find((shot) => Number(shot.night_number) === night);
     const after = (current.protocol.shots || []).find((shot) => Number(shot.night_number) === night);
     if (JSON.stringify(before ?? null) === JSON.stringify(after ?? null)) continue;
-    const text = (shot: typeof before) => (!shot ? 'нет' : shot.result === 'killed' ? `убит #${shot.target_seat}` : shot.result === 'miss' ? `промах по #${shot.target_seat}` : 'не договорились');
+    const text = (shot: typeof before) => (!shot ? 'нет' : shot.result === 'killed' ? `убит #${shot.target_seat}` : shot.target_seat ? `промах по #${shot.target_seat}` : 'промах');
     changes.push({
       key: `shot-${night}`, label: `Ночь ${night}: выстрел`, was: text(before), now: text(after),
       revert: (state) => {

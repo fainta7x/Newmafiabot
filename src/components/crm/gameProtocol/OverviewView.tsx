@@ -28,7 +28,7 @@ const circleTags = (circle: CircleModel, api: ProtocolApi, nameOf: (seat: number
   const shot = circle.shotIndex >= 0 ? api.protocol.shots?.[circle.shotIndex] : null;
   const tags: React.ReactNode[] = [];
   if (rounds.some((round) => !round.is_revote)) tags.push(out.length ? <InfoTag key="v" tone="vote" icon={Vote}>Ушёл {out.map(nameOf).join(', ')}</InfoTag> : <InfoTag key="v" icon={Vote}>Никто не ушёл</InfoTag>);
-  if (shot) tags.push(shot.result === 'killed' ? <InfoTag key="n" tone="night" icon={Moon}>Ночью {nameOf(shot.target_seat)}</InfoTag> : <InfoTag key="n" tone="night" icon={Moon}>{shot.result === 'miss' ? 'Ночью промах' : 'Ночью не договорились'}</InfoTag>);
+  if (shot) tags.push(shot.result === 'killed' ? <InfoTag key="n" tone="night" icon={Moon}>Ночью {nameOf(shot.target_seat)}</InfoTag> : <InfoTag key="n" tone="night" icon={Moon}>Ночью промах</InfoTag>);
   return tags.length ? tags : [<span key="e" className="text-[12px] text-white/40">без записей</span>];
 };
 

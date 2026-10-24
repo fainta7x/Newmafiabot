@@ -242,7 +242,7 @@ describe('club live session evidence', () => {
     expect(shotFromResolvedNight({
       phase: 'night', roundNumber: 2, nightSubPhase: 'morning', shotPlayerSlot: null,
       activePlayers: [],
-    })).toEqual({ night_number: 2, target_seat: 0, result: 'agreement_failed' });
+    })).toEqual({ night_number: 2, target_seat: 0, result: 'miss' });
   });
 });
 

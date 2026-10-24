@@ -339,8 +339,8 @@ export function validateShots(shots: any, tableSize = 10): string | null {
     }
 
     const ts = Number(s.target_seat);
-    // A night where the mafia did not agree on a target has no seat (the live recorder writes 0 for it).
-    const noTarget = s.result === 'agreement_failed' && (s.target_seat === 0 || s.target_seat === null || s.target_seat === undefined);
+    // A night without a named target is a miss and has no seat (the live recorder writes 0 for it; old games say agreement_failed).
+    const noTarget = (s.result === 'agreement_failed' || s.result === 'miss') && (s.target_seat === 0 || s.target_seat === null || s.target_seat === undefined);
     if (!noTarget && (!Number.isInteger(ts) || ts < 1 || ts > tableSize)) {
       return `Номер цели должен быть целым числом от 1 до ${tableSize}`;
     }

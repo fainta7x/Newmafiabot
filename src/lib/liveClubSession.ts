@@ -113,7 +113,7 @@ const nightResolutionHappened = (previous: LiveSessionSnapshot | null, current: 
 export const shotFromResolvedNight = (snapshot: LiveSessionSnapshot): ShotEntry => {
   const nightNumber = Math.max(1, Number(snapshot.roundNumber || 1));
   const targetSeat = Number(snapshot.shotPlayerSlot || 0);
-  if (!targetSeat) return { night_number: nightNumber, target_seat: 0, result: 'agreement_failed' };
+  if (!targetSeat) return { night_number: nightNumber, target_seat: 0, result: 'miss' };
   // The mafia can only name a player who is still at the table, so a named target is a kill. Reading «already dead in the
   // snapshot» as a miss (the first version) recorded every kill as a miss as soon as the engine applied the kill earlier.
   return { night_number: nightNumber, target_seat: targetSeat, result: 'killed' };

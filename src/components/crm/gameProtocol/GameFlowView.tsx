@@ -32,7 +32,6 @@ type Sheets =
 const SHOT_OPTIONS = [
   { value: 'killed', label: 'Убит' },
   { value: 'miss', label: 'Промах' },
-  { value: 'agreement_failed', label: 'Не договорились' },
 ];
 
 const CANDIDATE_TONES = ['bg-white/12 text-white', 'bg-rose-300/[0.16] text-rose-50', 'bg-sky-300/[0.16] text-sky-50', 'bg-violet-300/[0.16] text-violet-50', 'bg-amber-300/[0.16] text-amber-50'];
@@ -164,7 +163,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const shotText = shot ? (
     <span className="flex flex-wrap items-center gap-2">
       {shot.target_seat ? <span>#{shot.target_seat} {nameOf(shot.target_seat)}</span> : null}
-      {shot.result === 'killed' ? <ExitTag exit="killed" /> : shot.result === 'miss' ? <InfoTag tone="attention">Промах</InfoTag> : <InfoTag tone="attention">Не договорились</InfoTag>}
+      {shot.result === 'killed' ? <ExitTag exit="killed" /> : shot.result === 'miss' ? <InfoTag tone="attention">Промах</InfoTag> : <InfoTag tone="attention">Промах</InfoTag>}
     </span>
   ) : null;
   const firstKilled = api.results.find((player) => player.participant_id === protocol.first_killed_participant_id) || null;
@@ -298,7 +297,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
             <SeatGrid label="Цель выстрела" size={api.tableSize} disabled={api.locked} selected={entry.target_seat ? [entry.target_seat] : []} onToggle={(seat) => api.changeShot(sheet.index, seat, entry.result)} tone="night" />
           </section>
           <section className="space-y-2" aria-label="Результат"><Eyebrow>Результат</Eyebrow>
-            <Segmented label="Результат выстрела" disabled={api.locked} value={entry.result} options={SHOT_OPTIONS} cols={3} onChange={(value) => api.changeShot(sheet.index, entry.target_seat, value as 'killed' | 'miss' | 'agreement_failed')} />
+            <Segmented label="Результат выстрела" disabled={api.locked} value={entry.result === 'killed' ? 'killed' : 'miss'} options={SHOT_OPTIONS} cols={2} onChange={(value) => api.changeShot(sheet.index, entry.target_seat, value as 'killed' | 'miss' | 'agreement_failed')} />
           </section>
           <Btn kind="danger" block disabled={api.locked} onClick={() => { api.deleteNight(sheet.index); close(); }}>Удалить эту ночь</Btn>
         </div>

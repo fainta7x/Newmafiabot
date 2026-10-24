@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getJson, RequestJsonError, requestJson, sendJson } from '../lib/requestJson.ts';
+import { getJson, getJsonIfOk, RequestJsonError, requestJson, sendJson } from '../lib/requestJson.ts';
 
 const mockFetch = (status: number, body: unknown, jsonThrows = false) => {
   const fetchMock = vi.fn(async () => ({
@@ -88,5 +88,25 @@ describe('requestJson', () => {
     await expect(requestJson('/api/x', undefined, 'Не получилось')).rejects.toThrow('Пусто');
     mockFetch(500, null, true);
     await expect(requestJson('/api/x', undefined, 'Не получилось')).rejects.toThrow('Не получилось');
+  });
+});
+
+describe('getJsonIfOk', () => {
+  it('returns the body on success and sends the cookie session', async () => {
+    const fetchMock = mockFetch(200, { id: 'x' });
+    expect(await getJsonIfOk('/api/x', { cache: 'no-store' })).toEqual({ id: 'x' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/x', { credentials: 'include', cache: 'no-store' });
+  });
+
+  it('returns null for a non-OK answer instead of throwing, whatever the body is', async () => {
+    mockFetch(404, { error: 'нет' });
+    expect(await getJsonIfOk('/api/x')).toBeNull();
+    mockFetch(500, null, true);
+    expect(await getJsonIfOk('/api/x')).toBeNull();
+  });
+
+  it('still throws on a network failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    await expect(getJsonIfOk('/api/x')).rejects.toThrow('offline');
   });
 });

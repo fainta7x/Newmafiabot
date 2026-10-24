@@ -22,6 +22,16 @@ export async function getJson<T = any>(url: string, fallbackError: string, init:
 }
 
 /**
+ * Same-origin JSON read for a lookup that may simply not find anything (a «try this kind of record, then the next» probe):
+ * a non-OK answer is `null`, not an error. A network failure still throws, like `getJson`.
+ */
+export async function getJsonIfOk<T = any>(url: string, init: { cache?: RequestCache } = {}): Promise<T | null> {
+  const response = await fetch(url, { credentials: 'include', ...init });
+  const body = await response.json().catch(() => ({}));
+  return response.ok ? (body as T) : null;
+}
+
+/**
  * Same-origin JSON write with the cookie session: `payload` (when given) is sent as JSON. Failure handling is the
  * same as `getJson`, so it replaces the hand-written `fetch(…, { method, credentials, headers, body })` +
  * `if (!response.ok) throw new Error(body?.error || '…')` blocks one for one.

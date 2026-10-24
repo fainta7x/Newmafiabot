@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
 import PlayerPokerTournamentDetail from './PlayerPokerTournamentDetail.tsx';
 import PlayerCustomEventDetail from './PlayerCustomEventDetail.tsx';
-import { getJson } from '../../lib/requestJson.ts';
+import { getJson, getJsonIfOk, sendJson } from '../../lib/requestJson.ts';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
 
 type EventSlot = {
@@ -184,9 +184,8 @@ export default function PlayerEventsCalendar({
         setNoviceState(body.novice_state);
       } else {
         // The fallback request is independent and can outlive a month change.
-        const noviceResponse = await fetch('/api/player/novice', { credentials: 'include', cache: 'no-store' });
-        const noviceBody = await noviceResponse.json().catch(() => ({}));
-        if (requestId === calendarRequestSeq.current && noviceResponse.ok && noviceBody?.player) setNoviceState(noviceBody);
+        const noviceBody = await getJsonIfOk<any>('/api/player/novice', { cache: 'no-store' });
+        if (requestId === calendarRequestSeq.current && noviceBody?.player) setNoviceState(noviceBody);
       }
     } catch (loadError: any) {
       if (requestId !== calendarRequestSeq.current) return;
@@ -217,9 +216,8 @@ export default function PlayerEventsCalendar({
 
     void (async () => {
       try {
-        const customResponse = await fetch(`/api/custom-events/${encodeURIComponent(requestedEventId)}`, { credentials: 'include' });
-        const customBody = await customResponse.json().catch(() => ({}));
-        if (customResponse.ok && !cancelled && customBody?.id) {
+        const customBody = await getJsonIfOk<any>(`/api/custom-events/${encodeURIComponent(requestedEventId)}`);
+        if (customBody && !cancelled && customBody?.id) {
           const event: EventItem = {
             id: String(customBody.id), title: String(customBody.title || 'Ивент'), starts_at: String(customBody.starts_at || ''),
             venue: customBody.venue ?? null, format: 'CUSTOM', event_type: 'custom', participant_count: Number(customBody.participant_count || 0),
@@ -228,18 +226,16 @@ export default function PlayerEventsCalendar({
           setSelected(event); if (!initialEventId && queryEventId) onEventChange?.(event.id); return;
         }
         if (requestedEventId.startsWith('ptr_')) {
-          const pokerResponse = await fetch(`/api/player/poker/tournaments/${encodeURIComponent(requestedEventId)}`, { credentials: 'include' });
-          const pokerBody = await pokerResponse.json().catch(() => ({}));
-          if (pokerResponse.ok && !cancelled && pokerBody?.tournament?.id) {
+          const pokerBody = await getJsonIfOk<any>(`/api/player/poker/tournaments/${encodeURIComponent(requestedEventId)}`);
+          if (pokerBody && !cancelled && pokerBody?.tournament?.id) {
             const t = pokerBody.tournament;
             setSelected({ id: String(t.id), title: String(t.title || 'Покерный турнир'), starts_at: String(t.start_at || ''), venue: null, format: 'POKER', event_type: 'poker', poker_status: t.status, participant_count: Number(t.players || 0) });
             if (!initialEventId && queryEventId) onEventChange?.(String(t.id));
             return;
           }
         }
-        const tournamentResponse = await fetch(`/api/tournaments/evenings/${encodeURIComponent(requestedEventId)}`, { credentials: 'include' });
-        const tournamentBody = await tournamentResponse.json().catch(() => ({}));
-        if (tournamentResponse.ok && !cancelled && tournamentBody?.id) {
+        const tournamentBody = await getJsonIfOk<any>(`/api/tournaments/evenings/${encodeURIComponent(requestedEventId)}`);
+        if (tournamentBody && !cancelled && tournamentBody?.id) {
           const event: EventItem = {
             id: String(tournamentBody.id || requestedEventId),
             title: String(tournamentBody.title || 'Турнир'),
@@ -254,9 +250,8 @@ export default function PlayerEventsCalendar({
           return;
         }
 
-        const response = await fetch(`/api/player/evenings/${encodeURIComponent(requestedEventId)}/slots`, { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || cancelled || !body?.event) return;
+        const body = await getJsonIfOk<any>(`/api/player/evenings/${encodeURIComponent(requestedEventId)}/slots`);
+        if (!body || cancelled || !body?.event) return;
         const event: EventItem = {
           id: String(body.event.id || requestedEventId),
           title: String(body.event.title || 'Игровой вечер'),
@@ -308,16 +303,13 @@ export default function PlayerEventsCalendar({
       .filter((event) => eventKind(event) === expectedKind && ((!event.event_type || event.event_type === 'evening') || new Date(event.starts_at).getTime() >= Date.now() - 6 * 60 * 60 * 1000))
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
     try {
-      const response = await fetch('/api/player/novice/applications', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        // Choosing the novice path alone never books an evening. An older pending
-        // application can explicitly retain its selected evening when resumed.
-        body: JSON.stringify({ entry_route: entryRoute, evening_id: selectedEveningId === undefined
+      // Choosing the novice path alone never books an evening. An older pending
+      // application can explicitly retain its selected evening when resumed.
+      const body = await sendJson<any>('/api/player/novice/applications', 'POST', {
+        entry_route: entryRoute, evening_id: selectedEveningId === undefined
           ? (entryRoute === 'EXPERIENCED' ? target?.id || null : null)
-          : selectedEveningId }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось отправить заявку');
+          : selectedEveningId,
+      }, 'Не удалось отправить заявку');
       setNoviceState(body.state || noviceState);
       setApplicationMessage(entryRoute === 'NOVICE' ? 'Готово! Теперь можно выбрать новичковый вечер и ответить «Иду».'
         : body.created ? '' : 'Такая заявка уже находится на рассмотрении.');

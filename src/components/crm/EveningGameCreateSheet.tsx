@@ -381,7 +381,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           />
         </div>
 
-        <details className="rounded-[16px] border border-border-soft bg-surface-2">
+        <details open className="rounded-[16px] border border-border-soft bg-surface-2">
           <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 text-[11px] font-black text-text-secondary"><UserPlus className="h-4 w-4" />Добавить игрока клуба или гостя</summary>
           <div className="space-y-3 border-t border-border-soft p-3">
             <div className="space-y-1.5">

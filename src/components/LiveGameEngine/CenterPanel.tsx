@@ -996,6 +996,12 @@ export default function CenterPanel(props: CenterPanelProps) {
           </div>
         </div>
 
+        {autoCountdown !== null && (
+          <div data-testid="live-auto-notice" className="live-judge-hud__auto-notice" role="status">
+            <span>Авто: переход к следующему шагу через <b>{autoCountdown}</b></span>
+            <button type="button" onClick={stopAutoAdvance}>Остановить</button>
+          </div>
+        )}
         <div className="live-judge-hud__body">
           {phase === 'day_voting' && votingStage === 'revote_speeches'
             ? renderVoting()

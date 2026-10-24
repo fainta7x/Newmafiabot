@@ -21,9 +21,9 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
   });
 
   it('exposes explicit guest-to-registered-player correction and hands a seat to a guest only through the explicit guest flow', () => {
-    expect(protocolUi).toContain('Заменить гостя на зарегистрированного игрока');
+    expect(protocolUi).toContain('Заменить гостя на игрока клуба');
     expect(protocolUi).toContain('clubGamesApi.repairSeatIdentity');
-    expect(protocolUi).toContain('replacement_player_id: selectedReplacementPlayer.id');
+    expect(protocolUi).toContain('replacement_player_id: replacement.id');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
     expect(gamesRoute).toContain('replaceSeatWithGuest');
     expect(gamesRoute).toContain("if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed')");

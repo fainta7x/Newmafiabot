@@ -5,6 +5,7 @@ inside Amvera cannot notify anyone if the entire Amvera container is down.
 """
 import asyncio
 import logging
+import time
 
 import aiohttp
 from aiogram import Bot
@@ -48,10 +49,42 @@ async def _check_runtime() -> tuple[bool, str]:
         return False, f'{type(exc).__name__}: {exc}'
 
 
+class OutageTracker:
+    """Decides when an outage is worth a message.
+
+    A new build restarts the app and answers «503» for a few minutes; that is not an outage worth waking the owner for.
+    An alert is sent only after `threshold` consecutive failures that together last at least `min_outage_seconds`, and
+    a recovery message is sent only if that alert was sent (so a restart that recovered in time says nothing at all).
+    """
+
+    def __init__(self, threshold: int, min_outage_seconds: float) -> None:
+        self.threshold = max(1, threshold)
+        self.min_outage_seconds = max(0.0, float(min_outage_seconds))
+        self.failures = 0
+        self.first_failure_at: float | None = None
+        self.reported = False
+
+    def observe(self, healthy: bool, now: float) -> str | None:
+        """Returns 'alert', 'recovered' or None."""
+        if healthy:
+            event = 'recovered' if self.reported else None
+            self.failures = 0
+            self.first_failure_at = None
+            self.reported = False
+            return event
+        self.failures += 1
+        if self.first_failure_at is None:
+            self.first_failure_at = now
+        if (not self.reported and self.failures >= self.threshold
+                and now - self.first_failure_at >= self.min_outage_seconds):
+            self.reported = True
+            return 'alert'
+        return None
+
+
 async def runtime_alert_task(bot: Bot) -> None:
-    """Send one failure alert after consecutive failures and one recovery alert."""
-    failures = 0
-    outage_reported = False
+    """Send one failure alert for a lasting outage and one recovery alert."""
+    tracker = OutageTracker(config.RUNTIME_ALERT_FAILURE_THRESHOLD, config.RUNTIME_ALERT_MIN_OUTAGE_SECONDS)
     await asyncio.sleep(10)
 
     while True:
@@ -61,20 +94,16 @@ async def runtime_alert_task(bot: Bot) -> None:
             healthy = False
             reason = f'{type(exc).__name__}: {exc}'
 
-        if healthy:
-            if outage_reported:
-                await _notify(bot, '✅ 2LA Noire: связь бота с приложением и клубной базой восстановлена.')
-            failures = 0
-            outage_reported = False
-        else:
-            failures += 1
-            if failures >= config.RUNTIME_ALERT_FAILURE_THRESHOLD and not outage_reported:
-                await _notify(
-                    bot,
-                    '🚨 2LA Noire: приложение или клубная база недоступны. '
-                    f'Бот продолжает работать. Причина: {reason}',
-                )
-                outage_reported = True
-            logger.warning('Runtime backend health failed (%s/%s): %s', failures, config.RUNTIME_ALERT_FAILURE_THRESHOLD, reason)
+        event = tracker.observe(healthy, time.monotonic())
+        if event == 'recovered':
+            await _notify(bot, '✅ 2LA Noire: связь бота с приложением и клубной базой восстановлена.')
+        elif event == 'alert':
+            await _notify(
+                bot,
+                '🚨 2LA Noire: приложение или клубная база недоступны. '
+                f'Бот продолжает работать. Причина: {reason}',
+            )
+        if not healthy:
+            logger.warning('Runtime backend health failed (%s/%s): %s', tracker.failures, tracker.threshold, reason)
 
         await asyncio.sleep(config.RUNTIME_ALERT_INTERVAL_SECONDS)

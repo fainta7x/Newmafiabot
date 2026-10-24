@@ -163,6 +163,8 @@ Both financial adjustment paths must respect the unique source identity `(source
 
 Organizer game workflow lives in CRM evening-game components and current game/protocol routes. Pure player/discipline, shots and first-killed/best-move consistency belongs to `src/lib/protocolConsistency.ts`; club save service, tournament routes and tournament completion UI consume it. Club and tournament voting structure, hierarchy and completion are owned by `src/lib/protocolVotingValidation.ts` and reused by both servers and completion forms, parameterized by fixed table size and the stored club zero-round rule. Club protocols without historical ballot evidence retain their legacy save path; no ballots are invented. Tournament rules always use the tournament default.
 
+**One protocol window for both game kinds (2026-10-24).** `src/components/crm/gameProtocol/` owns the window and every edit (`useProtocolEditing`, `ProtocolWorkspace`); the club editor (`EveningGameProtocolModal`, `/api/games/:id/evening-protocol`) and the tournament editor (`tournaments/GameProtocolModal`, `/api/tournaments/...`) are adapters that load, save, confirm, reopen and may veto a change (`guards`) — the tournament asks before changes that cost points.
+
 Important ownership split:
 
 - server roster identity is canonical;

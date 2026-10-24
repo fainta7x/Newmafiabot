@@ -1745,3 +1745,6 @@ Scope: each `LiveGameEventKind` in `src/shared/liveGameEvents.ts` checked for be
 | C6 | «Number of versions» had to be derivable, not a hand-set switch | fixed — versions = 1 (Sheriff) + black reveals; the protocol records black reveals only, `reveal-checks-*` flags a black reveal without announced checks |
 | C4 | `role_corrected`, `player_reseated`, `table_vote`, `nomination_removed`, `shot_target`, `speech_start`, `game_end` have no dedicated view (only in the raw event log in «Итог») | open — judge to decide which of them deserve their own place |
 | C5 | Nominations and Don/Sheriff checks are display-only (no structured field) | open |
+| C7 | Two protocol editors (club copy of the tournament one) | fixed — one hook + one workspace, two thin adapters; old `ProtocolVotingTab` / `ProtocolNightsTab` / `ProtocolSummaryTab` / `PlayerColorProtocolEditor` / `GameEventLog` removed |
+| C8 | Shot target change left the chronology's `shot_target` event stale (replay/analysis showed the old target) | fixed |
+| C9 | Night shot had a third result «не договорились» nobody asked for | fixed — only killed / miss |

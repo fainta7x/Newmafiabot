@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { History, LayoutDashboard, Trophy, Users, X } from 'lucide-react';
+import { History, LayoutDashboard, Scale, Trophy, Users, X } from 'lucide-react';
 import { Chip, cx, type Tone } from './ui';
 
-export type ProtocolTab = 'overview' | 'game' | 'players' | 'result';
+export type ProtocolTab = 'overview' | 'game' | 'players' | 'result' | 'points';
 
 export const TAB_META: Array<{ id: ProtocolTab; label: string; title: string; icon: React.ElementType }> = [
   { id: 'overview', label: 'Обзор', title: 'Обзор', icon: LayoutDashboard },
   { id: 'game', label: 'Ход игры', title: 'Ход игры', icon: History },
   { id: 'players', label: 'Игроки', title: 'Игроки', icon: Users },
   { id: 'result', label: 'Итог', title: 'Итог игры', icon: Trophy },
+  { id: 'points', label: 'Баллы', title: 'Баллы судьи', icon: Scale },
 ];
 
 const SAVE_TEXT: Record<Tone, string> = {
@@ -25,6 +26,8 @@ type Props = {
   attention: number;
   onClose: () => void;
   rail?: React.ReactNode;
+  /** Places beyond the four every game has (a tournament adds «Баллы» for the judge's points). */
+  extraTabs?: ProtocolTab[];
   children: React.ReactNode;
 };
 
@@ -32,7 +35,8 @@ type Props = {
  * Frame of the protocol: one header with the only status that matters (saved or not), four places to go to, and the work
  * area. A phone gets the places at the bottom, under the thumb; a desktop gets them in a rail on the left.
  */
-export const ProtocolWindow: React.FC<Props> = ({ tab, onTab, title, subtitle, confirmed, save, attention, onClose, rail, children }) => {
+export const ProtocolWindow: React.FC<Props> = ({ tab, onTab, title, subtitle, confirmed, save, attention, onClose, rail, extraTabs = [], children }) => {
+  const tabs = TAB_META.filter((item) => item.id !== 'points' || extraTabs.includes('points'));
   // Each place starts at its top, not where the previous one was scrolled to.
   useEffect(() => { const scroller = document.getElementById('protocol-scroll'); if (scroller) scroller.scrollTop = 0; }, [tab]);
   return (
@@ -57,7 +61,7 @@ export const ProtocolWindow: React.FC<Props> = ({ tab, onTab, title, subtitle, c
     <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 lg:gap-6 lg:px-4">
       <aside className="hidden w-60 shrink-0 flex-col gap-4 overflow-y-auto py-5 lg:flex">
         <nav aria-label="Разделы протокола" className="flex flex-col gap-1">
-          {TAB_META.map((item) => {
+          {tabs.map((item) => {
             const Icon = item.icon;
             const on = item.id === tab;
             return (
@@ -77,8 +81,8 @@ export const ProtocolWindow: React.FC<Props> = ({ tab, onTab, title, subtitle, c
       </main>
     </div>
 
-    <nav aria-label="Разделы протокола" className="grid shrink-0 grid-cols-4 gap-1 border-t border-white/8 bg-[rgba(11,12,16,0.95)] px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur lg:hidden">
-      {TAB_META.map((item) => {
+    <nav aria-label="Разделы протокола" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }} className="grid shrink-0 gap-1 border-t border-white/8 bg-[rgba(11,12,16,0.95)] px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur lg:hidden">
+      {tabs.map((item) => {
         const Icon = item.icon;
         const on = item.id === tab;
         return (

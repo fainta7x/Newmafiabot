@@ -14,6 +14,14 @@ const NAV: Array<{ id: WalletView; label: string; icon: string }> = [
   { id: 'history', label: 'История', icon: '↺' },
 ];
 
+// Telegram/VK «Сделать ставку» opens /player/wallet?tab=bets.
+const initialWalletView = (): WalletView => {
+  try {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return NAV.some((item) => item.id === tab) ? tab as WalletView : 'payments';
+  } catch { return 'payments'; }
+};
+
 const rubles = (value: number | null) => value == null ? '…' : formatRubles(value);
 
 export default function PlayerWalletHub({
@@ -24,7 +32,7 @@ export default function PlayerWalletHub({
   tokenBalance: number;
   onBalanceChange: (balance: number) => void;
 }) {
-  const [view, setView] = useState<WalletView>('payments');
+  const [view, setView] = useState<WalletView>(initialWalletView);
   const [outstanding, setOutstanding] = useState<number | null>(null);
 
   useEffect(() => {

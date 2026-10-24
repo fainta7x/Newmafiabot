@@ -1,7 +1,7 @@
 import PersonalRecentEvening from './PersonalRecentEvening.tsx';
 import PersonalTeamwork from './PersonalTeamwork.tsx';
 import { useEffect, useMemo, useState } from 'react';
-import { getJson } from '../../lib/requestJson.ts';
+import { getJson, getJsonIfOk, sendJson } from '../../lib/requestJson.ts';
 
 type SharedGame = {
   id: string;
@@ -167,9 +167,8 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   const loadInbox = async () => {
     if (!isSelf) return;
     try {
-      const response = await fetch('/api/player/evening-invitations/inbox', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (response.ok) setInbox(Array.isArray(body.invitations) ? body.invitations : []);
+      const body = await getJsonIfOk<any>('/api/player/evening-invitations/inbox');
+      if (body) setInbox(Array.isArray(body.invitations) ? body.invitations : []);
     } catch {
       // Connections remain usable if invitation inbox cannot be refreshed.
     }
@@ -194,14 +193,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
     setBusy(true);
     setMessage('');
     try {
-      const response = await fetch(`/api/player/profiles/${encodeURIComponent(playerId)}/invitations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ evening_id: selectedEveningId }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось отправить приглашение');
+      const body = await sendJson<any>(`/api/player/profiles/${encodeURIComponent(playerId)}/invitations`, 'POST', { evening_id: selectedEveningId }, 'Не удалось отправить приглашение');
       setMessage(body.created === false ? 'Приглашение уже было отправлено.' : 'Приглашение отправлено. Игрок запишется на вечер сам.');
       await loadInviteContext();
     } catch (error: any) {
@@ -216,14 +208,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
     setBusy(true);
     setMessage('');
     try {
-      const response = await fetch(`/api/player/evening-invitations/${encodeURIComponent(invitation.id)}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ action }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось обработать приглашение');
+      await sendJson(`/api/player/evening-invitations/${encodeURIComponent(invitation.id)}/respond`, 'POST', { action }, 'Не удалось обработать приглашение');
       if (action === 'open') {
         openEvening(invitation.evening_id);
         return;

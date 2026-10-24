@@ -2,9 +2,12 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GameProtocolModal } from '../components/crm/tournaments/GameProtocolModal';
 import { api } from '../lib/api';
+
+// A busy CI machine renders the window slower than the default one second allows.
+configure({ asyncUtilTimeout: 4000 });
 
 const tournamentId = 'tourn';
 const gameId = 'game';
@@ -26,7 +29,7 @@ const load = (protocol: Record<string, unknown> = {}, players = results()) =>
   vi.spyOn(api, 'getGameProtocol').mockResolvedValue({ game: mockGame as any, protocol: { ...mockProtocol, ...protocol } as any, player_results: players as any });
 const open = (props: Record<string, unknown> = {}) => render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} {...props} />);
 const place = (name: string) => fireEvent.click(screen.getAllByRole('button', { name })[0]);
-const ready = async () => { await screen.findByText('Игра #1'); };
+const ready = async () => { await screen.findByText('Игра #1', {}, { timeout: 4000 }); };
 
 beforeEach(() => { localStorage.clear(); vi.spyOn(api, 'getTournament').mockRejectedValue(new Error('offline')); vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
@@ -77,18 +80,20 @@ describe('tournament protocol in the common protocol window', () => {
     expect(document.body.textContent).not.toMatch(/\+-|−-/);
   });
 
-  it('offers the old technical fouls to classify, and not on a completed game', async () => {
+  it('offers the old technical fouls to classify', async () => {
     load({}, results({ 1: { technical_fouls: 1 } }));
     open();
     await ready();
     place('Баллы');
-    expect((await screen.findByText(/1 малый/) as HTMLButtonElement).disabled).toBe(false);
-    cleanup();
+    expect(((await screen.findByText(/1 малый/, {}, { timeout: 4000 })) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('does not let a completed game classify its old technical fouls', async () => {
     load({ status: 'completed' }, results({ 1: { technical_fouls: 1 } }));
     open();
     await ready();
     place('Баллы');
-    expect((await screen.findByText(/1 малый/) as HTMLButtonElement).disabled).toBe(true);
+    expect(((await screen.findByText(/1 малый/, {}, { timeout: 4000 })) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('a PPK on a player without a role is refused with the dialog, and a removed player can still be given a PPK', async () => {

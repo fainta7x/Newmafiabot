@@ -1696,3 +1696,7 @@ Scope: everything merged after #1022 (696a1af..8330f47) and the open #1026. Chec
 - **Limit, recorded.** Roster events are journal-only: the engine keeps the old nickname at a seat after a CRM swap, while #1020 applies the swapped seat's role. The existing «moved seats» banner stays the judge's warning; identity-aware projection is still open (PROJECT_STATE).
 - **No defect.** #1025 and the open #1026 move the retry/«uncertain» rules into shared helpers with identical behaviour (17 attempts, 2 s doubling to 15 min, Retry-After bounds; cancellation not retried after an ambiguous failure).
 - **Deploy.** Amvera mirror cd0b2f1 = main at #1023; #1024 and #1025 were missed (RUNBOOK §9), the next merge brings them.
+
+## 2026-10-23 — Messaging ambiguous Telegram acknowledgements
+
+Audit: Telegram sender already had an implicit ambiguous boolean (5xx or thrown fetch); cancellation and shortfall notifications avoid retry on such outcomes to prevent duplicates, but ordinary personal messages still retry. VK uses a stable `random_id` on retry, unlike Telegram. The underlying delivery state does not yet expose a durable distinct `uncertain` status, and the Telegram sync outbox has its own 12-attempt policy. This slice factors the existing classification as a pure `messageDeliveryCertainty.ts` contract with tests and reuses it in Telegram, retaining current behavior. This **does not claim** reliable exactly-once Telegram delivery or resolve public-post ambiguity. No production writes or deployment.

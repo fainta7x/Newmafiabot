@@ -1,3 +1,4 @@
+import { mayRetryTelegramCancellation, telegramDeliveryCertainty } from './messageDeliveryCertainty.ts';
 import { PERSONAL_MESSAGE_MAX_RETRIES as MAX_RETRIES, personalMessageRetryDelayMs as retryDelayMs } from './personalMessageRetryPolicy.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -107,7 +108,7 @@ export async function sendTelegramMessage(
       if (photoResponse.ok && photoPayload?.ok !== false) return { ok: true };
       const retryable = photoResponse.status === 429 || photoResponse.status >= 500 || photoResponse.status === 408;
       if (retryable) {
-        return { ok: false, temporary: true, error: String(photoPayload?.description || `Telegram HTTP ${photoResponse.status}`), retryAfterSeconds: Number(photoPayload?.parameters?.retry_after || 0) || null, ambiguous: photoResponse.status >= 500 };
+        return { ok: false, temporary: true, error: String(photoPayload?.description || `Telegram HTTP ${photoResponse.status}`), retryAfterSeconds: Number(photoPayload?.parameters?.retry_after || 0) || null, ambiguous: telegramDeliveryCertainty({ ok: false, status: photoResponse.status }) === 'uncertain' };
       }
     }
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -127,9 +128,9 @@ export async function sendTelegramMessage(
     const retryAfterSeconds = Number(payload?.parameters?.retry_after || 0) || null;
     const temporary = response.status === 429 || response.status >= 500 || response.status === 408;
     // A 5xx may come after Telegram already accepted the message; only a 429 / 408 is a clean refusal.
-    return { ok: false, temporary, error, retryAfterSeconds, ambiguous: response.status >= 500 };
+    return { ok: false, temporary, error, retryAfterSeconds, ambiguous: telegramDeliveryCertainty({ ok: false, status: response.status }) === 'uncertain' };
   } catch (error: any) {
-    return { ok: false, temporary: true, ambiguous: true, error: error?.message || String(error) };
+    return { ok: false, temporary: true, ambiguous: telegramDeliveryCertainty({ ok: false, threw: true }) === 'uncertain', error: error?.message || String(error) };
   }
 }
 
@@ -184,7 +185,7 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     const failedAttempts = Number(current.retry_count || 0) + 1;
     // A cancellation notice is claimed before sending, so only an ambiguous failure (the request may have gone out) is
     // final; a clean refusal (429, 5xx, no token) never reached the chat and is retried like any other message.
-    const canRetry = Boolean(result.temporary) && !(cancellation && result.ambiguous) && failedAttempts < MAX_RETRIES;
+    const canRetry = Boolean(result.temporary) && (!cancellation || mayRetryTelegramCancellation(result.ambiguous ? 'uncertain' : 'rejected', true)) && failedAttempts < MAX_RETRIES;
     const storedRetryCount = canRetry ? failedAttempts : MAX_RETRIES;
     const nextAttemptAt = canRetry
       ? new Date(Date.now() + retryDelayMs(failedAttempts, result.retryAfterSeconds)).toISOString()

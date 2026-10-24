@@ -12,6 +12,11 @@ export interface VotingRound {
   outcome?: 'pending' | 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination';
   eliminated_seats?: number[];
   table_leave_votes?: number | null;
+  /**
+   * Set on a tie whose revote never took place because a removal cancelled the voting (BUSINESS_RULES, «Removal»): the tie
+   * stays on record, and the missing revote is not a gap in the protocol.
+   */
+  cancelled_by_removal?: boolean;
 }
 
 export type VotingOutcomeType =
@@ -300,7 +305,7 @@ export function validateChildLeadersOrder(parentRound: VotingRound, childRound: 
  */
 export function validateVotingHierarchy(votes: Partial<VotingRound>[]): string | null {
   for (const r of votes) {
-    if (r.outcome === 'tie_revote') {
+    if (r.outcome === 'tie_revote' && !r.cancelled_by_removal) {
       const parentNum = r.round_number;
       const dayNum = r.day_number ?? 0;
 

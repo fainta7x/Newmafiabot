@@ -1,5 +1,6 @@
 import { setItemFreeingSpace } from './liveStorageBudget.ts';
 import { determineVotingResult, type VotingRound } from '../shared/tournamentVoting';
+import { renumberVotingRoundsSequentially } from '../shared/votingRoundNumbers.ts';
 import type { ShotEntry } from './api';
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 import { appendLiveGameEvents, deriveLiveGameEvents, type LiveEventSnapshot } from './liveGameEventLog';
@@ -69,28 +70,7 @@ export const mergeLiveVotingRounds = (existing: VotingRound[], incoming: VotingR
   });
 };
 
-/**
- * The live engine numbers voting rounds from 1 on every day, but a tournament protocol needs round numbers that are
- * unique across the whole game (and revotes point to their parent by that number). Renumbers the rounds one after
- * another in game order and re-points `parent_round_number` inside the same day.
- */
-export const renumberVotingRoundsSequentially = (rounds: VotingRound[]): VotingRound[] => {
-  const ordered = rounds.map(cloneRound).sort((a, b) => {
-    const dayDiff = Number(a.day_number ?? 0) - Number(b.day_number ?? 0);
-    return dayDiff || Number(a.round_number ?? 0) - Number(b.round_number ?? 0);
-  });
-  const newNumberByKey = new Map<string, number>();
-  ordered.forEach((round, index) => newNumberByKey.set(roundKey(round), index + 1));
-  return ordered.map((round, index) => {
-    const parent = round.parent_round_number;
-    const parentKey = parent === null || parent === undefined ? null : `${Number(round.day_number ?? 0)}:${Number(parent)}`;
-    return {
-      ...round,
-      round_number: index + 1,
-      parent_round_number: parentKey === null ? (parent ?? null) : (newNumberByKey.get(parentKey) ?? parent ?? null),
-    };
-  });
-};
+export { renumberVotingRoundsSequentially };
 
 export const finalizeLiveVotingRounds = (snapshot: LiveSessionSnapshot | null | undefined): VotingRound[] => {
   const rounds = (snapshot?.votingRounds || []).map(cloneRound);
@@ -134,12 +114,9 @@ export const shotFromResolvedNight = (snapshot: LiveSessionSnapshot): ShotEntry 
   const nightNumber = Math.max(1, Number(snapshot.roundNumber || 1));
   const targetSeat = Number(snapshot.shotPlayerSlot || 0);
   if (!targetSeat) return { night_number: nightNumber, target_seat: 0, result: 'agreement_failed' };
-  const target = (snapshot.activePlayers || []).find((player) => Number(player.slot_num) === targetSeat);
-  return {
-    night_number: nightNumber,
-    target_seat: targetSeat,
-    result: target?.alive === false ? 'miss' : 'killed',
-  };
+  // The mafia can only name a player who is still at the table, so a named target is a kill. Reading «already dead in the
+  // snapshot» as a miss (the first version) recorded every kill as a miss as soon as the engine applied the kill earlier.
+  return { night_number: nightNumber, target_seat: targetSeat, result: 'killed' };
 };
 
 const mergeShots = (existing: ShotEntry[], incoming: ShotEntry): ShotEntry[] => {
@@ -170,8 +147,17 @@ export const updateLiveProtocolEvidence = (
     votes = mergeLiveVotingRounds(votes, finalized);
     // A voting that was left without a result (cancelled by a removal) is not a voting of the protocol: a round stuck
     // at "pending" would make the tournament refuse to complete the game.
-    const abandoned = new Set(finalized.filter((round) => round.outcome === 'pending').map(roundKey));
-    if (abandoned.size) votes = votes.filter((round) => !abandoned.has(roundKey(round)));
+    const abandonedRounds = finalized.filter((round) => round.outcome === 'pending');
+    const abandoned = new Set(abandonedRounds.map(roundKey));
+    if (abandoned.size) {
+      // A revote that never happened leaves its tie on record, marked, so the protocol does not look incomplete.
+      const cancelledParents = new Set(abandonedRounds
+        .filter((round) => round.is_revote && round.parent_round_number != null)
+        .map((round) => `${Number(round.day_number ?? 0)}:${Number(round.parent_round_number)}`));
+      votes = votes
+        .filter((round) => !abandoned.has(roundKey(round)))
+        .map((round) => round.outcome === 'tie_revote' && cancelledParents.has(roundKey(round)) ? { ...round, cancelled_by_removal: true } : round);
+    }
   }
   if (nightResolutionHappened(previous, current) && previous) {
     shots = mergeShots(shots, shotFromResolvedNight(previous));

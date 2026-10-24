@@ -2,6 +2,11 @@ import React from 'react';
 import { Moon, Plus, Trash2, Award } from 'lucide-react';
 import { TournamentGameProtocolData, PlayerResultData } from '../../../../lib/api';
 
+const EXIT_LABEL: Record<string, string> = {
+  alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом', voted_day: 'заголосован', removed: 'удалён',
+};
+const exitLabel = (value: unknown) => EXIT_LABEL[String(value || '')] || 'в игре';
+
 export interface ProtocolNightsTabProps {
   protocol: TournamentGameProtocolData;
   playerResults: PlayerResultData[];
@@ -108,7 +113,7 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
             <option value="">Не выбрано</option>
             {playerResults.map((p) => (
               <option key={p.participant_id} value={p.participant_id}>
-                #{p.seat_number} - {p.display_name} ({p.exit_type})
+                #{p.seat_number} - {p.display_name} ({exitLabel(p.exit_type)})
               </option>
             ))}
           </select>
@@ -127,7 +132,7 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
             <option value="">Не выбрано</option>
             {playerResults.map((p) => (
               <option key={p.participant_id} value={p.participant_id}>
-                #{p.seat_number} - {p.display_name} ({p.exit_type})
+                #{p.seat_number} - {p.display_name} ({exitLabel(p.exit_type)})
               </option>
             ))}
           </select>

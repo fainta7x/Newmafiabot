@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { ensureEveningTodayPostSchema } from './eveningTodayPostService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
@@ -87,7 +88,7 @@ async function eveningItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
   // A past evening that was never closed keeps payments, tokens and ratings unsettled.
   const unclosed = await db.all<any>(`
     SELECT id, title, starts_at FROM game_evenings
-     WHERE status IN ('published', 'active') AND settled_at IS NULL
+     WHERE ${openEveningSql()}
        AND datetime(starts_at) < datetime(?) AND datetime(starts_at) >= datetime(?)
      ORDER BY starts_at ASC LIMIT 5`, [iso(now - 12 * HOUR), since]);
   for (const row of unclosed) {

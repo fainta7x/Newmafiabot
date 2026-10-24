@@ -1,3 +1,4 @@
+import { winRatePercent } from '../../shared/stats.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 
@@ -136,7 +137,7 @@ export function buildAllPlayerConnectionAnalytics(snapshots: CompletedGameSnapsh
         same_team_games: row.same_team_games,
         opponent_games: row.opponent_games,
         same_team_wins: row.same_team_wins,
-        same_team_win_rate: row.same_team_games ? Math.round((row.same_team_wins / row.same_team_games) * 1000) / 10 : 0,
+        same_team_win_rate: winRatePercent(row.same_team_wins, row.same_team_games),
         recent_shared_games: row.recent_shared_games,
         last_played_at: row.last_played_at,
         last_shared_game_date: row.last_played_at,

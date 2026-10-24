@@ -26,13 +26,13 @@ The status column says whether the concept is **one** (a single definition), **d
 | Protocol (draft → completed) | one protocol pipeline | structural: club JSON in `games.protocol_text` versus the tournament tables |
 | Game event log | `src/shared/liveGameEvents.ts` | producer captures native protocol evidence at each persisted transition (`liveEngineJournal.ts`), consumers copy it; legacy recovery keeps polling until an observed role correction adopts its evidence. `role_corrected` commands project complete CRM roles onto current/Undo state. Target remains full engine event replay and seat/identity correction events |
 | A «game» for statistics | `server/services/completedClubGame.ts` (+ tournament twin) | rule?: drafts and planned games are counted in some places |
-| Win rate | `src/shared/stats.ts` | dup: three integer copies |
+| Win rate | `src/shared/stats.ts` `winRatePercent` | **one** (2026-10-24): the last two inline copies (`PlayerGoMafiaLink`, `playerConnectionAnalyticsService`) use it |
 | Achievements | `playerAchievementsService.ts` | structural: a second list lives in `playerProgressionRoutes.ts` |
-| Evening status and transitions | to create: `src/lib/eveningStatus.ts` | rule?: four meanings of an «open» evening |
+| Evening status and transitions | `src/lib/eveningStatus.ts` (`isOpenEvening`, `openEveningSql`) | **one** for «open» (2026-10-24): 23 copies of «published or active and not settled» now ask the owner module; `openEveningSingleOwner.test.ts` pins the 12 files that look at the status only, each with its reason |
 | Response (RSVP) | `src/lib/eveningDomain.ts`, `eveningResponse.ts` | dup: the rule is decided («Думаю» is not «Идут», owner 2026-10-23) and the Telegram roster follows it; Python still has 3 label sets |
 | Attendance, guest | `src/lib/eveningDomain.ts` | dup: «guest» means three different things |
 | Price, debt, paid | `eveningPriceSettingsService.ts`, `lib/eveningPrices.ts`, evening debt service | owner rule: updated tariffs apply immediately to all unclosed evenings; closed prices stay historical (#1022). Consolidating debt projections remains open |
-| Capacity, «недобор» | to create: one threshold module | rule?: 8/10 vs 9/11 vs per-game 11/4; the bot hard-codes 10 |
+| Capacity, «недобор» | `eveningShortfallService.ts` `eveningMinimumPlayers` (8 novice, 10 otherwise) | **one** in TypeScript (checked 2026-10-24: no other hard-coded thresholds in `src/server`, `src/lib`); the Python bot was fixed earlier (PROJECT_STATE) |
 | Player display name | to create: one display-name helper | decided (owner 2026-10-23): club nickname first; standings, nominations, awards and the broadcast follow it |
 | Outgoing message queue | to create: one retry policy | dup: 4 retry policies, 8 status sets |
 | Publication of a post (per channel) | to create: one publish-once module | dup: 2 designs; one can double-post after a timeout |

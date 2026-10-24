@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -97,7 +98,7 @@ export async function saveVkJoinResponse(db: DatabaseWrapper, eveningId: string,
     SELECT id, status, settled_at, format, default_price FROM game_evenings WHERE id=? LIMIT 1
   `, [eveningId]);
   if (!evening) throw Object.assign(new Error('Игровой вечер не найден'), { statusCode: 404 });
-  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     throw Object.assign(new Error('Ответы на этот вечер уже недоступны'), { statusCode: 410 });
   }
   const player = await db.get<any>('SELECT id, game_level FROM players WHERE id=? LIMIT 1', [playerId]);

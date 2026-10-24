@@ -1,3 +1,4 @@
+import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -26,7 +27,7 @@ export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: 
   const evening = await db.get<any>('SELECT id, format, status, starts_at, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   if (evening.status === 'cancelled') return false;
-  if (!['published', 'active'].includes(evening.status) || evening.settled_at || normalizeEveningFormat(evening.format) === 'TOURNAMENT')
+  if (!isOpenEvening(evening) || normalizeEveningFormat(evening.format) === 'TOURNAMENT')
     throw Object.assign(new Error('Этот вечер нельзя отменить из-за недобора'), { statusCode: 409 });
   const games = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
   if (games) throw Object.assign(new Error('По вечеру уже есть игры; сначала проверьте их результаты'), { statusCode: 409 });
@@ -140,7 +141,7 @@ export async function runEveningShortfallChecks(
   // After the start, act on attendance only once the organizer has checked every expected
   // player. Unmarked attendance is unknown, not evidence that nobody came.
   for (const evening of await db.all<any>(
-    `SELECT id, format FROM game_evenings WHERE status IN ('published','active') AND settled_at IS NULL
+    `SELECT id, format FROM game_evenings WHERE ${openEveningSql()}
        AND UPPER(COALESCE(format, '')) <> 'TOURNAMENT' AND datetime(starts_at) <= datetime(?)
        AND datetime(starts_at) > datetime(?)`,
     [new Date(now).toISOString(), new Date(now - 14 * 24 * HOUR).toISOString()],

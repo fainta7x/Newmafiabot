@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { inviteKindOfEvening, loadInvitePreferencesMap } from './playerInvitePreferencesService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -84,7 +85,7 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
       FROM evening_participants ep
       JOIN players p ON p.id = ep.player_id
       JOIN game_evenings e ON e.id = ep.evening_id
-     WHERE e.status IN ('published', 'active') AND e.settled_at IS NULL
+     WHERE ${openEveningSql('e')}
        AND COALESCE(p.contact_status, p.lifecycle_status, 'normal') NOT IN ('blocked', 'archived', 'inactive')
        AND COALESCE(ep.attendance_status, 'pending') = 'pending'
        AND datetime(e.starts_at) > datetime(?)

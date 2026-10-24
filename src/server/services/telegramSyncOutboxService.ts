@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { needsEveningStartConfirmation } from './eveningStartConfirmationStore.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
@@ -83,7 +84,7 @@ export async function automaticEveningSyncPolicy(
   // Closed/cancelled/settled evenings are safe to deliver: the bot plan has no
   // desired destinations, so it can only archive/finalize an existing post and
   // cannot create a new announcement. This preserves the final-sync contract.
-  if (!['published', 'active'].includes(String(evening.status || '')) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     return { deliver: true };
   }
 
@@ -111,7 +112,7 @@ export async function automaticEveningSyncPolicy(
 async function dispatchStillRelevant(db: DatabaseWrapper, kind: TelegramDispatchJobKind, entityId: string, now: Date) {
   if (kind === 'tournament') return true;
   const evening = await db.get<any>('SELECT starts_at, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [entityId]);
-  if (!evening || evening.settled_at || !['published', 'active'].includes(String(evening.status || ''))) return false;
+  if (!evening || !isOpenEvening(evening)) return false;
   const startMs = new Date(String(evening.starts_at || '')).getTime();
   return Number.isFinite(startMs) && startMs > now.getTime();
 }

@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
@@ -370,7 +371,7 @@ export async function syncDirectVkEveningPublications(
 ) {
   const evening = await loadEvening(db, eveningId);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
-  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+  if (!isOpenEvening(evening)) {
     throw Object.assign(new Error('VK-анонс можно публиковать только для открытого вечера'), { statusCode: 409 });
   }
 

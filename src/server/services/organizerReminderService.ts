@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadEveningRoute } from './eveningRouteService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
@@ -39,7 +40,7 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
 
   const evenings = await db.all<any>(
     `SELECT id, title, format, status, starts_at FROM game_evenings
-      WHERE status IN ('published', 'active') AND settled_at IS NULL
+      WHERE ${openEveningSql()}
         AND datetime(starts_at) >= datetime(?) AND datetime(starts_at) <= datetime(?)`,
     [new Date(now - 14 * 24 * HOUR).toISOString(), new Date(now + 2 * 24 * HOUR).toISOString()],
   );

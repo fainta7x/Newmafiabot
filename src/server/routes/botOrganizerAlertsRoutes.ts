@@ -1,3 +1,4 @@
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { applyOrganizerTaskAction } from '../services/organizerTaskQuickActions.ts';
@@ -43,8 +44,7 @@ router.get('/organizer-operations', async (req, res) => {
          FROM games g
          JOIN game_evenings e ON e.id = g.evening_id
         WHERE g.archived_at IS NULL
-          AND e.settled_at IS NULL
-          AND e.status IN ('published', 'active')
+          AND ${openEveningSql('e')}
         ORDER BY e.starts_at ASC, g.global_game_number ASC, g.id ASC`,
     );
     const draftGames = gameRows

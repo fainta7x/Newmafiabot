@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -350,7 +351,7 @@ export async function respondToEveningInvitation(
      LIMIT 1
   `, [invitationId, recipientPlayerId]);
   if (!invitation) throw new Error('Приглашение не найдено');
-  if (!['published', 'active'].includes(String(invitation.evening_status || '')) || invitation.settled_at) throw new Error('Игровой вечер уже закрыт');
+  if (!isOpenEvening({ status: invitation.evening_status, settled_at: invitation.settled_at })) throw new Error('Игровой вечер уже закрыт');
 
   const status: EveningInvitationStatus = action === 'open' ? 'opened' : action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'ignored';
   const now = nowIso();

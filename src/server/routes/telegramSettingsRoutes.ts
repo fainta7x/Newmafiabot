@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { isTelegramDestinationId } from '../../db/ensureTelegramPublishingSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -79,7 +80,7 @@ router.get('/evenings/:eveningId', async (req, res) => {
     const db = req.db;
     const evening = await db.get('SELECT id, format, status, settled_at FROM game_evenings WHERE id = ?', [req.params.eveningId]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    const desiredIds = ['published', 'active'].includes(String(evening.status)) && !evening.settled_at
+    const desiredIds = isOpenEvening(evening)
       ? routingForFormat(evening.format)
       : [];
     const destinations = await db.all(`SELECT id, name, chat_id, topic_id, active FROM telegram_destinations`);

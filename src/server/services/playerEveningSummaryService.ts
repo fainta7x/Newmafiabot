@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { resolveEveningMvp } from './eveningMvpService.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
@@ -61,7 +62,7 @@ type Aggregate = {
   roles: Set<string>;
 };
 
-const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const round = (value: number) => round2(value);
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
 
 const safeTableExists = async (db: any, table: string) => {

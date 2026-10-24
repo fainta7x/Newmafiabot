@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { runTodayPostSchedule } from './eveningTodayPostService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
@@ -18,7 +19,7 @@ const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
 let scanInFlight = false;
 
-const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
+const signed = (value: number) => `${value > 0 ? '+' : ''}${round2(value)}`;
 
 // Evening messages depend on the player's answer; see eveningRsvpNudgeService.
 // Tournament payment deadlines ride the same worker: reminders, releasing unpaid places, calling in the next.

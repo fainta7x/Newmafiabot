@@ -1,3 +1,4 @@
+import { round2 } from '../../../shared/numbers.ts';
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Gamepad2, Image as ImageIcon } from 'lucide-react';
 import { api, TournamentStandingItem, Tournament } from '../../../lib/api.ts';
@@ -318,7 +319,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                     </div>
                     <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
                       Итого за игру: {g.game_total}
-                      <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(Math.round((g.game_total - g.win_point - g.ci_points) * 100) / 100)} доп. {signedPoints(g.ci_points)} Ci</span>
+                      <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(round2(g.game_total - g.win_point - g.ci_points))} доп. {signedPoints(g.ci_points)} Ci</span>
                     </div>
                   </div>
                 ))}
@@ -683,7 +684,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                                         <div className="pt-1 text-right font-extrabold text-xs text-accent border-t border-border-soft/60">
                                           Итого за игру: {g.game_total}
-                                          <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(Math.round((g.game_total - g.win_point - g.ci_points) * 100) / 100)} доп. {signedPoints(g.ci_points)} Ci</span>
+                                          <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(round2(g.game_total - g.win_point - g.ci_points))} доп. {signedPoints(g.ci_points)} Ci</span>
                                         </div>
                                       </div>
                                     ))}

@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { Router } from 'express';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
@@ -62,7 +63,8 @@ router.get('/live', async (req, res) => {
       let current: any = null;
       if (currentRow) {
         const payload = safeParse(currentRow.protocol_text);
-        const completed = payload?.protocol?.status === 'completed' || Boolean(payload?.protocol?.winner_team);
+        // Only a confirmed game is finished (owner, 2026-10-24): a draft with a decided winner is still the current game.
+        const completed = isCompletedClubGame(payload);
         if (!completed && Array.isArray(payload?.player_results)) {
           current = {
             id: String(currentRow.id),

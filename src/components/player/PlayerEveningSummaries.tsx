@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { countGames } from '../../lib/russianPlural';
 import { RoleMark, TeamResultGraphic } from './PlayerGameGraphics.tsx';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
@@ -40,7 +41,7 @@ type Summary = {
   game_ids: string[];
 };
 
-const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
+const signed = (value: number) => `${value > 0 ? '+' : ''}${round2(value)}`;
 const dateText = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';

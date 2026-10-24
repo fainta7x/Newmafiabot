@@ -1839,3 +1839,13 @@ Facts: `LiveGameEngine.tsx` 1981 lines plus 14 files in `LiveGameEngine/` (7500 
 | L2 | The engine has no single exit-reason label function: five copies of «Заголосован…» wording with small differences (`SeatCard`, `liveGameState`, `PlayerGameCard`, `PlayerGameDetail`, the protocol tags) | open — the wording differs on purpose per screen (lower case, «в 0 круге» / «в нулевой круг»); a shared function with a `style` argument is possible, needs the owner to confirm the wording |
 | L3 | Engine state is snapshot-driven; the event journal copies native evidence (`liveEngineJournal`); restoring every field from the journal alone and the CRM seat/identity correction events remain the target of domain-model step 7 | open — design to be shown to the owner before code |
 | L4 | No engine layout or state-machine change is made in a refactor (owner constraint) | rule |
+
+### Owner decisions of 2026-10-24 applied
+
+| # | Decision | Done |
+|---|----------|------|
+| D4 | Scores and points round half-up with the binary correction (`1.005` → `1.01`) on every screen; money untouched | `shared/numbers.ts` `round2`; 16 files use it; `round2SingleOwner.test.ts` pins the three money/stored-score files that round by hand |
+| D6 | Only a confirmed game is finished on the public live list | `publicLiveRoutes` uses `isCompletedClubGame`; a draft with a decided winner stays the current game |
+| E4 | The organizer may cancel a running evening as well (no games yet, not settled) | `cancelEveningByOrganizer` accepts `published` and `active` (`isOpenEvening`); test added; the refusal for an evening with games stays |
+| F1 | Debt rule: show the real disagreeing cases first | pending — a read-only list is prepared before any rule is changed |
+| D7, L2 | Guest names and exit wording | pending — the owner asked for examples |

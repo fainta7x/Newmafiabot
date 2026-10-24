@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import clubWorldRoutes from './playerClubWorldRoutes.ts';
@@ -26,7 +27,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return String(playerId);
 };
 
-const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const round = (value: number) => round2(value);
 const opposite = (team: EloTeam): EloTeam => team === 'red' ? 'black' : 'red';
 
 const explanationFor = (row: {

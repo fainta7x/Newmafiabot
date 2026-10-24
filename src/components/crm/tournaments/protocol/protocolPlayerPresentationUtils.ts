@@ -1,3 +1,4 @@
+import { round2 } from '../../../../shared/numbers.ts';
 import type { PlayerResultData } from '../../../../lib/api';
 import { calculateDisciplinaryPenalty } from '../../../../lib/gameDiscipline';
 import { formatSignedBonus } from './protocolUtils';
@@ -193,7 +194,7 @@ export const getProtocolPlayerPresentation = (
   if (bestMove) {
     briefBadges.push({
       key: 'best_move',
-      label: `ЛХ +${Math.round(bestMove.bonusPoints * 100) / 100} (угадано ${bestMove.guessedBlacks})`,
+      label: `ЛХ +${round2(bestMove.bonusPoints)} (угадано ${bestMove.guessedBlacks})`,
       className: 'bg-amber-500/10 text-amber-300 border-amber-500/30'
     });
   }

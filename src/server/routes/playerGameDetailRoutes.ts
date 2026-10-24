@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { Router } from 'express';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
@@ -32,7 +33,7 @@ const numeric = (value: unknown) => {
   return Number.isFinite(number) ? number : 0;
 };
 
-const roundToTwo = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundToTwo = (value: number) => round2(value);
 
 const repositoryAvatarAvailable = (playerId: string, suppressed: unknown) =>
   !Number(suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(playerId));

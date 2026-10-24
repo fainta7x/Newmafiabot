@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
 import { playerActionMetrics } from '../../lib/gameActionFacts.ts';
 import type { LiveGameEvent } from '../../shared/liveGameEvents.ts';
@@ -155,7 +156,7 @@ const shortNumber = (value: number) => {
 };
 
 const scoreNumber = (value: number) => {
-  const rounded = Math.round(value * 100) / 100;
+  const rounded = round2(value);
   return rounded.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 

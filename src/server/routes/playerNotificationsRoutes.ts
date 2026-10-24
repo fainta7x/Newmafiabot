@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
@@ -40,7 +41,7 @@ const safeTableExists = async (db: any, table: string) => {
   }
 };
 
-const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
+const signed = (value: number) => `${value > 0 ? '+' : ''}${round2(value)}`;
 
 const buildNotifications = async (db: any, playerId: string) => {
   const now = Date.now();

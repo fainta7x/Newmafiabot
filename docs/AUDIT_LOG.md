@@ -1788,3 +1788,14 @@ Scope: concept map rows of `docs/DOMAIN_MODEL.md` re-checked against the code, o
 | D8 | Club and tournament protocol validators | checked — both servers call the same `protocolConsistency` validators; row updated |
 | D9 | Achievements: «second list in `playerProgressionRoutes`» | stale — one catalog; row updated |
 | D10 | Python bot compares response words of its own | pinned — `pythonResponseStatuses.test.ts` fails on a word that is not canonical |
+
+### Programme step 5 — query/state consistency (audit, 2026-10-24)
+
+Method: module-level caches, browser storage of API data, and cross-screen refresh signals searched in `src/components` and `src/lib`.
+
+| # | Finding | Status |
+|---|---------|--------|
+| Q1 | There is **no shared API cache**: each screen fetches its own data. The only module-level caches are the avatar image caches (`PlayerAvatar`, `ResultsImageExportModal`); browser storage holds drafts, the theme and the live-game resume key, not API answers | checked — no change; the programme rule «no premature global cache» holds |
+| Q2 | The only cross-screen refresh signal is `requestPlayerProfileCompletenessRefresh` (a window event) | checked — one writer/one reader, no stale-data case found |
+| Q3 | After a write, screens reload their own list (`loadDetail`, `load`, `refreshAll`); the new hooks `useTournamentDetail` / `useTournamentActions` keep that chain in one place for the tournament card | done for the tournament card; other cards follow the same pattern by hand |
+| Q4 | Request shapes: the remaining hand-written `fetch` blocks (about 220) | in progress — screen by screen, see the request-shape entries above; `PlayerPoker`, payments and the two screens with their own `readJson` are left on purpose |

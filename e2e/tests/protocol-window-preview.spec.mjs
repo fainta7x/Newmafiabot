@@ -77,3 +77,25 @@ for (const [width, height] of sizes) {
     expect(errors).toEqual([]);
   });
 }
+
+for (const [width, height] of [[390, 844], [1280, 820]]) {
+  test(`tournament protocol opens the same window with the judge points at ${width}px`, async ({ page }, testInfo) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(String(error)));
+    await page.setViewportSize({ width, height });
+    await page.goto('/e2e/protocol-window.html?kind=tournament&draft=1');
+    await expect(page.getByTestId('protocol-window')).toBeVisible();
+    await expect(page.getByText('Игра #21')).toBeVisible();
+    await place(page, width, 'Баллы').click();
+    await expect(page.getByTestId(/judge-bonus-/).first()).toBeVisible();
+    const result = await geometry(page);
+    expect(result.pageScrolls, 'the page scrolls sideways').toBe(false);
+    expect(result.outside, 'elements outside the viewport').toEqual([]);
+    expect(result.small, 'targets under 44px').toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`tournament-points-${width}.png`) });
+    await place(page, width, 'Игроки').click();
+    await expect(page.getByText('Убит ночью').first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`tournament-players-${width}.png`) });
+    expect(errors).toEqual([]);
+  });
+}

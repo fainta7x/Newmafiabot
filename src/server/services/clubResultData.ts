@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from './completedClubGame.ts';
 import fs from 'node:fs';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -63,7 +64,7 @@ const parse = (value: unknown): any => {
   if (typeof value !== 'string' || !value.trim()) return null;
   try { return JSON.parse(value); } catch { return null; }
 };
-const isCompleted = (envelope: any) => envelope?.kind === 'club_evening_protocol' && envelope?.protocol?.status === 'completed';
+const isCompleted = isCompletedClubGame;
 export const isScoredFormat = (format: unknown) => ['RATING', 'TOURNAMENT'].includes(normalizeEveningFormat(format));
 const won = (role: string | null, winner: unknown) => Boolean(role && (
   (winner === 'red' && (role === 'citizen' || role === 'sheriff')) || (winner === 'black' && (role === 'mafia' || role === 'don'))

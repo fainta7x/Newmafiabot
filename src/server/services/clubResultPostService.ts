@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from './completedClubGame.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -209,7 +210,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     for (const game of games) {
       let envelope: any = null;
       try { envelope = JSON.parse(String(game.protocol_text || '')); } catch { envelope = null; }
-      if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
+      if (!isCompletedClubGame(envelope)) continue;
       if (await postGameBlank(db, String(game.id), evening.format, String(evening.id), fetchImpl)) posted += 1;
     }
   } });

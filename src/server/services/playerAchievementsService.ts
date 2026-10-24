@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from './completedClubGame.ts';
 import { loadPlayerAchievementStories } from './playerAchievementStoriesService.ts';
 import { STORY_IDS, type StoryResult } from '../../lib/achievementStories.ts';
 import {
@@ -170,7 +171,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
 
   for (const row of clubRows) {
     const payload = safeJsonParse<any>(row.protocol_text, null);
-    if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') continue;
+    if (!isCompletedClubGame(payload)) continue;
     if (!Array.isArray(payload.player_results)) continue;
     const result = payload.player_results.find((entry: any) => String(entry.player_id || '') === String(playerId));
     if (!result || !result.player_id) continue;
@@ -232,7 +233,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
   const judged = new Set<string>();
   for (const row of judgedClubRows) {
     const payload = safeJsonParse<any>(row.protocol_text, null);
-    if (payload?.kind === 'club_evening_protocol' && payload.protocol?.status === 'completed') judged.add(`club:${row.id}`);
+    if (isCompletedClubGame(payload)) judged.add(`club:${row.id}`);
   }
   // Older databases have no tournament-level judge yet; then only the per-game judge counts.
   const tournamentJudge = (await db.all('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')

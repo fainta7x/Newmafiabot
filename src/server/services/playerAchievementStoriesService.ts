@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from './completedClubGame.ts';
 import type { StatGame, StatRole } from '../../lib/gameStatistics.ts';
 import { blackRole, redRole, gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { ACHIEVEMENT_STORIES, type StoryResult } from '../../lib/achievementStories.ts';
@@ -89,7 +90,7 @@ export async function loadPlayerAchievementStories(db: any, playerId: string): P
   const own = games.filter(g => g.seats.some(s => s.playerId === playerId));
   const club = await db.all(`SELECT g.id, g.evening_id, g.judge_player_id, g.protocol_text, e.status evening_status
     FROM games g JOIN game_evenings e ON e.id=g.evening_id WHERE g.archived_at IS NULL AND e.status!='cancelled'`);
-  const played = (row: any) => { try { const p = JSON.parse(row.protocol_text || '{}'); return p.kind === 'club_evening_protocol' && p.protocol?.status === 'completed'; } catch { return false; } };
+  const played = (row: any) => { try { const p = JSON.parse(row.protocol_text || '{}'); return isCompletedClubGame(p); } catch { return false; } };
   const judged = club.filter((g: any) => g.judge_player_id === playerId && played(g));
   const tournamentJudges = await db.all(`SELECT tg.id FROM tournament_games tg JOIN tournament_game_protocols p ON p.game_id=tg.id JOIN tournaments t ON t.id=tg.tournament_id
     WHERE tg.status='completed' AND p.status='completed' AND COALESCE(tg.judge_player_id,t.judge_player_id)=?`, [playerId]);

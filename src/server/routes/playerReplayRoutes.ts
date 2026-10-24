@@ -1,3 +1,4 @@
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
@@ -74,7 +75,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
     `, [rawId]);
     if (!row) return res.status(404).json({ error: 'Игра не найдена' });
     const payload = safeParse(row.protocol_text);
-    if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') {
+    if (!isCompletedClubGame(payload)) {
       return res.status(409).json({ error: 'Replay доступен после завершения игры' });
     }
 

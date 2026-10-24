@@ -32,6 +32,7 @@ const pages = [
   'e2e/evening-prices.html',
   'e2e/crm-closeout.html',
   'e2e/poker-harness.html',
+  'e2e/protocol-window.html',
 ];
 const bootstrapSource = 'src/lib/uiPreviewProductionBootstrap.ts';
 const bootstrapPath = path.join(root, bootstrapSource);

@@ -17,6 +17,11 @@ export interface VotingRound {
    * stays on record, and the missing revote is not a gap in the protocol.
    */
   cancelled_by_removal?: boolean;
+  /**
+   * Who voted for whom (voter seat → candidate seat). Written when the judge corrects a single ballot in the protocol;
+   * the counts are then counted from it. Without it the voters are read from the game's chronology.
+   */
+  ballots?: Record<number, number>;
 }
 
 export type VotingOutcomeType =

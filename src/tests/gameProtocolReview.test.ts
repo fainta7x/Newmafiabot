@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCircles, checksOf, computeChanges, computeIssues, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -75,6 +75,10 @@ describe('game protocol review model', () => {
     expect(ids([ev(2, 'reveal', { seat: 4 })])).toContain('reveal-checks-4');
     expect(ids([ev(2, 'reveal', { seat: 4 }), ev(2, 'announced_check', { seat: 4, target: 1, value: 'red' })]).some((id) => id.startsWith('reveal-'))).toBe(false);
     expect(ids([ev(2, 'reveal', { seat: 5 })]).some((id) => id.startsWith('reveal-'))).toBe(false);
+  });
+
+  it('reads who voted «поднять» at the table', () => {
+    expect(tableVotersOf([ev(2, 'table_vote', { seat: 3 }), ev(2, 'table_vote', { seat: 5 }), ev(2, 'table_vote_removed', { seat: 3 })] as any)).toEqual([5]);
   });
 
   it('lists what the judge changed and undoes each change', () => {

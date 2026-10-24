@@ -112,6 +112,16 @@ export const nominatorsOf = (events: LiveGameEvent[]): Record<number, number> =>
   return by;
 };
 
+/** Seats that voted «поднять» at the table in a circle (a withdrawn vote is gone). */
+export const tableVotersOf = (events: LiveGameEvent[]): number[] => {
+  const seats = new Set<number>();
+  for (const event of events) {
+    if (event.kind === 'table_vote' && event.seat) seats.add(event.seat);
+    if (event.kind === 'table_vote_removed' && event.seat) seats.delete(event.seat);
+  }
+  return [...seats].sort((a, b) => a - b);
+};
+
 export type NightCheck = { target: number | null; result: string | null };
 export const checksOf = (events: LiveGameEvent[]): { don: NightCheck | null; sheriff: NightCheck | null; donStep: boolean; sheriffStep: boolean } => {
   let don: NightCheck | null = null;

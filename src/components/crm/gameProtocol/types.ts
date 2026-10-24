@@ -28,7 +28,6 @@ export type ProtocolApi = {
   resetOutcome: (index: number) => void;
   addVoting: (day: number) => void;
   deleteVoting: (index: number) => void;
-  setRevealVersions: (value: 1 | 2 | null) => void;
   setEvents: (updater: (events: LiveGameEvent[]) => LiveGameEvent[]) => void;
   setZeroBreakSeat: (seat: number | null) => void;
 

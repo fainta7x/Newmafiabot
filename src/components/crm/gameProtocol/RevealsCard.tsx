@@ -33,26 +33,28 @@ export const RevealsCard: React.FC<{ api: ProtocolApi }> = ({ api }) => {
     return push(list, { round: maxRound, kind: 'announced_check', seat, target, value: color });
   });
 
-  const versions = revealVersions(records.map((record) => ({ seat: record.seat, checks: [...record.checks].map(([target, color]) => ({ target, color })) })));
+  const sheriff = api.results.find((item) => item.role === 'sheriff') || null;
   const isBlack = (seat: number) => teamOfRole(player(seat)?.role) === 'black';
+  const blackRecords = records.filter((record) => isBlack(record.seat));
+  const toVersion = (record: { seat: number; checks: Map<number, 'red' | 'black'> }) => ({ seat: record.seat, checks: [...record.checks].map(([target, color]) => ({ target, color })) });
+  const sheriffRecord = sheriff ? records.find((record) => record.seat === sheriff.seat_number) : null;
+  const versions = revealVersions([...(sheriff ? [sheriffRecord ? toVersion(sheriffRecord) : { seat: sheriff.seat_number, checks: [] }] : []), ...blackRecords.map(toVersion)]);
   const sheetRecord = typeof open === 'number' ? records.find((record) => record.seat === open) : null;
 
   return (
     <Card className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2"><Eyebrow>Вскрытия</Eyebrow><InfoTag tone="info">{records.length === 0 ? 'Вскрытий нет' : `Вскрытий: ${records.length}`}</InfoTag></div>
-      <div className="space-y-1.5"><div className="text-[13px] font-semibold">Сколько версий в игре?</div>
-        <Segmented label="Версии игры" disabled={api.locked} value={String(api.protocol.reveal_versions ?? '')} options={[{ value: '', label: 'Не указано' }, { value: '1', label: 'Одна' }, { value: '2', label: 'Две' }]} cols={3} onChange={(value) => api.setRevealVersions(value === '1' ? 1 : value === '2' ? 2 : null)} />
-        <p className="text-[12px] leading-4 text-white/45">Версия — это вскрытие: сколько версий, столько и вскрытий. Одна версия — вскрылся только Шериф. Две — против Шерифа вскрылся ещё и чёрный: добавьте его и его проверки.</p>
-      </div>
+      <div className="flex items-baseline justify-between gap-2"><Eyebrow>Вскрытия</Eyebrow><InfoTag tone="info">{blackRecords.length + 1 === 1 ? 'Игра в одной версии' : `Версий: ${blackRecords.length + 1}`}</InfoTag></div>
+      <p className="text-[12px] leading-4 text-white/45">Шериф вскрывается всегда — это первая версия. Каждый чёрный, назвавший себя Шерифом, — ещё одна версия.</p>
+      {sheriff ? <div className="flex min-h-12 items-center gap-3 rounded-2xl bg-black/25 px-3 py-2"><SeatBadge seat={sheriff.seat_number} team="red" size="sm" /><span className="min-w-0 flex-1 text-sm font-semibold">{sheriff.display_name} <span className="font-normal text-white/45">· Шериф, версия 1</span></span></div> : null}
       {api.locked ? <LockedNote /> : null}
-      {records.length === 0 ? <p className="text-[13px] leading-5 text-white/55">Никто не называл себя Шерифом. Если вскрытие было (Шериф или чёрный), добавьте его.</p> : (
+      {blackRecords.length === 0 ? <p className="text-[13px] leading-5 text-white/55">Чёрные не вскрывались: игра в одной версии. Если чёрный назвал себя Шерифом, добавьте его.</p> : (
         <ul className="space-y-2">
-          {records.map((record) => (
+          {blackRecords.map((record, index) => (
             <li key={record.seat}>
               <button type="button" onClick={() => setOpen(record.seat)} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/25 px-3 py-2 text-left" aria-label={`Вскрытие игрока ${record.seat}, открыть`}>
                 <SeatBadge seat={record.seat} team={teamOfRole(player(record.seat)?.role)} size="sm" />
                 <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">{name(record.seat)}<RoleTag role={player(record.seat)?.role} /></span>
+                  <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">{name(record.seat)}<RoleTag role={player(record.seat)?.role} /><span className="text-[12px] font-normal text-white/45">версия {index + 2}</span></span>
                   <span className="mt-1 flex flex-wrap gap-1">
                     {record.checks.size === 0 ? <span className="text-[12px] text-white/40">проверки не названы</span> : [...record.checks].map(([target, color]) => <InfoTag key={target} tone={color === 'black' ? 'night' : 'vote'}>#{target} {color === 'black' ? 'чёрный' : 'красный'}</InfoTag>)}
                   </span>
@@ -62,21 +64,20 @@ export const RevealsCard: React.FC<{ api: ProtocolApi }> = ({ api }) => {
           ))}
         </ul>
       )}
-      {versions.length ? (
+      {blackRecords.length ? (
         <div className="space-y-1.5 rounded-2xl border border-sky-300/15 bg-sky-300/[0.05] p-3">
-          <div className="text-[13px] font-semibold">Версии стола</div>
+          <div className="text-[13px] font-semibold">Как читать стол</div>
           {versions.map((version) => (
             <p key={version.claimant} className="text-[12px] leading-5 text-white/65">
               Если Шериф #{version.claimant}: чёрные {version.blacks.map((seat) => `#${seat}`).join(', ') || '—'}{version.reds.length ? `; красные ${version.reds.map((seat) => `#${seat}`).join(', ')}` : ''}
             </p>
           ))}
-          {!records.some((record) => isBlack(record.seat)) ? <p className="text-[12px] text-amber-100/80">Среди вскрывшихся нет чёрного игрока — проверьте роли.</p> : null}
         </div>
       ) : null}
-      <Btn kind="ghost" block disabled={api.locked} onClick={() => setOpen('new')}><Plus className="h-4 w-4" aria-hidden="true" />Добавить вскрытие</Btn>
+      <Btn kind="ghost" block disabled={api.locked} onClick={() => setOpen('new')}><Plus className="h-4 w-4" aria-hidden="true" />Добавить вскрытие чёрного</Btn>
 
-      <Sheet open={open === 'new'} title="Кто вскрылся?" subtitle="Игрок, назвавший себя Шерифом: настоящий Шериф или чёрный" onClose={() => setOpen(null)}>
-        <div className="pb-2 pt-1"><SeatGrid label="Вскрылся" size={api.tableSize} disabled={api.locked} selected={[]} hidden={records.map((record) => record.seat)} onToggle={(seat) => { addReveal(seat); setOpen(seat); }} /></div>
+      <Sheet open={open === 'new'} title="Кто из чёрных вскрылся?" subtitle="Чёрный игрок, назвавший себя Шерифом" onClose={() => setOpen(null)}>
+        <div className="pb-2 pt-1"><SeatGrid label="Вскрылся" size={api.tableSize} disabled={api.locked} selected={[]} hidden={[...api.results.filter((item) => teamOfRole(item.role) !== 'black').map((item) => item.seat_number), ...records.map((record) => record.seat)]} onToggle={(seat) => { addReveal(seat); setOpen(seat); }} /></div>
       </Sheet>
 
       <Sheet open={!!sheetRecord} title={sheetRecord ? `Вскрытие #${sheetRecord.seat} ${name(sheetRecord.seat)}` : ''} subtitle="Кого он назвал и каким цветом" onClose={() => setOpen(null)}>

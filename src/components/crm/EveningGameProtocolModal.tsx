@@ -435,7 +435,6 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setReplacement: (replacement) => setProtocol((prev) => ({ ...prev, replacement })),
     changeRound: handleRoundChange, confirmOutcome: handleConfirmOutcome, resetOutcome: handleResetOutcome,
     addVoting: handleAddVoting, deleteVoting: handleDeleteVoting,
-    setRevealVersions: (value) => setProtocol((prev) => ({ ...prev, reveal_versions: value })),
     setEvents: (updater) => setProtocol((prev) => ({ ...prev, events: updater(Array.isArray(prev.events) ? prev.events : []) })),
     setZeroBreakSeat: (seat) => setProtocol((prev) => {
       const retained = (prev.events || []).filter((event) => !(event.kind === 'zero_round_break' && event.round === 1));

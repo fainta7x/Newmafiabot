@@ -70,14 +70,11 @@ describe('game protocol review model', () => {
     expect(right.some((issue) => issue.id.startsWith('exit-'))).toBe(false);
   });
 
-  it('turns the one / two versions switch into checks', () => {
-    const ids = (extra: Record<string, unknown>, events: any[]) => computeIssues({ protocol: protocol({ events, ...extra }), results: results({ 5: { exit_type: 'killed' }, 7: { exit_type: 'voted_day' }, 9: { exit_type: 'killed' } }) }).map((issue) => issue.id);
-    const reveals = [ev(2, 'reveal', { seat: 5 }), ev(2, 'reveal', { seat: 4 })];
-    expect(ids({}, reveals)).toContain('reveal-mode');
-    expect(ids({ reveal_versions: 1 }, reveals)).toContain('reveal-count');
-    expect(ids({ reveal_versions: 2 }, reveals)).toEqual(expect.arrayContaining(['reveal-checks-4']));
-    expect(ids({ reveal_versions: 2 }, [ev(2, 'reveal', { seat: 5 })])).toEqual(expect.arrayContaining(['reveal-count', 'reveal-black']));
-    expect(ids({ reveal_versions: 2 }, [...reveals, ev(2, 'announced_check', { seat: 4, target: 1, value: 'red' })]).some((id) => id.startsWith('reveal-'))).toBe(false);
+  it('asks for the announced checks of a black player who revealed', () => {
+    const ids = (events: any[]) => computeIssues({ protocol: protocol({ events }), results: results({ 5: { exit_type: 'killed' }, 7: { exit_type: 'voted_day' }, 9: { exit_type: 'killed' } }) }).map((issue) => issue.id);
+    expect(ids([ev(2, 'reveal', { seat: 4 })])).toContain('reveal-checks-4');
+    expect(ids([ev(2, 'reveal', { seat: 4 }), ev(2, 'announced_check', { seat: 4, target: 1, value: 'red' })]).some((id) => id.startsWith('reveal-'))).toBe(false);
+    expect(ids([ev(2, 'reveal', { seat: 5 })]).some((id) => id.startsWith('reveal-'))).toBe(false);
   });
 
   it('lists what the judge changed and undoes each change', () => {

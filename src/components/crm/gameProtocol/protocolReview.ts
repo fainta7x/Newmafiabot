@@ -179,23 +179,14 @@ export type Issue = {
  * Everything that needs the judge. `error` is what the shared protocol checks refuse (the game cannot be confirmed
  * with it); `check` is only something the game's chronology says may have been left out.
  */
-/** The «одна / две версии» switch decides what the reveals must contain. */
+/** Version = reveal: the Sheriff is version 1, each black who claimed to be the Sheriff is another. A black reveal needs its announced checks. */
 export const revealIssues = (protocol: TournamentGameProtocolData, results: PlayerResultData[]): Issue[] => {
   const events = (Array.isArray(protocol.events) ? protocol.events : []) as LiveGameEvent[];
-  const records = [...finalRevealsOfEvents(events).values()];
-  const mode = protocol.reveal_versions ?? null;
   const out: Issue[] = [];
-  const black = records.filter((record) => teamOfRole(results.find((player) => player.seat_number === record.seat)?.role) === 'black');
-  if (mode === null && records.length >= 2) out.push({ id: 'reveal-mode', severity: 'check', title: `Вскрытий ${records.length} — укажите число версий игры`, sub: 'Сколько версий, столько и вскрытий', tab: 'result' });
-  if (mode !== null && records.length !== mode) out.push({ id: 'reveal-count', severity: 'check', title: `Версий ${mode}, а вскрытий ${records.length}`, sub: 'Сколько версий, столько и вскрытий: добавьте или уберите вскрытие либо поменяйте число версий', tab: 'result' });
-  if (mode === 2) {
-    if (!black.length) out.push({ id: 'reveal-black', severity: 'check', title: 'Две версии — выберите, кто из чёрных вскрылся', tab: 'result' });
-    for (const record of black) {
-      if (!record.checks.size) {
-        const name = results.find((player) => player.seat_number === record.seat)?.display_name || '';
-        out.push({ id: `reveal-checks-${record.seat}`, severity: 'check', title: `#${record.seat} ${name}: нет названных проверок`, sub: 'Кого чёрный назвал красным или чёрным при вскрытии', tab: 'result' });
-      }
-    }
+  for (const record of finalRevealsOfEvents(events).values()) {
+    const owner = results.find((player) => player.seat_number === record.seat);
+    if (teamOfRole(owner?.role) !== 'black' || record.checks.size) continue;
+    out.push({ id: `reveal-checks-${record.seat}`, severity: 'check', title: `#${record.seat} ${owner?.display_name || ''}: у вскрытия нет названных проверок`, sub: 'Кого чёрный назвал красным или чёрным при вскрытии', tab: 'result' });
   }
   return out;
 };

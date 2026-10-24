@@ -43,7 +43,7 @@ describe('custom events panel requests', () => {
 
   it('deleting a draft sends DELETE; a failure without a server text says the fallback', async () => {
     let fail = false;
-    mockFetch((url, init) => (init?.method === 'DELETE' ? (fail ? new Response('boom', { status: 500 }) : json({})) : json([draft])));
+    mockFetch((_url, init) => (init?.method === 'DELETE' ? (fail ? new Response('boom', { status: 500 }) : json({})) : json([draft])));
     render(<CustomEventsPanel />);
     await screen.findByText('Квиз');
     fireEvent.click(screen.getByRole('button', { name: 'Удалить' }));

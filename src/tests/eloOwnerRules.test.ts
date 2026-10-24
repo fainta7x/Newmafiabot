@@ -20,12 +20,14 @@ describe('Elo follows the owner rules (2026-10-01)', () => {
   });
 
   it('a strong player in a weak team loses less, and the protection shrinks as the levels get closer', () => {
-    const lossOf = (me: number) => delta([me, ...Array(9).fill(1000)], 'black', 0);
-    const teammateLoss = delta([2000, ...Array(9).fill(1000)], 'black', 1);
-    expect(lossOf(2000)).toBeGreaterThan(teammateLoss);
-    expect(lossOf(2000)).toBeGreaterThan(lossOf(1500));
-    expect(lossOf(1500)).toBeGreaterThan(lossOf(1000));
-    expect(lossOf(1000)).toBeCloseTo(delta(Array(10).fill(1000), 'black', 1), 6);
+    // The protection is the carry modifier on the team result; the table level moves the base result too, so it is read apart.
+    const modifierOf = (me: number, seat = 0) => calculateCanonicalEloGame(table([me, ...Array(9).fill(1000)]), 'black')[seat].carryModifier;
+    expect(modifierOf(1300)).toBeLessThan(modifierOf(1000, 1));
+    expect(modifierOf(1300)).toBeLessThan(modifierOf(1200));
+    expect(modifierOf(1200)).toBeLessThan(modifierOf(1000));
+    // up to 150 Elo the levels are the same, so there is no protection yet
+    expect(modifierOf(1100)).toBeCloseTo(modifierOf(1000), 6);
+    expect(modifierOf(1000)).toBeCloseTo(modifierOf(1000, 1), 6);
   });
 
   it('one game at an equal table moves Elo on the ×5 scale', () => {

@@ -1849,3 +1849,13 @@ Facts: `LiveGameEngine.tsx` 1981 lines plus 14 files in `LiveGameEngine/` (7500 
 | E4 | The organizer may cancel a running evening as well (no games yet, not settled) | `cancelEveningByOrganizer` accepts `published` and `active` (`isOpenEvening`); test added; the refusal for an evening with games stays |
 | F1 | Debt rule: show the real disagreeing cases first | **read-only production check done (2026-10-24, organizer login, GET only):** 4 closed evenings, 54 attended participants (32 paid, 17 waived, 5 unpaid). **No contradicting case today:** 0 with status «paid» and paid < due, 0 overpaid; the 5 unpaid ones owe the full amount and appear in every one of the four definitions. The four rules therefore agree on today's data and differ only on a contradiction or an old evening; the rule can be chosen for the future without changing any number now |
 | D7, L2 | Guest names and exit wording | pending — the owner asked for examples |
+
+## Club Elo: size of a game and the first-killed compensation (2026-10-24, owner question)
+
+Scope: casual club games only (no rating, no tournaments). Method: read-only production data (19 club games via the organizer login), replay of `calculateCanonicalEloGame` with the real inputs of evening 2026-10-23 (starting ratings recovered from the stored Elo minus that evening's deltas). Nothing was written.
+
+- [open, owner decision] **The game prior is red 30 % / black 70 %, the club's own record is red 9 of 19 (47 %).** A red win at an equal table is +35 / black −35; a black win is +15 / red −15. With a real red share of ~47 % a black player loses on average ≈ −8 Elo per game and a red gains ≈ +8, and one game adds net ≈ +140 (red win) or −60 (black win) to the club. Small sample (19 games); the 30 % figure was set by the owner on 2026-10-01 (BUSINESS_RULES «Elo / rating principles»).
+- [open, owner decision] **First-killed best-move compensation is large next to the team result.** Best-move points (0.1 / 0.3 / 0.6 for 1 / 2 / 3 guessed blacks) are ×40 Elo = +4 / +12 / +24 and are added whatever the result. Evening 2026-10-23, game 17 (black won): Богданчик, first killed, 2 blacks guessed: −15.7 team result +12.0 = −3.7, while the other reds lost −14…−17. Game 20 (red won): first-killed Дина +36 +4 = +40. `ci_points` were 0 in all 19 games, so only the best move acts today.
+- [info] Per-player carry modifier (`carryModifier`) is small: 0.88…1.08 on the team result; it is not what separates players of one team.
+- [info] Discipline is large in the same units: a technical foul or removal costs 0.3…1.0 point = −12…−40 Elo (game 20 mafia Денди −75.6, game 21 Серый −27.8).
+- Status: nothing changed in code; waits for the owner's choice (see PROJECT_STATE).

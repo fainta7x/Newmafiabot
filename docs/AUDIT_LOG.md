@@ -1811,3 +1811,20 @@ Method: every writer of an evening's status, of a participant's response and of 
 | E3 | Cancelling an evening was written twice with the same four steps (status change guarded by the status the caller saw, record the cancellation, notify, post): `eveningCancelService.cancelEvening` (organizer, only `published`) and `cancelEveningForShortfall` (automatic, `published` or `active`) | fixed — one `commitEveningCancellation` (status guard + record + notify); the guards and the post (awaited by the organizer, only logged by the automatic path) stay with the callers; 66 cancel/shortfall tests pass unchanged |
 | E4 | `eveningCancelService` accepts only `published` while the shortfall path also cancels an `active` evening | open — probably intended (an organizer should not cancel a running evening), asked below |
 | E5 | Waitlist exists only for tournaments and slot-limited games; not a separate concept for evenings | checked |
+
+### Programme step 7 — player/game identity (audit, 2026-10-24; scan level, nothing changed)
+
+| # | Finding | Status |
+|---|---------|--------|
+| I1 | Lookup of a player by Telegram id: one owner (`getPlayerByTelegramId`, `playerRegistrationService`), but `botRoutes.ts` repeats the SQL 7 times with different column lists (`id`; `id, nickname, telegram_user_id`; `id, nickname, tokens, game_level`) | open, low risk — a small `findPlayerRowByTelegramId(db, id, columns)` would remove them; not done in this slice because the bot routes have no tests of their own |
+| I2 | Lookup by VK id lives in three services (`vkEveningIntegrationService` 11 times, `vkIdentityClaimService`, `vkPlayerAuthService`) | open — same remark |
+| I3 | «Is this protocol seat the viewer?» is one function (`resultBelongsToPlayer`, replay routes) plus four inline `String(row.player_id) === viewerId` comparisons | open, low risk |
+| I4 | Protocol results carry `player_id` (the profile) and `participant_id` (the seat's record); nothing re-keys either on read (rule kept: never mutate by stale local ids) | checked |
+
+### Programme step 8 — finance (AUDIT ONLY, 2026-10-24)
+
+| # | Finding | Status |
+|---|---------|--------|
+| F1 | **«Debt» of an evening participant has four definitions.** Common core: attended, not waived, `amount_due > amount_paid`, evening completed or settled. Differences: (a) CRM player list `outstanding_debt` — no date window, does not look at `payment_status = 'paid'`; (b) organizer reminder — 60-day window, **also excludes `payment_status = 'paid'`**; (c) `clubOrderService` — a `since` window, does not exclude `paid`; (d) the player cabinet `historical_debt` — summed in JS from `serializePayment().outstanding` over settled evenings, per row, with its own payment-expected filter | open — a participant whose `payment_status` says `paid` while `amount_paid < amount_due` (a contradiction) is a debtor in (a), (c), (d) and not in (b). Needs the owner's decision which rule is right and then one shared SQL fragment; **no accounting code is changed in a refactor** |
+| F2 | `SUM(ep.amount_due - ep.amount_paid)` without a per-row clamp exists only where `amount_due > amount_paid` is also filtered, so an overpayment cannot offset another debt | checked |
+| F3 | Money rounding is plain `Math.round(x*100)/100` in the payment services (see D4); not touched | open (D4) |

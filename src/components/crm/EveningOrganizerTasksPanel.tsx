@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Clock3, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { api } from '../../lib/api.ts';
+import { sendJson } from '../../lib/requestJson.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 
 type Stage = 'preparation' | 'during' | 'after';
@@ -115,12 +116,7 @@ export default function EveningOrganizerTasksPanel({
     setBusy(`template:${templateId}`);
     setError(null);
     try {
-      const response = await fetch('/api/tasks/evening-template', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ evening_id: snapshot.evening.id, template_id: templateId }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось добавить задачу');
+      await sendJson('/api/tasks/evening-template', 'POST', { evening_id: snapshot.evening.id, template_id: templateId }, 'Не удалось добавить задачу');
       await refreshAll();
     } catch (err: any) {
       setError(err?.message || 'Не удалось добавить задачу');
@@ -132,12 +128,7 @@ export default function EveningOrganizerTasksPanel({
     setBusy('manual');
     setError(null);
     try {
-      const response = await fetch('/api/tasks/evening-manual', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ evening_id: snapshot.evening.id, title: manualTitle.trim(), description: manualDescription.trim() || null, stage: manualStage }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось создать задачу');
+      await sendJson('/api/tasks/evening-manual', 'POST', { evening_id: snapshot.evening.id, title: manualTitle.trim(), description: manualDescription.trim() || null, stage: manualStage }, 'Не удалось создать задачу');
       setManualOpen(false); setManualTitle(''); setManualDescription(''); setManualStage(activeStage);
       await refreshAll();
     } catch (err: any) {

@@ -8,6 +8,7 @@ import type { EveningSection } from './EveningWorkspace.tsx';
 import OrganizerAgenda from './OrganizerAgenda.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import { sendJson } from '../../lib/requestJson.ts';
 
 type OpsPlayer = {
   participant_id: string;
@@ -208,17 +209,8 @@ export default function OrganizerCommandCenter({
     setBusy(`level:${item.player_id}`);
     setError(null);
     try {
-      const response = item.kind === 'registration'
-        ? await fetch(`/api/novice/players/${encodeURIComponent(item.player_id)}/admit`, {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entry_route: decision }),
-        })
-        : await fetch(`/api/novice/applications/${encodeURIComponent(item.application_id)}`, {
-          method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: decision }),
-        });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить решение');
+      if (item.kind === 'registration') await sendJson(`/api/novice/players/${encodeURIComponent(item.player_id)}/admit`, 'POST', { entry_route: decision }, 'Не удалось сохранить решение');
+      else await sendJson(`/api/novice/applications/${encodeURIComponent(item.application_id)}`, 'PATCH', { status: decision }, 'Не удалось сохранить решение');
       await refreshAll();
     } catch (err: any) {
       setError(err?.message || 'Не удалось сохранить решение');
@@ -232,14 +224,7 @@ export default function OrganizerCommandCenter({
     setBusy(`onboarding:${item.id}`);
     setError(null);
     try {
-      const response = await fetch(`/api/crm/onboarding-links/${encodeURIComponent(item.id)}/resolve`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось обработать привязку');
+      await sendJson(`/api/crm/onboarding-links/${encodeURIComponent(item.id)}/resolve`, 'POST', { decision }, 'Не удалось обработать привязку');
       await refreshAll();
     } catch (err: any) {
       setError(err?.message || 'Не удалось обработать привязку');

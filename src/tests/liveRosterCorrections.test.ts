@@ -43,3 +43,14 @@ describe('CRM roster event boundary', () => {
     expect(liveRosterCorrectionEvents(previous, { 1: 'a' }, ctx)).toEqual([]);
   });
 });
+
+describe('roster events in the game log', () => {
+  it('hides the roster baseline and names a CRM reseat in words, never as a raw event kind', async () => {
+    const { describeLiveGameEvents } = await import('../lib/liveGameEventText.ts');
+    const context = { nextSeq: 1, at: '2026-10-23T12:00:00Z', round: 1, phase: 'day_speeches' };
+    const baseline = initialLiveRosterEvents({ 1: 'p1', 2: 'p2' }, context);
+    const reseat = liveRosterCorrectionEvents({ 1: 'p1', 2: 'p2' }, { 1: 'p3', 2: 'p2' }, { ...context, nextSeq: 3 });
+    const lines = describeLiveGameEvents([...baseline, ...reseat], (seat) => `#${seat} Игрок`).map((line) => line.text);
+    expect(lines).toEqual(['CRM: на место #1 посажен другой игрок']);
+  });
+});

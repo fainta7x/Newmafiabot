@@ -353,9 +353,15 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setProtocol((prev) => {
       const shots = [...(prev.shots || [])];
       shots[index] = { ...shots[index], target_seat: targetSeat, result };
+      // The replay and the analysis read the shot from the chronology: keep its «выстрел» event of that night in step.
+      const night = Number(shots[index].night_number) || index + 1;
+      const events = Array.isArray(prev.events) && prev.events.length
+        ? [...prev.events.filter((event) => !(event.kind === 'shot_target' && event.phase === 'night' && event.round === night)),
+          { seq: prev.events.reduce((max, event) => Math.max(max, event.seq), 0) + 1, at: new Date().toISOString(), round: night, phase: 'night', kind: 'shot_target', target: targetSeat }]
+        : prev.events;
       const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
-      return synced.protocol;
+      return { ...synced.protocol, events };
     });
   };
 

@@ -73,7 +73,7 @@ describe('betting-open personal channel routing', () => {
       'betting-open:pool-1:dual-linked',
       'betting-open:pool-1:vk-only',
     ]);
-    expect(queued.every((item) => item.actionPath === '/player')).toBe(true);
+    expect(queued.every((item) => item.actionPath === '/player/wallet?tab=bets')).toBe(true);
     expect(queued.every((item) => item.telegramReplyMarkup?.inline_keyboard?.[0]?.[0]?.web_app?.url === 'https://club.example/player')).toBe(true);
     expect(result).toMatchObject({ eligible: 2, queued: 2, sent: 0, failed: 0 });
   });

@@ -1,20 +1,13 @@
-import { validateProtocolVoting } from '../../lib/protocolVotingValidation.ts';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, FileCheck, Moon, PencilLine, Save, Users, Vote, X } from 'lucide-react';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
-import { CLASSIC_TABLE_SIZE, isSupportedTableSize, roleCountsMatchTable, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
+import { validateProtocolVoting } from '../../lib/protocolVotingValidation.ts';
+import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 import {
   cleanAndSyncVotes as cleanVotes,
   createNextRevoteRound,
 } from '../../shared/tournamentVoting';
-import { ProtocolVotingTab } from './tournaments/protocol/ProtocolVotingTab';
-import { ProtocolNightsTab } from './tournaments/protocol/ProtocolNightsTab';
-import { ProtocolSummaryTab } from './tournaments/protocol/ProtocolSummaryTab';
-import { GameAnalysis } from './tournaments/protocol/GameAnalysis';
-import { GameEventLog } from './tournaments/protocol/GameEventLog';
 import {
-  calculateGuessedBlacks,
   getOppositeTeam,
   recalculateVoteRemainder,
   syncAllEventsToResults,
@@ -25,8 +18,15 @@ import {
   getTechFoulChange,
   type TechFoulType,
 } from './tournaments/protocol/protocolDisciplineUtils';
-import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { describeLegacyRepairs, repairLegacyClubProtocol } from '../../lib/legacyClubProtocol.ts';
+import { ProtocolWindow, type ProtocolTab } from './gameProtocol/ProtocolWindow';
+import { OverviewView } from './gameProtocol/OverviewView';
+import { GameFlowView } from './gameProtocol/GameFlowView';
+import { PlayerSheet, PlayersList } from './gameProtocol/PlayersView';
+import { ResultView } from './gameProtocol/ResultView';
+import { Card } from './gameProtocol/ui';
+import { buildCircles, computeChanges, computeIssues, type Change, type ProtocolState } from './gameProtocol/protocolReview';
+import type { ProtocolApi } from './gameProtocol/types';
 
 interface EveningGameProtocolModalProps {
   game: ClubGameRecord;
@@ -34,13 +34,6 @@ interface EveningGameProtocolModalProps {
   onClose: () => void;
   onUpdated: (game: ClubGameRecord) => void;
 }
-
-type Tab = 'players' | 'votes' | 'nights' | 'summary';
-
-const roleLabel = (role: string | null) => getPlayerGameRoleLabel(role) ?? 'Не выбрана';
-
-const EXIT_LABELS: Record<string, string> = { alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом', voted_day: 'заголосован', removed: 'удалён' };
-const exitLabel = (value: unknown) => EXIT_LABELS[String(value || '')] || 'в игре';
 
 export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> = ({
   game,
@@ -72,9 +65,12 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const cleanAndSyncVotes = (votes: Parameters<typeof cleanVotes>[0]) => cleanVotes(votes, playerResults.length);
   // An edit may only change the exits it really changes: a game whose evidence is incomplete keeps the exits it has.
   const evidenceBefore = (before: TournamentGameProtocolData) => ({ votes: before.votes || [], shots: before.shots || [], firstKilledId: before.first_killed_participant_id ?? null });
-  const [activeTab, setActiveTab] = useState<Tab>('players');
-  const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
-  const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<ProtocolTab>('overview');
+  const [circle, setCircle] = useState(0);
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [reviewed, setReviewed] = useState<Record<number, boolean>>({});
+  // The protocol as it was when the window opened: «Вы изменили» is the difference from it.
+  const [baseline, setBaseline] = useState<ProtocolState | null>(() => (repairedSource && source ? { protocol: repairedSource.protocol, results: source.player_results } : null));
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [completeHint, setCompleteHint] = useState<string | null>(null);
@@ -99,7 +95,11 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setSaveState('saved');
     setSaveError(null);
     setCompleteHint(null);
-    setActiveTab('players');
+    setActiveTab('overview');
+    setCircle(0);
+    setSelectedSeat(null);
+    setReviewed({});
+    setBaseline({ protocol: repaired.protocol, results: game.club_protocol.player_results });
   }, [game.id, isOpen]);
 
   const cancelAutoSave = () => {
@@ -130,6 +130,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
             setProtocol(echoed.protocol);
             setPlayerResults(echoed.player_results);
           }
+          if (options.replaceEditor) setBaseline({ protocol: echoed.protocol, results: echoed.player_results });
         } else {
           savedSnapshotRef.current = sent;
         }
@@ -231,7 +232,6 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   };
 
   const handleConfirmOutcome = (index: number, calculatedOutcome: string, winners: number[]) => {
-    setHighlightedRoundIdx(null);
     setProtocol((prev) => {
       const votes = [...(prev.votes || [])] as any[];
       if (calculatedOutcome === 'needs_revote' || calculatedOutcome === 'tie_revote') {
@@ -268,21 +268,20 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     });
   };
 
-  const handleAddVoting = () => {
+  const handleAddVoting = (day: number) => {
     setProtocol((prev) => {
-      const normalVotes = (prev.votes || []).filter((vote: any) => !vote.is_revote);
-      const nextDay = normalVotes.length === 0 ? 0 : Math.max(...normalVotes.map((vote: any) => vote.day_number ?? 0)) + 1;
+      const nextNumber = Math.max(0, ...(prev.votes || []).map((vote: any) => Number(vote.round_number) || 0)) + 1;
       return {
         ...prev,
         votes: cleanAndSyncVotes([...(prev.votes || []), {
-          round_number: (prev.votes || []).length + 1,
+          round_number: nextNumber,
           is_revote: false,
           nominated_seats: [],
           vote_counts: {},
-          day_number: nextDay,
-          eligible_voters: nextDay === 0 ? playerResults.length : playerResults.filter((p) => p.exit_type === 'alive').length,
+          day_number: day,
+          eligible_voters: day === 0 ? playerResults.length : playerResults.filter((p) => p.exit_type === 'alive').length,
           outcome: 'pending',
-        }] as any) as any,
+        }].sort((a: any, b: any) => Number(a.day_number ?? 0) - Number(b.day_number ?? 0) || Number(a.round_number ?? 0) - Number(b.round_number ?? 0)) as any) as any,
       };
     });
   };
@@ -354,14 +353,19 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setProtocol((prev) => {
       const shots = [...(prev.shots || [])];
       shots[index] = { ...shots[index], target_seat: targetSeat, result };
+      // The replay and the analysis read the shot from the chronology: keep its «выстрел» event of that night in step.
+      const night = Number(shots[index].night_number) || index + 1;
+      const events = Array.isArray(prev.events) && prev.events.length
+        ? [...prev.events.filter((event) => !(event.kind === 'shot_target' && event.phase === 'night' && event.round === night)),
+          { seq: prev.events.reduce((max, event) => Math.max(max, event.seq), 0) + 1, at: new Date().toISOString(), round: night, phase: 'night', kind: 'shot_target', target: targetSeat }]
+        : prev.events;
       const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
-      return synced.protocol;
+      return { ...synced.protocol, events };
     });
   };
 
   // The counter follows the table size (8–10 players), the same rule the save check uses.
-  const expectedRoles = tableRoleCounts(isSupportedTableSize(playerResults.length) ? playerResults.length : CLASSIC_TABLE_SIZE);
   const roleCounts = useMemo(() => playerResults.reduce<Record<string, number>>((acc, player) => {
     if (player.role) acc[player.role] = (acc[player.role] || 0) + 1;
     return acc;
@@ -370,21 +374,22 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const completeGame = async () => {
     // Say exactly what is missing, on screen (an alert() can be swallowed by a Telegram WebView).
     if (!roleCountsMatchTable(roleCounts, playerResults.length)) {
-      setCompleteHint(`Перед завершением установите роли: ${isSupportedTableSize(playerResults.length) ? tableRolesLabel(playerResults.length) : '6 мирных, Шериф, 2 мафии и Дон'}.`);
+      setCompleteHint(`Перед подтверждением установите роли: ${isSupportedTableSize(playerResults.length) ? tableRolesLabel(playerResults.length) : '6 мирных, Шериф, 2 мафии и Дон'}.`);
       setActiveTab('players');
       return;
     }
     if (!protocol.winner_team) {
-      setCompleteHint('Укажите победившую команду во вкладке «Итог».');
-      setActiveTab('summary');
+      setCompleteHint('Укажите победившую команду в разделе «Итог».');
+      setActiveTab('result');
       return;
     }
     if (protocol.votes?.length) {
       const voting = validateProtocolVoting(protocol.votes, playerResults, protocol.zero_round_voted_participant_id, true, { tableSize: playerResults.length, zeroRoundRule: protocol.zero_round_rule ?? 'tournament' });
       if (voting.errorMsg) {
         setCompleteHint(voting.errorMsg);
-        setHighlightedRoundIdx(voting.roundIndexWithError);
-        setActiveTab('votes');
+        const failed = voting.roundIndexWithError == null ? null : (protocol.votes || [])[voting.roundIndexWithError];
+        setCircle(failed ? Number((failed as any).day_number ?? 0) : 0);
+        setActiveTab('game');
         return;
       }
     }
@@ -394,158 +399,109 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   };
 
   const reopenDraft = async () => {
-    if (!confirm('Вернуть завершённую игру в режим корректировки?')) return;
+    if (!confirm('Вернуть подтверждённую игру на исправление?')) return;
     const draft = { ...protocol, status: 'draft' as const, completed_at: null };
     await save(draft, playerResults, { replaceEditor: true });
   };
 
+  const removeByJudge = (player: PlayerResultData) => {
+    if (protocol.status === 'completed') return;
+    if (confirm(`Удалить игрока #${player.seat_number} решением судьи?`)) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
+  };
+
+  const cancelRemoval = (player: PlayerResultData) => {
+    if (protocol.status === 'completed') return;
+    if (confirm(`Вернуть игрока #${player.seat_number}: отменить удаление судьёй?`)) updatePlayerResult(player.participant_id, { exit_type: 'alive', removal_reason: null });
+  };
+
+  const revertChange = (change: Change) => {
+    const next = change.revert({ protocol, results: playerResults });
+    // Taking back a vote, a shot or the first killed takes back what followed from it (who left the game) as well.
+    const derived = /^(round-|shot-|first-killed|zero-voted)/.test(change.key);
+    const synced = derived ? syncAllEventsToResults(next.protocol.votes || [], next.protocol.shots || [], next.protocol.first_killed_participant_id ?? null, next.results, next.protocol, evidenceBefore(protocol)) : null;
+    setProtocol(synced ? synced.protocol : next.protocol);
+    setPlayerResults(synced ? synced.player_results : next.results);
+  };
+
+  const zeroRoundRule = protocol.zero_round_rule ?? 'tournament';
+  const issues = useMemo(() => computeIssues({ protocol, results: playerResults }, zeroRoundRule), [protocol, playerResults, zeroRoundRule]);
+  const changes = useMemo(() => (baseline ? computeChanges(baseline, { protocol, results: playerResults }) : []), [baseline, protocol, playerResults]);
+  const circles = useMemo(() => buildCircles(protocol), [protocol]);
+
   if (!isOpen) return null;
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
-    { id: 'players', label: 'Игроки', icon: Users },
-    { id: 'votes', label: 'Голосование', icon: Vote },
-    { id: 'nights', label: 'Ночи и ЛХ', icon: Moon },
-    { id: 'summary', label: 'Итог', icon: FileCheck },
-  ];
+  const locked = protocol.status === 'completed';
+  const api: ProtocolApi = {
+    protocol, results: playerResults, locked, tableSize: playerResults.length, zeroRoundRule,
+    updateResult: updatePlayerResult,
+    changeRegularFoul, changeTechFoul,
+    causePpk: handlePpk, cancelPpk: handleCancelPpk, removeByJudge, cancelRemoval,
+    setWinner: (winner) => setProtocol((prev) => ({ ...prev, winner_team: winner })),
+    setJudgeNotes: (notes) => setProtocol((prev) => ({ ...prev, judge_notes: notes })),
+    setReplacement: (replacement) => setProtocol((prev) => ({ ...prev, replacement })),
+    changeRound: handleRoundChange, confirmOutcome: handleConfirmOutcome, resetOutcome: handleResetOutcome,
+    addVoting: handleAddVoting, deleteVoting: handleDeleteVoting,
+    setEvents: (updater) => setProtocol((prev) => ({ ...prev, events: updater(Array.isArray(prev.events) ? prev.events : []) })),
+    setZeroBreakSeat: (seat) => setProtocol((prev) => {
+      const retained = (prev.events || []).filter((event) => !(event.kind === 'zero_round_break' && event.round === 1));
+      if (seat === null) return { ...prev, events: retained };
+      return { ...prev, events: [...retained, {
+        seq: retained.reduce((max, event) => Math.max(max, event.seq), 0) + 1,
+        at: new Date().toISOString(), round: 1, phase: 'day_voting', kind: 'zero_round_break', seat,
+      }] };
+    }),
+    changeFirstKilled: handleFirstKilledChange, changeZeroRoundVoted: handleZeroRoundVotedChange, toggleBestMoveSeat,
+    addNight: handleAddNight, deleteNight: handleDeleteNight, changeShot: handleShotChange,
+  };
+
+  const save_label = saveState === 'saving' ? { label: 'Сохраняем…', tone: 'neutral' as const }
+    : saveState === 'unsaved' ? { label: 'Есть несохранённые изменения', tone: 'warn' as const }
+      : saveState === 'error' ? { label: 'Не сохранилось', tone: 'bad' as const }
+        : { label: 'Сохранено', tone: 'good' as const };
+  const hint = completeHint || (saveState === 'error' && saveError ? `Не сохранилось: ${saveError}` : null);
+  const goto = (tab: ProtocolTab, target?: { circle?: number; seat?: number }) => {
+    if (target?.circle != null) setCircle(target.circle);
+    if (tab === 'players' && target?.seat != null) setSelectedSeat(target.seat);
+    setActiveTab(tab);
+  };
+  const close = async () => { if (protocol.status === 'draft' && saveState !== 'saved') await save(); onClose(); };
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950/95 backdrop-blur-md overflow-y-auto">
-      <div className="min-h-full max-w-5xl mx-auto p-3 sm:p-5">
-        <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-800 flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-black text-white">Игра #{game.global_game_number}</h2>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${protocol.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}`}>
-                  {protocol.status === 'completed' ? 'Завершена' : 'Не завершена'}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono">{saveState === 'saving' ? 'сохранение…' : saveState === 'unsaved' ? 'есть изменения' : saveState === 'error' ? 'ошибка сохранения' : 'сохранено'}</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">{game.table_name || 'Стол не указан'}{game.judge_name ? ` • Ведущий: ${game.judge_name}` : ''}</p>
-              {protocol.status === 'completed' ? <button type="button" onClick={reopenDraft} disabled={saveState === 'saving'} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 text-[11px] font-black text-amber-200 disabled:opacity-50"><PencilLine className="h-4 w-4" />Исправить протокол</button> : null}
-              {repairNotes.length ? <p data-testid="legacy-repair-note" className="mt-2 text-[11px] leading-4 text-sky-300">Исправлено автоматически по записи игры: {repairNotes.join('; ')}. Сохранится вместе с исправлением протокола.</p> : null}
-              {completeHint ? <p role="alert" className="mt-2 text-[11px] font-bold text-amber-300">{completeHint}</p> : null}
-              {saveState === 'error' && saveError ? <p role="alert" className="mt-2 text-[11px] font-bold text-rose-300">Не сохранилось: {saveError}</p> : null}
-            </div>
-            <button type="button" onClick={async () => { if (protocol.status === 'draft' && saveState !== 'saved') await save(); onClose(); }} className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-4 gap-1 p-2 bg-slate-950/70 border-b border-slate-800 sticky top-0 z-10">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`min-h-[44px] rounded-xl text-[10px] sm:text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-1 ${activeTab === tab.id ? 'bg-rose-600 text-white' : 'text-slate-400 hover:bg-slate-900'}`}><Icon className="w-4 h-4" />{tab.label}</button>;
-            })}
-          </div>
-
-          <div className="p-3 sm:p-5 bg-slate-950/30 min-h-[500px]">
-            {activeTab === 'players' && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] font-bold">
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-300">Мирные: {roleCounts.citizen || 0}/{expectedRoles.citizen}</div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-emerald-400">Шериф: {roleCounts.sheriff || 0}/{expectedRoles.sheriff}</div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-300">Мафия: {roleCounts.mafia || 0}/{expectedRoles.mafia}</div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-purple-400">Дон: {roleCounts.don || 0}/{expectedRoles.don}</div>
-                </div>
-
-                {playerResults.slice().sort((a, b) => a.seat_number - b.seat_number).map((player) => {
-                  const techTotal = (player.minor_technical_fouls || 0) + (player.major_technical_fouls || 0);
-                  return (
-                    <div key={player.participant_id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0"><strong className="text-sm text-white">#{player.seat_number} {player.display_name}</strong><div className="text-[10px] text-slate-500">{roleLabel(player.role)} • {exitLabel(player.exit_type)}</div></div>
-                        {protocol.status === 'draft' && (protocol.end_reason === 'ppk' && protocol.ppk_culprit_participant_id === player.participant_id
-                          ? <button type="button" onClick={handleCancelPpk} className="px-2 py-1 rounded-lg border border-amber-700/50 bg-amber-950/30 text-amber-300 text-[10px] font-black">Отменить ППК</button>
-                          : <button type="button" onClick={() => handlePpk(player)} className="px-2 py-1 rounded-lg border border-rose-900/50 bg-rose-950/30 text-rose-400 text-[10px] font-black">ППК</button>)}
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <label className="text-[10px] text-slate-400">Роль<select disabled={protocol.status === 'completed'} value={player.role || ''} onChange={(e) => updatePlayerResult(player.participant_id, { role: e.target.value || null })} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-xs text-white"><option value="">—</option><option value="citizen">Мирный</option><option value="sheriff">Шериф</option><option value="mafia">Мафия</option><option value="don">Дон</option></select></label>
-                        <label className="text-[10px] text-slate-400">Выход<select disabled={protocol.status === 'completed'} value={player.exit_type} onChange={(e) => updatePlayerResult(player.participant_id, { exit_type: e.target.value as any })} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-xs text-white"><option value="alive">В игре</option><option value="killed">Убит</option><option value="voted_zero_round">Заголосован в нулевой</option><option value="voted_day">Заголосован</option><option value="removed">Удалён</option></select></label>
-                        <div className="text-[10px] text-slate-400">Фолы<div className="mt-1 flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg p-1"><button disabled={protocol.status === 'completed'} onClick={() => changeRegularFoul(player, -1)} className="w-8 h-8">−</button><strong className="text-white">{player.regular_fouls}</strong><button disabled={protocol.status === 'completed'} onClick={() => changeRegularFoul(player, 1)} className="w-8 h-8">+</button></div></div>
-                        <div className="text-[10px] text-slate-400">Техи ({techTotal}/2)<div className="mt-1 grid grid-cols-2 gap-1"><button disabled={protocol.status === 'completed'} onClick={() => changeTechFoul(player, 'minor', 1)} className="flex min-h-[40px] min-w-0 flex-col items-center justify-center rounded-lg border border-slate-800 bg-slate-950 px-1 text-[10px] leading-tight text-amber-300"><span>+ малый</span><span className="text-[10px] opacity-70">{player.minor_technical_fouls || 0}</span></button><button disabled={protocol.status === 'completed'} onClick={() => changeTechFoul(player, 'major', 1)} className="flex min-h-[40px] min-w-0 flex-col items-center justify-center rounded-lg border border-slate-800 bg-slate-950 px-1 text-[10px] leading-tight text-rose-300"><span>+ большой</span><span className="text-[10px] opacity-70">{player.major_technical_fouls || 0}</span></button></div></div>
-                      </div>
-
-                      {protocol.status === 'draft' && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {(player.minor_technical_fouls || 0) > 0 && <button onClick={() => changeTechFoul(player, 'minor', -1)} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-[10px]">− малый тех</button>}
-                          {(player.major_technical_fouls || 0) > 0 && <button onClick={() => changeTechFoul(player, 'major', -1)} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-[10px]">− большой тех</button>}
-                          {player.removal_reason === 'direct'
-                            ? <button onClick={() => { if (confirm(`Вернуть игрока #${player.seat_number}: отменить удаление судьёй?`)) updatePlayerResult(player.participant_id, { exit_type: 'alive', removal_reason: null }); }} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-300 text-[10px]">Отменить удаление</button>
-                            : <button onClick={() => { if (confirm(`Удалить игрока #${player.seat_number} решением судьи?`)) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' }); }} className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-[10px]">Удалить судьёй</button>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {activeTab === 'votes' && (
-              <ProtocolVotingTab
-                zeroRoundRule={protocol.zero_round_rule ?? 'tournament'}
-                tableSize={playerResults.length}
-                protocol={protocol}
-                playerResults={playerResults}
-                voteDrafts={voteDrafts}
-                setVoteDrafts={setVoteDrafts}
-                highlightedRoundIdx={highlightedRoundIdx}
-                onAddVoting={handleAddVoting}
-                onDeleteVoting={handleDeleteVoting}
-                onRoundChange={handleRoundChange}
-                onConfirmOutcome={handleConfirmOutcome}
-                onResetOutcome={handleResetOutcome}
-                onSetZeroBreakSeat={(seat) => setProtocol(prev => {
-                  const retained = (prev.events || []).filter(event => !(event.kind === 'zero_round_break' && event.round === 1));
-                  if (seat === null) return { ...prev, events: retained };
-                  return { ...prev, events: [...retained, {
-                    seq: retained.reduce((max, event) => Math.max(max, event.seq), 0) + 1,
-                    at: new Date().toISOString(), round: 1, phase: 'day_voting', kind: 'zero_round_break', seat,
-                  }] };
-                })}
-
-              />
-            )}
-
-            {activeTab === 'nights' && (
-              <ProtocolNightsTab
-                protocol={protocol}
-                playerResults={playerResults}
-                onFirstKilledChange={handleFirstKilledChange}
-                onZeroRoundVotedChange={handleZeroRoundVotedChange}
-                onToggleBestMoveSeat={toggleBestMoveSeat}
-                onAddNight={handleAddNight}
-                onDeleteNight={handleDeleteNight}
-                onShotChange={handleShotChange}
-                calculateGuessedBlacks={(seats) => calculateGuessedBlacks(seats, playerResults)}
-              />
-            )}
-
-            {activeTab === 'summary' && protocol.status === 'completed' && <GameAnalysis events={protocol.events} playerResults={playerResults} />}
-            {activeTab === 'summary' && (
-              <ProtocolSummaryTab
-                protocol={protocol}
-                playerResults={playerResults}
-                onWinnerTeamChange={(winner) => setProtocol((prev) => ({ ...prev, winner_team: winner }))}
-                onReplacementChange={(replacement) => setProtocol((prev) => ({ ...prev, replacement }))}
-                onJudgeNotesChange={(judge_notes) => setProtocol((prev) => ({ ...prev, judge_notes }))}
-              />
-            )}
-            {activeTab === 'summary' && protocol.status !== 'completed' && <GameAnalysis events={protocol.events} playerResults={playerResults} />}
-            {activeTab === 'summary' && <GameEventLog events={protocol.events} playerResults={playerResults} />}
-          </div>
-
-          <div className="p-4 border-t border-slate-800 bg-slate-900 flex flex-wrap justify-between gap-2">
-            <button type="button" onClick={() => save()} disabled={saveState === 'saving'} className="px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5"><Save className="w-4 h-4" />Сохранить</button>
-            {protocol.status === 'completed' ? (
-              <button type="button" onClick={reopenDraft} disabled={saveState === 'saving'} className="px-4 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black disabled:opacity-50">Вернуть на корректировку</button>
-            ) : (
-              <button type="button" onClick={completeGame} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Завершить игру</button>
-            )}
-          </div>
+    <ProtocolWindow
+      tab={activeTab}
+      onTab={(tab) => { setCompleteHint(null); setActiveTab(tab); }}
+      title={`Игра №${game.global_game_number}`}
+      subtitle={`${game.table_name || 'Стол не указан'}${game.judge_name ? ` · судья ${game.judge_name}` : ''}`}
+      confirmed={locked}
+      save={save_label}
+      attention={issues.length}
+      onClose={() => void close()}
+      rail={(
+        <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-3 text-[12px] leading-5 text-white/50">
+          {issues.length ? `Замечаний: ${issues.length}` : 'Замечаний нет'}<br />
+          Изменений: {changes.length}
         </div>
-      </div>
-    </div>
+      )}
+    >
+      {hint ? <p role="alert" className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-[13px] font-medium leading-5 text-amber-100">{hint}</p> : null}
+      {repairNotes.length ? (
+        <Card tone="info" className="mb-4 text-[13px] leading-5" testId="legacy-repair-note">
+          <span className="font-semibold">Исправлено автоматически по записи игры:</span> {repairNotes.join('; ')}. Сохранится вместе с исправлением протокола.
+        </Card>
+      ) : null}
+      {activeTab === 'overview' && (
+        <OverviewView api={api} circles={circles} issues={issues} changes={changes} reviewed={reviewed} onToggleReviewed={(index) => setReviewed((prev) => ({ ...prev, [index]: !prev[index] }))} onGoto={goto} onRevert={revertChange} onConfirm={() => void completeGame()} onReopen={() => void reopenDraft()} busy={saveState === 'saving'} />
+      )}
+      {activeTab === 'game' && (
+        <GameFlowView api={api} circles={circles} circleIndex={circle} onCircle={setCircle} reviewed={reviewed} onToggleReviewed={(index) => setReviewed((prev) => ({ ...prev, [index]: !prev[index] }))} issues={issues} />
+      )}
+      {activeTab === 'players' && (
+        <>
+          <PlayersList api={api} issues={issues} onOpen={setSelectedSeat} />
+          <PlayerSheet api={api} seat={selectedSeat} onClose={() => setSelectedSeat(null)} />
+        </>
+      )}
+      {activeTab === 'result' && <ResultView api={api} />}
+    </ProtocolWindow>
   );
 };

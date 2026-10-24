@@ -210,6 +210,17 @@ Do not solve stacking by inventing arbitrary higher z-index values when ownershi
 - important player/CRM screens and every Live Game phase require Telegram-like browser evidence;
 - canonical evidence geometry is approximately `390 CSS px` width, `713 CSS px` Telegram webview height, DPR around `2.4` unless a specific test intentionally uses another stable-height case.
 
+## Game protocol window (owner, 2026-10-24)
+
+The protocol of a finished game (`src/components/crm/gameProtocol/`) is built for one job: **check, correct, confirm**. It follows the cabinet language above (neutral glass surfaces, white primary action, colour only by meaning), plus these durable rules:
+
+- **Four places, always the same:** Обзор, Ход игры, Игроки, Итог. A phone has them in a bottom bar under the thumb; a desktop (`lg`) in a left rail. The top bar holds only the title, «Черновик / Подтверждена» and the save state.
+- **Every edit happens in a sheet** (bottom sheet on a phone, side panel on a desktop) with ≥44 px targets; the page itself reads as a summary. Dangerous actions (PPK, removal, deleting a voting) are separate, red-toned buttons and never the primary action.
+- **A result is a sentence first** («Ушёл #7 Дина. 8 голосов из 9»), then the bars per candidate, then «Кто за кого» as rows «игрок → кандидат». Counts alone are never the only form.
+- **Everything the judge changed is listed** in «Вы изменили» as «было → стало» with «Вернуть»; a circle is marked «Проверил» by the judge, never automatically.
+- **Tag language** (`tags.tsx`; colour + icon + word, so colour is never the only signal): violet · night (killed, shot, checks); rose · voting (voted out); red · removed by the judge; amber · attention (PPK, fouls, something left out of the record); green · fine / confirmed / in the game; sky · information (best move). Roles use the canonical role registry (`GameRoleIcon`), not local colours.
+- Wording is plain and for the operator («Результат подтверждён», «Ушёл #7 Дина», «Кто за кого»); no engine terms («исход», «этап #3») on screen.
+
 ## Visual verification rule
 
 **Owner clarification, 2026-10-15:** compact does not mean text-only. Keep a visible game identity through the existing Live Game role icons, small role/seat graphics, linked player identities and factual team/result comparisons. A single career win-rate graphic may anchor the unified summary. Use one compact visual composition per task/group rather than either a chart/poster for every metric or a wall of text. Do not revive oversized posters, decorative network canvases or duplicate data displays.

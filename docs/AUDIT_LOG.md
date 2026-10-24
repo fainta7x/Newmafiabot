@@ -1725,3 +1725,23 @@ Found while fixing, in today's code (not legacy):
 - **P6 — a revote cancelled by a removal makes the finished game unsaveable.** After a tie the judge removes a player (4th foul, second tech, judge removal): the engine cancels the voting, the pending revote is dropped from the evidence (by design), but its tie stays as `tie_revote` with no revote, and the shared check refuses it («раунд #1 завершился ничьей, но … отсутствует связанное переголосование»). Reproduced with the engine in a scenario test (tie → revote collecting → judge removes #8 → night → PPK → evidence → `validateVotes`). **Fixed in code:** the dropped revote marks its tie `cancelled_by_removal` (optional field on `VotingRound`), and `validateVotingHierarchy` does not ask for a revote of a marked tie. Older rows are not marked (#9 above).
 - Not changed, for the owner: the colour protocol of killed players cannot be shown or edited in the club editor (the tournament editor owns the editing state in `GameProtocolModal`; it needs extracting into a shared hook). With it, game #11's «цветовой протокол разрешён только для убитого» would be fixable in the editor. See PROJECT_STATE, «Waiting on the owner».
 
+## 2026-10-24 — Protocol window redesign: visual and wording review (owner: «трудно визуально разобраться»)
+
+Review of the first build against real game #21 (and a synthetic fixture in CI) at 360/390/768/1280 px: automated geometry check (no element outside the viewport, no sideways page scroll, every button/select ≥44 px) and screenshots read by hand.
+- **Fixed during the review:** the header showed the save state twice and was too tall on a phone; three identical «проверка Дона не отмечена» lines flooded «Что проверить» (now one line with the circles); the Sheriff check was flagged in circles after the Sheriff had left (`roleAtTable`); tab content kept the scroll position of the previous tab; the check's own wording («этап #3, день 1», «исход») reached the screen; reorder arrows and the replacement checkbox were under 44 px; the «Выставили» card repeated what each candidate row says.
+- **Owner feedback applied:** results are now a sentence (`describeVoting`), then bars, then «Кто за кого» as rows; statuses, roles, outcomes and checks are tags with colour + icon + word (`tags.tsx`).
+- **Open:** nominations and Don/Sheriff checks are display-only (no structured field); tournament protocol window not yet migrated; the «Вы изменили» list also shows exits recalculated after a ballot change (correct, but it reads as a change the judge did not make).
+
+
+## 2026-10-24 — Protocol completeness sweep (every live-game event kind vs. the protocol window)
+
+Scope: each `LiveGameEventKind` in `src/shared/liveGameEvents.ts` checked for being shown or editable in `src/components/crm/gameProtocol/`.
+
+| # | Finding | Status |
+|---|---------|--------|
+| C1 | `reveal` / `announced_check` (вскрытия, announced colours, competing table versions) were not shown or editable anywhere in the window | fixed — `RevealsCard` in «Итог» (add/remove reveal, announced red/black per player, versions of the table). «1 or 2 versions» is derived from the number of reveals, not stored |
+| C2 | Killed player's «протокол убитого» was visible only inside the player sheet | fixed — tag on the player row («Протокол убитого» / «Нет протокола убитого») |
+| C3 | Player status could differ from the votes/shots record with no warning | fixed — issue «статус не совпадает с записью игры» + «Как в записи» button in the player sheet |
+| C6 | «Number of versions» had to be derivable, not a hand-set switch | fixed — versions = 1 (Sheriff) + black reveals; the protocol records black reveals only, `reveal-checks-*` flags a black reveal without announced checks |
+| C4 | `role_corrected`, `player_reseated`, `table_vote`, `nomination_removed`, `shot_target`, `speech_start`, `game_end` have no dedicated view (only in the raw event log in «Итог») | open — judge to decide which of them deserve their own place |
+| C5 | Nominations and Don/Sheriff checks are display-only (no structured field) | open |

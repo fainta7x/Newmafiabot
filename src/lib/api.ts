@@ -515,6 +515,8 @@ export interface VotingRound {
   outcome?: 'pending' | 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination';
   eliminated_seats?: number[];
   table_leave_votes?: number | null;
+  cancelled_by_removal?: boolean;
+  ballots?: Record<number, number>;
 }
 
 export interface ShotEntry {

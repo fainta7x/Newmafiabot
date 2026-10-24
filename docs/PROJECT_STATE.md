@@ -145,6 +145,17 @@ Finish current PR #949 with readable compact mobile rows, accessible disclosures
 
 **Exit condition:** all confirmed P0/P1 dead ends/wrong destinations and misleading labels have fixes with CI/mobile evidence; P2 opportunities prioritized as worthwhile vs cosmetic; no need to audit production SQLite or refactor unrelated business rules solely to close the UX block. CI green is not a phone/runtime check.
 
+## Owner requests and bug list of 2026-10-24 (recorded the same day, not built yet)
+
+Quick add of a player to an evening (request): the owner wants a player to be addable to an evening **from the screen where the game's seats are composed** (the game-creation sheet), and from the evening card, without leaving the menu and coming back — a quick «add to the evening and seat at the table» (mark as arrived and seat). Today this takes the evening settings and then the game screen.
+
+Bugs found by the owner on 2026-10-23 (to reproduce, then fix; asked back what is unclear):
+1. **The evening graphics** (a picture of the evening) drifts a little off the screen: layout moved, otherwise fine — check the 390 px layout.
+2. **Auto mode in the live game does nothing:** pressing «Авто» changes nothing, the judge still clicks every step by hand.
+3. **Betting from Telegram opens nothing in the app:** the Telegram notification «place a bet on the game» leads to an app screen with nothing to bet on. Wanted: two clear ways to bet — through Telegram or through the app — and the link must open the bet.
+4. **Engine visual bugs** on various elements: re-check the live game screens.
+5. **Music (owner decision):** switch off, do not delete, the music-enabling menu with its mandatory steps and the script loading / music start; instead a plain step «включите музыку» (a screen). Until a good design exists the old flow stays in the code but unused.
+
 ## Architecture unification — ACTIVE PROGRAMME (owner approved 2026-10-11)
 
 **Goal:** make existing features easier and safer to change across Player Cabinet, Organizer CRM, Telegram/VK and judge workflows: one authoritative rule/data owner for each business fact; reusable UI building blocks where presentation really matches; explicit shared update/query contracts. **This is a gradual audit → prioritized small refactors → regression checks programme, NOT a UI redesign or a rewrite.** Work has begun, but do not imply the entire repository has been audited or refactored.

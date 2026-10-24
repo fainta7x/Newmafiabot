@@ -9,6 +9,7 @@ import { LockedNote } from './PlayersView';
 import { teamOfRole } from './protocolReview';
 import { ExitTag, FoulTag, RoleTag } from './tags';
 import { RevealsCard } from './RevealsCard';
+import { GameAnalysis } from '../tournaments/protocol/GameAnalysis';
 
 type Props = { api: ProtocolApi };
 
@@ -113,6 +114,8 @@ export const ResultView: React.FC<Props> = ({ api }) => {
       <GuestSeatReplacement api={api} />
 
       <RevealsCard api={api} />
+
+      <GameAnalysis events={protocol.events} playerResults={api.results} />
 
       <section aria-label="Замена в игре" className="space-y-2">
         <div className="flex items-center justify-between px-1"><Eyebrow>Замена в игре</Eyebrow>

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 const read = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8');
 
 const eveningUi = read('../components/crm/EveningGameCreateSheet.tsx');
-const protocolUi = read('../components/crm/tournaments/protocol/ProtocolSummaryTab.tsx');
+const protocolUi = read('../components/crm/gameProtocol/ResultView.tsx');
 const eveningsRoute = read('../server/routes/eveningsRoutes.ts');
 const gamesRoute = read('../server/routes/gamesRoutes.ts');
 const tokenSettlement = read('../server/services/clubGameTokenSettlementService.ts');

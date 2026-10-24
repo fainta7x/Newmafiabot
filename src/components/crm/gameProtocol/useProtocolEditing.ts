@@ -12,7 +12,7 @@ type Options = {
   playerResults: PlayerResultData[];
   setPlayerResults: Dispatch<SetStateAction<PlayerResultData[]>>;
   /** A guard may take over a change that needs the judge's confirmation (a tournament asks before it drops compensation points). Return true to stop the change. */
-  guards?: { firstKilled?: (participantId: string | null) => boolean; zeroRoundVoted?: (participantId: string | null) => boolean };
+  guards?: { updateResult?: (participantId: string, updates: Partial<PlayerResultData>) => boolean; firstKilled?: (participantId: string | null) => boolean; zeroRoundVoted?: (participantId: string | null) => boolean };
 };
 
 /**
@@ -26,6 +26,7 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
   const evidenceBefore = (before: TournamentGameProtocolData) => ({ votes: before.votes || [], shots: before.shots || [], firstKilledId: before.first_killed_participant_id ?? null });
 
   const updatePlayerResult = (participantId: string, updates: Partial<PlayerResultData>) => {
+    if (guards?.updateResult?.(participantId, updates)) return;
     setPlayerResults((prev) => prev.map((player) => player.participant_id === participantId ? { ...player, ...updates } : player));
   };
 
@@ -151,13 +152,13 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     });
   };
 
-  const handleFirstKilledChange = (participantId: string | null) => {
+  const handleFirstKilledChange = (participantId: string | null, mapResults?: (results: PlayerResultData[]) => PlayerResultData[]) => {
     setProtocol((prev) => {
       const moves = (prev.best_moves || []).filter((move) => move.source !== 'first_killed');
       if (participantId) moves.push({ participant_id: participantId, source: 'first_killed', seat_numbers: [] });
       const next = { ...prev, first_killed_participant_id: participantId, best_moves: moves };
       const synced = syncAllEventsToResults(prev.votes || [], prev.shots || [], participantId, playerResults, next, evidenceBefore(prev));
-      setPlayerResults(synced.player_results);
+      setPlayerResults(mapResults ? mapResults(synced.player_results) : synced.player_results);
       return synced.protocol;
     });
   };

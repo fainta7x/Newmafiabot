@@ -30,6 +30,8 @@ type Props = {
   resetKey: string | number;
   /** Extra places and their content (the tournament's judge points). */
   extra?: Partial<Record<'points', React.ReactNode>>;
+  /** Shown under the result (the tournament's «Результаты PNG»). */
+  resultExtra?: React.ReactNode;
 };
 
 /**
@@ -37,7 +39,7 @@ type Props = {
  * review of what to check, what the judge changed, and the checks before a game may be confirmed. The editor around it
  * only loads, saves, confirms and reopens.
  */
-export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save, saveError, baseline, repairNotes = [], busy, onRevert, onConfirm, onReopen, onClose, resetKey, extra }) => {
+export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save, saveError, baseline, repairNotes = [], busy, onRevert, onConfirm, onReopen, onClose, resetKey, extra, resultExtra }) => {
   const { protocol, results: playerResults, locked, zeroRoundRule } = api;
   const [activeTab, setActiveTab] = useState<ProtocolTab>('overview');
   const [circle, setCircle] = useState(0);
@@ -127,7 +129,7 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
           <PlayerSheet api={api} seat={selectedSeat} onClose={() => setSelectedSeat(null)} />
         </>
       )}
-      {activeTab === 'result' && <ResultView api={api} />}
+      {activeTab === 'result' && <><ResultView api={api} />{resultExtra}</>}
       {activeTab === 'points' && extra?.points}
     </ProtocolWindow>
   );

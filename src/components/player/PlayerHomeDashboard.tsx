@@ -1,3 +1,4 @@
+import { getJsonIfOk } from '../../lib/requestJson.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WhatsNewCard from './WhatsNewCard.tsx';
 import VotePromptCard from './VotePromptCard.tsx';
@@ -95,12 +96,10 @@ export default function PlayerHomeDashboard({
   // «Главная» (owner decision 2026-10-06): what to do now — a debt for past evenings — and the club news.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/player/payments', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+    getJsonIfOk<any>('/api/player/payments')
       .then((body) => { if (!cancelled) setDebt(Math.max(0, Number(body?.summary?.historical_debt || 0))); })
       .catch(() => undefined);
-    fetch('/api/player/news', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+    getJsonIfOk<any>('/api/player/news')
       .then((body) => { if (!cancelled && Array.isArray(body?.news)) setNews(body.news); })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -108,8 +107,7 @@ export default function PlayerHomeDashboard({
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/player/novice', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+    getJsonIfOk<any>('/api/player/novice')
       .then((body) => { if (!cancelled && body?.player) setNovice(body as NoviceState); })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -120,9 +118,8 @@ export default function PlayerHomeDashboard({
     setEvenings(null);
     setEveningsError(false);
     try {
-      const response = await fetch('/api/player/evenings', { credentials: 'include' });
-      if (!response.ok) throw new Error('Evenings request failed');
-      const body = await response.json();
+      const body = await getJsonIfOk<any>('/api/player/evenings');
+      if (!body) throw new Error('Evenings request failed');
       if (!Array.isArray(body?.evenings)) throw new Error('Invalid evenings response');
       if (requestId === eveningRequestSeq.current) setEvenings(body.evenings);
     } catch {
@@ -140,9 +137,8 @@ export default function PlayerHomeDashboard({
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/rating', { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) return;
+        const body = await getJsonIfOk<any>('/api/rating');
+        if (!body) return;
         if (!cancelled) setRating(Array.isArray(body?.players) ? body.players : []);
       } catch {
         if (!cancelled) setRating([]);

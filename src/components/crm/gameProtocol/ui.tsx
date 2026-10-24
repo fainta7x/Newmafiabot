@@ -82,7 +82,7 @@ export const Segmented: React.FC<{ value: string; options: Array<{ value: string
           aria-checked={on}
           disabled={disabled}
           onClick={() => onChange(option.value)}
-          className={cx('min-h-11 rounded-xl px-2 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60', on ? 'bg-white text-[#090a0d]' : 'bg-white/[0.06] text-white/70 hover:bg-white/[0.1]')}
+          className={cx('min-h-11 rounded-xl px-2 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60', on ? (option.tone === 'bad' ? 'bg-rose-300/25 text-rose-50 ring-1 ring-rose-300/50' : option.tone === 'night' ? 'bg-black text-white ring-1 ring-white/40' : 'bg-white text-[#090a0d]') : 'bg-white/[0.06] text-white/70 hover:bg-white/[0.1]')}
         >
           {option.label}
         </button>

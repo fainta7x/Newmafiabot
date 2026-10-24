@@ -90,7 +90,7 @@ export const RevealsCard: React.FC<{ api: ProtocolApi }> = ({ api }) => {
                 <div key={item.seat_number} className="flex items-center gap-2">
                   <SeatBadge seat={item.seat_number} team={teamOfRole(item.role)} size="sm" />
                   <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{item.display_name}</span>
-                  <div className="w-44 shrink-0"><Segmented label={`Названный цвет игрока ${item.seat_number}`} disabled={api.locked} value={value} options={[{ value: '', label: '—' }, { value: 'red', label: 'Красн.' }, { value: 'black', label: 'Чёрн.' }]} cols={3} onChange={(next) => setCheck(sheetRecord.seat, item.seat_number, next === 'red' || next === 'black' ? next : null)} /></div>
+                  <div className="w-44 shrink-0"><Segmented label={`Названный цвет игрока ${item.seat_number}`} disabled={api.locked} value={value} options={[{ value: '', label: '—' }, { value: 'red', label: 'Красн.', tone: 'bad' as const }, { value: 'black', label: 'Чёрн.', tone: 'night' as const }]} cols={3} onChange={(next) => setCheck(sheetRecord.seat, item.seat_number, next === 'red' || next === 'black' ? next : null)} /></div>
                 </div>
               );
             })}

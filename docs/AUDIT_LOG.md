@@ -1799,3 +1799,15 @@ Method: module-level caches, browser storage of API data, and cross-screen refre
 | Q2 | The only cross-screen refresh signal is `requestPlayerProfileCompletenessRefresh` (a window event) | checked — one writer/one reader, no stale-data case found |
 | Q3 | After a write, screens reload their own list (`loadDetail`, `load`, `refreshAll`); the new hooks `useTournamentDetail` / `useTournamentActions` keep that chain in one place for the tournament card | done for the tournament card; other cards follow the same pattern by hand |
 | Q4 | Request shapes: the remaining hand-written `fetch` blocks (about 220) | in progress — screen by screen, see the request-shape entries above; `PlayerPoker`, payments and the two screens with their own `readJson` are left on purpose |
+
+### Programme step 6 — event lifecycle (audit + first slice, 2026-10-24)
+
+Method: every writer of an evening's status, of a participant's response and of attendance was listed from the code.
+
+| # | Finding | Status |
+|---|---------|--------|
+| E1 | **Response and attendance have one writer**: `eveningParticipantState.ts` (`setParticipantResponse`, `setParticipantAttendance`). Every route and service (bot, VK, player cabinet, CRM, novice, slot selection, closeout) calls it. The only other writers are guest placeholders (their own table, `guestPlayerService`) and two frozen migrations | checked — no change |
+| E2 | **Evening status writers**: `draft→published` (weekly automation, one-time plans), `published→active` (`gamesRoutes`), `→cancelled` (two services), `→completed` (`eveningCloseoutService`) | checked |
+| E3 | Cancelling an evening was written twice with the same four steps (status change guarded by the status the caller saw, record the cancellation, notify, post): `eveningCancelService.cancelEvening` (organizer, only `published`) and `cancelEveningForShortfall` (automatic, `published` or `active`) | fixed — one `commitEveningCancellation` (status guard + record + notify); the guards and the post (awaited by the organizer, only logged by the automatic path) stay with the callers; 66 cancel/shortfall tests pass unchanged |
+| E4 | `eveningCancelService` accepts only `published` while the shortfall path also cancels an `active` evening | open — probably intended (an organizer should not cancel a running evening), asked below |
+| E5 | Waitlist exists only for tournaments and slot-limited games; not a separate concept for evenings | checked |

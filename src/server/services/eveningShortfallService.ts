@@ -22,6 +22,20 @@ export const CANCEL_PROMPT_HOURS = 1;
 
 export const eveningMinimumPlayers = (format: unknown) => (normalizeEveningFormat(format) === 'NOVICE' ? 8 : 10);
 
+/**
+ * The one way an evening becomes «cancelled» (organizer or shortfall): the status changes only from the status the caller
+ * saw and only while the evening is not settled, then the cancellation is recorded and the players and the organizer
+ * are told. `false` means somebody else changed the evening first, nothing was recorded or sent. The announcement post
+ * is published by the caller, because it differs (the organizer waits for it, the automatic path only logs a failure).
+ */
+export async function commitEveningCancellation(db: DatabaseWrapper, eveningId: string, reason: string, fromStatus: string, at = new Date().toISOString()): Promise<boolean> {
+  const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = ? AND settled_at IS NULL", [at, eveningId, fromStatus]);
+  if (!changed.changes) return false;
+  await recordEveningCancellation(db, eveningId, reason);
+  await notifyEveningCancelled(db, eveningId, reason);
+  return true;
+}
+
 export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: string, now = Date.now(), automatic = false) {
   await ensureGuestPlayerPlaceholderSchema(db);
   const evening = await db.get<any>('SELECT id, format, status, starts_at, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
@@ -37,10 +51,7 @@ export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: 
   if (attended >= eveningMinimumPlayers(evening.format))
     throw Object.assign(new Error('На вечер пришло достаточно игроков'), { statusCode: 409 });
   if (automatic && !['published', 'active'].includes(evening.status)) return false;
-  const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = ? AND settled_at IS NULL", [new Date(now).toISOString(), eveningId, evening.status]);
-  if (!changed.changes) return false;
-  await recordEveningCancellation(db, eveningId, 'shortfall');
-  await notifyEveningCancelled(db, eveningId, 'shortfall');
+  if (!await commitEveningCancellation(db, eveningId, 'shortfall', evening.status, new Date(now).toISOString())) return false;
   // The old announcements stay as they were; the group and VK get a new message about it (owner, 2026-10-02).
   const { publishCancelPost } = await import('./eveningCancelService.ts');
   await publishCancelPost(db, eveningId, { reason: 'shortfall' }).catch((error) => console.warn('[SHORTFALL] cancellation post failed:', error));

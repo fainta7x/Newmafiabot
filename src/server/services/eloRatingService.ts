@@ -51,8 +51,13 @@ const numeric = (value: unknown) => {
 export const ELO_SCALE = 5;
 const RESULT_WEIGHT = 10 * ELO_SCALE;
 const PERSONAL_POINT_WEIGHT = 8 * ELO_SCALE;
-const EXPECTATION_DIVISOR = 400 * ELO_SCALE;
-const PROTECTION_DIVISOR = 200 * ELO_SCALE;
+/**
+ * Table level (owner, 2026-10-24: «значения не нужно было растягивать, между 900 и 1100 уже огромная разница»): the
+ * real ratings never spread ×5, so the win-expectation and protection distances are back to 400 / 200 Elo. Only these two
+ * are unstretched; the weight of a game and of a personal point stay on the ×5 scale.
+ */
+export const EXPECTATION_DIVISOR = 400;
+export const PROTECTION_DIVISOR = 200;
 
 export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam): CanonicalEloPlayerDelta[] {
   const redPlayers = players.filter((player) => player.team === 'red');

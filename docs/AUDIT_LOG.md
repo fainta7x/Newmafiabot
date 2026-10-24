@@ -1763,3 +1763,5 @@ Scope: `src/components/crm/tournaments/TournamentDetailViewBase.tsx` (1620 lines
 | T6 | Rights | `tournamentGameEditRights` | already a pure function — keep |
 
 Risk: T3 (`handleCorrectGame` ↔ `handleReopenTournament`) is a two-step chain with a partial-failure branch — characterization tests first. No behaviour or copy may change. Status: open.
+
+**Update (same day):** T2, T3 and T4 are one chain (confirm → API → feedback → reload), so they moved together into `tournaments/useTournamentActions.ts` (code moved as it was, no behaviour or copy change; the card went from 1620 to 1378 lines). 14 characterization tests in `useTournamentActions.test.tsx` cover the «Исправить» chain (including the partial failure), cancel, start, reset to plan, drop last game, swap, roles and the judge. T1 (loading) stays in the card for now. Status: T2–T4 fixed, T1 open.

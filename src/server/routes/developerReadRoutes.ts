@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { createDeveloperSnapshotHandler } from './developerSnapshotRoute.ts';
 import { getUiUsageSummary } from '../services/uiUsageService.ts';
 import crypto from 'node:crypto';
@@ -80,7 +81,7 @@ router.post('/poker/stats', async (req, res) => {
         vpip_pct: pct(item.vpip, item.hands), pfr_pct: pct(item.pfr, item.hands),
         fold_to_bet_pct: pct(item.foldedToBet, item.facedBet), faced_bets: item.facedBet,
         postflop_bets_raises: item.postflopAggro, postflop_calls: item.postflopPassive,
-        aggression_factor: item.postflopPassive > 0 ? Math.round((item.postflopAggro / item.postflopPassive) * 100) / 100 : null,
+        aggression_factor: item.postflopPassive > 0 ? round2(item.postflopAggro / item.postflopPassive) : null,
       });
     }
     return res.json({ stored_hands: hands, players });

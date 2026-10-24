@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { getGameRoleDefinition, normalizeGameRole } from '../../shared/gameRoles.ts';
 import { countGames, countWins } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -75,7 +76,7 @@ const formatDate = (value: string) => formatMoscowDate(value, 'short', { empty: 
 const formatRange = (start: string, end: string) => `${formatDate(start)} — ${formatDate(end)}`;
 
 const scoreNumber = (value: number) => {
-  const rounded = Math.round(Number(value || 0) * 100) / 100;
+  const rounded = round2(Number(value || 0));
   return rounded.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 };
 

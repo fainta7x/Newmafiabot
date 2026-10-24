@@ -1,3 +1,4 @@
+import { round2 } from '../shared/numbers.ts';
 import { Tournament, TournamentStandingItem, PlayerResultData, TournamentGame } from './api';
 import { russianPlural } from './russianPlural';
 import {
@@ -437,7 +438,7 @@ export function wrapExportText(value: string | null | undefined, maxChars: numbe
   return lines.slice(0, maxLines);
 }
 
-const roundOfficial = (value: number): number => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+const roundOfficial = (value: number): number => round2(Number(value || 0));
 
 export { russianPlural };
 

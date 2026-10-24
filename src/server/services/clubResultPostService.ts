@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -361,7 +362,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
 
 const ROLE_LABELS: Record<string, string> = GAME_ROLE_LABELS;
 const comma = (value: number) => {
-  const rounded = Math.round(value * 100) / 100;
+  const rounded = round2(value);
   return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${String(Math.abs(rounded)).replace('.', ',')}`;
 };
 
@@ -693,7 +694,7 @@ export const tournamentResultsText = (title: string, dateLabel: string, rows: Ar
   const lines = [`🏆 Итоги турнира «${title}»${dateLabel ? ` — ${dateLabel}` : ''}`, ''];
   for (const row of rows.slice(0, 10)) {
     const mark = MEDALS[row.place - 1] || `${row.place}.`;
-    const points = Number.isInteger(row.points) ? String(row.points) : String(Math.round(row.points * 100) / 100);
+    const points = Number.isInteger(row.points) ? String(row.points) : String(round2(row.points));
     lines.push(`${mark} ${row.name} — ${points}`);
   }
   if (rows.length > 10) lines.push(`… и ещё ${rows.length - 10}`);

@@ -1,6 +1,7 @@
 import { gameTeamOfRole } from '../../shared/gameRoles.ts';
+import { round2 } from '../../shared/numbers.ts';
 export function roundToTwo(num: number): number {
-  return Math.round((num + Number.EPSILON) * 100) / 100;
+  return round2(num);
 }
 
 export function calculateCiThreshold(distanceGames: number): number {

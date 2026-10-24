@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { useEffect, useMemo, useState } from 'react';
 
 type EloEvent = {
@@ -34,7 +35,7 @@ type EloJourneyData = {
   events: EloEvent[];
 };
 
-const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
+const signed = (value: number) => `${value > 0 ? '+' : ''}${round2(value)}`;
 const dateText = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';

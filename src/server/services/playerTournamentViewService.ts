@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
 import { internalGetNominations } from './tournamentStandingsService.ts';
@@ -16,7 +17,7 @@ const phaseOf = (tournament: any): PlayerTournamentPhase => {
   return tournament.registration_closed_at ? 'registration_closed' : 'registration';
 };
 
-const round = (value: unknown) => Math.round(Number(value || 0) * 100) / 100;
+const round = (value: unknown) => round2(Number(value || 0));
 
 /** Tournaments a player can open: published ones with registration, running ones and finished ones. */
 export async function listPlayerTournaments(db: DatabaseWrapper, viewerId: string) {

@@ -1,3 +1,4 @@
+import { round2 } from '../../shared/numbers.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,7 +25,7 @@ const BLACK = '#C4B5FD';
 const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value);
 const pointsText = (value: number) => {
-  const rounded = Math.round(value * 100) / 100;
+  const rounded = round2(value);
   const text = String(Math.abs(rounded)).replace('.', ',');
   return rounded > 0 ? `+${text}` : rounded < 0 ? `−${text}` : '0';
 };

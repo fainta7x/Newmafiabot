@@ -61,10 +61,22 @@ describe('cancelling an evening from «Закрытие»', () => {
     expect(done.status).toBe('attention');
   });
 
+  it('cancels a running evening without games (owner, 2026-10-24) and refuses a settled one', async () => {
+    const db = await setup();
+    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch;
+    await db.run("UPDATE game_evenings SET status = 'active' WHERE id = 'club'");
+    await cancelEveningByOrganizer(db, 'club', { text: 'Не собрались' }, fetchImpl);
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'club'")).status).toBe('cancelled');
+    await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'nov'", [new Date().toISOString()]);
+    await expect(cancelEveningByOrganizer(db, 'nov', {}, fetchImpl)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
   it('refuses an evening that already has games', async () => {
     const db = await setup();
     await db.run("UPDATE game_evenings SET status = 'active' WHERE id = 'club'");
-    await expect(cancelEveningByOrganizer(db, 'club')).rejects.toThrow(/ещё не начался/);
+    await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,judge_name,protocol_text,slots_json,created_at)
+      VALUES ('club',1,?, 'red','Красные','Судья','{}','[]',?)`, [new Date().toISOString(), new Date().toISOString()]);
+    await expect(cancelEveningByOrganizer(db, 'club')).rejects.toThrow(/уже есть игры/);
   });
 
   it('retries a failed channel for an already cancelled evening', async () => {

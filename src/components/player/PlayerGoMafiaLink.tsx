@@ -1,3 +1,4 @@
+import { sendJson } from '../../lib/requestJson.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { GOMAFIA_NOMINATIONS, classifyGoMafiaTournamentSize, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
@@ -78,12 +79,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     setBusy(true);
     setMessage('');
     try {
-      const response = await fetch(organizer ? `/api/player/gomafia/organizer/${encodeURIComponent(playerId)}` : '/api/player/gomafia/me', {
-        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile: input.trim() }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Не удалось привязать GoMafia');
+      const body = await sendJson<any>(organizer ? `/api/player/gomafia/organizer/${encodeURIComponent(playerId)}` : '/api/player/gomafia/me', 'PUT', { profile: input.trim() }, 'Не удалось привязать GoMafia');
       setLink(body.link);
       setInput('');
       setMessage(body.link?.status === 'verified' ? 'Привязка подтверждена. Карьера подтянется автоматически.' : 'Запрос отправлен организатору — он получит уведомление и подтвердит привязку.');

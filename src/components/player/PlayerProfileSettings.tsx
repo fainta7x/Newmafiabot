@@ -6,7 +6,7 @@ import ConfirmDialog from '../ui/ConfirmDialog.tsx';
 import { FieldDescription, FieldMessage } from '../ui/Field.tsx';
 import PlayerIdentityFields, { type PlayerIdentityDraft } from './PlayerIdentityFields.tsx';
 import { requestPlayerProfileCompletenessRefresh } from './PlayerProfileCompleteness.tsx';
-import { sendJson } from '../../lib/requestJson.ts';
+import { getJsonIfOk, sendJson } from '../../lib/requestJson.ts';
 
 type Player = PlayerMeResponse['player'];
 const normalizeNullable = (value: string) => value.trim() || null;
@@ -36,9 +36,8 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/player/profile-settings', { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || cancelled) return;
+        const body = await getJsonIfOk<any>('/api/player/profile-settings');
+        if (!body || cancelled) return;
         const row = body?.player || {};
         setPrivateSettings({
           birth_day: row.birth_day ?? null,
@@ -57,20 +56,15 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
     if (!nextNickname) { setError('Ник не может быть пустым'); return; }
     setSaving(true); setError(null); setMessage(null);
     try {
-      const response = await fetch('/api/player/me', {
-        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nickname: nextNickname,
-          full_name: normalizeNullable(identity.fullName),
-          phone: normalizeNullable(identity.phone),
-          birth_day: privateSettings.birth_day,
-          birth_month: privateSettings.birth_month,
-          birth_year: privateSettings.birth_year,
-          preferred_format: privateSettings.preferred_format,
-        }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить профиль');
+      const body = await sendJson<any>('/api/player/me', 'PATCH', {
+        nickname: nextNickname,
+        full_name: normalizeNullable(identity.fullName),
+        phone: normalizeNullable(identity.phone),
+        birth_day: privateSettings.birth_day,
+        birth_month: privateSettings.birth_month,
+        birth_year: privateSettings.birth_year,
+        preferred_format: privateSettings.preferred_format,
+      }, 'Не удалось сохранить профиль');
       onPlayerChange({ ...player, ...body.player } as Player);
       requestPlayerProfileCompletenessRefresh();
       setMessage('Профиль сохранён');
@@ -82,12 +76,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
   const setSensitiveChoice = async (field: 'phone' | 'birthday', state: 'declined' | 'missing') => {
     setError(null); setMessage(null);
     try {
-      const response = await fetch('/api/player/me', {
-        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sensitive_field_choice: { field, state } }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить выбор');
+      await sendJson('/api/player/me', 'PATCH', { sensitive_field_choice: { field, state } }, 'Не удалось сохранить выбор');
       requestPlayerProfileCompletenessRefresh();
       setMessage(state === 'declined' ? 'Отметили, что это поле не предоставляется' : 'Поле снова отмечено как требующее уточнения');
     } catch (choiceError: any) {

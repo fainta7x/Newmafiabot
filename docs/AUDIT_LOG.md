@@ -1924,3 +1924,8 @@ CI triage for 47f0f899: all five Vitest shards, CodeQL, Gitleaks, UI preview and
 
 
 Model composition clarification: the owner requests an explanation of independent coefficient responsibilities. Current code calculates all player deltas from pre-game ratings, then updates ratings; it does not feed a changed rating back into the same game's other coefficients. Team-average expectation and self-versus-allies carry use overlapping rating inputs, while personal points/contribution are added after the result term. Shared inputs alone are not a circular computation. A redesign must define non-overlapping meanings before adding a separate table/team/own-rating multiplier, and preserve the approved non-mention and carry policies unless the owner changes them.
+
+
+### Balance recommendation follow-up — 2026-10-25
+
+Owner asks for independent judgement and pitfalls before choosing the new table-level bonus. Current code re-read at da34cffc. Verified: additive B=4 raises an otherwise −3 protected loss to +1; weak black in a 90%-favoured team currently loses −45×1.2=−54; median of [2500, nine×1000] is 1000 and of [six×1400, four×1000] is 1400. Proposed 0…4 bonus curve was checked at its endpoints and intermediate examples. These are isolated synthetic calculations; no production history backtest or empirically optimal coefficient is claimed. Status: recommendations recorded in ELO_CALCULATION_MODEL, no behaviour changed. Existing accepted reward policies preserved.

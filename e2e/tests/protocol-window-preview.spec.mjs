@@ -12,7 +12,7 @@ for (const [width, kind] of [[360, 'club'], [390, 'tournament']]) {
     await page.goto(`/e2e/protocol-window.html?draft=1&kind=${kind}`);
     await expect(page.getByTestId('protocol-window')).toBeVisible();
     await place(page, width, 'Ход игры').click();
-    await page.getByRole('tab', { name: 'Круг 1', exact: true }).click();
+    await page.getByRole('tab', { name: 'Круг 1' }).click();
     await page.getByRole('button', { name: /Выстрел мафии/ }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('radio', { name: 'Промах', exact: true }).click();

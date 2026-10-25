@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## Owner request — 2026-10-26: missed shots and decision streaks (definition pending)
+
+The owner asks to add a personal Elo penalty to blacks for a missed shot only if their team loses; the judge assigns responsibility to the shooter or to all blacks. They also request stronger rewards/penalties for streaks of correct/incorrect decisions and explicitly invite clarification. Before implementation define which missed-shot outcomes qualify (including deliberate no-shot vs error), the judge's attribution scope, and whether a streak is within one game or across games and which decisions qualify. Do not infer intent or the culprit from an aggregate miss. Proposed bounded personal-component weights are a design proposal, not an approved scoring rule. The existing corrected-vote/critical-circle implementation at ac266ed1 passed CI, UI preview, CodeQL and Gitleaks. PR #1040 remains open for review and these additions; no production write/release.
+
+
 ## 2026-10-26 — actual-game fairness review, PR #1040
 
 Owner requests a qualitative review of games 19–21: exits, useful/mistaken play and suspicious awards. The read-only audit found an actual corrected-vote-marker defect in game 20, plus an open product question: should a self-vote count as a mistaken red read? No unapproved change to self-vote scoring or accepted protection/omission policies. Correct the technical result lookup and preserve critical-circle detection after valid known-seat restoration; regress both paths and update the private report. The game20 exit snapshot disagrees with its event log for seat3 and remains an open data-quality question; full career replay still requires seeds and private tournament scores. Release remains held for concrete owner review.

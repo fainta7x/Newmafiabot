@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gameContribution } from '../lib/playerContribution.ts';
 
-const seat = (n: number, role: string, color_protocol: any[] = []) => ({ seat_number: n, role, player_id: `p${n}`, color_protocol });
+const seat = (n: number, role: string, color_protocol: any[] = []) => ({ seat_number: n, role, player_id: `p${n}`, color_protocol, exit_type: color_protocol.length ? 'killed' : 'alive' });
 
 describe('player contribution (colour protocol part)', () => {
   const envelope = {
@@ -211,3 +211,4 @@ describe('a black the voter did not find himself (owner, 2026-10-25)', () => {
     expect(me.items.some((item) => item.kind === 'obvious_black')).toBe(false);
   });
 });
+

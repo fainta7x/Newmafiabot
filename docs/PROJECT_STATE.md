@@ -1231,3 +1231,14 @@ Replacement PR for conflicted #970 stores bounded actual OBS-state frames during
 - Elo contribution, round 4 (owner 2026-10-25: no role adjustment, «голосовал в чёрных — это и нужно хвалить», balance the weights instead): sheriff check +0.1 (was 0.2), a black not named in a will +0.1 (was 0.05); averages per game: citizen +6, sheriff +9, mafia +7, don +6 Elo; on the 19 club games final ratings move from −37 (Денди) to +217 (Богданчик). Short wording on the game blank approved; merge waits for the owner's «да».
 - Elo contribution, round 5 (owner 2026-10-25): only votings after which exactly one player left count (no revote / nobody / several — possible agreed split); the game blank shows the team strength (averages, level words, red chance) and repeated votes as «№4 (2 раза)».
 - Elo contribution, round 6 (owner 2026-10-25): «obvious black» rule — after a false sheriff's black check on a red who voted for a red at nine, votes for the false sheriff and for blacks the real sheriff already checked earn nothing (BUSINESS_RULES). Works only where the judge recorded announced checks; none of the 19 production games has them yet, so it is covered by unit tests only.
+
+
+## Elo handoff to GPT — owner request, 2026-10-25
+
+Owner finished his input with Claude and explicitly asked GPT to continue #1040, preserve the existing work, record the handoff and add the discussed corrections. Coordination is recorded in the PR conversation; GPT is the sole writer until the owner changes this. The current obvious-black rule is preserved. Independent audit formerly in draft #1041 is folded into AUDIT_LOG here.
+
+Implemented for review: smoothly bounded positive red expectation (30% at equal strength, about 57% at the strongest modeled red advantage, never above 60%); own/contradictory colour validation plus historical-score protection; no black contribution from wills after his exit; unknown exit chronology is not invented. The negative-gap expectation, non-mention weight, contribution cap, inflation policy and carry modifiers stay unchanged pending discussion. Local Node regressions passed; full exact-head CI remains required.
+
+Waiting on the owner: (1) whether non-mention in a will is enough to award the black, (2) whether strong-player protection should itself have positive expected drift, (3) the probability bound when black players are much stronger than red players. Existing accepted accumulation without a lifetime cap is preserved; it is not silently replaced with role-average subtraction.
+
+Do not merge/deploy or trigger the all-player rating migration until the owner discussion is complete and release is approved.

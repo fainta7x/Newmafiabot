@@ -15,7 +15,7 @@ export interface CanonicalEloGamePlayer {
   team: EloTeam;
   elo: number;
   canonicalPersonalGamePoints: number;
-  /** Individual contribution already measured against the role's club average, in points (club games only). */
+  /** Individual contribution in points (club games only), with no role-average subtraction. */
   contributionPoints?: number;
 }
 
@@ -57,7 +57,7 @@ const RESULT_WEIGHT = 10 * ELO_SCALE;
 const PERSONAL_POINT_WEIGHT = 8 * ELO_SCALE;
 /**
  * Table level (owner, 2026-10-24: «в пределах 150 Elo уровень одинаковый, от 150 до 250 уровень сильно различается, от 250 огромная
- * разница»). A gap between two averages is first turned into an effective level gap, then the usual 10^(gap / divisor) odds are used:
+ * разница»). A gap between two averages is first turned into an effective level gap. The win expectation is bounded separately by expectedRedTeamResult; the same effective gap drives protection:
  *  - up to 150 Elo the levels are the same (no effect);
  *  - 150–250: the effect grows one-for-one (0…100);
  *  - above 250: «huge», the effect grows twice as fast, up to 300 (gap 350 and more is the same);
@@ -77,14 +77,30 @@ export const levelGap = (gap: number): number => {
   return Math.sign(gap) * Math.min(MAX_LEVEL_EFFECT, effect);
 };
 
+export const RED_EQUAL_EXPECTATION = 0.30;
+export const RED_MAX_EXPECTATION = 0.60;
+
+/**
+ * Owner, 2026-10-25: even overwhelmingly stronger reds win only about 55–60% of games.
+ * Smoothly saturate their advantage within that range; at the largest effective gap the expectation is about 57%.
+ * The negative-gap branch is preserved pending the owner's decision on the opposite extreme.
+ * This conversion is independent of the strong-player protection below.
+ */
+export function expectedRedTeamResult(teamAverageGap: number): number {
+  const effect = levelGap(teamAverageGap);
+  if (effect >= 0) return RED_EQUAL_EXPECTATION
+    + (RED_MAX_EXPECTATION - RED_EQUAL_EXPECTATION) * Math.tanh(effect / EXPECTATION_DIVISOR);
+  const odds = (RED_EQUAL_EXPECTATION / (1 - RED_EQUAL_EXPECTATION)) * (10 ** (effect / EXPECTATION_DIVISOR));
+  return odds / (1 + odds);
+}
+
 export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam): CanonicalEloPlayerDelta[] {
   const redPlayers = players.filter((player) => player.team === 'red');
   const blackPlayers = players.filter((player) => player.team === 'black');
   if (!redPlayers.length || !blackPlayers.length) throw new Error('Canonical Elo requires both red and black teams.');
   const redTeamAvg = average(redPlayers.map((player) => player.elo));
   const blackTeamAvg = average(blackPlayers.map((player) => player.elo));
-  const redOdds = (0.30 / 0.70) * (10 ** (levelGap(redTeamAvg - blackTeamAvg) / EXPECTATION_DIVISOR));
-  const pRed = redOdds / (1 + redOdds);
+  const pRed = expectedRedTeamResult(redTeamAvg - blackTeamAvg);
   const pBlack = 1 - pRed;
   return players.map((player) => {
     const teamPlayers = player.team === 'red' ? redPlayers : blackPlayers;
@@ -308,3 +324,4 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))
     .sort((a, b) => b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));
 }
+

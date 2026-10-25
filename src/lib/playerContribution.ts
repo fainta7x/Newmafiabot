@@ -73,7 +73,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   const protocol = envelope?.protocol || {};
   const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
   const seats = results
-    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeGameRole(result?.role) as StatRole | null, playerId: String(result?.player_id || '') || null, colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [] }))
+    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeGameRole(result?.role) as StatRole | null, playerId: String(result?.player_id || '') || null, colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [], exitType: String(result?.exit_type || ''), exitOrder: Number(result?.exit_order) }))
     .filter((item) => Number.isInteger(item.seat) && item.seat > 0);
   const roleOf = new Map(seats.map((item) => [item.seat, item.role]));
   const facts = gameActionFacts({
@@ -81,7 +81,42 @@ export function gameContribution(envelope: any): SeatContribution[] {
     seats: seats.map(({ seat, role, playerId }) => ({ seat, role: role as any, playerId })), events: sanitizeLiveGameEvents(protocol.events),
   } satisfies StatGame);
   const W = CONTRIBUTION_WEIGHTS;
-  const marks = (item: { colors: any[] }, mark: string) => new Set(item.colors.filter((entry) => entry?.mark === mark).flatMap((entry) => seatList(entry?.seat_numbers)));
+  // Old protocols bypassed the new validation. Ignore self marks and contradictory evidence in a rebuild too.
+  const colorsBySeat = new Map(seats.map((item) => {
+    const red = new Set<number>(); const black = new Set<number>(); const mentioned = new Set<number>();
+    for (const entry of item.colors) {
+      if (!['red', 'black', 'sheriff'].includes(entry?.mark)) continue;
+      for (const seat of seatList(entry.seat_numbers)) {
+        if (seat === item.seat || !roleOf.has(seat)) continue;
+        mentioned.add(seat);
+        if (entry.mark === 'black') black.add(seat); else red.add(seat);
+      }
+    }
+    const conflicts = new Set([...red].filter((seat) => black.has(seat)));
+    for (const seat of conflicts) mentioned.delete(seat);
+    // A sheriff label is red evidence for conflict detection; its own scoring rule stays unchanged.
+    const marks = (mark: string) => new Set(item.colors.filter((entry) => entry?.mark === mark)
+      .flatMap((entry) => seatList(entry?.seat_numbers)).filter((seat) => mentioned.has(seat)));
+    return [item.seat, { red: marks('red'), black: marks('black'), mentioned, conflicts }] as const;
+  }));
+  const deaths = new Map<number, typeof facts.events[number]>();
+  for (const event of facts.events) {
+    if (!event.seat) continue;
+    if (event.kind === 'exit' && event.value === 'killed') deaths.set(event.seat, event);
+    else if (event.kind === 'restored') deaths.delete(event.seat);
+  }
+  const killedEvent = (seat: number) => deaths.get(seat);
+  const wasAliveForWill = (me: typeof seats[number], other: typeof seats[number]): boolean => {
+    const death = killedEvent(other.seat);
+    if (death && (facts.full || facts.events.some((event) => event.kind === 'exit' && event.seat === me.seat))) {
+      return facts.atSeq.get(death.seq)?.has(me.seat) === true;
+    }
+    if (Number.isInteger(me.exitOrder) && me.exitOrder > 0 && Number.isInteger(other.exitOrder) && other.exitOrder > 0) {
+      return me.exitOrder > other.exitOrder;
+    }
+    // Alive at the finish is sufficient evidence; otherwise an unknown chronology earns nothing.
+    return me.exitType === 'alive';
+  };
   return seats.map((me) => {
     const items: ContributionItem[] = [];
     if (redRole(me.role)) {
@@ -98,11 +133,11 @@ export function gameContribution(envelope: any): SeatContribution[] {
       }
       for (const seat of found.keys()) items.push({ kind: 'found_black', seat, points: W.foundBlack });
       for (const seat of obvious) items.push({ kind: 'obvious_black', seat, points: 0 });
-      for (const seat of marks(me, 'red')) {
+      for (const seat of colorsBySeat.get(me.seat)!.red) {
         if (redRole(roleOf.get(seat))) items.push({ kind: 'will_right', seat, points: W.colorRight.red });
         else if (blackRole(roleOf.get(seat))) items.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
       }
-      for (const seat of marks(me, 'black')) {
+      for (const seat of colorsBySeat.get(me.seat)!.black) {
         if (blackRole(roleOf.get(seat))) items.push({ kind: 'will_right', seat, points: W.colorRight.black });
         else if (redRole(roleOf.get(seat))) items.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack });
       }
@@ -111,8 +146,11 @@ export function gameContribution(envelope: any): SeatContribution[] {
       }
     } else if (blackRole(me.role)) {
       for (const other of seats.filter((item) => redRole(item.role) && item.colors.length)) {
-        if (marks(other, 'red').has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, points: W.blackNamedRed });
-        else if (marks(other, 'black').has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, points: W.blackNamedBlack });
+        const colors = colorsBySeat.get(other.seat)!;
+        if ((other.exitType !== 'killed' && !killedEvent(other.seat)) || !colors.mentioned.size
+          || colors.conflicts.has(me.seat) || !wasAliveForWill(me, other)) continue;
+        if (colors.red.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, points: W.blackNamedRed });
+        else if (colors.black.has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, points: W.blackNamedBlack });
         else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
       }
     }
@@ -148,3 +186,4 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
     ];
   return lines.filter((line): line is string => Boolean(line));
 }
+

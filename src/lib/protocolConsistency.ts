@@ -284,6 +284,7 @@ export function validatePlayerResults(
       if (pr.color_protocol.length > 0 && !leftAs(pr, 'killed')) {
         return 'Цветовой протокол разрешён только для убитого игрока';
       }
+      const marksBySeat = new Map<number, string>();
       for (const entry of pr.color_protocol) {
         if (!entry || !VALID_COLOR_MARKS.includes(entry.mark)) {
           return 'Цветовой протокол содержит недопустимую метку';
@@ -298,6 +299,15 @@ export function validatePlayerResults(
             if (!Number.isInteger(num) || num < 1 || num > tableSize) {
               return `Номера мест в цветовом протоколе должны быть от 1 до ${tableSize}`;
             }
+            if (num === Number(pr.seat_number)) {
+              return 'В цветовом протоколе нельзя указывать собственное место';
+            }
+            const color = entry.mark === 'sheriff' ? 'red' : entry.mark;
+            const previousColor = marksBySeat.get(num);
+            if (previousColor && previousColor !== color) {
+              return `Игрок #${num} указан с противоречивыми цветами`;
+            }
+            marksBySeat.set(num, color);
             if (seenSeats.has(num)) {
               return 'Номера мест в цветовом протоколе не могут повторяться';
             }
@@ -352,4 +362,5 @@ export function validateShots(shots: any, tableSize = 10): string | null {
 
   return null;
 }
+
 

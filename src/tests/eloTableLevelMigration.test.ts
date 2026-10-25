@@ -17,14 +17,16 @@ describe('table level uses unstretched distances (owner, 2026-10-24)', () => {
     expect(levelGap(900)).toBe(300);
   });
 
-  it('the red expectation follows the levels: equal up to 150, then 0.43 at 200, 0.58 at 250, 0.81 at 300', () => {
+  it('the red expectation stays equal up to 150 and saturates below 60% for stronger reds', () => {
     const table = (redElo: number, blackElo: number) => Array.from({ length: 10 }, (_, i) => ({ playerId: `p${i}`, team: (i < 7 ? 'red' : 'black') as 'red' | 'black', elo: i < 7 ? redElo : blackElo, canonicalPersonalGamePoints: 0 }));
     const expected = (gap: number) => calculateCanonicalEloGame(table(1000 + gap, 1000), 'red')[0].expectedTeamResult;
     expect(expected(0)).toBeCloseTo(0.30, 6);
     expect(expected(140)).toBeCloseTo(0.30, 6);
-    expect(expected(200)).toBeCloseTo(0.433, 2);
-    expect(expected(250)).toBeCloseTo(0.575, 2);
-    expect(expected(300)).toBeCloseTo(0.811, 2);
+    expect(expected(200)).toBeCloseTo(0.373, 2);
+    expect(expected(250)).toBeCloseTo(0.439, 2);
+    expect(expected(300)).toBeCloseTo(0.528, 2);
+    expect(expected(350)).toBeCloseTo(0.572, 2);
+    expect(expected(1_000_000)).toBeLessThanOrEqual(0.60);
     expect(expected(-250)).toBeLessThan(0.12);
   });
 
@@ -35,3 +37,4 @@ describe('table level uses unstretched distances (owner, 2026-10-24)', () => {
     expect(await applyEloTableLevelMigration(db)).toEqual({ applied: false });
   });
 });
+

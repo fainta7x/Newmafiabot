@@ -1859,3 +1859,58 @@ Scope: casual club games only (no rating, no tournaments). Method: read-only pro
 - [info] Per-player carry modifier (`carryModifier`) is small: 0.88…1.08 on the team result; it is not what separates players of one team.
 - [info] Discipline is large in the same units: a technical foul or removal costs 0.3…1.0 point = −12…−40 Elo (game 20 mafia Денди −75.6, game 21 Серый −27.8).
 - Status: nothing changed in code; waits for the owner's choice (see PROJECT_STATE).
+
+
+## GPT takeover of Elo PR #1040 — owner, 2026-10-25
+
+Owner authorizes GPT to continue the unified Elo change after Claude's input is finished. Starting head d45bfb23; coordination comment is on #1040. Retain the owner's newer obvious-black rule. Scope: implement the agreed upper red probability limit, fix ELO-A1/A2/A3 from the independent audit, carry forward audit documentation, and discuss unresolved weights before changing them. No merge/deploy or automatic production rebuild is authorized while the owner discussion remains open.
+
+Before implementation: ELO-A1 open — black receives will rewards after leaving; ELO-A2 open — own red mark yields +8; ELO-A3 open — contradictory colour marks accepted and scored inconsistently. Acceptance: no post-exit or invalid-mark award; genuine earlier wills retain their signed points; red expectation never exceeds 0.60 and the equal prior remains 0.30; existing protection and obvious-black logic remain.
+
+
+The following independent audit records the pre-implementation findings; the implementation status below supersedes its open code findings.
+
+
+## Independent Elo assessment — owner request, 2026-10-25 (GPT)
+
+Scope: analysis only of main `326c7dc900fa4e29b5f95db9d295d9d60a6c95de` and PR #1040 head `1083518b10105f23efa9c74929b9dd5b17ba9ef1`, then reconciled with the concurrently pushed head `856c773117082cb51277ac5359ea5aca85d880a2`. No formula, player rating, production data or Claude branch was changed. The PR body is stale: current code does **not** subtract the role mean and does **not** score votes against black players.
+
+Evidence: reviewed rating, contribution, history, migration, protocol validation and focused tests. Executed isolated Node 24 probes against the fetched pure calculation and contribution functions plus the actual shared validator; these were synthetic examples, not a production backtest or the full Vitest suite. All final probe assertions passed, including a rerun against the two pure modules changed by `856c7731`. CI, CodeQL, Gitleaks and UI preview passed for `1083518b`; at inspection for `856c7731`, Gitleaks passed and CI/CodeQL/UI preview were running. /api/health returned 200; ORGANIZER_PASSWORD was absent, so authenticated production game histories were not inspected.
+
+### Confirmed calculation/validation defects (open)
+
+- **ELO-A1** — `src/lib/playerContribution.ts:73`: black contribution reads every red colour protocol without checking that the black was still alive when its author died. Reproduction: black seat 8 voted out in round 2; red seat 1 killed in round 3 names only red seat 2; black 8 still gets +4 Elo for not being named. Later testimony should not silently become evidence of that black's successful concealment while alive.
+- **ELO-A2** — `src/lib/protocolConsistency.ts:280`, `src/lib/playerContribution.ts:59`: a killed red may mark his own seat red; shared validation returns null and contribution awards +8 Elo. No inference of actual player abuse.
+- **ELO-A3** — same validator and `playerContribution.ts:74`: the same target may occur in both red and black lists (duplicates checked only inside one entry). Shared validation accepts it. The red author is scored on both marks, whereas the black target is awarded +8 through the red-first branch and his black mark is ignored. Contradictory evidence has no canonical meaning.
+- **ELO-A4 (fixed concurrently in #1040 at `856c7731`)** — initial voting phases that lead to a revote previously contributed to the penalty. The new contribution filter keeps only `single_eliminated` outcomes. Repeated synthetic example now costs -4 instead of -8; this is no longer an open finding. Individual red-target votes on separate eligible days may still be penalized separately as documented.
+
+### Balance/model findings (open for product review, not approved rule changes)
+
+- **ELO-M1 — volume and inflation:** the documented approximate contribution mean is +7 Elo/player/game, in addition to existing positive personal points. The contribution alone sums to +700 after 100 games at that fixed average, before all other rating effects. This is arithmetic, not a forecast of a particular player's final Elo. Uniform cohort inflation cancels within rating differences; unequal attendance, new entrants and returning players do not share that cancellation. Existing acceptance of inflation is preserved, but its effect on a skill-ranking interpretation needs explicit acknowledgement.
+- **ELO-M2 — protection adds drift:** `calculateCanonicalEloGame` rewards the strong player more on wins and less on losses. At own Elo 1300 and everyone else 1000, the red team average gap is only 42.86, hence p(red)=0.30; strong red win +45.5, loss -9; weighted mean +7.35/game even if actual outcomes exactly follow the model. Strong black at 1300 with everyone else 1000 analogously has p(black)=0.70, +19.5/-21 and the same +7.35 expectation. The desired protection is preserved; these modifiers are not statistically neutral.
+- **ELO-M3 — sharp expectation curve:** red-minus-black team average gaps 0/150/200/250/300/350 produce red expectations 30.0/30.0/43.25/57.54/81.08/93.13 percent; -350 produces 1.34 percent. A gap of 350 and 1000 have identical expectations due to the cap. The function is continuous but has a flat zone and changes slope at the thresholds. The qualitative owner wording does not itself validate these probabilities.
+- **ELO-M4 — contribution can dominate:** at equal strength, red win/loss is +35/-15 and black win/loss +15/-35. The contribution cap is +/-35 **for that component only**, not total Elo; with +35 contribution a losing red receives +20 before personal points, a losing black 0, a winning black +50 and a winning red +70. This may be intended but makes contribution a major rating driver.
+- **ELO-M5 — unmentioned is missing evidence:** a red will containing just an unrelated correct red mark gives each unmentioned black +4; an empty will gives 0. At 3 such wills each black gets +12 without being named by anybody. Completeness of the judge's record and length of the game therefore influence the black rating. Non-mention is weaker evidence than explicitly calling a black red.
+- **ELO-M6 — action is not necessarily causal contribution:** a vote for a checked black is scored like an independently found black; a tactical vote for a red can be penalized. Vote, will, sheriff-check and manual judge/best-move bonuses may reward the same underlying read more than once. These are model limitations, not proof that a particular tactical action was wrong.
+- **ELO-M7 — sample size and opportunity:** BUSINESS_RULES cites only 19 club games for approximate role means (+6 citizen, +9 sheriff, +7 mafia, +6 don). Those are descriptions of one small, correlated sample, not established equality of opportunity or predictive calibration. Survival time, early death, game length, role mix and record completeness must be separated before selecting replacement coefficients.
+- **ELO-M8 — 30/70:** retain this owner-approved prior during the audit. Its accuracy cannot be concluded from code. If actual equal-strength red results differ, systematic drift can arise. Team deltas need not sum to zero on every game: at an equal table total is +140 on a red win and -60 on a black win, whose mean is zero if p(red)=0.30. Non-zero per-game sum alone is not a defect.
+
+### Rebuild assessment and next validation
+
+The chronological replay from seeds, common calculation/contribution helpers, deterministic sorting and transactional final rating writes are sound choices. Correcting an early game changes later ratings and expectations for other participants; a full downstream rebuild is therefore expected. Startup migration automatically rebuilds all ratings when deployed; this audit does not authorize merging/deploying #1040.
+
+The rebuild and history still duplicate event-loading code. Rebuild excludes archived/merged players while history loads all players, so archival/merge scenarios deserve an integration regression. This is a code-level risk, not a reproduced production failure.
+
+Recommended order for a separately approved implementation: fix invalid/contradictory evidence and time eligibility; agree how missing evidence and revotes are interpreted; compare old/new formula chronologically without writes on real histories, then assess prediction error on later held-out games, role/opportunity differences, attendance bias and coefficient sensitivity. Do not select a new cap/weight merely to make known players' places look plausible. Preserve the owner's decision against role-average subtraction and against introducing novice calibration unless explicitly reviewed again.
+
+Primary methodological reference: Microsoft Research, TrueSkill 2 (2018), https://www.microsoft.com/en-us/research/wp-content/uploads/2018/03/trueskill2.pdf — individual actions can improve a skill model, but require assumptions and predictive evaluation. No replacement of the current model with TrueSkill is proposed.
+
+
+### Elo-M3 owner decision — probability upper limit clarified, 2026-10-25
+
+BUSINESS_RULES now records the owner's expected range: the extreme strongest-red/weakest-black lineup should give reds only about 55–60%, intended upper limit 60%. Normal observed club balance described as black 60–70% / red 30–40%; existing equal prior 30/70 remains. The audited #1040 head `d45bfb23f6675e5a39bd0f7172a92fdc84a67a26` still uses `(0.30/0.70)*10^(levelGap/200)`: an average gap +300 becomes effective +200, multiplies red odds by 10, and returns 81.08%; +350 becomes effective +300, multiplies odds by 31.62 and returns 93.13%. Arithmetic independently rerun in Node. Status: domain requirement decided; bounded-curve implementation pending. No coefficient, production rating or migration changed. The precise curve and red lower bound remain undecided; do not assume a symmetric 40–60% interval.
+
+
+### Implementation of the agreed corrections — 2026-10-25
+
+ELO-A1/A2/A3: fixed in code, pending exact-head CI. Black will contribution uses actual exit chronology or legacy exit order; unknown out-player eligibility is not fabricated. Own colour marks and opposite colours are rejected by the shared validator and ignored defensively in historical scoring. Compatible red/sheriff labels remain valid. ELO-M3: the stronger-red branch now smoothly saturates at about 57.15% (hard requirement <=60%); equal prior, negative-gap branch and carry modifiers preserved. Existing obvious-black logic is retained. Eleven isolated Node regression cases passed; new Vitest regressions added for CI; full local typecheck/Vitest were not available in the partial source environment. Production untouched, no merge/deploy. Outstanding product questions: non-mention awards, carry-modifier drift, and the opposite extreme probability bound. Owner takeover and PR #1041 consolidation are documented in PROJECT_STATE and the PR discussion.

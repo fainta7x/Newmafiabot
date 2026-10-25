@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-26 — missed-shot price raised from 2 to 6 Elo
+
+Owner flags the previous −2 as too small for an often decisive black error. Changed MISSED_SHOT_ELO to 6 and removed the independent hard-coded UI price; the editor imports the scoring constant. Existing attribution, win/loss gating and caps remain. Updated history/rebuild parity expectation (one miss: −6 contribution, −41 equal-team black loss), added the raw −12 / capped −10 two-miss regression, and ran all 13 focused native test bodies successfully. Previous exact-head e9e96cfb is fully green including mobile. Exact-head CI for this adjustment pending; production untouched.
+
+
 ## 2026-10-26 — new Elo rules: missed-shot attribution, streaks, mistaken ordinary wills
 
 Scope is the owner-approved additions to #1040. Source trace: shared protocol shot editor → canonical shots JSON in club/tournament save → canonical Elo/history; own club decisions → contribution → existing caps. Missing intent/culprit in old shots must not become a penalty. Confirmed red sheriff checks are neutral. A wrong colour in a non-PU will suppresses its correct-colour awards, while each error and negative-series adjustment remain. Simultaneous marks cannot depend on array order; use the batch mean multiplier. Explicit PU retains the exception.

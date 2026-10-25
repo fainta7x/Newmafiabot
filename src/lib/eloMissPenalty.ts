@@ -1,4 +1,4 @@
-export const MISSED_SHOT_ELO = 2;
+export const MISSED_SHOT_ELO = 6;
 export type MissReason = 'error' | 'intentional';
 export interface MissAssessment { miss_reason?: MissReason | null; miss_responsible_seats?: number[] }
 

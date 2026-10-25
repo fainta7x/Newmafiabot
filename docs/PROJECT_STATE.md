@@ -1,8 +1,13 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-26 — stronger miss penalty after owner balance review
+
+Owner says −2 Elo is too small because a missed shot is often decisive in a black loss. Raise the initial personal contribution penalty to −6 per explicitly attributed error/night; keep loss gating, judge selection, tactical/legacy neutrality and the agreed automatic ±10 / combined ±15 caps. UI reads the same constant as scoring. A new regression proves two misses are −12 raw and −10 after the automatic cap; equal-team black loss then totals −45. Existing e9e96cfb passed CI, mobile preview, CodeQL and Gitleaks. Thirteen native regressions pass for this change; exact-head checks pending. No release or production data change.
+
+
 ## 2026-10-26 — missed shots, in-game streaks and mistaken wills (implemented; checks pending)
 
-Owner confirms error/failed shooting agreement only, no tactical no-shot penalty; streaks within one game include votes/checks/wills, red sheriff checks neutral. Ordinary wills with any wrong colour yield no positive colour awards; explicit PU is the exception. Canonical final behavior is in BUSINESS_RULES.md. Implemented judge attribution in the shared protocol shot editor, validated persistence in club/tournament routes, miss replay parity in Elo/history, own-decision series, order-independent simultaneous will batches and separate explanations. Initial tuning: −2 Elo per responsible player/night; 1 / 1.25 / 1.5, existing personal caps retained. Migration key v3 ensures policy replay on release.
+Owner confirms error/failed shooting agreement only, no tactical no-shot penalty; streaks within one game include votes/checks/wills, red sheriff checks neutral. Ordinary wills with any wrong colour yield no positive colour awards; explicit PU is the exception. Canonical final behavior is in BUSINESS_RULES.md. Implemented judge attribution in the shared protocol shot editor, validated persistence in club/tournament routes, miss replay parity in Elo/history, own-decision series, order-independent simultaneous will batches and separate explanations. Reviewed tuning: −6 Elo per responsible player/night; 1 / 1.25 / 1.5, existing personal caps retained. Migration key v3 ensures policy replay on release.
 
 Twelve native focused regressions and all five CI test shards passed on 3d408947. TypeScript found an unused React import in the new miss editor; it has been removed. The container passed; exact-head checks for the correction and mobile screenshots are pending. The private last-three-game comparison must be updated for this version; old unassigned misses do not receive guessed penalties. #1040 remains open for review; #1041 closed/consolidated. Production is unchanged, full-career exact comparison still needs seeds/private tournament scores.
 

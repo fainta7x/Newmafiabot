@@ -1,4 +1,5 @@
 import type { PlayerResultData, ShotEntry } from '../../../lib/api';
+import { MISSED_SHOT_ELO } from '../../../lib/eloMissPenalty';
 import { normalizeGameRole } from '../../../shared/gameRoles';
 import { Btn, Eyebrow, Segmented } from './ui';
 
@@ -15,7 +16,7 @@ export function MissAssessmentEditor({ shot, players, locked, onChange }: {
       options={[{ value: 'unassessed', label: 'Не оценён' }, { value: 'error', label: 'Ошибка' }, { value: 'intentional', label: 'Тактика' }]}
       onChange={(value) => onChange(value === 'unassessed' ? null : value as 'error' | 'intentional', value === 'error' ? chosen : [])} />
     {shot.miss_reason === 'error' ? <>
-      <p className="text-[12px] leading-relaxed text-white/60">Выберите виновника или всю чёрную команду. Штраф в личной части ЭЛО: −2 за эту ночь каждому выбранному, только при поражении чёрных.</p>
+      <p className="text-[12px] leading-relaxed text-white/60">Выберите виновника или всю чёрную команду. Штраф в личной части ЭЛО: −{MISSED_SHOT_ELO} за эту ночь каждому выбранному, только при поражении чёрных.</p>
       <div className="space-y-2" role="group" aria-label="Ответственные за промах">
         {blacks.map((player) => <button key={player.participant_id} type="button" disabled={locked}
           aria-pressed={chosen.includes(player.seat_number)}

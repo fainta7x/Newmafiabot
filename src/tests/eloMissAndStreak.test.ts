@@ -1,3 +1,4 @@
+import { calculateCanonicalEloGame, normalizeContributions, type PreparedEloEvent } from '../server/services/eloRatingService.ts';
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { gameContribution, contributionBreakdown } from '../lib/playerContribution.ts';
@@ -14,14 +15,26 @@ const shot = (extra: object = {}) => ({ night_number: 1, target_seat: 0, result:
 
 describe('judge-attributed miss penalty', () => {
   it('penalizes only the selected black on a black loss; never a team win', () => {
-    close(score(players(), { shots: [shot()] }, 8).points, -0.2);
+    close(score(players(), { shots: [shot()] }, 8).points, -0.6);
     close(score(players(), { shots: [shot()] }, 9).points, 0);
     close(score(players(), { winner_team: 'black', shots: [shot()] }, 8).points, 0);
   });
   it('can assign all three; intentional and legacy/unassigned misses are neutral', () => {
-    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).points, -0.2);
+    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).points, -0.6);
     close(score(players(), { shots: [shot({ miss_reason: 'intentional', miss_responsible_seats: [] })] }, 8).points, 0);
     close(score(players(), { shots: [{ night_number: 1, result: 'agreement_failed', target_seat: 0 }] }, 8).points, 0);
+  });
+  it('two attributed misses cost 12 before the existing automatic cap, which keeps the rated part at minus 10', () => {
+    const protocol = { winner_team: 'red', shots: [shot(), shot({ night_number: 2 })] };
+    const rows = players();
+    close(score(rows, protocol, 8).points, -1.2);
+    const prepared: PreparedEloEvent = { source: 'club', sourceId: 'miss6', sortAt: '', sortOrder: 1, winnerTeam: 'red',
+      players: rows.map((player) => ({ playerId: player.player_id, team: ['mafia', 'don'].includes(player.role) ? 'black' : 'red',
+        canonicalPersonalGamePoints: 0, contribution: { role: player.role, raw: score(rows, protocol, player.seat_number).points } })) };
+    normalizeContributions([prepared]);
+    const delta = calculateCanonicalEloGame(prepared.players.map((player) => ({ ...player, elo: 1000 })), 'red').find((row) => row.playerId === 'p8')!;
+    close(delta.contributionDelta, -10);
+    close(delta.totalDelta, -45);
   });
   it('validates the recorded reason, black roles, uniqueness and confirmed attribution', () => {
     assert.equal(validateShots([shot()], 10, players(), true), null);

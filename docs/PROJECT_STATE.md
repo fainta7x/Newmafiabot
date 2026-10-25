@@ -4,7 +4,7 @@
 
 Owner confirms error/failed shooting agreement only, no tactical no-shot penalty; streaks within one game include votes/checks/wills, red sheriff checks neutral. Ordinary wills with any wrong colour yield no positive colour awards; explicit PU is the exception. Canonical final behavior is in BUSINESS_RULES.md. Implemented judge attribution in the shared protocol shot editor, validated persistence in club/tournament routes, miss replay parity in Elo/history, own-decision series, order-independent simultaneous will batches and separate explanations. Initial tuning: −2 Elo per responsible player/night; 1 / 1.25 / 1.5, existing personal caps retained. Migration key v3 ensures policy replay on release.
 
-Twelve native focused regressions pass; exact-head CI and phone screenshot checks pending at authoring. The private last-three-game comparison must be updated for this version; old unassigned misses do not receive guessed penalties. #1040 remains open for review; #1041 closed/consolidated. Production is unchanged, full-career exact comparison still needs seeds/private tournament scores.
+Twelve native focused regressions and all five CI test shards passed on 3d408947. TypeScript found an unused React import in the new miss editor; it has been removed. The container passed; exact-head checks for the correction and mobile screenshots are pending. The private last-three-game comparison must be updated for this version; old unassigned misses do not receive guessed penalties. #1040 remains open for review; #1041 closed/consolidated. Production is unchanged, full-career exact comparison still needs seeds/private tournament scores.
 
 
 ## 2026-10-26 — actual-game fairness review, PR #1040

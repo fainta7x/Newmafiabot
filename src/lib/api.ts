@@ -520,6 +520,8 @@ export interface VotingRound {
 }
 
 export interface ShotEntry {
+  miss_reason?: import('./eloMissPenalty').MissReason | null;
+  miss_responsible_seats?: number[];
   night_number: number;
   target_seat: number;
   result: 'killed' | 'miss' | 'agreement_failed';
@@ -1288,3 +1290,4 @@ export const api = {
       body: JSON.stringify(backupData),
     }),
 };
+

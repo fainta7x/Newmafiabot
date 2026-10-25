@@ -209,7 +209,8 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
   const handleShotChange = (index: number, targetSeat: number, result: 'killed' | 'miss' | 'agreement_failed') => {
     setProtocol((prev) => {
       const shots = [...(prev.shots || [])];
-      shots[index] = { ...shots[index], target_seat: targetSeat, result };
+      shots[index] = { ...shots[index], target_seat: targetSeat, result,
+        ...(result === 'killed' ? { miss_reason: null, miss_responsible_seats: [] } : {}) };
       // The replay and the analysis read the shot from the chronology: keep its «выстрел» event of that night in step.
       const night = Number(shots[index].night_number) || index + 1;
       const events = Array.isArray(prev.events) && prev.events.length
@@ -263,7 +264,12 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     changeZeroRoundVoted: (participantId: string | null) => { if (!guards?.zeroRoundVoted?.(participantId)) handleZeroRoundVotedChange(participantId); },
     toggleBestMoveSeat,
     addNight: handleAddNight, deleteNight: handleDeleteNight, changeShot: handleShotChange,
+    assessMiss: (index: number, reason: 'error' | 'intentional' | null, responsible: number[]) => setProtocol((prev) => ({
+      ...prev, shots: (prev.shots || []).map((shot, i) => i === index && shot.result !== 'killed'
+        ? { ...shot, miss_reason: reason, miss_responsible_seats: reason === 'error' ? [...responsible] : [] } : shot),
+    })),
   } satisfies Partial<ProtocolApi>;
 
   return { members, updatePlayerResult, revertChange, applyFirstKilled: handleFirstKilledChange, applyZeroRoundVoted: handleZeroRoundVotedChange };
 };
+

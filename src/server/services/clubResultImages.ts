@@ -59,7 +59,7 @@ function seatEvents(seat: BlankSeat) {
 const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
-  const value = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.round(Math.abs(n) * 10) / 10}`;
+  const value = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${round2(Math.abs(n))}`;
   const lines: string[] = [];
   if (seat.eloPersonalBonus) lines.push(`Личные бонусы: ${value(seat.eloPersonalBonus)} Эло`);
   if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
@@ -374,4 +374,5 @@ export function renderPng(svg: string): Buffer {
   });
   return resvg.render().asPng();
 }
+
 

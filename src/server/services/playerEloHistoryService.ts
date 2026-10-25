@@ -1,3 +1,5 @@
+import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
+import { missedShotNights, MISSED_SHOT_ELO } from '../../lib/eloMissPenalty.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sqliteReadVersion } from './sqliteReadVersion.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
@@ -73,7 +75,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     const standings = Array.isArray(standingsData?.standings) ? standingsData.standings : [];
     const games = await db.all<any>(`
       SELECT g.id, g.game_number, COALESCE(p.winner_team, g.winner_team) AS winner_team,
-             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at
+             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at, p.shots_json
         FROM tournament_games g
         JOIN tournaments t ON t.id = g.tournament_id
         JOIN tournament_game_protocols p ON p.game_id = g.id
@@ -103,6 +105,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
           team,
           canonicalPersonalGamePoints: Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0),
           disciplinaryPenaltyPoints: Number(canonicalGame.disciplinary_penalty_points || 0),
+          contribution: { role: String(canonicalGame.role), raw: team === 'black' ? -missedShotNights({ winner_team: winner, shots: safeJsonParse<any[]>(game.shots_json, []) }, Number(canonicalGame.seat_number)).length * MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT : 0 },
         });
       }
 
@@ -283,4 +286,5 @@ async function replayPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHis
 
   return timeline;
 }
+
 

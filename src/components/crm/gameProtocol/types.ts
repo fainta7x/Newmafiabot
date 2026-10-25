@@ -37,4 +37,6 @@ export type ProtocolApi = {
   addNight: () => void;
   deleteNight: (index: number) => void;
   changeShot: (index: number, targetSeat: number, result: 'killed' | 'miss' | 'agreement_failed') => void;
+  assessMiss: (index: number, reason: 'error' | 'intentional' | null, responsible: number[]) => void;
 };
+

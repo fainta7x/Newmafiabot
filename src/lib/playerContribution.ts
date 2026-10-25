@@ -1,8 +1,11 @@
+import { round2 } from '../shared/numbers.ts';
 import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../shared/gameRoles.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
+import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStreak.ts';
+import { missedShotNights, MISSED_SHOT_ELO } from './eloMissPenalty.ts';
 
 /**
  * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 10 Elo).
@@ -27,9 +30,9 @@ export const CONTRIBUTION_WEIGHTS = {
   blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
-export interface ContributionItem { kind: ContributionKind; seat: number; points: number; critical?: boolean }
+export interface ContributionItem { kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number }
 export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[] }
 interface ColorProtocolEntry { mark?: unknown; seat_numbers?: unknown }
 
@@ -99,7 +102,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
     // A sheriff label is red evidence for conflict detection; its own scoring rule stays unchanged.
     const marks = (mark: string) => new Set(item.colors.filter((entry) => entry?.mark === mark)
       .flatMap((entry) => seatList(entry?.seat_numbers)).filter((seat) => mentioned.has(seat)));
-    return [item.seat, { red: marks('red'), black: marks('black'), mentioned, conflicts }] as const;
+    return [item.seat, { red: marks('red'), sheriff: marks('sheriff'), black: marks('black'), mentioned, conflicts }] as const;
   }));
   const deaths = new Map<number, typeof facts.events[number]>();
   for (const event of facts.events) {
@@ -122,7 +125,8 @@ export function gameContribution(envelope: any): SeatContribution[] {
   return seats.map((me) => {
     const items: ContributionItem[] = [];
     if (redRole(me.role)) {
-      const found = new Map<number, boolean>();
+      const decisions: StreakDecision<ContributionItem>[] = [];
+      const found = new Map<number, ContributionItem>();
       const obvious = new Set<number>();
       const isObvious = obviousBlacksFor(me.seat, facts, roleOf);
       for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated')) {
@@ -130,28 +134,70 @@ export function gameContribution(envelope: any): SeatContribution[] {
         if (!target) continue;
         const critical = voting.critical === true;
         if (blackRole(roleOf.get(target))) {
-          if (isObvious(target, voting.round)) { if (!found.has(target)) obvious.add(target); } else { found.set(target, true); obvious.delete(target); }
-        } else if (redRole(roleOf.get(target))) items.push({ kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1), critical });
+          if (isObvious(target, voting.round)) { if (!found.has(target)) obvious.add(target); }
+          else if (!found.has(target)) {
+            const item: ContributionItem = { kind: 'found_black', seat: target, points: W.foundBlack };
+            found.set(target, item); obvious.delete(target);
+            if (facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: 1, items: [item] });
+          }
+        } else if (redRole(roleOf.get(target))) {
+          const item: ContributionItem = { kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1), critical };
+          items.push(item);
+          // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.
+          if (target !== me.seat && facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: -1, items: [item] });
+        }
       }
-      for (const seat of found.keys()) items.push({ kind: 'found_black', seat, points: W.foundBlack });
+      items.push(...found.values());
       for (const seat of obvious) items.push({ kind: 'obvious_black', seat, points: 0 });
+      const will: ContributionItem[] = [];
       for (const seat of colorsBySeat.get(me.seat)!.red) {
-        if (redRole(roleOf.get(seat))) items.push({ kind: 'will_right', seat, points: W.colorRight.red });
-        else if (blackRole(roleOf.get(seat))) items.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
+        if (redRole(roleOf.get(seat))) will.push({ kind: 'will_right', seat, points: W.colorRight.red });
+        else if (blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
       }
       for (const seat of colorsBySeat.get(me.seat)!.black) {
-        if (blackRole(roleOf.get(seat))) items.push({ kind: 'will_right', seat, points: W.colorRight.black });
-        else if (redRole(roleOf.get(seat))) items.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack });
+        if (blackRole(roleOf.get(seat))) will.push({ kind: 'will_right', seat, points: W.colorRight.black });
+        else if (redRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack });
       }
+      // A sheriff label on a black is still a wrong red colour; compatible red+sheriff labels count once.
+      for (const seat of colorsBySeat.get(me.seat)!.sheriff) {
+        if (!colorsBySeat.get(me.seat)!.red.has(seat) && blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
+      }
+      const result = results.find((row) => Number(row?.seat_number) === me.seat);
+      const markedFirstKilled = String(protocol.first_killed_participant_id || '') === String(result?.participant_id || '')
+        && Boolean(protocol.first_killed_participant_id);
+      const firstKilledSeat = facts.events.filter((event) => event.kind === 'first_killed').at(-1)?.seat;
+      const firstKilled = Object.hasOwn(protocol, 'first_killed_participant_id') ? markedFirstKilled : firstKilledSeat === me.seat;
+      const wrong = will.filter((item) => item.kind === 'will_wrong');
+      const right = will.filter((item) => item.kind === 'will_right');
+      if (wrong.length && !firstKilled) {
+        items.push(...wrong);
+        if (right.length) items.push({ kind: 'will_blocked', seat: me.seat, points: 0 });
+      } else items.push(...will);
       if (me.role === 'sheriff') {
-        for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) items.push({ kind: 'check_black', seat: check.target, points: W.sheriffFoundBlack });
+        const checkedTargets = new Set<number>();
+        for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
+          const item: ContributionItem = { kind: 'check_black', seat: check.target, points: W.sheriffFoundBlack };
+          items.push(item);
+          if (facts.full && !checkedTargets.has(check.target)) decisions.push({ seq: check.seq, sign: 1, items: [item] });
+          checkedTargets.add(check.target);
+        }
+      }
+      const willSeq = facts.full ? killedEvent(me.seat)?.seq ?? null : null;
+      // One will is a simultaneous batch. Mixed PU evidence keeps its base positives, but cannot
+      // borrow an arbitrary mark order to extend a cross-action streak.
+      if ((!wrong.length || firstKilled) && right.length) decisions.push({ seq: wrong.length ? null : willSeq, sign: 1, items: right });
+      if (wrong.length) decisions.push({ seq: firstKilled && right.length ? null : willSeq, sign: -1, items: wrong });
+      for (const [item, factor] of decisionStreakMultipliers(decisions)) {
+        const extra = item.points * (factor - 1);
+        if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra });
       }
     } else if (blackRole(me.role)) {
+      for (const night of missedShotNights(protocol, me.seat)) items.push({ kind: 'shot_miss', seat: me.seat, night, points: -MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT });
       for (const other of seats.filter((item) => redRole(item.role) && item.colors.length)) {
         const colors = colorsBySeat.get(other.seat)!;
         if ((other.exitType !== 'killed' && !killedEvent(other.seat)) || !colors.mentioned.size
           || colors.conflicts.has(me.seat) || !wasAliveForWill(me, other)) continue;
-        if (colors.red.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, points: W.blackNamedRed });
+        if (colors.red.has(me.seat) || colors.sheriff.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, points: W.blackNamedRed });
         else if (colors.black.has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, points: W.blackNamedBlack });
         else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
       }
@@ -161,7 +207,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   });
 }
 
-const elo = (points: number) => Math.round(points * ELO_PERSONAL_POINT_WEIGHT * 10) / 10;
+const elo = (points: number) => round2(points * ELO_PERSONAL_POINT_WEIGHT);
 const signedElo = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}`;
 const seatNumbers = (items: ContributionItem[]) => {
   const counts = new Map<number, number>();
@@ -186,6 +232,13 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Ошибся в цветах', of('will_wrong')),
       group('Проверкой нашёл чёрного', of('check_black')),
     ];
+  if (of('will_blocked').length) lines.push('Бонус за верные цвета не начислен: в завещании есть ошибка');
+  for (const [kind, label] of [['streak_correct', 'Усиление серии верных решений'], ['streak_wrong', 'Усиление серии ошибок']] as const) {
+    const entries = of(kind);
+    if (entries.length) lines.push(`${label}: ${signedElo(elo(entries.reduce((sum, item) => sum + item.points, 0)))}`);
+  }
+  const misses = of('shot_miss');
+  if (misses.length) lines.push(`Промахи: ночи ${misses.map((item) => item.night).join(', ')}: ${signedElo(elo(misses.reduce((sum, item) => sum + item.points, 0)))}`);
   return lines.filter((line): line is string => Boolean(line));
 }
 

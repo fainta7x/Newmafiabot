@@ -1,3 +1,4 @@
+import { missedShotNights, MISSED_SHOT_ELO } from '../../lib/eloMissPenalty.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
@@ -241,7 +242,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     const standings = Array.isArray(standingsData?.standings) ? standingsData.standings : [];
     const games = await db.all<any>(`
       SELECT g.id, g.game_number, COALESCE(p.winner_team, g.winner_team) AS winner_team,
-             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at
+             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at, p.shots_json
         FROM tournament_games g
         JOIN tournaments t ON t.id = g.tournament_id
         JOIN tournament_game_protocols p ON p.game_id = g.id
@@ -261,7 +262,8 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
         const playerId = String(participant.player_id);
         if (!knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
         const canonicalPersonalGamePoints = Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0);
-        eventPlayers.push({ playerId, team, canonicalPersonalGamePoints, disciplinaryPenaltyPoints: numeric(canonicalGame.disciplinary_penalty_points) });
+        eventPlayers.push({ playerId, team, canonicalPersonalGamePoints, disciplinaryPenaltyPoints: numeric(canonicalGame.disciplinary_penalty_points),
+          contribution: { role: String(canonicalGame.role), raw: team === 'black' ? -missedShotNights({ winner_team: winner, shots: safeJsonParse<any[]>(game.shots_json, []) }, Number(canonicalGame.seat_number)).length * MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT : 0 } });
       }
       const event: PreparedEloEvent = { source:'tournament', sourceId:String(game.id), sortAt:String(game.sort_at || tournament.date || tournament.created_at || ''), sortOrder:Number(game.game_number || 0), winnerTeam:winner, players:eventPlayers };
       validatePreparedEvent(event);
@@ -344,5 +346,6 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))
     .sort((a, b) => b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));
 }
+
 
 

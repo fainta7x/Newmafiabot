@@ -214,7 +214,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
   const firstKilled = protocol.first_killed_participant_id ?? null;
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);
   if (playersMessage) issues.push({ id: 'players', severity: 'error', title: playersMessage, tab: 'players' });
-  const shotsMessage = validateShots(protocol.shots, tableSize);
+  const shotsMessage = validateShots(protocol.shots, tableSize, results, true);
   if (shotsMessage) issues.push({ id: 'shots', severity: 'error', title: shotsMessage, tab: 'game', circle: 0 });
   const firstMessage = validateFirstKilled(firstKilled, results as any[], results as any[], protocol.shots as any[]);
   if (firstMessage) issues.push({ id: 'first-killed', severity: 'error', title: firstMessage, tab: 'game', circle: 0 });
@@ -347,7 +347,10 @@ export const computeChanges = (base: ProtocolState, current: ProtocolState): Cha
     const before = (base.protocol.shots || []).find((shot) => Number(shot.night_number) === night);
     const after = (current.protocol.shots || []).find((shot) => Number(shot.night_number) === night);
     if (JSON.stringify(before ?? null) === JSON.stringify(after ?? null)) continue;
-    const text = (shot: typeof before) => (!shot ? 'нет' : shot.result === 'killed' ? `убит #${shot.target_seat}` : shot.target_seat ? `промах по #${shot.target_seat}` : 'промах');
+    const text = (shot: typeof before) => (!shot ? 'нет' : shot.result === 'killed' ? `убит #${shot.target_seat}`
+      : shot.miss_reason === 'intentional' ? 'тактический пропуск, без штрафа'
+        : shot.miss_reason === 'error' ? `ошибка; ответственные: ${(shot.miss_responsible_seats || []).map((seat) => `#${seat}`).join(', ') || 'не выбраны'}`
+          : shot.target_seat ? `промах по #${shot.target_seat}, не оценён` : 'промах, не оценён');
     changes.push({
       key: `shot-${night}`, label: `Ночь ${night}: выстрел`, was: text(before), now: text(after),
       revert: (state) => {
@@ -426,3 +429,4 @@ export const describeVoting = (round: VotingRound, eligible: number, clubBreak: 
   }
   return 'Никто не уходит.';
 };
+

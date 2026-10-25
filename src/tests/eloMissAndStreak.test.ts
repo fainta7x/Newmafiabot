@@ -1,0 +1,89 @@
+import { describe, it } from 'vitest';
+import assert from 'node:assert/strict';
+import { gameContribution, contributionBreakdown } from '../lib/playerContribution.ts';
+import { validateShots } from '../lib/protocolConsistency.ts';
+import { decisionStreakMultipliers } from '../lib/eloDecisionStreak.ts';
+
+const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+const players = () => roles.map((role, i) => ({ seat_number: i + 1, participant_id: `p${i + 1}`, player_id: `p${i + 1}`, role, exit_type: 'alive', color_protocol: [] as Array<{ mark: string; seat_numbers: number[] }> }));
+const score = (rows: ReturnType<typeof players>, protocol: any, seat: number) => gameContribution({ protocol: { winner_team: 'red', ...protocol }, player_results: rows }).find((item) => item.seat === seat)!;
+const close = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
+const event = (round: number, kind: string, data: object = {}) => ({ seq: 0, at: 'x', round, phase: 'day_voting', kind, ...data });
+const sequence = (list: ReturnType<typeof event>[]) => list.map((item, i) => ({ ...item, seq: i + 1 }));
+const shot = (extra: object = {}) => ({ night_number: 1, target_seat: 0, result: 'miss', miss_reason: 'error', miss_responsible_seats: [8], ...extra });
+
+describe('judge-attributed miss penalty', () => {
+  it('penalizes only the selected black on a black loss; never a team win', () => {
+    close(score(players(), { shots: [shot()] }, 8).points, -0.2);
+    close(score(players(), { shots: [shot()] }, 9).points, 0);
+    close(score(players(), { winner_team: 'black', shots: [shot()] }, 8).points, 0);
+  });
+  it('can assign all three; intentional and legacy/unassigned misses are neutral', () => {
+    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).points, -0.2);
+    close(score(players(), { shots: [shot({ miss_reason: 'intentional', miss_responsible_seats: [] })] }, 8).points, 0);
+    close(score(players(), { shots: [{ night_number: 1, result: 'agreement_failed', target_seat: 0 }] }, 8).points, 0);
+  });
+  it('validates the recorded reason, black roles, uniqueness and confirmed attribution', () => {
+    assert.equal(validateShots([shot()], 10, players(), true), null);
+    assert.ok(validateShots([shot({ miss_responsible_seats: [1] })], 10, players()));
+    assert.ok(validateShots([shot({ miss_responsible_seats: [8, 8] })], 10, players()));
+    assert.ok(validateShots([shot({ result: 'killed', target_seat: 2 })], 10, players()));
+    assert.equal(validateShots([shot({ miss_responsible_seats: [] })], 10, players(), false), null);
+    assert.ok(validateShots([shot({ miss_responsible_seats: [] })], 10, players(), true));
+  });
+});
+
+describe('a mistaken ordinary will has no positive colour awards; PU is the exception', () => {
+  it('removes only the will positives, retaining both negative evidence and the explanation', () => {
+    const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3, 8] }];
+    const me = score(rows, {}, 2);
+    close(me.points, -0.4);
+    assert.equal(me.items.some((item) => item.kind === 'will_right'), false);
+    assert.ok(contributionBreakdown(me.role, me.items).some((line) => line.includes('Бонус за верные цвета не начислен')));
+  });
+  it('keeps the explicit first-killed exception without guessing who was PU', () => {
+    const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3, 8] }];
+    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.2);
+    close(score(rows, { first_killed_participant_id: 'p3' }, 2).points, -0.4);
+  });
+  it('a black named sheriff is a wrong colour and blocks ordinary positive marks', () => {
+    const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3] }, { mark: 'sheriff', seat_numbers: [8] }];
+    close(score(rows, {}, 2).points, -0.4);
+    close(score(rows, {}, 8).points, 0);
+  });
+  it('adds mistakes and their streak; permuting simultaneous marks changes nothing', () => {
+    const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [8, 4] }, { mark: 'black', seat_numbers: [3] }];
+    const before = score(rows, {}, 2);
+    close(before.points, (-0.4 - 0.15) * 1.125);
+    rows[1].color_protocol.reverse(); rows[1].color_protocol.forEach((mark) => mark.seat_numbers.reverse());
+    close(score(rows, {}, 2).points, before.points);
+    assert.ok(before.items.some((item) => item.kind === 'streak_wrong'));
+  });
+  it('does not let a wrong colour erase a separately earned vote award', () => {
+    const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [9] }];
+    const events = sequence([event(1, 'game_start', { phase: 'zero_night' }), event(2, 'vote', { seat: 2, target: 8, value: 1 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(2, 'exit', { seat: 2, value: 'killed', phase: 'night' }), event(3, 'game_end', { value: 'red' })]);
+    const me = score(rows, { events }, 2); close(me.points, -0.2);
+    assert.ok(me.items.some((item) => item.kind === 'found_black'));
+  });
+});
+
+describe('in-game streaks of confirmed decisions', () => {
+  it('a red sheriff check is neutral between two correct votes', () => {
+    const events = sequence([event(1, 'game_start', { phase: 'zero_night' }), event(2, 'vote', { seat: 1, target: 8, value: 1 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(2, 'sheriff_check', { target: 2, phase: 'night' }), event(2, 'night_step', { value: 'best_move', phase: 'night' }), event(3, 'vote', { seat: 1, target: 9, value: 1 }), event(3, 'vote_round_result', { value: '1:single_eliminated' }), event(3, 'exit', { seat: 9, value: 'voted_day' }), event(4, 'game_end', { value: 'red' })]);
+    close(score(players(), { events }, 1).points, 0.45);
+  });
+  it('a black sheriff check and a correct vote share the same chronological streak', () => {
+    const events = sequence([event(1, 'game_start', { phase: 'zero_night' }), event(1, 'sheriff_check', { target: 8, phase: 'night' }), event(1, 'night_step', { value: 'best_move', phase: 'night' }), event(2, 'vote', { seat: 1, target: 8, value: 1 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(3, 'game_end', { value: 'red' })]);
+    close(score(players(), { events }, 1).points, 0.35);
+  });
+  it('opposite decisions reset, and the multiplier never exceeds 1.5', () => {
+    const objects = Array.from({ length: 8 }, () => ({}));
+    const factors = decisionStreakMultipliers(objects.map((item, i) => ({ seq: i + 1, sign: (i === 3 ? -1 : 1) as 1 | -1, items: [item] })));
+    assert.deepEqual(objects.map((item) => factors.get(item)), [1, 1.25, 1.5, 1, 1, 1.25, 1.5, 1.5]);
+    assert.equal(decisionStreakMultipliers([{ seq: 1, sign: 1, items: [objects[0]] }]).get(objects[0]), 1);
+  });
+  it('does not invent a cross-action series in a partial history', () => {
+    const events = sequence([event(2, 'vote', { seat: 1, target: 8 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(3, 'vote', { seat: 1, target: 9 }), event(3, 'vote_round_result', { value: '1:single_eliminated' }), event(3, 'exit', { seat: 9, value: 'voted_day' })]);
+    close(score(players(), { events }, 1).points, 0.4);
+  });
+});

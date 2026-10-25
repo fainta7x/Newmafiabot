@@ -41,6 +41,24 @@ const seedGame = async (db: ReturnType<typeof createDatabaseConnection>, number:
 };
 
 describe('Elo and a guest seat (owner, 2026-10-05: rate the game from the remaining 9 players)', () => {
+  it('replays an explicitly attributed miss identically in history and persisted club Elo', async () => {
+    const db = createDatabaseConnection(':memory:');
+    try {
+      await seedGame(db, 7, false, 'miss');
+      const game = await db.get<any>('SELECT id, protocol_text FROM games WHERE global_game_number = 7');
+      const payload = JSON.parse(game.protocol_text);
+      payload.protocol.shots = [{ night_number: 1, target_seat: 0, result: 'agreement_failed', miss_reason: 'error', miss_responsible_seats: [1] }];
+      await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(payload), game.id]);
+      const events = await loadPlayerEloHistory(db);
+      const row = events[0].players.find((player) => player.playerId === 'miss-p1')!;
+      expect(row.contributionDelta).toBe(-2);
+      expect(row.totalDelta).toBeCloseTo(-37, 10);
+      const rebuilt = await rebuildCanonicalEloRatings(db);
+      expect(rebuilt.find((player) => player.player_id === row.playerId)?.elo).toBe(Math.round(row.eloAfter));
+      expect(events[0].players.find((player) => player.playerId === 'miss-p2')?.contributionDelta).toBe(0);
+    } finally { db.sqlite.close(); }
+  });
+
   it('history rates a game with a guest seat from the nine registered players', async () => {
     const db = createDatabaseConnection(':memory:');
     await seedGame(db, 4, true, 'guest');
@@ -82,4 +100,5 @@ describe('Elo and a guest seat (owner, 2026-10-05: rate the game from the remain
     } finally { db.sqlite.close(); }
   });
 });
+
 

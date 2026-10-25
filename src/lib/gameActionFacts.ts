@@ -14,6 +14,7 @@ export const countTarget = (counts: TargetCounts, role: StatRole | null | undefi
 export const isCriticalCircle = (red: number, black: number) => black > 0 && red > black && red - black <= 2;
 
 export interface ActionVoting {
+  seq?: number;
   round: number; votes: Map<number, number>; nominations: Array<{ seat: number; by: number | null }>;
   eliminated: number | null; alive: Set<number> | null; critical: boolean | null;
   /** This voting phase's own result («single_eliminated», «tie_revote», «no_elimination», …), null without a result marker. */
@@ -80,7 +81,7 @@ function computeGameActionFacts(game: StatGame) {
       const state = full && result ? atSeq.get(result.seq) || null : null;
       const reds = state ? [...state].filter(s => redRole(roleOf(s))).length : 0;
       const blacks = state ? [...state].filter(s => blackRole(roleOf(s))).length : 0;
-      votings.push({ round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
+      votings.push({ seq: result?.seq, round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
         critical: state ? isCriticalCircle(reds, blacks) : null, outcome: result ? String(result.value).split(':')[1] || null : null });
     }
   }
@@ -135,3 +136,4 @@ export function playerActionMetrics(games: StatGame[], playerId: string, memo?: 
   }
   return metrics;
 }
+

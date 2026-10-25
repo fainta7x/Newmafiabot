@@ -1,8 +1,10 @@
 # 2LA Noire — Current Project State
 
-## Owner request — 2026-10-26: missed shots and decision streaks (partly clarified)
+## 2026-10-26 — missed shots, in-game streaks and mistaken wills (implemented; checks pending)
 
-The owner confirmed the missed-shot qualification, per-game reset and the inclusion of votes, checks and wills; canonical confirmed rules are in BUSINESS_RULES.md under Elo. Before coding the remaining streak classification, clarify a sheriff's red check and a will containing both correct and incorrect colours. Colour marks within a single will have no trustworthy chronological ordering, so do not fabricate a streak from their array order. Suggested bounded initial tuning (not approved numbers): miss −2 Elo per assigned culprit on a black loss; same-sign streak multipliers 1 / 1.25 / 1.5 capped thereafter, within the existing personal limits. Existing self-vote and unclear historical exit questions remain separate. PR #1040 remains open; no production write/release.
+Owner confirms error/failed shooting agreement only, no tactical no-shot penalty; streaks within one game include votes/checks/wills, red sheriff checks neutral. Ordinary wills with any wrong colour yield no positive colour awards; explicit PU is the exception. Canonical final behavior is in BUSINESS_RULES.md. Implemented judge attribution in the shared protocol shot editor, validated persistence in club/tournament routes, miss replay parity in Elo/history, own-decision series, order-independent simultaneous will batches and separate explanations. Initial tuning: −2 Elo per responsible player/night; 1 / 1.25 / 1.5, existing personal caps retained. Migration key v3 ensures policy replay on release.
+
+Twelve native focused regressions pass; exact-head CI and phone screenshot checks pending at authoring. The private last-three-game comparison must be updated for this version; old unassigned misses do not receive guessed penalties. #1040 remains open for review; #1041 closed/consolidated. Production is unchanged, full-career exact comparison still needs seeds/private tournament scores.
 
 
 ## 2026-10-26 — actual-game fairness review, PR #1040

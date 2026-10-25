@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-26 — new Elo rules: missed-shot attribution, streaks, mistaken ordinary wills
+
+Scope is the owner-approved additions to #1040. Source trace: shared protocol shot editor → canonical shots JSON in club/tournament save → canonical Elo/history; own club decisions → contribution → existing caps. Missing intent/culprit in old shots must not become a penalty. Confirmed red sheriff checks are neutral. A wrong colour in a non-PU will suppresses its correct-colour awards, while each error and negative-series adjustment remain. Simultaneous marks cannot depend on array order; use the batch mean multiplier. Explicit PU retains the exception.
+
+Implemented: shared mobile editor and draft/complete validation, persistence/review text, per-player/night −2 on black loss, all-culprit option, base/series/miss explanations, tournament miss-only replay in both loaders, v3 migration. Focused native test bodies cover attribution/win gating, tactical/legacy neutrality, invalid culprit, PU gate, sheriff-label errors, permutation invariance, preserving other positive actions, neutral red checks, mixed source chronology, sign reset/cap and partial-history conservatism. Two focused mobile flows cover club/tournament selection, persisted fields, tactical clearing and 44px/no-overflow evidence. Full CI/mobile result pending at commit authoring. No production mutation.
+
+
 ## 2026-10-26 — gameplay audit of real games 19–21 (PR #1040)
 
 Owner asks whether actual exits, votes, wills and game results justify the awarded Elo. Diagnosis uses previously read public production protocols (read-only). Before the fix: `gameActionFacts.ts` looks up the first result marker for a voting; game 20 has a corrected result (single elimination → restored player → tied voting → final revote). The first marker incorrectly makes the tied phase eligible for contribution. Reproduction: compare the same phase's latest `buildGameAnalysis` outcome with `ActionVoting.outcome`; expected tie_revote, observed single_eliminated. Acceptance: synthetic corrected-result regressions plus unchanged games 19/21 and removal of spurious game-20 personal awards (two +2 and two −1). Status: FIXED IN CODE; both corrected-result directions pass native calculator assertions; exact-head CI pending.

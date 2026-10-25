@@ -16,12 +16,12 @@ describe('player contribution (colour protocol part)', () => {
   };
   const by = (n: number) => gameContribution(envelope).find((item) => item.seat === n)!;
 
-  it('a right black +0.3, right reds +0.2 each; a black called red −0.4, a red called black −0.15', () => {
-    expect(by(1).points).toBeCloseTo(0.3 + 0.2 + 0.2, 6);
-    expect(by(5).points).toBeCloseTo(-0.4 - 0.15, 6);
+  it('preserves base colour weights and adds an order-independent same-will streak', () => {
+    expect(by(1).points).toBeCloseTo((0.3 + 0.2 + 0.2) * 1.25, 6);
+    expect(by(5).points).toBeCloseTo((-0.4 - 0.15) * 1.125, 6);
   });
 
-  it('a random guess is worth zero', () => {
+  it('the base price of a single random colour guess is zero before the stricter will policy', () => {
     expect((1 / 3) * 0.3 + (2 / 3) * -0.15).toBeCloseTo(0, 6);
     expect((2 / 3) * 0.2 + (1 / 3) * -0.4).toBeCloseTo(0, 6);
   });
@@ -212,5 +212,6 @@ describe('a black the voter did not find himself (owner, 2026-10-25)', () => {
     expect(me.items.some((item) => item.kind === 'obvious_black')).toBe(false);
   });
 });
+
 
 

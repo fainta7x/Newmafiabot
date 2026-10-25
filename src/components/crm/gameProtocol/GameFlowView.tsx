@@ -7,6 +7,7 @@ import { zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
 import { moveNominatedSeat, setTableLeaveVotes, setVotingSeatCount, toggleNominatedSeat, updateEligibleVoters } from '../tournaments/protocol/protocolVotingEditorUtils';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
 import type { ProtocolApi } from './types';
+import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, ExitTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
 import { checksOf, circleTitle, roleAtTable, describeVoting, exitLabel, exitsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
@@ -164,6 +165,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     <span className="flex flex-wrap items-center gap-2">
       {shot.target_seat ? <span>#{shot.target_seat} {nameOf(shot.target_seat)}</span> : null}
       {shot.result === 'killed' ? <ExitTag exit="killed" /> : shot.result === 'miss' ? <InfoTag tone="attention">Промах</InfoTag> : <InfoTag tone="attention">Промах</InfoTag>}
+      {shot.result !== 'killed' && shot.miss_reason ? <InfoTag tone="attention">{shot.miss_reason === 'intentional' ? 'Тактика · без штрафа' : `Ошибка · ${(shot.miss_responsible_seats || []).map((seat) => `#${seat}`).join(', ') || 'виновник не выбран'}`}</InfoTag> : null}
     </span>
   ) : null;
   const firstKilled = api.results.find((player) => player.participant_id === protocol.first_killed_participant_id) || null;
@@ -299,6 +301,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           <section className="space-y-2" aria-label="Результат"><Eyebrow>Результат</Eyebrow>
             <Segmented label="Результат выстрела" disabled={api.locked} value={entry.result === 'killed' ? 'killed' : 'miss'} options={SHOT_OPTIONS} cols={2} onChange={(value) => api.changeShot(sheet.index, entry.target_seat, value as 'killed' | 'miss' | 'agreement_failed')} />
           </section>
+          <MissAssessmentEditor shot={entry} players={api.results} locked={api.locked} onChange={(reason, responsible) => api.assessMiss(sheet.index, reason, responsible)} />
           <Btn kind="danger" block disabled={api.locked} onClick={() => { api.deleteNight(sheet.index); close(); }}>Удалить эту ночь</Btn>
         </div>
       </Sheet>
@@ -451,3 +454,4 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     </div>
   );
 };
+

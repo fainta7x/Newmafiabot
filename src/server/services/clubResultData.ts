@@ -7,7 +7,7 @@ import { roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
-import { gameContribution } from '../../lib/playerContribution.ts';
+import { contributionItemText, gameContribution, type ContributionItem } from '../../lib/playerContribution.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -30,9 +30,9 @@ export type BlankSeat = {
   points: number | null;
   eloDelta: number | null;
   eloAfter: number | null;
-  /** Elo from the individual contribution in this game (already inside `eloDelta`) and its main reason. */
+  /** Elo from the individual contribution in this game (already inside `eloDelta`) and its breakdown in plain words. */
   eloContribution: number | null;
-  contributionReason: string | null;
+  contributionLines: string[];
 };
 
 export type GameBlank = {
@@ -125,23 +125,14 @@ async function loadNicknames(db: DatabaseWrapper, playerIds: string[]) {
 }
 
 /**
- * The main reason of a seat's contribution, in plain words for the game blank: the part with the largest effect in the
- * same direction as the contribution. The contribution is measured against the role's club average, so a game with only
- * small pluses can still be below the usual — then that is what the blank says.
+ * The breakdown of a seat's contribution for the game blank (owner, 2026-10-25: «не просто сумму, а за что»): every action
+ * with its points, then the usual for the role, which is subtracted so an ordinary game is zero.
  */
-export function contributionReason(role: string | null, parts: Record<string, number> | undefined, contribution: number): string | null {
-  if (!contribution) return null;
-  const black = role === 'mafia' || role === 'don';
-  const words: Record<string, [string, string]> = {
-    votes: black ? ['за него мало голосовали', 'за него голосовали'] : ['голоса в чёрных', 'голоса в красных'],
-    colors: ['верные цвета', 'ошибки в цветах'],
-    checks: ['нашёл чёрного', 'не нашёл чёрных'],
-    wills: ['не вычислили в завещаниях', 'вычислили в завещаниях'],
-  };
-  const same = Object.entries(parts || {}).filter(([, value]) => Math.abs(value) >= 0.05 && Math.sign(value) === Math.sign(contribution));
-  if (!same.length) return contribution > 0 ? 'лучше обычного для роли' : 'меньше обычного для роли';
-  const [key, value] = same.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
-  return words[key]?.[value > 0 ? 0 : 1] || null;
+export function contributionLines(items: ContributionItem[], rawPoints: number, contributionElo: number): string[] {
+  const lines = items.map(contributionItemText);
+  const usual = rawPoints - contributionElo / 40;
+  if (Math.abs(usual) >= 0.005) lines.push(`обычно для роли ${usual > 0 ? '−' : '+'}${Math.abs(usual).toFixed(2).replace('.', ',')}`);
+  return lines;
 }
 
 export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promise<GameBlank | null> {
@@ -192,7 +183,9 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       eloDelta: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.delta) : null,
       eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
       eloContribution: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.contribution) : null,
-      contributionReason: playerId && gameElo?.has(playerId) ? contributionReason(role, contributions.get(Number(result?.seat_number))?.parts, Math.round(gameElo.get(playerId)!.contribution)) : null,
+      contributionLines: playerId && gameElo?.has(playerId) && contributions.has(Number(result?.seat_number))
+        ? contributionLines(contributions.get(Number(result?.seat_number))!.items, contributions.get(Number(result?.seat_number))!.points, gameElo.get(playerId)!.contribution)
+        : [],
     };
   }).sort((a, b) => a.seat - b.seat);
 
@@ -328,7 +321,7 @@ export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGam
       points: pointsByParticipant.has(participantId) ? pointsByParticipant.get(participantId)! : null,
       eloDelta: null,
       eloContribution: null,
-      contributionReason: null,
+      contributionLines: [],
       eloAfter: null,
     };
   });

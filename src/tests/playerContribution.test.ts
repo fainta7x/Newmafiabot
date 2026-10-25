@@ -25,8 +25,9 @@ describe('player contribution (colour protocol part)', () => {
     expect((2 / 3) * 0.2 + (1 / 3) * -0.4).toBeCloseTo(0, 6);
   });
 
-  it('a black mirrors the wills: named black −0.2, named red +0.2', () => {
+  it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.2', () => {
     expect(by(4).points).toBeCloseTo(-0.2 + 0.2, 6);
+    expect(by(4).items.map((item) => item.kind).sort()).toEqual(['named_black', 'named_red']);
   });
 });
 
@@ -61,17 +62,50 @@ describe('contribution in Elo', () => {
   });
 });
 
-import { contributionReason } from '../server/services/clubResultData.ts';
+import { contributionLines } from '../server/services/clubResultData.ts';
+import { contributionTextLines } from '../server/services/clubResultImages.ts';
 
-describe('contribution reason on the game blank', () => {
-  it('names the part with the largest effect, in plain words', () => {
-    expect(contributionReason('citizen', { votes: 0.1, colors: 0.6 }, 20)).toBe('верные цвета');
-    expect(contributionReason('citizen', { votes: -0.4 }, -15)).toBe('голоса в красных');
-    expect(contributionReason('mafia', { wills: -0.4, votes: -0.1 }, -20)).toBe('вычислили в завещаниях');
-    expect(contributionReason('don', {}, 0)).toBeNull();
+describe('contribution breakdown on the game blank', () => {
+  it('lists every action with its points and the usual for the role', () => {
+    const lines = contributionLines([{ kind: 'found_black', seat: 9, points: 0.2 }, { kind: 'vote_red', seat: 7, points: -0.1 }], 0.1, 2);
+    expect(lines).toEqual(['нашёл чёрного №9 +0,2', 'голос в красного №7 −0,1', 'обычно для роли −0,05']);
   });
 
-  it('never gives a plus as the reason of a minus', () => {
-    expect(contributionReason('sheriff', { checks: 0.2 }, -3)).toBe('меньше обычного для роли');
+  it('wraps a long list into short lines that start with the Elo', () => {
+    const seat: any = { eloContribution: 12, contributionLines: Array.from({ length: 8 }, (_, i) => `завещание: №${i + 1} верно +0,2`) };
+    const lines = contributionTextLines(seat);
+    expect(lines[0].startsWith('Вклад +12 Эло:')).toBe(true);
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.every((line) => line.length <= 74)).toBe(true);
+  });
+});
+
+describe('found blacks count once each (owner, 2026-10-25)', () => {
+  const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+  const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[] }));
+  const day = (round: number, start: number, voted: number, votes: Array<[number, number]>) => [
+    { seq: start, at: 'x', round, phase: 'day_voting', kind: 'nomination', seat: voted, by: 1 },
+    ...votes.map(([seat, target], i) => ({ seq: start + 1 + i, at: 'x', round, phase: 'day_voting', kind: 'vote', seat, target })),
+    { seq: start + 10, at: 'x', round, phase: 'day_voting', kind: 'vote_round_result', value: `1:${voted}` },
+    { seq: start + 11, at: 'x', round, phase: 'day_voting', kind: 'exit', seat: voted, value: 'voted_day' },
+  ];
+  const events = [
+    { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+    ...day(2, 10, 3, [[2, 8], [4, 3]]),
+    ...day(3, 30, 9, [[2, 8], [4, 9]]),
+  ];
+  const by = (n: number) => gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === n)!;
+
+  it('voting twice for the same black earns once', () => {
+    expect(by(2).items.filter((item) => item.kind === 'found_black')).toHaveLength(1);
+    expect(by(2).points).toBeCloseTo(0.2, 6);
+  });
+
+  it('a vote for a red costs, a different black earns again', () => {
+    expect(by(4).points).toBeCloseTo(-0.1 + 0.2, 6);
+  });
+
+  it('votes against a black do not move his points', () => {
+    expect(by(8).points).toBe(0);
   });
 });

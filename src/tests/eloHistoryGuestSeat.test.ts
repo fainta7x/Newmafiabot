@@ -62,4 +62,24 @@ describe('Elo and a guest seat (owner, 2026-10-05: rate the game from the remain
     expect(byId.get('guest-p9')?.games).toBe(1);
     expect(byId.get('guest-p10')?.games ?? 0).toBe(0);
   });
+
+  it('history and persisted ratings apply the same personal cap while preserving discipline', async () => {
+    const db = createDatabaseConnection(':memory:');
+    try {
+      await seedGame(db, 6, false, 'balanced');
+      const game = await db.get<any>('SELECT id, protocol_text FROM games WHERE global_game_number = 6');
+      const payload = JSON.parse(game.protocol_text);
+      Object.assign(payload.player_results[3], { judge_bonus: 2, exit_type: 'removed' });
+      await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(payload), game.id]);
+      const events = await loadPlayerEloHistory(db);
+      const row = events[0].players.find((player) => player.playerId === 'balanced-p4')!;
+      expect(row.personalDelta).toBe(20);
+      expect(row.personalCapDelta).toBe(-5);
+      expect(row.disciplinaryDelta).toBe(-40);
+      expect(row.totalDelta).toBeCloseTo(10, 10);
+      const rebuilt = await rebuildCanonicalEloRatings(db);
+      expect(rebuilt.find((player) => player.player_id === row.playerId)?.elo).toBe(Math.round(row.eloAfter));
+    } finally { db.sqlite.close(); }
+  });
 });
+

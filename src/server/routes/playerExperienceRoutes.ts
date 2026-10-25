@@ -1,4 +1,5 @@
 import { round2 } from '../../shared/numbers.ts';
+import { explainEloDelta } from '../../lib/eloExplanation.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import clubWorldRoutes from './playerClubWorldRoutes.ts';
@@ -29,37 +30,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
 
 const round = (value: number) => round2(value);
 const opposite = (team: EloTeam): EloTeam => team === 'red' ? 'black' : 'red';
-
-const explanationFor = (row: {
-  won: boolean;
-  expectedTeamResult: number;
-  modifiedResultDelta: number;
-  resultDelta: number;
-  carryModifier: number;
-  personalDelta: number;
-  totalDelta: number;
-}) => {
-  const chance = Math.round(row.expectedTeamResult * 100);
-  const outcome = row.won ? 'Победа' : 'Поражение';
-  const carryEffect = row.modifiedResultDelta - row.resultDelta;
-  const parts = [
-    `${outcome} при расчётной вероятности команды ${chance}%`,
-    `командная часть ${row.modifiedResultDelta >= 0 ? '+' : ''}${round(row.modifiedResultDelta)}`,
-  ];
-  if (Math.abs(row.personalDelta) >= 0.01) {
-    parts.push(`личный вклад ${row.personalDelta >= 0 ? '+' : ''}${round(row.personalDelta)}`);
-  } else {
-    parts.push('без личной поправки');
-  }
-  if (Math.abs(carryEffect) >= 0.01) {
-    parts.push(`коэффициент силы ×${round(row.carryModifier)}`);
-  }
-  return {
-    headline: `${outcome}: ${row.totalDelta >= 0 ? '+' : ''}${round(row.totalDelta)} Elo`,
-    details: parts,
-    formula: `${round(row.modifiedResultDelta)} ${row.personalDelta >= 0 ? '+' : '−'} ${Math.abs(round(row.personalDelta))} = ${round(row.totalDelta)}`,
-  };
-};
 
 const previewOutcome = (
   playerId: string,
@@ -132,7 +102,10 @@ router.get('/elo-journey', async (req, res) => {
         team_delta: round(row.modifiedResultDelta),
         personal_game_points: round(row.canonicalPersonalGamePoints),
         personal_delta: round(row.personalDelta),
-        explanation: explanationFor(row),
+        contribution_delta: round(row.contributionDelta),
+        personal_cap_delta: round(row.personalCapDelta),
+        disciplinary_delta: round(row.disciplinaryDelta),
+        explanation: explainEloDelta(row),
       }];
     });
 
@@ -224,3 +197,4 @@ router.get('/evening-summaries/:eveningId', async (req, res) => {
 });
 
 export default router;
+

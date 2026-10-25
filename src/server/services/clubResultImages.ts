@@ -59,8 +59,10 @@ function seatEvents(seat: BlankSeat) {
 const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
-  if (seat.eloContribution == null || !seat.contributionLines.length) return [];
-  const lines = [`За действия в игре: ${seat.eloContribution > 0 ? '+' : seat.eloContribution < 0 ? '−' : ''}${Math.abs(seat.eloContribution)} Эло`];
+  const value = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.round(Math.abs(n) * 10) / 10}`;
+  const lines: string[] = [];
+  if (seat.eloPersonalBonus) lines.push(`Личные бонусы: ${value(seat.eloPersonalBonus)} Эло`);
+  if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
   // Each kind of action on its own line; a long one breaks at «·» so it never leaves the card.
   for (const line of seat.contributionLines) {
     let current = '';
@@ -70,6 +72,9 @@ export function contributionTextLines(seat: BlankSeat): string[] {
     }
     if (current) lines.push(current);
   }
+  if (seat.eloContributionCap) lines.push(`Ограничение вклада: ${value(seat.eloContributionCap)} Эло`);
+  if (seat.eloPersonalCap) lines.push(`Ограничение личной части: ${value(seat.eloPersonalCap)} Эло`);
+  if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
   return lines;
 }
 
@@ -369,3 +374,4 @@ export function renderPng(svg: string): Buffer {
   });
   return resvg.render().asPng();
 }
+

@@ -5,6 +5,7 @@ import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 import { gameContribution } from '../../lib/playerContribution.ts';
+import { ELO_CONTRIBUTION_CAP, ELO_DISCIPLINE_POINT_WEIGHT, ELO_PERSONAL_CAP, ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
 
 
 export const DEFAULT_ELO = DEFAULT_ELO_SEED;
@@ -15,6 +16,8 @@ export interface CanonicalEloGamePlayer {
   team: EloTeam;
   elo: number;
   canonicalPersonalGamePoints: number;
+  /** Positive discipline points already deducted inside canonicalPersonalGamePoints; kept separately to preserve their price. */
+  disciplinaryPenaltyPoints?: number;
   /** Individual contribution in points (club games only), with no role-average subtraction. */
   contributionPoints?: number;
 }
@@ -27,6 +30,8 @@ export interface CanonicalEloPlayerDelta {
   modifiedResultDelta: number;
   personalDelta: number;
   contributionDelta: number;
+  personalCapDelta: number;
+  disciplinaryDelta: number;
   totalDelta: number;
 }
 
@@ -48,20 +53,21 @@ const numeric = (value: unknown) => {
 };
 
 /**
- * The Elo scale (owner, 2026-10-01): every distance from 1000 is five times larger than in the first
- * version, so one game, the win expectation and the strong-player protection all use ×5 units.
- * The behaviour is the same as before, only the numbers are bigger.
+ * The Elo scale (owner, 2026-10-01): the result and disciplinary scale retain ×5 units. The personal-point
+ * weight was independently reduced by the owner-approved 2026-10-25 balance review.
+ * Expectation and protection use their own documented level distances.
  */
 export const ELO_SCALE = 5;
 const RESULT_WEIGHT = 10 * ELO_SCALE;
-const PERSONAL_POINT_WEIGHT = 8 * ELO_SCALE;
+const PERSONAL_POINT_WEIGHT = ELO_PERSONAL_POINT_WEIGHT;
+export const PERSONAL_CAP_ELO = ELO_PERSONAL_CAP;
 /**
  * Table level (owner, 2026-10-24: «в пределах 150 Elo уровень одинаковый, от 150 до 250 уровень сильно различается, от 250 огромная
  * разница»). A gap between two averages is first turned into an effective level gap. The win expectation is bounded separately by expectedRedTeamResult; the same effective gap drives protection:
  *  - up to 150 Elo the levels are the same (no effect);
  *  - 150–250: the effect grows one-for-one (0…100);
  *  - above 250: «huge», the effect grows twice as fast, up to 300 (gap 350 and more is the same);
- * The distances are not stretched ×5 any more; the weight of a game and of a personal point stay on the ×5 scale.
+ * The distances are not stretched ×5; the game weight stays 50, while personal and discipline weights are independent.
  */
 export const SAME_LEVEL_GAP = 150;
 export const STRONG_LEVEL_GAP = 250;
@@ -113,14 +119,20 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
     const won = player.team === winnerTeam;
     let carryModifier: number;
     if (won) carryModifier = n > 0 ? 1 + 0.30 * n : 1 - 0.20 * Math.abs(n);
-    else carryModifier = n > 0 ? 1 - 0.40 * n : 1 + 0.20 * Math.abs(n);
+    else carryModifier = n > 0 ? 1 - 0.40 * n : 1;
     const expectedTeamResult = player.team === 'red' ? pRed : pBlack;
     const actualResult = won ? 1 : 0;
     const resultDelta = RESULT_WEIGHT * (actualResult - expectedTeamResult);
     const modifiedResultDelta = resultDelta * carryModifier;
-    const personalDelta = player.canonicalPersonalGamePoints * PERSONAL_POINT_WEIGHT;
+    const disciplinePoints = Math.max(0, numeric(player.disciplinaryPenaltyPoints));
+    const personalDelta = (player.canonicalPersonalGamePoints + disciplinePoints) * PERSONAL_POINT_WEIGHT;
     const contributionDelta = (player.contributionPoints || 0) * PERSONAL_POINT_WEIGHT;
-    return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta, personalDelta, contributionDelta, totalDelta: modifiedResultDelta + personalDelta + contributionDelta };
+    const personalSum = personalDelta + contributionDelta;
+    const personalCapDelta = clamp(personalSum, -PERSONAL_CAP_ELO, PERSONAL_CAP_ELO) - personalSum;
+    const disciplinaryDelta = -disciplinePoints * ELO_DISCIPLINE_POINT_WEIGHT;
+    return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta,
+      personalDelta, contributionDelta, personalCapDelta, disciplinaryDelta,
+      totalDelta: modifiedResultDelta + personalSum + personalCapDelta + disciplinaryDelta };
   });
 }
 
@@ -130,24 +142,28 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
 };
 
 /** A player's personal points in a club game (judge and protocol bonus, best move, Ci, minus discipline): Elo and its history. */
-export const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
+export const clubDisciplinaryPenaltyPoints = (payload: any, result: any): number => {
   const participantId = String(result?.participant_id || '');
   const isPpkCulprit = payload?.protocol?.end_reason === 'ppk' && participantId && participantId === String(payload?.protocol?.ppk_culprit_participant_id || '');
-  const disciplinaryPenalty = calculateDisciplinaryPenalty(
+  return calculateDisciplinaryPenalty(
     Math.max(0, Math.trunc(numeric(result?.minor_technical_fouls))),
     Math.max(0, Math.trunc(numeric(result?.major_technical_fouls))),
     result?.exit_type === 'removed',
     Boolean(isPpkCulprit),
   );
-  return numeric(result?.judge_bonus) + numeric(result?.protocol_bonus) + clubBestMovePointsForParticipant(payload?.protocol, participantId, results) + numeric(result?.ci_points) - disciplinaryPenalty;
+};
+
+export const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
+  const participantId = String(result?.participant_id || '');
+  return numeric(result?.judge_bonus) + numeric(result?.protocol_bonus) + clubBestMovePointsForParticipant(payload?.protocol, participantId, results) + numeric(result?.ci_points) - clubDisciplinaryPenaltyPoints(payload, result);
 };
 
 /**
  * Individual contribution (owner, 2026-10-25): an addition to the result, never a replacement. Points come from the game's
  * own facts (`playerContribution.ts`); every found black is praised, no role adjustment (the weights balance the roles);
- * one game moves Elo by at most ±35; it accumulates without a ceiling — a player who keeps playing well keeps rising.
+ * automatic contribution moves Elo by at most ±10, with all personal sources together capped at ±15; it accumulates without a ceiling — a player who keeps playing well keeps rising.
  */
-export const CONTRIBUTION_CAP_ELO = 35;
+export const CONTRIBUTION_CAP_ELO = ELO_CONTRIBUTION_CAP;
 export const clubContributionByPlayer = (payload: any, results: any[]): Map<string, { role: string; raw: number }> => {
   const bySeat = new Map(gameContribution(payload).map((item) => [item.seat, item]));
   const out = new Map<string, { role: string; raw: number }>();
@@ -245,7 +261,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
         const playerId = String(participant.player_id);
         if (!knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
         const canonicalPersonalGamePoints = Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0);
-        eventPlayers.push({ playerId, team, canonicalPersonalGamePoints });
+        eventPlayers.push({ playerId, team, canonicalPersonalGamePoints, disciplinaryPenaltyPoints: numeric(canonicalGame.disciplinary_penalty_points) });
       }
       const event: PreparedEloEvent = { source:'tournament', sourceId:String(game.id), sortAt:String(game.sort_at || tournament.date || tournament.created_at || ''), sortOrder:Number(game.game_number || 0), winnerTeam:winner, players:eventPlayers };
       validatePreparedEvent(event);
@@ -291,7 +307,8 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       if (!playerId || !knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
       const team = gameTeamOfRole(result?.role);
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
-      return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results), contribution: contributions.get(playerId) };
+      return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
+        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result), contribution: contributions.get(playerId) };
     });
     const event: PreparedEloEvent = { source:'club', sourceId:String(game.id), sortAt:String(game.game_date || game.created_at || ''), sortOrder:Number(game.global_game_number || game.id || 0), winnerTeam:winner, players:eventPlayers };
     validatePreparedEvent(event, guests);
@@ -327,4 +344,5 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))
     .sort((a, b) => b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));
 }
+
 

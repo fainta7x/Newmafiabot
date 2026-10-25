@@ -6,6 +6,7 @@ import {
   currentEloInputsGeneration,
   DEFAULT_ELO,
   clubPersonalGamePoints,
+  clubDisciplinaryPenaltyPoints,
   clubContributionByPlayer,
   normalizeContributions,
   sortTime,
@@ -101,6 +102,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
           playerId,
           team,
           canonicalPersonalGamePoints: Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0),
+          disciplinaryPenaltyPoints: Number(canonicalGame.disciplinary_penalty_points || 0),
         });
       }
 
@@ -161,6 +163,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
         playerId,
         team,
         canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
+        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result),
         contribution: contributions.get(playerId),
       };
     });
@@ -280,3 +283,4 @@ async function replayPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHis
 
   return timeline;
 }
+

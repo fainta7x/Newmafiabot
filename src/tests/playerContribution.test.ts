@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gameContribution } from '../lib/playerContribution.ts';
+import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 
 const seat = (n: number, role: string, color_protocol: any[] = []) => ({ seat_number: n, role, player_id: `p${n}`, color_protocol, exit_type: color_protocol.length ? 'killed' : 'alive' });
 
@@ -47,18 +48,18 @@ describe('contribution in Elo', () => {
     expect(events[0].players[1].contributionPoints).toBeCloseTo(0.1, 6);
   });
 
-  it('one game moves Elo by at most ±35', () => {
+  it('the automatic contribution is capped at ±10 per game', () => {
     const events = [event([['a', 'citizen', 3]]), event([['b', 'citizen', -3]])];
     normalizeContributions(events);
-    expect(events[0].players[0].contributionPoints! * 40).toBeCloseTo(CONTRIBUTION_CAP_ELO, 6);
-    expect(events[1].players[0].contributionPoints! * 40).toBeCloseTo(-CONTRIBUTION_CAP_ELO, 6);
+    expect(events[0].players[0].contributionPoints! * ELO_PERSONAL_POINT_WEIGHT).toBeCloseTo(CONTRIBUTION_CAP_ELO, 6);
+    expect(events[1].players[0].contributionPoints! * ELO_PERSONAL_POINT_WEIGHT).toBeCloseTo(-CONTRIBUTION_CAP_ELO, 6);
   });
 
-  it('is added on top of the result (1 point = 40 Elo)', () => {
+  it('is added on top of the result (1 point = 10 Elo)', () => {
     const players = Array.from({ length: 10 }, (_, i) => ({ playerId: `p${i}`, team: (i < 7 ? 'red' : 'black') as 'red' | 'black', elo: 1000, canonicalPersonalGamePoints: 0, contributionPoints: i === 0 ? 0.25 : 0 }));
     const [first, second] = calculateCanonicalEloGame(players, 'red');
-    expect(first.contributionDelta).toBeCloseTo(10, 6);
-    expect(first.totalDelta - second.totalDelta).toBeCloseTo(10, 6);
+    expect(first.contributionDelta).toBeCloseTo(2.5, 6);
+    expect(first.totalDelta - second.totalDelta).toBeCloseTo(2.5, 6);
   });
 });
 
@@ -73,23 +74,23 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
       { kind: 'will_right', seat: 8, points: 0.3 }, { kind: 'will_wrong', seat: 5, points: -0.4 },
     ]);
     expect(lines).toEqual([
-      'Голосовал в чёрных №10, №1: +16',
-      'Голосовал в красных №2: −8',
-      'Угадал цвета №8: +12',
-      'Ошибся в цветах №5: −16',
+      'Голосовал в чёрных №10, №1: +4',
+      'Голосовал в красных №2: −2',
+      'Угадал цвета №8: +3',
+      'Ошибся в цветах №5: −4',
     ]);
   });
 
   it('a repeated vote for the same red is written once with the count', () => {
-    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual(['Голосовал в красных №4 (2 раза), №3: −12']);
+    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual(['Голосовал в красных №4 (2 раза), №3: −3']);
   });
 
   it('a black reads by the wills of the dead', () => {
     expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.1 }])).toEqual([
-      'Записан красным у №5: +8',
-      'Не записан у №3: +4',
+      'Записан красным у №5: +2',
+      'Не записан у №3: +1',
     ]);
-    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }])).toEqual(['Записан чёрным у №5: −8']);
+    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }])).toEqual(['Записан чёрным у №5: −2']);
   });
 
   it('starts with the Elo and keeps every line short', () => {
@@ -211,4 +212,5 @@ describe('a black the voter did not find himself (owner, 2026-10-25)', () => {
     expect(me.items.some((item) => item.kind === 'obvious_black')).toBe(false);
   });
 });
+
 

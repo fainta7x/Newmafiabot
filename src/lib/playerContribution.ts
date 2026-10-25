@@ -2,11 +2,12 @@ import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../shared/gameRoles.ts';
+import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 
 /**
- * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 40 Elo).
+ * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 10 Elo).
  * Owner, 2026-10-25: no role adjustment — every found black is praised. The roles are balanced by the weights instead: on the
- * club's games an average game is worth about +6 Elo for a citizen, +9 for the sheriff, +7 for a mafia and +6 for the don.
+ * club's games an average game is worth the prior +6/+9/+7/+6 Elo before the personal weight was reduced on 2026-10-25.
  * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out),
  * and of those only a voting after which exactly one player left the table (owner, 2026-10-25): a voting that ends in a
  * revote, with nobody leaving or with several leaving can be an agreed split, so a vote there is not the voter's own read.
@@ -160,7 +161,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   });
 }
 
-const elo = (points: number) => Math.round(points * 40);
+const elo = (points: number) => Math.round(points * ELO_PERSONAL_POINT_WEIGHT * 10) / 10;
 const signedElo = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}`;
 const seatNumbers = (items: ContributionItem[]) => {
   const counts = new Map<number, number>();
@@ -171,7 +172,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 
 /**
  * The breakdown of a seat's contribution in short plain words and Elo (owner, 2026-10-25: «попроще и попонятнее»), one
- * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +16»; the lines add up to the total unless the ±35 cap applied.
+ * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +4»; caps are shown separately by the game blank.
  */
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[]): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
@@ -187,4 +188,5 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
     ];
   return lines.filter((line): line is string => Boolean(line));
 }
+
 

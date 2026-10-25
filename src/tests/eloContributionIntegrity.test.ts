@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gameContribution } from '../lib/playerContribution.ts';
+import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 import { validatePlayerResults } from '../lib/protocolConsistency.ts';
 
 const roles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
@@ -10,7 +11,7 @@ const results = () => roles.map((role, index) => ({
   color_protocol: [] as Array<{ mark: string; seat_numbers: number[] }>,
 }));
 const elo = (rows: ReturnType<typeof results>, seat: number, events: any[] = []) =>
-  gameContribution({ protocol: { winner_team: 'red', events }, player_results: rows }).find((row) => row.seat === seat)!.points * 40;
+  gameContribution({ protocol: { winner_team: 'red', events }, player_results: rows }).find((row) => row.seat === seat)!.points * ELO_PERSONAL_POINT_WEIGHT;
 
 describe('Elo colour evidence integrity', () => {
   it('rejects own colour marks and ignores them when rebuilding historical records', () => {
@@ -43,8 +44,8 @@ describe('Elo colour evidence integrity', () => {
     rows[7].exit_type = 'voted_day'; rows[7].exit_order = 1;
     rows[8].exit_type = 'voted_day'; rows[8].exit_order = 3;
     expect(elo(rows, 8)).toBe(0);
-    expect(elo(rows, 9)).toBe(4);
-    expect(elo(rows, 10)).toBe(4);
+    expect(elo(rows, 9)).toBe(1);
+    expect(elo(rows, 10)).toBe(1);
   });
 
   it('does not invent eligibility for an out black with no chronology', () => {
@@ -61,6 +62,7 @@ describe('Elo colour evidence integrity', () => {
     events[0].phase = 'zero_night'; events[0].round = 1;
     expect(elo(rows, 8, events)).toBe(0);
     const beforeExit = [events[0], events[2], events[1]];
-    expect(elo(rows, 8, beforeExit)).toBe(mark === 'red' ? 8 : mark === 'black' ? -8 : 4);
+    expect(elo(rows, 8, beforeExit)).toBe(mark === 'red' ? 2 : mark === 'black' ? -2 : 1);
   });
 });
+

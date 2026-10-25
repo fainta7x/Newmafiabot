@@ -9,6 +9,7 @@ import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { contributionBreakdown, gameContribution } from '../../lib/playerContribution.ts';
 import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP } from './eloRatingService.ts';
+import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -34,6 +35,10 @@ export type BlankSeat = {
   /** Elo from the individual contribution in this game (already inside `eloDelta`) and its breakdown in plain words. */
   eloContribution: number | null;
   contributionLines: string[];
+  eloPersonalBonus?: number | null;
+  eloPersonalCap?: number | null;
+  eloContributionCap?: number | null;
+  eloDiscipline?: number | null;
 };
 
 export type GameBlank = {
@@ -121,7 +126,7 @@ export async function loadAvatars(db: DatabaseWrapper, playerIds: string[]) {
 
 /** Elo changes per club game id (novice evenings do not move Elo). */
 async function loadClubElo(db: DatabaseWrapper) {
-  const byGame = new Map<string, Map<string, { delta: number; after: number; contribution: number }>>();
+  const byGame = new Map<string, Map<string, { delta: number; after: number; contribution: number; personal: number; cap: number; discipline: number }>>();
   const tables = new Map<string, BlankTable>();
   const timeline = await loadPlayerEloHistory(db).catch((error) => { console.error('[CLUB RESULTS] Elo unavailable:', error); return []; });
   for (const event of timeline) {
@@ -129,7 +134,10 @@ async function loadClubElo(db: DatabaseWrapper) {
     const avg = (team: string) => { const list = event.players.filter((player) => player.team === team); return list.length ? list.reduce((sum, player) => sum + Number(player.eloBefore || 0), 0) / list.length : null; };
     const red = avg('red'); const black = avg('black'); const redPlayer = event.players.find((player) => player.team === 'red');
     if (red != null && black != null && redPlayer) tables.set(String(event.sourceId), { redAvg: Math.round(red), blackAvg: Math.round(black), level: tableLevelText(red, black), redChancePercent: Math.round(Number(redPlayer.expectedTeamResult || 0) * 100) });
-    byGame.set(String(event.sourceId), new Map(event.players.map((player) => [String(player.playerId), { delta: Number(player.totalDelta || 0), after: Number(player.eloAfter || 0), contribution: Number(player.contributionDelta || 0) }])));
+    byGame.set(String(event.sourceId), new Map(event.players.map((player) => [String(player.playerId), {
+      delta: Number(player.totalDelta || 0), after: Number(player.eloAfter || 0), contribution: Number(player.contributionDelta || 0),
+      personal: Number(player.personalDelta || 0), cap: Number(player.personalCapDelta || 0), discipline: Number(player.disciplinaryDelta || 0),
+    }])));
   }
   return Object.assign(byGame, { tables });
 }
@@ -188,7 +196,12 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       points: scored ? gameResultPoints(envelope, result).total : null,
       eloDelta: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.delta) : null,
       eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
-      eloContribution: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.contribution) : null,
+      eloContribution: playerId && gameElo?.has(playerId) ? roundToTwo(gameElo.get(playerId)!.contribution) : null,
+      eloPersonalBonus: playerId && gameElo?.has(playerId) ? gameElo.get(playerId)!.personal : null,
+      eloPersonalCap: playerId && gameElo?.has(playerId) ? gameElo.get(playerId)!.cap : null,
+      eloDiscipline: playerId && gameElo?.has(playerId) ? gameElo.get(playerId)!.discipline : null,
+      eloContributionCap: playerId && gameElo?.has(playerId) && contributions.has(Number(result?.seat_number))
+        ? gameElo.get(playerId)!.contribution - contributions.get(Number(result?.seat_number))!.points * ELO_PERSONAL_POINT_WEIGHT : null,
       contributionLines: playerId && gameElo?.has(playerId) && contributions.has(Number(result?.seat_number))
         ? contributionBreakdown(role as any, contributions.get(Number(result?.seat_number))!.items)
         : [],
@@ -638,3 +651,4 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
     players: rows.map((row: any) => ({ playerId: String(row.player_id), nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null })),
   };
 }
+

@@ -1,5 +1,12 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-25 — owner-approved Elo balance implementation (PR #1040; release held)
+
+Owner authorizes the agreed balance changes and requests visual explanations for all players in the last three real games. Personal points now cost 10 Elo, automatic cap ±10 and combined personal cap ±15; discipline remains 40 outside those caps. Weak-player losses no longer get amplified; strong-player protection and positive expected drift remain. No standalone strong-table bonus. Explanation/history/rebuild/image breakdowns share the new terms; migration key revised for a one-time full rebuild on release. Regression coverage includes personal caps, preserved discipline, weak-player loss and history/rebuild parity. Local pure-calculator checks pass; exact-head CI still pending at commit authoring.
+
+Read-only public data contains games 19–21 (23.10), but not career seeds or private tournament personal scores. The private review report compares the old and new PR rules from a common explicitly declared public Elo anchor; it must not be described as exact full-career recalculation. Real player exports remain outside the repository. Production was not changed. #1041 is closed and consolidated into #1040; no parallel writer.
+
+
 ## Owner request — 2026-10-18, stub for «Кровь на часовой башне» (coded, see PR)
 
 Owner asked for a joke-level stub of the board game, placed in the app like the poker table (a separate section, not «Свои ивенты»); the game itself is NOT built and may later be deleted or turned into a real game. Done: rules/roles pages in the guide shelf «Другие игры» (`/guide?tab=clocktower`); a player-cabinet section `/player/clocktower[/roomId]` opened from the «Сообщество» → «Мини-игры» tab (owner, 2026-10-18: the poker table moved there too, next to «Кровь на часовой башне», because the old buttons under the lists were hard to find) with rooms (create, join, leave, close, «Я — Рассказчик») and personal invitations (Telegram, else VK; own switch «Кровь на часовой башне» in «Приглашения»). The rules text is my own-words retelling and is **not reviewed by the owner**; Russian role names are a working translation; only the «Неприятности назревают» roles are listed. Not verified in a real browser session (needs player login).
@@ -1265,3 +1272,4 @@ Historical proposal is in ELO_CALCULATION_MODEL.md: an additive table bonus 0…
 ## Elo philosophy clarified by the owner — 2026-10-25
 
 The original goal is to make weak lineups attractive to strong players by limiting their team-related Elo risk. The owner asks for a plain-language assessment and allows discussion of redundant/disbalancing elements. GPT's recommendation is now to omit the unimplemented standalone strong-table reward and review the relative weight of personal scores and the protection's responsibility. The earlier table-bonus request is reopened for discussion, not silently removed from an approved runtime rule. Current code still has no B_table; no gameplay behaviour changed in this explanation. Existing accepted carry reward, non-mention award and discipline remain. Proposed next step: agree the simplified responsibilities and personal-result balance before code changes.
+

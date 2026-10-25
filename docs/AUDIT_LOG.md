@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-25 — owner-approved Elo balance implementation (PR #1040; release held)
+
+Owner authorizes the agreed balance changes and requests visual explanations for all players in the last three real games. Personal points now cost 10 Elo, automatic cap ±10 and combined personal cap ±15; discipline remains 40 outside those caps. Weak-player losses no longer get amplified; strong-player protection and positive expected drift remain. No standalone strong-table bonus. Explanation/history/rebuild/image breakdowns share the new terms; migration key revised for a one-time full rebuild on release. Regression coverage includes personal caps, preserved discipline, weak-player loss and history/rebuild parity. Local pure-calculator checks pass; exact-head CI still pending at commit authoring.
+
+Read-only public data contains games 19–21 (23.10), but not career seeds or private tournament personal scores. The private review report compares the old and new PR rules from a common explicitly declared public Elo anchor; it must not be described as exact full-career recalculation. Real player exports remain outside the repository. Production was not changed. #1041 is closed and consolidated into #1040; no parallel writer.
+
+
 ### 2026-10-18 — hidden or covered controls in the Live Game (owner request; tool `e2e/tools/live-game-hidden-controls.mjs`)
 
 Scope: every phase of the engine (zero night, speeches idle/active/done, voting announcement/collecting/zero round, round result tie/single, revote speeches, table decision, voting farewell, night intro/shooting/Don/Sheriff/morning/best move/farewell/death protocol) at 390×844 and 1366×768; each button/select/input is tested for display:none, zero size, opacity 0, off screen, clipping and being covered.
@@ -1929,3 +1936,4 @@ Model composition clarification: the owner requests an explanation of independen
 ### Balance recommendation follow-up — 2026-10-25
 
 Owner asks for independent judgement and pitfalls before choosing the new table-level bonus. Current code re-read at da34cffc. Verified: additive B=4 raises an otherwise −3 protected loss to +1; weak black in a 90%-favoured team currently loses −45×1.2=−54; median of [2500, nine×1000] is 1000 and of [six×1400, four×1000] is 1400. Proposed 0…4 bonus curve was checked at its endpoints and intermediate examples. These are isolated synthetic calculations; no production history backtest or empirically optimal coefficient is claimed. Status: recommendations recorded in ELO_CALCULATION_MODEL, no behaviour changed. Existing accepted reward policies preserved.
+

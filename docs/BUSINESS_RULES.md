@@ -757,6 +757,9 @@ Approved behaviour (confirmed by the owner 2026-10-01 against the current formul
 - **the ×5 scale (owner, 2026-10-01):** every distance from 1000 is five times larger than in the first version — the game weight, the personal-point weight, the win-expectation scale (2000 instead of 400) and the protection scale (1000 instead of 200) are all ×5 (`ELO_SCALE` in `eloRatingService.ts`), so the behaviour is unchanged and only the numbers are bigger; manual start Elo was stretched the same way once on the switch;
 - no calibration multiplier for new players (owner decision 2026-10-01).
 
+- **Expected win-probability range (owner clarification, 2026-10-25):** the owner's ordinary club balance is roughly black 60–70% / red 30–40%. Even an extreme lineup of very strong reds against very weak blacks should raise the red expectation only to roughly 55–60%, with 60% as the intended upper limit; 80–90% red expectations caused solely by Elo gaps contradict this domain requirement. Preserve the current equal-strength 30/70 prior until explicitly changed. This is the owner's modeling constraint, not a measured universal win-rate bound. The intermediate curve, Elo-gap mapping and opposite extreme's lower red limit are not decided here; any implementation must keep team probabilities complementary and review the separate strong-player protection independently.
+
+
 Do not replace the current Elo implementation with a standard off-the-shelf formula merely because it is simpler. Any formula change needs explicit product review and comparison against known tournament/player outcomes.
 
 ## Data preservation is a business rule

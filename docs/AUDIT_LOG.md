@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-26 — gameplay audit of real games 19–21 (PR #1040)
+
+Owner asks whether actual exits, votes, wills and game results justify the awarded Elo. Diagnosis uses previously read public production protocols (read-only). Before the fix: `gameActionFacts.ts` looks up the first result marker for a voting; game 20 has a corrected result (single elimination → restored player → tied voting → final revote). The first marker incorrectly makes the tied phase eligible for contribution. Reproduction: compare the same phase's latest `buildGameAnalysis` outcome with `ActionVoting.outcome`; expected tie_revote, observed single_eliminated. Acceptance: synthetic corrected-result regressions plus unchanged games 19/21 and removal of spurious game-20 personal awards (two +2 and two −1). Status: FIXED IN CODE; both corrected-result directions pass native calculator assertions; exact-head CI pending.
+
+Product review, not automatic rule changes: self-votes currently count as wrong red reads (Jin game19, Bogdanchik game20); PPK team outcomes do not establish that all winners played well; strong-player protection deliberately rewards circumstances, so highest gain is not MVP; a correct deciding vote and a discipline deduction are independent. These observations must be explained without inferring missing speeches or changing owner-approved weights.
+
+
 ## 2026-10-25 — owner-approved Elo balance implementation (PR #1040; release held)
 
 Owner authorizes the agreed balance changes and requests visual explanations for all players in the last three real games. Personal points now cost 10 Elo, automatic cap ±10 and combined personal cap ±15; discipline remains 40 outside those caps. Weak-player losses no longer get amplified; strong-player protection and positive expected drift remain. No standalone strong-table bonus. Explanation/history/rebuild/image breakdowns share the new terms; migration key revised for a one-time full rebuild on release. Regression coverage includes personal caps, preserved discipline, weak-player loss and history/rebuild parity. Local pure-calculator checks pass; exact-head CI still pending at commit authoring.

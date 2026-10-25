@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-26 — actual-game fairness review, PR #1040
+
+Owner requests a qualitative review of games 19–21: exits, useful/mistaken play and suspicious awards. The read-only audit found an actual corrected-vote-marker defect in game 20, plus an open product question: should a self-vote count as a mistaken red read? No unapproved change to self-vote scoring or accepted protection/omission policies. Correct the technical result lookup, regress the correction path and update the private report; full career replay still requires seeds and private tournament scores. Release remains held for concrete owner review.
+
+
 ## 2026-10-25 — owner-approved Elo balance implementation (PR #1040; release held)
 
 Owner authorizes the agreed balance changes and requests visual explanations for all players in the last three real games. Personal points now cost 10 Elo, automatic cap ±10 and combined personal cap ±15; discipline remains 40 outside those caps. Weak-player losses no longer get amplified; strong-player protection and positive expected drift remain. No standalone strong-table bonus. Explanation/history/rebuild/image breakdowns share the new terms; migration key revised for a one-time full rebuild on release. Regression coverage includes personal caps, preserved discipline, weak-player loss and history/rebuild parity. Local pure-calculator checks pass; exact-head CI still pending at commit authoring.

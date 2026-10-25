@@ -66,7 +66,9 @@ function computeGameActionFacts(game: StatGame) {
       if (!voting.votes.length) continue;
       const votes = new Map<number, number>();
       for (const ballot of voting.votes) for (const voter of ballot.voters) votes.set(voter, ballot.candidate);
-      const result = events.find(e => e.round === circle.round && e.kind === 'vote_round_result'
+      // The judge can correct a completed voting. Match buildGameAnalysis: its latest result wins.
+      // An earlier single elimination may have been restored and replaced by a tied voting.
+      const result = [...events].reverse().find(e => e.round === circle.round && e.kind === 'vote_round_result'
         && String(e.value).startsWith(`${voting.number}:`));
       const state = full && result ? atSeq.get(result.seq) || null : null;
       const reds = state ? [...state].filter(s => redRole(roleOf(s))).length : 0;

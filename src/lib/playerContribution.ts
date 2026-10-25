@@ -80,26 +80,26 @@ export function gameContribution(envelope: any): SeatContribution[] {
 
 const elo = (points: number) => Math.round(points * 40);
 const signedElo = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}`;
-const seats = (items: ContributionItem[]) => items.map((item) => `№${item.seat}${item.critical ? ' (на критике)' : ''}`).join(', ');
-const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seats(items)} ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
+const seatNumbers = (items: ContributionItem[]) => items.map((item) => `№${item.seat}`).join(', ');
+const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seatNumbers(items)}: ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
 
 /**
- * The breakdown of a seat's contribution in plain words and Elo (owner, 2026-10-25: «по-человечески»), one line per kind
- * of action, e.g. «Голосовал в чёрных: №10, №1 +16 · в красных: №2 −4». The last line names the usual contribution of the
- * role, which is subtracted so an ordinary game is zero; the lines add up to the contribution unless the ±35 cap applied.
+ * The breakdown of a seat's contribution in short plain words and Elo (owner, 2026-10-25: «попроще и попонятнее»), one
+ * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +16». The last line is the role's usual contribution, which
+ * is subtracted so an ordinary game is zero; the lines add up to the total unless the ±35 cap applied.
  */
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], usualPoints: number): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
-  const join = (...parts: Array<string | null>) => parts.filter(Boolean).join(' · ');
   const lines = blackRole(role)
-    ? [join(group('считали красным', of('named_red')), group('вычислили', of('named_black')), group('не упомянули', of('not_named')))].map((line) => (line ? `В завещаниях умерших: ${line}` : line))
+    ? [group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
-      join(group('Голосовал в чёрных:', of('found_black')), group('в красных:', of('vote_red'))),
-      join(group('Завещание: угадал', of('will_right')), group('ошибся в', of('will_wrong'))),
-      group('Проверки: нашёл чёрного', of('check_black')),
+      group('Голосовал в чёрных', of('found_black')),
+      group('Голосовал в красных', of('vote_red')),
+      group('Угадал цвета', of('will_right')),
+      group('Ошибся в цветах', of('will_wrong')),
+      group('Проверкой нашёл чёрного', of('check_black')),
     ];
   const usual = elo(usualPoints);
-  const roleName = role === 'sheriff' ? 'шерифа' : role === 'don' ? 'дона' : role === 'mafia' ? 'мафии' : 'мирного';
-  if (usual) lines.push(`Обычный вклад ${roleName} ${signedElo(usual)} — вычтен`);
+  if (usual) lines.push(`Поправка на роль: ${signedElo(-usual)}`);
   return lines.filter((line): line is string => Boolean(line));
 }

@@ -73,23 +73,26 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
       { kind: 'will_right', seat: 8, points: 0.3 }, { kind: 'will_wrong', seat: 5, points: -0.4 },
     ], 0.19);
     expect(lines).toEqual([
-      'Голосовал в чёрных: №10, №1 +16 · в красных: №2 (на критике) −8',
-      'Завещание: угадал №8 +12 · ошибся в №5 −16',
-      'Обычный вклад мирного +8 — вычтен',
+      'Голосовал в чёрных №10, №1: +16',
+      'Голосовал в красных №2: −8',
+      'Угадал цвета №8: +12',
+      'Ошибся в цветах №5: −16',
+      'Поправка на роль: −8',
     ]);
   });
 
   it('a black reads by the wills of the dead', () => {
     expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.05 }], 0)).toEqual([
-      'В завещаниях умерших: считали красным №5 +8 · не упомянули №3 +2',
+      'Записан красным у №5: +8',
+      'Не записан у №3: +2',
     ]);
-    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }], 0)).toEqual(['В завещаниях умерших: вычислили №5 −8']);
+    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }], 0)).toEqual(['Записан чёрным у №5: −8']);
   });
 
   it('starts with the Elo and keeps every line short', () => {
     const seat: any = { eloContribution: 12, contributionLines: [Array.from({ length: 8 }, (_, i) => `угадал №${i + 1} +8`).join(' · ')] };
     const lines = contributionTextLines(seat);
-    expect(lines[0]).toBe('Вклад в игру +12 Эло');
+    expect(lines[0]).toBe('За действия в игре: +12 Эло');
     expect(lines.length).toBeGreaterThan(2);
     expect(lines.every((line) => line.length <= 74)).toBe(true);
   });

@@ -1,8 +1,8 @@
 # 2LA Noire — Current Project State
 
-## Owner request — 2026-10-26: missed shots and decision streaks (definition pending)
+## Owner request — 2026-10-26: missed shots and decision streaks (partly clarified)
 
-The owner asks to add a personal Elo penalty to blacks for a missed shot only if their team loses; the judge assigns responsibility to the shooter or to all blacks. They also request stronger rewards/penalties for streaks of correct/incorrect decisions and explicitly invite clarification. Before implementation define which missed-shot outcomes qualify (including deliberate no-shot vs error), the judge's attribution scope, and whether a streak is within one game or across games and which decisions qualify. Do not infer intent or the culprit from an aggregate miss. Proposed bounded personal-component weights are a design proposal, not an approved scoring rule. The existing corrected-vote/critical-circle implementation at ac266ed1 passed CI, UI preview, CodeQL and Gitleaks. PR #1040 remains open for review and these additions; no production write/release.
+The owner confirmed the missed-shot qualification, per-game reset and the inclusion of votes, checks and wills; canonical confirmed rules are in BUSINESS_RULES.md under Elo. Before coding the remaining streak classification, clarify a sheriff's red check and a will containing both correct and incorrect colours. Colour marks within a single will have no trustworthy chronological ordering, so do not fabricate a streak from their array order. Suggested bounded initial tuning (not approved numbers): miss −2 Elo per assigned culprit on a black loss; same-sign streak multipliers 1 / 1.25 / 1.5 capped thereafter, within the existing personal limits. Existing self-vote and unclear historical exit questions remain separate. PR #1040 remains open; no production write/release.
 
 
 ## 2026-10-26 — actual-game fairness review, PR #1040

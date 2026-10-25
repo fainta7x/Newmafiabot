@@ -36,16 +36,23 @@ export function gameActionFacts(game: StatGame, memo?: ActionFactsMemo): GameAct
 function computeGameActionFacts(game: StatGame) {
   const events = [...game.events].sort((a, b) => a.seq - b.seq);
   const uniqueSeats = new Set(game.seats.map(s => s.seat));
-  const full = events[0]?.kind === 'game_start' && ['setup', 'zero_night'].includes(events[0].phase)
-    && events.some(e => e.kind === 'game_end' && e.value === game.winner) && !events.some(e => e.kind === 'restored') && game.seats.every(s => s.role && Number.isInteger(s.seat) && s.seat > 0)
+  let full = events[0]?.kind === 'game_start' && ['setup', 'zero_night'].includes(events[0].phase)
+    && events.some(e => e.kind === 'game_end' && e.value === game.winner) && game.seats.every(s => s.role && Number.isInteger(s.seat) && s.seat > 0)
     && uniqueSeats.size === game.seats.length;
   const roleOf = (seat: number) => game.seats.find(s => s.seat === seat)?.role;
   const alive = new Set(uniqueSeats);
   const atSeq = new Map<number, Set<number>>();
   for (const event of events) {
     atSeq.set(event.seq, new Set(alive));
-    if (event.kind === 'exit' && event.seat) alive.delete(event.seat);
-    if (event.kind === 'restored' && event.seat) alive.add(event.seat);
+    if (event.kind === 'exit' && event.seat) {
+      if (!alive.has(event.seat)) full = false;
+      alive.delete(event.seat);
+    }
+    if (event.kind === 'restored' && event.seat) {
+      // A recorded undo of a known exit preserves chronology; an unexplained restoration does not.
+      if (!uniqueSeats.has(event.seat) || alive.has(event.seat)) full = false;
+      alive.add(event.seat);
+    }
   }
   const circles = buildGameAnalysis(events).circles;
   const votings: ActionVoting[] = [];

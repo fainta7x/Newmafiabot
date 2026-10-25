@@ -42,4 +42,39 @@ describe('corrected voting results use the final marker for Elo', () => {
       seats: results.map((row) => ({ seat: row.seat_number, playerId: row.player_id, role: row.role as any })) });
     expect(facts.votings.map((voting) => voting.outcome)).toEqual(['single_eliminated']);
   });
+
+  it('keeps a known exit/restore correction complete and detects the later critical circle', () => {
+    const events = [
+      event('game_start', { round: 1, phase: 'zero_night' }),
+      event('exit', { round: 1, phase: 'night', seat: 7, value: 'killed' }),
+      event('vote_round_result', { value: '1:single_eliminated' }),
+      event('exit', { seat: 4, value: 'voted_day' }),
+      event('restored', { seat: 4 }),
+      event('vote_round_result', { value: '1:tie_revote' }),
+      event('vote', { seat: 3, target: 4, value: 2 }),
+      event('vote_round_result', { value: '2:single_eliminated' }),
+      event('exit', { seat: 4, value: 'voted_day' }),
+      event('vote', { round: 3, seat: 1, target: 2, value: 1 }),
+      event('vote_round_result', { round: 3, value: '1:single_eliminated' }),
+      event('exit', { round: 3, seat: 2, value: 'voted_day' }),
+      event('ppk', { round: 4, phase: 'day_speeches', seat: 10 }),
+      event('game_end', { round: 4, phase: 'day_speeches', value: 'red' }),
+    ].map((row, index) => ({ ...row, seq: index + 1 }));
+    const facts = gameActionFacts({ id: 'restore', source: 'club', date: '', winner: 'red', events,
+      seats: results.map((row) => ({ seat: row.seat_number, playerId: row.player_id, role: row.role as any })) });
+    expect(facts.full).toBe(true);
+    expect(facts.votings.find((voting) => voting.round === 3)?.critical).toBe(true);
+    expect(contribution(events, 1)).toBeCloseTo(-0.2, 10);
+  });
+
+  it('does not invent complete chronology for an already-alive restored seat', () => {
+    const events = [
+      event('game_start', { round: 1, phase: 'zero_night' }),
+      event('restored', { seat: 4 }),
+      event('game_end', { value: 'red' }),
+    ].map((row, index) => ({ ...row, seq: index + 1 }));
+    const facts = gameActionFacts({ id: 'invalid-restore', source: 'club', date: '', winner: 'red', events,
+      seats: results.map((row) => ({ seat: row.seat_number, playerId: row.player_id, role: row.role as any })) });
+    expect(facts.full).toBe(false);
+  });
 });

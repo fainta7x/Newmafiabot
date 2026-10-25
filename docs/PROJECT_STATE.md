@@ -2,7 +2,7 @@
 
 ## 2026-10-26 — actual-game fairness review, PR #1040
 
-Owner requests a qualitative review of games 19–21: exits, useful/mistaken play and suspicious awards. The read-only audit found an actual corrected-vote-marker defect in game 20, plus an open product question: should a self-vote count as a mistaken red read? No unapproved change to self-vote scoring or accepted protection/omission policies. Correct the technical result lookup, regress the correction path and update the private report; full career replay still requires seeds and private tournament scores. Release remains held for concrete owner review.
+Owner requests a qualitative review of games 19–21: exits, useful/mistaken play and suspicious awards. The read-only audit found an actual corrected-vote-marker defect in game 20, plus an open product question: should a self-vote count as a mistaken red read? No unapproved change to self-vote scoring or accepted protection/omission policies. Correct the technical result lookup and preserve critical-circle detection after valid known-seat restoration; regress both paths and update the private report. The game20 exit snapshot disagrees with its event log for seat3 and remains an open data-quality question; full career replay still requires seeds and private tournament scores. Release remains held for concrete owner review.
 
 
 ## 2026-10-25 — owner-approved Elo balance implementation (PR #1040; release held)

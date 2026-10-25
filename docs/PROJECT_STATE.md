@@ -1245,3 +1245,8 @@ All three discussed product questions are answered. Merge/deploy and the all-pla
 
 
 Owner follow-up 2026-10-25: wants a clear base score with independently explained coefficient systems (table strength, team strength, own rating, personal actions) and asks how these should compose. Explain existing dependencies, frozen pre-game inputs, additive personal/disciplinary terms and possible duplicate strength adjustments before redesigning. No new architecture or additional factor is approved merely by this clarification request; the already agreed 90% black cap and typecheck repair continue separately.
+
+
+## Elo calculation block description — owner request, 2026-10-25
+
+The owner asked to describe each block's inputs, output and scope before a structural change. The explanation and proposed contracts are in [ELO_CALCULATION_MODEL.md](ELO_CALCULATION_MODEL.md): result/colour base, team matchup difficulty, self-versus-allies burden, personal points and discipline. It explains the exact algebraic decomposition of the existing team result rather than adding a new difficulty multiplier. Current code already uses pre-game ratings. Separate absolute table-level rewards and a code/UI refactor remain unapproved. Code head 52b0b06f passed CI, CodeQL, Gitleaks and UI preview; this change is documentation only, verified by reading its contents.

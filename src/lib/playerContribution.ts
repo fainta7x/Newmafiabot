@@ -30,6 +30,7 @@ export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'w
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem { kind: ContributionKind; seat: number; points: number; critical?: boolean }
 export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[] }
+interface ColorProtocolEntry { mark?: unknown; seat_numbers?: unknown }
 
 const seatList = (value: unknown): number[] => (Array.isArray(value) ? [...new Set(value.map(Number).filter((seat) => Number.isInteger(seat) && seat > 0))] : []);
 
@@ -73,7 +74,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   const protocol = envelope?.protocol || {};
   const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
   const seats = results
-    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeGameRole(result?.role) as StatRole | null, playerId: String(result?.player_id || '') || null, colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [], exitType: String(result?.exit_type || ''), exitOrder: Number(result?.exit_order) }))
+    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeGameRole(result?.role) as StatRole | null, playerId: String(result?.player_id || '') || null, colors: (Array.isArray(result?.color_protocol) ? result.color_protocol : []) as ColorProtocolEntry[], exitType: String(result?.exit_type || ''), exitOrder: Number(result?.exit_order) }))
     .filter((item) => Number.isInteger(item.seat) && item.seat > 0);
   const roleOf = new Map(seats.map((item) => [item.seat, item.role]));
   const facts = gameActionFacts({
@@ -85,7 +86,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   const colorsBySeat = new Map(seats.map((item) => {
     const red = new Set<number>(); const black = new Set<number>(); const mentioned = new Set<number>();
     for (const entry of item.colors) {
-      if (!['red', 'black', 'sheriff'].includes(entry?.mark)) continue;
+      if (typeof entry?.mark !== 'string' || !['red', 'black', 'sheriff'].includes(entry.mark)) continue;
       for (const seat of seatList(entry.seat_numbers)) {
         if (seat === item.seat || !roleOf.has(seat)) continue;
         mentioned.add(seat);

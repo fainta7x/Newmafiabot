@@ -79,19 +79,22 @@ export const levelGap = (gap: number): number => {
 
 export const RED_EQUAL_EXPECTATION = 0.30;
 export const RED_MAX_EXPECTATION = 0.60;
+export const BLACK_MAX_EXPECTATION = 0.90;
 
 /**
  * Owner, 2026-10-25: even overwhelmingly stronger reds win only about 55–60% of games.
  * Smoothly saturate their advantage within that range; at the largest effective gap the expectation is about 57%.
- * The negative-gap branch is preserved pending the owner's decision on the opposite extreme.
+ * Owner's next answer: overwhelmingly stronger blacks may win about 90%, so the opposite branch
+ * smoothly reaches that ceiling at the largest effective gap.
  * This conversion is independent of the strong-player protection below.
  */
 export function expectedRedTeamResult(teamAverageGap: number): number {
   const effect = levelGap(teamAverageGap);
   if (effect >= 0) return RED_EQUAL_EXPECTATION
     + (RED_MAX_EXPECTATION - RED_EQUAL_EXPECTATION) * Math.tanh(effect / EXPECTATION_DIVISOR);
-  const odds = (RED_EQUAL_EXPECTATION / (1 - RED_EQUAL_EXPECTATION)) * (10 ** (effect / EXPECTATION_DIVISOR));
-  return odds / (1 + odds);
+  const redMin = 1 - BLACK_MAX_EXPECTATION;
+  const disadvantage = Math.tanh(-effect / EXPECTATION_DIVISOR) / Math.tanh(MAX_LEVEL_EFFECT / EXPECTATION_DIVISOR);
+  return Math.max(redMin, RED_EQUAL_EXPECTATION - (RED_EQUAL_EXPECTATION - redMin) * disadvantage);
 }
 
 export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam): CanonicalEloPlayerDelta[] {

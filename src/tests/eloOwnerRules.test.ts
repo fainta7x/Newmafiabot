@@ -37,4 +37,13 @@ describe('Elo follows the owner rules (2026-10-01)', () => {
     expect(delta(equal, 'black', 7)).toBeCloseTo(15, 6);
     expect(delta(equal, 'red', 7)).toBeCloseTo(-35, 6);
   });
+
+  it('intentionally rewards the strong player in a weak team even at the predicted result rate (owner, 2026-10-25)', () => {
+    const players = table([1300, ...Array(9).fill(1000)]);
+    const win = calculateCanonicalEloGame(players, 'red')[0];
+    const loss = calculateCanonicalEloGame(players, 'black')[0];
+    const expectedDrift = win.expectedTeamResult * win.totalDelta + (1 - win.expectedTeamResult) * loss.totalDelta;
+    expect(expectedDrift).toBeCloseTo(7.35, 6);
+  });
 });
+

@@ -27,7 +27,9 @@ describe('table level uses unstretched distances (owner, 2026-10-24)', () => {
     expect(expected(300)).toBeCloseTo(0.528, 2);
     expect(expected(350)).toBeCloseTo(0.572, 2);
     expect(expected(1_000_000)).toBeLessThanOrEqual(0.60);
-    expect(expected(-250)).toBeLessThan(0.12);
+    expect(expected(-250)).toBeGreaterThan(0.10);
+    expect(expected(-250)).toBeLessThan(0.30);
+    expect(expected(-350)).toBeCloseTo(0.10, 12);
   });
 
   it('rebuilds the ratings once', async () => {

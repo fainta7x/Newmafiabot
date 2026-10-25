@@ -173,7 +173,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
       eloContribution: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.contribution) : null,
       contributionLines: playerId && gameElo?.has(playerId) && contributions.has(Number(result?.seat_number))
-        ? contributionBreakdown(role as any, contributions.get(Number(result?.seat_number))!.items, contributions.get(Number(result?.seat_number))!.points - gameElo.get(playerId)!.contribution / 40)
+        ? contributionBreakdown(role as any, contributions.get(Number(result?.seat_number))!.items)
         : [],
     };
   }).sort((a, b) => a.seat - b.seat);

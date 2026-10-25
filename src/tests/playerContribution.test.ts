@@ -39,12 +39,12 @@ describe('contribution in Elo', () => {
     players: raws.map(([playerId, role, raw]) => ({ playerId, team: role === 'mafia' ? 'black' : 'red', canonicalPersonalGamePoints: 0, contribution: { role, raw } })),
   });
 
-  it('subtracts the role average, so an ordinary game is zero and the role sums to zero', () => {
+  it('keeps every found black as praise: no role adjustment', () => {
     const events = [event([['a', 'citizen', 0.5], ['m', 'mafia', 0.1]]), event([['b', 'citizen', -0.1], ['n', 'mafia', 0.1]])];
     normalizeContributions(events);
-    expect(events[0].players[0].contributionPoints).toBeCloseTo(0.3, 6);
-    expect(events[1].players[0].contributionPoints).toBeCloseTo(-0.3, 6);
-    expect(events[0].players[1].contributionPoints).toBeCloseTo(0, 6);
+    expect(events[0].players[0].contributionPoints).toBeCloseTo(0.5, 6);
+    expect(events[1].players[0].contributionPoints).toBeCloseTo(-0.1, 6);
+    expect(events[0].players[1].contributionPoints).toBeCloseTo(0.1, 6);
   });
 
   it('one game moves Elo by at most ±35', () => {
@@ -71,22 +71,21 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
       { kind: 'found_black', seat: 10, points: 0.2 }, { kind: 'found_black', seat: 1, points: 0.2 },
       { kind: 'vote_red', seat: 2, points: -0.2, critical: true },
       { kind: 'will_right', seat: 8, points: 0.3 }, { kind: 'will_wrong', seat: 5, points: -0.4 },
-    ], 0.19);
+    ]);
     expect(lines).toEqual([
       'Голосовал в чёрных №10, №1: +16',
       'Голосовал в красных №2: −8',
       'Угадал цвета №8: +12',
       'Ошибся в цветах №5: −16',
-      'Поправка на роль: −8',
     ]);
   });
 
   it('a black reads by the wills of the dead', () => {
-    expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.05 }], 0)).toEqual([
+    expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.1 }])).toEqual([
       'Записан красным у №5: +8',
-      'Не записан у №3: +2',
+      'Не записан у №3: +4',
     ]);
-    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }], 0)).toEqual(['Записан чёрным у №5: −8']);
+    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }])).toEqual(['Записан чёрным у №5: −8']);
   });
 
   it('starts with the Elo and keeps every line short', () => {

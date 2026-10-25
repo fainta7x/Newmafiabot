@@ -124,10 +124,9 @@ export const clubPersonalGamePoints = (payload: any, result: any, results: any[]
 };
 
 /**
- * Individual contribution (owner, 2026-10-25): an addition to the result, never a replacement. Raw points come from the
- * game's own facts (`playerContribution.ts`); the club average of the same role is subtracted so an ordinary game is 0
- * on every role and the club does not inflate; one game moves Elo by at most ±35. It accumulates without a ceiling:
- * a player who keeps playing well keeps rising (owner).
+ * Individual contribution (owner, 2026-10-25): an addition to the result, never a replacement. Points come from the game's
+ * own facts (`playerContribution.ts`); every found black is praised, no role adjustment (the weights balance the roles);
+ * one game moves Elo by at most ±35; it accumulates without a ceiling — a player who keeps playing well keeps rising.
  */
 export const CONTRIBUTION_CAP_ELO = 35;
 export const clubContributionByPlayer = (payload: any, results: any[]): Map<string, { role: string; raw: number }> => {
@@ -141,18 +140,9 @@ export const clubContributionByPlayer = (payload: any, results: any[]): Map<stri
   return out;
 };
 export const normalizeContributions = (events: PreparedEloEvent[]) => {
-  const sums = new Map<string, { total: number; count: number }>();
-  for (const event of events) for (const player of event.players) {
-    if (!player.contribution) continue;
-    const entry = sums.get(player.contribution.role) || { total: 0, count: 0 };
-    entry.total += player.contribution.raw; entry.count += 1;
-    sums.set(player.contribution.role, entry);
-  }
   const cap = CONTRIBUTION_CAP_ELO / PERSONAL_POINT_WEIGHT;
   for (const event of events) for (const player of event.players) {
-    if (!player.contribution) continue;
-    const entry = sums.get(player.contribution.role)!;
-    player.contributionPoints = clamp(player.contribution.raw - entry.total / entry.count, -cap, cap);
+    if (player.contribution) player.contributionPoints = clamp(player.contribution.raw, -cap, cap);
   }
 };
 

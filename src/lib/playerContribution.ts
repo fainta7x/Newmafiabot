@@ -5,7 +5,8 @@ import { normalizeGameRole } from '../shared/gameRoles.ts';
 
 /**
  * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 40 Elo).
- * Raw points only; the Elo layer subtracts the role's average so an ordinary game is zero.
+ * Owner, 2026-10-25: no role adjustment — every found black is praised. The roles are balanced by the weights instead: on the
+ * club's games an average game is worth about +6 Elo for a citizen, +9 for the sheriff, +7 for a mafia and +6 for the don.
  * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out).
  *
  * Owner, 2026-10-25:
@@ -19,8 +20,8 @@ import { normalizeGameRole } from '../shared/gameRoles.ts';
 export const CONTRIBUTION_WEIGHTS = {
   foundBlack: 0.2, voteRed: -0.1, criticalFactor: 2,
   colorRight: { red: 0.2, black: 0.3 }, colorWrong: { calledRed: -0.4, calledBlack: -0.15 },
-  sheriffFoundBlack: 0.2,
-  blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.05,
+  sheriffFoundBlack: 0.1,
+  blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
 } as const;
 
 export type ContributionKind = 'found_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named';
@@ -85,10 +86,9 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 
 /**
  * The breakdown of a seat's contribution in short plain words and Elo (owner, 2026-10-25: «попроще и попонятнее»), one
- * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +16». The last line is the role's usual contribution, which
- * is subtracted so an ordinary game is zero; the lines add up to the total unless the ±35 cap applied.
+ * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +16»; the lines add up to the total unless the ±35 cap applied.
  */
-export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], usualPoints: number): string[] {
+export function contributionBreakdown(role: StatRole | null, items: ContributionItem[]): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
     ? [group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
@@ -99,7 +99,5 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Ошибся в цветах', of('will_wrong')),
       group('Проверкой нашёл чёрного', of('check_black')),
     ];
-  const usual = elo(usualPoints);
-  if (usual) lines.push(`Поправка на роль: ${signedElo(-usual)}`);
   return lines.filter((line): line is string => Boolean(line));
 }

@@ -75,7 +75,7 @@ export function contributionTextLines(seat: BlankSeat): string[] {
 
 export function gameBlankSvg(blank: GameBlank) {
   clipCounter = 0;
-  const headerHeight = 268;
+  const headerHeight = blank.table ? 300 : 268;
   const baseRowHeight = 112;
   const extraLines = blank.seats.map((seat) => contributionTextLines(seat));
   const rowHeights = extraLines.map((lines) => baseRowHeight + (lines.length ? lines.length * CONTRIBUTION_LINE + 8 : 0));
@@ -118,6 +118,7 @@ export function gameBlankSvg(blank: GameBlank) {
   ${renderNoirExportBrandHeader('ИТОГИ ИГРЫ')}
   <text x="${M}" y="176" font-size="64" font-weight="700" fill="${C.warmText}">ИГРА №${esc(blank.gameNumber)}</text>
   <text x="${M}" y="222" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(subtitle)}</text>
+  ${blank.table ? `<text x="${M}" y="262" font-size="21" font-weight="600" fill="${C.mutedText}"><tspan fill="${RED}">Красные ${blank.table.redAvg}</tspan>&#160;·&#160;<tspan fill="${C.warmText}">Чёрные ${blank.table.blackAvg}</tspan>&#160;·&#160;${esc(blank.table.level)}&#160;·&#160;шанс красных ${blank.table.redChancePercent}%</text>` : ''}
   <text x="${W - M}" y="150" text-anchor="end" font-size="30" font-weight="700" letter-spacing="1" fill="${winnerColor}">${winnerText}</text>
   ${blank.ppk ? `<text x="${W - M}" y="176" text-anchor="end" font-size="19" font-weight="600" fill="${C.mutedText}">по ППК</text>` : ''}
   ${blank.judge ? `${avatar(W - M - 52, 186, 52, blank.judge, blank.judgeAvatar)}

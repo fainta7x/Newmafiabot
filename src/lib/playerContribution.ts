@@ -7,7 +7,9 @@ import { normalizeGameRole } from '../shared/gameRoles.ts';
  * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 40 Elo).
  * Owner, 2026-10-25: no role adjustment — every found black is praised. The roles are balanced by the weights instead: on the
  * club's games an average game is worth about +6 Elo for a citizen, +9 for the sheriff, +7 for a mafia and +6 for the don.
- * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out).
+ * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out),
+ * and of those only a voting after which exactly one player left the table (owner, 2026-10-25): a voting that ends in a
+ * revote, with nobody leaving or with several leaving can be an agreed split, so a vote there is not the voter's own read.
  *
  * Owner, 2026-10-25:
  * - a red earns +0.2 for each **different** black he voted for, once per black and the same on the critical circle (Polemica's
@@ -48,7 +50,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
     const items: ContributionItem[] = [];
     if (redRole(me.role)) {
       const found = new Map<number, boolean>();
-      for (const voting of facts.votings) {
+      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated')) {
         const target = voting.votes.get(me.seat);
         if (!target) continue;
         const critical = voting.critical === true;
@@ -81,7 +83,11 @@ export function gameContribution(envelope: any): SeatContribution[] {
 
 const elo = (points: number) => Math.round(points * 40);
 const signedElo = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}`;
-const seatNumbers = (items: ContributionItem[]) => items.map((item) => `№${item.seat}`).join(', ');
+const seatNumbers = (items: ContributionItem[]) => {
+  const counts = new Map<number, number>();
+  for (const item of items) counts.set(item.seat, (counts.get(item.seat) || 0) + 1);
+  return [...counts].map(([seat, count]) => `№${seat}${count > 1 ? ` (${count} ${count < 5 ? 'раза' : 'раз'})` : ''}`).join(', ');
+};
 const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seatNumbers(items)}: ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
 
 /**

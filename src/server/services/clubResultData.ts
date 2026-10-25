@@ -8,6 +8,7 @@ import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { contributionBreakdown, gameContribution } from '../../lib/playerContribution.ts';
+import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP } from './eloRatingService.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -46,7 +47,19 @@ export type GameBlank = {
   judgeAvatar: string | null;
   scored: boolean;
   seats: BlankSeat[];
+  /** Team strength before the game (owner, 2026-10-25): average Elo of each team, the level words and the red win chance. */
+  table: BlankTable | null;
 };
+
+export type BlankTable = { redAvg: number; blackAvg: number; level: string; redChancePercent: number };
+
+/** The same three steps as the Elo table level (`levelGap`): up to 150 equal, 150–250 clearly stronger, above 250 much stronger. */
+export function tableLevelText(redAvg: number, blackAvg: number): string {
+  const gap = Math.abs(redAvg - blackAvg);
+  const stronger = redAvg > blackAvg ? 'красные' : 'чёрные';
+  if (gap <= SAME_LEVEL_GAP) return 'команды одного уровня';
+  return gap <= STRONG_LEVEL_GAP ? `${stronger} заметно сильнее` : `${stronger} намного сильнее`;
+}
 
 export type SummaryPlayer = { playerId: string; nickname: string; avatar: string | null; value: string; detail: string };
 
@@ -109,12 +122,16 @@ export async function loadAvatars(db: DatabaseWrapper, playerIds: string[]) {
 /** Elo changes per club game id (novice evenings do not move Elo). */
 async function loadClubElo(db: DatabaseWrapper) {
   const byGame = new Map<string, Map<string, { delta: number; after: number; contribution: number }>>();
+  const tables = new Map<string, BlankTable>();
   const timeline = await loadPlayerEloHistory(db).catch((error) => { console.error('[CLUB RESULTS] Elo unavailable:', error); return []; });
   for (const event of timeline) {
     if (event.source !== 'club') continue;
+    const avg = (team: string) => { const list = event.players.filter((player) => player.team === team); return list.length ? list.reduce((sum, player) => sum + Number(player.eloBefore || 0), 0) / list.length : null; };
+    const red = avg('red'); const black = avg('black'); const redPlayer = event.players.find((player) => player.team === 'red');
+    if (red != null && black != null && redPlayer) tables.set(String(event.sourceId), { redAvg: Math.round(red), blackAvg: Math.round(black), level: tableLevelText(red, black), redChancePercent: Math.round(Number(redPlayer.expectedTeamResult || 0) * 100) });
     byGame.set(String(event.sourceId), new Map(event.players.map((player) => [String(player.playerId), { delta: Number(player.totalDelta || 0), after: Number(player.eloAfter || 0), contribution: Number(player.contributionDelta || 0) }])));
   }
-  return byGame;
+  return Object.assign(byGame, { tables });
 }
 
 async function loadNicknames(db: DatabaseWrapper, playerIds: string[]) {
@@ -189,6 +206,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
     judgeAvatar: (judgeId && avatars.get(judgeId)) || null,
     scored,
     seats,
+    table: elo.tables.get(String(game.id)) || null,
   };
 }
 
@@ -326,6 +344,7 @@ export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGam
     judgeAvatar: (judgeId && avatars.get(judgeId)) || null,
     scored: true,
     seats,
+    table: null,
   };
 }
 

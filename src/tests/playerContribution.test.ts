@@ -80,6 +80,10 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
     ]);
   });
 
+  it('a repeated vote for the same red is written once with the count', () => {
+    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual(['Голосовал в красных №4 (2 раза), №3: −12']);
+  });
+
   it('a black reads by the wills of the dead', () => {
     expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.1 }])).toEqual([
       'Записан красным у №5: +8',
@@ -103,7 +107,7 @@ describe('found blacks count once each (owner, 2026-10-25)', () => {
   const day = (round: number, start: number, voted: number, votes: Array<[number, number]>) => [
     { seq: start, at: 'x', round, phase: 'day_voting', kind: 'nomination', seat: voted, by: 1 },
     ...votes.map(([seat, target], i) => ({ seq: start + 1 + i, at: 'x', round, phase: 'day_voting', kind: 'vote', seat, target })),
-    { seq: start + 10, at: 'x', round, phase: 'day_voting', kind: 'vote_round_result', value: `1:${voted}` },
+    { seq: start + 10, at: 'x', round, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
     { seq: start + 11, at: 'x', round, phase: 'day_voting', kind: 'exit', seat: voted, value: 'voted_day' },
   ];
   const events = [
@@ -124,5 +128,40 @@ describe('found blacks count once each (owner, 2026-10-25)', () => {
 
   it('votes against a black do not move his points', () => {
     expect(by(8).points).toBe(0);
+  });
+
+  it('a voting that ends in a revote, with nobody or several leaving, is not counted (possible agreed split)', () => {
+    const tie = [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 10, at: 'x', round: 2, phase: 'day_voting', kind: 'nomination', seat: 3, by: 1 },
+      { seq: 11, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 8 },
+      { seq: 12, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 4, target: 3 },
+      { seq: 13, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:tie_revote' },
+      { seq: 14, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 3 },
+      { seq: 15, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 4, target: 3 },
+      { seq: 16, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '2:single_eliminated' },
+      { seq: 17, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 3, value: 'voted_day' },
+    ];
+    const seat = (n: number) => gameContribution({ protocol: { winner_team: 'red', events: tie }, player_results: results }).find((item) => item.seat === n)!;
+    // seat 2's vote for black 8 was in the tied voting: it is not a found black
+    expect(seat(2).items.some((item) => item.kind === 'found_black')).toBe(false);
+  });
+});
+
+import { tableLevelText } from '../server/services/clubResultData.ts';
+import { gameBlankSvg } from '../server/services/clubResultImages.ts';
+
+describe('team strength on the game blank (owner, 2026-10-25)', () => {
+  it('uses the same three steps as the Elo table level', () => {
+    expect(tableLevelText(1051, 1136)).toBe('команды одного уровня');
+    expect(tableLevelText(1000, 1200)).toBe('чёрные заметно сильнее');
+    expect(tableLevelText(1300, 1000)).toBe('красные намного сильнее');
+  });
+
+  it('prints both averages, the level and the red chance under the title', () => {
+    const svg = gameBlankSvg({ gameId: '1', gameNumber: '1', eveningTitle: 'Вечер', dateLabel: null, winnerTeam: 'red', ppk: false, judge: null, judgeAvatar: null, scored: false, seats: [], table: { redAvg: 1051, blackAvg: 1136, level: 'команды одного уровня', redChancePercent: 30 } });
+    expect(svg).toContain('Красные 1051');
+    expect(svg).toContain('Чёрные 1136');
+    expect(svg).toContain('шанс красных 30%');
   });
 });

@@ -7,7 +7,7 @@ import { roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
-import { contributionItemText, gameContribution, type ContributionItem } from '../../lib/playerContribution.ts';
+import { contributionBreakdown, gameContribution } from '../../lib/playerContribution.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -124,17 +124,6 @@ async function loadNicknames(db: DatabaseWrapper, playerIds: string[]) {
   return new Map(rows.map((row) => [String(row.id), String(row.nickname || 'Игрок')]));
 }
 
-/**
- * The breakdown of a seat's contribution for the game blank (owner, 2026-10-25: «не просто сумму, а за что»): every action
- * with its points, then the usual for the role, which is subtracted so an ordinary game is zero.
- */
-export function contributionLines(items: ContributionItem[], rawPoints: number, contributionElo: number): string[] {
-  const lines = items.map(contributionItemText);
-  const usual = rawPoints - contributionElo / 40;
-  if (Math.abs(usual) >= 0.005) lines.push(`обычно для роли ${usual > 0 ? '−' : '+'}${Math.abs(usual).toFixed(2).replace('.', ',')}`);
-  return lines;
-}
-
 export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promise<GameBlank | null> {
   const game = await db.get<any>(`
     SELECT g.id, g.global_game_number, g.game_date, g.judge_name, g.judge_player_id, g.protocol_text,
@@ -184,7 +173,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
       eloContribution: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.contribution) : null,
       contributionLines: playerId && gameElo?.has(playerId) && contributions.has(Number(result?.seat_number))
-        ? contributionLines(contributions.get(Number(result?.seat_number))!.items, contributions.get(Number(result?.seat_number))!.points, gameElo.get(playerId)!.contribution)
+        ? contributionBreakdown(role as any, contributions.get(Number(result?.seat_number))!.items, contributions.get(Number(result?.seat_number))!.points - gameElo.get(playerId)!.contribution / 40)
         : [],
     };
   }).sort((a, b) => a.seat - b.seat);

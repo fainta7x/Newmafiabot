@@ -9,8 +9,9 @@ import { normalizeGameRole } from '../shared/gameRoles.ts';
  * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out).
  *
  * Owner, 2026-10-25:
- * - a red earns for each **different** black he voted for, once per black (Polemica's «найденный чёрный»: three blacks found
- *   is the whole job, voting again for the same black earns nothing more); a vote for a red costs every time;
+ * - a red earns +0.2 for each **different** black he voted for, once per black and the same on the critical circle (Polemica's
+ *   «найденный чёрный»: three blacks found is the whole job, voting again for the same black earns nothing more); a vote for
+ *   a red costs every time, twice on the critical circle;
  * - wrong colours in the will are punished harder than in Polemica, so a random guess is worth zero (a «black» mark is right
  *   1 time in 3, a «red» mark 2 times in 3);
  * - a black is judged only by what the dead reds left about him in their wills; votes against a black do not move his points.
@@ -50,10 +51,10 @@ export function gameContribution(envelope: any): SeatContribution[] {
         const target = voting.votes.get(me.seat);
         if (!target) continue;
         const critical = voting.critical === true;
-        if (blackRole(roleOf.get(target))) found.set(target, Boolean(found.get(target)) || critical);
+        if (blackRole(roleOf.get(target))) found.set(target, true);
         else if (redRole(roleOf.get(target))) items.push({ kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1), critical });
       }
-      for (const [seat, critical] of found) items.push({ kind: 'found_black', seat, points: W.foundBlack * (critical ? W.criticalFactor : 1), critical });
+      for (const seat of found.keys()) items.push({ kind: 'found_black', seat, points: W.foundBlack });
       for (const seat of marks(me, 'red')) {
         if (redRole(roleOf.get(seat))) items.push({ kind: 'will_right', seat, points: W.colorRight.red });
         else if (blackRole(roleOf.get(seat))) items.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
@@ -77,19 +78,28 @@ export function gameContribution(envelope: any): SeatContribution[] {
   });
 }
 
-const signed = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value).toFixed(2).replace(/0$/, '').replace('.', ',')}`;
+const elo = (points: number) => Math.round(points * 40);
+const signedElo = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}`;
+const seats = (items: ContributionItem[]) => items.map((item) => `№${item.seat}${item.critical ? ' (на критике)' : ''}`).join(', ');
+const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seats(items)} ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
 
-/** Plain words for one breakdown line on the game blank, e.g. «голос в №9 — чёрный +0,2». */
-export function contributionItemText(item: ContributionItem): string {
-  const crit = item.critical ? ' (критика)' : '';
-  switch (item.kind) {
-    case 'found_black': return `нашёл чёрного №${item.seat}${crit} ${signed(item.points)}`;
-    case 'vote_red': return `голос в красного №${item.seat}${crit} ${signed(item.points)}`;
-    case 'will_right': return `завещание: №${item.seat} верно ${signed(item.points)}`;
-    case 'will_wrong': return `завещание: №${item.seat} ошибка ${signed(item.points)}`;
-    case 'check_black': return `проверка: №${item.seat} чёрный ${signed(item.points)}`;
-    case 'named_red': return `завещание №${item.seat}: назвал красным ${signed(item.points)}`;
-    case 'named_black': return `завещание №${item.seat}: назвал чёрным ${signed(item.points)}`;
-    case 'not_named': return `завещание №${item.seat}: не назвал ${signed(item.points)}`;
-  }
+/**
+ * The breakdown of a seat's contribution in plain words and Elo (owner, 2026-10-25: «по-человечески»), one line per kind
+ * of action, e.g. «Голосовал в чёрных: №10, №1 +16 · в красных: №2 −4». The last line names the usual contribution of the
+ * role, which is subtracted so an ordinary game is zero; the lines add up to the contribution unless the ±35 cap applied.
+ */
+export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], usualPoints: number): string[] {
+  const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
+  const join = (...parts: Array<string | null>) => parts.filter(Boolean).join(' · ');
+  const lines = blackRole(role)
+    ? [join(group('считали красным', of('named_red')), group('вычислили', of('named_black')), group('не упомянули', of('not_named')))].map((line) => (line ? `В завещаниях умерших: ${line}` : line))
+    : [
+      join(group('Голосовал в чёрных:', of('found_black')), group('в красных:', of('vote_red'))),
+      join(group('Завещание: угадал', of('will_right')), group('ошибся в', of('will_wrong'))),
+      group('Проверки: нашёл чёрного', of('check_black')),
+    ];
+  const usual = elo(usualPoints);
+  const roleName = role === 'sheriff' ? 'шерифа' : role === 'don' ? 'дона' : role === 'mafia' ? 'мафии' : 'мирного';
+  if (usual) lines.push(`Обычный вклад ${roleName} ${signedElo(usual)} — вычтен`);
+  return lines.filter((line): line is string => Boolean(line));
 }

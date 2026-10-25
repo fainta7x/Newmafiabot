@@ -62,20 +62,35 @@ describe('contribution in Elo', () => {
   });
 });
 
-import { contributionLines } from '../server/services/clubResultData.ts';
+import { contributionBreakdown } from '../lib/playerContribution.ts';
 import { contributionTextLines } from '../server/services/clubResultImages.ts';
 
-describe('contribution breakdown on the game blank', () => {
-  it('lists every action with its points and the usual for the role', () => {
-    const lines = contributionLines([{ kind: 'found_black', seat: 9, points: 0.2 }, { kind: 'vote_red', seat: 7, points: -0.1 }], 0.1, 2);
-    expect(lines).toEqual(['нашёл чёрного №9 +0,2', 'голос в красного №7 −0,1', 'обычно для роли −0,05']);
+describe('contribution breakdown on the game blank, in plain words and Elo', () => {
+  it('groups a red seat by kind of action', () => {
+    const lines = contributionBreakdown('citizen', [
+      { kind: 'found_black', seat: 10, points: 0.2 }, { kind: 'found_black', seat: 1, points: 0.2 },
+      { kind: 'vote_red', seat: 2, points: -0.2, critical: true },
+      { kind: 'will_right', seat: 8, points: 0.3 }, { kind: 'will_wrong', seat: 5, points: -0.4 },
+    ], 0.19);
+    expect(lines).toEqual([
+      'Голосовал в чёрных: №10, №1 +16 · в красных: №2 (на критике) −8',
+      'Завещание: угадал №8 +12 · ошибся в №5 −16',
+      'Обычный вклад мирного +8 — вычтен',
+    ]);
   });
 
-  it('wraps a long list into short lines that start with the Elo', () => {
-    const seat: any = { eloContribution: 12, contributionLines: Array.from({ length: 8 }, (_, i) => `завещание: №${i + 1} верно +0,2`) };
+  it('a black reads by the wills of the dead', () => {
+    expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.05 }], 0)).toEqual([
+      'В завещаниях умерших: считали красным №5 +8 · не упомянули №3 +2',
+    ]);
+    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }], 0)).toEqual(['В завещаниях умерших: вычислили №5 −8']);
+  });
+
+  it('starts with the Elo and keeps every line short', () => {
+    const seat: any = { eloContribution: 12, contributionLines: [Array.from({ length: 8 }, (_, i) => `угадал №${i + 1} +8`).join(' · ')] };
     const lines = contributionTextLines(seat);
-    expect(lines[0].startsWith('Вклад +12 Эло:')).toBe(true);
-    expect(lines.length).toBeGreaterThan(1);
+    expect(lines[0]).toBe('Вклад в игру +12 Эло');
+    expect(lines.length).toBeGreaterThan(2);
     expect(lines.every((line) => line.length <= 74)).toBe(true);
   });
 });
@@ -96,7 +111,7 @@ describe('found blacks count once each (owner, 2026-10-25)', () => {
   ];
   const by = (n: number) => gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === n)!;
 
-  it('voting twice for the same black earns once', () => {
+  it('voting twice for the same black earns once, +0.2 also on the critical circle', () => {
     expect(by(2).items.filter((item) => item.kind === 'found_black')).toHaveLength(1);
     expect(by(2).points).toBeCloseTo(0.2, 6);
   });

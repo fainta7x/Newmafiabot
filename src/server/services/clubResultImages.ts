@@ -60,14 +60,16 @@ const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
   if (seat.eloContribution == null || !seat.contributionLines.length) return [];
-  const head = `Вклад ${seat.eloContribution > 0 ? '+' : seat.eloContribution < 0 ? '−' : ''}${Math.abs(seat.eloContribution)} Эло:`;
-  const lines: string[] = [];
-  let current = head;
-  for (const piece of seat.contributionLines) {
-    const next = `${current}${current === head ? ' ' : ' · '}${piece}`;
-    if (next.length > CONTRIBUTION_CHARS && current !== head) { lines.push(current); current = piece; } else current = next;
+  const lines = [`Вклад в игру ${seat.eloContribution > 0 ? '+' : seat.eloContribution < 0 ? '−' : ''}${Math.abs(seat.eloContribution)} Эло`];
+  // Each kind of action on its own line; a long one breaks at «·» so it never leaves the card.
+  for (const line of seat.contributionLines) {
+    let current = '';
+    for (const piece of line.split(' · ')) {
+      const next = current ? `${current} · ${piece}` : piece;
+      if (next.length > CONTRIBUTION_CHARS && current) { lines.push(current); current = piece; } else current = next;
+    }
+    if (current) lines.push(current);
   }
-  lines.push(current);
   return lines;
 }
 

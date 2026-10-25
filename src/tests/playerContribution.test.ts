@@ -165,3 +165,49 @@ describe('team strength on the game blank (owner, 2026-10-25)', () => {
     expect(svg).toContain('шанс красных 30%');
   });
 });
+
+describe('a black the voter did not find himself (owner, 2026-10-25)', () => {
+  // 1 sheriff, 2–7 citizens, 8–9 mafia, 10 don
+  const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+  const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[] }));
+  let seq = 0;
+  const ev = (round: number, phase: string, kind: string, extra: Record<string, unknown> = {}) => ({ seq: ++seq, at: 'x', round, phase, kind, ...extra });
+  const day = (round: number, voter: number, target: number, out: number) => [
+    ev(round, 'day_voting', 'nomination', { seat: target, by: voter }),
+    ev(round, 'day_voting', 'vote', { seat: voter, target }),
+    ev(round, 'day_voting', 'vote_round_result', { value: '1:single_eliminated' }),
+    ev(round, 'day_voting', 'exit', { seat: out, value: 'voted_day' }),
+  ];
+  const build = (falseCheckNight: number, votedRedAtNine: boolean) => {
+    seq = 0;
+    const events = [
+      ev(1, 'zero_night', 'game_start'),
+      ev(1, 'night', 'exit', { seat: 7, value: 'killed' }),
+      // day of round 2: nine players at the table
+      ...day(2, 2, votedRedAtNine ? 3 : 8, 3),
+      ev(2, 'night', 'sheriff_check', { target: 8 }),
+      ev(2, 'night', 'night_step', { value: 'best_move' }),
+      ev(falseCheckNight, `night_${falseCheckNight}`, 'announced_check', { seat: 10, target: 2, value: 'black' }),
+      ...day(3, 2, 10, 10),
+      ...day(4, 2, 8, 8),
+      ...day(5, 2, 9, 9),
+    ];
+    return gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === 2)!;
+  };
+
+  it('after a false black check that follows a vote for a red at nine, only unchecked blacks earn', () => {
+    const me = build(2, true);
+    expect(me.items.filter((item) => item.kind === 'found_black').map((item) => item.seat)).toEqual([9]);
+    expect(me.items.filter((item) => item.kind === 'obvious_black').map((item) => item.seat).sort()).toEqual([10, 8].sort());
+  });
+
+  it('no vote for a red at nine — no sanction', () => {
+    const me = build(2, false);
+    expect(me.items.filter((item) => item.kind === 'found_black').map((item) => item.seat).sort()).toEqual([8, 9, 10].sort());
+  });
+
+  it('a false black check before the circle at nine changes nothing', () => {
+    const me = build(1, true);
+    expect(me.items.some((item) => item.kind === 'obvious_black')).toBe(false);
+  });
+});

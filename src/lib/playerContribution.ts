@@ -26,12 +26,48 @@ export const CONTRIBUTION_WEIGHTS = {
   blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
 } as const;
 
-export type ContributionKind = 'found_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem { kind: ContributionKind; seat: number; points: number; critical?: boolean }
 export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[] }
 
 const seatList = (value: unknown): number[] => (Array.isArray(value) ? [...new Set(value.map(Number).filter((seat) => Number.isInteger(seat) && seat > 0))] : []);
+
+/**
+ * A black the voter did not have to find himself (owner, 2026-10-25). It applies to a red who voted for a red in the voting
+ * at nine players and was then given a black check by a false sheriff (a black who claimed sheriff) at that night or
+ * later: from the next day the false sheriff and every black his real sheriff has already checked are obvious to him, so
+ * a vote for them earns nothing — only blacks nobody has checked yet still count. A black check by the don before the
+ * circle at nine changes nothing.
+ */
+function obviousBlacksFor(seat: number, facts: ReturnType<typeof gameActionFacts>, roleOf: Map<number, StatRole | null>) {
+  const never = () => false;
+  const events = facts.events;
+  const atNine = events.filter((event) => event.kind === 'vote' && event.seat === seat && event.phase === 'day_voting'
+    && event.target != null && redRole(roleOf.get(event.target)) && facts.atSeq.get(event.seq)?.size === 9);
+  if (!atNine.length) return never;
+  const nineRound = Math.min(...atNine.map((event) => event.round));
+  // The announced checks as they stand at the end (a removed check no longer counts).
+  const announced = new Map<string, { claimer: number; target: number; night: number; color: string }>();
+  for (const event of events) {
+    if (!event.seat || !event.target) continue;
+    const key = `${event.seat}:${event.target}`;
+    if (event.kind === 'announced_check') {
+      const night = Number(String(event.phase).match(/^night_(\d+)$/)?.[1] || event.round);
+      announced.set(key, { claimer: event.seat, target: event.target, night, color: String(event.value) });
+    } else if (event.kind === 'announced_check_removed') announced.delete(key);
+  }
+  const falseCheck = [...announced.values()]
+    .filter((check) => check.target === seat && check.color === 'black' && blackRole(roleOf.get(check.claimer)) && check.night >= nineRound)
+    .sort((a, b) => a.night - b.night)[0];
+  if (!falseCheck) return never;
+  const fromRound = falseCheck.night + 1;
+  const roundOfSeq = new Map(events.map((event) => [event.seq, event.round]));
+  const sheriffChecks = facts.checks.filter((check) => check.kind === 'sheriff' && blackRole(roleOf.get(check.target)))
+    .map((check) => ({ target: check.target, round: roundOfSeq.get(check.seq) ?? Infinity }));
+  return (target: number, votingRound: number) => votingRound >= fromRound
+    && (target === falseCheck.claimer || sheriffChecks.some((check) => check.target === target && check.round < votingRound));
+}
 
 export function gameContribution(envelope: any): SeatContribution[] {
   const protocol = envelope?.protocol || {};
@@ -50,14 +86,18 @@ export function gameContribution(envelope: any): SeatContribution[] {
     const items: ContributionItem[] = [];
     if (redRole(me.role)) {
       const found = new Map<number, boolean>();
+      const obvious = new Set<number>();
+      const isObvious = obviousBlacksFor(me.seat, facts, roleOf);
       for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated')) {
         const target = voting.votes.get(me.seat);
         if (!target) continue;
         const critical = voting.critical === true;
-        if (blackRole(roleOf.get(target))) found.set(target, true);
-        else if (redRole(roleOf.get(target))) items.push({ kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1), critical });
+        if (blackRole(roleOf.get(target))) {
+          if (isObvious(target, voting.round)) { if (!found.has(target)) obvious.add(target); } else { found.set(target, true); obvious.delete(target); }
+        } else if (redRole(roleOf.get(target))) items.push({ kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1), critical });
       }
       for (const seat of found.keys()) items.push({ kind: 'found_black', seat, points: W.foundBlack });
+      for (const seat of obvious) items.push({ kind: 'obvious_black', seat, points: 0 });
       for (const seat of marks(me, 'red')) {
         if (redRole(roleOf.get(seat))) items.push({ kind: 'will_right', seat, points: W.colorRight.red });
         else if (blackRole(roleOf.get(seat))) items.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
@@ -100,6 +140,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
     ? [group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
       group('Голосовал в чёрных', of('found_black')),
+      group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),
       group('Голосовал в красных', of('vote_red')),
       group('Угадал цвета', of('will_right')),
       group('Ошибся в цветах', of('will_wrong')),

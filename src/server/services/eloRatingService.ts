@@ -4,6 +4,7 @@ import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
+import { gameContribution } from '../../lib/playerContribution.ts';
 
 
 export const DEFAULT_ELO = DEFAULT_ELO_SEED;
@@ -14,6 +15,8 @@ export interface CanonicalEloGamePlayer {
   team: EloTeam;
   elo: number;
   canonicalPersonalGamePoints: number;
+  /** Individual contribution already measured against the role's club average, in points (club games only). */
+  contributionPoints?: number;
 }
 
 export interface CanonicalEloPlayerDelta {
@@ -23,10 +26,11 @@ export interface CanonicalEloPlayerDelta {
   carryModifier: number;
   modifiedResultDelta: number;
   personalDelta: number;
+  contributionDelta: number;
   totalDelta: number;
 }
 
-export type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'>;
+export type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'> & { contribution?: { role: string; raw: number } };
 export type PreparedEloEvent = {
   source: 'tournament' | 'club';
   sourceId: string;
@@ -96,7 +100,8 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
     const resultDelta = RESULT_WEIGHT * (actualResult - expectedTeamResult);
     const modifiedResultDelta = resultDelta * carryModifier;
     const personalDelta = player.canonicalPersonalGamePoints * PERSONAL_POINT_WEIGHT;
-    return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta, personalDelta, totalDelta: modifiedResultDelta + personalDelta };
+    const contributionDelta = (player.contributionPoints || 0) * PERSONAL_POINT_WEIGHT;
+    return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta, personalDelta, contributionDelta, totalDelta: modifiedResultDelta + personalDelta + contributionDelta };
   });
 }
 
@@ -116,6 +121,39 @@ export const clubPersonalGamePoints = (payload: any, result: any, results: any[]
     Boolean(isPpkCulprit),
   );
   return numeric(result?.judge_bonus) + numeric(result?.protocol_bonus) + clubBestMovePointsForParticipant(payload?.protocol, participantId, results) + numeric(result?.ci_points) - disciplinaryPenalty;
+};
+
+/**
+ * Individual contribution (owner, 2026-10-25): an addition to the result, never a replacement. Raw points come from the
+ * game's own facts (`playerContribution.ts`); the club average of the same role is subtracted so an ordinary game is 0
+ * on every role and the club does not inflate; one game moves Elo by at most ±35. It accumulates without a ceiling:
+ * a player who keeps playing well keeps rising (owner).
+ */
+export const CONTRIBUTION_CAP_ELO = 35;
+export const clubContributionByPlayer = (payload: any, results: any[]): Map<string, { role: string; raw: number }> => {
+  const bySeat = new Map(gameContribution(payload).map((item) => [item.seat, item]));
+  const out = new Map<string, { role: string; raw: number }>();
+  for (const result of results) {
+    const playerId = String(result?.player_id || '').trim();
+    const item = bySeat.get(Number(result?.seat_number));
+    if (playerId && item?.role) out.set(playerId, { role: item.role, raw: item.points });
+  }
+  return out;
+};
+export const normalizeContributions = (events: PreparedEloEvent[]) => {
+  const sums = new Map<string, { total: number; count: number }>();
+  for (const event of events) for (const player of event.players) {
+    if (!player.contribution) continue;
+    const entry = sums.get(player.contribution.role) || { total: 0, count: 0 };
+    entry.total += player.contribution.raw; entry.count += 1;
+    sums.set(player.contribution.role, entry);
+  }
+  const cap = CONTRIBUTION_CAP_ELO / PERSONAL_POINT_WEIGHT;
+  for (const event of events) for (const player of event.players) {
+    if (!player.contribution) continue;
+    const entry = sums.get(player.contribution.role)!;
+    player.contributionPoints = clamp(player.contribution.raw - entry.total / entry.count, -cap, cap);
+  }
 };
 
 export const sortTime = (value: string) => {
@@ -238,18 +276,20 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       guests[team] += 1;
     }
+    const contributions = clubContributionByPlayer(payload, results);
     const eventPlayers: PreparedEloPlayer[] = results.filter((result: any) => !isGuestSeat(result)).map((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       if (!playerId || !knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
       const team = gameTeamOfRole(result?.role);
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
-      return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results) };
+      return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results), contribution: contributions.get(playerId) };
     });
     const event: PreparedEloEvent = { source:'club', sourceId:String(game.id), sortAt:String(game.game_date || game.created_at || ''), sortOrder:Number(game.global_game_number || game.id || 0), winnerTeam:winner, players:eventPlayers };
     validatePreparedEvent(event, guests);
     events.push(event);
   }
 
+  normalizeContributions(events);
   events.sort((a, b) => sortTime(a.sortAt) - sortTime(b.sortAt) || a.sortOrder - b.sortOrder || a.source.localeCompare(b.source) || a.sourceId.localeCompare(b.sourceId));
   const ratings = new Map<string, number>(players.map((player) => [String(player.id), seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO]));
   const gameCounts = new Map<string, number>();

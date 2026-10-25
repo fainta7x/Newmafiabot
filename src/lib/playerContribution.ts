@@ -8,11 +8,17 @@ import { normalizeGameRole } from '../shared/gameRoles.ts';
  * Raw points only; the Elo layer subtracts the role's average so an ordinary game is zero.
  * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out).
  */
+/**
+ * Owner, 2026-10-25: wrong colours are punished harder than in Polemica. The values make a random guess worth zero
+ * (a «black» mark is right 1 time in 3, a «red» mark 2 times in 3), so only reading the table earns points.
+ * Blacks mirror the wills of the dead reds: named black −0.2, named red +0.2, not named +0.05; −0.1 per counted vote
+ * against them (a red's vote against a black is +0.1).
+ */
 export const CONTRIBUTION_WEIGHTS = {
   voteBlack: 0.1, voteRed: -0.1, criticalFactor: 2,
-  colorRight: { red: 0.2, black: 0.3 }, colorWrong: -0.1,
+  colorRight: { red: 0.2, black: 0.3 }, colorWrong: { calledRed: -0.4, calledBlack: -0.15 },
   sheriffFoundBlack: 0.2,
-  blackFooled: 0.1, blackExposed: -0.1,
+  blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.05, blackVotedAgainst: -0.1,
 } as const;
 
 export interface SeatContribution { seat: number; role: StatRole | null; points: number; parts: Record<string, number> }
@@ -43,13 +49,18 @@ export function gameContribution(envelope: any): SeatContribution[] {
         if (blackRole(roleOf.get(target))) add('votes', W.voteBlack * factor);
         else if (redRole(roleOf.get(target))) add('votes', W.voteRed * factor);
       }
-      for (const seat of marks(me, 'red')) add('colors', redRole(roleOf.get(seat)) ? W.colorRight.red : blackRole(roleOf.get(seat)) ? W.colorWrong : 0);
-      for (const seat of marks(me, 'black')) add('colors', blackRole(roleOf.get(seat)) ? W.colorRight.black : redRole(roleOf.get(seat)) ? W.colorWrong : 0);
+      for (const seat of marks(me, 'red')) add('colors', redRole(roleOf.get(seat)) ? W.colorRight.red : blackRole(roleOf.get(seat)) ? W.colorWrong.calledRed : 0);
+      for (const seat of marks(me, 'black')) add('colors', blackRole(roleOf.get(seat)) ? W.colorRight.black : redRole(roleOf.get(seat)) ? W.colorWrong.calledBlack : 0);
       if (me.role === 'sheriff') add('checks', facts.checks.filter((check) => check.kind === 'sheriff' && blackRole(roleOf.get(check.target))).length * W.sheriffFoundBlack);
     } else if (blackRole(me.role)) {
-      for (const other of seats.filter((item) => redRole(item.role))) {
-        if (marks(other, 'red').has(me.seat)) add('hidden', W.blackFooled);
-        if (marks(other, 'black').has(me.seat)) add('hidden', W.blackExposed);
+      for (const other of seats.filter((item) => redRole(item.role) && item.colors.length)) {
+        if (marks(other, 'red').has(me.seat)) add('wills', W.blackNamedRed);
+        else if (marks(other, 'black').has(me.seat)) add('wills', W.blackNamedBlack);
+        else add('wills', W.blackNotNamed);
+      }
+      for (const voting of facts.votings) {
+        const factor = voting.critical ? W.criticalFactor : 1;
+        for (const [voter, target] of voting.votes) if (target === me.seat && redRole(roleOf.get(voter))) add('votes', W.blackVotedAgainst * factor);
       }
     }
     const points = Object.values(parts).reduce((sum, value) => sum + value, 0);

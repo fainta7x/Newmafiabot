@@ -49,6 +49,10 @@ function seatEvents(seat: BlankSeat) {
   if (seat.fouls) events.push({ text: `Фолы: ${seat.fouls}`, color: C.mutedText });
   if (seat.technicalFouls) events.push({ text: `Техфолы: ${seat.technicalFouls}`, color: '#F87171' });
   if (seat.removed) events.push({ text: 'Удалён', color: '#F87171' });
+  // Individual contribution (owner, 2026-10-25): shown from ±3 Elo so a near-zero game stays quiet.
+  if (seat.eloContribution != null && Math.abs(seat.eloContribution) >= 3) {
+    events.push({ text: `Вклад ${seat.eloContribution > 0 ? '+' : '−'}${Math.abs(seat.eloContribution)}${seat.contributionReason ? `: ${seat.contributionReason}` : ''}`, color: seat.eloContribution > 0 ? '#34D399' : '#F87171' });
+  }
   return events;
 }
 

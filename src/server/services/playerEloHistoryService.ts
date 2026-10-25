@@ -6,6 +6,8 @@ import {
   currentEloInputsGeneration,
   DEFAULT_ELO,
   clubPersonalGamePoints,
+  clubContributionByPlayer,
+  normalizeContributions,
   sortTime,
   validatePreparedEvent,
   type CanonicalEloGamePlayer,
@@ -147,6 +149,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       guests[team] += 1;
     }
+    const contributions = clubContributionByPlayer(payload, results);
     const eventPlayers: PreparedPlayer[] = results.filter((result: any) => !isGuestSeat(result)).map((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       if (!playerId || !knownPlayerIds.has(playerId)) {
@@ -158,6 +161,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
         playerId,
         team,
         canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
+        contribution: contributions.get(playerId),
       };
     });
 
@@ -173,6 +177,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     events.push(event);
   }
 
+  normalizeContributions(events);
   events.sort((a, b) =>
     sortTime(a.sortAt) - sortTime(b.sortAt)
     || a.sortOrder - b.sortOrder

@@ -7,6 +7,7 @@ import { roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
+import { gameContribution } from '../../lib/playerContribution.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -29,6 +30,9 @@ export type BlankSeat = {
   points: number | null;
   eloDelta: number | null;
   eloAfter: number | null;
+  /** Elo from the individual contribution in this game (already inside `eloDelta`) and its main reason. */
+  eloContribution: number | null;
+  contributionReason: string | null;
 };
 
 export type GameBlank = {
@@ -104,11 +108,11 @@ export async function loadAvatars(db: DatabaseWrapper, playerIds: string[]) {
 
 /** Elo changes per club game id (novice evenings do not move Elo). */
 async function loadClubElo(db: DatabaseWrapper) {
-  const byGame = new Map<string, Map<string, { delta: number; after: number }>>();
+  const byGame = new Map<string, Map<string, { delta: number; after: number; contribution: number }>>();
   const timeline = await loadPlayerEloHistory(db).catch((error) => { console.error('[CLUB RESULTS] Elo unavailable:', error); return []; });
   for (const event of timeline) {
     if (event.source !== 'club') continue;
-    byGame.set(String(event.sourceId), new Map(event.players.map((player) => [String(player.playerId), { delta: Number(player.totalDelta || 0), after: Number(player.eloAfter || 0) }])));
+    byGame.set(String(event.sourceId), new Map(event.players.map((player) => [String(player.playerId), { delta: Number(player.totalDelta || 0), after: Number(player.eloAfter || 0), contribution: Number(player.contributionDelta || 0) }])));
   }
   return byGame;
 }
@@ -118,6 +122,26 @@ async function loadNicknames(db: DatabaseWrapper, playerIds: string[]) {
   if (!ids.length) return new Map<string, string>();
   const rows = await db.all<any>(`SELECT id, nickname FROM players WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
   return new Map(rows.map((row) => [String(row.id), String(row.nickname || 'Игрок')]));
+}
+
+/**
+ * The main reason of a seat's contribution, in plain words for the game blank: the part with the largest effect in the
+ * same direction as the contribution. The contribution is measured against the role's club average, so a game with only
+ * small pluses can still be below the usual — then that is what the blank says.
+ */
+export function contributionReason(role: string | null, parts: Record<string, number> | undefined, contribution: number): string | null {
+  if (!contribution) return null;
+  const black = role === 'mafia' || role === 'don';
+  const words: Record<string, [string, string]> = {
+    votes: black ? ['за него мало голосовали', 'за него голосовали'] : ['голоса в чёрных', 'голоса в красных'],
+    colors: ['верные цвета', 'ошибки в цветах'],
+    checks: ['нашёл чёрного', 'не нашёл чёрных'],
+    wills: ['не вычислили в завещаниях', 'вычислили в завещаниях'],
+  };
+  const same = Object.entries(parts || {}).filter(([, value]) => Math.abs(value) >= 0.05 && Math.sign(value) === Math.sign(contribution));
+  if (!same.length) return contribution > 0 ? 'лучше обычного для роли' : 'меньше обычного для роли';
+  const [key, value] = same.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
+  return words[key]?.[value > 0 ? 0 : 1] || null;
 }
 
 export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promise<GameBlank | null> {
@@ -141,6 +165,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
   const judgeId = game.judge_player_id ? String(game.judge_player_id) : '';
   const [names, avatars, elo] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, [...ids, judgeId]), loadClubElo(db)]);
   const gameElo = elo.get(String(game.id));
+  const contributions = new Map(gameContribution(envelope).map((item) => [item.seat, item]));
   const scored = isScoredFormat(game.format);
   const moves = Array.isArray(protocol.best_moves) && protocol.best_moves.length
     ? protocol.best_moves
@@ -166,6 +191,8 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       points: scored ? gameResultPoints(envelope, result).total : null,
       eloDelta: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.delta) : null,
       eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
+      eloContribution: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.contribution) : null,
+      contributionReason: playerId && gameElo?.has(playerId) ? contributionReason(role, contributions.get(Number(result?.seat_number))?.parts, Math.round(gameElo.get(playerId)!.contribution)) : null,
     };
   }).sort((a, b) => a.seat - b.seat);
 
@@ -300,6 +327,8 @@ export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGam
       removed: result?.exit_type === 'removed',
       points: pointsByParticipant.has(participantId) ? pointsByParticipant.get(participantId)! : null,
       eloDelta: null,
+      eloContribution: null,
+      contributionReason: null,
       eloAfter: null,
     };
   });

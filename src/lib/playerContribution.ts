@@ -304,7 +304,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Первым записал чёрным, потом его вывели', of('led_table')),
       group('Первым записал чёрным красного, потом его вывели', of('misled_table')),
       group('В завещании угадал', of('will_right')),
-      group('В завещании назвал чёрным, уже засчитан за голос (0)', of('will_already')),
+      of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан за голос` : null,
       group('В завещании ошибся в', of('will_wrong')),
       group('Проверкой нашёл чёрного', of('check_black')),
     ];

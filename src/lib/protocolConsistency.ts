@@ -74,7 +74,7 @@ export function validateBestMoves(
     zeroRoundVotedParticipantId &&
     firstKilledParticipantId === zeroRoundVotedParticipantId
   ) {
-    return 'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком';
+    return 'Первоубиенный игрок и заголосованный в нулевом круге не могут быть одним и тем же игроком';
   }
 
   if (firstKilledParticipantId) {
@@ -91,12 +91,12 @@ export function validateBestMoves(
 
   if (zeroRoundVotedParticipantId) {
     if (!allParticipantIds.includes(zeroRoundVotedParticipantId)) {
-      return 'Заголосованный в нулевой круг игрок не является участником этой игры';
+      return 'Заголосованный в нулевом круге игрок не является участником этой игры';
     }
     if (playerResults && Array.isArray(playerResults)) {
       const zrResult = playerResults.find((pr) => pr.participant_id === zeroRoundVotedParticipantId);
       if (zrResult && !leftAs(zrResult, 'voted_zero_round')) {
-        return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
+        return 'Заголосованный в нулевом круге игрок должен иметь тип ухода "voted_zero_round"';
       }
     }
   }

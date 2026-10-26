@@ -88,7 +88,7 @@ const validateEveningGameSeats = async (db: DatabaseWrapper, eveningId: string, 
       player_id: source.player_id || null,
       guest_placeholder_id: source.guest_placeholder_id || null,
       seat_number: Number(seat.seat_number),
-      display_name: source.nickname || source.full_name || 'Гость',
+      display_name: source.nickname || source.full_name || 'Гость без профиля',
       role: seat.role ?? null,
     };
   }).sort((a, b) => a.seat_number - b.seat_number);

@@ -402,7 +402,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
       const guestKey = String(result?.guest_placeholder_id || result?.display_name || '').trim();
       const playerId = String(result?.player_id || '') || (guestKey ? `guest:${guestKey}` : '');
       if (!playerId) continue;
-      if (playerId.startsWith('guest:')) guestNames.set(playerId, String(result?.display_name || 'Гость'));
+      if (playerId.startsWith('guest:')) guestNames.set(playerId, String(result?.display_name || 'Гость без профиля'));
       const role = normalizeGameRole(result?.role) || 'citizen';
       const win = won(role, envelope.protocol.winner_team) ? 1 : 0;
       const points = scored ? gameResultPoints(envelope, result).total : 0;

@@ -273,7 +273,7 @@ export default function EveningActiveRosterView({
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[14px] text-text-primary">{(participant as any).companion_of ? <span aria-hidden className="mr-1 text-accent">↳</span> : null}{participant.nickname}</strong>
               <span className="mt-1 flex flex-wrap gap-1 text-[12px] leading-4">
-                {(participant as any).is_guest ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">{(participant as any).companion_of ? `Идёт с гостем: ${hostName(participant) || '—'}` : <>Гость-лид{Number((participant as any).plus_count) ? ` +${(participant as any).plus_count}` : ''}{(participant as any).contact_value ? ` · ${guestContactLabel((participant as any).contact_kind)}: ${(participant as any).contact_value}` : ''}</>}</span> : null}
+                {(participant as any).is_guest ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">{(participant as any).companion_of ? `Идёт с гостем: ${hostName(participant) || '—'}` : <>Гость без профиля{Number((participant as any).plus_count) ? ` +${(participant as any).plus_count}` : ''}{(participant as any).contact_value ? ` · ${guestContactLabel((participant as any).contact_kind)}: ${(participant as any).contact_value}` : ''}</>}</span> : null}
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">В составе</span>
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">Ответ: {getEveningRosterResponseLabel(participant)}</span>
                 <span className={`rounded-md px-1.5 py-0.5 ${arrived ? 'bg-success-soft text-success' : 'bg-surface-2 text-text-secondary'}`}>Явка: {arrived ? 'на месте' : 'не отмечена'}</span>
@@ -301,7 +301,7 @@ export default function EveningActiveRosterView({
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-surface-2 p-1">
           <button type="button" onClick={() => setAddMode('players')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'players' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Игроки</button>
-          <button type="button" onClick={() => setAddMode('guest')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'guest' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Гость</button>
+          <button type="button" onClick={() => setAddMode('guest')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'guest' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Гость без профиля</button>
         </div>
         {addMode === 'players' ? <>
           <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={addSearch} onChange={(event) => setAddSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field !pl-12" /></div>
@@ -320,7 +320,7 @@ export default function EveningActiveRosterView({
       </div>
     </MobileSheet>
 
-    <MobileSheet open={Boolean(editingGuest)} onClose={() => !adding && setEditingGuest(null)} title={editingGuest?.draft.name || 'Гость'} subtitle={editingGuest?.companion ? 'Человек, который идёт с гостем: впиши имя, когда узнаешь его.' : 'Гость без профиля — лид: имя, способ связи и сколько человек с ним.'} widthClass="sm:max-w-lg"
+    <MobileSheet open={Boolean(editingGuest)} onClose={() => !adding && setEditingGuest(null)} title={editingGuest?.draft.name || 'Гость без профиля'} subtitle={editingGuest?.companion ? 'Человек, который идёт с гостем: впиши имя, когда узнаешь его.' : 'Гость без профиля — лид: имя, способ связи и сколько человек с ним.'} widthClass="sm:max-w-lg"
       footer={<button type="button" disabled={adding} onClick={() => void saveGuest()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Сохраняем…' : 'Сохранить'}</button>}>
       {editingGuest?.companion ? <div className="space-y-3"><label className="block"><span className="mobile-label">Имя</span><input value={editingGuest.draft.name} onChange={(event) => setEditingGuest({ ...editingGuest, draft: { ...editingGuest.draft, name: event.target.value } })} className="mobile-field mt-1" /></label><div className="grid grid-cols-2 gap-1 rounded-[12px] bg-surface-2 p-1"><button type="button" onClick={() => setEditingGuest({ ...editingGuest, draft: { ...editingGuest.draft, going: true } })} className={`min-h-11 rounded-[10px] text-[13px] font-bold ${editingGuest.draft.going ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Идёт</button><button type="button" onClick={() => setEditingGuest({ ...editingGuest, draft: { ...editingGuest.draft, going: false } })} className={`min-h-11 rounded-[10px] text-[13px] font-bold ${!editingGuest.draft.going ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Не идёт</button></div></div> : editingGuest ? <GuestFields withName={false} draft={editingGuest.draft} onChange={(draft) => setEditingGuest({ ...editingGuest, draft })} /> : null}
     </MobileSheet>

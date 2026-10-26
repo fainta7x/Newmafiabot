@@ -46,7 +46,7 @@ export function ProtocolCompletionDialogs({
                 const bestMoveInfo = calculateGuessedBlacks(bestMove.seat_numbers, playerResults);
                 const title = bestMove.source === 'first_killed'
                   ? 'ЛХ Первого убитого'
-                  : 'ЛХ Заголосованного в 0 круг';
+                  : 'ЛХ заголосованного в нулевом круге';
                 const formattedSeats = bestMove.seat_numbers.length > 0
                   ? `#${bestMove.seat_numbers.join(', #')}`
                   : '0 номеров';

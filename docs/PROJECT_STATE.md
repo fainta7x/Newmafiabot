@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-26 — owner requests review of Claude's latest Elo additions
+
+Independent review of c66ffc61..157d790d in #1040 is complete; see AUDIT_LOG, Independent review of Claude's additional Elo rules. Three reproduced release findings remain OPEN: toggling no_scoring resets voting/removes revotes and can restore a player; raw cancelled voted_day exits still affect find/will awards; repeated checks of the same black pay the sheriff again. Code69926afe passed CI/UI/security; the newer157d790d checks were still pending. Fifteen focused native test bodies passed against157d790d, but do not cover these failures. Current economic policy is x40, automatic/personal caps35, base-positive pool24 with series outside it; earlier weights/reports/examples are superseded where they disagree. No formula fix, merge, release or production write was performed by this review. Keep release held until the findings are addressed and the owner's release approval is given.
+
+
 ## 2026-10-26 — stronger miss penalty after owner balance review
 
 Owner says −2 Elo is too small because a missed shot is often decisive in a black loss. Raise the initial personal contribution penalty to −6 per explicitly attributed error/night; keep loss gating, judge selection, tactical/legacy neutrality and the agreed automatic ±10 / combined ±15 caps. UI reads the same constant as scoring. A new regression proves two misses are −12 raw and −10 after the automatic cap; equal-team black loss then totals −45. Existing e9e96cfb passed CI, mobile preview, CodeQL and Gitleaks. Thirteen native regressions pass for this change; exact-head checks pending. No release or production data change.

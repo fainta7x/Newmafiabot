@@ -1,4 +1,3 @@
-import { missedShotNights, MISSED_SHOT_ELO } from '../../lib/eloMissPenalty.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
@@ -23,6 +22,12 @@ export interface CanonicalEloGamePlayer {
   eloDisciplinePoints?: number;
   /** Individual contribution in points (club games only), with no role-average subtraction. */
   contributionPoints?: number;
+  personalPositivePoints?: number;
+  personalNegativePoints?: number;
+  contributionPositivePoints?: number;
+  contributionNegativePoints?: number;
+  /** Positive fixed deduction in Elo, after all personal limits. */
+  missPenaltyElo?: number;
 }
 
 export interface CanonicalEloPlayerDelta {
@@ -35,10 +40,12 @@ export interface CanonicalEloPlayerDelta {
   contributionDelta: number;
   personalCapDelta: number;
   disciplinaryDelta: number;
+  missDelta?: number;
   totalDelta: number;
 }
 
-export type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'> & { contribution?: { role: string; raw: number } };
+export type EloContribution = { role: string; raw: number; positive?: number; negative?: number; missPenaltyElo?: number };
+export type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'> & { contribution?: EloContribution };
 export type PreparedEloEvent = {
   source: 'tournament' | 'club';
   sourceId: string;
@@ -131,11 +138,17 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
     const personalDelta = (player.canonicalPersonalGamePoints + disciplinePoints) * PERSONAL_POINT_WEIGHT;
     const contributionDelta = (player.contributionPoints || 0) * PERSONAL_POINT_WEIGHT;
     const personalSum = personalDelta + contributionDelta;
-    const personalCapDelta = clamp(personalSum, -PERSONAL_CAP_ELO, PERSONAL_CAP_ELO) - personalSum;
+    const positive = (player.personalPositivePoints ?? Math.max(0, personalDelta / PERSONAL_POINT_WEIGHT))
+      + (player.contributionPositivePoints ?? Math.max(0, numeric(player.contributionPoints)));
+    const negative = (player.personalNegativePoints ?? Math.min(0, personalDelta / PERSONAL_POINT_WEIGHT))
+      + (player.contributionNegativePoints ?? Math.min(0, numeric(player.contributionPoints)));
+    const awardedPersonal = Math.max(-PERSONAL_CAP_ELO, Math.min(PERSONAL_CAP_ELO, positive * PERSONAL_POINT_WEIGHT) + negative * PERSONAL_POINT_WEIGHT);
+    const personalCapDelta = awardedPersonal - personalSum;
+    const missDelta = -Math.max(0, numeric(player.missPenaltyElo));
     const disciplinaryDelta = -Math.max(0, numeric(player.eloDisciplinePoints ?? disciplinePoints)) * ELO_DISCIPLINE_POINT_WEIGHT;
     return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta,
-      personalDelta, contributionDelta, personalCapDelta, disciplinaryDelta,
-      totalDelta: modifiedResultDelta + personalSum + personalCapDelta + disciplinaryDelta };
+      personalDelta, contributionDelta, personalCapDelta, missDelta, disciplinaryDelta,
+      totalDelta: modifiedResultDelta + awardedPersonal + missDelta + disciplinaryDelta };
   });
 }
 
@@ -144,7 +157,7 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
-/** A player's personal points in a club game (judge and protocol bonus, best move, Ci, minus discipline): Elo and its history. */
+/** Elo personal points: manual judge, LH and Ci, minus discipline; protocol sporting points are excluded. */
 export const clubDisciplinaryPenaltyPoints = (payload: any, result: any): number => {
   const participantId = String(result?.participant_id || '');
   const isPpkCulprit = payload?.protocol?.end_reason === 'ppk' && participantId && participantId === String(payload?.protocol?.ppk_culprit_participant_id || '');
@@ -172,31 +185,76 @@ export const clubEloDisciplinePoints = (payload: any, result: any): number => {
 
 export const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
   const participantId = String(result?.participant_id || '');
-  return numeric(result?.judge_bonus) + numeric(result?.protocol_bonus) + clubBestMovePointsForParticipant(payload?.protocol, participantId, results) + numeric(result?.ci_points) - clubDisciplinaryPenaltyPoints(payload, result);
+  return numeric(result?.judge_bonus) + clubBestMovePointsForParticipant(payload?.protocol, participantId, results) + numeric(result?.ci_points) - clubDisciplinaryPenaltyPoints(payload, result);
+};
+
+const splitPersonalPoints = (values: number[]) => ({
+  personalPositivePoints: values.reduce((sum, value) => sum + Math.max(0, value), 0),
+  personalNegativePoints: values.reduce((sum, value) => sum + Math.min(0, value), 0),
+});
+export const clubPersonalPointParts = (payload: any, result: any, results: any[]) => splitPersonalPoints([
+  numeric(result?.judge_bonus), clubBestMovePointsForParticipant(payload?.protocol, String(result?.participant_id || ''), results), numeric(result?.ci_points),
+]);
+
+/** Sporting protocol points remain in standings; Elo evaluates the recorded colours once instead. */
+export const tournamentPersonalEloPoints = (game: any) => {
+  const disciplinaryPenaltyPoints = Math.max(0, numeric(game?.disciplinary_penalty_points));
+  const canonicalPersonalGamePoints = numeric(game?.game_total) - numeric(game?.win_point) - numeric(game?.protocol_bonus);
+  const values = [numeric(game?.judge_bonus), numeric(game?.best_move_points), numeric(game?.ci_points), -numeric(game?.game_penalty_points)];
+  // Preserve the canonical net, including rounding/legacy components absent from an older standings fixture.
+  values.push(canonicalPersonalGamePoints + disciplinaryPenaltyPoints - values.reduce((sum, value) => sum + value, 0));
+  return { canonicalPersonalGamePoints, disciplinaryPenaltyPoints, ...splitPersonalPoints(values) };
 };
 
 /**
  * Individual contribution (owner, 2026-10-25): an addition to the result, never a replacement. Points come from the game's
  * own facts (`playerContribution.ts`); every found black is praised, no role adjustment (the weights balance the roles);
- * automatic contribution moves Elo by at most ±10, with all personal sources together capped at ±15; it accumulates without a ceiling — a player who keeps playing well keeps rising.
+ * positive personal awards are capped at35 before errors; the personal floor is−35 and misses are separate; it accumulates without a ceiling — a player who keeps playing well keeps rising.
  */
 export const CONTRIBUTION_CAP_ELO = ELO_CONTRIBUTION_CAP;
-export const clubContributionByPlayer = (payload: any, results: any[]): Map<string, { role: string; raw: number }> => {
-  const bySeat = new Map(gameContribution(payload).map((item) => [item.seat, item]));
-  const out = new Map<string, { role: string; raw: number }>();
+export const clubContributionByPlayer = (payload: any, results: any[], mode: 'club' | 'wills' = 'club'): Map<string, EloContribution> => {
+  const bySeat = new Map(gameContribution(payload, mode).map((item) => [item.seat, item]));
+  const out = new Map<string, EloContribution>();
   for (const result of results) {
     const playerId = String(result?.player_id || '').trim();
     const item = bySeat.get(Number(result?.seat_number));
-    if (playerId && item?.role) out.set(playerId, { role: item.role, raw: item.points });
+    if (playerId && item?.role) out.set(playerId, { role: item.role, raw: item.points, positive: item.positivePoints, negative: item.negativePoints, missPenaltyElo: item.missPenaltyElo });
   }
   return out;
 };
 export const normalizeContributions = (events: PreparedEloEvent[]) => {
-  const cap = CONTRIBUTION_CAP_ELO / PERSONAL_POINT_WEIGHT;
   for (const event of events) for (const player of event.players) {
-    if (player.contribution) player.contributionPoints = clamp(player.contribution.raw, -cap, cap);
+    if (player.contribution) {
+      player.contributionPoints = player.contribution.raw;
+      player.contributionPositivePoints = player.contribution.positive ?? Math.max(0, player.contribution.raw);
+      player.contributionNegativePoints = player.contribution.negative ?? Math.min(0, player.contribution.raw);
+      player.missPenaltyElo = player.contribution.missPenaltyElo ?? player.missPenaltyElo;
+    }
   }
 };
+
+/** Shared by the rebuild and history: only tournament will colours are added, not the club vote/check scoring. */
+export async function tournamentWillContributions(db: DatabaseWrapper, game: any, winner: EloTeam, standings: any[]) {
+  const [protocolRow, rawResults, bestMoves] = await Promise.all([
+    db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ? LIMIT 1', [game.id]),
+    db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ?', [game.id]),
+    db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game.id]),
+  ]);
+  const byParticipant = new Map(rawResults.map((row: any) => [String(row.participant_id), row]));
+  const results = standings.flatMap((participant: any) => {
+    const canonical = Array.isArray(participant.games) ? participant.games.find((item: any) => Number(item.game_number) === Number(game.game_number)) : null;
+    if (!canonical) return [];
+    const raw: any = byParticipant.get(String(participant.participant_id)) || {};
+    return [{ ...raw, participant_id: participant.participant_id, player_id: participant.player_id, seat_number: canonical.seat_number, role: canonical.role,
+      color_protocol: safeJsonParse<any[]>(raw.color_protocol_json, []) }];
+  });
+  const protocol = { ...protocolRow, winner_team: winner,
+    events: safeJsonParse<any[]>(protocolRow?.events_json, []), shots: safeJsonParse<any[]>(protocolRow?.shots_json ?? game.shots_json, []),
+    best_move_seats: safeJsonParse<any[]>(protocolRow?.best_move_seats_json, []),
+    best_moves: bestMoves.map((move: any) => ({ ...move, seat_numbers: safeJsonParse<any[]>(move.seat_numbers_json, []) })),
+  };
+  return clubContributionByPlayer({ protocol, player_results: results }, results, 'wills');
+}
 
 export const sortTime = (value: string) => {
   const time = new Date(value || 0).getTime();
@@ -269,6 +327,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       const winner = normalizeWinnerTeam(game.winner_team);
       if (!winner) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: winner is missing.`);
       const eventPlayers: PreparedEloPlayer[] = [];
+      const contributions = await tournamentWillContributions(db, game, winner, standings);
       for (const participant of standings) {
         if (!participant.player_id) continue;
         const canonicalGame = Array.isArray(participant.games) ? participant.games.find((item: any) => Number(item.game_number) === Number(game.game_number)) : null;
@@ -277,9 +336,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
         if (!team) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: role is missing.`);
         const playerId = String(participant.player_id);
         if (!knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
-        const canonicalPersonalGamePoints = Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0);
-        eventPlayers.push({ playerId, team, canonicalPersonalGamePoints, disciplinaryPenaltyPoints: numeric(canonicalGame.disciplinary_penalty_points),
-          contribution: { role: String(canonicalGame.role), raw: team === 'black' ? -missedShotNights({ winner_team: winner, shots: safeJsonParse<any[]>(game.shots_json, []) }, Number(canonicalGame.seat_number)).length * MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT : 0 } });
+        eventPlayers.push({ playerId, team, ...tournamentPersonalEloPoints(canonicalGame), contribution: contributions.get(playerId) });
       }
       const event: PreparedEloEvent = { source:'tournament', sourceId:String(game.id), sortAt:String(game.sort_at || tournament.date || tournament.created_at || ''), sortOrder:Number(game.game_number || 0), winnerTeam:winner, players:eventPlayers };
       validatePreparedEvent(event);
@@ -326,7 +383,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       const team = gameTeamOfRole(result?.role);
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
-        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result), eloDisciplinePoints: clubEloDisciplinePoints(payload, result), contribution: contributions.get(playerId) };
+        ...clubPersonalPointParts(payload, result, results), disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result), eloDisciplinePoints: clubEloDisciplinePoints(payload, result), contribution: contributions.get(playerId) };
     });
     const event: PreparedEloEvent = { source:'club', sourceId:String(game.id), sortAt:String(game.game_date || game.created_at || ''), sortOrder:Number(game.global_game_number || game.id || 0), winnerTeam:winner, players:eventPlayers };
     validatePreparedEvent(event, guests);
@@ -362,6 +419,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))
     .sort((a, b) => b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));
 }
+
 
 
 

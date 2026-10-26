@@ -2022,3 +2022,24 @@ The club window (`EveningGameProtocolModal`, snapshot + ordered queue) and the t
 ### Production check after the deploy of ce16aba (2026-10-26 14:35 UTC, organizer login, GET only)
 
 `/api/health/runtime` ok on build ce16aba; the web process took ~55 s to listen (startup migrations incl. the full Elo rebuild `2026-10-elo-miss-streak-v3`). Elo changed for 27 of 39 rated players compared with the morning copy (e.g. Пристань 1305 → 1437, Богданчик 1242 → 1407, Дина 1105 → 1276, Перец 949 → 1057). `GET /api/games?archived=0`: 19 games, 0.73 MB (was 23.3 MB), no replay frames, no raw `protocol_text`.
+
+## Full balance review after PR1040 — GPT, 2026-10-26
+
+Owner requests another whole-model sanity check. Reviewed code0d9fd2e8, merged as2ca20a5a. Full reproducible examples, source boundaries, current-public-data methodology and recommendations are in [ELO_BALANCE_REVIEW_2026-10-26.md](ELO_BALANCE_REVIEW_2026-10-26.md).
+- [FIXED in PR1042 after owner approval; CI pending] PU's exception plus red colour3/wrong4 permits a validated all-nine-red will with guaranteed+6 (six correct reds, three wrong blacks); random3-seat LH adds an average5.
+- [FIXED in PR1042 after owner approval; CI pending] PU's same black seats can pay twice through LH and will; two correct seats give+28 personal before limits, a lost red game can total+13.
+- [FIXED in PR1042 after owner approval; CI pending] A responsible miss can cost zero at the combined cap: auto24+judge20 and auto18+judge20 both become35.
+- [FIXED in PR1042 after owner approval; CI pending] A half-paid black vote blocks a later full will award; correct vote+will totals4 versus neutral self-vote+will8. Consider a remaining-credit model rather than full re-awards or full suppression.
+- [FIXED in PR1042 after owner approval; CI pending] Sheriff vote-before-check then table-out gives16 base+1 streak for one black, versus8 if check came first; the earlier repeat-check fix does not address cross-source ordering.
+- [verified] Original three implementation defects fixed by Claude; current tag/restore probes pass and repeated check base is skipped. Current15 focused native test bodies pass; CI4474/UI2199/security passed for0d9fd2e8.
+- [methodology] Read-only public snapshot:19 games,18 completed (17 draft excluded),180 seats, conditional1000 seed/no tournaments with the approved game18 tag simulated. Personal median1, p5/p95 -12/19.25; mean total6.775, not actual career Elo or a calibrated forecast. Never commit the real exports. Accepted positive carry drift and30/70 prior are preserved.
+Status: analysis only; no scoring rule, production data or deployment changed by this review.
+
+## Approved Elo balance implementation — GPT, 2026-10-26
+
+Owner approves proposal1–4, rejects5 and confirms tournament will colours. Scope: role-neutral base find credit8 across eligible LH/votes/checks/wills, one positive series step per new finding, red colour2; positive rewards capped before errors, personal floor−35, fixed miss outside; protocol sporting bonuses excluded from Elo with unchanged manual judge influence. Three earlier technical fixes remain preserved.
+- FIXED: playerContribution/eloFindCredit prevent same-target base awards exceeding8 and permit half-find top-ups; preserve ordinary-will error gate, explicit PU and sheriff-known-source exclusions.
+- FIXED: Elo loader/canonical formula retain gross positive/negative parts; each attributed miss remains6 even at either personal bound. History, explanation and blank read the same terms.
+- FIXED: protocol_bonus removed from club/tournament Elo personal terms, while sporting standings are untouched. Tournament will evidence comes from stored colours/PU/LH/exits through one helper used by both rebuild/history; missing evidence is not guessed.
+- Owner explicitly rejects any new manual-judge reason requirement or duplicate-award prohibition; those earlier recommendations are superseded.
+Validation:86 adapted native focused test bodies passed, including16 new approved-policy cases and legacy voting/discipline/will/SVG explanation cases. Full Vitest/typecheck/build are delegated to exact-head GitHub CI; no local full-suite claim. No real exports committed, no production write or deployment. Status: implemented, exact-head CI pending.

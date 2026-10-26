@@ -68,7 +68,7 @@ export function personalBonusLines(protocol: any, result: any, results: any[]): 
   const lines: string[] = [];
   const bestMove = value(clubBestMovePointsForParticipant(protocol, String(result?.participant_id || ''), results));
   if (bestMove) lines.push(`Лучший ход: ${signed(bestMove)} Эло`);
-  const judge = value(Number(result?.judge_bonus || 0) + Number(result?.protocol_bonus || 0));
+  const judge = value(Number(result?.judge_bonus || 0));
   if (judge) lines.push(`Бонус судьи: ${signed(judge)} Эло`);
   const ci = value(Number(result?.ci_points || 0));
   if (ci) lines.push(`Компенсация первому убитому: ${signed(ci)} Эло`);
@@ -669,4 +669,5 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
     players: rows.map((row: any) => ({ playerId: String(row.player_id), nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null })),
   };
 }
+
 

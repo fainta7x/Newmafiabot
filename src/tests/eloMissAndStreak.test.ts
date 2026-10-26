@@ -15,25 +15,25 @@ const shot = (extra: object = {}) => ({ night_number: 1, target_seat: 0, result:
 
 describe('judge-attributed miss penalty', () => {
   it('penalizes only the selected black on a black loss; never a team win', () => {
-    close(score(players(), { shots: [shot()] }, 8).points, -0.15);
+    close(score(players(), { shots: [shot()] }, 8).missPenaltyElo, 6);
     close(score(players(), { shots: [shot()] }, 9).points, 0);
     close(score(players(), { winner_team: 'black', shots: [shot()] }, 8).points, 0);
   });
   it('can assign all three; intentional and legacy/unassigned misses are neutral', () => {
-    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).points, -0.15);
+    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).missPenaltyElo, 6);
     close(score(players(), { shots: [shot({ miss_reason: 'intentional', miss_responsible_seats: [] })] }, 8).points, 0);
     close(score(players(), { shots: [{ night_number: 1, result: 'agreement_failed', target_seat: 0 }] }, 8).points, 0);
   });
-  it('two attributed misses cost 12 Elo, inside the automatic cap of 35', () => {
+  it('two attributed misses cost 12 Elo after all personal limits', () => {
     const protocol = { winner_team: 'red', shots: [shot(), shot({ night_number: 2 })] };
     const rows = players();
-    close(score(rows, protocol, 8).points, -0.3);
+    close(score(rows, protocol, 8).missPenaltyElo, 12);
     const prepared: PreparedEloEvent = { source: 'club', sourceId: 'miss6', sortAt: '', sortOrder: 1, winnerTeam: 'red',
       players: rows.map((player) => ({ playerId: player.player_id, team: ['mafia', 'don'].includes(player.role) ? 'black' : 'red',
-        canonicalPersonalGamePoints: 0, contribution: { role: player.role, raw: score(rows, protocol, player.seat_number).points } })) };
+        canonicalPersonalGamePoints: 0, contribution: { role: player.role, raw: score(rows, protocol, player.seat_number).points, missPenaltyElo: score(rows, protocol, player.seat_number).missPenaltyElo } })) };
     normalizeContributions([prepared]);
     const delta = calculateCanonicalEloGame(prepared.players.map((player) => ({ ...player, elo: 1000 })), 'red').find((row) => row.playerId === 'p8')!;
-    close(delta.contributionDelta, -12);
+    close(delta.contributionDelta, 0); close(delta.missDelta!, -12);
     close(delta.totalDelta, -47);
   });
   it('validates the recorded reason, black roles, uniqueness and confirmed attribution', () => {
@@ -56,7 +56,7 @@ describe('a mistaken ordinary will has no positive colour awards; PU is the exce
   });
   it('keeps the explicit first-killed exception without guessing who was PU', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3, 8] }];
-    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.1 + 0.075);
+    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.1 + 0.05);
     close(score(rows, { first_killed_participant_id: 'p3' }, 2).points, -0.1);
   });
   it('a black named sheriff is a wrong colour and blocks ordinary positive marks', () => {
@@ -120,3 +120,4 @@ describe('the series line says which decision in a row and what it was (owner, 2
     assert.ok(lines.includes('Верно подряд: голос в чёрного №4 → голос в чёрного №5 → голос в чёрного №8: +6'));
   });
 });
+

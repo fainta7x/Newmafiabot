@@ -3,7 +3,7 @@ import { round2 } from '../shared/numbers.ts';
 export interface ExplainedEloDelta {
   won: boolean; expectedTeamResult: number; modifiedResultDelta: number; resultDelta: number;
   carryModifier: number; personalDelta: number; contributionDelta?: number;
-  personalCapDelta?: number; disciplinaryDelta?: number; totalDelta: number;
+  personalCapDelta?: number; missDelta?: number; disciplinaryDelta?: number; totalDelta: number;
 }
 
 /** One additive explanation shared by the player journey and read-only comparison reports. */
@@ -15,6 +15,7 @@ export function explainEloDelta(row: ExplainedEloDelta) {
     { label: 'личные бонусы', value: row.personalDelta },
     { label: 'действия в игре', value: row.contributionDelta ?? 0 },
     { label: 'ограничение личной части', value: row.personalCapDelta ?? 0 },
+    { label: 'отдельный штраф за промах', value: row.missDelta ?? 0 },
     { label: 'дисциплина', value: row.disciplinaryDelta ?? 0 },
   ];
   const kept = terms.filter((term, index) => index === 0 || Math.abs(term.value) >= 0.005);
@@ -28,3 +29,4 @@ export function explainEloDelta(row: ExplainedEloDelta) {
     formula: `${formula} ${roundedSum === round2(row.totalDelta) ? '=' : '≈'} ${round2(row.totalDelta)}`,
   };
 }
+

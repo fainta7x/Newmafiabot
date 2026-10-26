@@ -15,13 +15,13 @@ const migration = read('../db/ensureGuestPlayerPlaceholderSchema.ts');
 describe('GUEST-PLAYER-001 wiring contract', () => {
   it('keeps quick guest creation on the placeholder API without contact/account fields', () => {
     expect(eveningUi).toContain('Гость без профиля');
-    expect(eveningUi).toContain("nickname: guestNickname.trim() || 'Гость'");
+    expect(eveningUi).toContain("nickname: guestNickname.trim() || 'Гость без профиля'");
     expect(eveningUi).not.toContain('guestPhone');
     expect(eveningUi).toContain('Профиль, рейтинг, жетоны и контакты игрока не создаются');
   });
 
   it('exposes explicit guest-to-registered-player correction and hands a seat to a guest only through the explicit guest flow', () => {
-    expect(protocolUi).toContain('Заменить гостя на игрока клуба');
+    expect(protocolUi).toContain('Заменить гостя без профиля на игрока клуба');
     expect(protocolUi).toContain('clubGamesApi.repairSeatIdentity');
     expect(protocolUi).toContain('replacement_player_id: replacement.id');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
@@ -31,7 +31,7 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
 
   it('lets the seat repair sheet hand a seat to a new guest (owner, 2026-10-03)', () => {
     const sheet = read('../components/crm/EveningGameSeatRepairSheet.tsx');
-    expect(sheet).toContain('Новый гость');
+    expect(sheet).toContain('Гость без профиля');
     expect(sheet).toContain('guest: { nickname: nickname.trim() }');
   });
 

@@ -41,7 +41,7 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
 
   const apply = async () => {
     if (!guest || !replacement || busy) return;
-    if (!window.confirm(`Заменить гостя #${guest.seat_number} ${guest.display_name || 'Гость'} на ${replacement.nickname}? Роль, фолы, голосования и выход останутся на месте.`)) return;
+    if (!window.confirm(`Заменить гостя #${guest.seat_number} ${guest.display_name || 'Гость без профиля'} на ${replacement.nickname}? Роль, фолы, голосования и выход останутся на месте.`)) return;
     const gameId = Number(api.protocol.game_id);
     if (!Number.isInteger(gameId) || gameId <= 0) { setError('Не удалось найти игру для замены гостя.'); return; }
     setBusy(true); setError(null);
@@ -57,9 +57,9 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
   return (
     <Card tone="info" className="space-y-3">
       <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-300/[0.12] text-sky-100"><UserRoundCog className="h-5 w-5" aria-hidden="true" /></span>
-        <div><div className="text-sm font-semibold">Заменить гостя на игрока клуба</div><p className="mt-0.5 text-[12px] leading-4 text-white/55">Меняется только человек на месте. Роль, фолы, голосования и выход остаются.</p></div></div>
+        <div><div className="text-sm font-semibold">Заменить гостя без профиля на игрока клуба</div><p className="mt-0.5 text-[12px] leading-4 text-white/55">Меняется только человек на месте. Роль, фолы, голосования и выход остаются.</p></div></div>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Место гостя">
-        {guests.map((item) => <button key={item.participant_id} type="button" aria-pressed={seat === item.seat_number} onClick={() => { setSeat(item.seat_number); setChosen(''); setError(null); }} className={cx('min-h-11 rounded-xl px-3 text-[13px] font-semibold', seat === item.seat_number ? 'bg-white text-[#090a0d]' : 'bg-white/[0.07] text-white/75')}>#{item.seat_number} {item.display_name || 'Гость'}</button>)}
+        {guests.map((item) => <button key={item.participant_id} type="button" aria-pressed={seat === item.seat_number} onClick={() => { setSeat(item.seat_number); setChosen(''); setError(null); }} className={cx('min-h-11 rounded-xl px-3 text-[13px] font-semibold', seat === item.seat_number ? 'bg-white text-[#090a0d]' : 'bg-white/[0.07] text-white/75')}>#{item.seat_number} {item.display_name || 'Гость без профиля'}</button>)}
       </div>
       {guest ? (
         <>

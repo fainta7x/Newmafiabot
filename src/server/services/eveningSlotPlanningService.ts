@@ -324,7 +324,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     for (const slot of rows) {
       const slotId = String(slot.id);
       const group = peopleBySlot.get(slotId) || [];
-      for (const guest of guestRows) group.push({ id: String(guest.id), nickname: String(guest.display_name || 'Гость'), whole_evening: true, is_guest: true });
+      for (const guest of guestRows) group.push({ id: String(guest.id), nickname: String(guest.display_name || 'Гость без профиля'), whole_evening: true, is_guest: true });
       peopleBySlot.set(slotId, group);
       slot.registered_count = Number(slot.registered_count || 0) + guestRows.length;
     }

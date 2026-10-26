@@ -38,7 +38,7 @@ export const ExitTag: React.FC<{ exit: string | null | undefined; className?: st
   switch (exit) {
     case 'killed': return <Tag tone={TONES.night} icon={Moon} className={className}>Убит ночью</Tag>;
     case 'voted_day': return <Tag tone={TONES.vote} icon={Vote} className={className}>Заголосован</Tag>;
-    case 'voted_zero_round': return <Tag tone={TONES.vote} icon={Vote} className={className}>Заголосован в нуле</Tag>;
+    case 'voted_zero_round': return <Tag tone={TONES.vote} icon={Vote} className={className}>Заголосован в нулевом круге</Tag>;
     case 'removed': return <Tag tone={TONES.removed} icon={Ban} className={className}>Удалён</Tag>;
     default: return <Tag tone={TONES.good} icon={Heart} className={className}>В игре</Tag>;
   }

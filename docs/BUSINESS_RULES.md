@@ -278,7 +278,13 @@ Do not collapse these into one generic “out” status when the distinction is 
 
 Wording for how a player leaves the game (user-approved 2026-09-24): texts for players and organizers use only **«заголосован»** (voted out in the day) and **«убит»** (killed at night), plus **«удалён»** (removed by the judge) and **ППК**. Vague words that mix these up — «убрали», «выгнали», «покинул стол», «выбыл» — are not used. When the reason is unknown, the neutral label is «Вне игры».
 
+## A player without an account (owner, 2026-10-26)
+
+A person at the table who has no profile in the app is «Гость без профиля» everywhere: the add-person tab, the roster row (was «Гость-лид»), the seat repair, the closeout search, the protocol («Заменить гостя без профиля на игрока клуба») and the name shown when the judge gave none. The seat grid of game creation, where space is tight, marks such a seat «без профиля». Friends a player brings («+1 гость»), the event setting «Разрешить гостя +1» and a judge from outside the club are different things and keep their own words.
+
 ## Names of the circles (owner, 2026-10-26)
+
+A player voted out on the zero day is «Заголосован в нулевом круге» on every screen and in every message (owner, 2026-10-26; replaces «в 0 круге», «в нулевой круг», «(0 круг)», «в нуле»). A player voted out later is just «Заголосован».
 
 Circles are named by how many players sit at the table, not by day numbers. Use these words in the app, the game blank, reports and chats.
 

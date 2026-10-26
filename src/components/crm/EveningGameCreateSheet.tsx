@@ -237,7 +237,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     setError(null);
     try {
       const added = await api.addParticipant(evening.id, {
-        nickname: guestNickname.trim() || 'Гость',
+        nickname: guestNickname.trim() || 'Гость без профиля',
         response_status: 'unanswered',
         amount_due: evening.default_price,
       });
@@ -409,7 +409,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             {seats.map((participantId, index) => {
               const participant = participantId ? byId.get(participantId) : null;
               const isGuest = Boolean(participant && ((participant as any).is_guest || !String(participant.player_id || '').trim()));
-              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[10px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[10px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="mt-0.5 block text-[10px] font-black uppercase text-text-muted">гость</span> : null}</button>;
+              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[10px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[10px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="mt-0.5 block text-[10px] font-black uppercase text-text-muted">без профиля</span> : null}</button>;
             })}
           </div>
           <div className="grid grid-cols-2 gap-2">

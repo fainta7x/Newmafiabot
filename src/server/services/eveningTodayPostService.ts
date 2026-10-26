@@ -79,7 +79,7 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     [eveningId],
   );
   // A legacy RSVP `late` alone does not establish arrival after the announced game time.
-  const guestLines = guests.map((guest: any) => String(guest.nickname || 'Гость'));
+  const guestLines = guests.map((guest: any) => String(guest.nickname || 'Гость без профиля'));
   const comingTotal = coming.length + guests.length;
   const roster = coming.map((item: any, index: number) => {
     const from = firstGame.get(String(item.player_id));

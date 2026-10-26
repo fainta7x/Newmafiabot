@@ -1985,3 +1985,15 @@ Acceptance before release: preserve the protocol on tag toggles (including revot
 
 Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protocol` answered 2.98 MB each (5 saves), `GET /api/games?archived=0` 23.3 MB, nginx buffered both to temp files, `[PERF] event loop stalled` up to 2.5 s. Game 17's protocol is 1.43 MB, of which `replay_frames` 1.39 MB.
 - [P1, fixed in PR #1040] `src/server/routes/gamesRoutes.ts`, `gamesRoutesBase.ts` `normalizeGame`: sent `replay_frames` and duplicated `protocol_text` to every client list/save response.
+
+## Full balance review after PR1040 — GPT, 2026-10-26
+
+Owner requests another whole-model sanity check. Reviewed code0d9fd2e8, merged as2ca20a5a. Full reproducible examples, source boundaries, current-public-data methodology and recommendations are in [ELO_BALANCE_REVIEW_2026-10-26.md](ELO_BALANCE_REVIEW_2026-10-26.md).
+- [OPEN product decision] PU's exception plus red colour3/wrong4 permits a validated all-nine-red will with guaranteed+6 (six correct reds, three wrong blacks); random3-seat LH adds an average5.
+- [OPEN product decision] PU's same black seats can pay twice through LH and will; two correct seats give+28 personal before limits, a lost red game can total+13.
+- [OPEN product decision] A responsible miss can cost zero at the combined cap: auto24+judge20 and auto18+judge20 both become35.
+- [OPEN product decision] A half-paid black vote blocks a later full will award; correct vote+will totals4 versus neutral self-vote+will8. Consider a remaining-credit model rather than full re-awards or full suppression.
+- [OPEN cross-source review] Sheriff vote-before-check then table-out gives16 base+1 streak for one black, versus8 if check came first; the earlier repeat-check fix does not address cross-source ordering.
+- [verified] Original three implementation defects fixed by Claude; current tag/restore probes pass and repeated check base is skipped. Current15 focused native test bodies pass; CI4474/UI2199/security passed for0d9fd2e8.
+- [methodology] Read-only public snapshot:19 games,18 completed (17 draft excluded),180 seats, conditional1000 seed/no tournaments with the approved game18 tag simulated. Personal median1, p5/p95 -12/19.25; mean total6.775, not actual career Elo or a calibrated forecast. Never commit the real exports. Accepted positive carry drift and30/70 prior are preserved.
+Status: analysis only; no scoring rule, production data or deployment changed by this review.

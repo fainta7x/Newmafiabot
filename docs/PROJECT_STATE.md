@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-26 — full Elo balance review requested by owner
+
+PR1040 is merged as2ca20a5a (code0d9fd2e8 passed CI4474/UI2199/security). The follow-up whole-model review is in ELO_BALANCE_REVIEW_2026-10-26.md; AUDIT_LOG records its open findings. The three earlier technical defects are fixed. New decisions pending: blind-positive PU will and LH/will overlap; miss penalty swallowed by the personal cap; consistent remaining credit for half-found and sheriff cross-source finds. These are recommendations, not approved formula changes. Keep the agreed30/70 prior and strong-player protection. Read-only public data yielded18 completed games/180 seats from19 available; the conditional1000-seed replay is not exact career Elo. Runtime still reported the previous08a7837d build during this check; deployment of1040 is not verified here. This review changes documentation only.
+
+
 ## 2026-10-26 — owner requests review of Claude's latest Elo additions
 
 Independent review of c66ffc61..157d790d in #1040 is complete; see AUDIT_LOG, Independent review of Claude's additional Elo rules. Three reproduced release findings were OPEN (all fixed by Claude the same day, see AUDIT_LOG): toggling no_scoring resets voting/removes revotes and can restore a player; raw cancelled voted_day exits still affect find/will awards; repeated checks of the same black pay the sheriff again. Code69926afe passed CI/UI/security; the newer157d790d checks were still pending. Fifteen focused native test bodies passed against157d790d, but do not cover these failures. Current economic policy is x40, automatic/personal caps35, base-positive pool24 with series outside it; earlier weights/reports/examples are superseded where they disagree. No formula fix, merge, release or production write was performed by this review. Keep release held until the findings are addressed and the owner's release approval is given.

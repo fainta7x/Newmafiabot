@@ -7,9 +7,10 @@ import { zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
 import { moveNominatedSeat, setTableLeaveVotes, setVotingSeatCount, toggleNominatedSeat, updateEligibleVoters } from '../tournaments/protocol/protocolVotingEditorUtils';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
 import type { ProtocolApi } from './types';
+import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
-import { BestMoveTag, CheckAnswerTag, ConfirmedTag, ExitTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checksOf, circleTitle, roleAtTable, describeVoting, exitLabel, exitsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -162,8 +163,8 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
 
   const shotText = shot ? (
     <span className="flex flex-wrap items-center gap-2">
-      {shot.target_seat ? <span>#{shot.target_seat} {nameOf(shot.target_seat)}</span> : null}
-      {shot.result === 'killed' ? <ExitTag exit="killed" /> : shot.result === 'miss' ? <InfoTag tone="attention">Промах</InfoTag> : <InfoTag tone="attention">Промах</InfoTag>}
+      <span>{shot.result === 'killed' ? `💀 Убили №${shot.target_seat} ${nameOf(shot.target_seat || 0)}` : `💀 Промах${shot.target_seat ? ` (стреляли в №${shot.target_seat} ${nameOf(shot.target_seat)})` : ''}`}</span>
+      {shot.result !== 'killed' && shot.miss_reason ? <InfoTag tone="attention">{shot.miss_reason === 'intentional' ? 'Тактика · без штрафа' : `Ошибка · ${(shot.miss_responsible_seats || []).map((seat) => `#${seat}`).join(', ') || 'виновник не выбран'}`}</InfoTag> : null}
     </span>
   ) : null;
   const firstKilled = api.results.find((player) => player.participant_id === protocol.first_killed_participant_id) || null;
@@ -172,6 +173,11 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const breaker = zeroRoundBreakerSeat(protocol.events);
   const donHere = roleAtTable(protocol, api.results, 'don', circle.index);
   const sheriffHere = roleAtTable(protocol, api.results, 'sheriff', circle.index);
+  const roleOfSeat = (seat: number | null | undefined) => api.results.find((player) => player.seat_number === seat)?.role ?? null;
+  // The don has nothing left to look for once his check found the sheriff on an earlier night.
+  const sheriffSeat = api.results.find((player) => player.role === 'sheriff')?.seat_number;
+  const sheriffFound = Boolean(sheriffSeat) && (Array.isArray(protocol.events) ? protocol.events : [])
+    .some((event) => event.kind === 'don_check' && event.target === sheriffSeat && event.round < circle.index + 1);
 
   // ----- sheets -----
   const ballotSheet = () => {
@@ -182,7 +188,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     const ballots = ballotsOf(sheet.round, inChain) || {};
     const current = ballots[sheet.voter];
     return (
-      <Sheet open title={`Голос игрока #${sheet.voter}`} subtitle={`${nameOf(sheet.voter)} · ${circleTitle(circle.index)}. За кого он голосовал?`} onClose={close} footer={<Btn kind="soft" big block onClick={close}>Закрыть</Btn>}>
+      <Sheet open title={`Голос игрока #${sheet.voter}`} subtitle={`${nameOf(sheet.voter)} · ${circle.title}. За кого он голосовал?`} onClose={close} footer={<Btn kind="soft" big block onClick={close}>Закрыть</Btn>}>
         <div className="space-y-2 pb-2 pt-1">
           {view.nominated.map((seat) => (
             <button key={seat} type="button" aria-pressed={current === seat} onClick={() => { api.changeRound(sheet.round, (round) => withBallots(round, { ...ballots, [sheet.voter]: seat })); close(); }} className={cx('flex min-h-14 w-full items-center gap-3 rounded-2xl border px-3.5 text-left', current === seat ? 'border-white bg-white text-[#090a0d]' : 'border-white/10 bg-white/[0.05] text-white')}>
@@ -204,7 +210,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     const isRevote = !!view.round.is_revote;
     const tableVoters = tableVotersOf(circle.events);
     return (
-      <Sheet open title={votingTitle(inChain)} subtitle={circleTitle(circle.index)} onClose={close}>
+      <Sheet open title={votingTitle(inChain)} subtitle={circle.title} onClose={close}>
         <div className="space-y-5 pb-2 pt-1">
           {api.locked ? <LockedNote /> : null}
           <section className="space-y-2" aria-label="Кандидаты">
@@ -244,6 +250,16 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
                   );
                 })
               )}
+            </section>
+          ) : null}
+
+          {view.day > 0 && view.nominated.length > 0 ? (
+            <section className="space-y-2" aria-label="Оценка голосов"><Eyebrow>Оценка голосов в Эло</Eyebrow>
+              <button type="button" data-testid="voting-no-scoring" aria-pressed={view.round.no_scoring === true} disabled={api.locked}
+                onClick={() => api.setRoundNoScoring(index, view.round.no_scoring !== true)}
+                className={`min-h-11 w-full rounded-xl border px-3 text-left text-sm font-semibold ${view.round.no_scoring ? 'border-amber-300/60 bg-amber-300/15 text-amber-100' : 'border-white/10 bg-white/[0.04] text-white/70'} disabled:opacity-40`}>
+                {view.round.no_scoring ? '✓ Без оценок — попил: за голоса здесь ни плюсов, ни минусов' : 'Отметить «без оценок» (попил, сломанный попил)'}
+              </button>
             </section>
           ) : null}
 
@@ -299,6 +315,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           <section className="space-y-2" aria-label="Результат"><Eyebrow>Результат</Eyebrow>
             <Segmented label="Результат выстрела" disabled={api.locked} value={entry.result === 'killed' ? 'killed' : 'miss'} options={SHOT_OPTIONS} cols={2} onChange={(value) => api.changeShot(sheet.index, entry.target_seat, value as 'killed' | 'miss' | 'agreement_failed')} />
           </section>
+          <MissAssessmentEditor shot={entry} players={api.results} locked={api.locked} onChange={(reason, responsible) => api.assessMiss(sheet.index, reason, responsible)} />
           <Btn kind="danger" block disabled={api.locked} onClick={() => { api.deleteNight(sheet.index); close(); }}>Удалить эту ночь</Btn>
         </div>
       </Sheet>
@@ -308,9 +325,10 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const roundNo = circle.index + 1;
   const writeEvents = (updater: (list: LiveGameEvent[]) => LiveGameEvent[]) => api.setEvents(updater);
   const addEvent = (list: LiveGameEvent[], event: Partial<LiveGameEvent> & { kind: string }): LiveGameEvent[] => [...list, { seq: list.reduce((max, item) => Math.max(max, item.seq), 0) + 1, at: new Date().toISOString(), round: roundNo, phase: 'night', ...event } as LiveGameEvent];
-  const setCheck = (kind: 'don' | 'sheriff', target: number | null, result: string | null) => writeEvents((list) => {
+  // The answer is not chosen: it follows the real role of the checked player (owner, 2026-10-26).
+  const setCheck = (kind: 'don' | 'sheriff', target: number | null) => writeEvents((list) => {
     const kept = list.filter((event) => !(event.round === roundNo && event.kind === `${kind}_check`));
-    return target === null ? kept : addEvent(kept, { kind: `${kind}_check`, target, value: result });
+    return target === null ? kept : addEvent(kept, { kind: `${kind}_check`, target, value: checkAnswerOf(kind, roleOfSeat(target)) });
   });
 
   const checkSheet = () => {
@@ -318,18 +336,16 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     const kind = sheet.kind;
     const current = kind === 'don' ? checks.don : checks.sheriff;
     const holder = api.results.find((player) => player.role === kind) || null;
-    const options = kind === 'don' ? [{ value: 'sheriff', label: 'Шериф' }, { value: 'not_sheriff', label: 'Не Шериф' }] : [{ value: 'red', label: 'Красный', tone: 'bad' as const }, { value: 'black', label: 'Чёрный', tone: 'night' as const }];
-    const result = current?.result == null ? '' : kind === 'don' ? String(current.result) : /чёрн|черн|black/i.test(String(current.result)) ? 'black' : 'red';
     return (
-      <Sheet open title={kind === 'don' ? 'Проверка Дона' : 'Проверка Шерифа'} subtitle={`${circleTitle(circle.index)} · ночь${holder ? ` · #${holder.seat_number} ${holder.display_name}` : ''}`} onClose={close} footer={<Btn kind="soft" big block onClick={close}>Готово</Btn>}>
+      <Sheet open title={kind === 'don' ? 'Проверка Дона' : 'Проверка Шерифа'} subtitle={`${circle.title} · ночь${holder ? ` · #${holder.seat_number} ${holder.display_name}` : ''}`} onClose={close} footer={<Btn kind="soft" big block onClick={close}>Готово</Btn>}>
         <div className="space-y-5 pb-2 pt-1">
           {api.locked ? <LockedNote /> : null}
           <section className="space-y-2" aria-label="Кого проверил"><Eyebrow>Кого проверил</Eyebrow>
-            <SeatGrid label="Кого проверил" size={api.tableSize} disabled={api.locked} selected={current?.target ? [current.target] : []} hidden={holder ? [holder.seat_number] : []} tone="night" onToggle={(seat) => setCheck(kind, current?.target === seat ? null : seat, current?.target === seat ? null : (current?.result ?? (kind === 'don' ? 'not_sheriff' : 'red')) as string)} />
+            <SeatGrid label="Кого проверил" size={api.tableSize} disabled={api.locked} selected={current?.target ? [current.target] : []} hidden={holder ? [holder.seat_number] : []} tone="night" onToggle={(seat) => setCheck(kind, current?.target === seat ? null : seat)} />
           </section>
           {current?.target ? (
             <section className="space-y-2" aria-label="Ответ"><Eyebrow>Ответ</Eyebrow>
-              <Segmented label="Ответ проверки" disabled={api.locked} value={result} options={options} cols={2} onChange={(value) => setCheck(kind, current.target as number, value)} />
+              <p className="flex items-center gap-2 text-sm text-white/70"><CheckAnswerTag kind={kind} result={checkAnswerOf(kind, roleOfSeat(current.target)) ?? current.result} /><span>по роли игрока #{current.target}</span></p>
             </section>
           ) : <p className="text-[12px] text-white/45">Проверки не было. Выберите игрока, чтобы её записать.</p>}
         </div>
@@ -378,7 +394,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           const flagged = issues.some((issue) => issue.circle === item.index);
           return (
             <button key={item.index} type="button" role="tab" aria-selected={on} onClick={() => onCircle(item.index)} className={cx('relative flex min-h-11 shrink-0 items-center gap-1.5 rounded-2xl px-4 text-[14px] font-semibold', on ? 'bg-white text-[#090a0d]' : 'bg-white/[0.06] text-white/70')}>
-              {item.index === 0 ? 'Нулевой' : `Круг ${item.index}`}
+              {item.title}
               {reviewed[item.index] ? <Check className="h-4 w-4" aria-label="проверено" /> : null}
               {flagged && !on ? <span className="h-2 w-2 rounded-full bg-amber-300" aria-label="есть замечание" /> : null}
             </button>
@@ -417,8 +433,8 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}
         {true ? (
           <>
-            {nightRow('Проверка Дона', checks.don ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.don.target} {nameOf(checks.don.target || 0)}</span><CheckAnswerTag kind="don" result={checks.don.result} /></span> : checks.donStep ? (donHere ? 'не отмечена' : 'Дон уже вышел') : 'не было', checks.don ? 'ok' : checks.donStep && circle.index >= 1 && donHere ? 'warn' : 'quiet', () => setSheet({ type: 'check', kind: 'don' }))}
-            {nightRow('Проверка Шерифа', checks.sheriff ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.sheriff.target} {nameOf(checks.sheriff.target || 0)}</span><CheckAnswerTag kind="sheriff" result={checks.sheriff.result} /></span> : checks.sheriffStep ? (sheriffHere ? 'не отмечена' : 'Шериф уже вышел') : 'не было', checks.sheriff ? 'ok' : checks.sheriffStep && circle.index >= 1 && sheriffHere ? 'warn' : 'quiet', () => setSheet({ type: 'check', kind: 'sheriff' }))}
+            {nightRow('Проверка Дона', checks.don ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.don.target} {nameOf(checks.don.target || 0)}</span><CheckAnswerTag kind="don" result={checkAnswerOf('don', roleOfSeat(checks.don.target)) ?? checks.don.result} />{!donHere ? <span className="text-[12px] text-amber-100">Дона уже нет за столом</span> : null}</span> : !donHere ? 'Дона нет за столом' : sheriffFound ? 'Шериф уже найден' : 'не было', checks.don && !donHere ? 'warn' : checks.don ? 'ok' : 'quiet', () => setSheet({ type: 'check', kind: 'don' }))}
+            {nightRow('Проверка Шерифа', checks.sheriff ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.sheriff.target} {nameOf(checks.sheriff.target || 0)}</span><CheckAnswerTag kind="sheriff" result={checkAnswerOf('sheriff', roleOfSeat(checks.sheriff.target)) ?? checks.sheriff.result} />{!sheriffHere ? <span className="text-[12px] text-amber-100">Шерифа уже нет за столом</span> : null}</span> : !sheriffHere ? 'Шерифа нет за столом' : checks.sheriffStep ? 'не отмечена' : 'не было', checks.sheriff && !sheriffHere ? 'warn' : checks.sheriff ? 'ok' : checks.sheriffStep && circle.index >= 1 ? 'warn' : 'quiet', () => setSheet({ type: 'check', kind: 'sheriff' }))}
           </>
         ) : null}
         {circle.index === 0 ? nightRow('Первый убитый и лучший ход', firstKilled ? <span className="flex flex-wrap items-center gap-2"><span>#{firstKilled.seat_number} {firstKilled.display_name}</span><FirstKilledTag />{bestMoveOf('first_killed').length ? <BestMoveTag /> : <InfoTag tone="attention">Ход не указан</InfoTag>}{bestMoveOf('first_killed').length ? <span className="text-[13px] text-white/60">{bestMoveOf('first_killed').map((seat) => `#${seat}`).join(' ')}</span> : null}</span> : 'не выбран', firstKilled ? 'ok' : 'quiet', () => setSheet({ type: 'first-killed' })) : null}
@@ -428,7 +444,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         <Card className="space-y-3">
           {exits.length ? (
             <div><Eyebrow>Вышли в этом круге</Eyebrow>
-              <ul className="mt-2 flex flex-wrap gap-2">{exits.map((item) => <li key={item.seat} className="flex items-center gap-2 rounded-2xl bg-black/25 py-1.5 pl-1.5 pr-3 text-[13px]"><SeatBadge seat={item.seat} team={teamOf(item.seat)} size="sm" dim /><span className="flex flex-wrap items-center gap-1.5"><span className="font-semibold">{nameOf(item.seat)}</span>{['killed', 'voted_day', 'voted_zero_round', 'removed'].includes(item.reason) ? <ExitTag exit={item.reason} /> : <InfoTag>Вышел</InfoTag>}</span></li>)}</ul>
+              <ul className="mt-2 space-y-1">{exits.map((item) => <li key={item.seat} className="text-[14px] font-semibold leading-6">{exitLine(item.reason, `№${item.seat} ${nameOf(item.seat)}`)}</li>)}</ul>
             </div>
           ) : null}
           {fouls.length ? (
@@ -451,3 +467,4 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     </div>
   );
 };
+

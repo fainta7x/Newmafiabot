@@ -88,6 +88,18 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     });
   };
 
+  // «Без оценок» is a scoring tag only: unlike handleRoundChange it keeps the confirmed result, revotes and exits.
+  const handleRoundNoScoring = (index: number, noScoring: boolean) => {
+    setProtocol((prev) => {
+      const votes = [...(prev.votes || [])] as any[];
+      if (!votes[index]) return prev;
+      const round = { ...votes[index] };
+      if (noScoring) round.no_scoring = true; else delete round.no_scoring;
+      votes[index] = round;
+      return { ...prev, votes };
+    });
+  };
+
   const handleConfirmOutcome = (index: number, calculatedOutcome: string, winners: number[]) => {
     setProtocol((prev) => {
       const votes = [...(prev.votes || [])] as any[];
@@ -209,7 +221,8 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
   const handleShotChange = (index: number, targetSeat: number, result: 'killed' | 'miss' | 'agreement_failed') => {
     setProtocol((prev) => {
       const shots = [...(prev.shots || [])];
-      shots[index] = { ...shots[index], target_seat: targetSeat, result };
+      shots[index] = { ...shots[index], target_seat: targetSeat, result,
+        ...(result === 'killed' ? { miss_reason: null, miss_responsible_seats: [] } : {}) };
       // The replay and the analysis read the shot from the chronology: keep its «выстрел» event of that night in step.
       const night = Number(shots[index].night_number) || index + 1;
       const events = Array.isArray(prev.events) && prev.events.length
@@ -248,7 +261,7 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     setWinner: (winner: 'red' | 'black' | null) => setProtocol((prev) => ({ ...prev, winner_team: winner })),
     setJudgeNotes: (notes: string) => setProtocol((prev) => ({ ...prev, judge_notes: notes })),
     setReplacement: (replacement: any | null) => setProtocol((prev) => ({ ...prev, replacement })),
-    changeRound: handleRoundChange, confirmOutcome: handleConfirmOutcome, resetOutcome: handleResetOutcome,
+    changeRound: handleRoundChange, setRoundNoScoring: handleRoundNoScoring, confirmOutcome: handleConfirmOutcome, resetOutcome: handleResetOutcome,
     addVoting: handleAddVoting, deleteVoting: handleDeleteVoting,
     setEvents: (updater: (events: any[]) => any[]) => setProtocol((prev) => ({ ...prev, events: updater(Array.isArray(prev.events) ? prev.events : []) })),
     setZeroBreakSeat: (seat: number | null) => setProtocol((prev) => {
@@ -263,7 +276,12 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     changeZeroRoundVoted: (participantId: string | null) => { if (!guards?.zeroRoundVoted?.(participantId)) handleZeroRoundVotedChange(participantId); },
     toggleBestMoveSeat,
     addNight: handleAddNight, deleteNight: handleDeleteNight, changeShot: handleShotChange,
+    assessMiss: (index: number, reason: 'error' | 'intentional' | null, responsible: number[]) => setProtocol((prev) => ({
+      ...prev, shots: (prev.shots || []).map((shot, i) => i === index && shot.result !== 'killed'
+        ? { ...shot, miss_reason: reason, miss_responsible_seats: reason === 'error' ? [...responsible] : [] } : shot),
+    })),
   } satisfies Partial<ProtocolApi>;
 
   return { members, updatePlayerResult, revertChange, applyFirstKilled: handleFirstKilledChange, applyZeroRoundVoted: handleZeroRoundVotedChange };
 };
+

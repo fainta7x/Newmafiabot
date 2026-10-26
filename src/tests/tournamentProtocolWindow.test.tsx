@@ -35,11 +35,11 @@ beforeEach(() => { localStorage.clear(); vi.spyOn(api, 'getTournament').mockReje
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 describe('tournament protocol in the common protocol window', () => {
-  it('opens the same four places as a club game, plus the judge points', async () => {
+  it('opens the same two places as a club game, plus the judge points', async () => {
     load();
     open();
     await ready();
-    for (const name of ['Обзор', 'Ход игры', 'Игроки', 'Итог', 'Баллы']) expect(screen.getAllByRole('button', { name }).length).toBeGreaterThan(0);
+    for (const name of ['Протокол', 'Ход игры', 'Баллы']) expect(screen.getAllByRole('button', { name }).length).toBeGreaterThan(0);
     expect(screen.getByText(/Судья: Судья/)).toBeTruthy();
   });
 
@@ -100,7 +100,7 @@ describe('tournament protocol in the common protocol window', () => {
     load({ winner_team: null }, results({ 1: { role: null } }));
     open();
     await ready();
-    place('Игроки');
+    place('Протокол');
     fireEvent.click(screen.getAllByRole('button', { name: /Игрок 1 Player 1, открыть/ })[0]);
     fireEvent.click((await screen.findAllByText('ППК')).find((node) => node.tagName === 'BUTTON')!);
     expect(await screen.findByText(/Сначала назначьте роль участнику/i)).toBeTruthy();
@@ -109,7 +109,7 @@ describe('tournament protocol in the common protocol window', () => {
     load({}, results({ 1: { exit_type: 'removed', removal_reason: 'direct', role: 'citizen' } }));
     open();
     await ready();
-    place('Игроки');
+    place('Протокол');
     fireEvent.click(screen.getAllByRole('button', { name: /Игрок 1 Player 1, открыть/ })[0]);
     const ppk = (await screen.findAllByText('ППК')).find((node) => node.tagName === 'BUTTON') as HTMLButtonElement;
     expect(ppk.disabled).toBe(false);

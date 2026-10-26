@@ -309,3 +309,7 @@ Use current lockfile/tree. Confirm package is actually present. Never use `npm a
 4. Reproduce smallest focused test/request.
 5. Use `project:affected` after edits.
 6. Use full CI only when change is ready.
+
+## Protocol window hangs on «Сохранение», loads slowly (2026-10-26)
+
+Symptom: on a phone the protocol window loads for a long time and an edit hangs on saving. Cause: `/api/games` and every `PUT /api/games/:id/evening-protocol` carried the recorded broadcast frames (`protocol.replay_frames`, ~1.4 MB a game, twice per row with `protocol_text`): ~3 MB per autosave, ~23 MB per list; nginx buffered them to disk and the event loop stalled 1–2.5 s. Fix: `normalizeGame` in `gamesRoutes.ts` / `gamesRoutesBase.ts` leaves out the frames and the raw `protocol_text` of club games; a save without frames keeps the stored ones (`clubGameProtocolService`). The replay reads frames from the database (`playerReplayRoutes.ts`). Test `gamesReplayFramesPayload.integration.test.ts`.

@@ -14,8 +14,13 @@ export const countTarget = (counts: TargetCounts, role: StatRole | null | undefi
 export const isCriticalCircle = (red: number, black: number) => black > 0 && red > black && red - black <= 2;
 
 export interface ActionVoting {
+  seq?: number;
   round: number; votes: Map<number, number>; nominations: Array<{ seat: number; by: number | null }>;
   eliminated: number | null; alive: Set<number> | null; critical: boolean | null;
+  /** This voting phase's own result («single_eliminated», «tie_revote», «no_elimination», …), null without a result marker. */
+  outcome: string | null;
+  /** The voting's number within its day (1, 2 for a revote, …), as in the protocol's votes of that day. */
+  number?: number;
 }
 export interface ActionCheck { kind: 'sheriff' | 'don'; target: number; seq: number; alive: Set<number> | null }
 
@@ -34,16 +39,23 @@ export function gameActionFacts(game: StatGame, memo?: ActionFactsMemo): GameAct
 function computeGameActionFacts(game: StatGame) {
   const events = [...game.events].sort((a, b) => a.seq - b.seq);
   const uniqueSeats = new Set(game.seats.map(s => s.seat));
-  const full = events[0]?.kind === 'game_start' && ['setup', 'zero_night'].includes(events[0].phase)
-    && events.some(e => e.kind === 'game_end' && e.value === game.winner) && !events.some(e => e.kind === 'restored') && game.seats.every(s => s.role && Number.isInteger(s.seat) && s.seat > 0)
+  let full = events[0]?.kind === 'game_start' && ['setup', 'zero_night'].includes(events[0].phase)
+    && events.some(e => e.kind === 'game_end' && e.value === game.winner) && game.seats.every(s => s.role && Number.isInteger(s.seat) && s.seat > 0)
     && uniqueSeats.size === game.seats.length;
   const roleOf = (seat: number) => game.seats.find(s => s.seat === seat)?.role;
   const alive = new Set(uniqueSeats);
   const atSeq = new Map<number, Set<number>>();
   for (const event of events) {
     atSeq.set(event.seq, new Set(alive));
-    if (event.kind === 'exit' && event.seat) alive.delete(event.seat);
-    if (event.kind === 'restored' && event.seat) alive.add(event.seat);
+    if (event.kind === 'exit' && event.seat) {
+      if (!alive.has(event.seat)) full = false;
+      alive.delete(event.seat);
+    }
+    if (event.kind === 'restored' && event.seat) {
+      // A recorded undo of a known exit preserves chronology; an unexplained restoration does not.
+      if (!uniqueSeats.has(event.seat) || alive.has(event.seat)) full = false;
+      alive.add(event.seat);
+    }
   }
   const circles = buildGameAnalysis(events).circles;
   const votings: ActionVoting[] = [];
@@ -64,13 +76,15 @@ function computeGameActionFacts(game: StatGame) {
       if (!voting.votes.length) continue;
       const votes = new Map<number, number>();
       for (const ballot of voting.votes) for (const voter of ballot.voters) votes.set(voter, ballot.candidate);
-      const result = events.find(e => e.round === circle.round && e.kind === 'vote_round_result'
+      // The judge can correct a completed voting. Match buildGameAnalysis: its latest result wins.
+      // An earlier single elimination may have been restored and replaced by a tied voting.
+      const result = [...events].reverse().find(e => e.round === circle.round && e.kind === 'vote_round_result'
         && String(e.value).startsWith(`${voting.number}:`));
       const state = full && result ? atSeq.get(result.seq) || null : null;
       const reds = state ? [...state].filter(s => redRole(roleOf(s))).length : 0;
       const blacks = state ? [...state].filter(s => blackRole(roleOf(s))).length : 0;
-      votings.push({ round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
-        critical: state ? isCriticalCircle(reds, blacks) : null });
+      votings.push({ seq: result?.seq, round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
+        critical: state ? isCriticalCircle(reds, blacks) : null, outcome: result ? String(result.value).split(':')[1] || null : null, number: voting.number });
     }
   }
   // A selection is confirmed only after leaving the corresponding night substep. Re-selections replace it.
@@ -124,3 +138,4 @@ export function playerActionMetrics(games: StatGame[], playerId: string, memo?: 
   }
   return metrics;
 }
+

@@ -178,7 +178,7 @@ export const canonicalizeClubGameSave = (
     result.ci_points = normalizeCi(result.ci_points, eligible, ciCeiling);
   }
   const consistencyError = validatePlayerResults(playerResults, playerResults, firstKilledParticipantId, tableSize)
-    || validateShots(incomingProtocol?.shots, tableSize)
+    || validateShots(incomingProtocol?.shots, tableSize, playerResults, status === 'completed')
     || (status === 'completed' ? validateSharedBestMoves(incomingProtocol?.best_moves || [], firstKilledId, zeroRoundId, [...participantIds], playerResults, tableSize)
       || validateFirstKilled(firstKilledId, playerResults, playerResults, incomingProtocol?.shots) : null);
   if (consistencyError) throw new Error(consistencyError);
@@ -194,3 +194,4 @@ export const canonicalizeClubGameSave = (
   const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, zero_round_rule: zeroRoundRule, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, replay_frames, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
   return { protocol, playerResults };
 };
+

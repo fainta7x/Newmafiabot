@@ -25,8 +25,13 @@ const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
 const normalizeGame = (row: any) => {
   const clubProtocol = safeJsonParse<any>(row.protocol_text, null);
   const isClubProtocol = Boolean(clubProtocol && clubProtocol.version === 1 && clubProtocol.kind === 'club_evening_protocol');
+  // The recorded broadcast frames are ~97% of a protocol (1.4 MB a game) and only the replay reads them, from the database.
+  // Sending them with every list and every autosave made the protocol window hang on a phone (2026-10-26): leave them out
+  // here, and the raw text that duplicates club_protocol too. A save without frames keeps the stored ones.
+  if (isClubProtocol && clubProtocol.protocol) delete clubProtocol.protocol.replay_frames;
+  const { protocol_text: _protocolText, ...rest } = row;
   return {
-    ...row,
+    ...(isClubProtocol ? rest : row),
     slots: safeJsonParse(row.slots_json, []),
     table_name: row.table_name ?? null,
     club_protocol: isClubProtocol ? clubProtocol : null,

@@ -1,3 +1,5 @@
+import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
+import { missedShotNights, MISSED_SHOT_ELO } from '../../lib/eloMissPenalty.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sqliteReadVersion } from './sqliteReadVersion.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
@@ -6,6 +8,10 @@ import {
   currentEloInputsGeneration,
   DEFAULT_ELO,
   clubPersonalGamePoints,
+  clubDisciplinaryPenaltyPoints,
+  clubEloDisciplinePoints,
+  clubContributionByPlayer,
+  normalizeContributions,
   sortTime,
   validatePreparedEvent,
   type CanonicalEloGamePlayer,
@@ -70,7 +76,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     const standings = Array.isArray(standingsData?.standings) ? standingsData.standings : [];
     const games = await db.all<any>(`
       SELECT g.id, g.game_number, COALESCE(p.winner_team, g.winner_team) AS winner_team,
-             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at
+             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at, p.shots_json
         FROM tournament_games g
         JOIN tournaments t ON t.id = g.tournament_id
         JOIN tournament_game_protocols p ON p.game_id = g.id
@@ -99,6 +105,8 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
           playerId,
           team,
           canonicalPersonalGamePoints: Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0),
+          disciplinaryPenaltyPoints: Number(canonicalGame.disciplinary_penalty_points || 0),
+          contribution: { role: String(canonicalGame.role), raw: team === 'black' ? -missedShotNights({ winner_team: winner, shots: safeJsonParse<any[]>(game.shots_json, []) }, Number(canonicalGame.seat_number)).length * MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT : 0 },
         });
       }
 
@@ -147,6 +155,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       guests[team] += 1;
     }
+    const contributions = clubContributionByPlayer(payload, results);
     const eventPlayers: PreparedPlayer[] = results.filter((result: any) => !isGuestSeat(result)).map((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       if (!playerId || !knownPlayerIds.has(playerId)) {
@@ -158,6 +167,9 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
         playerId,
         team,
         canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
+        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result),
+        eloDisciplinePoints: clubEloDisciplinePoints(payload, result),
+        contribution: contributions.get(playerId),
       };
     });
 
@@ -173,6 +185,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     events.push(event);
   }
 
+  normalizeContributions(events);
   events.sort((a, b) =>
     sortTime(a.sortAt) - sortTime(b.sortAt)
     || a.sortOrder - b.sortOrder
@@ -275,3 +288,5 @@ async function replayPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHis
 
   return timeline;
 }
+
+

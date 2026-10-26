@@ -1,5 +1,33 @@
 # Audit log
 
+## 2026-10-26 — missed-shot price raised from 2 to 6 Elo
+
+Owner flags the previous −2 as too small for an often decisive black error. Changed MISSED_SHOT_ELO to 6 and removed the independent hard-coded UI price; the editor imports the scoring constant. Existing attribution, win/loss gating and caps remain. Updated history/rebuild parity expectation (one miss: −6 contribution, −41 equal-team black loss), added the raw −12 / capped −10 two-miss regression, and ran all 13 focused native test bodies successfully. Previous exact-head e9e96cfb is fully green including mobile. Exact-head CI for this adjustment pending; production untouched.
+
+
+## 2026-10-26 — new Elo rules: missed-shot attribution, streaks, mistaken ordinary wills
+
+Scope is the owner-approved additions to #1040. Source trace: shared protocol shot editor → canonical shots JSON in club/tournament save → canonical Elo/history; own club decisions → contribution → existing caps. Missing intent/culprit in old shots must not become a penalty. Confirmed red sheriff checks are neutral. A wrong colour in a non-PU will suppresses its correct-colour awards, while each error and negative-series adjustment remain. Simultaneous marks cannot depend on array order; use the batch mean multiplier. Explicit PU retains the exception.
+
+Implemented: shared mobile editor and draft/complete validation, persistence/review text, per-player/night −2 on black loss, all-culprit option, base/series/miss explanations, tournament miss-only replay in both loaders, v3 migration. Focused native test bodies cover attribution/win gating, tactical/legacy neutrality, invalid culprit, PU gate, sheriff-label errors, permutation invariance, preserving other positive actions, neutral red checks, mixed source chronology, sign reset/cap and partial-history conservatism. Two focused mobile flows cover club/tournament selection, persisted fields, tactical clearing and 44px/no-overflow evidence. Main CI passed for 2a94f2c0. Mobile preview exposed two harness defects: the new exact tab label ignored its warning badge; the fake save echoed input-only result fields and dropped canonical role/name/seat metadata, unlike the real server serializer. Corrected the tab selector and enriched mock save responses from the canonical synthetic players, preserving the assertions and production behavior. New mobile exact-head check pending. No production mutation.
+
+
+## 2026-10-26 — gameplay audit of real games 19–21 (PR #1040)
+
+Owner asks whether actual exits, votes, wills and game results justify the awarded Elo. Diagnosis uses previously read public production protocols (read-only). Before the fix: `gameActionFacts.ts` looks up the first result marker for a voting; game 20 has a corrected result (single elimination → restored player → tied voting → final revote). The first marker incorrectly makes the tied phase eligible for contribution. Reproduction: compare the same phase's latest `buildGameAnalysis` outcome with `ActionVoting.outcome`; expected tie_revote, observed single_eliminated. Acceptance: synthetic corrected-result regressions plus unchanged games 19/21 and removal of spurious game-20 personal awards (two +2 and two −1). Status: FIXED IN CODE; both corrected-result directions pass native calculator assertions; exact-head CI pending.
+
+Second confirmed defect before its fix: any `restored` event marks the entire log incomplete, so game20 loses all critical-circle detection despite an explicit exit → restore → final exit sequence. After the first final red elimination there are five reds/three blacks; the next voting must apply the existing critical penalty. Fix scope: allow only internally consistent known-seat exit/restoration transitions to retain a complete chronology; invalid restorations remain untrusted. Regression: valid corrected day preserves the later 5:3 state; restoring an already-alive seat stays incomplete. Separate data-quality finding OPEN: game20 event log says seat3 was voted out, while its final player-result snapshot says alive; no production data correction is authorized or inferred.
+
+Product review, not automatic rule changes: self-votes currently count as wrong red reads (Jin game19, Bogdanchik game20); PPK team outcomes do not establish that all winners played well; strong-player protection deliberately rewards circumstances, so highest gain is not MVP; a correct deciding vote and a discipline deduction are independent. These observations must be explained without inferring missing speeches or changing owner-approved weights.
+
+
+## 2026-10-25 — owner-approved Elo balance implementation (PR #1040; release held)
+
+Owner authorizes the agreed balance changes and requests visual explanations for all players in the last three real games. Personal points now cost 10 Elo, automatic cap ±10 and combined personal cap ±15; discipline remains 40 outside those caps. Weak-player losses no longer get amplified; strong-player protection and positive expected drift remain. No standalone strong-table bonus. Explanation/history/rebuild/image breakdowns share the new terms; migration key revised for a one-time full rebuild on release. Regression coverage includes personal caps, preserved discipline, weak-player loss and history/rebuild parity. Local pure-calculator checks pass; exact-head CI still pending at commit authoring.
+
+Read-only public data contains games 19–21 (23.10), but not career seeds or private tournament personal scores. The private review report compares the old and new PR rules from a common explicitly declared public Elo anchor; it must not be described as exact full-career recalculation. Real player exports remain outside the repository. Production was not changed. #1041 is closed and consolidated into #1040; no parallel writer.
+
+
 ### 2026-10-18 — hidden or covered controls in the Live Game (owner request; tool `e2e/tools/live-game-hidden-controls.mjs`)
 
 Scope: every phase of the engine (zero night, speeches idle/active/done, voting announcement/collecting/zero round, round result tie/single, revote speeches, table decision, voting farewell, night intro/shooting/Don/Sheriff/morning/best move/farewell/death protocol) at 390×844 and 1366×768; each button/select/input is tested for display:none, zero size, opacity 0, off screen, clipping and being covered.
@@ -1849,3 +1877,111 @@ Facts: `LiveGameEngine.tsx` 1981 lines plus 14 files in `LiveGameEngine/` (7500 
 | E4 | The organizer may cancel a running evening as well (no games yet, not settled) | `cancelEveningByOrganizer` accepts `published` and `active` (`isOpenEvening`); test added; the refusal for an evening with games stays |
 | F1 | Debt rule: show the real disagreeing cases first | **read-only production check done (2026-10-24, organizer login, GET only):** 4 closed evenings, 54 attended participants (32 paid, 17 waived, 5 unpaid). **No contradicting case today:** 0 with status «paid» and paid < due, 0 overpaid; the 5 unpaid ones owe the full amount and appear in every one of the four definitions. The four rules therefore agree on today's data and differ only on a contradiction or an old evening; the rule can be chosen for the future without changing any number now |
 | D7, L2 | Guest names and exit wording | pending — the owner asked for examples |
+
+## Club Elo: size of a game and the first-killed compensation (2026-10-24, owner question)
+
+Scope: casual club games only (no rating, no tournaments). Method: read-only production data (19 club games via the organizer login), replay of `calculateCanonicalEloGame` with the real inputs of evening 2026-10-23 (starting ratings recovered from the stored Elo minus that evening's deltas). Nothing was written.
+
+- [open, owner decision] **The game prior is red 30 % / black 70 %, the club's own record is red 9 of 19 (47 %).** A red win at an equal table is +35 / black −35; a black win is +15 / red −15. With a real red share of ~47 % a black player loses on average ≈ −8 Elo per game and a red gains ≈ +8, and one game adds net ≈ +140 (red win) or −60 (black win) to the club. Small sample (19 games); the 30 % figure was set by the owner on 2026-10-01 (BUSINESS_RULES «Elo / rating principles»).
+- [open, owner decision] **First-killed best-move compensation is large next to the team result.** Best-move points (0.1 / 0.3 / 0.6 for 1 / 2 / 3 guessed blacks) are ×40 Elo = +4 / +12 / +24 and are added whatever the result. Evening 2026-10-23, game 17 (black won): Богданчик, first killed, 2 blacks guessed: −15.7 team result +12.0 = −3.7, while the other reds lost −14…−17. Game 20 (red won): first-killed Дина +36 +4 = +40. `ci_points` were 0 in all 19 games, so only the best move acts today.
+- [info] Per-player carry modifier (`carryModifier`) is small: 0.88…1.08 on the team result; it is not what separates players of one team.
+- [info] Discipline is large in the same units: a technical foul or removal costs 0.3…1.0 point = −12…−40 Elo (game 20 mafia Денди −75.6, game 21 Серый −27.8).
+- Status: nothing changed in code; waits for the owner's choice (see PROJECT_STATE).
+
+
+## GPT takeover of Elo PR #1040 — owner, 2026-10-25
+
+Owner authorizes GPT to continue the unified Elo change after Claude's input is finished. Starting head d45bfb23; coordination comment is on #1040. Retain the owner's newer obvious-black rule. Scope: implement the agreed upper red probability limit, fix ELO-A1/A2/A3 from the independent audit, carry forward audit documentation, and discuss unresolved weights before changing them. No merge/deploy or automatic production rebuild is authorized while the owner discussion remains open.
+
+Before implementation: ELO-A1 open — black receives will rewards after leaving; ELO-A2 open — own red mark yields +8; ELO-A3 open — contradictory colour marks accepted and scored inconsistently. Acceptance: no post-exit or invalid-mark award; genuine earlier wills retain their signed points; red expectation never exceeds 0.60 and the equal prior remains 0.30; existing protection and obvious-black logic remain.
+
+
+The following independent audit records the pre-implementation findings; the implementation status below supersedes its open code findings.
+
+
+## Independent Elo assessment — owner request, 2026-10-25 (GPT)
+
+Scope: analysis only of main `326c7dc900fa4e29b5f95db9d295d9d60a6c95de` and PR #1040 head `1083518b10105f23efa9c74929b9dd5b17ba9ef1`, then reconciled with the concurrently pushed head `856c773117082cb51277ac5359ea5aca85d880a2`. No formula, player rating, production data or Claude branch was changed. The PR body is stale: current code does **not** subtract the role mean and does **not** score votes against black players.
+
+Evidence: reviewed rating, contribution, history, migration, protocol validation and focused tests. Executed isolated Node 24 probes against the fetched pure calculation and contribution functions plus the actual shared validator; these were synthetic examples, not a production backtest or the full Vitest suite. All final probe assertions passed, including a rerun against the two pure modules changed by `856c7731`. CI, CodeQL, Gitleaks and UI preview passed for `1083518b`; at inspection for `856c7731`, Gitleaks passed and CI/CodeQL/UI preview were running. /api/health returned 200; ORGANIZER_PASSWORD was absent, so authenticated production game histories were not inspected.
+
+### Confirmed calculation/validation defects (open)
+
+- **ELO-A1** — `src/lib/playerContribution.ts:73`: black contribution reads every red colour protocol without checking that the black was still alive when its author died. Reproduction: black seat 8 voted out in round 2; red seat 1 killed in round 3 names only red seat 2; black 8 still gets +4 Elo for not being named. Later testimony should not silently become evidence of that black's successful concealment while alive.
+- **ELO-A2** — `src/lib/protocolConsistency.ts:280`, `src/lib/playerContribution.ts:59`: a killed red may mark his own seat red; shared validation returns null and contribution awards +8 Elo. No inference of actual player abuse.
+- **ELO-A3** — same validator and `playerContribution.ts:74`: the same target may occur in both red and black lists (duplicates checked only inside one entry). Shared validation accepts it. The red author is scored on both marks, whereas the black target is awarded +8 through the red-first branch and his black mark is ignored. Contradictory evidence has no canonical meaning.
+- **ELO-A4 (fixed concurrently in #1040 at `856c7731`)** — initial voting phases that lead to a revote previously contributed to the penalty. The new contribution filter keeps only `single_eliminated` outcomes. Repeated synthetic example now costs -4 instead of -8; this is no longer an open finding. Individual red-target votes on separate eligible days may still be penalized separately as documented.
+
+### Balance/model findings (open for product review, not approved rule changes)
+
+- **ELO-M1 — volume and inflation:** the documented approximate contribution mean is +7 Elo/player/game, in addition to existing positive personal points. The contribution alone sums to +700 after 100 games at that fixed average, before all other rating effects. This is arithmetic, not a forecast of a particular player's final Elo. Uniform cohort inflation cancels within rating differences; unequal attendance, new entrants and returning players do not share that cancellation. Existing acceptance of inflation is preserved, but its effect on a skill-ranking interpretation needs explicit acknowledgement.
+- **ELO-M2 — protection adds drift:** `calculateCanonicalEloGame` rewards the strong player more on wins and less on losses. At own Elo 1300 and everyone else 1000, the red team average gap is only 42.86, hence p(red)=0.30; strong red win +45.5, loss -9; weighted mean +7.35/game even if actual outcomes exactly follow the model. Strong black at 1300 with everyone else 1000 analogously has p(black)=0.70, +19.5/-21 and the same +7.35 expectation. The desired protection is preserved; these modifiers are not statistically neutral.
+- **ELO-M3 — sharp expectation curve:** red-minus-black team average gaps 0/150/200/250/300/350 produce red expectations 30.0/30.0/43.25/57.54/81.08/93.13 percent; -350 produces 1.34 percent. A gap of 350 and 1000 have identical expectations due to the cap. The function is continuous but has a flat zone and changes slope at the thresholds. The qualitative owner wording does not itself validate these probabilities.
+- **ELO-M4 — contribution can dominate:** at equal strength, red win/loss is +35/-15 and black win/loss +15/-35. The contribution cap is +/-35 **for that component only**, not total Elo; with +35 contribution a losing red receives +20 before personal points, a losing black 0, a winning black +50 and a winning red +70. This may be intended but makes contribution a major rating driver.
+- **ELO-M5 — unmentioned is missing evidence:** a red will containing just an unrelated correct red mark gives each unmentioned black +4; an empty will gives 0. At 3 such wills each black gets +12 without being named by anybody. Completeness of the judge's record and length of the game therefore influence the black rating. Non-mention is weaker evidence than explicitly calling a black red.
+- **ELO-M6 — action is not necessarily causal contribution:** a vote for a checked black is scored like an independently found black; a tactical vote for a red can be penalized. Vote, will, sheriff-check and manual judge/best-move bonuses may reward the same underlying read more than once. These are model limitations, not proof that a particular tactical action was wrong.
+- **ELO-M7 — sample size and opportunity:** BUSINESS_RULES cites only 19 club games for approximate role means (+6 citizen, +9 sheriff, +7 mafia, +6 don). Those are descriptions of one small, correlated sample, not established equality of opportunity or predictive calibration. Survival time, early death, game length, role mix and record completeness must be separated before selecting replacement coefficients.
+- **ELO-M8 — 30/70:** retain this owner-approved prior during the audit. Its accuracy cannot be concluded from code. If actual equal-strength red results differ, systematic drift can arise. Team deltas need not sum to zero on every game: at an equal table total is +140 on a red win and -60 on a black win, whose mean is zero if p(red)=0.30. Non-zero per-game sum alone is not a defect.
+
+### Rebuild assessment and next validation
+
+The chronological replay from seeds, common calculation/contribution helpers, deterministic sorting and transactional final rating writes are sound choices. Correcting an early game changes later ratings and expectations for other participants; a full downstream rebuild is therefore expected. Startup migration automatically rebuilds all ratings when deployed; this audit does not authorize merging/deploying #1040.
+
+The rebuild and history still duplicate event-loading code. Rebuild excludes archived/merged players while history loads all players, so archival/merge scenarios deserve an integration regression. This is a code-level risk, not a reproduced production failure.
+
+Recommended order for a separately approved implementation: fix invalid/contradictory evidence and time eligibility; agree how missing evidence and revotes are interpreted; compare old/new formula chronologically without writes on real histories, then assess prediction error on later held-out games, role/opportunity differences, attendance bias and coefficient sensitivity. Do not select a new cap/weight merely to make known players' places look plausible. Preserve the owner's decision against role-average subtraction and against introducing novice calibration unless explicitly reviewed again.
+
+Primary methodological reference: Microsoft Research, TrueSkill 2 (2018), https://www.microsoft.com/en-us/research/wp-content/uploads/2018/03/trueskill2.pdf — individual actions can improve a skill model, but require assumptions and predictive evaluation. No replacement of the current model with TrueSkill is proposed.
+
+
+### Elo-M3 owner decision — probability upper limit clarified, 2026-10-25
+
+BUSINESS_RULES now records the owner's expected range: the extreme strongest-red/weakest-black lineup should give reds only about 55–60%, intended upper limit 60%. Normal observed club balance described as black 60–70% / red 30–40%; existing equal prior 30/70 remains. The audited #1040 head `d45bfb23f6675e5a39bd0f7172a92fdc84a67a26` still uses `(0.30/0.70)*10^(levelGap/200)`: an average gap +300 becomes effective +200, multiplies red odds by 10, and returns 81.08%; +350 becomes effective +300, multiplies odds by 31.62 and returns 93.13%. Arithmetic independently rerun in Node. Status: domain requirement decided; bounded-curve implementation pending. No coefficient, production rating or migration changed. The precise curve and red lower bound remain undecided; do not assume a symmetric 40–60% interval.
+
+
+### Implementation of the agreed corrections — 2026-10-25
+
+ELO-A1/A2/A3: fixed in code, pending exact-head CI. Black will contribution uses actual exit chronology or legacy exit order; unknown out-player eligibility is not fabricated. Own colour marks and opposite colours are rejected by the shared validator and ignored defensively in historical scoring. Compatible red/sheriff labels remain valid. ELO-M3: the stronger-red branch now smoothly saturates at about 57.15% (hard requirement <=60%); equal prior, negative-gap branch and carry modifiers preserved. Existing obvious-black logic is retained. Eleven isolated Node regression cases passed; new Vitest regressions added for CI; full local typecheck/Vitest were not available in the partial source environment. Production untouched, no merge/deploy. Outstanding product questions: non-mention awards, carry-modifier drift, and the opposite extreme probability bound. Owner takeover and PR #1041 consolidation are documented in PROJECT_STATE and the PR discussion.
+
+
+### Owner answers and bounded opposite expectation — 2026-10-25
+
+The owner confirmed keeping the non-mention award for a still-living black and keeping positive carry-modifier drift as an intentional reward for weak teammates. These two coefficients/behaviours are unchanged. The opposite extreme is now approved at about 90% black wins; expectedRedTeamResult smoothly reaches a 10% red floor (90% black ceiling) at the largest negative effective gap. The stronger-red curve and equal 30/70 prior stay unchanged. Regression coverage now includes both bounds, monotonicity and the explicitly accepted +7.35 carry-only expectation in the documented strong-player example.
+
+CI triage for 47f0f899: all five Vitest shards, CodeQL, Gitleaks, UI preview and the combined container passed. Web checks failed at TypeScript: playerContribution.ts:98–99 callbacks inherited any from the raw colour array, leading to Set<unknown> in later loops. Replaced the raw array's inferred any with ColorProtocolEntry[] whose fields are unknown, and narrowed the mark before use. No test or compiler setting weakened. The local Node regression set passed again; full latest-head TypeScript/Vitest remains pending CI. Production data and main remain untouched.
+
+
+Model composition clarification: the owner requests an explanation of independent coefficient responsibilities. Current code calculates all player deltas from pre-game ratings, then updates ratings; it does not feed a changed rating back into the same game's other coefficients. Team-average expectation and self-versus-allies carry use overlapping rating inputs, while personal points/contribution are added after the result term. Shared inputs alone are not a circular computation. A redesign must define non-overlapping meanings before adding a separate table/team/own-rating multiplier, and preserve the approved non-mention and carry policies unless the owner changes them.
+
+
+### Balance recommendation follow-up — 2026-10-25
+
+Owner asks for independent judgement and pitfalls before choosing the new table-level bonus. Current code re-read at da34cffc. Verified: additive B=4 raises an otherwise −3 protected loss to +1; weak black in a 90%-favoured team currently loses −45×1.2=−54; median of [2500, nine×1000] is 1000 and of [six×1400, four×1000] is 1400. Proposed 0…4 bonus curve was checked at its endpoints and intermediate examples. These are isolated synthetic calculations; no production history backtest or empirically optimal coefficient is claimed. Status: recommendations recorded in ELO_CALCULATION_MODEL, no behaviour changed. Existing accepted reward policies preserved.
+
+## Elo balance check of PR #1040 (Claude, 2026-10-26, owner request «по науке»)
+
+Read-only production data: 19 club games (organizer login, GET only); replay from 1000 without tournaments, so final ratings are approximate, the per-game components are exact.
+- [info] Per game, team part: red +8.5, black −8.7 on average — the 30 %/70 % prior against the club's 9 of 19 red wins. The owner keeps the prior; black play therefore loses about 9 Elo per game played on black.
+- [info] The club rating grows about +5.3 per player per game (team part on 70 % red seats plus mostly positive actions). A newcomer starting at 1000 falls one level (150) behind a regular after about 30 games of the regular.
+- [info] Actions per game: citizen +3.0, sheriff +4.3, mafia +3.2, don +2.5 — balanced. Spread per game: actions ±6.7 against team ±26; over 50 games the best and worst regular differ by about 430 Elo from actions alone (Перец +6.8, Денди −1.9 per game).
+- [info] Wills: real ordinary wills average −0.3 Elo (with an error −8.3, clean +8.3); a random three-mark will is −5.9 because any error removes the will's pluses, so guessing is discouraged, reading the table is rewarded.
+- [info] The series is 6.6 % of all action points.
+- Status: no code defect; findings for the owner's decision.
+
+## Independent review of Claude's additional Elo rules — GPT, 2026-10-26
+
+Scope: read-only review of the 22 commits c66ffc61..157d790d in PR #1040, current canonical sources and owner definitions. Code head 69926afe passed CI 40317461611, UI preview 40317461805, CodeQL and Gitleaks; the two additional sheriff commits through157d790d were reviewed and locally probed too, while that head's CI4466/UI2191 were pending. All 15 bodies of eloMissAndStreak.test.ts also passed locally using node:test in a temporary copy; this is not a local Vitest/full-suite claim. No production data changed.
+
+- [P1, FIXED by Claude 2026-10-26: setRoundNoScoring edits only the tag; review signature/text include it; test protocolNoScoringTag] src/components/crm/gameProtocol/GameFlowView.tsx: the new no_scoring button uses api.changeRound, whose useProtocolEditing.ts:73 handler resets the confirmed result, clears eliminated_seats and invokes cleanAndSyncVotes. Reproduced through the actual editing hook: tag a tie_revote parent with a confirmed child; two rounds become one pending round and the voted-out player's result changes to alive. A scoring-metadata-only edit must preserve ballots, voting results, children and player exits. Include the tag in protocolReview.ts roundSignature/undo as well; it currently omits it.
+- [P2, FIXED by Claude 2026-10-26: votedOutAt follows restored/other exits; девятка uses corrected atSeq; regression test] src/lib/playerContribution.ts:197: votedOutAt/votedOutSeats collect raw voted_day exits but never cancel them on restored. Reproduced on complete synthetic timelines with corrected result markers: a cancelled red exit doubles a wrong-will cost from -4 to -8; a cancelled black exit makes a later find worth +8 instead of the intended half +4. Use the effective corrected exit history rather than every exit event ever recorded.
+- [P2, FIXED by Claude 2026-10-26: a repeated check is skipped entirely; regression test] src/lib/playerContribution.ts: the sheriff loop appends check_black on every repeated check; checkedTargets guards only check_voted_out and the streak. Reproduced on157d790d: two confirmed checks of the same living black followed by his voting-out award +4 +4 +4 =12, exceeding the newly documented total8 for one checked black. De-duplicate the base found-by-check award too.
+- [P2, FIXED by Claude 2026-10-26: BUSINESS_RULES ×40/±35 and blank examples, ELO_CALCULATION_MODEL example, code comment; PR description to refresh] docs/BUSINESS_RULES.md and the PR description still contain superseded x10 / caps10/15 and old series statements alongside current x40 / caps35/35. ELO_CALCULATION_MODEL's example says a +0.5 bonus changes a +15 black win to +25 and personal40 is clipped to30; current code gives +35 and clips to35. The reviewed economic behavior needs one consistent description.
+- [balance, INFO] One will as one series step, no PU series and vote/will deduplication are coherent refinements. The +24 pool limits base automatic positives; streaks may exceed it, best move/judge bonuses are outside it, and all personal sources finally share +/-35. Thus equal-table black win15 + judge0.5*40 =35; with personal35 it can reach50. This matches the newly recorded choice to make personal play comparable to the result, but is a deliberate stronger personal influence than the earlier review.
+- [methodology, INFO] The recorded 19-game replay from1000 without tournaments is a conditional path, not actual historical career Elo. Its probability/protection-dependent team terms cannot be called exact production components without the actual pre-game ratings. Its drift/spread figures are a small-sample diagnostic, not calibrated future rates.
+
+Acceptance before release: preserve the protocol on tag toggles (including revote/undo), ignore cancelled exits in both new rules, and reconcile current documentation. The three behavioral defects are proven open findings, not fixed by the existing green checks.
+
+## Protocol save hang — production logs, 2026-10-26 (Claude)
+
+Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protocol` answered 2.98 MB each (5 saves), `GET /api/games?archived=0` 23.3 MB, nginx buffered both to temp files, `[PERF] event loop stalled` up to 2.5 s. Game 17's protocol is 1.43 MB, of which `replay_frames` 1.39 MB.
+- [P1, fixed in PR #1040] `src/server/routes/gamesRoutes.ts`, `gamesRoutesBase.ts` `normalizeGame`: sent `replay_frames` and duplicated `protocol_text` to every client list/save response.

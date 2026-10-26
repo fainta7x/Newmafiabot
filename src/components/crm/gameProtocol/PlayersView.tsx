@@ -50,7 +50,6 @@ export const PlayersList: React.FC<ListProps> = ({ api, issues, onOpen }) => {
   const sorted = api.results.slice().sort((a, b) => a.seat_number - b.seat_number);
   return (
     <div className="space-y-4">
-      {api.locked ? <LockedNote /> : null}
       <ul className="space-y-2">
         {sorted.map((player) => {
           const team = teamOfRole(player.role);
@@ -69,7 +68,7 @@ export const PlayersList: React.FC<ListProps> = ({ api, issues, onOpen }) => {
                   <span className="mt-1 flex flex-wrap items-center gap-1">
                     <RoleTag role={player.role} />
                     <ExitTag exit={player.exit_type} />
-                    {player.exit_type === 'killed' ? ((player.color_protocol || []).length ? <ConfirmedTag>Протокол убитого</ConfirmedTag> : <NeedsTag>Нет протокола убитого</NeedsTag>) : null}
+                    {player.exit_type === 'killed' ? ((player.color_protocol || []).length ? <ConfirmedTag>Протокол убитого</ConfirmedTag> : player.role === 'mafia' || player.role === 'don' ? null : <NeedsTag>Нет протокола убитого</NeedsTag>) : null}
                     {isFirstKilled ? <FirstKilledTag /> : null}
                     {hasMove ? <BestMoveTag /> : null}
                     {isPpk ? <PpkTag /> : null}

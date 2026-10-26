@@ -243,7 +243,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: votesErr });
     }
 
-    const shotsErr = validateShots(protocol?.shots);
+    const shotsErr = validateShots(protocol?.shots, 10, seats, false);
     if (shotsErr) {
       return res.status(400).json({ error: shotsErr });
     }
@@ -552,7 +552,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: votesErr });
     }
 
-    const shotsErr = validateShots(protocol?.shots);
+    const shotsErr = validateShots(protocol?.shots, 10, seats, true);
     if (shotsErr) {
       return res.status(400).json({ error: shotsErr });
     }
@@ -933,3 +933,4 @@ function serializePlayerResultsOutput(seats: any[], existingResults: any[], game
 }
 
 export default router;
+

@@ -1,3 +1,4 @@
+import { ELO_CONTRIBUTION_CAP, ELO_PERSONAL_CAP } from '../../shared/eloWeights.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import fs from 'node:fs';
@@ -52,17 +53,49 @@ function seatEvents(seat: BlankSeat) {
   return events;
 }
 
+/**
+ * The contribution breakdown under a seat (owner, 2026-10-25): «Вклад +12 Эло:» and every action with its points, wrapped
+ * into short lines so a long list never leaves the card.
+ */
+const CONTRIBUTION_LINE = 26;
+const CONTRIBUTION_CHARS = 74;
+export function contributionTextLines(seat: BlankSeat): string[] {
+  const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
+  const lines: string[] = [];
+  for (const line of seat.personalLines || []) lines.push(line);
+  if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
+  // Each kind of action on its own line; a long one breaks at «·» so it never leaves the card.
+  for (const line of seat.contributionLines) {
+    let current = '';
+    for (const piece of line.split(' · ')) {
+      const next = current ? `${current} · ${piece}` : piece;
+      if (next.length > CONTRIBUTION_CHARS && current) { lines.push(current); current = piece; } else current = next;
+    }
+    if (current) lines.push(current);
+  }
+  if (Math.round(seat.eloContributionCap || 0)) lines.push(`Срезано пределом действий (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
+  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Срезано общим пределом (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
+  if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
+  return lines;
+}
+
 export function gameBlankSvg(blank: GameBlank) {
   clipCounter = 0;
-  const headerHeight = 268;
-  const rowHeight = 112;
-  const height = headerHeight + blank.seats.length * rowHeight + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const headerHeight = blank.table ? 300 : 268;
+  const baseRowHeight = 112;
+  const extraLines = blank.seats.map((seat) => contributionTextLines(seat));
+  const rowHeights = extraLines.map((lines) => baseRowHeight + (lines.length ? lines.length * CONTRIBUTION_LINE + 8 : 0));
+  const rowTops = rowHeights.map((_, index) => headerHeight + rowHeights.slice(0, index).reduce((sum, value) => sum + value, 0));
+  const height = headerHeight + rowHeights.reduce((sum, value) => sum + value, 0) + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
   const winnerText = blank.winnerTeam === 'red' ? 'ПОБЕДА КРАСНЫХ' : blank.winnerTeam === 'black' ? 'ПОБЕДА ЧЁРНЫХ' : 'ИГРА ЗАВЕРШЕНА';
   const winnerColor = blank.winnerTeam === 'red' ? RED : blank.winnerTeam === 'black' ? BLACK : C.mutedText;
   const subtitle = [clip(blank.eveningTitle, 34), blank.dateLabel].filter(Boolean).join(' · ');
 
   const rows = blank.seats.map((seat, index) => {
-    const y = headerHeight + index * rowHeight;
+    const y = rowTops[index];
+    const rowHeight = rowHeights[index];
+    const contributionColor = (seat.eloContribution || 0) > 0 ? '#34D399' : (seat.eloContribution || 0) < 0 ? '#F87171' : C.mutedText;
+    const contributionSvg = extraLines[index].map((line, i) => `<text x="${M + 152}" y="${y + 118 + i * CONTRIBUTION_LINE}" font-size="17" font-weight="600" fill="${i === 0 ? contributionColor : C.mutedText}">${esc(line)}</text>`).join('');
     const events = seatEvents(seat);
     // One text line with tspans: the renderer places each event after the previous one.
     const eventsSvg = events.length
@@ -82,6 +115,7 @@ export function gameBlankSvg(blank: GameBlank) {
       ${avatar(M + 62, y + 20, 72, seat.nickname, seat.avatar)}
       <text x="${M + 152}" y="${y + 50}" font-size="30" font-weight="700" fill="${C.warmText}">${esc(clip(seat.nickname, 22))}${seat.role ? `<tspan dx="18" font-size="18" letter-spacing="2" fill="${roleColor}">${esc((ROLE_LABELS[seat.role] || seat.role).toUpperCase())}</tspan>` : ''}</text>
       ${eventsSvg}
+      ${contributionSvg}
       ${right}`;
   }).join('');
 
@@ -90,6 +124,7 @@ export function gameBlankSvg(blank: GameBlank) {
   ${renderNoirExportBrandHeader('ИТОГИ ИГРЫ')}
   <text x="${M}" y="176" font-size="64" font-weight="700" fill="${C.warmText}">ИГРА №${esc(blank.gameNumber)}</text>
   <text x="${M}" y="222" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(subtitle)}</text>
+  ${blank.table ? `<text x="${M}" y="262" font-size="21" font-weight="600" fill="${C.mutedText}"><tspan fill="${RED}">Красные ${blank.table.redAvg}</tspan>&#160;·&#160;<tspan fill="${C.warmText}">Чёрные ${blank.table.blackAvg}</tspan>&#160;·&#160;${esc(blank.table.level)}&#160;·&#160;шанс красных ${blank.table.redChancePercent}%</text>` : ''}
   <text x="${W - M}" y="150" text-anchor="end" font-size="30" font-weight="700" letter-spacing="1" fill="${winnerColor}">${winnerText}</text>
   ${blank.ppk ? `<text x="${W - M}" y="176" text-anchor="end" font-size="19" font-weight="600" fill="${C.mutedText}">по ППК</text>` : ''}
   ${blank.judge ? `${avatar(W - M - 52, 186, 52, blank.judge, blank.judgeAvatar)}
@@ -340,3 +375,5 @@ export function renderPng(svg: string): Buffer {
   });
   return resvg.render().asPng();
 }
+
+

@@ -214,7 +214,7 @@ Do not solve stacking by inventing arbitrary higher z-index values when ownershi
 
 The protocol of a finished game (`src/components/crm/gameProtocol/`) is built for one job: **check, correct, confirm**. It follows the cabinet language above (neutral glass surfaces, white primary action, colour only by meaning), plus these durable rules:
 
-- **Four places, always the same:** Обзор, Ход игры, Игроки, Итог. A phone has them in a bottom bar under the thumb; a desktop (`lg`) in a left rail. The top bar holds only the title, «Черновик / Подтверждена» and the save state.
+- **Two places, always the same (owner, 2026-10-26: «Обзор, Игроки и Итог дублируют друг друга — в одно окно»):** «Протокол» (winner, «Что проверить», players with their sheet, circles with «Проверил», reveals, replacements, analysis, judge note, journal, «Вы изменили», confirm) and «Ход игры» (unchanged); a tournament adds «Баллы». A phone has them in a bottom bar under the thumb; a desktop (`lg`) in a left rail. The top bar holds only the title, «Черновик / Подтверждена» and the save state.
 - **Every edit happens in a sheet** (bottom sheet on a phone, side panel on a desktop) with ≥44 px targets; the page itself reads as a summary. Dangerous actions (PPK, removal, deleting a voting) are separate, red-toned buttons and never the primary action.
 - **A result is a sentence first** («Ушёл #7 Дина. 8 голосов из 9»), then the bars per candidate, then «Кто за кого» as rows «игрок → кандидат». Counts alone are never the only form.
 - **Everything the judge changed is listed** in «Вы изменили» as «было → стало» with «Вернуть»; a circle is marked «Проверил» by the judge, never automatically.

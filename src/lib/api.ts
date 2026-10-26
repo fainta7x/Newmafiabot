@@ -516,10 +516,14 @@ export interface VotingRound {
   eliminated_seats?: number[];
   table_leave_votes?: number | null;
   cancelled_by_removal?: boolean;
+  /** The judge tagged this voting «без оценок» (e.g. a broken split): its votes earn and cost nothing in Elo. */
+  no_scoring?: boolean;
   ballots?: Record<number, number>;
 }
 
 export interface ShotEntry {
+  miss_reason?: import('./eloMissPenalty').MissReason | null;
+  miss_responsible_seats?: number[];
   night_number: number;
   target_seat: number;
   result: 'killed' | 'miss' | 'agreement_failed';
@@ -1288,3 +1292,4 @@ export const api = {
       body: JSON.stringify(backupData),
     }),
 };
+

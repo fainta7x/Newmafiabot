@@ -1989,3 +1989,7 @@ Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protoc
 ## Tournament card split — 2026-10-26 (Claude, architecture programme)
 
 `TournamentDetailViewBase.tsx` (1333 lines, 32 % coverage) first got 15 rendering tests of every state (draft ready/not ready, running, correction, completed, roster, feedback, step tabs; games: planned/active/completed, roles in correction, inline judge, seat swap), then its markup moved unchanged into `TournamentCardHeader`, `TournamentOrganizationTab`, `TournamentGamesTab`, `SwapSeatsModal` (frame 374 lines). The two copies of the completion panel (running / correction) are one `CompletionPanel`; the four tab buttons are one list. No behaviour or visual change intended.
+
+## Production outage after the #1040 deploy — 2026-10-26 (Claude, read-only Amvera logs)
+
+13:12 build of the Amvera mirror bdf6cba (main 2ca20a5) succeeded; 13:20:34 the old container got SIGTERM; from 13:20:53 the new pod failed `ErrImagePull` (`pull access denied … no basic auth credentials`, `harborcred` secret missing), site 503. One `restartProject` at 13:24 did not help. Platform-side; owner asked to contact Amvera support. Warnings «Unable to retrieve some image pull secrets (harborcred)» appeared from 12:42, before the deploy. Status: **open** until Amvera restores the registry credentials.

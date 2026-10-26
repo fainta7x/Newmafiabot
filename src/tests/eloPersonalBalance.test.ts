@@ -40,11 +40,11 @@ describe('personal Elo stays secondary; discipline keeps its original weight', (
     expect(row.disciplinaryDelta).toBe(-40);
   });
 
-  it('caps the automatic contribution at 35 while retaining raw points for explanations', () => {
+  it('retains gross automatic points until the common limits are applied', () => {
     const events: PreparedEloEvent[] = [{ source: 'club', sourceId: '1', sortAt: '', sortOrder: 1, winnerTeam: 'black',
       players: [{ playerId: 'p', team: 'black', canonicalPersonalGamePoints: 0, contribution: { role: 'mafia', raw: 4 } }] }];
     normalizeContributions(events);
-    expect(events[0].players[0].contributionPoints).toBe(0.875);
+    expect(events[0].players[0].contributionPoints).toBe(4);
     expect(events[0].players[0].contribution?.raw).toBe(4);
   });
 
@@ -64,3 +64,4 @@ describe('personal Elo stays secondary; discipline keeps its original weight', (
     expect(explanation.details.some((line) => line.includes('дисциплина −40'))).toBe(true);
   });
 });
+

@@ -1103,7 +1103,7 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
-- Idea (owner 2026-10-26, not built): replace the fixed 30/70 base win chance in Elo with something adaptive — from the club's real red/black win rate, the players' and the teams' win rates. Claude's note: the club's 19 counted games are 9 red / 10 black (47 % red), far from the assumed 30 %, but too few to trust; a shrunk estimate (30/70 prior + real results, weight growing with games) is the safe form; individual/team win rates must not be added on top of Elo, which already measures them (double counting). Waiting for the owner's decision.
+- Idea (owner 2026-10-26, not built): replace the fixed 30/70 base win chance in Elo with something adaptive — from the club's real red/black win rate, the players' and the teams' win rates. Claude's note: the club's 19 counted games are 9 red / 10 black (47 % red), far from the assumed 30 %, but too few to trust; a shrunk estimate (30/70 prior + real results, weight growing with games) is the safe form; individual/team win rates must not be added on top of Elo, which already measures them (double counting). Owner decision 2026-10-26: stay on 30/70 for now.
 
 - Elo, will «по версии» (owner 2026-10-26): decided — a pool of +24 for all pluses of a game, right red in a will +3, a will error ×2 when the table voted that red out (replaces «первая мысль»); an error still cancels the will's pluses. In PR #1040; merge waits for the owner's «да».
 - Elo, blacks and zero breaks (owner 2026-10-26): named black −4, black voted out at the девятка −8, the zero-break table only under the tournament setting — in PR #1040. The sheriff's +8 when a red breaks into him is confirmed by the owner.

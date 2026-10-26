@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-26 — requested concrete fixes for every balance finding (proposal)
+
+The owner asks to devise fixes, not yet to deploy a new policy. The concrete proposal is appended to ELO_BALANCE_REVIEW_2026-10-26.md in PR1042: correct red2/wrong red−4; per-red-player/per-black-target base credit up to8 with remaining-credit top-ups including LH; distinct positive decision series; cap positive rewards before deducting errors, personal floor−35; attributed miss6 separately after the personal limit; manual evaluation for unscored play with a required new explanation; factual wording for the will×2 condition. Source eligibility, the ordinary-will error gate and PU exception are retained. This explicitly proposes that personal assessment−35 plus a miss can total−41. Pure arithmetic examples pass; no scoring implementation or approved BUSINESS_RULES change yet. Base30/70 and accepted carry drift remain. Await discussion of this concrete package before implementation.
+
+
 ## 2026-10-26 — full Elo balance review requested by owner
 
 PR1040 is merged as2ca20a5a (code0d9fd2e8 passed CI4474/UI2199/security). The follow-up whole-model review is in ELO_BALANCE_REVIEW_2026-10-26.md; AUDIT_LOG records its open findings. The three earlier technical defects are fixed. New decisions pending: blind-positive PU will and LH/will overlap; miss penalty swallowed by the personal cap; consistent remaining credit for half-found and sheriff cross-source finds. These are recommendations, not approved formula changes. Keep the agreed30/70 prior and strong-player protection. Read-only public data yielded18 completed games/180 seats from19 available; the conditional1000-seed replay is not exact career Elo. Runtime still reported the previous08a7837d build during this check; deployment of1040 is not verified here. This review changes documentation only.

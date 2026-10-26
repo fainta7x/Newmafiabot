@@ -85,9 +85,11 @@ describe('in-game streaks of confirmed decisions', () => {
     const events = sequence([event(1, 'game_start', { phase: 'zero_night' }), event(2, 'vote', { seat: 1, target: 8, value: 1 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(2, 'sheriff_check', { target: 2, phase: 'night' }), event(2, 'night_step', { value: 'best_move', phase: 'night' }), event(3, 'vote', { seat: 1, target: 9, value: 1 }), event(3, 'vote_round_result', { value: '1:single_eliminated' }), event(3, 'exit', { seat: 9, value: 'voted_day' }), event(4, 'game_end', { value: 'red' })]);
     close(score(players(), { events }, 1).points, 0.45);
   });
-  it('a black sheriff check and a correct vote share the same chronological streak', () => {
+  it('a black the sheriff checked: +4 for the check, +4 when the table votes him out, his own vote adds nothing (owner, 2026-10-26)', () => {
     const events = sequence([event(1, 'game_start', { phase: 'zero_night' }), event(1, 'sheriff_check', { target: 8, phase: 'night' }), event(1, 'night_step', { value: 'best_move', phase: 'night' }), event(2, 'vote', { seat: 1, target: 8, value: 1 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(3, 'game_end', { value: 'red' })]);
-    close(score(players(), { events }, 1).points, 0.35);
+    const me = score(players(), { events }, 1);
+    close(me.points, 0.2);
+    assert.deepEqual(me.items.map((item) => item.kind).sort(), ['check_black', 'check_voted_out', 'obvious_black']);
   });
   it('opposite decisions reset, and the multiplier never exceeds 1.5', () => {
     const objects = Array.from({ length: 8 }, () => ({}));

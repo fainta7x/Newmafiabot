@@ -38,7 +38,8 @@ export const CONTRIBUTION_WEIGHTS = {
    * most +24 Elo (votes, will, checks, splits); the series comes on top of the pool. Minuses are counted in full. The ЛХ of the first killed is separate.
    */
   positivePool: 0.6,
-  sheriffFoundBlack: 0.1,
+  /** Owner, 2026-10-26: the sheriff's black check +4, and +4 more when the table votes that black out — +8 in all, one found black. */
+  sheriffFoundBlack: 0.1, sheriffCheckedVotedOut: 0.1,
   blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
   donFoundSheriffFirstNight: 0.2,
   /**
@@ -52,7 +53,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'pool_cap' | 'will_already' | 'split_outcome';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'will_already' | 'split_outcome';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -205,7 +206,17 @@ export function gameContribution(envelope: any): SeatContribution[] {
       const decisions: StreakDecision<ContributionItem>[] = [];
       const found = new Map<number, ContributionItem>();
       const obvious = new Set<number>();
-      const isObvious = obviousBlacksFor(me.seat, facts, roleOf);
+      const isObviousToTable = obviousBlacksFor(me.seat, facts, roleOf);
+      // Owner, 2026-10-26: a black the sheriff checked himself is paid by the check (+4) and by the table voting him out (+4);
+      // his own vote for that black and naming him in the will earn nothing more. A check at night of a round is known from the
+      // next day on.
+      const roundOfSeq = new Map(facts.events.map((event) => [event.seq, event.round]));
+      const checkedRound = new Map<number, number>();
+      if (me.role === 'sheriff') for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
+        const round = roundOfSeq.get(check.seq);
+        if (round != null && !checkedRound.has(check.target)) checkedRound.set(check.target, round);
+      }
+      const isObvious = (seat: number, round: number) => isObviousToTable(seat, round) || (checkedRound.has(seat) && checkedRound.get(seat)! < round);
       // Owner, 2026-10-26: in a voting tagged «без оценок» only the colour of whoever left counts — one player or several
       // («с подъёмом») — the same for every red who voted in it.
       for (const split of splitResults) {
@@ -255,7 +266,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
       }
       for (const seat of colorsBySeat.get(me.seat)!.black) {
         // Owner, 2026-10-26: a black this red already found with his vote earns once — the will does not pay for him again.
-        if (blackRole(roleOf.get(seat))) will.push(found.has(seat) ? { kind: 'will_already', seat, points: 0 } : { kind: 'will_right', seat, points: W.colorRight.black });
+        if (blackRole(roleOf.get(seat))) will.push(found.has(seat) || checkedRound.has(seat) ? { kind: 'will_already', seat, points: 0 } : { kind: 'will_right', seat, points: W.colorRight.black });
         else if (redRole(roleOf.get(seat))) {
           // Owner, 2026-10-26: when the table then voted this red out, it played by the will — the error costs twice.
           const out = votedOutAt.get(seat); const willAt = killedEvent(me.seat)?.seq;
@@ -283,6 +294,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
         for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
           const item: ContributionItem = { kind: 'check_black', seat: check.target, points: W.sheriffFoundBlack };
           items.push(item);
+          if (!checkedTargets.has(check.target) && votedOutSeats.has(check.target)) items.push({ kind: 'check_voted_out', seat: check.target, points: W.sheriffCheckedVotedOut });
           if (facts.full && !checkedTargets.has(check.target)) decisions.push({ seq: check.seq, sign: 1, items: [item] });
           checkedTargets.add(check.target);
         }
@@ -360,10 +372,11 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Голосовал в красных', of('vote_red').filter((item) => !item.votedOut)),
       group('Голосовал в красных, которых вывели (×2)', of('vote_red').filter((item) => item.votedOut)),
       group('В завещании угадал', of('will_right')),
-      of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан за голос` : null,
+      of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан` : null,
       group('В завещании ошибся в', of('will_wrong').filter((item) => !item.votedOut)),
       group('В завещании назвал чёрным красного, стол его вывел (×2)', of('will_wrong').filter((item) => item.votedOut)),
       group('Проверкой нашёл чёрного', of('check_black')),
+      group('Проверенного чёрного вывел стол', of('check_voted_out')),
     ];
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
   // The series in plain words: which decisions came in a row and what the run added (owner, 2026-10-26).

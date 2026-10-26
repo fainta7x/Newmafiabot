@@ -17,11 +17,53 @@ import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 
 export type ProtocolState = { protocol: TournamentGameProtocolData; results: PlayerResultData[] };
 
-export const circleTitle = (index: number) => (index === 0 ? 'Нулевой круг' : `Круг ${index}`);
+const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девятка', 8: 'Восьмёрка', 7: 'Семёрка', 6: 'Шестёрка', 5: 'Пятёрка', 4: 'Угадайка при 4', 3: 'Угадайка' };
+
+/**
+ * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
+ * «Нулевой день», «Девятка», «Восьмёрка после промаха», «Семёрка после попила с подъёмом» … Without a chronology the
+ * number of players is unknown, so an old game keeps «Круг N».
+ */
+export const circleTitle = (index: number, protocol?: Pick<TournamentGameProtocolData, 'events'> | null, tableSize = CLASSIC_TABLE_SIZE) => {
+  if (index === 0) return 'Нулевой день';
+  const events = Array.isArray(protocol?.events) ? protocol!.events : [];
+  if (!events.some((event) => event.kind === 'exit')) return `Круг ${index}`;
+  const round = index + 1;
+  // A cancelled exit («restored») gives the seat back.
+  const out = new Map<number, LiveGameEvent>();
+  for (const event of events) {
+    if (!event.seat || event.round >= round) continue;
+    if (event.kind === 'exit') out.set(event.seat, event); else if (event.kind === 'restored') out.delete(event.seat);
+  }
+  const atTable = tableSize - out.size;
+  const name = TABLE_NAMES[atTable] || `Круг ${index}`;
+  const previous = [...out.values()].filter((event) => event.round === round - 1);
+  const dayOut = previous.filter((event) => event.value !== 'killed').length;
+  const killed = previous.some((event) => event.value === 'killed');
+  const notes: string[] = [];
+  // The zero day with everybody staying is the standard course of the game (owner): no qualifier after it.
+  if (dayOut >= 2) notes.push('после попила с подъёмом');
+  else if (dayOut === 0 && round - 1 > 1) notes.push('после попила посидеть');
+  if (!killed) notes.push('после промаха');
+  return notes.length ? `${name} ${notes.join(', ')}` : name;
+};
 
 export const EXIT_LABEL: Record<string, string> = {
   alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом', voted_day: 'заголосован', removed: 'удалён',
 };
+/**
+ * One plain line about a player leaving (owner, 2026-10-26: «визуально непонятно … лучше нормальный текст»): ⚖️ for the
+ * table's decision, 💀 for the night, e.g. «⚖️ Ушёл №4 Перец», «💀 Ночью убили №9 Дина».
+ */
+export const exitLine = (reason: string, who: string): string => {
+  switch (reason) {
+    case 'killed': return `💀 Ночью убили ${who}`;
+    case 'voted_day': case 'voted_zero_round': return `⚖️ Ушёл ${who}`;
+    case 'removed': return `Удалён ${who}`;
+    default: return `Вышел ${who}`;
+  }
+};
+
 export const exitLabel = (value: unknown) => EXIT_LABEL[String(value || '')] || 'в игре';
 
 export const roleName = (role: string | null | undefined) => getPlayerGameRoleLabel(role ?? null) ?? 'Роль не выбрана';
@@ -53,7 +95,7 @@ export const buildCircles = (protocol: TournamentGameProtocolData): CircleModel[
   for (const event of events) if (event.round >= 1) count = Math.max(count, event.round);
   return Array.from({ length: count }, (_, index) => ({
     index,
-    title: circleTitle(index),
+    title: circleTitle(index, protocol),
     rootRounds: votes.map((round, i) => (!round.is_revote && Number(round.day_number ?? 0) === index ? i : -1)).filter((i) => i >= 0),
     shotIndex: shots.findIndex((shot) => Number(shot.night_number) === index + 1),
     events: events.filter((event) => event.round === index + 1),
@@ -142,7 +184,16 @@ export const roleAtTable = (protocol: TournamentGameProtocolData, results: Playe
   const holder = results.find((player) => player.role === role);
   if (!holder) return false;
   const left = (Array.isArray(protocol.events) ? protocol.events : []).filter((event) => event.kind === 'exit' && event.seat === holder.seat_number).pop();
-  return !left || left.round >= circleIndex + 1;
+  // The night of circle k is in engine round k + 1, after its voting and after the shot: a player who left in that round
+  // (voted out by day or killed that night) no longer checks anybody.
+  return !left || left.round > circleIndex + 1;
+};
+
+/** The answer of a check follows the real role of the checked player (owner, 2026-10-26): it cannot be recorded otherwise. */
+export const checkAnswerOf = (kind: 'don' | 'sheriff', role: string | null | undefined): string | null => {
+  if (!role) return null;
+  if (kind === 'don') return role === 'sheriff' ? 'sheriff' : 'not_sheriff';
+  return teamOfRole(role) === 'black' ? 'black' : 'red';
 };
 
 export const checkResultText = (kind: 'don' | 'sheriff', result: string | null): string => {
@@ -227,7 +278,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
       const round = voting.roundIndexWithError == null ? null : votesOf(protocol)[voting.roundIndexWithError];
       const day = round ? Number(round.day_number ?? 0) : 0;
       // The check speaks of «этап #3, день 1»; the window speaks of circles.
-      const title = voting.errorMsg.replace(/^Голосование \(этап #\d+, день \d+\):?\s*/, `${circleTitle(day)}: `).replace(/^Голосование:\s*/, `${circleTitle(day)}: `);
+      const title = voting.errorMsg.replace(/^Голосование \(этап #\d+, день \d+\):?\s*/, `${circleTitle(day, protocol)}: `).replace(/^Голосование:\s*/, `${circleTitle(day, protocol)}: `);
       issues.push({ id: 'voting', severity: 'error', title, tab: 'game', circle: day });
     }
   }
@@ -248,7 +299,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
     const missing: Record<'don' | 'sheriff', number[]> = { don: [], sheriff: [] };
     for (const circle of buildCircles(protocol)) {
       const checks = checksOf(circle.events);
-      if (circle.index >= 1 && checks.donStep && !checks.don && roleAtTable(protocol, results, 'don', circle.index)) missing.don.push(circle.index);
+      // A missing don check is not an error (owner, 2026-10-26): the don may skip it or have already found the sheriff.
       if (circle.index >= 1 && checks.sheriffStep && !checks.sheriff && roleAtTable(protocol, results, 'sheriff', circle.index)) missing.sheriff.push(circle.index);
     }
     for (const kind of ['don', 'sheriff'] as const) {
@@ -256,12 +307,13 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
       const who = kind === 'don' ? 'Дона' : 'Шерифа';
       issues.push({
         id: `${kind}-checks`, severity: 'check',
-        title: missing[kind].length === 1 ? `Круг ${missing[kind][0]}: проверка ${who} не отмечена` : `Проверка ${who} не отмечена в кругах ${missing[kind].join(', ')}`,
+        title: missing[kind].length === 1 ? `${circleTitle(missing[kind][0], protocol)}: проверка ${who} не отмечена` : `Проверка ${who} не отмечена: ${missing[kind].map((index) => circleTitle(index, protocol)).join('; ')}`,
         sub: `В игре ${kind === 'don' ? 'Дон' : 'Шериф'} проверку не указал`, tab: 'game', circle: missing[kind][0],
       });
     }
     for (const player of results) {
-      if (player.exit_type === 'killed' && !(player.color_protocol || []).length && events.some((event) => event.kind === 'death_protocol')) {
+      // A black killed by his own team's shot leaves no protocol, and that is not an error (owner, 2026-10-26).
+      if (player.exit_type === 'killed' && teamOfRole(player.role) !== 'black' && !(player.color_protocol || []).length && events.some((event) => event.kind === 'death_protocol')) {
         issues.push({ id: `death-${player.seat_number}`, severity: 'check', title: `#${player.seat_number} ${player.display_name}: нет протокола убитого`, sub: 'Кого игрок считал красными и чёрными', tab: 'players', seat: player.seat_number });
       }
     }
@@ -368,7 +420,7 @@ export const computeChanges = (base: ProtocolState, current: ProtocolState): Cha
     if (before && after && roundSignature(before) === roundSignature(after)) continue;
     const day = Number((after ?? before)?.day_number ?? 0);
     changes.push({
-      key: `round-${key}`, label: `${circleTitle(day)}: ${(after ?? before)?.is_revote ? 'переголосование' : 'голосование'}`, was: roundText(before), now: roundText(after),
+      key: `round-${key}`, label: `${circleTitle(day, current.protocol)}: ${(after ?? before)?.is_revote ? 'переголосование' : 'голосование'}`, was: roundText(before), now: roundText(after),
       revert: (state) => {
         const rest = votesOf(state.protocol).filter((round) => roundKey(round) !== key);
         const next = (before ? [...rest, before] : rest).sort((a, b) => Number(a.day_number ?? 0) - Number(b.day_number ?? 0) || Number(a.round_number ?? 0) - Number(b.round_number ?? 0));

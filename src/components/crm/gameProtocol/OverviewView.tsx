@@ -1,8 +1,8 @@
 import React from 'react';
-import { AlertTriangle, Check, ChevronRight, Moon, RotateCcw, Vote } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, RotateCcw } from 'lucide-react';
 import { Btn, Card, Eyebrow, cx } from './ui';
 import type { ProtocolApi } from './types';
-import { circleTitle, type Change, type CircleModel, type Issue } from './protocolReview';
+import { exitLine, type Change, type CircleModel, type Issue } from './protocolReview';
 import { InfoTag, NeedsTag } from './tags';
 import type { ProtocolTab } from './ProtocolWindow';
 
@@ -26,10 +26,11 @@ const circleTags = (circle: CircleModel, api: ProtocolApi, nameOf: (seat: number
   const rounds = (api.protocol.votes || []).filter((round: any) => Number(round.day_number ?? 0) === circle.index) as any[];
   const out = rounds.flatMap((round) => (round.eliminated_seats || []) as number[]);
   const shot = circle.shotIndex >= 0 ? api.protocol.shots?.[circle.shotIndex] : null;
-  const tags: React.ReactNode[] = [];
-  if (rounds.some((round) => !round.is_revote)) tags.push(out.length ? <InfoTag key="v" tone="vote" icon={Vote}>Ушёл {out.map(nameOf).join(', ')}</InfoTag> : <InfoTag key="v" icon={Vote}>Никто не ушёл</InfoTag>);
-  if (shot) tags.push(shot.result === 'killed' ? <InfoTag key="n" tone="night" icon={Moon}>Ночью {nameOf(shot.target_seat)}</InfoTag> : <InfoTag key="n" tone="night" icon={Moon}>Ночью промах</InfoTag>);
-  return tags.length ? tags : [<span key="e" className="text-[12px] text-white/40">без записей</span>];
+  // Plain lines instead of icon pills (owner, 2026-10-26): «⚖️ Ушёл №4 Перец», «💀 Ночью убили №9 Дина», «💀 Ночью промах».
+  const lines: string[] = [];
+  if (rounds.some((round) => !round.is_revote)) lines.push(out.length ? exitLine('voted_day', out.map(nameOf).join(', ')) : '⚖️ Никто не ушёл');
+  if (shot) lines.push(shot.result === 'killed' ? exitLine('killed', nameOf(shot.target_seat)) : '💀 Ночью промах');
+  return lines.length ? lines.map((line) => <span key={line} className="block text-[13px] leading-5 text-white/75">{line}</span>) : [<span key="e" className="text-[12px] text-white/40">без записей</span>];
 };
 
 export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, reviewed, onToggleReviewed, onGoto, onRevert, onConfirm, onReopen, busy }) => {
@@ -106,11 +107,11 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
               <li key={circle.index} className="flex items-stretch gap-2 rounded-2xl border border-white/8 bg-white/[0.035] pr-2">
                 <button type="button" onClick={() => onGoto('game', { circle: circle.index })} className="flex min-h-[68px] min-w-0 flex-1 items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left">
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 text-sm font-semibold">{circleTitle(circle.index)}{hasIssue ? <NeedsTag>Есть замечание</NeedsTag> : null}</span>
-                    <span className="mt-1.5 flex flex-wrap gap-1">{circleTags(circle, api, (seat) => `#${seat} ${api.results.find((player) => player.seat_number === seat)?.display_name || ''}`.trim())}</span>
+                    <span className="flex items-center gap-2 text-sm font-semibold">{circle.title}{hasIssue ? <NeedsTag>Есть замечание</NeedsTag> : null}</span>
+                    <span className="mt-1 block">{circleTags(circle, api, (seat) => `№${seat} ${api.results.find((player) => player.seat_number === seat)?.display_name || ''}`.trim())}</span>
                   </span>
                 </button>
-                <button type="button" aria-pressed={done} aria-label={`${circleTitle(circle.index)}: ${done ? 'проверено' : 'отметить проверенным'}`} onClick={() => onToggleReviewed(circle.index)} className={cx('my-2 flex min-h-11 shrink-0 items-center gap-1.5 self-center rounded-xl border px-3 text-[13px] font-semibold', done ? 'border-emerald-300/25 bg-emerald-300/[0.10] text-emerald-100' : 'border-white/10 bg-white/[0.04] text-white/65')}>
+                <button type="button" aria-pressed={done} aria-label={`${circle.title}: ${done ? 'проверено' : 'отметить проверенным'}`} onClick={() => onToggleReviewed(circle.index)} className={cx('my-2 flex min-h-11 shrink-0 items-center gap-1.5 self-center rounded-xl border px-3 text-[13px] font-semibold', done ? 'border-emerald-300/25 bg-emerald-300/[0.10] text-emerald-100' : 'border-white/10 bg-white/[0.04] text-white/65')}>
                   {done ? <Check className="h-4 w-4" aria-hidden="true" /> : null}{done ? 'Проверено' : 'Проверил'}
                 </button>
               </li>

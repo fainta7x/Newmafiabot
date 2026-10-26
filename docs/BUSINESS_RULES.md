@@ -288,7 +288,7 @@ Circles are named by how many players sit at the table, not by day numbers. Use 
 - **Угадайка при 4** — four at the table; **угадайка** — three at the table.
 - Qualifiers when the usual path changed: **«после промаха»** (nobody was killed at night), **«после попила посидеть»** (the split ended with everybody staying), **«после попила с подъёмом»** (the split ended with the split players raised and leaving).
 
-A split in the zero day that ends with everybody staying is the standard course of the game, so the next circle is simply «девятка» (owner). Examples: «восьмёрка после промаха», «семёрка после попила с подъёмом».
+The protocol window names its circles this way (`circleTitle` in `protocolReview.ts`; an old game without a chronology keeps «Круг N»). Protocol corrections, owner 2026-10-26: a check's answer is not chosen — it follows the checked player's real role; a missing don check is not an error; a black killed by his own team needs no death protocol; once the sheriff or the don has left (by day or killed that night) the night shows «Шерифа нет за столом» / «Дона нет за столом», and after the don found the sheriff «Шериф уже найден»; exits read as plain lines «⚖️ Ушёл №4 Перец», «💀 Ночью убили №9 Дина», «💀 Ночью промах». A split in the zero day that ends with everybody staying is the standard course of the game, so the next circle is simply «девятка» (owner). Examples: «восьмёрка после промаха», «семёрка после попила с подъёмом».
 
 ## Night, agreement and the first-day split (user explanation 2026-09-24)
 

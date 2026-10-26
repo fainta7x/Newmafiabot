@@ -12,7 +12,7 @@ for (const [width, kind] of [[360, 'club'], [390, 'tournament']]) {
     await page.goto(`/e2e/protocol-window.html?draft=1&kind=${kind}`);
     await expect(page.getByTestId('protocol-window')).toBeVisible();
     await place(page, width, 'Ход игры').click();
-    await page.getByRole('tab', { name: 'Круг 1' }).click();
+    await page.getByRole('tab').nth(1).click();
     await page.getByRole('button', { name: /Выстрел мафии/ }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('radio', { name: 'Промах', exact: true }).click();
@@ -74,7 +74,7 @@ for (const [width, height] of sizes) {
     await page.screenshot({ path: testInfo.outputPath(`protocol-overview-${width}.png`) });
 
     await place(page, width, 'Ход игры').click();
-    await page.getByRole('tab', { name: 'Круг 1' }).click();
+    await page.getByRole('tab').nth(1).click();
     await expect(page.getByTestId('voting-summary').first()).toContainText('Ушёл #7');
     await check('game');
     await page.screenshot({ path: testInfo.outputPath(`protocol-game-${width}.png`) });
@@ -89,7 +89,7 @@ for (const [width, height] of sizes) {
     await expect(page.getByText(/Вы изменили · /)).toBeVisible();
     await check('overview with changes');
     await page.screenshot({ path: testInfo.outputPath(`protocol-changes-${width}.png`) });
-    await page.getByRole('button', { name: /Вернуть: Круг 1/ }).click();
+    await page.getByRole('button', { name: /Вернуть: Девятка|Вернуть: Круг 1/ }).click();
     await expect(page.getByText(/Вы изменили/)).toHaveCount(0);
 
     await place(page, width, 'Игроки').click();

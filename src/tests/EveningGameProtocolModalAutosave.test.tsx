@@ -64,6 +64,24 @@ describe('protocol editor autosave', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
     expect(save).not.toHaveBeenCalled();
   });
+
+  it('keeps the editor and latest edit open when a close-time save fails; retry closes after confirmation', async () => {
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockRejectedValue(new Error('Нет сети'));
+    const onClose = vi.fn();
+    render(<EveningGameProtocolModal game={makeGame('draft')} isOpen onClose={onClose} onUpdated={() => {}} />);
+    go('Протокол');
+    openPlayer(1);
+    fireEvent.click(sheet().getByRole('button', { name: 'Фолы: больше' }));
+    fireEvent.click(sheet().getByRole('button', { name: 'Закрыть' }));
+    await act(async () => { go('Закрыть протокол'); });
+    expect(save).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Нет сети/).length).toBeGreaterThan(0);
+    save.mockImplementation(async (_id, payload) => echo(payload));
+    await act(async () => { go('Закрыть протокол'); });
+    expect(save.mock.calls.at(-1)![1].player_results[0].regular_fouls).toBe(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('club voting confirmation', () => {

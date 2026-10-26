@@ -33,19 +33,15 @@ const NAV: Array<{ value: CommunityView; label: string }> = [
   { value: 'games', label: 'Мини-игры' },
 ];
 
-// A mini-game screen exits to /player/club: this note brings the person back to the «Мини-игры» tab instead of «Игроки».
-const RETURN_KEY = 'mafia_community_return';
-const readReturn = (): CommunityView | null => {
-  try { const value = window.sessionStorage.getItem(RETURN_KEY); window.sessionStorage.removeItem(RETURN_KEY); return value === 'games' ? 'games' : null; } catch { return null; }
-};
-const writeReturn = () => { try { window.sessionStorage.setItem(RETURN_KEY, 'games'); } catch { /* the tab just opens on «Игроки» */ } };
-
-const viewFor = (section: CommunitySection): CommunityView =>
-  section === 'club' ? 'players' : section === 'clubworld' ? 'activity' : 'rating';
+const viewFor = (section: CommunitySection, target?: string | null): CommunityView =>
+  section === 'club' ? target === 'connections' || target === 'games' ? target : 'players' : section === 'clubworld' ? 'activity' : 'rating';
+const activityFor = (section: CommunitySection, target?: string | null): ActivityView =>
+  ACTIVITY_NAV.some((item) => item.value === target) ? target as ActivityView : section === 'clubworld' ? 'season' : 'form';
 
 export default function PlayerCommunityHub({
   data,
   section,
+  target = null,
   onOpen,
   onOpenPoker,
   onOpenClocktower,
@@ -53,19 +49,19 @@ export default function PlayerCommunityHub({
 }: {
   data: PlayerMeResponse;
   section: CommunitySection;
-  onOpen: (section: CommunitySection) => void;
+  target?: string | null;
+  onOpen: (section: CommunitySection, target?: string | null) => void;
   onOpenPoker?: () => void;
   onOpenClocktower?: () => void;
   onOpenProfileElo?: () => void;
 }) {
-  // «Связи» has no address of its own, so it lives in local state over /player/club.
-  const [view, setView] = useState<CommunityView>(() => (section === 'club' ? readReturn() : null) || viewFor(section));
+  const [view, setView] = useState<CommunityView>(() => viewFor(section, target));
   // Old links to /player/seasons (clubworld) still land on the season.
-  const [activity, setActivity] = useState<ActivityView>(() => (section === 'clubworld' ? 'season' : 'form'));
-  useEffect(() => { setView((current) => ((current === 'connections' || current === 'games') && section === 'club' ? current : viewFor(section))); }, [section]);
+  const [activity, setActivity] = useState<ActivityView>(() => activityFor(section, target));
+  useEffect(() => { setView(viewFor(section, target)); setActivity(activityFor(section, target)); }, [section, target]);
   const choose = (next: CommunityView) => {
     setView(next);
-    onOpen(next === 'rating' ? 'rating' : next === 'activity' ? 'clubworld' : 'club');
+    onOpen(next === 'rating' ? 'rating' : next === 'activity' ? 'clubworld' : 'club', next === 'connections' || next === 'games' ? next : next === 'activity' ? activity : null);
   };
 
   return (
@@ -87,7 +83,7 @@ export default function PlayerCommunityHub({
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}
         {view === 'activity' && (
           <>
-            <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={setActivity} itemClassName="px-1 text-[12px]" />
+            <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={(next) => { setActivity(next); onOpen('clubworld', next); }} itemClassName="px-1 text-[12px]" />
             {activity === 'form' && <PlayerClubActivity />}
             {activity === 'matches' && <PlayerStoriesPanel />}
             {activity === 'season' && <PlayerSeasonsPanel part="season" />}
@@ -98,14 +94,14 @@ export default function PlayerCommunityHub({
         {view === 'games' && (
           <section className="space-y-2" data-testid="player-minigames" aria-label="Мини-игры">
             <p className="px-1 text-sm leading-5 text-white/55">Клубный досуг: играем между вечерами и зовём друг друга.</p>
-            <button type="button" data-testid="player-club-poker" onClick={() => { writeReturn(); onOpenPoker?.(); }} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left active:bg-white/[.08]"><span><span className="block text-base font-semibold">Покер</span><span className="mt-0.5 block text-xs font-normal text-white/55">Игра на клубные жетоны или с ботами · столы и турниры</span></span><span aria-hidden="true" className="text-white/45">›</span></button>
-            <button type="button" data-testid="player-club-clocktower" onClick={() => { writeReturn(); onOpenClocktower?.(); }} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left active:bg-white/[.08]"><span><span className="block text-base font-semibold">Кровь на часовой башне</span><span className="mt-0.5 block text-xs font-normal text-white/55">Настольная игра · комнаты, приглашения, правила</span></span><span aria-hidden="true" className="text-white/45">›</span></button>
+            <button type="button" data-testid="player-club-poker" onClick={() => { onOpenPoker?.(); }} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left active:bg-white/[.08]"><span><span className="block text-base font-semibold">Покер</span><span className="mt-0.5 block text-xs font-normal text-white/55">Игра на клубные жетоны или с ботами · столы и турниры</span></span><span aria-hidden="true" className="text-white/45">›</span></button>
+            <button type="button" data-testid="player-club-clocktower" onClick={() => { onOpenClocktower?.(); }} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left active:bg-white/[.08]"><span><span className="block text-base font-semibold">Кровь на часовой башне</span><span className="mt-0.5 block text-xs font-normal text-white/55">Настольная игра · комнаты, приглашения, правила</span></span><span aria-hidden="true" className="text-white/45">›</span></button>
           </section>
         )}
       </div>
       {view === 'rating' ? (
         <div className="mt-2">
-          <PlayerRatingHub embedded data={data} section={section === 'club' || section === 'clubworld' ? 'rating' : section} onOpen={onOpen} onOpenProfileElo={onOpenProfileElo} />
+          <PlayerRatingHub embedded data={data} section={section === 'club' || section === 'clubworld' ? 'rating' : section} target={target} onOpen={onOpen} onOpenProfileElo={onOpenProfileElo} />
         </div>
       ) : null}
 

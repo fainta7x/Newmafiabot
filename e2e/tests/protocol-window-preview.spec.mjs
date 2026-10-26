@@ -5,6 +5,22 @@ import { test, expect } from '@playwright/test';
 // listed, saved and can be taken back.
 const sizes = [[360, 740], [390, 844], [768, 1024], [1280, 820]];
 
+test('failed close-time save keeps the club editor and its change until a successful retry', async ({ page }, info) => {
+  await page.goto('/e2e/protocol-window.html?draft=1&offline=1');
+  await page.getByRole('button', { name: /Игрок 1 .*открыть/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Фолы: больше', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await page.getByRole('button', { name: 'Закрыть протокол' }).click();
+  await expect(page.getByText(/Нет сети/)).toBeVisible();
+  await expect(page.getByTestId('protocol-window')).toBeVisible();
+  await expect(page.getByTestId('protocol-closed')).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath('club-save-failure-keeps-editor.png') });
+  await page.evaluate(() => { window.__offline = false; });
+  await page.getByRole('button', { name: 'Закрыть протокол' }).click();
+  await expect(page.getByTestId('protocol-closed')).toBeVisible();
+  expect(await page.evaluate(() => window.__saves.at(-1).player_results[0].regular_fouls)).toBeGreaterThan(0);
+});
+
 for (const [width, kind] of [[360, 'club'], [390, 'tournament']]) {
   test(`miss responsibility is editable and saved in ${kind} protocol at ${width}px`, async ({ page }, testInfo) => {
     const errors = []; page.on('pageerror', (error) => errors.push(String(error)));

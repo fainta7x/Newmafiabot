@@ -10,6 +10,8 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Unified Player/Organizer mode switch: `src/components/ProductModeSwitch.tsx`; route-level wiring: `src/App.tsx` and `src/components/OrganizerCRM.tsx`.
 - Shared fixed chrome: `src/components/player/PlayerQuickAccessBar.tsx` and `src/components/player/PlayerBottomNavigation.tsx`.
 - Navigation model: `src/components/player/playerCabinetNavigation.ts`; focused coverage: `src/tests/playerCabinetNavigation.test.ts`.
+- Persistent hub targets: `src/lib/appNavigation.ts` → `PlayerCabinetShell.tsx` → Community/Rating/Wallet; Community connections/mini-games, Activity subviews and Wallet tabs have addressable paths. Legacy wallet `?tab=` links remain supported.
+- Personal Home evening: `src/lib/playerHomeEvening.ts` selects from the GET-only participation projection in `playerSelfCoreRoutes.ts`; shared debt loading/error/retry: `src/hooks/usePlayerDebtSummary.ts`.
 - Primary hubs (menu of four): `PlayerHomeDashboard.tsx`, `PlayerEveningsHub.tsx`, `PlayerCommunityHub.tsx` (with `PlayerRatingHub.tsx`), `PlayerProfileHub.tsx` («Прогресс»); `PlayerSettingsHub.tsx` and `PlayerWalletHub.tsx` from the header. Club news for players: `GET /api/player/news` (`loadClubNews` in `clubDigestService.ts`).
 - History/stats content: `src/components/player/PlayerHistoryStatsView.tsx`.
 - API family: `/api/player/*` mounts in `src/app.ts`, especially `src/server/routes/playerSelfRoutes.ts` and related player route modules.

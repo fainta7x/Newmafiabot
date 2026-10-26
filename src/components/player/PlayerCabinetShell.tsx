@@ -46,9 +46,11 @@ const profilePlayerIdFromTarget = (target: string | null | undefined) => target?
 export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpenEventHost = false, onOpenAdmin, onOpenAdminAt, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
   const initialProfilePlayerId = profilePlayerIdFromTarget(initialTarget);
   const [section, setSection] = useState<PlayerCabinetSection>(() => initialProfilePlayerId ? 'club' : normalizePlayerCabinetSection(initialSection));
+  const target = initialTarget;
   const [player, setPlayer] = useState(data.player);
   const [tokenBalance, setTokenBalance] = useState(Number(data.player.tokens || 0));
-  const profilePlayerId = profilePlayerIdFromTarget(initialTarget);
+  const profilePlayerId = profilePlayerIdFromTarget(target);
+
 
   useEffect(() => {
     if (!profilePlayerId) setSection(normalizePlayerCabinetSection(initialSection));
@@ -77,8 +79,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   // The button is for everybody who can conduct: a judge with a mark, and an organizer (the screen holds the music too).
   const canOpenConduct = player.judge_level !== 'none' || canOpenAdmin || player.club_role === 'organizer';
 
-  if (section === 'clocktower') return <PlayerClocktower initialRoomId={initialTarget} onExit={() => open('club')} onOpenRules={() => { window.location.assign('/guide?tab=clocktower'); }} onOpenRoom={(roomId) => open('clocktower', roomId)} />;
-  if (section === 'poker') return <PlayerPoker initialLobbyId={initialTarget} onExit={() => open('club')} onTokenBalanceChange={setTokenBalance} />;
+  if (section === 'clocktower') return <PlayerClocktower initialRoomId={initialTarget} onExit={() => open('club', 'games')} onOpenRules={() => { window.location.assign('/guide?tab=clocktower'); }} onOpenRoom={(roomId) => open('clocktower', roomId)} />;
+  if (section === 'poker') return <PlayerPoker initialLobbyId={initialTarget} onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
@@ -92,18 +94,18 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       {section === 'home' ? (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenGame={(gameKey) => open('games', gameKey)} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
       ) : isPlayerEveningSection(section) ? (
-        <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={initialTarget} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
+        <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={target} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
       ) : isPlayerCommunitySection(section) ? (
-        <PlayerCommunityHub data={currentData} section={section as CommunitySection} onOpen={(next) => open(next)} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
+        <PlayerCommunityHub data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
       ) : section === 'wallet' ? (
-        <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
+        <PlayerWalletHub data={currentData} target={target} onOpen={(view) => open('wallet', view)} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
-        <PlayerProfileHub data={currentData} initialTab={profileTabFromTarget(initialTarget)} />
+        <PlayerProfileHub data={currentData} initialTab={profileTabFromTarget(target)} />
       ) : section === 'settings' ? (
         <PlayerSettingsHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
         <Suspense fallback={<p data-testid="player-section-loading" className="px-4 py-10 text-center text-sm text-muted-foreground">Загружаем раздел…</p>}>
-          <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} onBackToCrm={canOpenAdmin && onOpenAdminAt ? () => onOpenAdminAt('/admin/more/music') : undefined} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
+          <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} onBackToCrm={canOpenAdmin && onOpenAdminAt ? () => onOpenAdminAt('/admin/more/music') : undefined} initialPane={target === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
         </Suspense>
       ) : (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenGame={(gameKey) => open('games', gameKey)} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />

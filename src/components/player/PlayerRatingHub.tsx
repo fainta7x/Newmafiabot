@@ -1,5 +1,5 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 import PlayerMetricRatings from './PlayerMetricRatings.tsx';
@@ -31,20 +31,23 @@ const sectionFor = (tab: RatingTab): PlayerRatingSection => (
 export default function PlayerRatingHub({
   data,
   section,
+  target = null,
   onOpen,
   onOpenProfileElo,
   embedded = false,
 }: {
   data: PlayerMeResponse;
   section: PlayerRatingSection;
-  onOpen: (section: PlayerRatingSection) => void;
+  target?: string | null;
+  onOpen: (section: PlayerRatingSection, target?: string | null) => void;
   /** The personal Elo history is a tab of the profile, not a second screen here. */
   onOpenProfileElo?: () => void;
   /** Inside «Сообщество»: the section already has its title. */
   embedded?: boolean;
 }) {
   // «Показатели» is a view of its own inside the rating; the other three tabs keep their routes.
-  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [metricsOpen, setMetricsOpen] = useState(target === 'metrics');
+  useEffect(() => { setMetricsOpen(target === 'metrics'); }, [section, target]);
   const tab: RatingTab = metricsOpen ? 'metrics' : tabFor(section);
 
   return (
@@ -58,7 +61,7 @@ export default function PlayerRatingHub({
           ariaLabel="Разделы рейтинга"
           value={tab}
           items={TABS}
-          onValueChange={(next) => { setMetricsOpen(next === 'metrics'); if (next !== 'metrics') onOpen(sectionFor(next)); }}
+          onValueChange={(next) => { setMetricsOpen(next === 'metrics'); onOpen(sectionFor(next), next === 'metrics' ? 'metrics' : null); }}
           itemClassName="px-1 text-[12px]"
         />
         {/* Inside «Сообщество» the list comes first; the own Elo path lives in «Прогресс». */}

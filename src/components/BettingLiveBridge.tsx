@@ -91,6 +91,10 @@ export default function BettingLiveBridge() {
     let speechBusy = false;
     let lastReconcileAt = 0;
     let liveSeenAt: number | null = null;
+    // Which game these ten players are playing, found once per game (2026-10-26: the lookup reads the whole games list,
+    // and repeating it every 750 ms during a game loaded the server). Unresolved, it is looked up at most every 30 s.
+    let resolved: { names: string; gameId: number } | null = null;
+    let lastLookupAt = 0;
     const speechSyncedIds = new Set<string>();
     const speechRejectedIds = new Set<string>();
     const speechRetryAfter = new Map<string, number>();
@@ -155,6 +159,9 @@ export default function BettingLiveBridge() {
       } catch {}
       if (!parsed || parsed.phase === 'setup') {
         liveSeenAt = null;
+        // The next game is often the same ten players: it must be looked up again, right away.
+        resolved = null;
+        lastLookupAt = 0;
         return;
       }
       if (liveSeenAt === null) liveSeenAt = Date.now();
@@ -163,6 +170,14 @@ export default function BettingLiveBridge() {
       if (activePlayers.length !== 10) return;
       const liveNames = normalizedNames(activePlayers.map((player) => String(player.nickname || '')));
       if (liveNames.length !== 10) return;
+
+      const namesKey = liveNames.join('|');
+      if (resolved && resolved.names === namesKey) {
+        void syncSpeech(resolved.gameId, liveNames);
+        return;
+      }
+      if (now - lastLookupAt < 30_000) return;
+      lastLookupAt = now;
 
       // Legacy speech recordings do not carry canonical player/game ids yet. This
       // name lookup is retained only for speech compatibility, never for betting.
@@ -179,7 +194,10 @@ export default function BettingLiveBridge() {
           ))
           .sort((a: any, b: any) => Number(b.global_game_number || b.id || 0) - Number(a.global_game_number || a.id || 0));
         const game = candidates[0];
-        if (game?.id) void syncSpeech(Number(game.id), liveNames);
+        if (game?.id) {
+          resolved = { names: namesKey, gameId: Number(game.id) };
+          void syncSpeech(Number(game.id), liveNames);
+        }
       } catch (error) {
         console.warn('[speech-recording] Live bridge failed to resolve current game:', error);
       } finally {

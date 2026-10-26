@@ -35,7 +35,22 @@ describe('«Сообщество»: the «Мини-игры» tab', () => {
     render(<PlayerCommunityHub data={data} section="club" onOpen={onOpen} onOpenPoker={poker} onOpenClocktower={tower} />);
     expect(screen.getByTestId('player-minigames')).toBeTruthy();
     cleanup();
+    // A fresh visit to /player/club (no remembered view in the address) opens «Игроки».
+    window.history.replaceState(null, '', '/player/club');
     render(<PlayerCommunityHub data={data} section="club" onOpen={onOpen} />);
     expect(screen.getByTestId('directory')).toBeTruthy();
+  });
+});
+
+describe('«Сообщество»: a reload keeps the open tab (global review 2026-10-26)', () => {
+  afterEach(() => window.history.replaceState(null, '', '/'));
+  it('opening «Мини-игры» writes it to the address, and a fresh render from that address opens it again', () => {
+    window.history.replaceState(null, '', '/player/club');
+    render(<PlayerCommunityHub data={data} section="club" onOpen={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Мини-игры' }));
+    expect(window.location.search).toBe('?view=games');
+    cleanup();
+    render(<PlayerCommunityHub data={data} section="club" onOpen={vi.fn()} />);
+    expect(screen.getByTestId('player-minigames')).toBeTruthy();
   });
 });

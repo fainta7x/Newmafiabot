@@ -7,6 +7,7 @@ import PlayerClubDirectory from './PlayerClubDirectory.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSeasonsPanel from './PlayerSeasonsPanel.tsx';
 import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
+import { readViewParam, writeViewParam } from '../../lib/urlViewParam';
 
 /**
  * «Сообщество» (owner decision 2026-10-06): rating, players, connections and activity in one place,
@@ -40,6 +41,9 @@ const readReturn = (): CommunityView | null => {
 };
 const writeReturn = () => { try { window.sessionStorage.setItem(RETURN_KEY, 'games'); } catch { /* the tab just opens on «Игроки» */ } };
 
+/** The views of /player/club besides «Игроки». */
+const CLUB_VIEWS = ['connections', 'games'] as const;
+
 const viewFor = (section: CommunitySection): CommunityView =>
   section === 'club' ? 'players' : section === 'clubworld' ? 'activity' : 'rating';
 
@@ -59,9 +63,12 @@ export default function PlayerCommunityHub({
   onOpenProfileElo?: () => void;
 }) {
   // «Связи» has no address of its own, so it lives in local state over /player/club.
-  const [view, setView] = useState<CommunityView>(() => (section === 'club' ? readReturn() : null) || viewFor(section));
+  const [view, setView] = useState<CommunityView>(() => (section === 'club' ? readReturn() || readViewParam('view', CLUB_VIEWS) : null) || viewFor(section));
   // Old links to /player/seasons (clubworld) still land on the season.
-  const [activity, setActivity] = useState<ActivityView>(() => (section === 'clubworld' ? 'season' : 'form'));
+  const [activity, setActivity] = useState<ActivityView>(() => readViewParam('activity', ACTIVITY_NAV.map((item) => item.value)) ?? (section === 'clubworld' ? 'season' : 'form'));
+  // «Связи», «Мини-игры» and the activity part have no route of their own: the address keeps them across a reload.
+  useEffect(() => { writeViewParam('view', section === 'club' && CLUB_VIEWS.includes(view as never) ? view : null); }, [view, section]);
+  useEffect(() => { writeViewParam('activity', view === 'activity' ? activity : null); }, [view, activity]);
   useEffect(() => { setView((current) => ((current === 'connections' || current === 'games') && section === 'club' ? current : viewFor(section))); }, [section]);
   const choose = (next: CommunityView) => {
     setView(next);

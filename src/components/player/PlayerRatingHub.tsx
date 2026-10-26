@@ -1,10 +1,11 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 import PlayerMetricRatings from './PlayerMetricRatings.tsx';
 import PlayerRatingTable from './PlayerRatingTable.tsx';
 import PlayerTournamentResults from './PlayerTournamentResults.tsx';
+import { readViewParam, writeViewParam } from '../../lib/urlViewParam';
 
 export type PlayerRatingSection = 'rating' | 'ratingperiods' | 'ratingtournaments';
 
@@ -44,7 +45,9 @@ export default function PlayerRatingHub({
   embedded?: boolean;
 }) {
   // «Показатели» is a view of its own inside the rating; the other three tabs keep their routes.
-  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [metricsOpen, setMetricsOpen] = useState(() => readViewParam('rating', ['metrics']) === 'metrics');
+  // A reload keeps «Показатели» open (its own parameter: the community hub keeps `view`).
+  useEffect(() => { writeViewParam('rating', metricsOpen ? 'metrics' : null); }, [metricsOpen]);
   const tab: RatingTab = metricsOpen ? 'metrics' : tabFor(section);
 
   return (

@@ -12,6 +12,6 @@ describe('betting notification deep link', () => {
   });
 
   it('wallet hub reads the tab query', () => {
-    expect(read('components/player/PlayerWalletHub.tsx')).toContain("get('tab')");
+    expect(read('components/player/PlayerWalletHub.tsx')).toContain("readViewParam('tab'");
   });
 });

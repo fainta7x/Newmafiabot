@@ -4,6 +4,7 @@ import PlayerEconomyPanel, { type WalletEconomyView } from './PlayerEconomyPanel
 import PlayerPayments from './PlayerPayments.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import { readViewParam, writeViewParam } from '../../lib/urlViewParam';
 
 type WalletView = 'payments' | WalletEconomyView;
 
@@ -15,12 +16,7 @@ const NAV: Array<{ id: WalletView; label: string; icon: string }> = [
 ];
 
 // Telegram/VK «Сделать ставку» opens /player/wallet?tab=bets.
-const initialWalletView = (): WalletView => {
-  try {
-    const tab = new URLSearchParams(window.location.search).get('tab');
-    return NAV.some((item) => item.id === tab) ? tab as WalletView : 'payments';
-  } catch { return 'payments'; }
-};
+const initialWalletView = (): WalletView => readViewParam('tab', NAV.map((item) => item.id)) ?? 'payments';
 
 const rubles = (value: number | null) => value == null ? '…' : formatRubles(value);
 
@@ -33,7 +29,12 @@ export default function PlayerWalletHub({
   onBalanceChange: (balance: number) => void;
 }) {
   const [view, setView] = useState<WalletView>(initialWalletView);
+  // A reload or a shared link opens the same part of the wallet.
+  useEffect(() => { writeViewParam('tab', view === 'payments' ? null : view); }, [view]);
   const [outstanding, setOutstanding] = useState<number | null>(null);
+  // A failed summary must not look like one still loading (global review 2026-10-26): it says so and can be retried.
+  const [outstandingFailed, setOutstandingFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,14 +42,16 @@ export default function PlayerWalletHub({
       try {
         const response = await fetch('/api/player/payments', { credentials: 'include' });
         const body = await response.json().catch(() => ({}));
-        if (!response.ok || cancelled) return;
+        if (cancelled) return;
+        if (!response.ok) { setOutstandingFailed(true); return; }
         setOutstanding(Number(body?.summary?.historical_debt || 0));
+        setOutstandingFailed(false);
       } catch {
-        if (!cancelled) setOutstanding(null);
+        if (!cancelled) setOutstandingFailed(true);
       }
     })();
     return () => { cancelled = true; };
-  }, [view]);
+  }, [view, retry]);
 
   return (
     <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -61,8 +64,17 @@ export default function PlayerWalletHub({
         <section className="grid grid-cols-2 gap-2">
           <div className="rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Долг</div>
-            <div className={`mt-2 text-xl font-semibold ${Number(outstanding || 0) > 0 ? 'text-rose-100' : 'text-white/80'}`}>{rubles(outstanding)}</div>
-            <div className="mt-1 text-[11px] text-white/25">только за посещённые вечера</div>
+            {outstandingFailed && outstanding === null ? (
+              <>
+                <div className="mt-2 text-base font-semibold text-white/60" role="status">Не загрузилось</div>
+                <button type="button" onClick={() => { setOutstandingFailed(false); setRetry((value) => value + 1); }} className="mt-1 min-h-11 text-left text-[12px] font-semibold text-white/70 underline underline-offset-2">Повторить</button>
+              </>
+            ) : (
+              <>
+                <div className={`mt-2 text-xl font-semibold ${Number(outstanding || 0) > 0 ? 'text-rose-100' : 'text-white/80'}`}>{rubles(outstanding)}</div>
+                <div className="mt-1 text-[11px] text-white/25">только за посещённые вечера</div>
+              </>
+            )}
           </div>
           <div className="rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Жетоны</div>

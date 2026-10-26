@@ -1958,3 +1958,12 @@ Model composition clarification: the owner requests an explanation of independen
 
 Owner asks for independent judgement and pitfalls before choosing the new table-level bonus. Current code re-read at da34cffc. Verified: additive B=4 raises an otherwise −3 protected loss to +1; weak black in a 90%-favoured team currently loses −45×1.2=−54; median of [2500, nine×1000] is 1000 and of [six×1400, four×1000] is 1400. Proposed 0…4 bonus curve was checked at its endpoints and intermediate examples. These are isolated synthetic calculations; no production history backtest or empirically optimal coefficient is claimed. Status: recommendations recorded in ELO_CALCULATION_MODEL, no behaviour changed. Existing accepted reward policies preserved.
 
+## Elo balance check of PR #1040 (Claude, 2026-10-26, owner request «по науке»)
+
+Read-only production data: 19 club games (organizer login, GET only); replay from 1000 without tournaments, so final ratings are approximate, the per-game components are exact.
+- [info] Per game, team part: red +8.5, black −8.7 on average — the 30 %/70 % prior against the club's 9 of 19 red wins. The owner keeps the prior; black play therefore loses about 9 Elo per game played on black.
+- [info] The club rating grows about +5.3 per player per game (team part on 70 % red seats plus mostly positive actions). A newcomer starting at 1000 falls one level (150) behind a regular after about 30 games of the regular.
+- [info] Actions per game: citizen +3.0, sheriff +4.3, mafia +3.2, don +2.5 — balanced. Spread per game: actions ±6.7 against team ±26; over 50 games the best and worst regular differ by about 430 Elo from actions alone (Перец +6.8, Денди −1.9 per game).
+- [info] Wills: real ordinary wills average −0.3 Elo (with an error −8.3, clean +8.3); a random three-mark will is −5.9 because any error removes the will's pluses, so guessing is discouraged, reading the table is rewarded.
+- [info] The series is 6.6 % of all action points.
+- Status: no code defect; findings for the owner's decision.

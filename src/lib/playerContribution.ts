@@ -34,7 +34,11 @@ export const CONTRIBUTION_WEIGHTS = {
 
 export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
-export interface ContributionItem { kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number }
+export interface ContributionItem {
+  kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
+  /** Series lines: which decision in a row (2 or 3 = third and later) and what that decision was. */
+  step?: number; source?: ContributionKind;
+}
 export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[] }
 interface ColorProtocolEntry { mark?: unknown; seat_numbers?: unknown }
 
@@ -192,7 +196,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
       // Owner, 2026-10-26: the first killed is rated by his best move and his will, without a series bonus.
       for (const [item, factor] of firstKilled ? [] : decisionStreakMultipliers(decisions)) {
         const extra = item.points * (factor - 1);
-        if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra });
+        if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, step: factor >= 1.5 ? 3 : 2, source: item.kind });
       }
     } else if (blackRole(me.role)) {
       for (const night of missedShotNights(protocol, me.seat)) items.push({ kind: 'shot_miss', seat: me.seat, night, points: -MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT });
@@ -241,9 +245,18 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Проверкой нашёл чёрного', of('check_black')),
     ];
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
+  // A series line says which decision in a row earned the extra and what it was (owner, 2026-10-26: «непонятно описана серия»).
   for (const [kind, label] of [['streak_correct', 'Серия верных решений подряд'], ['streak_wrong', 'Серия ошибок подряд']] as const) {
     const entries = of(kind);
-    if (entries.length) lines.push(`${label}: ${signedElo(elo(entries.reduce((sum, item) => sum + item.points, 0)))}`);
+    if (!entries.length) continue;
+    const parts = new Map<string, number>();
+    for (const item of entries) {
+      const what = item.source === 'found_black' ? `голос в №${item.seat}` : item.source === 'vote_red' ? `голос в красного №${item.seat}`
+        : item.source === 'check_black' ? `проверка №${item.seat}` : 'завещание';
+      const key = `${item.step === 3 ? '3-е и далее' : '2-е'} — ${what}`;
+      parts.set(key, (parts.get(key) || 0) + item.points);
+    }
+    lines.push(`${label} (×1,25 за 2-е, ×1,5 с 3-го): ${[...parts].map(([key, points]) => `${key} ${signedElo(elo(points))}`).join(' · ')}`);
   }
   const misses = of('shot_miss');
   if (misses.length) lines.push(`Промахи: ночи ${misses.map((item) => item.night).join(', ')}: ${signedElo(elo(misses.reduce((sum, item) => sum + item.points, 0)))}`);

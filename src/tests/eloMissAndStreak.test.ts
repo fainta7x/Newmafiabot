@@ -109,3 +109,14 @@ describe('a series spans different moments of the game (owner, 2026-10-26)', () 
     assert.equal(factors.get(vote), 1.25);
   });
 });
+
+describe('the series line says which decision in a row and what it was (owner, 2026-10-26)', () => {
+  it('names the second and third decisions with their extra', () => {
+    const lines = contributionBreakdown('citizen', [
+      { kind: 'found_black', seat: 4, points: 0.2 }, { kind: 'found_black', seat: 5, points: 0.2 }, { kind: 'found_black', seat: 8, points: 0.2 },
+      { kind: 'streak_correct', seat: 5, points: 0.05, step: 2, source: 'found_black' },
+      { kind: 'streak_correct', seat: 8, points: 0.1, step: 3, source: 'found_black' },
+    ]);
+    assert.ok(lines.includes('Серия верных решений подряд (×1,25 за 2-е, ×1,5 с 3-го): 2-е — голос в №5 +1 · 3-е и далее — голос в №8 +2'));
+  });
+});

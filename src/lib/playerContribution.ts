@@ -102,13 +102,19 @@ function obviousBlacksFor(seat: number, facts: ReturnType<typeof gameActionFacts
  */
 export const unscoredVotings = (protocol: any): Set<string> => {
   const keys = new Set<string>();
-  const perDay = new Map<number, number>();
+  const perDay = new Map<number, Array<{ key: string; round: any }>>();
   const rounds = (Array.isArray(protocol?.votes) ? protocol.votes : []).slice().sort((x: any, y: any) => Number(x?.round_number) - Number(y?.round_number));
   for (const round of rounds) {
     const day = Number(round?.day_number ?? 0);
-    const number = (perDay.get(day) || 0) + 1;
-    perDay.set(day, number);
-    if (round?.no_scoring === true) keys.add(`${day + 1}:${number}`);
+    const list = perDay.get(day) || [];
+    list.push({ key: `${day + 1}:${list.length + 1}`, round });
+    perDay.set(day, list);
+  }
+  for (const [day, list] of perDay) {
+    for (const { key, round } of list) if (round?.no_scoring === true) keys.add(key);
+    // Owner, 2026-10-26: at a восьмёрка or шестёрка a voting that ends in a revote is a split, and so is the rest of that day.
+    const even = [8, 6].includes(Number(list[0]?.round?.eligible_voters));
+    if (day > 0 && even && list.some(({ round }) => round?.outcome === 'tie_revote')) for (const { key } of list) keys.add(key);
   }
   return keys;
 };
@@ -136,7 +142,9 @@ export function gameContribution(envelope: any): SeatContribution[] {
     const protocolRound = (Array.isArray(protocol?.votes) ? protocol.votes : []).slice()
       .sort((x: any, y: any) => Number(x?.round_number) - Number(y?.round_number))
       .filter((item: any) => Number(item?.day_number ?? 0) === round - 1)[number - 1];
-    const voters = new Set<number>((voting?.votes || []).flatMap((ballot) => ballot.voters));
+    let voters = new Set<number>((voting?.votes || []).flatMap((ballot) => ballot.voters));
+    // A revote may be recorded by its totals only; the split is one decision of the day, so use the day's known voters.
+    if (!voters.size) voters = new Set((facts.circles.find((circle) => circle.round === round)?.votings || []).flatMap((item) => item.votes.flatMap((ballot) => ballot.voters)));
     const left: number[] = Array.isArray(protocolRound?.eliminated_seats) ? protocolRound.eliminated_seats.map(Number) : [];
     return { voters, left };
   });

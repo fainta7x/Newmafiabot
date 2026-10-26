@@ -341,3 +341,15 @@ describe('agreed split («попил») and a black already paid by a vote (owne
     expect(me.items.some((item) => item.kind === 'will_already')).toBe(true);
   });
 });
+
+describe('a revote at a восьмёрка or шестёрка marks the whole day as a split (owner, 2026-10-26)', () => {
+  it('tags every voting of that day, and nothing at nine', () => {
+    const keys = unscoredVotings({ votes: [
+      { round_number: 1, day_number: 0, eligible_voters: 10, outcome: 'tie_revote' },
+      { round_number: 2, day_number: 1, eligible_voters: 9, outcome: 'tie_revote' }, { round_number: 3, day_number: 1, eligible_voters: 9, outcome: 'single_eliminated' },
+      { round_number: 4, day_number: 2, eligible_voters: 8, outcome: 'tie_revote' }, { round_number: 5, day_number: 2, eligible_voters: 8, outcome: 'single_eliminated' },
+      { round_number: 6, day_number: 3, eligible_voters: 6, outcome: 'single_eliminated' },
+    ] });
+    expect([...keys].sort()).toEqual(['3:1', '3:2']);
+  });
+});

@@ -1,3 +1,4 @@
+import { circleTitle } from '../../gameProtocol/protocolReview';
 import { revealVersions } from '../../../../lib/revealStats';
 import React, { useMemo, useState } from 'react';
 import type { PlayerResultData } from '../../../../lib/api';
@@ -16,7 +17,8 @@ const EXIT_TEXT: Record<string, string> = {
 };
 const CHECK_TEXT: Record<string, string> = { sheriff: 'Шериф', not_sheriff: 'не Шериф', red: 'красный', black: 'чёрный', Красный: 'красный', Чёрный: 'чёрный' };
 
-const roundTitle = (round: number) => (round <= 1 ? 'Нулевой круг и первая ночь' : `Круг ${round - 1}`);
+// The same circle names as the protocol window (owner, 2026-10-26: «Нулевой день», «Девятка», …).
+const roundTitle = (round: number, events: LiveGameEvent[]) => circleTitle(Math.max(0, round - 1), { events } as any);
 
 /**
  * «Разбор партии» (owner, 2026-10-04): the whole live game circle by circle — who nominated whom, every voting with the
@@ -133,7 +135,7 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
           <div key={circle.round} data-testid={`game-analysis-circle-${circle.round}`}>
             <button type="button" onClick={() => setOpenRound(open ? null : circle.round)} aria-expanded={open}
               className="flex w-full min-h-[44px] items-center justify-between gap-2 border-t border-slate-800 px-3 py-2 text-left text-xs font-bold text-slate-200">
-              <span>{roundTitle(circle.round)}</span>
+              <span>{roundTitle(circle.round, events || [])}</span>
               <span className="text-slate-400">{open ? 'Скрыть' : 'Открыть'}</span>
             </button>
             {open ? renderCircle(circle) : null}

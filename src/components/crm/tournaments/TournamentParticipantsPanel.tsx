@@ -1,4 +1,4 @@
-import { organizerHeaders } from '../../../lib/organizerAuth.ts';
+import { organizerJson } from '../../../lib/organizerAuth.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, CreditCard, UserPlus, Users, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
@@ -69,11 +69,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
   const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => {
-    const response = await fetch(`/api/tournaments/evenings/${encodeURIComponent(tournamentId)}`, {
-      credentials: 'include', headers: organizerHeaders(),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || 'Не удалось загрузить участников турнира');
+    const body = await organizerJson<any>(`/api/tournaments/evenings/${encodeURIComponent(tournamentId)}`, 'Не удалось загрузить участников турнира');
     setDetail(body);
     setReserveOrder(Array.isArray(body.reserves) ? body.reserves : []);
   };
@@ -123,11 +119,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
     if (busyKey) return;
     setBusyKey(key); setError(null); setMessage(null);
     try {
-      const response = await fetch(url, {
-        method, credentials: 'include', headers: organizerHeaders(), body: JSON.stringify(payload),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Не удалось выполнить действие');
+      await organizerJson(url, 'Не удалось выполнить действие', { method, body: JSON.stringify(payload) });
       await load();
       onChanged?.();
       setMessage(success);

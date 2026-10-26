@@ -148,3 +148,49 @@ describe('tournament protocol in the common protocol window', () => {
     expect(await screen.findByText(/Укажите победившую команду/)).toBeTruthy();
   });
 });
+
+// Characterization of the tournament autosave before it shares the club's (architecture programme, 2026-10-26).
+describe('tournament protocol autosave', () => {
+  const bump = () => { place('Баллы'); fireEvent.click(screen.getAllByRole('button', { name: 'Увеличить балл судьи' })[0]); };
+  const echo = async (_t: string, _g: string, payload: any) => ({ game: mockGame as any, protocol: { ...mockProtocol, ...payload.protocol } as any, player_results: payload.player_results });
+
+  it('a failed save says so and keeps the window open on close; a later success lets it close', async () => {
+    load();
+    const onClose = vi.fn();
+    const save = vi.spyOn(api, 'saveGameProtocol').mockRejectedValue(new Error('Сервер недоступен'));
+    open({ onClose });
+    await ready();
+    bump();
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1), { timeout: 4000 });
+    expect((await screen.findAllByText('Не сохранилось')).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть протокол' }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(onClose).not.toHaveBeenCalled();
+    save.mockImplementation(echo);
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть протокол' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('closing right after an edit saves it first', async () => {
+    load();
+    const onClose = vi.fn();
+    const save = vi.spyOn(api, 'saveGameProtocol').mockImplementation(echo);
+    open({ onClose });
+    await ready();
+    bump();
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть протокол' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect((save.mock.calls[0][2] as any).player_results[0].judge_bonus).toBe(0.1);
+  });
+
+  it('unclassified old technical fouls hold the save back and say why', async () => {
+    load({}, results({ 3: { technical_fouls: 1 } }));
+    const save = vi.spyOn(api, 'saveGameProtocol').mockImplementation(echo);
+    open();
+    await ready();
+    bump();
+    expect(await screen.findByText(/Сначала классифицируйте старые техфолы/, {}, { timeout: 4000 })).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
+});

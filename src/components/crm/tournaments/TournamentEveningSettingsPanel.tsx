@@ -1,4 +1,4 @@
-import { organizerHeaders } from '../../../lib/organizerAuth.ts';
+import { organizerJson } from '../../../lib/organizerAuth.ts';
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
 import { canOrganizeTournaments } from '../../../lib/organizeFormats.ts';
@@ -51,12 +51,10 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
   const load = async () => {
     setError('');
     try {
-      const [response, players] = await Promise.all([
-        fetch(`/api/tournaments/evenings/${encodeURIComponent(tournamentId)}`, { credentials: 'include', headers: organizerHeaders() }),
+      const [body, players] = await Promise.all([
+        organizerJson<any>(`/api/tournaments/evenings/${encodeURIComponent(tournamentId)}`, 'Не удалось загрузить параметры турнира'),
         api.getPlayers(),
       ]);
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить параметры турнира');
       const next = body as TournamentDetail;
       setDetail(next);
       setJudges(players.filter((player) => player.judge_level === 'judge'));
@@ -90,11 +88,9 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
   const requestAction = async (path: string, method = 'POST', body?: unknown) => {
     setBusy(true); setError(''); setMessage('');
     try {
-      const response = await fetch(`/api/tournaments/evenings/${encodeURIComponent(tournamentId)}${path}`, {
-        method, credentials: 'include', headers: organizerHeaders(), body: body === undefined ? undefined : JSON.stringify(body),
+      await organizerJson(`/api/tournaments/evenings/${encodeURIComponent(tournamentId)}${path}`, 'Не удалось выполнить действие', {
+        method, body: body === undefined ? undefined : JSON.stringify(body),
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result?.error || 'Не удалось выполнить действие');
       setMessage('Изменения сохранены');
       await load(); onChanged?.();
     } catch (actionError: any) {

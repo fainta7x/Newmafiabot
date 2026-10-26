@@ -1,6 +1,6 @@
 # 2LA Noire — Current Project State
 
-## 2026-10-26 — owner-approved balance fixes and protocol/judge separation (PR1042)
+## 2026-10-26 — owner-approved balance fixes and protocol/judge separation (audit1042; implementation follows)
 
 Owner approves points1–4 of the concrete fix proposal; rejects restricting manual judge evaluation. Explicit follow-up confirms automatic tournament will colours when protocol_bonus is excluded from Elo. Implemented: remaining target credit across LH/vote/check/will (base8 per red/black target), unique positive decision streaks, correct red2, gross-positive limit35 then errors/floor−35, separate fixed miss6, and shared tournament colour loading for rebuild/history. Manual judge points retain their existing40 weight and no new reason requirement. Protocol bonuses stay in sporting/tournament points and nominations, but supply no Elo term. Tournament automatic addition is colours only; existing club vote/check scope is preserved. Migration policy v4 replays canonical ratings on release.86 focused native test bodies passed (not a local Vitest/full build claim); exact-head CI is required. No production write/deploy performed. This entry supersedes the pending proposal decisions in the earlier balance review.
 

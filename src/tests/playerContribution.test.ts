@@ -17,17 +17,17 @@ describe('player contribution (colour protocol part)', () => {
   const by = (n: number) => gameContribution(envelope).find((item) => item.seat === n)!;
 
   it('one will is one decision: its colours add no series by themselves (owner, 2026-10-26)', () => {
-    expect(by(1).points).toBeCloseTo(0.3 + 0.2 + 0.2, 6);
-    expect(by(5).points).toBeCloseTo(-0.4 - 0.15, 6);
+    expect(by(1).points).toBeCloseTo(0.2 + 0.05 + 0.05, 6);
+    expect(by(5).points).toBeCloseTo(-0.1 - 0.1, 6);
   });
 
   it('the base price of a single random colour guess is zero before the stricter will policy', () => {
-    expect((1 / 3) * 0.3 + (2 / 3) * -0.15).toBeCloseTo(0, 6);
-    expect((2 / 3) * 0.2 + (1 / 3) * -0.4).toBeCloseTo(0, 6);
+    expect((1 / 3) * 0.2 + (2 / 3) * -0.1).toBeCloseTo(0, 6);
+    expect((2 / 3) * 0.05 + (1 / 3) * -0.1).toBeCloseTo(0, 6);
   });
 
-  it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.3', () => {
-    expect(by(4).points).toBeCloseTo(-0.2 + 0.3, 6);
+  it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.2', () => {
+    expect(by(4).points).toBeCloseTo(-0.2 + 0.2, 6);
     expect(by(4).items.map((item) => item.kind).sort()).toEqual(['named_black', 'named_red']);
   });
 });
@@ -247,10 +247,10 @@ describe('owner corrections of 2026-10-26', () => {
     expect(elo({ exit_type: 'removed' }, { end_reason: 'ppk', ppk_culprit_participant_id: 'a' })).toBe(40);
   });
 
-  it('a black named red in a will earns +0.3', () => {
+  it('a black named red in a will earns +0.2 (as much as a found black)', () => {
     const results = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'].map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, participant_id: `p${i + 1}`, exit_type: i === 0 ? 'killed' : 'alive', color_protocol: i === 0 ? [{ mark: 'red', seat_numbers: [8] }] : [] }));
     const me = gameContribution({ protocol: { winner_team: 'black', events: [] }, player_results: results }).find((item) => item.seat === 8)!;
-    expect(me.items.find((item) => item.kind === 'named_red')?.points).toBeCloseTo(0.3, 6);
+    expect(me.items.find((item) => item.kind === 'named_red')?.points).toBeCloseTo(0.2, 6);
   });
 
   it('the don who finds the sheriff on the first night earns +0.2; later nights earn nothing', () => {

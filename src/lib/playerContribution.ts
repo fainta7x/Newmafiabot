@@ -18,17 +18,22 @@ import { missedShotNights, MISSED_SHOT_ELO } from './eloMissPenalty.ts';
  * - a red earns +0.2 for each **different** black he voted for, once per black and the same on the critical circle (Polemica's
  *   «найденный чёрный»: three blacks found is the whole job, voting again for the same black earns nothing more); a vote for
  *   a red costs every time, twice on the critical circle;
- * - wrong colours in the will are punished harder than in Polemica, so a random guess is worth zero (a «black» mark is right
- *   1 time in 3, a «red» mark 2 times in 3);
+ * - a random will guess is worth zero (a «black» mark is right 1 time in 3, a «red» mark 2 times in 3);
  * - a black is judged only by what the dead reds left about him in their wills; votes against a black do not move his points;
- * - owner, 2026-10-26: a black named red in a will earns more (+0.3, like a red who names a black right), and the don who
- *   finds the sheriff with his check on the first night earns +0.2.
+ * - owner, 2026-10-26: the don who finds the sheriff with his check on the first night earns +0.2; will colours weigh the
+ *   same as votes (a black named right +0.2 like a found black, a wrong colour −0.1 like a vote for a red, a black named red
+ *   +0.2).
  */
 export const CONTRIBUTION_WEIGHTS = {
   foundBlack: 0.2, voteRed: -0.1, criticalFactor: 2,
-  colorRight: { red: 0.2, black: 0.3 }, colorWrong: { calledRed: -0.4, calledBlack: -0.15 },
+  /**
+   * Will colours (owner, 2026-10-26: «приравнять к обычным значениям»): a black named right is worth a found black (+8 Elo),
+   * any wrong colour costs like a vote for a red (−4). A right red is +2, so that a random mark is still worth zero
+   * (a «black» mark is right one time in three, a «red» mark two times in three).
+   */
+  colorRight: { red: 0.05, black: 0.2 }, colorWrong: { calledRed: -0.1, calledBlack: -0.1 },
   sheriffFoundBlack: 0.1,
-  blackNamedRed: 0.3, blackNamedBlack: -0.2, blackNotNamed: 0.1,
+  blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
   donFoundSheriffFirstNight: 0.2,
   /** Owner, 2026-10-26: «первая мысль» — the first red who named a seat black in his will, when the table then voted it out. */
   ledTable: 0.2, misledTable: -0.2,

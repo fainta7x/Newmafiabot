@@ -62,7 +62,7 @@ describe('Elo colour evidence integrity', () => {
     events[0].phase = 'zero_night'; events[0].round = 1;
     expect(elo(rows, 8, events)).toBe(0);
     const beforeExit = [events[0], events[2], events[1]];
-    expect(elo(rows, 8, beforeExit)).toBe(mark === 'red' ? 12 : mark === 'black' ? -8 : 4);
+    expect(elo(rows, 8, beforeExit)).toBe(mark === 'red' ? 8 : mark === 'black' ? -8 : 4);
   });
 });
 

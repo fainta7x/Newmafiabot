@@ -50,24 +50,24 @@ describe('a mistaken ordinary will has no positive colour awards; PU is the exce
   it('removes only the will positives, retaining both negative evidence and the explanation', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3, 8] }];
     const me = score(rows, {}, 2);
-    close(me.points, -0.4);
+    close(me.points, -0.1);
     assert.equal(me.items.some((item) => item.kind === 'will_right'), false);
     assert.ok(contributionBreakdown(me.role, me.items).some((line) => line.includes('Завещание с ошибкой')));
   });
   it('keeps the explicit first-killed exception without guessing who was PU', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3, 8] }];
-    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.2);
-    close(score(rows, { first_killed_participant_id: 'p3' }, 2).points, -0.4);
+    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.1 + 0.05);
+    close(score(rows, { first_killed_participant_id: 'p3' }, 2).points, -0.1);
   });
   it('a black named sheriff is a wrong colour and blocks ordinary positive marks', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3] }, { mark: 'sheriff', seat_numbers: [8] }];
-    close(score(rows, {}, 2).points, -0.4);
+    close(score(rows, {}, 2).points, -0.1);
     close(score(rows, {}, 8).points, 0);
   });
   it('several mistakes in one will are one decision: no series; permuting marks changes nothing', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [8, 4] }, { mark: 'black', seat_numbers: [3] }];
     const before = score(rows, {}, 2);
-    close(before.points, -0.4 - 0.15);
+    close(before.points, -0.1 - 0.1);
     rows[1].color_protocol.reverse(); rows[1].color_protocol.forEach((mark) => mark.seat_numbers.reverse());
     close(score(rows, {}, 2).points, before.points);
     assert.ok(!before.items.some((item) => item.kind === 'streak_wrong'));
@@ -75,7 +75,7 @@ describe('a mistaken ordinary will has no positive colour awards; PU is the exce
   it('does not let a wrong colour erase a separately earned vote award', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [9] }];
     const events = sequence([event(1, 'game_start', { phase: 'zero_night' }), event(2, 'vote', { seat: 2, target: 8, value: 1 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(2, 'exit', { seat: 2, value: 'killed', phase: 'night' }), event(3, 'game_end', { value: 'red' })]);
-    const me = score(rows, { events }, 2); close(me.points, -0.2);
+    const me = score(rows, { events }, 2); close(me.points, 0.2 - 0.1);
     assert.ok(me.items.some((item) => item.kind === 'found_black'));
   });
 });

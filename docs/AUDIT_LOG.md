@@ -1997,3 +1997,7 @@ Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protoc
 ## Club live game: broadcast and replay moved out of the modal — 2026-10-26 (Claude, architecture programme)
 
 `EveningLiveGameModal.tsx` (880 lines, coverage 10.9 %): the OBS publication loop (350 ms, 5 s resend, 2 s back-off), the replay-frame sampling (changed picture or every 10 s, capped) and the alive-seat polling moved unchanged into `useClubLiveBroadcast.ts`, with the pure `appendReplayFrame` / `readAliveSeats` and 6 tests (fake timers). The modal is 753 lines. No behaviour change intended.
+
+## One definition of the organizer request headers — 2026-10-26 (Claude, architecture programme)
+
+The organizer bearer header (`organizer_token` → `Authorization`) was built in eleven places (`api.ts` ×2, `clubGamesApi.ts`, `presence.ts`, `uiTelemetry.ts`, `PlayerServiceTools`, `EveningStartTimeEditor`, `EveningGameRegistrationDashboard` ×2, four tournament panels). Now `src/lib/organizerAuth.ts` `organizerHeaders(json)`; `request()` keeps the token last so it still wins over a caller's own header. Test `organizerAuth.test.ts`. No behaviour change.

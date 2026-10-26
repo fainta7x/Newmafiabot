@@ -1,3 +1,4 @@
+import { organizerHeaders } from './organizerAuth.ts';
 /**
  * Anonymous usage tracking: which screens are opened and which buttons are
  * pressed. Screens come from the URL (ids replaced by `:id`); actions come only
@@ -53,9 +54,7 @@ const flush = (useBeacon = false) => {
       // sendBeacon carries cookies (player session); organizer bearer-only sessions fall back to fetch.
       if (!localStorage.getItem('organizer_token') && navigator.sendBeacon(ENDPOINT, new Blob([payload], { type: 'application/json' }))) return;
     }
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const headers = organizerHeaders();
     void fetch(ENDPOINT, { method: 'POST', headers, body: payload, credentials: 'include', keepalive: true }).catch(() => undefined);
   } catch {
     // Usage tracking must never affect the app.

@@ -1,3 +1,4 @@
+import { organizerHeaders } from './organizerAuth.ts';
 import type { GameExitType, RemovalReason } from '../shared/gameExit.ts';
 
 export interface Player {
@@ -690,17 +691,12 @@ export interface Tournament {
 }
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
+  // The organizer's token goes last, as before: it wins over a caller's own Authorization.
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
+    ...organizerHeaders(false),
   };
-
-  if (typeof window !== 'undefined') {
-    const storedToken = localStorage.getItem('organizer_token');
-    if (storedToken) {
-      headers['Authorization'] = `Bearer ${storedToken}`;
-    }
-  }
 
   const res = await fetch(url, {
     ...options,
@@ -1070,13 +1066,7 @@ export const api = {
     const formData = new FormData();
     formData.append('image', file);
 
-    const headers: Record<string, string> = {};
-    if (typeof window !== 'undefined') {
-      const storedToken = localStorage.getItem('organizer_token');
-      if (storedToken) {
-        headers['Authorization'] = `Bearer ${storedToken}`;
-      }
-    }
+    const headers = organizerHeaders(false);
 
     const res = await fetch(`/api/tournaments/${tournamentId}/protocol-imports`, {
       method: 'POST',

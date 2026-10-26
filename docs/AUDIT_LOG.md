@@ -2001,3 +2001,7 @@ Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protoc
 ## One definition of the organizer request headers — 2026-10-26 (Claude, architecture programme)
 
 The organizer bearer header (`organizer_token` → `Authorization`) was built in eleven places (`api.ts` ×2, `clubGamesApi.ts`, `presence.ts`, `uiTelemetry.ts`, `PlayerServiceTools`, `EveningStartTimeEditor`, `EveningGameRegistrationDashboard` ×2, four tournament panels). Now `src/lib/organizerAuth.ts` `organizerHeaders(json)`; `request()` keeps the token last so it still wins over a caller's own header. Test `organizerAuth.test.ts`. No behaviour change.
+
+## Organizer requests through one helper — 2026-10-26 (Claude, architecture programme)
+
+`organizerJson(url, fallback, init)` in `organizerAuth.ts` (organizer headers + `requestJson` failure handling) replaces the hand-written `fetch` + headers + `if (!response.ok) throw new Error(body?.error || '…')` blocks in `PlayerServiceTools` (3), `EveningStartTimeEditor` (4), `CreateTournamentEveningModal`, `TournamentParticipantsPanel` (2), `TournamentEveningSettingsPanel` (2). Left as they are: the two in `TournamentDetailView` (they also read `body.message`), `EveningGameRegistrationDashboard` (reads a partial answer on failure), `PlayerSmartNotifications` (player session, failures ignored by design). GETs now send a JSON content type too; nothing reads it.

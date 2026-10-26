@@ -1,4 +1,4 @@
-import { organizerHeaders } from '../../../lib/organizerAuth.ts';
+import { organizerJson } from '../../../lib/organizerAuth.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
@@ -53,8 +53,8 @@ export function CreateTournamentEveningModal({ isOpen, onClose, onCreated }: {
     }
     setSaving(true); setError('');
     try {
-      const response = await fetch('/api/tournaments/evenings', {
-        method: 'POST', credentials: 'include', headers: organizerHeaders(),
+      const body = await organizerJson<any>('/api/tournaments/evenings', 'Не удалось создать турнир', {
+        method: 'POST',
         body: JSON.stringify({
           title: title.trim(), date: new Date(date).toISOString(), venue: venue.trim(), judge_player_id: judgePlayerId,
           player_capacity: 10, entry_fee_rub: Number(entryFee || 0), prize_fund_rub: Number(prizeFund || 0),
@@ -62,8 +62,6 @@ export function CreateTournamentEveningModal({ isOpen, onClose, onCreated }: {
           notes: notes.trim() || null,
         }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось создать турнир');
       onCreated(body as CreatedTournament);
       onClose();
     } catch (submitError: any) {

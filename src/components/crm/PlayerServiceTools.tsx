@@ -1,4 +1,4 @@
-import { organizerHeaders } from '../../lib/organizerAuth.ts';
+import { organizerJson } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 import type { PlayerDetails } from '../../lib/api.ts';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
@@ -25,12 +25,8 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/admin-data/summary', { credentials: 'include', headers: organizerHeaders() })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить достижения');
-        return Array.isArray(body?.achievements) ? body.achievements : [];
-      })
+    organizerJson<any>('/api/admin-data/summary', 'Не удалось загрузить достижения')
+      .then((body) => (Array.isArray(body?.achievements) ? body.achievements : []))
       .then((items) => {
         if (cancelled) return;
         setAchievements(items);
@@ -46,11 +42,9 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
     if (!achievementId || achievementBusy) return;
     setAchievementBusy(true); setAchievementMessage(null);
     try {
-      const response = await fetch(`/api/admin-data/players/${encodeURIComponent(player.id)}/achievements/${encodeURIComponent(achievementId)}`, {
-        method: 'POST', credentials: 'include', headers: organizerHeaders(), body: JSON.stringify({ state, note: 'Ручная настройка из карточки игрока' }),
+      await organizerJson(`/api/admin-data/players/${encodeURIComponent(player.id)}/achievements/${encodeURIComponent(achievementId)}`, 'Не удалось изменить достижение', {
+        method: 'POST', body: JSON.stringify({ state, note: 'Ручная настройка из карточки игрока' }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось изменить достижение');
       setAchievementMessage(state === 'grant' ? 'Достижение выдано' : state === 'revoke' ? 'Достижение отозвано' : 'Включена автоматическая выдача');
     } catch (achievementError: any) {
       setAchievementMessage(achievementError?.message || 'Не удалось изменить достижение');
@@ -67,11 +61,9 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
     if (!window.confirm(`Установить стартовый Elo ${seed} для ${player.nickname} и пересчитать всю Elo-историю?`)) return;
     setSaving(true); setError(null); setMessage(null);
     try {
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}/elo-seed`, {
-        method: 'PATCH', credentials: 'include', headers: organizerHeaders(), body: JSON.stringify({ elo_seed: seed, reason: eloSeedReason.trim() || null }),
+      const body = await organizerJson<any>(`/api/players/${encodeURIComponent(player.id)}/elo-seed`, 'Не удалось изменить стартовый Elo', {
+        method: 'PATCH', body: JSON.stringify({ elo_seed: seed, reason: eloSeedReason.trim() || null }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось изменить стартовый Elo');
       setEloSeed(String(Number(body?.player?.elo_seed ?? seed)));
       setEloSeedReason(String(body?.player?.elo_seed_reason || ''));
       setCurrentElo(Number(body?.player?.elo ?? currentElo));

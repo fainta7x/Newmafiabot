@@ -1,4 +1,4 @@
-import { organizerHeaders } from '../../lib/organizerAuth.ts';
+import { organizerJson } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 
@@ -21,8 +21,6 @@ type Notice = {
   retry_available: boolean;
 };
 
-const authHeaders = (json = false) => organizerHeaders(json);
-
 export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
   eveningId: string;
   startsAt: string;
@@ -39,8 +37,8 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
   const noticeUrl = `/api/evenings/${encodeURIComponent(eveningId)}/reschedule-notice`;
   const loadNotice = async () => {
     try {
-      const response = await fetch(noticeUrl, { credentials: 'include', headers: authHeaders() });
-      if (response.ok) setNotice((await response.json()).notice || null);
+      const body = await organizerJson<any>(noticeUrl, 'Не удалось загрузить уведомления');
+      setNotice(body.notice || null);
     } catch { /* The time editor remains usable while status is temporarily unavailable. */ }
   };
   useEffect(() => { void loadNotice(); }, [eveningId, startsAt]);
@@ -50,11 +48,7 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`${noticeUrl}/retry`, {
-        method: 'POST', credentials: 'include', headers: authHeaders(true),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Не удалось повторить уведомления');
+      const body = await organizerJson<any>(`${noticeUrl}/retry`, 'Не удалось повторить уведомления', { method: 'POST' });
       if (body.paused) throw new Error('Отправка публикаций сейчас приостановлена');
       setNotice(body.notice || null);
       setMessage('Повторная отправка обработана. Проверьте статусы Telegram и ВК.');
@@ -72,13 +66,9 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
     setMessage(null);
     try {
       const url = `/api/evenings/${encodeURIComponent(eveningId)}/slots`;
-      const planResponse = await fetch(url, { credentials: 'include', headers: authHeaders() });
-      const plan = await planResponse.json().catch(() => ({}));
-      if (!planResponse.ok) throw new Error(plan?.error || 'Не удалось загрузить игры вечера');
-      const response = await fetch(url, {
+      const plan = await organizerJson<any>(url, 'Не удалось загрузить игры вечера');
+      const body = await organizerJson<any>(url, 'Не удалось перенести начало', {
         method: 'PUT',
-        credentials: 'include',
-        headers: authHeaders(true),
         body: JSON.stringify({
           planned_slots: plan.event.slot_count,
           slot_duration_minutes: plan.event.slot_duration_minutes,
@@ -86,8 +76,6 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
           starts_at: `${day}T${time}:00+03:00`,
         }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось перенести начало');
       onMoved({ starts_at: body.event.starts_at, ends_at: body.event.ends_at ?? null });
       await loadNotice();
       setMessage(`Начало перенесено на ${day} в ${time}. Игры вечера сдвинулись вместе с ним.`);

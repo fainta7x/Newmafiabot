@@ -17,13 +17,14 @@ describe('player contribution (colour protocol part)', () => {
   const by = (n: number) => gameContribution(envelope).find((item) => item.seat === n)!;
 
   it('one will is one decision: its colours add no series by themselves (owner, 2026-10-26)', () => {
-    expect(by(1).points).toBeCloseTo(0.2 + 0.05 + 0.05, 6);
+    expect(by(1).points).toBeCloseTo(0.2 + 0.075 + 0.075, 6);
     expect(by(5).points).toBeCloseTo(-0.1 - 0.1, 6);
   });
 
   it('the base price of a single random colour guess is zero before the stricter will policy', () => {
     expect((1 / 3) * 0.2 + (2 / 3) * -0.1).toBeCloseTo(0, 6);
-    expect((2 / 3) * 0.05 + (1 / 3) * -0.1).toBeCloseTo(0, 6);
+    // owner, 2026-10-26: a right red +3 — a lone random red mark is slightly positive, but an error takes every plus of the will
+    expect((2 / 3) * 0.075 + (1 / 3) * -0.1).toBeGreaterThan(0);
   });
 
   it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.2', () => {
@@ -268,9 +269,9 @@ describe('owner corrections of 2026-10-26', () => {
 
 describe('«первая мысль»: the first red who named a seat black in his will (owner, 2026-10-26)', () => {
   const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
-  const build = (firstWill: number[], secondWill: number[], votedOut: number) => {
+  const build = (firstWill: number[], secondWill: number[], votedOut: number, firstRed: number[] = []) => {
     const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: 'alive' }));
-    results[1].color_protocol = [{ mark: 'black', seat_numbers: firstWill }]; results[1].exit_type = 'killed';
+    results[1].color_protocol = [{ mark: 'black', seat_numbers: firstWill }, ...(firstRed.length ? [{ mark: 'red', seat_numbers: firstRed }] : [])]; results[1].exit_type = 'killed';
     results[2].color_protocol = [{ mark: 'black', seat_numbers: secondWill }]; results[2].exit_type = 'killed';
     const events = [
       { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
@@ -283,15 +284,23 @@ describe('«первая мысль»: the first red who named a seat black in h
     return (seat: number) => gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === seat)!;
   };
 
-  it('only the first author gets the bonus when that black is voted out', () => {
+  it('a right black in the will earns a found black; nobody gets an extra bonus for the table following it', () => {
     const by = build([8], [8], 8);
-    expect(by(2).items.find((item) => item.kind === 'led_table')?.points).toBeCloseTo(0.2, 6);
-    expect(by(3).items.some((item) => item.kind === 'led_table')).toBe(false);
+    expect(by(2).points).toBeCloseTo(0.2, 6);
+    expect(by(3).points).toBeCloseTo(0.2, 6);
   });
 
-  it('leading the table to vote out a red costs the author', () => {
-    const by = build([4], [], 4);
-    expect(by(2).items.find((item) => item.kind === 'misled_table')?.points).toBeCloseTo(-0.2, 6);
+  it('a red named black and then voted out costs twice; not voted out — once', () => {
+    expect(build([4], [], 4)(2).points).toBeCloseTo(-0.2, 6);
+    expect(build([4], [], 8)(2).points).toBeCloseTo(-0.1, 6);
+    expect(build([4], [], 4)(2).items.find((item) => item.kind === 'will_wrong')?.votedOut).toBe(true);
+  });
+
+  it('all the pluses of one game stay within +24 Elo (owner, 2026-10-26)', () => {
+    const me = build([8, 9, 10], [], 8, [4, 5, 6])(2);
+    expect(me.points).toBeCloseTo(0.6, 6);
+    expect(me.items.find((item) => item.kind === 'pool_cap')?.points).toBeLessThan(0);
+    expect(contributionBreakdown(me.role, me.items).some((line) => line.startsWith('Больше +24 за игру не набрать'))).toBe(true);
   });
 });
 

@@ -56,7 +56,7 @@ describe('a mistaken ordinary will has no positive colour awards; PU is the exce
   });
   it('keeps the explicit first-killed exception without guessing who was PU', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [3, 8] }];
-    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.1 + 0.05);
+    close(score(rows, { first_killed_participant_id: 'p2' }, 2).points, -0.1 + 0.075);
     close(score(rows, { first_killed_participant_id: 'p3' }, 2).points, -0.1);
   });
   it('a black named sheriff is a wrong colour and blocks ordinary positive marks', () => {

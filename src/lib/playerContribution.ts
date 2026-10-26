@@ -28,15 +28,19 @@ export const CONTRIBUTION_WEIGHTS = {
   foundBlack: 0.2, voteRed: -0.1, criticalFactor: 2,
   /**
    * Will colours (owner, 2026-10-26: «приравнять к обычным значениям»): a black named right is worth a found black (+8 Elo),
-   * any wrong colour costs like a vote for a red (−4). A right red is +2, so that a random mark is still worth zero
-   * (a «black» mark is right one time in three, a «red» mark two times in three).
+   * any wrong colour costs like a vote for a red (−4), a right red +3. An error still takes away every plus of that will, so
+   * marking reds at random does not pay; a red named black whom the table then voted out costs twice («стол сыграл по
+   * завещанию»).
    */
-  colorRight: { red: 0.05, black: 0.2 }, colorWrong: { calledRed: -0.1, calledBlack: -0.1 },
+  colorRight: { red: 0.075, black: 0.2 }, colorWrong: { calledRed: -0.1, calledBlack: -0.1 }, willFollowedFactor: 2,
+  /**
+   * The pool (owner, 2026-10-26): a player can find three blacks, +8 each, so all the pluses of one game together are worth at
+   * most +24 Elo (votes, will, series, checks, splits). Minuses are counted in full. The ЛХ of the first killed is separate.
+   */
+  positivePool: 0.6,
   sheriffFoundBlack: 0.1,
   blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
   donFoundSheriffFirstNight: 0.2,
-  /** Owner, 2026-10-26: «первая мысль» — the first red who named a seat black in his will, when the table then voted it out. */
-  ledTable: 0.2, misledTable: -0.2,
   /**
    * A voting tagged «без оценок» (a split): nobody's own read shows, so every red who voted shares only its result. Balanced
    * (owner asked, 2026-10-26): half of a found black (+4 Elo) because the result is shared and agreed; the red side is set so
@@ -48,7 +52,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'led_table' | 'misled_table' | 'will_already' | 'split_outcome';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'pool_cap' | 'will_already' | 'split_outcome';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -194,17 +198,6 @@ export function gameContribution(envelope: any): SeatContribution[] {
   for (const event of facts.events) if (event.kind === 'exit' && event.value === 'voted_day' && event.seat) votedOutAt.set(event.seat, event.seq);
   const votedOutSeats = new Set<number>(seats.filter((item) => item.exitType === 'voted_day').map((item) => item.seat));
   for (const seat of votedOutAt.keys()) votedOutSeats.add(seat);
-  const firstNamedBlackBy = new Map<number, number>();
-  if (facts.full) {
-    const wills = seats.filter((item) => redRole(item.role) && killedEvent(item.seat) && colorsBySeat.get(item.seat)!.black.size)
-      .sort((a, b) => killedEvent(a.seat)!.seq - killedEvent(b.seat)!.seq);
-    for (const author of wills) for (const seat of colorsBySeat.get(author.seat)!.black) {
-      if (firstNamedBlackBy.has(seat)) continue;
-      const out = votedOutAt.get(seat);
-      if (out != null && out > killedEvent(author.seat)!.seq) firstNamedBlackBy.set(seat, author.seat);
-      else firstNamedBlackBy.set(seat, -1);
-    }
-  }
   return seats.map((me) => {
     const items: ContributionItem[] = [];
     const streaks: StreakRun[] = [];
@@ -263,7 +256,12 @@ export function gameContribution(envelope: any): SeatContribution[] {
       for (const seat of colorsBySeat.get(me.seat)!.black) {
         // Owner, 2026-10-26: a black this red already found with his vote earns once — the will does not pay for him again.
         if (blackRole(roleOf.get(seat))) will.push(found.has(seat) ? { kind: 'will_already', seat, points: 0 } : { kind: 'will_right', seat, points: W.colorRight.black });
-        else if (redRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack });
+        else if (redRole(roleOf.get(seat))) {
+          // Owner, 2026-10-26: when the table then voted this red out, it played by the will — the error costs twice.
+          const out = votedOutAt.get(seat); const willAt = killedEvent(me.seat)?.seq;
+          const followed = facts.full && out != null && willAt != null && out > willAt;
+          will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack * (followed ? W.willFollowedFactor : 1), votedOut: followed });
+        }
       }
       // A sheriff label on a black is still a wrong red colour; compatible red+sheriff labels count once.
       for (const seat of colorsBySeat.get(me.seat)!.sheriff) {
@@ -280,9 +278,6 @@ export function gameContribution(envelope: any): SeatContribution[] {
         items.push(...wrong);
         if (right.length) items.push({ kind: 'will_blocked', seat: me.seat, points: 0 });
       } else items.push(...will);
-      for (const [seat, author] of firstNamedBlackBy) if (author === me.seat) {
-        items.push(blackRole(roleOf.get(seat)) ? { kind: 'led_table', seat, points: W.ledTable } : { kind: 'misled_table', seat, points: W.misledTable });
-      }
       if (me.role === 'sheriff') {
         const checkedTargets = new Set<number>();
         for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
@@ -331,6 +326,8 @@ export function gameContribution(envelope: any): SeatContribution[] {
         else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
       }
     }
+    const pluses = items.reduce((sum, item) => sum + Math.max(0, item.points), 0);
+    if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const points = items.reduce((sum, item) => sum + item.points, 0);
     return { seat: me.seat, role: me.role, points, items, streaks };
   });
@@ -361,11 +358,10 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),
       group('Голосовал в красных', of('vote_red').filter((item) => !item.votedOut)),
       group('Голосовал в красных, которых вывели (×2)', of('vote_red').filter((item) => item.votedOut)),
-      group('Первым записал чёрным, потом его вывели', of('led_table')),
-      group('Первым записал чёрным красного, потом его вывели', of('misled_table')),
       group('В завещании угадал', of('will_right')),
       of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан за голос` : null,
-      group('В завещании ошибся в', of('will_wrong')),
+      group('В завещании ошибся в', of('will_wrong').filter((item) => !item.votedOut)),
+      group('В завещании назвал чёрным красного, стол его вывел (×2)', of('will_wrong').filter((item) => item.votedOut)),
       group('Проверкой нашёл чёрного', of('check_black')),
     ];
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
@@ -373,6 +369,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   for (const run of streaks) {
     lines.push(`${run.sign > 0 ? 'Верно подряд' : 'Ошибки подряд'}: ${run.labels.join(' → ')}: ${signedElo(elo(run.points))}`);
   }
+  const pool = of('pool_cap');
+  if (pool.length) lines.push(`Больше +${elo(CONTRIBUTION_WEIGHTS.positivePool)} за игру не набрать: ${signedElo(elo(pool[0].points))}`);
   const misses = of('shot_miss');
   if (misses.length) lines.push(`Промахи: ночи ${misses.map((item) => item.night).join(', ')}: ${signedElo(elo(misses.reduce((sum, item) => sum + item.points, 0)))}`);
   return lines.filter((line): line is string => Boolean(line));

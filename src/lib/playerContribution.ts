@@ -232,6 +232,9 @@ export function gameContribution(envelope: any): SeatContribution[] {
           }
         } else if (redRole(roleOf.get(target))) {
           const votedOut = voting.eliminated === target;
+          // Owner, 2026-10-26: a vote for oneself is not punished — unless it voted oneself out while a black was on the list:
+          // «либо своей рукой выводишь мафию, либо себя».
+          if (target === me.seat && !(votedOut && voting.nominations.some((nomination) => blackRole(roleOf.get(nomination.seat))))) continue;
           const item: ContributionItem = { kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.

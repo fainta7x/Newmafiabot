@@ -278,6 +278,18 @@ Do not collapse these into one generic “out” status when the distinction is 
 
 Wording for how a player leaves the game (user-approved 2026-09-24): texts for players and organizers use only **«заголосован»** (voted out in the day) and **«убит»** (killed at night), plus **«удалён»** (removed by the judge) and **ППК**. Vague words that mix these up — «убрали», «выгнали», «покинул стол», «выбыл» — are not used. When the reason is unknown, the neutral label is «Вне игры».
 
+## Names of the circles (owner, 2026-10-26)
+
+Circles are named by how many players sit at the table, not by day numbers. Use these words in the app, the game blank, reports and chats.
+
+- **Нулевой день (0)** — the first day, all ten at the table.
+- **Девятка** — the circle after the first kill (nine at the table).
+- **Восьмёрка, семёрка, шестёрка, пятёрка** — by the number at the table; e.g. «семёрка» is the circle after a voting and the second kill.
+- **Угадайка при 4** — four at the table; **угадайка** — three at the table.
+- Qualifiers when the usual path changed: **«после промаха»** (nobody was killed at night), **«после попила посидеть»** (the split ended with everybody staying), **«после попила с подъёмом»** (the split ended with the split players raised and leaving).
+
+Examples: «девятка после попила посидеть», «восьмёрка после промаха».
+
 ## Night, agreement and the first-day split (user explanation 2026-09-24)
 
 - At night everyone wears a mask. The mafia shoots blind, masks on, each showing the number of the target; one number from all — the player is killed, different numbers — a miss.

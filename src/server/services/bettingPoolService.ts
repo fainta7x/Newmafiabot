@@ -1,3 +1,4 @@
+import { normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
@@ -447,12 +448,11 @@ type PoolWithGame = BettingPoolRow & {
 };
 
 /** The winner of a completed club protocol, read from the few fields SQLite extracted (never the whole protocol). */
-const completedWinner = (row: Pick<PoolWithGame, 'game_winner_label' | 'protocol_kind' | 'protocol_status' | 'protocol_winner'>): BetTeam | null => {
+export const completedWinner = (row: Pick<PoolWithGame, 'game_winner_label' | 'protocol_kind' | 'protocol_status' | 'protocol_winner'>): BetTeam | null => {
   if (row.protocol_kind !== 'club_evening_protocol' || row.protocol_status !== 'completed') return null;
-  const label = String(row.game_winner_label || '').toLocaleLowerCase('ru-RU');
-  if (row.protocol_winner === 'red' || label.includes('крас')) return 'red';
-  if (row.protocol_winner === 'black' || label.includes('чёр') || label.includes('чер')) return 'black';
-  return null;
+  // The protocol's own winner decides; the games-row label («Красные»/«Чёрные») only when the protocol has none. The same
+  // reader as the results and Elo (audit 2026-10-26: a substring match let a contradicting label win over the protocol).
+  return normalizeWinnerTeam(row.protocol_winner) ?? normalizeWinnerTeam(row.game_winner_label);
 };
 
 /** True when settleBetPool would leave the pool exactly as it is: settled for this winner, stakes on both sides. */

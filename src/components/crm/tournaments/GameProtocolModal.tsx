@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Image as ImageIcon } from 'lucide-react';
 import {
   api,
@@ -34,11 +34,8 @@ import {
   getTechFoulChange
 } from './protocol/protocolDisciplineUtils';
 import {
-  type ProtocolLocalBackup,
   findUnclassifiedTechFouls,
   hasUnclassifiedTechFouls,
-  parseRestorableProtocolBackup,
-  readProtocolLocalBackup,
   removeProtocolLocalBackup,
   writeBlockedProtocolLocalBackup,
   writeProtocolLocalBackup
@@ -46,6 +43,7 @@ import {
 import { validateProtocolCompletion } from './protocol/protocolValidationUtils';
 import { ProtocolWorkspace } from '../gameProtocol/ProtocolWorkspace';
 import { useProtocolEditing } from '../gameProtocol/useProtocolEditing';
+import { useProtocolAutosave } from '../gameProtocol/useProtocolAutosave';
 import type { ProtocolState } from '../gameProtocol/protocolReview';
 import type { ProtocolApi } from '../gameProtocol/types';
 
@@ -99,33 +97,25 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     best_move_score: 0
   });
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
+  // The club and the tournament protocol share one autosave (architecture programme, 2026-10-26). An edit is kept in the
+  // browser as an emergency backup at once and sent after 1.5 s; unclassified old technical fouls hold the save back.
+  const autosave = useProtocolAutosave({
+    active: isOpen && !loading && protocol.status !== 'completed',
+    protocol, playerResults, setProtocol, setPlayerResults,
+    send: (nextProtocol, nextResults) => api.saveGameProtocol(tournamentId, gameId, getProtocolPayload(nextProtocol, nextResults)),
+    echoOf: (res) => ({ protocol: res.protocol, player_results: res.player_results }),
+    delayMs: 1500,
+    hold: (nextProtocol, nextResults) => {
+      if (!hasUnclassifiedTechFouls(nextResults)) return null;
+      // Keep the emergency browser artifact even while server save is blocked.
+      writeBlockedProtocolLocalBackup(gameId, nextProtocol, nextResults);
+      return 'Сначала классифицируйте старые техфолы';
+    },
+    onEdit: (nextProtocol, nextResults) => writeProtocolLocalBackup(gameId, nextProtocol, nextResults),
+  });
   const [baseline, setBaseline] = useState<ProtocolState | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-
-  // Auto-save state
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
-  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
-  const isFirstRender = useRef(true);
-  const isLoadingRef = useRef(true);
-  const isUpdatingFromServer = useRef(false);
-  const isSavingRef = useRef(false);
-  const pendingSaveRef = useRef(false);
-  const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
-  const dirtyRevision = useRef(0);
-  const lastSavedRevision = useRef(0);
-  const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
-
-  const protocolRef = useRef(protocol);
-  const playerResultsRef = useRef(playerResults);
-
-  useEffect(() => {
-    protocolRef.current = protocol;
-  }, [protocol]);
-
-  useEffect(() => {
-    playerResultsRef.current = playerResults;
-  }, [playerResults]);
 
   // Modals for confirmation
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -143,11 +133,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     if (!isOpen || !gameId) return;
 
     let isMounted = true;
-    isLoadingRef.current = true;
     setLoading(true);
     setError(null);
-
-    let restoredBackupData: ProtocolLocalBackup | null = null;
 
     api.getGameProtocol(tournamentId, gameId)
       .then(async (res) => {
@@ -158,46 +145,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         } catch (tErr) {
           console.error('Failed to load tournament detail in GameProtocolModal:', tErr);
         }
-        isUpdatingFromServer.current = true;
         setGame(res.game);
         setProtocol(res.protocol);
         setPlayerResults(res.player_results);
         setBaseline({ protocol: res.protocol, results: res.player_results });
-        protocolRef.current = res.protocol;
-        playerResultsRef.current = res.player_results;
-        setSaveStatus('saved');
-        dirtyRevision.current = 0;
-        lastSavedRevision.current = 0;
+        autosave.markSaved(res.protocol, res.player_results);
+        // An older emergency backup in the browser is never replayed over the server data; it is replaced by it.
+        writeProtocolLocalBackup(gameId, res.protocol, res.player_results);
 
-        // Emergency browser backup is inspected, but never replayed over canonical server data.
-        const restoredBackup = parseRestorableProtocolBackup(
-          readProtocolLocalBackup(gameId),
-          res.protocol.status,
-          res.protocol.updated_at
-        );
-        if (restoredBackup) {
-          restoredBackupData = restoredBackup;
-          setProtocol(restoredBackup.protocol);
-          setPlayerResults(restoredBackup.playerResults);
-          protocolRef.current = restoredBackup.protocol;
-          playerResultsRef.current = restoredBackup.playerResults;
-          dirtyRevision.current = 1;
-          setSaveStatus('unsaved');
-        }
       })
       .catch((err) => {
         if (isMounted) setError(err.message || 'Не удалось загрузить протокол');
       })
       .finally(() => {
-        if (isMounted) {
-          isLoadingRef.current = false;
-          setLoading(false);
-          isFirstRender.current = false;
-          isUpdatingFromServer.current = false;
-          if (restoredBackupData) {
-            performSave(true);
-          }
-        }
+        if (isMounted) setLoading(false);
       });
 
     return () => {
@@ -213,115 +174,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   }, [loading, playerResults]);
 
 
-  useEffect(() => {
-    if (isFirstRender.current || loading || isLoadingRef.current || !isOpen || protocol.status === 'completed') return;
-
-    if (isUpdatingFromServer.current) {
-      isUpdatingFromServer.current = false;
+  const handleModalClose = async () => {
+    if (protocol.status !== 'completed' && !(await autosave.flush())) {
+      autosave.setSaveError('Последние изменения не сохранены');
+      autosave.setSaveState('error');
       return;
     }
-
-    dirtyRevision.current++;
-    setSaveStatus('unsaved');
-
-    // Save the emergency browser backup immediately.
-    writeProtocolLocalBackup(gameId, protocol, playerResults);
-
-    if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
-
-    autoSaveTimeout.current = setTimeout(() => {
-      performSave();
-    }, 1500);
-
-    return () => {
-      if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
-    };
-  }, [protocol, playerResults]);
-
-  const performSave = (isManual = false): Promise<boolean> => {
-    if (protocolRef.current.status === 'completed' || isLoadingRef.current) {
-      return Promise.resolve(true);
-    }
-
-    if (activeSavePromiseRef.current) {
-      pendingSaveRef.current = true;
-      return activeSavePromiseRef.current;
-    }
-
-    if (!isManual && dirtyRevision.current <= lastSavedRevision.current && saveStatus === 'saved' && !pendingSaveRef.current) {
-      return Promise.resolve(true);
-    }
-
-    const doSave = async (): Promise<boolean> => {
-      isSavingRef.current = true;
-      setSaveStatus('saving');
-      setSaveErrorMessage(null);
-
-      let success = true;
-
-      while (dirtyRevision.current > lastSavedRevision.current || pendingSaveRef.current) {
-        pendingSaveRef.current = false;
-        const revisionToSave = dirtyRevision.current;
-
-        try {
-          const currentProto = protocolRef.current;
-          const currentResults = playerResultsRef.current;
-
-          // Check for unclassified tech fouls
-          if (hasUnclassifiedTechFouls(currentResults)) {
-            setSaveStatus('unsaved');
-            setSaveErrorMessage('Сначала классифицируйте старые техфолы');
-            // Keep the emergency browser artifact even while server save is blocked.
-            writeBlockedProtocolLocalBackup(gameId, currentProto, currentResults);
-            break;
-          }
-
-          const payload = getProtocolPayload(currentProto, currentResults);
-
-          const res = await api.saveGameProtocol(tournamentId, gameId, payload);
-          lastSavedRevision.current = Math.max(lastSavedRevision.current, revisionToSave);
-
-          if (dirtyRevision.current === revisionToSave) {
-            isUpdatingFromServer.current = true;
-            setProtocol(res.protocol);
-            setPlayerResults(res.player_results);
-            setSaveStatus('saved');
-          } else {
-            setSaveStatus('unsaved');
-          }
-        } catch (err: any) {
-          setSaveStatus('error');
-          const errMsg = err.message || 'Ошибка сохранения';
-          setSaveErrorMessage(errMsg);
-          success = false;
-          break;
-        }
-      }
-
-      isSavingRef.current = false;
-      activeSavePromiseRef.current = null;
-      return success;
-    };
-
-    const promise = doSave();
-    activeSavePromiseRef.current = promise;
-    return promise;
-  };
-
-  const handleModalClose = async () => {
-    if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
-
-    if (protocolRef.current.status !== 'completed') {
-      if (dirtyRevision.current > lastSavedRevision.current || activeSavePromiseRef.current || pendingSaveRef.current || saveStatus === 'unsaved') {
-        const ok = await performSave(true);
-        if (!ok || dirtyRevision.current > lastSavedRevision.current) {
-          setSaveErrorMessage('Последние изменения не сохранены');
-          setSaveStatus('error');
-          return;
-        }
-      }
-    }
-
     onClose();
   };
 
@@ -465,7 +323,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       setProtocol(res.protocol);
       setPlayerResults(res.player_results);
       if (res.game) setGame(res.game);
-      setSaveStatus('saved');
+      autosave.markSaved(res.protocol, res.player_results);
       setBaseline({ protocol: res.protocol, results: res.player_results });
       setShowCompleteConfirm(false);
 
@@ -495,7 +353,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       setProtocol(res.protocol);
       setPlayerResults(res.player_results);
       if (res.game) setGame(res.game);
-      setSaveStatus('saved');
+      autosave.markSaved(res.protocol, res.player_results);
       setBaseline({ protocol: res.protocol, results: res.player_results });
       setShowRevertConfirm(false);
 
@@ -538,6 +396,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     removeByJudge: (player) => handleDisciplineAction(player.participant_id, 'direct_removal'),
     cancelRemoval: (player) => handleDisciplineAction(player.participant_id, 'cancel_direct'),
   };
+  const { saveState: saveStatus, saveError: saveErrorMessage } = autosave;
   const saveLabel = saveStatus === 'saving' ? { label: 'Сохраняем…', tone: 'neutral' as const }
     : saveStatus === 'unsaved' ? { label: 'Есть несохранённые изменения', tone: 'warn' as const }
       : saveStatus === 'error' ? { label: 'Не сохранилось', tone: 'bad' as const }

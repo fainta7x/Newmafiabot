@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { describeLegacyRepairs, repairLegacyClubProtocol } from '../../lib/legacyClubProtocol.ts';
 import { ProtocolWorkspace } from './gameProtocol/ProtocolWorkspace';
 import { useProtocolEditing } from './gameProtocol/useProtocolEditing';
+import { useProtocolAutosave } from './gameProtocol/useProtocolAutosave';
 import type { ProtocolState } from './gameProtocol/protocolReview';
 import type { ProtocolApi } from './gameProtocol/types';
 
@@ -43,18 +44,21 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>(source?.player_results || []);
   // The protocol as it was when the window opened: «Вы изменили» is the difference from it.
   const [baseline, setBaseline] = useState<ProtocolState | null>(() => (repairedSource && source ? { protocol: repairedSource.protocol, results: source.player_results } : null));
-  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // What the server last confirmed. The autosave only runs when the editor differs from it, so the server's own
-  // echo (a fresh object every time) can never start another save, and an unchanged protocol is never re-sent.
-  const snapshot = (nextProtocol: TournamentGameProtocolData, nextResults: PlayerResultData[]) => JSON.stringify({ nextProtocol, nextResults });
-  // What the server holds: after an automatic repair the editor differs from it, so a draft saves the repaired record.
-  const savedSnapshotRef = useRef<string>(snapshot(source?.protocol || protocol, playerResults));
-  const latestRef = useRef({ protocol, playerResults });
-  latestRef.current = { protocol, playerResults };
-  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const saveSeqRef = useRef(0);
+  // The club and the tournament protocol share one autosave (architecture programme, 2026-10-26).
+  const autosave = useProtocolAutosave<ClubGameRecord>({
+    active: isOpen && protocol.status !== 'completed',
+    protocol, playerResults, setProtocol, setPlayerResults,
+    send: (nextProtocol, nextResults) => clubGamesApi.saveProtocol(game.id, { protocol: nextProtocol, player_results: nextResults }),
+    echoOf: (updated) => updated.club_protocol,
+    onSaved: (updated, replaceEditor) => {
+      if (replaceEditor && updated.club_protocol) setBaseline({ protocol: updated.club_protocol.protocol, results: updated.club_protocol.player_results });
+      onUpdated(updated);
+    },
+    delayMs: 1000,
+    // What the server holds: after an automatic repair the editor differs from it, so a draft saves the repaired record.
+    initial: source ? { protocol: source.protocol, playerResults: source.player_results } : undefined,
+  });
+  const { saveState, saveError, save } = autosave;
 
   useEffect(() => {
     if (!isOpen || !game.club_protocol) return;
@@ -62,78 +66,9 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setProtocol(repaired.protocol);
     setPlayerResults(game.club_protocol.player_results);
     setRepairNotes(describeLegacyRepairs(repaired.repairs));
-    savedSnapshotRef.current = snapshot(game.club_protocol.protocol, game.club_protocol.player_results);
-    setSaveState('saved');
-    setSaveError(null);
+    autosave.markSaved(game.club_protocol.protocol, game.club_protocol.player_results);
     setBaseline({ protocol: repaired.protocol, results: game.club_protocol.player_results });
   }, [game.id, isOpen]);
-
-  const cancelAutoSave = () => {
-    if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
-  };
-
-  // Saves go to the server one after another, and only the newest one may update the screen: an older answer
-  // arriving late can no longer put a finished game back to a draft.
-  const save = (
-    nextProtocol: TournamentGameProtocolData = latestRef.current.protocol,
-    nextResults: PlayerResultData[] = latestRef.current.playerResults,
-    options: { replaceEditor?: boolean } = {},
-  ): Promise<boolean> => {
-    cancelAutoSave();
-    const seq = ++saveSeqRef.current;
-    const sent = snapshot(nextProtocol, nextResults);
-    setSaveState('saving');
-    setSaveError(null);
-    const run = async () => {
-      try {
-        const updated = await clubGamesApi.saveProtocol(game.id, { protocol: nextProtocol, player_results: nextResults });
-        if (seq !== saveSeqRef.current) return true; // a newer save is already on its way and will decide
-        const echoed = updated.club_protocol;
-        const untouched = snapshot(latestRef.current.protocol, latestRef.current.playerResults) === sent;
-        if (echoed) {
-          savedSnapshotRef.current = snapshot(echoed.protocol, echoed.player_results);
-          if (options.replaceEditor || untouched) {
-            setProtocol(echoed.protocol);
-            setPlayerResults(echoed.player_results);
-          }
-          if (options.replaceEditor) setBaseline({ protocol: echoed.protocol, results: echoed.player_results });
-        } else {
-          savedSnapshotRef.current = sent;
-        }
-        onUpdated(updated);
-        if (options.replaceEditor || untouched) setSaveState('saved');
-        else { setSaveState('unsaved'); scheduleAutoSave(); }
-        return true;
-      } catch (err) {
-        console.error(err);
-        if (seq === saveSeqRef.current) {
-          setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить протокол');
-          setSaveState('error');
-        }
-        return false;
-      }
-    };
-    const result = queueRef.current.then(run, run);
-    queueRef.current = result;
-    return result;
-  };
-
-  const scheduleAutoSave = () => {
-    cancelAutoSave();
-    autoSaveRef.current = setTimeout(() => { autoSaveRef.current = null; void save(); }, 1000);
-  };
-
-  useEffect(() => {
-    if (!isOpen || protocol.status === 'completed') return;
-    if (snapshot(protocol, playerResults) === savedSnapshotRef.current) {
-      cancelAutoSave();
-      setSaveState((current) => (current === 'unsaved' ? 'saved' : current));
-      return;
-    }
-    setSaveState((current) => (current === 'saving' ? current : 'unsaved'));
-    scheduleAutoSave();
-    return cancelAutoSave;
-  }, [protocol, playerResults]);
 
   const editing = useProtocolEditing({ protocol, setProtocol, playerResults, setPlayerResults });
 

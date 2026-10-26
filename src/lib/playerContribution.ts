@@ -32,11 +32,13 @@ export const CONTRIBUTION_WEIGHTS = {
   donFoundSheriffFirstNight: 0.2,
   /** Owner, 2026-10-26: «первая мысль» — the first red who named a seat black in his will, when the table then voted it out. */
   ledTable: 0.2, misledTable: -0.2,
+  /** A voting tagged «без оценок» (split): every red who voted shares only its result — a black left +2 Elo, a red left −1. */
+  splitBlackOut: 0.05, splitRedOut: -0.025,
   /** A vote for a red who left in that very voting costs twice. */
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'led_table' | 'misled_table' | 'will_already';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'led_table' | 'misled_table' | 'will_already' | 'split_outcome';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -89,14 +91,21 @@ function obviousBlacksFor(seat: number, facts: ReturnType<typeof gameActionFacts
 }
 
 /**
- * «Попил» (owner, 2026-10-26): an agreed split, where players vote where they are told, so a vote there is not their own read.
- * Recognised automatically: the votes went to three or more candidates and the player who left got no more than half of them.
+ * «Без оценок» (owner, 2026-10-26): a tag the judge puts on a voting whose votes say nothing about the voters' own read —
+ * usually a split («попил»), often a broken one, where players voted where they were told (`no_scoring` on that voting). Votings are matched by
+ * day (protocol day N = engine round N + 1) and their number within the day.
  */
-export const isSplitVoting = (voting: { votes: Map<number, number> }) => {
-  const counts = new Map<number, number>();
-  for (const target of voting.votes.values()) counts.set(target, (counts.get(target) || 0) + 1);
-  const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
-  return counts.size >= 3 && Math.max(0, ...counts.values()) * 2 <= total;
+export const unscoredVotings = (protocol: any): Set<string> => {
+  const keys = new Set<string>();
+  const perDay = new Map<number, number>();
+  const rounds = (Array.isArray(protocol?.votes) ? protocol.votes : []).slice().sort((x: any, y: any) => Number(x?.round_number) - Number(y?.round_number));
+  for (const round of rounds) {
+    const day = Number(round?.day_number ?? 0);
+    const number = (perDay.get(day) || 0) + 1;
+    perDay.set(day, number);
+    if (round?.no_scoring === true) keys.add(`${day + 1}:${number}`);
+  }
+  return keys;
 };
 
 const decisionLabel = (item: ContributionItem) => item.kind === 'found_black' ? `голос в чёрного №${item.seat}`
@@ -114,6 +123,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
     seats: seats.map(({ seat, role, playerId }) => ({ seat, role: role as any, playerId })), events: sanitizeLiveGameEvents(protocol.events),
   } satisfies StatGame);
   const W = CONTRIBUTION_WEIGHTS;
+  const splits = unscoredVotings(protocol);
   // Old protocols bypassed the new validation. Ignore self marks and contradictory evidence in a rebuild too.
   const colorsBySeat = new Map(seats.map((item) => {
     const red = new Set<number>(); const black = new Set<number>(); const mentioned = new Set<number>();
@@ -174,7 +184,14 @@ export function gameContribution(envelope: any): SeatContribution[] {
       const found = new Map<number, ContributionItem>();
       const obvious = new Set<number>();
       const isObvious = obviousBlacksFor(me.seat, facts, roleOf);
-      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated' && !isSplitVoting(item))) {
+      // Owner, 2026-10-26: in a voting tagged «без оценок» only the colour of the player who left counts, the same for every red voter.
+      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated' && splits.has(`${item.round}:${item.number}`))) {
+        if (!voting.votes.has(me.seat) || !voting.eliminated) continue;
+        const color = roleOf.get(voting.eliminated);
+        if (blackRole(color)) items.push({ kind: 'split_outcome', seat: voting.eliminated, points: W.splitBlackOut });
+        else if (redRole(color)) items.push({ kind: 'split_outcome', seat: voting.eliminated, points: W.splitRedOut });
+      }
+      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated' && !splits.has(`${item.round}:${item.number}`))) {
         const target = voting.votes.get(me.seat);
         if (!target) continue;
         const critical = voting.critical === true;
@@ -296,6 +313,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const lines = blackRole(role)
     ? [group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
+      group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
+      group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),
       group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),
       group('Голосовал в чёрных, которых не вывели (половина)', of('found_black').filter((item) => item.stayed)),
       group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),

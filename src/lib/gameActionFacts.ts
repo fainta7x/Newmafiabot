@@ -19,6 +19,8 @@ export interface ActionVoting {
   eliminated: number | null; alive: Set<number> | null; critical: boolean | null;
   /** This voting phase's own result («single_eliminated», «tie_revote», «no_elimination», …), null without a result marker. */
   outcome: string | null;
+  /** The voting's number within its day (1, 2 for a revote, …), as in the protocol's votes of that day. */
+  number?: number;
 }
 export interface ActionCheck { kind: 'sheriff' | 'don'; target: number; seq: number; alive: Set<number> | null }
 
@@ -82,7 +84,7 @@ function computeGameActionFacts(game: StatGame) {
       const reds = state ? [...state].filter(s => redRole(roleOf(s))).length : 0;
       const blacks = state ? [...state].filter(s => blackRole(roleOf(s))).length : 0;
       votings.push({ seq: result?.seq, round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
-        critical: state ? isCriticalCircle(reds, blacks) : null, outcome: result ? String(result.value).split(':')[1] || null : null });
+        critical: state ? isCriticalCircle(reds, blacks) : null, outcome: result ? String(result.value).split(':')[1] || null : null, number: voting.number });
     }
   }
   // A selection is confirmed only after leaving the corresponding night substep. Re-selections replace it.

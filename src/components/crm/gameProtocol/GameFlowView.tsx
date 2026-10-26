@@ -249,6 +249,16 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
             </section>
           ) : null}
 
+          {view.day > 0 && view.nominated.length > 0 ? (
+            <section className="space-y-2" aria-label="Оценка голосов"><Eyebrow>Оценка голосов в Эло</Eyebrow>
+              <button type="button" data-testid="voting-no-scoring" aria-pressed={view.round.no_scoring === true} disabled={api.locked}
+                onClick={() => api.changeRound(index, (round) => ({ ...round, no_scoring: round.no_scoring === true ? undefined : true }))}
+                className={`min-h-11 w-full rounded-xl border px-3 text-left text-sm font-semibold ${view.round.no_scoring ? 'border-amber-300/60 bg-amber-300/15 text-amber-100' : 'border-white/10 bg-white/[0.04] text-white/70'} disabled:opacity-40`}>
+                {view.round.no_scoring ? '✓ Без оценок — попил: за голоса здесь ни плюсов, ни минусов' : 'Отметить «без оценок» (попил, сломанный попил)'}
+              </button>
+            </section>
+          ) : null}
+
           {view.result.outcome === 'requires_table_decision' ? (
             <section className="space-y-2" aria-label="Решение стола"><Eyebrow>Голосов за уход всех спорных</Eyebrow>
               <Stepper label="Голосов за уход" value={view.round.table_leave_votes ?? 0} disabled={api.locked} minusDisabled={(view.round.table_leave_votes ?? 0) <= 0} plusDisabled={(view.round.table_leave_votes ?? 0) >= view.eligible} onMinus={() => api.changeRound(index, (round) => setTableLeaveVotes(round, Math.max(0, (round.table_leave_votes ?? 0) - 1)))} onPlus={() => api.changeRound(index, (round) => setTableLeaveVotes(round, Math.min(view.eligible, (round.table_leave_votes ?? 0) + 1)))} />

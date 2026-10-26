@@ -516,6 +516,8 @@ export interface VotingRound {
   eliminated_seats?: number[];
   table_leave_votes?: number | null;
   cancelled_by_removal?: boolean;
+  /** The judge tagged this voting «без оценок» (e.g. a broken split): its votes earn and cost nothing in Elo. */
+  no_scoring?: boolean;
   ballots?: Record<number, number>;
 }
 

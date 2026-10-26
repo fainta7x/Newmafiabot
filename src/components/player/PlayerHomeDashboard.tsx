@@ -7,14 +7,9 @@ import { getPlayerGameRoleLabel as roleLabel } from '../../lib/playerGameRoleLab
 import type { PlayerMeResponse } from '../../types/player.ts';
 import CuratorTasksCard from './CuratorTasksCard.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
-
-type PlayerEvening = {
-  id: string;
-  title: string;
-  starts_at: string;
-  venue: string | null;
-  format: string;
-};
+import { usePlayerDebtSummary } from '../../hooks/usePlayerDebtSummary.ts';
+import { hasHomeEveningBooking, homeEveningResponse, selectHomeEvening, type HomeEvening } from '../../lib/playerHomeEvening.ts';
+import { getEveningResponseLabel } from '../../lib/eveningResponse.ts';
 
 type NoviceState = {
   player: { club_stage: string };
@@ -84,21 +79,19 @@ export default function PlayerHomeDashboard({
   /** «Прогресс → Обучение». */
   onOpenLearning?: () => void;
 }) {
-  const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
+  const [evenings, setEvenings] = useState<HomeEvening[] | null>(null);
   const [eveningsError, setEveningsError] = useState(false);
   const eveningRequestSeq = useRef(0);
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [novice, setNovice] = useState<NoviceState | null>(null);
-  const [debt, setDebt] = useState(0);
+  const debtSummary = usePlayerDebtSummary(data.player.id);
+  const debt = debtSummary.amount;
   const [news, setNews] = useState<Array<{ text: string; published_at: string }>>([]);
   const [newsOpen, setNewsOpen] = useState(false);
 
   // «Главная» (owner decision 2026-10-06): what to do now — a debt for past evenings — and the club news.
   useEffect(() => {
     let cancelled = false;
-    getJsonIfOk<any>('/api/player/payments')
-      .then((body) => { if (!cancelled) setDebt(Math.max(0, Number(body?.summary?.historical_debt || 0))); })
-      .catch(() => undefined);
     getJsonIfOk<any>('/api/player/news')
       .then((body) => { if (!cancelled && Array.isArray(body?.news)) setNews(body.news); })
       .catch(() => undefined);
@@ -148,13 +141,13 @@ export default function PlayerHomeDashboard({
   }, []);
 
   const nextEvening = useMemo(() => {
-    const now = Date.now() - 60 * 60 * 1000;
     // An evening that is already running is shown in the LIVE bar above; «Следующий
     // вечер» is the next one the player can still plan for.
-    return (evenings || [])
-      .filter((item) => new Date(item.starts_at).getTime() >= now && !['active', 'completed', 'cancelled'].includes(String((item as { status?: string }).status || '')))
-      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0] || null;
+    return selectHomeEvening(evenings || []);
   }, [evenings]);
+  const personalEvening = nextEvening ? hasHomeEveningBooking(nextEvening) : false;
+  const nextResponse = nextEvening ? homeEveningResponse(nextEvening) : 'unanswered';
+  const selectedGames = nextEvening?.participation?.slot_numbers || [];
 
   // Newcomers choose a route first: novices unlock their evenings immediately;
   // experienced players wait for organizer assessment.
@@ -179,20 +172,6 @@ export default function PlayerHomeDashboard({
         </header>
 
         <div className="player-home-primary space-y-3">
-          <VotePromptCard />
-        <CuratorTasksCard />
-
-        {debt > 0 && onOpenWallet ? (
-          <section data-testid="player-home-debt" className="rounded-[28px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
-            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-rose-100/70">Оплата</div>
-            <p className="mt-2 text-base font-semibold">Долг за прошлые вечера: {formatRubles(debt)}</p>
-            <p className="mt-1 text-sm leading-5 text-white/55">Оплатить можно в удобное время — способы оплаты в кошельке.</p>
-            <button type="button" onClick={onOpenWallet} className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
-              <span>Оплатить</span><span>→</span>
-            </button>
-          </section>
-        ) : null}
-
         {awaitingFirstApplication ? (
           <section data-testid="player-home-first-application" className="rounded-[28px] border border-emerald-300/20 bg-emerald-300/[0.07] p-4">
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-emerald-100/70">Добро пожаловать в 2LA Noire</div>
@@ -222,7 +201,7 @@ export default function PlayerHomeDashboard({
         ) : null}
 
         <section data-testid="player-home-next" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Следующий вечер</div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">{personalEvening ? 'Мой следующий вечер' : 'Следующий вечер'}</div>
           {eveningsError ? (
             <div role="alert" data-testid="player-home-evenings-error" className="mt-3 space-y-3 rounded-2xl bg-black/20 px-3 py-4">
               <p className="text-sm leading-5 text-white/65">Не удалось загрузить расписание вечеров.</p>
@@ -244,13 +223,23 @@ export default function PlayerHomeDashboard({
                   {EVENING_FORMAT_LABELS[normalizeEveningFormat(nextEvening.format)]}
                 </span>
               </div>
+              {nextResponse !== 'unanswered' || personalEvening ? (
+                <div data-testid="player-home-participation" className="mt-3 rounded-2xl bg-white/[0.04] px-3 py-3 text-sm leading-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-white/85">{getEveningResponseLabel(nextResponse)}</span>
+                    {nextEvening.participation?.registration_status === 'waitlist' ? <span className="rounded-full bg-amber-200/10 px-2 py-0.5 text-xs text-amber-100">В резерве</span>
+                      : nextEvening.participation?.registration_status === 'confirmed' ? <span className="rounded-full bg-emerald-200/10 px-2 py-0.5 text-xs text-emerald-100">Участие подтверждено</span> : null}
+                  </div>
+                  {personalEvening && <p className="mt-1 text-xs text-white/55">{selectedGames.length ? `Выбраны игры: ${selectedGames.join(', ')}` : 'Игры не выбраны по отдельности — уточни их в карточке вечера.'}</p>}
+                </div>
+              ) : null}
               {onNovicePath && normalizeEveningFormat(nextEvening.format) === 'NOVICE' && novice ? (
                 <div className="mt-3 rounded-2xl bg-emerald-300/[0.08] px-3 py-2 text-[13px] text-emerald-100/80">
                   Стоимость — в карточке вечера. Подарок отмечает организатор.
                 </div>
               ) : null}
               <button type="button" onClick={() => onOpenEvents(nextEvening.id)} className={`mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl px-4 text-sm font-semibold ${awaitingFirstApplication ? 'bg-white/[0.08] text-white/80' : 'bg-white text-black'}`}>
-                <span>{awaitingFirstApplication ? 'Посмотреть вечер' : 'Выбрать игры'}</span>
+                <span>{awaitingFirstApplication ? 'Посмотреть вечер' : personalEvening ? 'Моя запись' : nextResponse === 'thinking' || nextResponse === 'declined' ? 'Изменить ответ' : 'Выбрать игры'}</span>
                 <span>→</span>
               </button>
             </div>
@@ -258,6 +247,25 @@ export default function PlayerHomeDashboard({
             <div className="mt-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/50">Ближайших игровых вечеров пока нет.</div>
           )}
         </section>
+
+        <VotePromptCard />
+        <CuratorTasksCard />
+
+        {debt !== null && debt > 0 && onOpenWallet ? (
+          <section data-testid="player-home-debt" className="rounded-[28px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-rose-100/70">Оплата</div>
+            <p className="mt-2 text-base font-semibold">Долг за прошлые вечера: {formatRubles(debt)}</p>
+            <p className="mt-1 text-sm leading-5 text-white/55">Оплатить можно в удобное время — способы оплаты в кошельке.</p>
+            <button type="button" onClick={onOpenWallet} className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
+              <span>Оплатить</span><span>→</span>
+            </button>
+          </section>
+        ) : null}
+        {onOpenWallet && debtSummary.status === 'loading' && debt === null && <p role="status" className="px-1 text-xs text-white/50">Проверяем оплату прошлых вечеров…</p>}
+        {onOpenWallet && debtSummary.status === 'error' && <section role="alert" data-testid="player-home-debt-error" className="rounded-[28px] border border-amber-200/15 bg-amber-200/[0.04] p-4">
+          <p className="text-sm leading-5 text-white/65">{debt === null ? 'Не удалось проверить долг за прошлые вечера.' : `Не удалось обновить долг. Последняя подтверждённая сумма: ${formatRubles(debt)}.`}</p>
+          <button type="button" onClick={() => void debtSummary.reload()} className="mt-3 min-h-11 w-full rounded-xl border border-white/15 px-3 text-sm font-semibold">Повторить</button>
+        </section>}
 
         </div>
         <div className="player-home-secondary space-y-3">

@@ -1,4 +1,5 @@
 import ReactDOM from 'react-dom/client';
+import { useState } from 'react';
 import { EveningGameProtocolModal } from '../src/components/crm/EveningGameProtocolModal.tsx';
 import { GameProtocolModal } from '../src/components/crm/tournaments/GameProtocolModal.tsx';
 import { buildProtocolWindowGame } from './fixtures/protocolWindowGame.ts';
@@ -11,8 +12,10 @@ const realFetch = window.fetch.bind(window);
 // The real save response joins canonical seats/players back onto input-only mutable result fields.
 const savedResults = (rows: any[]) => rows.map((row) => ({ ...game.club_protocol.player_results.find((player: any) => player.participant_id === row.participant_id), ...row }));
 (window as any).__saves = [];
+(window as any).__offline = params.get('offline') === '1';
 window.fetch = (async (input: any, init?: any) => {
   const url = String(input);
+  if ((window as any).__offline && (init?.method === 'PUT' || init?.method === 'POST')) return new Response(JSON.stringify({ error: 'Нет сети' }), { status: 503, headers: { 'content-type': 'application/json' } });
   if (url.includes('/evening-protocol')) {
     const body = JSON.parse(init.body);
     (window as any).__saves.push(body);
@@ -31,5 +34,10 @@ window.fetch = (async (input: any, init?: any) => {
   return realFetch(input, init);
 }) as typeof window.fetch;
 
-ReactDOM.createRoot(document.getElementById('root')!).render(params.get('kind') === 'tournament' ? <GameProtocolModal tournamentId="t" gameId="g" isOpen onClose={() => undefined} /> : <EveningGameProtocolModal game={game} isOpen onClose={() => undefined} onUpdated={() => undefined} />);
+function ProtocolPreview() {
+  const [open, setOpen] = useState(true);
+  if (!open) return <p data-testid="protocol-closed">Протокол закрыт</p>;
+  return params.get('kind') === 'tournament' ? <GameProtocolModal tournamentId="t" gameId="g" isOpen onClose={() => setOpen(false)} /> : <EveningGameProtocolModal game={game} isOpen onClose={() => setOpen(false)} onUpdated={() => undefined} />;
+}
+ReactDOM.createRoot(document.getElementById('root')!).render(<ProtocolPreview />);
 

@@ -93,7 +93,10 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     : saveState === 'unsaved' ? { label: 'Есть несохранённые изменения', tone: 'warn' as const }
       : saveState === 'error' ? { label: 'Не сохранилось', tone: 'bad' as const }
         : { label: 'Сохранено', tone: 'good' as const };
-  const close = async () => { if (protocol.status === 'draft' && saveState !== 'saved') await save(); onClose(); };
+  const close = async () => {
+    if (protocol.status !== 'completed' && !(await autosave.flush())) return;
+    onClose();
+  };
 
   return (
     <ProtocolWorkspace

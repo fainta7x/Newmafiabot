@@ -97,6 +97,7 @@ export default function App() {
 
 function AppContent() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [search, setSearch] = useState(() => window.location.search);
   const [rootState, setRootState] = useState<RootState>({ status: 'loading' });
   const [loadingSlow, setLoadingSlow] = useState(false);
 
@@ -115,10 +116,11 @@ function AppContent() {
     if (replace) window.history.replaceState({}, '', nextPath);
     else window.history.pushState({}, '', nextPath);
     setPathname(window.location.pathname);
+    setSearch(window.location.search);
   }, []);
 
   useEffect(() => {
-    const handlePopState = () => setPathname(window.location.pathname);
+    const handlePopState = () => { setPathname(window.location.pathname); setSearch(window.location.search); };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -150,7 +152,7 @@ function AppContent() {
   const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
-  const parsedPlayerRoute = useMemo(() => parsePlayerRoute(pathname), [pathname]);
+  const parsedPlayerRoute = useMemo(() => parsePlayerRoute(pathname, search), [pathname, search]);
 
   useEffect(() => {
     if (!isRoutePrefix(pathname, '/player')) return;

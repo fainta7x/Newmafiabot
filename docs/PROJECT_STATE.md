@@ -956,6 +956,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Application continuity (candidate, 2026-10-26): Home shows your next registration and chosen games; Community/Wallet tabs keep their place after reload; payment-load failures offer retry; a protocol stays open if saving fails. Announce only after merge.
+
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.
 - В живой игре после слома попила можно отметить, кто его сломал, или выбрать «Не знаю».
 
@@ -1112,7 +1114,7 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
-- **Global application review (owner, 2026-10-26; analysis complete, proposals not approved):** source review records navigation resets, ambiguous loading/error state in the wallet summary, a generic Home evening card without personal RSVP context, and potentially confusing rank/season labels; see AUDIT_LOG → «global product and usability review». Preserve the existing four sections, evening route and shared autosave. Suggested priorities: personal next action/error clarity, persistent navigation/rank labels, then mobile/network verification of judging through final results. No new feature, runtime change or production write is authorized by this review request.
+- **Application continuity (owner, 2026-10-26; APPROVED except rating-label proposal):** personal Home evening/RSVP/reserve/exact game choices first, persistent Community/Activity/Wallet routes, explicit debt-summary failures/retry, and evidence-led judge reliability corrections are implemented in the current candidate. Ranking names, meanings, scoring and hierarchy remain unchanged; routing alone preserves the Metrics tab. Club protocol close now waits for a successful flush and keeps failed/unsent edits open. Focused source/UI evidence is in AUDIT_LOG → «approved application continuity fixes». Required exact-head CI/merge are still gates; no production write or deploy has been performed. Optional feature expansion and any architecture replacement are outside this batch.
 
 - Idea (owner 2026-10-26, not built): replace the fixed 30/70 base win chance in Elo with something adaptive — from the club's real red/black win rate, the players' and the teams' win rates. Claude's note: the club's 19 counted games are 9 red / 10 black (47 % red), far from the assumed 30 %, but too few to trust; a shrunk estimate (30/70 prior + real results, weight growing with games) is the safe form; individual/team win rates must not be added on top of Elo, which already measures them (double counting). Owner decision 2026-10-26: stay on 30/70 for now.
 

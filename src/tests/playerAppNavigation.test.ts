@@ -48,6 +48,27 @@ describe('player app navigation', () => {
 });
 
 describe('new player menu addresses (owner, 2026-10-06)', () => {
+  it('restores community, activity, wallet and metrics views from their own addresses', () => {
+    for (const [section, target, path] of [
+      ['club', 'connections', '/player/club/connections'], ['club', 'games', '/player/club/games'],
+      ['clubworld', 'form', '/player/seasons/form'], ['clubworld', 'matches', '/player/seasons/matches'],
+      ['clubworld', 'season', '/player/seasons/season'], ['clubworld', 'history', '/player/seasons/history'],
+      ['wallet', 'payments', '/player/wallet/payments'], ['wallet', 'shop', '/player/wallet/shop'],
+      ['wallet', 'bets', '/player/wallet/bets'], ['wallet', 'history', '/player/wallet/history'],
+      ['rating', 'metrics', '/player/rating/metrics'],
+    ] as const) {
+      expect(playerPathForSection(section, target)).toBe(path);
+      expect(parsePlayerRoute(path)).toMatchObject({ section, target, canonicalPath: path });
+    }
+    expect(parsePlayerRoute('/player/wallet', '?tab=bets')).toMatchObject({ section: 'wallet', target: 'bets' });
+    expect(parsePlayerRoute('/player/wallet', '?tab=unknown').target).toBeNull();
+    expect(parsePlayerRoute('/player/club/unknown').target).toBeNull();
+    expect(appBackTarget('/player/club/connections')).toBe('/player/club');
+    expect(appBackTarget('/player/seasons/matches')).toBe('/player/seasons');
+    expect(appBackTarget('/player/wallet/history')).toBe('/player/wallet');
+    expect(appBackTarget('/player/poker')).toBe('/player/club/games');
+    expect(appBackTarget('/player/clocktower')).toBe('/player/club/games');
+  });
   it('opens «Настройки» and «Прогресс» by address and keeps the old ones', async () => {
     const { parsePlayerRoute, playerPathForSection } = await import('../lib/appNavigation.ts');
     expect(parsePlayerRoute('/player/settings')).toMatchObject({ section: 'settings', canonicalPath: '/player/settings' });

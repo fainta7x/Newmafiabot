@@ -1,6 +1,6 @@
 import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
-import { sanitizeLiveGameEvents } from '../shared/liveGameEvents.ts';
+import { sanitizeLiveGameEvents, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../shared/gameRoles.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStreak.ts';
@@ -40,7 +40,20 @@ export const CONTRIBUTION_WEIGHTS = {
   positivePool: 0.6,
   /** Owner, 2026-10-26: the sheriff's black check +4, and +4 more when the table votes that black out — +8 in all, one found black. */
   sheriffFoundBlack: 0.1, sheriffCheckedVotedOut: 0.1,
-  blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
+  /**
+   * Owner, 2026-10-26: a black named black in a will −4 (was −8): at most four wills, so with the early exit (−8 for a black
+   * voted out at the девятка) the worst a black loses to good red play is −24, the mirror of the red pool.
+   */
+  blackNamedRed: 0.2, blackNamedBlack: -0.1, blackNotNamed: 0.1, blackOutAtNine: -0.2,
+  /**
+   * A broken zero-round split (owner, 2026-10-26), by the judge's mark «Кто сломал попил?» and the player voted in the zero
+   * round: [breaker, the one it was broken into]. A black into a red: nothing; a black into a black: −24 / +8; a red into a
+   * red: −24 / +8; a red into a black: +8 / −16; a black into the sheriff: +16; a red into the sheriff: −24 / +8.
+   */
+  zeroBreak: {
+    blackIntoRed: [0, 0], blackIntoBlack: [-0.6, 0.2], redIntoRed: [-0.6, 0.2], redIntoBlack: [0.2, -0.4],
+    blackIntoSheriff: [0.4, 0], redIntoSheriff: [-0.6, 0.2],
+  },
   donFoundSheriffFirstNight: 0.2,
   /**
    * A voting tagged «без оценок» (a split): nobody's own read shows, so every red who voted shares only its result. Balanced
@@ -53,7 +66,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'will_already' | 'split_outcome';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -199,6 +212,25 @@ export function gameContribution(envelope: any): SeatContribution[] {
   for (const event of facts.events) if (event.kind === 'exit' && event.value === 'voted_day' && event.seat) votedOutAt.set(event.seat, event.seq);
   const votedOutSeats = new Set<number>(seats.filter((item) => item.exitType === 'voted_day').map((item) => item.seat));
   for (const seat of votedOutAt.keys()) votedOutSeats.add(seat);
+  // A broken zero-round split: only with the judge's explicit mark of the breaker (never guessed from the votes), and only
+  // under the tournament setting, where the player really leaves the table (owner, 2026-10-26; the club setting keeps him).
+  const breaker = zeroRoundBreakerSeat(protocol.events);
+  const zeroVotedId = String(protocol.zero_round_voted_participant_id || '');
+  const victim = zeroVotedId ? Number(results.find((row) => String(row?.participant_id || '') === zeroVotedId)?.seat_number) || null
+    : facts.events.filter((event) => event.kind === 'zero_round_voted').at(-1)?.seat ?? null;
+  const zeroBreak = new Map<number, ContributionItem>();
+  if (protocol.zero_round_rule !== 'club' && breaker && victim && breaker !== victim && roleOf.get(breaker) && roleOf.get(victim)) {
+    const into = roleOf.get(victim) === 'sheriff' ? 'Sheriff' : blackRole(roleOf.get(victim)) ? 'Black' : 'Red';
+    const [forBreaker, forVictim] = W.zeroBreak[`${blackRole(roleOf.get(breaker)) ? 'black' : 'red'}Into${into}` as keyof typeof W.zeroBreak];
+    if (forBreaker) zeroBreak.set(breaker, { kind: 'zero_break', seat: victim, points: forBreaker });
+    if (forVictim) zeroBreak.set(victim, { kind: 'zero_broken_into', seat: breaker, points: forVictim });
+  }
+  // The девятка: a voting with nine players at the table, after the zero circle.
+  const exitSeqs = facts.events.filter((event) => event.kind === 'exit' && event.seat).map((event) => event.seq);
+  const outAtNine = (seat: number) => {
+    const out = facts.events.find((event) => event.kind === 'exit' && event.value === 'voted_day' && event.seat === seat);
+    return Boolean(out && out.round > 1 && seats.length === 10 && 10 - exitSeqs.filter((seq) => seq < out.seq).length === 9);
+  };
   return seats.map((me) => {
     const items: ContributionItem[] = [];
     const streaks: StreakRun[] = [];
@@ -323,6 +355,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
         close();
       }
     } else if (blackRole(me.role)) {
+      if (outAtNine(me.seat)) items.push({ kind: 'out_at_nine', seat: me.seat, points: W.blackOutAtNine });
       for (const night of missedShotNights(protocol, me.seat)) items.push({ kind: 'shot_miss', seat: me.seat, night, points: -MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT });
       if (me.role === 'don') {
         const roundOfSeq = new Map(facts.events.map((event) => [event.seq, event.round]));
@@ -339,6 +372,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
       }
     }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
+    if (zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);
     const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' ? 0 : Math.max(0, item.points)), 0);
     if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const points = items.reduce((sum, item) => sum + item.points, 0);
@@ -362,7 +396,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], streaks: StreakRun[] = []): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
-    ? [group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
+    ? [of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
       group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),
@@ -378,6 +412,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Проверкой нашёл чёрного', of('check_black')),
       group('Проверенного чёрного вывел стол', of('check_voted_out')),
     ];
+  for (const item of of('zero_break')) lines.unshift(`Сломал попил в нуле в №${item.seat}: ${signedElo(elo(item.points))}`);
+  for (const item of of('zero_broken_into')) lines.unshift(`В нуле в него сломал попил №${item.seat}: ${signedElo(elo(item.points))}`);
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
   // The series in plain words: which decisions came in a row and what the run added (owner, 2026-10-26).
   for (const run of streaks) {

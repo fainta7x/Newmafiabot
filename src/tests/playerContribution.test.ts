@@ -27,8 +27,8 @@ describe('player contribution (colour protocol part)', () => {
     expect((2 / 3) * 0.075 + (1 / 3) * -0.1).toBeGreaterThan(0);
   });
 
-  it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.2', () => {
-    expect(by(4).points).toBeCloseTo(-0.2 + 0.2, 6);
+  it('a black is judged by the wills of the dead reds: named black −0.1, named red +0.2', () => {
+    expect(by(4).points).toBeCloseTo(-0.1 + 0.2, 6);
     expect(by(4).items.map((item) => item.kind).sort()).toEqual(['named_black', 'named_red']);
   });
 });
@@ -390,5 +390,35 @@ describe('a vote for oneself (owner, 2026-10-26)', () => {
   });
   it('is free when someone else left', () => {
     expect(run([[2, 2], [3, 8], [4, 8], [5, 8], [6, 8], [1, 8]], 8).points).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('a broken zero-round split and the early exit of a black (owner, 2026-10-26)', () => {
+  const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+  const game = (breaker: number, victim: number, rule?: string) => {
+    const player_results = roles.map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, participant_id: `p${i + 1}`, exit_type: 'alive', color_protocol: [] }));
+    const events = [{ seq: 1, at: 'x', round: 1, phase: 'day_voting', kind: 'zero_round_break', seat: breaker }];
+    const all = gameContribution({ protocol: { winner_team: 'red', zero_round_rule: rule, zero_round_voted_participant_id: `p${victim}`, events }, player_results });
+    return (seat: number) => Math.round(all.find((item) => item.seat === seat)!.points * 40);
+  };
+  it('pays by the colours of the breaker and of the one it was broken into', () => {
+    expect([game(8, 2)(8), game(8, 2)(2)]).toEqual([0, 0]);
+    expect([game(8, 9)(8), game(8, 9)(9)]).toEqual([-24, 8]);
+    expect([game(2, 3)(2), game(2, 3)(3)]).toEqual([-24, 8]);
+    expect([game(2, 9)(2), game(2, 9)(9)]).toEqual([8, -16]);
+    expect([game(8, 1)(8), game(8, 1)(1)]).toEqual([16, 0]);
+    expect([game(2, 1)(2), game(2, 1)(1)]).toEqual([-24, 8]);
+  });
+  it('the club setting keeps the player at the table, so the break costs nothing', () => {
+    expect([game(2, 3, 'club')(2), game(2, 3, 'club')(3)]).toEqual([0, 0]);
+  });
+  it('a black voted out at the девятка loses 8; later — nothing', () => {
+    const player_results = roles.map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, exit_type: 'alive', color_protocol: [] }));
+    const ev = (seq: number, round: number, phase: string, kind: string, seat?: number, value?: string) => ({ seq, at: 'x', round, phase, kind, seat, value });
+    const atNine = [ev(1, 1, 'zero_night', 'game_start'), ev(2, 1, 'night', 'exit', 2, 'killed'), ev(3, 2, 'day_voting', 'exit', 8, 'voted_day')];
+    const atEight = [...atNine.slice(0, 2), ev(3, 2, 'day_voting', 'exit', 3, 'voted_day'), ev(4, 2, 'night', 'exit', 4, 'killed'), ev(5, 3, 'day_voting', 'exit', 8, 'voted_day')];
+    const of = (events: any[]) => gameContribution({ protocol: { winner_team: 'red', events }, player_results }).find((item) => item.seat === 8)!;
+    expect(Math.round(of(atNine).points * 40)).toBe(-8);
+    expect(of(atEight).items.some((item) => item.kind === 'out_at_nine')).toBe(false);
   });
 });

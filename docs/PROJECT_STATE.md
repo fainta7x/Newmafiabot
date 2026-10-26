@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-26 — deployed and checked: club Elo, protocol window, lighter saves
+
+main 0caf65c (#1040 Elo rules and protocol window, #1043 tournament card split, #1045 one protocol autosave, organizer requests, live bridge load) runs on Amvera (mirror ce16aba) after a 70-minute Amvera registry outage. Checked read-only: health ok, Elo rebuilt (27 of 39 players changed), games list 0.73 MB instead of 23 MB. Still to watch: whether `[PERF] event loop stalled` lines disappear during the next live evening.
+
 ## 2026-10-26 — owner requests review of Claude's latest Elo additions
 
 Independent review of c66ffc61..157d790d in #1040 is complete; see AUDIT_LOG, Independent review of Claude's additional Elo rules. Three reproduced release findings were OPEN (all fixed by Claude the same day, see AUDIT_LOG): toggling no_scoring resets voting/removes revotes and can restore a player; raw cancelled voted_day exits still affect find/will awards; repeated checks of the same black pay the sheriff again. Code69926afe passed CI/UI/security; the newer157d790d checks were still pending. Fifteen focused native test bodies passed against157d790d, but do not cover these failures. Current economic policy is x40, automatic/personal caps35, base-positive pool24 with series outside it; earlier weights/reports/examples are superseded where they disagree. No formula fix, merge, release or production write was performed by this review. Keep release held until the findings are addressed and the owner's release approval is given.

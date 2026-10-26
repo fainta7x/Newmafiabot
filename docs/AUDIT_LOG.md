@@ -1992,7 +1992,7 @@ Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protoc
 
 ## Production outage after the #1040 deploy — 2026-10-26 (Claude, read-only Amvera logs)
 
-13:12 build of the Amvera mirror bdf6cba (main 2ca20a5) succeeded; 13:20:34 the old container got SIGTERM; from 13:20:53 the new pod failed `ErrImagePull` (`pull access denied … no basic auth credentials`, `harborcred` secret missing), site 503. One `restartProject` at 13:24 did not help. Platform-side; owner asked to contact Amvera support. Warnings «Unable to retrieve some image pull secrets (harborcred)» appeared from 12:42, before the deploy. Status: **open** until Amvera restores the registry credentials.
+13:12 build of the Amvera mirror bdf6cba (main 2ca20a5) succeeded; 13:20:34 the old container got SIGTERM; from 13:20:53 the new pod failed `ErrImagePull` (`pull access denied … no basic auth credentials`, `harborcred` secret missing), site 503. One `restartProject` at 13:24 did not help. Platform-side; owner asked to contact Amvera support. Warnings «Unable to retrieve some image pull secrets (harborcred)» appeared from 12:42, before the deploy. Status: **resolved by Amvera at 14:31 UTC** (≈70 min down) with the next build (mirror ce16aba = main 0caf65c, #1040 + #1043 + #1045); nothing was changed on our side.
 
 ## Club live game: broadcast and replay moved out of the modal — 2026-10-26 (Claude, architecture programme)
 
@@ -2018,3 +2018,7 @@ The club window (`EveningGameProtocolModal`, snapshot + ordered queue) and the t
 ### Response sizes on production, 12:30–13:20 UTC 26.10 (read-only Amvera logs)
 
 `GET /api/games` up to 23.3 MB (the live bridge's whole-list lookup, fixed in #1045; replay frames removed in #1040); `PUT …/evening-protocol` 3.0 MB each (frames, fixed in #1040). Everything else is small: the organizer's 15 s refresh (`/api/players` ~36 KB, `/api/evenings` ~18 KB, `/api/crm/overview` ~5 KB) — no change needed. Programme step «SQLite query plans»: with these sizes no query stands out; revisit only if `[PERF] event loop stalled` persists after #1040/#1045 are deployed. Step 7 I2/I3 checked: the VK queries are poll-vote bookkeeping, not one repeated player lookup, and the replay's `resultBelongsToPlayer` also matches participant ids on purpose — not duplicates of one rule.
+
+### Production check after the deploy of ce16aba (2026-10-26 14:35 UTC, organizer login, GET only)
+
+`/api/health/runtime` ok on build ce16aba; the web process took ~55 s to listen (startup migrations incl. the full Elo rebuild `2026-10-elo-miss-streak-v3`). Elo changed for 27 of 39 rated players compared with the morning copy (e.g. Пристань 1305 → 1437, Богданчик 1242 → 1407, Дина 1105 → 1276, Перец 949 → 1057). `GET /api/games?archived=0`: 19 games, 0.73 MB (was 23.3 MB), no replay frames, no raw `protocol_text`.

@@ -288,7 +288,7 @@ Circles are named by how many players sit at the table, not by day numbers. Use 
 - **Угадайка при 4** — four at the table; **угадайка** — three at the table.
 - Qualifiers when the usual path changed: **«после промаха»** (nobody was killed at night), **«после попила посидеть»** (the split ended with everybody staying), **«после попила с подъёмом»** (the split ended with the split players raised and leaving).
 
-Examples: «девятка после попила посидеть», «восьмёрка после промаха».
+A split in the zero day that ends with everybody staying is the standard course of the game, so the next circle is simply «девятка» (owner). Examples: «восьмёрка после промаха», «семёрка после попила с подъёмом».
 
 ## Night, agreement and the first-day split (user explanation 2026-09-24)
 

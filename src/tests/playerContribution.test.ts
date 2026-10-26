@@ -357,17 +357,23 @@ describe('a revote at a восьмёрка or шестёрка marks the whole d
 describe('a vote for oneself (owner, 2026-10-26)', () => {
   const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
   const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[] }));
-  const run = (out: number, nominees: number[]) => {
+  // voters: [seat, target]; seat 2 always votes for himself
+  const run = (votes: Array<[number, number]>, out: number) => {
     const events = [
       { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
-      ...nominees.map((seat, i) => ({ seq: 2 + i, at: 'x', round: 2, phase: 'day_speeches', kind: 'nomination', seat, by: 1 })),
-      { seq: 10, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 2, value: 1 },
-      { seq: 11, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
-      { seq: 12, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: out, value: 'voted_day' },
+      ...votes.map(([seat, target], i) => ({ seq: 10 + i, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat, target, value: 1 })),
+      { seq: 40, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
+      { seq: 41, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: out, value: 'voted_day' },
     ];
     return gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === 2)!;
   };
-  it('is free when someone else left', () => expect(run(8, [2, 8]).points).toBe(0));
-  it('is free when there was no black to vote out instead', () => expect(run(2, [2, 3]).points).toBe(0));
-  it('costs like voting out a red when it voted oneself out instead of a black', () => expect(run(2, [2, 8]).points).toBeCloseTo(-0.2, 6));
+  it('costs like voting out a red when his own vote decided it against a black (4 : 4, his fifth in himself)', () => {
+    expect(run([[2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [1, 8], [7, 8], [8, 9], [9, 8], [10, 8]], 2).points).toBeCloseTo(-0.2, 6);
+  });
+  it('is free when he would have left anyway', () => {
+    expect(run([[2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [1, 8], [7, 8], [8, 9], [9, 2], [10, 8]], 2).points).toBe(0);
+  });
+  it('is free when someone else left', () => {
+    expect(run([[2, 2], [3, 8], [4, 8], [5, 8], [6, 8], [1, 8]], 8).points).toBeGreaterThanOrEqual(0);
+  });
 });

@@ -232,9 +232,16 @@ export function gameContribution(envelope: any): SeatContribution[] {
           }
         } else if (redRole(roleOf.get(target))) {
           const votedOut = voting.eliminated === target;
-          // Owner, 2026-10-26: a vote for oneself is not punished — unless it voted oneself out while a black was on the list:
-          // «либо своей рукой выводишь мафию, либо себя».
-          if (target === me.seat && !(votedOut && voting.nominations.some((nomination) => blackRole(roleOf.get(nomination.seat))))) continue;
+          // Owner, 2026-10-26: a vote for oneself is not punished — unless that very vote decided it against a black: the player
+          // left with exactly one vote more than a black candidate, and that one vote was his own (at nine: 4 for him, 4 for a black,
+          // his fifth for himself). «Либо своей рукой выводишь мафию, либо себя».
+          if (target === me.seat) {
+            const counts = new Map<number, number>();
+            for (const candidate of voting.votes.values()) counts.set(candidate, (counts.get(candidate) || 0) + 1);
+            const mine = counts.get(me.seat) || 0;
+            const decided = votedOut && [...counts].some(([seat, count]) => blackRole(roleOf.get(seat)) && count === mine - 1);
+            if (!decided) continue;
+          }
           const item: ContributionItem = { kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.

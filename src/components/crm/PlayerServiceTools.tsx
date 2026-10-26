@@ -1,15 +1,7 @@
+import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 import type { PlayerDetails } from '../../lib/api.ts';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
-
-const organizerHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 export default function PlayerServiceTools({ player }: { player: PlayerDetails }) {
   const [eloSeed, setEloSeed] = useState(String(Number((player as any).elo_seed ?? 1000)));

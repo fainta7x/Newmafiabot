@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { gameContribution } from '../lib/playerContribution.ts';
-import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 
 const seat = (n: number, role: string, color_protocol: any[] = []) => ({ seat_number: n, role, player_id: `p${n}`, color_protocol, exit_type: color_protocol.length ? 'killed' : 'alive' });
 
@@ -17,14 +16,14 @@ describe('player contribution (colour protocol part)', () => {
   const by = (n: number) => gameContribution(envelope).find((item) => item.seat === n)!;
 
   it('one will is one decision: its colours add no series by themselves (owner, 2026-10-26)', () => {
-    expect(by(1).points).toBeCloseTo(0.2 + 0.075 + 0.075, 6);
+    expect(by(1).points).toBeCloseTo(0.2 + 0.05 + 0.05, 6);
     expect(by(5).points).toBeCloseTo(-0.1 - 0.1, 6);
   });
 
   it('the base price of a single random colour guess is zero before the stricter will policy', () => {
     expect((1 / 3) * 0.2 + (2 / 3) * -0.1).toBeCloseTo(0, 6);
-    // owner, 2026-10-26: a right red +3 — a lone random red mark is slightly positive, but an error takes every plus of the will
-    expect((2 / 3) * 0.075 + (1 / 3) * -0.1).toBeGreaterThan(0);
+    // Owner-approved +2/-4: even a lone blind red mark has zero prior expectation.
+    expect((2 / 3) * 0.05 + (1 / 3) * -0.1).toBeCloseTo(0, 6);
   });
 
   it('a black is judged by the wills of the dead reds: named black −0.1, named red +0.2', () => {
@@ -33,7 +32,7 @@ describe('player contribution (colour protocol part)', () => {
   });
 });
 
-import { calculateCanonicalEloGame, CONTRIBUTION_CAP_ELO, normalizeContributions, type PreparedEloEvent } from '../server/services/eloRatingService.ts';
+import { calculateCanonicalEloGame, normalizeContributions, type PreparedEloEvent } from '../server/services/eloRatingService.ts';
 
 describe('contribution in Elo', () => {
   const event = (raws: Array<[string, string, number]>): PreparedEloEvent => ({
@@ -49,11 +48,11 @@ describe('contribution in Elo', () => {
     expect(events[0].players[1].contributionPoints).toBeCloseTo(0.1, 6);
   });
 
-  it('the automatic contribution is capped at ±10 per game', () => {
+  it('keeps raw contribution until the common positive cap and negative floor', () => {
     const events = [event([['a', 'citizen', 3]]), event([['b', 'citizen', -3]])];
     normalizeContributions(events);
-    expect(events[0].players[0].contributionPoints! * ELO_PERSONAL_POINT_WEIGHT).toBeCloseTo(CONTRIBUTION_CAP_ELO, 6);
-    expect(events[1].players[0].contributionPoints! * ELO_PERSONAL_POINT_WEIGHT).toBeCloseTo(-CONTRIBUTION_CAP_ELO, 6);
+    expect(events[0].players[0].contributionPoints).toBe(3);
+    expect(events[1].players[0].contributionPoints).toBe(-3);
   });
 
   it('is added on top of the result (1 point = 40 Elo)', () => {
@@ -221,7 +220,7 @@ import { personalBonusLines } from '../server/services/clubResultData.ts';
 
 describe('personal bonuses on the game blank are named by source (owner, 2026-10-26)', () => {
   it('shows the best move, the judge bonus and Ci in whole Elo', () => {
-    const results = [{ seat_number: 1, role: 'citizen', participant_id: 'a', judge_bonus: 0.3, ci_points: 0.2 }, { seat_number: 8, role: 'mafia' }, { seat_number: 9, role: 'mafia' }];
+    const results = [{ seat_number: 1, role: 'citizen', participant_id: 'a', judge_bonus: 0.3, protocol_bonus: 0.8, ci_points: 0.2 }, { seat_number: 8, role: 'mafia' }, { seat_number: 9, role: 'mafia' }];
     const protocol = { best_moves: [{ participant_id: 'a', seat_numbers: [8, 9, 2] }] };
     expect(personalBonusLines(protocol, results[0], results)).toEqual(['Лучший ход: +12 Эло', 'Бонус судьи: +12 Эло', 'Компенсация первому убитому: +8 Эло']);
   });
@@ -443,3 +442,4 @@ describe('GPT review 2026-10-26: cancelled exits and repeated checks', () => {
     expect(Math.round(me.points * 40)).toBe(-4);
   });
 });
+

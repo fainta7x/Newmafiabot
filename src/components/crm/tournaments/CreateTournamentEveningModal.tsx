@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../../lib/organizerAuth.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
@@ -5,15 +6,6 @@ import { formatRubles } from '../../../lib/formatRubleAmount.ts';
 
 type CreatedTournament = { id: string; title: string; date: string };
 type PrizeRow = { place: string; amount_rub: number };
-
-const organizerHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 export function CreateTournamentEveningModal({ isOpen, onClose, onCreated }: {
   isOpen: boolean;

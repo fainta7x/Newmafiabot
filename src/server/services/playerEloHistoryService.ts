@@ -1,5 +1,3 @@
-import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
-import { missedShotNights, MISSED_SHOT_ELO } from '../../lib/eloMissPenalty.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sqliteReadVersion } from './sqliteReadVersion.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
@@ -8,6 +6,9 @@ import {
   currentEloInputsGeneration,
   DEFAULT_ELO,
   clubPersonalGamePoints,
+  clubPersonalPointParts,
+  tournamentPersonalEloPoints,
+  tournamentWillContributions,
   clubDisciplinaryPenaltyPoints,
   clubEloDisciplinePoints,
   clubContributionByPlayer,
@@ -88,6 +89,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
       const winner = normalizeWinnerTeam(game.winner_team);
       if (!winner) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: winner is missing.`);
       const eventPlayers: PreparedPlayer[] = [];
+      const contributions = await tournamentWillContributions(db, game, winner, standings);
 
       for (const participant of standings) {
         if (!participant.player_id) continue;
@@ -104,9 +106,8 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
         eventPlayers.push({
           playerId,
           team,
-          canonicalPersonalGamePoints: Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0),
-          disciplinaryPenaltyPoints: Number(canonicalGame.disciplinary_penalty_points || 0),
-          contribution: { role: String(canonicalGame.role), raw: team === 'black' ? -missedShotNights({ winner_team: winner, shots: safeJsonParse<any[]>(game.shots_json, []) }, Number(canonicalGame.seat_number)).length * MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT : 0 },
+          ...tournamentPersonalEloPoints(canonicalGame),
+          contribution: contributions.get(playerId),
         });
       }
 
@@ -167,6 +168,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
         playerId,
         team,
         canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
+        ...clubPersonalPointParts(payload, result, results),
         disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result),
         eloDisciplinePoints: clubEloDisciplinePoints(payload, result),
         contribution: contributions.get(playerId),
@@ -288,5 +290,6 @@ async function replayPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHis
 
   return timeline;
 }
+
 
 

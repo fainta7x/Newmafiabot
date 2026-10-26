@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
@@ -94,11 +95,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     if (!silent) setLoading(true);
     setError('');
     try {
-      const headers: Record<string, string> = {};
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('organizer_token');
-        if (token) headers.Authorization = `Bearer ${token}`;
-      }
+      const headers = organizerHeaders(false);
       const [evening, audienceResponse, slotResponse] = await Promise.all([
         api.getEvening(eveningId),
         fetch(`/api/evenings/${encodeURIComponent(eveningId)}/announcement-overview`, { credentials: 'include', headers }),
@@ -301,11 +298,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     setSavingId(row.playerId);
     setError('');
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('organizer_token');
-        if (token) headers.Authorization = `Bearer ${token}`;
-      }
+      const headers = organizerHeaders();
       const response = await fetch(
         `/api/evenings/${encodeURIComponent(eveningId)}/slots/player/${encodeURIComponent(row.playerId)}`,
         {

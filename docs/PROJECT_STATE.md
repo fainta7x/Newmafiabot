@@ -1,13 +1,8 @@
 # 2LA Noire — Current Project State
 
-## 2026-10-26 — requested concrete fixes for every balance finding (proposal)
+## 2026-10-26 — owner-approved balance fixes and protocol/judge separation (PR1042)
 
-The owner asks to devise fixes, not yet to deploy a new policy. The concrete proposal is appended to ELO_BALANCE_REVIEW_2026-10-26.md in PR1042: correct red2/wrong red−4; per-red-player/per-black-target base credit up to8 with remaining-credit top-ups including LH; distinct positive decision series; cap positive rewards before deducting errors, personal floor−35; attributed miss6 separately after the personal limit; manual evaluation for unscored play with a required new explanation; factual wording for the will×2 condition. Source eligibility, the ordinary-will error gate and PU exception are retained. This explicitly proposes that personal assessment−35 plus a miss can total−41. Pure arithmetic examples pass; no scoring implementation or approved BUSINESS_RULES change yet. Base30/70 and accepted carry drift remain. Await discussion of this concrete package before implementation.
-
-
-## 2026-10-26 — full Elo balance review requested by owner
-
-PR1040 is merged as2ca20a5a (code0d9fd2e8 passed CI4474/UI2199/security). The follow-up whole-model review is in ELO_BALANCE_REVIEW_2026-10-26.md; AUDIT_LOG records its open findings. The three earlier technical defects are fixed. New decisions pending: blind-positive PU will and LH/will overlap; miss penalty swallowed by the personal cap; consistent remaining credit for half-found and sheriff cross-source finds. These are recommendations, not approved formula changes. Keep the agreed30/70 prior and strong-player protection. Read-only public data yielded18 completed games/180 seats from19 available; the conditional1000-seed replay is not exact career Elo. Runtime still reported the previous08a7837d build during this check; deployment of1040 is not verified here. This review changes documentation only.
+Owner approves points1–4 of the concrete fix proposal; rejects restricting manual judge evaluation. Explicit follow-up confirms automatic tournament will colours when protocol_bonus is excluded from Elo. Implemented: remaining target credit across LH/vote/check/will (base8 per red/black target), unique positive decision streaks, correct red2, gross-positive limit35 then errors/floor−35, separate fixed miss6, and shared tournament colour loading for rebuild/history. Manual judge points retain their existing40 weight and no new reason requirement. Protocol bonuses stay in sporting/tournament points and nominations, but supply no Elo term. Tournament automatic addition is colours only; existing club vote/check scope is preserved. Migration policy v4 replays canonical ratings on release.86 focused native test bodies passed (not a local Vitest/full build claim); exact-head CI is required. No production write/deploy performed. This entry supersedes the pending proposal decisions in the earlier balance review.
 
 
 ## 2026-10-26 — owner requests review of Claude's latest Elo additions

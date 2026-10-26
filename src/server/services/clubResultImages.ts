@@ -74,7 +74,7 @@ export function contributionTextLines(seat: BlankSeat): string[] {
     if (current) lines.push(current);
   }
   if (Math.round(seat.eloContributionCap || 0)) lines.push(`Срезано пределом действий (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
-  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Срезано общим пределом (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
+  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Поправка по личным пределам (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
   if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
   return lines;
 }
@@ -375,5 +375,6 @@ export function renderPng(svg: string): Buffer {
   });
   return resvg.render().asPng();
 }
+
 
 

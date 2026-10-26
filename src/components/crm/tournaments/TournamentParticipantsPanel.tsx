@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../../lib/organizerAuth.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, CreditCard, UserPlus, Users, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
@@ -44,15 +45,6 @@ interface Props {
   tournamentId: string;
   onChanged?: () => void;
 }
-
-const organizerHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 const paymentLabels: Record<PaymentState, string> = {
   unpaid: 'Не оплачен',

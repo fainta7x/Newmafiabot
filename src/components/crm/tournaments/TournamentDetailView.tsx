@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../../lib/organizerAuth.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Send } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
@@ -20,15 +21,6 @@ interface TournamentDetailViewProps {
   tournamentId: string;
   onBack: () => void;
 }
-
-const organizerHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tournamentId, onBack }) => {
   const [tournament, setTournament] = useState<any>(null);

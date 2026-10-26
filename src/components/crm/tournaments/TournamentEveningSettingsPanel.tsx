@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../../lib/organizerAuth.ts';
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
 import { canOrganizeTournaments } from '../../../lib/organizeFormats.ts';
@@ -22,15 +23,6 @@ type TournamentDetail = {
   player_capacity: number;
   remaining_places: number;
   published_at?: string | null;
-};
-
-const organizerHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
 };
 
 const toLocalInput = (value: string) => {

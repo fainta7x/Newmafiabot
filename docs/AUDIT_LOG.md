@@ -1986,14 +1986,39 @@ Acceptance before release: preserve the protocol on tag toggles (including revot
 Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protocol` answered 2.98 MB each (5 saves), `GET /api/games?archived=0` 23.3 MB, nginx buffered both to temp files, `[PERF] event loop stalled` up to 2.5 s. Game 17's protocol is 1.43 MB, of which `replay_frames` 1.39 MB.
 - [P1, fixed in PR #1040] `src/server/routes/gamesRoutes.ts`, `gamesRoutesBase.ts` `normalizeGame`: sent `replay_frames` and duplicated `protocol_text` to every client list/save response.
 
+## Tournament card split — 2026-10-26 (Claude, architecture programme)
+
+`TournamentDetailViewBase.tsx` (1333 lines, 32 % coverage) first got 15 rendering tests of every state (draft ready/not ready, running, correction, completed, roster, feedback, step tabs; games: planned/active/completed, roles in correction, inline judge, seat swap), then its markup moved unchanged into `TournamentCardHeader`, `TournamentOrganizationTab`, `TournamentGamesTab`, `SwapSeatsModal` (frame 374 lines). The two copies of the completion panel (running / correction) are one `CompletionPanel`; the four tab buttons are one list. No behaviour or visual change intended.
+
+## Production outage after the #1040 deploy — 2026-10-26 (Claude, read-only Amvera logs)
+
+13:12 build of the Amvera mirror bdf6cba (main 2ca20a5) succeeded; 13:20:34 the old container got SIGTERM; from 13:20:53 the new pod failed `ErrImagePull` (`pull access denied … no basic auth credentials`, `harborcred` secret missing), site 503. One `restartProject` at 13:24 did not help. Platform-side; owner asked to contact Amvera support. Warnings «Unable to retrieve some image pull secrets (harborcred)» appeared from 12:42, before the deploy. Status: **open** until Amvera restores the registry credentials.
+
+## Club live game: broadcast and replay moved out of the modal — 2026-10-26 (Claude, architecture programme)
+
+`EveningLiveGameModal.tsx` (880 lines, coverage 10.9 %): the OBS publication loop (350 ms, 5 s resend, 2 s back-off), the replay-frame sampling (changed picture or every 10 s, capped) and the alive-seat polling moved unchanged into `useClubLiveBroadcast.ts`, with the pure `appendReplayFrame` / `readAliveSeats` and 6 tests (fake timers). The modal is 753 lines. No behaviour change intended.
+
+## One definition of the organizer request headers — 2026-10-26 (Claude, architecture programme)
+
+The organizer bearer header (`organizer_token` → `Authorization`) was built in eleven places (`api.ts` ×2, `clubGamesApi.ts`, `presence.ts`, `uiTelemetry.ts`, `PlayerServiceTools`, `EveningStartTimeEditor`, `EveningGameRegistrationDashboard` ×2, four tournament panels). Now `src/lib/organizerAuth.ts` `organizerHeaders(json)`; `request()` keeps the token last so it still wins over a caller's own header. Test `organizerAuth.test.ts`. No behaviour change.
+
 ## Full balance review after PR1040 — GPT, 2026-10-26
 
 Owner requests another whole-model sanity check. Reviewed code0d9fd2e8, merged as2ca20a5a. Full reproducible examples, source boundaries, current-public-data methodology and recommendations are in [ELO_BALANCE_REVIEW_2026-10-26.md](ELO_BALANCE_REVIEW_2026-10-26.md).
-- [OPEN product decision] PU's exception plus red colour3/wrong4 permits a validated all-nine-red will with guaranteed+6 (six correct reds, three wrong blacks); random3-seat LH adds an average5.
-- [OPEN product decision] PU's same black seats can pay twice through LH and will; two correct seats give+28 personal before limits, a lost red game can total+13.
-- [OPEN product decision] A responsible miss can cost zero at the combined cap: auto24+judge20 and auto18+judge20 both become35.
-- [OPEN product decision] A half-paid black vote blocks a later full will award; correct vote+will totals4 versus neutral self-vote+will8. Consider a remaining-credit model rather than full re-awards or full suppression.
-- [OPEN cross-source review] Sheriff vote-before-check then table-out gives16 base+1 streak for one black, versus8 if check came first; the earlier repeat-check fix does not address cross-source ordering.
+- [FIXED in PR1042 after owner approval; CI pending] PU's exception plus red colour3/wrong4 permits a validated all-nine-red will with guaranteed+6 (six correct reds, three wrong blacks); random3-seat LH adds an average5.
+- [FIXED in PR1042 after owner approval; CI pending] PU's same black seats can pay twice through LH and will; two correct seats give+28 personal before limits, a lost red game can total+13.
+- [FIXED in PR1042 after owner approval; CI pending] A responsible miss can cost zero at the combined cap: auto24+judge20 and auto18+judge20 both become35.
+- [FIXED in PR1042 after owner approval; CI pending] A half-paid black vote blocks a later full will award; correct vote+will totals4 versus neutral self-vote+will8. Consider a remaining-credit model rather than full re-awards or full suppression.
+- [FIXED in PR1042 after owner approval; CI pending] Sheriff vote-before-check then table-out gives16 base+1 streak for one black, versus8 if check came first; the earlier repeat-check fix does not address cross-source ordering.
 - [verified] Original three implementation defects fixed by Claude; current tag/restore probes pass and repeated check base is skipped. Current15 focused native test bodies pass; CI4474/UI2199/security passed for0d9fd2e8.
 - [methodology] Read-only public snapshot:19 games,18 completed (17 draft excluded),180 seats, conditional1000 seed/no tournaments with the approved game18 tag simulated. Personal median1, p5/p95 -12/19.25; mean total6.775, not actual career Elo or a calibrated forecast. Never commit the real exports. Accepted positive carry drift and30/70 prior are preserved.
 Status: analysis only; no scoring rule, production data or deployment changed by this review.
+
+## Approved Elo balance implementation — GPT, 2026-10-26
+
+Owner approves proposal1–4, rejects5 and confirms tournament will colours. Scope: role-neutral base find credit8 across eligible LH/votes/checks/wills, one positive series step per new finding, red colour2; positive rewards capped before errors, personal floor−35, fixed miss outside; protocol sporting bonuses excluded from Elo with unchanged manual judge influence. Three earlier technical fixes remain preserved.
+- FIXED: playerContribution/eloFindCredit prevent same-target base awards exceeding8 and permit half-find top-ups; preserve ordinary-will error gate, explicit PU and sheriff-known-source exclusions.
+- FIXED: Elo loader/canonical formula retain gross positive/negative parts; each attributed miss remains6 even at either personal bound. History, explanation and blank read the same terms.
+- FIXED: protocol_bonus removed from club/tournament Elo personal terms, while sporting standings are untouched. Tournament will evidence comes from stored colours/PU/LH/exits through one helper used by both rebuild/history; missing evidence is not guessed.
+- Owner explicitly rejects any new manual-judge reason requirement or duplicate-award prohibition; those earlier recommendations are superseded.
+Validation:86 adapted native focused test bodies passed, including16 new approved-policy cases and legacy voting/discipline/will/SVG explanation cases. Full Vitest/typecheck/build are delegated to exact-head GitHub CI; no local full-suite claim. No real exports committed, no production write or deployment. Status: implemented, exact-head CI pending.

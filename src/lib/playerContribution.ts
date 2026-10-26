@@ -186,7 +186,8 @@ export function gameContribution(envelope: any): SeatContribution[] {
       // borrow an arbitrary mark order to extend a cross-action streak.
       if ((!wrong.length || firstKilled) && right.length) decisions.push({ seq: wrong.length ? null : willSeq, sign: 1, items: right });
       if (wrong.length) decisions.push({ seq: firstKilled && right.length ? null : willSeq, sign: -1, items: wrong });
-      for (const [item, factor] of decisionStreakMultipliers(decisions)) {
+      // Owner, 2026-10-26: the first killed is rated by his best move and his will, without a series bonus.
+      for (const [item, factor] of firstKilled ? [] : decisionStreakMultipliers(decisions)) {
         const extra = item.points * (factor - 1);
         if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra });
       }

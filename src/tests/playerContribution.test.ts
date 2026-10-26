@@ -225,3 +225,13 @@ describe('personal bonuses on the game blank are named by source (owner, 2026-10
     expect(personalBonusLines(protocol, results[0], results)).toEqual(['Лучший ход: +6 Эло', 'Бонус судьи: +6 Эло', 'Компенсация первому убитому: +4 Эло']);
   });
 });
+
+describe('the first killed has no series bonus (owner, 2026-10-26)', () => {
+  it('keeps the will colours but adds no streak lines', () => {
+    const results = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'].map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, participant_id: `p${i + 1}`, exit_type: i === 0 ? 'killed' : 'alive', color_protocol: i === 0 ? [{ mark: 'black', seat_numbers: [8, 9] }, { mark: 'red', seat_numbers: [2] }] : [] }));
+    const events = [{ seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' }, { seq: 2, at: 'x', round: 1, phase: 'night', kind: 'exit', seat: 1, value: 'killed' }, { seq: 3, at: 'x', round: 1, phase: 'night', kind: 'first_killed', seat: 1 }];
+    const me = gameContribution({ protocol: { winner_team: 'red', first_killed_participant_id: 'p1', events }, player_results: results }).find((item) => item.seat === 1)!;
+    expect(me.items.some((item) => item.kind === 'will_right')).toBe(true);
+    expect(me.items.some((item) => item.kind === 'streak_correct' || item.kind === 'streak_wrong')).toBe(false);
+  });
+});

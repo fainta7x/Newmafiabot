@@ -310,13 +310,13 @@ function validateVotesCore(
 
     for (const pr of playerResults) {
       if (pr.exit_type === 'voted_zero_round' && !zeroRoundEliminated.has(Number(pr.seat_number))) {
-        return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован (0 круг)", но не был заголосован в подтверждённых кругах дня 0.`;
+        return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован в нулевом круге", но не был заголосован в подтверждённых кругах дня 0.`;
       }
       if (pr.exit_type === 'voted_day' && !otherDayEliminated.has(Number(pr.seat_number))) {
         return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован", но не был заголосован в подтверждённых кругах последующих дней.`;
       }
       if (zeroRoundEliminated.has(Number(pr.seat_number)) && !leftAs(pr, 'voted_zero_round')) {
-        return `Игрок #${pr.seat_number} заголосован в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`;
+        return `Игрок #${pr.seat_number} заголосован в нулевом круге, но его статус ухода в списке игроков не "Заголосован в нулевом круге".`;
       }
       if (otherDayEliminated.has(Number(pr.seat_number)) && !leftAs(pr, 'voted_day')) {
         return `Игрок #${pr.seat_number} заголосован днём, но его статус ухода в списке игроков не "Заголосован".`;
@@ -327,16 +327,16 @@ function validateVotesCore(
     const zrCount = zeroRoundEliminated.size;
     if (zrCount === 1) {
       if (!zeroRoundVotedId) {
-        return 'В нулевом круге заголосован один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.';
+        return 'В нулевом круге заголосован один игрок, но в поле "Заголосованный в нулевом круге" не выбран участник.';
       }
       const targetSeat = Array.from(zeroRoundEliminated)[0];
       const targetPlayer = playerResults.find(p => Number(p.seat_number) === targetSeat);
       if (targetPlayer && targetPlayer.participant_id !== zeroRoundVotedId) {
-        return `Игрок в поле "Заголосованный в нулевой круг" должен совпадать с выбывшим игроком #${targetSeat}.`;
+        return `Игрок в поле "Заголосованный в нулевом круге" должен совпадать с выбывшим игроком #${targetSeat}.`;
       }
     } else {
       if (zeroRoundVotedId !== null && zeroRoundVotedId !== '' && zeroRoundVotedId !== undefined) {
-        return `В нулевом круге заголосовано ${zrCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено.`;
+        return `В нулевом круге заголосовано ${zrCount} игроков (не 1), поэтому поле "Заголосованный в нулевом круге" должно быть сброшено.`;
       }
     }
   }

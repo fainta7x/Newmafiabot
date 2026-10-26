@@ -49,7 +49,7 @@ export const circleTitle = (index: number, protocol?: Pick<TournamentGameProtoco
 };
 
 export const EXIT_LABEL: Record<string, string> = {
-  alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом', voted_day: 'заголосован', removed: 'удалён',
+  alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом круге', voted_day: 'заголосован', removed: 'удалён',
 };
 /**
  * One plain line about a player leaving (owner, 2026-10-26: «визуально непонятно … лучше нормальный текст»): ⚖️ for the

@@ -9,7 +9,7 @@ const fmtDate = formatPlayerGameDate;
 
 const exitLabel = (value: string | null) => {
   if (value === 'killed') return 'Убит ночью';
-  if (value === 'voted_zero_round') return 'Заголосован в 0 круге';
+  if (value === 'voted_zero_round') return 'Заголосован в нулевом круге';
   if (value === 'voted_day') return 'Заголосован';
   if (value === 'removed') return 'Удалён';
   if (value === 'alive') return 'Дожил до конца';

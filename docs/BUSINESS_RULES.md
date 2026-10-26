@@ -280,6 +280,8 @@ Wording for how a player leaves the game (user-approved 2026-09-24): texts for p
 
 ## Names of the circles (owner, 2026-10-26)
 
+A player voted out on the zero day is «Заголосован в нулевом круге» on every screen and in every message (owner, 2026-10-26; replaces «в 0 круге», «в нулевой круг», «(0 круг)», «в нуле»). A player voted out later is just «Заголосован».
+
 Circles are named by how many players sit at the table, not by day numbers. Use these words in the app, the game blank, reports and chats.
 
 - **Нулевой день (0)** — the first day, all ten at the table.

@@ -152,7 +152,7 @@ export const canonicalizeClubGameSave = (
   if (status === 'completed') {
     // The same consistency the tournament protocol demands: one player cannot be both, a ЛХ belongs to its source player,
     // and there is at most one ЛХ per source.
-    if (firstKilledId && firstKilledId === zeroRoundId) throw new Error('Первый убитый и заголосованный в нулевой круг не могут быть одним игроком');
+    if (firstKilledId && firstKilledId === zeroRoundId) throw new Error('Первый убитый и заголосованный в нулевом круге не могут быть одним игроком');
     const moves: any[] = Array.isArray(incomingProtocol?.best_moves) ? incomingProtocol.best_moves : [];
     if (moves.length > 2) throw new Error('Лучший ход: в игре не может быть больше двух');
     const sources = new Set<string>();
@@ -161,7 +161,7 @@ export const canonicalizeClubGameSave = (
       if (sources.has(source)) throw new Error('Лучший ход: два хода от одного источника');
       sources.add(source);
       const owner = source === 'first_killed' ? firstKilledId : zeroRoundId;
-      if (!owner || String(move?.participant_id || '') !== owner) throw new Error('Лучший ход: игрок не совпадает с первым убитым / заголосованным в нулевой круг');
+      if (!owner || String(move?.participant_id || '') !== owner) throw new Error('Лучший ход: игрок не совпадает с первым убитым / заголосованным в нулевом круге');
     }
   }
   // The chronology of the live game rides along with the protocol; manual saves that carry none keep the stored one.

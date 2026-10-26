@@ -728,7 +728,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"');
+    expect(res.body.error).toContain('Заголосованный в нулевом круге игрок должен иметь тип ухода "voted_zero_round"');
   });
 
   // Test 23: Rejects same player for first killed and zero-round voted

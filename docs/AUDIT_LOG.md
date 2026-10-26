@@ -1876,7 +1876,7 @@ Facts: `LiveGameEngine.tsx` 1981 lines plus 14 files in `LiveGameEngine/` (7500 
 | D6 | Only a confirmed game is finished on the public live list | `publicLiveRoutes` uses `isCompletedClubGame`; a draft with a decided winner stays the current game |
 | E4 | The organizer may cancel a running evening as well (no games yet, not settled) | `cancelEveningByOrganizer` accepts `published` and `active` (`isOpenEvening`); test added; the refusal for an evening with games stays |
 | F1 | Debt rule: show the real disagreeing cases first | **read-only production check done (2026-10-24, organizer login, GET only):** 4 closed evenings, 54 attended participants (32 paid, 17 waived, 5 unpaid). **No contradicting case today:** 0 with status «paid» and paid < due, 0 overpaid; the 5 unpaid ones owe the full amount and appear in every one of the four definitions. The four rules therefore agree on today's data and differ only on a contradiction or an old evening; the rule can be chosen for the future without changing any number now |
-| D7, L2 | Guest names and exit wording | pending — the owner asked for examples |
+| D7, L2 | Guest names and exit wording | L2 decided 2026-10-26: «Заголосован в нулевом круге» everywhere (12 files changed); D7 explained to the owner again, no change asked |
 
 ## Club Elo: size of a game and the first-killed compensation (2026-10-24, owner question)
 

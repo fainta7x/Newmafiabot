@@ -16,9 +16,9 @@ describe('player contribution (colour protocol part)', () => {
   };
   const by = (n: number) => gameContribution(envelope).find((item) => item.seat === n)!;
 
-  it('preserves base colour weights and adds an order-independent same-will streak', () => {
-    expect(by(1).points).toBeCloseTo((0.3 + 0.2 + 0.2) * 1.25, 6);
-    expect(by(5).points).toBeCloseTo((-0.4 - 0.15) * 1.125, 6);
+  it('one will is one decision: its colours add no series by themselves (owner, 2026-10-26)', () => {
+    expect(by(1).points).toBeCloseTo(0.3 + 0.2 + 0.2, 6);
+    expect(by(5).points).toBeCloseTo(-0.4 - 0.15, 6);
   });
 
   it('the base price of a single random colour guess is zero before the stricter will policy', () => {

@@ -64,13 +64,13 @@ describe('a mistaken ordinary will has no positive colour awards; PU is the exce
     close(score(rows, {}, 2).points, -0.4);
     close(score(rows, {}, 8).points, 0);
   });
-  it('adds mistakes and their streak; permuting simultaneous marks changes nothing', () => {
+  it('several mistakes in one will are one decision: no series; permuting marks changes nothing', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [8, 4] }, { mark: 'black', seat_numbers: [3] }];
     const before = score(rows, {}, 2);
-    close(before.points, (-0.4 - 0.15) * 1.125);
+    close(before.points, -0.4 - 0.15);
     rows[1].color_protocol.reverse(); rows[1].color_protocol.forEach((mark) => mark.seat_numbers.reverse());
     close(score(rows, {}, 2).points, before.points);
-    assert.ok(before.items.some((item) => item.kind === 'streak_wrong'));
+    assert.ok(!before.items.some((item) => item.kind === 'streak_wrong'));
   });
   it('does not let a wrong colour erase a separately earned vote award', () => {
     const rows = players(); rows[1].color_protocol = [{ mark: 'red', seat_numbers: [9] }];
@@ -98,5 +98,14 @@ describe('in-game streaks of confirmed decisions', () => {
   it('does not invent a cross-action series in a partial history', () => {
     const events = sequence([event(2, 'vote', { seat: 1, target: 8 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(3, 'vote', { seat: 1, target: 9 }), event(3, 'vote_round_result', { value: '1:single_eliminated' }), event(3, 'exit', { seat: 9, value: 'voted_day' })]);
     close(score(players(), { events }, 1).points, 0.4);
+  });
+});
+
+describe('a series spans different moments of the game (owner, 2026-10-26)', () => {
+  it('a will with three right colours is one step; the decision after it is the second step', () => {
+    const will = [{}, {}, {}]; const vote = {};
+    const factors = decisionStreakMultipliers([{ seq: 1, sign: 1, items: will }, { seq: 2, sign: 1, items: [vote] }]);
+    assert.deepEqual(will.map((item) => factors.get(item)), [1, 1, 1]);
+    assert.equal(factors.get(vote), 1.25);
   });
 });

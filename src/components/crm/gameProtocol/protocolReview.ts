@@ -277,9 +277,9 @@ const roundKey = (round: VotingRound) => `${Number(round.day_number ?? 0)}:${Num
 const roundText = (round: VotingRound | undefined) => {
   if (!round) return 'нет';
   const parts = (round.nominated_seats || []).map((value) => `#${value} — ${votesText(Number(round.vote_counts?.[value] ?? 0))}`);
-  return `${parts.join(', ') || 'без кандидатов'}${round.outcome && round.outcome !== 'pending' ? '' : ' (результат не подтверждён)'}`;
+  return `${parts.join(', ') || 'без кандидатов'}${round.outcome && round.outcome !== 'pending' ? '' : ' (результат не подтверждён)'}${round.no_scoring ? ' · без оценок' : ''}`;
 };
-const roundSignature = (round: VotingRound) => JSON.stringify([round.nominated_seats, round.vote_counts, round.outcome, round.eliminated_seats, round.eligible_voters, round.table_leave_votes, round.ballots || null]);
+const roundSignature = (round: VotingRound) => JSON.stringify([round.nominated_seats, round.vote_counts, round.outcome, round.eliminated_seats, round.eligible_voters, round.table_leave_votes, round.ballots || null, round.no_scoring === true]);
 
 /** Compares the protocol with the one the window opened with and lists what the judge changed; each item can be undone. */
 export const computeChanges = (base: ProtocolState, current: ProtocolState): Change[] => {

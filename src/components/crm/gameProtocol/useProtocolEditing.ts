@@ -88,6 +88,18 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     });
   };
 
+  // «Без оценок» is a scoring tag only: unlike handleRoundChange it keeps the confirmed result, revotes and exits.
+  const handleRoundNoScoring = (index: number, noScoring: boolean) => {
+    setProtocol((prev) => {
+      const votes = [...(prev.votes || [])] as any[];
+      if (!votes[index]) return prev;
+      const round = { ...votes[index] };
+      if (noScoring) round.no_scoring = true; else delete round.no_scoring;
+      votes[index] = round;
+      return { ...prev, votes };
+    });
+  };
+
   const handleConfirmOutcome = (index: number, calculatedOutcome: string, winners: number[]) => {
     setProtocol((prev) => {
       const votes = [...(prev.votes || [])] as any[];
@@ -249,7 +261,7 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     setWinner: (winner: 'red' | 'black' | null) => setProtocol((prev) => ({ ...prev, winner_team: winner })),
     setJudgeNotes: (notes: string) => setProtocol((prev) => ({ ...prev, judge_notes: notes })),
     setReplacement: (replacement: any | null) => setProtocol((prev) => ({ ...prev, replacement })),
-    changeRound: handleRoundChange, confirmOutcome: handleConfirmOutcome, resetOutcome: handleResetOutcome,
+    changeRound: handleRoundChange, setRoundNoScoring: handleRoundNoScoring, confirmOutcome: handleConfirmOutcome, resetOutcome: handleResetOutcome,
     addVoting: handleAddVoting, deleteVoting: handleDeleteVoting,
     setEvents: (updater: (events: any[]) => any[]) => setProtocol((prev) => ({ ...prev, events: updater(Array.isArray(prev.events) ? prev.events : []) })),
     setZeroBreakSeat: (seat: number | null) => setProtocol((prev) => {

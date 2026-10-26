@@ -422,3 +422,24 @@ describe('a broken zero-round split and the early exit of a black (owner, 2026-1
     expect(of(atEight).items.some((item) => item.kind === 'out_at_nine')).toBe(false);
   });
 });
+
+describe('GPT review 2026-10-26: cancelled exits and repeated checks', () => {
+  const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+  const results = () => roles.map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, exit_type: 'alive', color_protocol: [] as any[] }));
+  const ev = (seq: number, round: number, phase: string, kind: string, extra: any = {}) => ({ seq, at: 'x', round, phase, kind, ...extra });
+  it('a repeated check of the same black pays once: +4 for the check, +4 when voted out', () => {
+    const rows = results(); rows[7].exit_type = 'voted_day';
+    const events = [ev(1, 1, 'zero_night', 'game_start'), ev(2, 1, 'night', 'sheriff_check', { target: 8 }), ev(3, 1, 'night', 'night_step', { value: 'morning' }),
+      ev(4, 2, 'night', 'sheriff_check', { target: 8 }), ev(5, 2, 'night', 'night_step', { value: 'morning' }),
+      ev(6, 3, 'day_voting', 'vote_round_result', { value: '1:single_eliminated' }), ev(7, 3, 'day_voting', 'exit', { seat: 8, value: 'voted_day' }), ev(8, 3, 'night', 'game_end', { value: 'red' })];
+    const me = gameContribution({ protocol: { winner_team: 'red', events }, player_results: rows }).find((item) => item.seat === 1)!;
+    expect(Math.round(me.points * 40)).toBe(8);
+  });
+  it('a cancelled voting-out does not double a will error', () => {
+    const rows = results(); rows[1].exit_type = 'killed'; rows[1].color_protocol = [{ mark: 'black', seat_numbers: [4] }];
+    const events = [ev(1, 1, 'zero_night', 'game_start'), ev(2, 1, 'night', 'exit', { seat: 2, value: 'killed' }),
+      ev(3, 2, 'day_voting', 'exit', { seat: 4, value: 'voted_day' }), ev(4, 2, 'day_voting', 'restored', { seat: 4 }), ev(5, 3, 'night', 'game_end', { value: 'red' })];
+    const me = gameContribution({ protocol: { winner_team: 'red', events }, player_results: rows }).find((item) => item.seat === 2)!;
+    expect(Math.round(me.points * 40)).toBe(-4);
+  });
+});

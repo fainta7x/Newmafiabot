@@ -7,7 +7,7 @@ import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStr
 import { missedShotNights, MISSED_SHOT_ELO } from './eloMissPenalty.ts';
 
 /**
- * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 10 Elo).
+ * Individual contribution of a seat in one club game, in the same «points» as the personal game points (1 point = 40 Elo, ELO_PERSONAL_POINT_WEIGHT).
  * Owner, 2026-10-25: no role adjustment — every found black is praised. The roles are balanced by the weights instead: on the
  * club's games an average game is worth the prior +6/+9/+7/+6 Elo before the personal weight was reduced on 2026-10-25.
  * Votings are the ones `gameActionFacts` keeps (zero circle and days with two or more players leaving at once are left out),
@@ -209,8 +209,13 @@ export function gameContribution(envelope: any): SeatContribution[] {
   };
   // Who was voted out and when; who first named each seat black in a will («первая мысль», owner 2026-10-26).
   const votedOutAt = new Map<number, number>();
-  for (const event of facts.events) if (event.kind === 'exit' && event.value === 'voted_day' && event.seat) votedOutAt.set(event.seat, event.seq);
-  const votedOutSeats = new Set<number>(seats.filter((item) => item.exitType === 'voted_day').map((item) => item.seat));
+  // A cancelled exit («restored») is not an exit: only the effective corrected history counts.
+  for (const event of facts.events) {
+    if (!event.seat) continue;
+    if (event.kind === 'exit' && event.value === 'voted_day') votedOutAt.set(event.seat, event.seq);
+    else if (event.kind === 'restored' || (event.kind === 'exit' && event.value !== 'voted_day')) votedOutAt.delete(event.seat);
+  }
+  const votedOutSeats = new Set<number>(seats.filter((item) => item.exitType === 'voted_day' && (!facts.full || votedOutAt.has(item.seat))).map((item) => item.seat));
   for (const seat of votedOutAt.keys()) votedOutSeats.add(seat);
   // A broken zero-round split: only with the judge's explicit mark of the breaker (never guessed from the votes), and only
   // under the tournament setting, where the player really leaves the table (owner, 2026-10-26; the club setting keeps him).
@@ -226,10 +231,12 @@ export function gameContribution(envelope: any): SeatContribution[] {
     if (forVictim) zeroBreak.set(victim, { kind: 'zero_broken_into', seat: breaker, points: forVictim });
   }
   // The девятка: a voting with nine players at the table, after the zero circle.
-  const exitSeqs = facts.events.filter((event) => event.kind === 'exit' && event.seat).map((event) => event.seq);
   const outAtNine = (seat: number) => {
-    const out = facts.events.find((event) => event.kind === 'exit' && event.value === 'voted_day' && event.seat === seat);
-    return Boolean(out && out.round > 1 && seats.length === 10 && 10 - exitSeqs.filter((seq) => seq < out.seq).length === 9);
+    const at = votedOutAt.get(seat);
+    const out = at == null ? undefined : facts.events.find((event) => event.seq === at);
+    // Players at the table just before that exit (facts.atSeq is taken before each event, cancelled exits restored).
+    const alive = out ? facts.atSeq.get(out.seq)?.size : undefined;
+    return Boolean(out && out.round > 1 && seats.length === 10 && alive === 9);
   };
   return seats.map((me) => {
     const items: ContributionItem[] = [];
@@ -324,9 +331,11 @@ export function gameContribution(envelope: any): SeatContribution[] {
       if (me.role === 'sheriff') {
         const checkedTargets = new Set<number>();
         for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
+          // A repeated check of the same black pays nothing again (+4 and +4 per black in all).
+          if (checkedTargets.has(check.target)) continue;
           const item: ContributionItem = { kind: 'check_black', seat: check.target, points: W.sheriffFoundBlack };
           items.push(item);
-          if (!checkedTargets.has(check.target) && votedOutSeats.has(check.target)) items.push({ kind: 'check_voted_out', seat: check.target, points: W.sheriffCheckedVotedOut });
+          if (votedOutSeats.has(check.target)) items.push({ kind: 'check_voted_out', seat: check.target, points: W.sheriffCheckedVotedOut });
           if (facts.full && !checkedTargets.has(check.target)) decisions.push({ seq: check.seq, sign: 1, items: [item] });
           checkedTargets.add(check.target);
         }

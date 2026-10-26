@@ -252,7 +252,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           {view.day > 0 && view.nominated.length > 0 ? (
             <section className="space-y-2" aria-label="Оценка голосов"><Eyebrow>Оценка голосов в Эло</Eyebrow>
               <button type="button" data-testid="voting-no-scoring" aria-pressed={view.round.no_scoring === true} disabled={api.locked}
-                onClick={() => api.changeRound(index, (round) => ({ ...round, no_scoring: round.no_scoring === true ? undefined : true }))}
+                onClick={() => api.setRoundNoScoring(index, view.round.no_scoring !== true)}
                 className={`min-h-11 w-full rounded-xl border px-3 text-left text-sm font-semibold ${view.round.no_scoring ? 'border-amber-300/60 bg-amber-300/15 text-amber-100' : 'border-white/10 bg-white/[0.04] text-white/70'} disabled:opacity-40`}>
                 {view.round.no_scoring ? '✓ Без оценок — попил: за голоса здесь ни плюсов, ни минусов' : 'Отметить «без оценок» (попил, сломанный попил)'}
               </button>

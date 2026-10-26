@@ -24,6 +24,8 @@ export type ProtocolApi = {
   setReplacement: (replacement: any | null) => void;
 
   changeRound: (index: number, updater: (round: any) => any) => void;
+  /** Scoring metadata only: never touches ballots, the result, revotes or exits. */
+  setRoundNoScoring: (index: number, noScoring: boolean) => void;
   confirmOutcome: (index: number, outcome: string, winners: number[]) => void;
   resetOutcome: (index: number) => void;
   addVoting: (day: number) => void;

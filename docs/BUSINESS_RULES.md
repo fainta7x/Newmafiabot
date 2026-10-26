@@ -11,6 +11,16 @@ If implementation/tests conflict with this document, stop and investigate the co
 - **«Подняли в нуле»** — игрок, которого после двойного переголосования в нулевом круге вывели из игры вместе с ещё одним игроком. Это НЕ значит, что игрока оставили за столом. Считать только подтверждённое двойное выбытие.
 - Это отдельные факты, не замены «Первым убит» или «Лучший ход».
 
+
+## Player cabinet continuity (owner, 2026-10-26)
+
+The global review is approved except the proposal to relabel/restructure ratings: existing rating meanings, labels, scoring and grouping stay as they are. Navigation restoration may preserve their selected view without changing those meanings.
+
+Home prioritizes the earliest upcoming evening with the player's going/late response or non-declined waitlist booking; otherwise a thinking response, then the nearest non-declined invitation, then a declined evening whose answer can be changed. Active evenings keep their existing live surface. Show actual RSVP, confirmed/waitlist status and exact selected slot numbers; missing individual choices do not imply fabricated game selections or confirmed admission. The personal evening card precedes general reminders; onboarding remains before it.
+
+An unknown payment summary must be distinguishable from confirmed zero and offer retry. A failed refresh may show only a clearly identified last confirmed amount. Closing a draft protocol requires confirmation that all current edits were saved; failed or superseded saves leave the editor and edits open.
+
+
 ## Authority
 
 ### Seasonal compendium / cosmetics (owner revision, 2026-10-14)

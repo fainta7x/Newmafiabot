@@ -1,5 +1,7 @@
 import { clubStoriesFixture } from './club-connection-stories.fixture.ts';
 import ReactDOM from 'react-dom/client';
+import { useEffect, useState } from 'react';
+import { parsePlayerRoute, playerPathForSection } from '../src/lib/appNavigation.ts';
 import PlayerCabinetShell from '../src/components/player/PlayerCabinetShell.tsx';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import type { PlayerMeResponse } from '../src/types/player.ts';
@@ -24,6 +26,8 @@ if (new URLSearchParams(location.search).get('scenario') === 'compact') {
 }
 const next = new Date(Date.now() + 7 * 86400000).toISOString();
 const evening = { id: 'preview-evening', title: 'Пятничный вечер клуба 2LA Noire', starts_at: next, venue: 'Суп с котом', format: 'CASUAL', status: 'published', default_price: 400 };
+const personalEvening = { ...evening, response_status: 'late', participation: { response_status: 'late', registration_status: 'waitlist', attendance_status: 'pending', slot_numbers: [1, 3] } };
+let paymentsUnavailable = new URLSearchParams(location.search).get('payments') === 'error';
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));
 const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: 100, slots: eventSlots };
 const paymentData = {
@@ -90,11 +94,15 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   case '/api/player/relationships': return json({ club_stories: clubStoriesFixture, rivals: rankingRows.slice(0,3).map(r => ({ ...r, avatar_url: '' })), teammates: rankingRows.slice(3,6).map(r => ({ ...r, avatar_url: '' })), club_duos: { red: [{ a_id: 'p1', b_id: 'p2', a_name: 'Александра с длинным никнеймом', b_name: 'Богданчик', team: 'red', games: 12, wins: 8, win_rate: 67, a_avatar_url: '', b_avatar_url: '' }], black: [] }, club_most_played: { red: [{ a_id: 'p3', b_id: 'p4', a_name: 'Чагин', b_name: 'Ночной игрок', team: 'red', games: 20, wins: 11, win_rate: 55, a_avatar_url: '', b_avatar_url: '' }], black: [] }, club_first_games: { red: [], black: [{ a_id: 'p5', b_id: 'p6', a_name: 'Новая пара', b_name: 'Второй игрок', team: 'black', games: 1, wins: 1, win_rate: 100, a_avatar_url: '', b_avatar_url: '' }] }, recent_event: { title: 'Клубный вечер 2 октября', date: '2026-10-02T18:00:00Z', teammates: rankingRows.slice(0,3).map(r => ({ ...r, avatar_url: '' })), rivals: rankingRows.slice(3,6).map(r => ({ ...r, avatar_url: '' })) } });
   case '/api/player/evening-summaries': return json({ summaries: [{ id: 'past-1', title: 'Вечер клуба — итоги', starts_at: new Date(Date.now()-86400000).toISOString(), settled_at: next, venue: 'Суп с котом', games: 4, red_wins: 3, black_wins: 1, score: '3:1', player: { games: 3, wins: 2, losses: 1, win_rate: 67, elo_before: 1520, elo_after: 1542, elo_delta: 22, roles: ['citizen','sheriff'] }, best_elo_rise: null, most_games: null, awards: [], facts: ['Красные выиграли три игры'], game_ids: [] }] });
   case '/api/player/me': return json(data);
-  case '/api/player/evenings': return json({ evenings: [evening] });
+  case '/api/player/evenings': return json({ evenings: new URLSearchParams(location.search).get('scenario') === 'personal' ? [{ ...evening, id: 'earlier-evening', title: 'Ближайший открытый вечер', starts_at: new Date(Date.now() + 86400000).toISOString(), response_status: 'unanswered' }, personalEvening] : [evening] });
   case '/api/player/calendar': return json({ events: [calendarEvent] });
   case '/api/player/economy': return json({ balance: 100, shop_items: [{ id: 'item-1', name: 'Игровая привилегия', description: 'Пример доступного клубного предложения', price: 50, icon: '◇', item_type: 'service' }], purchases: [], ledger: { items: [], total: 0 } });
   case '/api/player/bets': return json({ balance: 100, active: null, blocked: null, history: [], club_stats: { games: 0, black_wins: 0, red_wins: 0, black_win_rate: null, red_win_rate: null } });
-  case '/api/player/payments': return json(paymentData);
+  case '/api/player/payments': {
+   // After a retry the same fixture is available; this exercises real error recovery.
+   if (paymentsUnavailable) { paymentsUnavailable = false; return json({ error: 'Нет связи' }, 503); }
+   return json(paymentData);
+  }
   case '/api/rating': return json({ players: NAMES.map((nickname,index) => ({ player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, place: index+1 })) });
   case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, club_games: [], tournament_games: [] });
   case '/api/player/evening-journey': return json({ journey: new URLSearchParams(location.search).get('scenario') === 'live' ? liveJourney : { phase: 'idle' } });
@@ -109,4 +117,15 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   default: return json({ error: 'Этот сценарий пока не подготовлен в предпросмотре' }, 404);
  }
 };
-ReactDOM.createRoot(document.getElementById('root')!).render(<AppErrorBoundary><PlayerCabinetShell data={data} canOpenAdmin onOpenAdmin={() => { location.href = './crm-evening-roster.html'; }} /></AppErrorBoundary>);
+function CabinetPreview() {
+ const readRoute = () => parsePlayerRoute(new URLSearchParams(location.search).get('route') || '/player');
+ const [route, setRoute] = useState(readRoute);
+ useEffect(() => { const onPop = () => setRoute(readRoute()); addEventListener('popstate', onPop); return () => removeEventListener('popstate', onPop); }, []);
+ return <PlayerCabinetShell data={data} canOpenAdmin initialSection={route.section} initialTarget={route.target} onSectionChange={(section, target) => {
+  const url = new URL(location.href);
+  url.searchParams.set('route', playerPathForSection(section, target));
+  history.pushState({}, '', url);
+  setRoute(readRoute());
+ }} onOpenAdmin={() => { location.href = './crm-evening-roster.html'; }} />;
+}
+ReactDOM.createRoot(document.getElementById('root')!).render(<AppErrorBoundary><CabinetPreview /></AppErrorBoundary>);

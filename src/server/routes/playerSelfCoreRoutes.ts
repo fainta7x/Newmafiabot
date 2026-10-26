@@ -289,7 +289,7 @@ router.get('/evenings', async (req, res) => {
       `SELECT
          e.id, e.title, e.starts_at, e.ends_at, e.timezone, e.venue,
          e.format, e.status, e.capacity, e.default_price, e.notes,
-         ep.response_status, ep.registration_status,
+         ep.id AS participant_id, ep.response_status, ep.registration_status, ep.arrival_status, ep.attendance_status,
          (SELECT COUNT(*) FROM evening_participants attending
            WHERE attending.evening_id = e.id AND attending.response_status IN ('going', 'late')) AS attending_count,
          (SELECT COUNT(*) FROM evening_participants thinking
@@ -302,6 +302,25 @@ router.get('/evenings', async (req, res) => {
       [playerId],
     );
 
+    // One small projection of this player's choices, never whole game protocols or per-evening requests.
+    const selectedSlots = rows.length ? await db.all(
+      `SELECT ep.evening_id, s.slot_number
+         FROM evening_participants ep
+         JOIN evening_slot_registrations r ON r.participant_id = ep.id
+         JOIN evening_game_slots s ON s.id = r.slot_id AND s.evening_id = ep.evening_id
+         JOIN game_evenings e ON e.id = ep.evening_id
+        WHERE ep.player_id = ? AND ${openEveningSql('e')}
+        ORDER BY s.slot_number`,
+      [playerId],
+    ) : [];
+    const slotsByEvening = new Map<string, number[]>();
+    for (const row of selectedSlots) {
+      const key = String(row.evening_id);
+      const slots = slotsByEvening.get(key) || [];
+      slots.push(Number(row.slot_number));
+      slotsByEvening.set(key, slots);
+    }
+
     const evenings = rows
       .filter((evening: any) => playerLevelAllowsEveningFormat(player.game_level, evening.format))
       .map((evening: any) => {
@@ -310,6 +329,14 @@ router.get('/evenings', async (req, res) => {
           ...evening,
           response_status: responseStatus,
           registration_status: responseStatus,
+          // Keep the old response alias above compatible; booking status is an independent fact.
+          participation: evening.participant_id ? {
+            response_status: responseStatus,
+            registration_status: String(evening.registration_status || 'unanswered'),
+            arrival_status: String(evening.arrival_status || 'unknown'),
+            attendance_status: String(evening.attendance_status || 'pending'),
+            slot_numbers: slotsByEvening.get(String(evening.id)) || [],
+          } : null,
           attending_count: Number(evening.attending_count || 0),
           thinking_count: Number(evening.thinking_count || 0),
         };

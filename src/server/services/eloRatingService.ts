@@ -19,6 +19,8 @@ export interface CanonicalEloGamePlayer {
   canonicalPersonalGamePoints: number;
   /** Positive discipline points already deducted inside canonicalPersonalGamePoints; kept separately to preserve their price. */
   disciplinaryPenaltyPoints?: number;
+  /** Discipline charged in Elo, when it differs from the sporting points (club: removal 0.75 = −30, owner 2026-10-26). */
+  eloDisciplinePoints?: number;
   /** Individual contribution in points (club games only), with no role-average subtraction. */
   contributionPoints?: number;
 }
@@ -130,7 +132,7 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
     const contributionDelta = (player.contributionPoints || 0) * PERSONAL_POINT_WEIGHT;
     const personalSum = personalDelta + contributionDelta;
     const personalCapDelta = clamp(personalSum, -PERSONAL_CAP_ELO, PERSONAL_CAP_ELO) - personalSum;
-    const disciplinaryDelta = -disciplinePoints * ELO_DISCIPLINE_POINT_WEIGHT;
+    const disciplinaryDelta = -Math.max(0, numeric(player.eloDisciplinePoints ?? disciplinePoints)) * ELO_DISCIPLINE_POINT_WEIGHT;
     return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta,
       personalDelta, contributionDelta, personalCapDelta, disciplinaryDelta,
       totalDelta: modifiedResultDelta + personalSum + personalCapDelta + disciplinaryDelta };
@@ -152,6 +154,20 @@ export const clubDisciplinaryPenaltyPoints = (payload: any, result: any): number
     result?.exit_type === 'removed',
     Boolean(isPpkCulprit),
   );
+};
+
+/**
+ * Discipline in club Elo (owner, 2026-10-26): technical foul −12, gross technical −24, removal −30, PPK −40.
+ * The sporting points keep their own scale (`calculateDisciplinaryPenalty`); only Elo uses removal 0.75.
+ */
+export const ELO_REMOVAL_POINTS = 0.75;
+export const clubEloDisciplinePoints = (payload: any, result: any): number => {
+  const participantId = String(result?.participant_id || '');
+  const isPpkCulprit = payload?.protocol?.end_reason === 'ppk' && participantId && participantId === String(payload?.protocol?.ppk_culprit_participant_id || '');
+  return Math.max(0, Math.trunc(numeric(result?.minor_technical_fouls))) * 0.3
+    + Math.max(0, Math.trunc(numeric(result?.major_technical_fouls))) * 0.6
+    // PPK costs 40 on its own; it is not stacked with the removal that usually comes with it.
+    + (isPpkCulprit ? 1 : result?.exit_type === 'removed' ? ELO_REMOVAL_POINTS : 0);
 };
 
 export const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
@@ -310,7 +326,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       const team = gameTeamOfRole(result?.role);
       if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
       return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
-        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result), contribution: contributions.get(playerId) };
+        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result), eloDisciplinePoints: clubEloDisciplinePoints(payload, result), contribution: contributions.get(playerId) };
     });
     const event: PreparedEloEvent = { source:'club', sourceId:String(game.id), sortAt:String(game.game_date || game.created_at || ''), sortOrder:Number(game.global_game_number || game.id || 0), winnerTeam:winner, players:eventPlayers };
     validatePreparedEvent(event, guests);

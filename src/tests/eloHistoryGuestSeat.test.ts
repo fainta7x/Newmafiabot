@@ -93,8 +93,8 @@ describe('Elo and a guest seat (owner, 2026-10-05: rate the game from the remain
       const row = events[0].players.find((player) => player.playerId === 'balanced-p4')!;
       expect(row.personalDelta).toBe(40);
       expect(row.personalCapDelta).toBe(-10);
-      expect(row.disciplinaryDelta).toBe(-40);
-      expect(row.totalDelta).toBeCloseTo(25, 10);
+      expect(row.disciplinaryDelta).toBe(-30);
+      expect(row.totalDelta).toBeCloseTo(35, 10);
       const rebuilt = await rebuildCanonicalEloRatings(db);
       expect(rebuilt.find((player) => player.player_id === row.playerId)?.elo).toBe(Math.round(row.eloAfter));
     } finally { db.sqlite.close(); }

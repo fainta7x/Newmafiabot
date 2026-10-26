@@ -20,16 +20,19 @@ import { missedShotNights, MISSED_SHOT_ELO } from './eloMissPenalty.ts';
  *   a red costs every time, twice on the critical circle;
  * - wrong colours in the will are punished harder than in Polemica, so a random guess is worth zero (a «black» mark is right
  *   1 time in 3, a «red» mark 2 times in 3);
- * - a black is judged only by what the dead reds left about him in their wills; votes against a black do not move his points.
+ * - a black is judged only by what the dead reds left about him in their wills; votes against a black do not move his points;
+ * - owner, 2026-10-26: a black named red in a will earns more (+0.3, like a red who names a black right), and the don who
+ *   finds the sheriff with his check on the first night earns +0.2.
  */
 export const CONTRIBUTION_WEIGHTS = {
   foundBlack: 0.2, voteRed: -0.1, criticalFactor: 2,
   colorRight: { red: 0.2, black: 0.3 }, colorWrong: { calledRed: -0.4, calledBlack: -0.15 },
   sheriffFoundBlack: 0.1,
-  blackNamedRed: 0.2, blackNamedBlack: -0.2, blackNotNamed: 0.1,
+  blackNamedRed: 0.3, blackNamedBlack: -0.2, blackNotNamed: 0.1,
+  donFoundSheriffFirstNight: 0.2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem { kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number }
 export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[] }
@@ -193,6 +196,11 @@ export function gameContribution(envelope: any): SeatContribution[] {
       }
     } else if (blackRole(me.role)) {
       for (const night of missedShotNights(protocol, me.seat)) items.push({ kind: 'shot_miss', seat: me.seat, night, points: -MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT });
+      if (me.role === 'don') {
+        const roundOfSeq = new Map(facts.events.map((event) => [event.seq, event.round]));
+        const found = facts.checks.find((check) => check.kind === 'don' && roleOf.get(check.target) === 'sheriff' && roundOfSeq.get(check.seq) === 1);
+        if (found) items.push({ kind: 'don_found_sheriff', seat: found.target, points: W.donFoundSheriffFirstNight });
+      }
       for (const other of seats.filter((item) => redRole(item.role) && item.colors.length)) {
         const colors = colorsBySeat.get(other.seat)!;
         if ((other.exitType !== 'killed' && !killedEvent(other.seat)) || !colors.mentioned.size
@@ -223,7 +231,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[]): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
-    ? [group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
+    ? [group('Нашёл шерифа в первую ночь', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
       group('Голосовал в чёрных', of('found_black')),
       group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),

@@ -26,8 +26,8 @@ describe('player contribution (colour protocol part)', () => {
     expect((2 / 3) * 0.2 + (1 / 3) * -0.4).toBeCloseTo(0, 6);
   });
 
-  it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.2', () => {
-    expect(by(4).points).toBeCloseTo(-0.2 + 0.2, 6);
+  it('a black is judged by the wills of the dead reds: named black −0.2, named red +0.3', () => {
+    expect(by(4).points).toBeCloseTo(-0.2 + 0.3, 6);
     expect(by(4).items.map((item) => item.kind).sort()).toEqual(['named_black', 'named_red']);
   });
 });
@@ -233,5 +233,35 @@ describe('the first killed has no series bonus (owner, 2026-10-26)', () => {
     const me = gameContribution({ protocol: { winner_team: 'red', first_killed_participant_id: 'p1', events }, player_results: results }).find((item) => item.seat === 1)!;
     expect(me.items.some((item) => item.kind === 'will_right')).toBe(true);
     expect(me.items.some((item) => item.kind === 'streak_correct' || item.kind === 'streak_wrong')).toBe(false);
+  });
+});
+
+import { clubEloDisciplinePoints } from '../server/services/eloRatingService.ts';
+
+describe('owner corrections of 2026-10-26', () => {
+  it('discipline in Elo: technical −12, gross −24, removal −30, PPK −40 (not stacked with the removal)', () => {
+    const elo = (result: any, protocol: any = {}) => Math.round(clubEloDisciplinePoints({ protocol }, { participant_id: 'a', ...result }) * 40);
+    expect(elo({ minor_technical_fouls: 1 })).toBe(12);
+    expect(elo({ major_technical_fouls: 1 })).toBe(24);
+    expect(elo({ exit_type: 'removed' })).toBe(30);
+    expect(elo({ exit_type: 'removed' }, { end_reason: 'ppk', ppk_culprit_participant_id: 'a' })).toBe(40);
+  });
+
+  it('a black named red in a will earns +0.3', () => {
+    const results = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'].map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, participant_id: `p${i + 1}`, exit_type: i === 0 ? 'killed' : 'alive', color_protocol: i === 0 ? [{ mark: 'red', seat_numbers: [8] }] : [] }));
+    const me = gameContribution({ protocol: { winner_team: 'black', events: [] }, player_results: results }).find((item) => item.seat === 8)!;
+    expect(me.items.find((item) => item.kind === 'named_red')?.points).toBeCloseTo(0.3, 6);
+  });
+
+  it('the don who finds the sheriff on the first night earns +0.2; later nights earn nothing', () => {
+    const results = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'].map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, color_protocol: [] as any[] }));
+    const events = (round: number) => [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: 'x', round, phase: 'night', kind: 'don_check', target: 7 },
+      { seq: 3, at: 'x', round, phase: 'night', kind: 'night_step', value: 'sheriff' },
+    ];
+    const don = (round: number) => gameContribution({ protocol: { winner_team: 'black', events: events(round) }, player_results: results }).find((item) => item.seat === 10)!;
+    expect(don(1).items.find((item) => item.kind === 'don_found_sheriff')?.points).toBeCloseTo(0.2, 6);
+    expect(don(2).items.some((item) => item.kind === 'don_found_sheriff')).toBe(false);
   });
 });

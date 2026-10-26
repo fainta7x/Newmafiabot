@@ -9,6 +9,7 @@ import {
   DEFAULT_ELO,
   clubPersonalGamePoints,
   clubDisciplinaryPenaltyPoints,
+  clubEloDisciplinePoints,
   clubContributionByPlayer,
   normalizeContributions,
   sortTime,
@@ -167,6 +168,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
         team,
         canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
         disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result),
+        eloDisciplinePoints: clubEloDisciplinePoints(payload, result),
         contribution: contributions.get(playerId),
       };
     });

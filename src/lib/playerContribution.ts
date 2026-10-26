@@ -1,4 +1,3 @@
-import { round2 } from '../shared/numbers.ts';
 import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../shared/liveGameEvents.ts';
@@ -207,7 +206,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   });
 }
 
-const elo = (points: number) => round2(points * ELO_PERSONAL_POINT_WEIGHT);
+const elo = (points: number) => Math.round(points * ELO_PERSONAL_POINT_WEIGHT);
 const signedElo = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}`;
 const seatNumbers = (items: ContributionItem[]) => {
   const counts = new Map<number, number>();
@@ -228,12 +227,12 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Голосовал в чёрных', of('found_black')),
       group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),
       group('Голосовал в красных', of('vote_red')),
-      group('Угадал цвета', of('will_right')),
-      group('Ошибся в цветах', of('will_wrong')),
+      group('В завещании угадал', of('will_right')),
+      group('В завещании ошибся в', of('will_wrong')),
       group('Проверкой нашёл чёрного', of('check_black')),
     ];
-  if (of('will_blocked').length) lines.push('Бонус за верные цвета не начислен: в завещании есть ошибка');
-  for (const [kind, label] of [['streak_correct', 'Усиление серии верных решений'], ['streak_wrong', 'Усиление серии ошибок']] as const) {
+  if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
+  for (const [kind, label] of [['streak_correct', 'Серия верных решений подряд'], ['streak_wrong', 'Серия ошибок подряд']] as const) {
     const entries = of(kind);
     if (entries.length) lines.push(`${label}: ${signedElo(elo(entries.reduce((sum, item) => sum + item.points, 0)))}`);
   }

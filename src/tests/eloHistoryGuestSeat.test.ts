@@ -91,10 +91,10 @@ describe('Elo and a guest seat (owner, 2026-10-05: rate the game from the remain
       await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(payload), game.id]);
       const events = await loadPlayerEloHistory(db);
       const row = events[0].players.find((player) => player.playerId === 'balanced-p4')!;
-      expect(row.personalDelta).toBe(20);
-      expect(row.personalCapDelta).toBe(-5);
+      expect(row.personalDelta).toBe(40);
+      expect(row.personalCapDelta).toBe(-10);
       expect(row.disciplinaryDelta).toBe(-40);
-      expect(row.totalDelta).toBeCloseTo(10, 10);
+      expect(row.totalDelta).toBeCloseTo(25, 10);
       const rebuilt = await rebuildCanonicalEloRatings(db);
       expect(rebuilt.find((player) => player.player_id === row.playerId)?.elo).toBe(Math.round(row.eloAfter));
     } finally { db.sqlite.close(); }

@@ -10,6 +10,7 @@ import { gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { contributionBreakdown, gameContribution } from '../../lib/playerContribution.ts';
 import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP } from './eloRatingService.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
+import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -36,6 +37,8 @@ export type BlankSeat = {
   eloContribution: number | null;
   contributionLines: string[];
   eloPersonalBonus?: number | null;
+  /** The personal bonuses by source in Elo (best move, judge, Ci), so «личные бонусы» never stays unexplained. */
+  personalLines?: string[];
   eloPersonalCap?: number | null;
   eloContributionCap?: number | null;
   eloDiscipline?: number | null;
@@ -57,6 +60,20 @@ export type GameBlank = {
 };
 
 export type BlankTable = { redAvg: number; blackAvg: number; level: string; redChancePercent: number };
+
+/** Personal bonuses of a seat by source, in whole Elo (owner, 2026-10-26: «непонятно, какие вклады и почему»). */
+export function personalBonusLines(protocol: any, result: any, results: any[]): string[] {
+  const value = (points: number) => Math.round(points * ELO_PERSONAL_POINT_WEIGHT);
+  const signed = (n: number) => `${n > 0 ? '+' : '−'}${Math.abs(n)}`;
+  const lines: string[] = [];
+  const bestMove = value(clubBestMovePointsForParticipant(protocol, String(result?.participant_id || ''), results));
+  if (bestMove) lines.push(`Лучший ход: ${signed(bestMove)} Эло`);
+  const judge = value(Number(result?.judge_bonus || 0) + Number(result?.protocol_bonus || 0));
+  if (judge) lines.push(`Бонус судьи: ${signed(judge)} Эло`);
+  const ci = value(Number(result?.ci_points || 0));
+  if (ci) lines.push(`Компенсация первому убитому: ${signed(ci)} Эло`);
+  return lines;
+}
 
 /** The same three steps as the Elo table level (`levelGap`): up to 150 equal, 150–250 clearly stronger, above 250 much stronger. */
 export function tableLevelText(redAvg: number, blackAvg: number): string {
@@ -198,6 +215,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
       eloContribution: playerId && gameElo?.has(playerId) ? roundToTwo(gameElo.get(playerId)!.contribution) : null,
       eloPersonalBonus: playerId && gameElo?.has(playerId) ? gameElo.get(playerId)!.personal : null,
+      personalLines: playerId && gameElo?.has(playerId) ? personalBonusLines(protocol, result, results) : [],
       eloPersonalCap: playerId && gameElo?.has(playerId) ? gameElo.get(playerId)!.cap : null,
       eloDiscipline: playerId && gameElo?.has(playerId) ? gameElo.get(playerId)!.discipline : null,
       eloContributionCap: playerId && gameElo?.has(playerId) && contributions.has(Number(result?.seat_number))

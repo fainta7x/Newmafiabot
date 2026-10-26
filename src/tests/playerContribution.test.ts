@@ -55,11 +55,11 @@ describe('contribution in Elo', () => {
     expect(events[1].players[0].contributionPoints! * ELO_PERSONAL_POINT_WEIGHT).toBeCloseTo(-CONTRIBUTION_CAP_ELO, 6);
   });
 
-  it('is added on top of the result (1 point = 10 Elo)', () => {
+  it('is added on top of the result (1 point = 20 Elo)', () => {
     const players = Array.from({ length: 10 }, (_, i) => ({ playerId: `p${i}`, team: (i < 7 ? 'red' : 'black') as 'red' | 'black', elo: 1000, canonicalPersonalGamePoints: 0, contributionPoints: i === 0 ? 0.25 : 0 }));
     const [first, second] = calculateCanonicalEloGame(players, 'red');
-    expect(first.contributionDelta).toBeCloseTo(2.5, 6);
-    expect(first.totalDelta - second.totalDelta).toBeCloseTo(2.5, 6);
+    expect(first.contributionDelta).toBeCloseTo(5, 6);
+    expect(first.totalDelta - second.totalDelta).toBeCloseTo(5, 6);
   });
 });
 
@@ -74,23 +74,23 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
       { kind: 'will_right', seat: 8, points: 0.3 }, { kind: 'will_wrong', seat: 5, points: -0.4 },
     ]);
     expect(lines).toEqual([
-      'Голосовал в чёрных №10, №1: +4',
-      'Голосовал в красных №2: −2',
-      'Угадал цвета №8: +3',
-      'Ошибся в цветах №5: −4',
+      'Голосовал в чёрных №10, №1: +8',
+      'Голосовал в красных №2: −4',
+      'В завещании угадал №8: +6',
+      'В завещании ошибся в №5: −8',
     ]);
   });
 
   it('a repeated vote for the same red is written once with the count', () => {
-    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual(['Голосовал в красных №4 (2 раза), №3: −3']);
+    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual(['Голосовал в красных №4 (2 раза), №3: −6']);
   });
 
   it('a black reads by the wills of the dead', () => {
     expect(contributionBreakdown('mafia', [{ kind: 'named_red', seat: 5, points: 0.2 }, { kind: 'not_named', seat: 3, points: 0.1 }])).toEqual([
-      'Записан красным у №5: +2',
-      'Не записан у №3: +1',
+      'Записан красным у №5: +4',
+      'Не записан у №3: +2',
     ]);
-    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }])).toEqual(['Записан чёрным у №5: −2']);
+    expect(contributionBreakdown('don', [{ kind: 'named_black', seat: 5, points: -0.2 }])).toEqual(['Записан чёрным у №5: −4']);
   });
 
   it('starts with the Elo and keeps every line short', () => {
@@ -215,3 +215,13 @@ describe('a black the voter did not find himself (owner, 2026-10-25)', () => {
 
 
 
+
+import { personalBonusLines } from '../server/services/clubResultData.ts';
+
+describe('personal bonuses on the game blank are named by source (owner, 2026-10-26)', () => {
+  it('shows the best move, the judge bonus and Ci in whole Elo', () => {
+    const results = [{ seat_number: 1, role: 'citizen', participant_id: 'a', judge_bonus: 0.3, ci_points: 0.2 }, { seat_number: 8, role: 'mafia' }, { seat_number: 9, role: 'mafia' }];
+    const protocol = { best_moves: [{ participant_id: 'a', seat_numbers: [8, 9, 2] }] };
+    expect(personalBonusLines(protocol, results[0], results)).toEqual(['Лучший ход: +6 Эло', 'Бонус судьи: +6 Эло', 'Компенсация первому убитому: +4 Эло']);
+  });
+});

@@ -1,3 +1,4 @@
+import { ELO_CONTRIBUTION_CAP, ELO_PERSONAL_CAP } from '../../shared/eloWeights.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import fs from 'node:fs';
@@ -59,9 +60,9 @@ function seatEvents(seat: BlankSeat) {
 const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
-  const value = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${round2(Math.abs(n))}`;
+  const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
   const lines: string[] = [];
-  if (seat.eloPersonalBonus) lines.push(`Личные бонусы: ${value(seat.eloPersonalBonus)} Эло`);
+  for (const line of seat.personalLines || []) lines.push(line);
   if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
   // Each kind of action on its own line; a long one breaks at «·» so it never leaves the card.
   for (const line of seat.contributionLines) {
@@ -72,8 +73,8 @@ export function contributionTextLines(seat: BlankSeat): string[] {
     }
     if (current) lines.push(current);
   }
-  if (seat.eloContributionCap) lines.push(`Ограничение вклада: ${value(seat.eloContributionCap)} Эло`);
-  if (seat.eloPersonalCap) lines.push(`Ограничение личной части: ${value(seat.eloPersonalCap)} Эло`);
+  if (Math.round(seat.eloContributionCap || 0)) lines.push(`Срезано пределом действий (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
+  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Срезано общим пределом (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
   if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
   return lines;
 }

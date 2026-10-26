@@ -368,7 +368,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),
       group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),
       group('Голосовал в чёрных, которых не вывели (половина)', of('found_black').filter((item) => item.stayed)),
-      group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),
+      of('obvious_black').length ? `Голосовал в уже известных чёрных ${seatNumbers(of('obvious_black'))} — без баллов` : null,
       group('Голосовал в красных', of('vote_red').filter((item) => !item.votedOut)),
       group('Голосовал в красных, которых вывели (×2)', of('vote_red').filter((item) => item.votedOut)),
       group('В завещании угадал', of('will_right')),

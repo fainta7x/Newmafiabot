@@ -1980,3 +1980,8 @@ Scope: read-only review of the 22 commits c66ffc61..157d790d in PR #1040, curren
 - [methodology, INFO] The recorded 19-game replay from1000 without tournaments is a conditional path, not actual historical career Elo. Its probability/protection-dependent team terms cannot be called exact production components without the actual pre-game ratings. Its drift/spread figures are a small-sample diagnostic, not calibrated future rates.
 
 Acceptance before release: preserve the protocol on tag toggles (including revote/undo), ignore cancelled exits in both new rules, and reconcile current documentation. The three behavioral defects are proven open findings, not fixed by the existing green checks.
+
+## Protocol save hang — production logs, 2026-10-26 (Claude)
+
+Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protocol` answered 2.98 MB each (5 saves), `GET /api/games?archived=0` 23.3 MB, nginx buffered both to temp files, `[PERF] event loop stalled` up to 2.5 s. Game 17's protocol is 1.43 MB, of which `replay_frames` 1.39 MB.
+- [P1, fixed in PR #1040] `src/server/routes/gamesRoutes.ts`, `gamesRoutesBase.ts` `normalizeGame`: sent `replay_frames` and duplicated `protocol_text` to every client list/save response.

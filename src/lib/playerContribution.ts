@@ -36,7 +36,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'led_table' | 'misled_table';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'led_table' | 'misled_table' | 'will_already';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -87,6 +87,17 @@ function obviousBlacksFor(seat: number, facts: ReturnType<typeof gameActionFacts
   return (target: number, votingRound: number) => votingRound >= fromRound
     && (target === falseCheck.claimer || sheriffChecks.some((check) => check.target === target && check.round < votingRound));
 }
+
+/**
+ * «Попил» (owner, 2026-10-26): an agreed split, where players vote where they are told, so a vote there is not their own read.
+ * Recognised automatically: the votes went to three or more candidates and the player who left got no more than half of them.
+ */
+export const isSplitVoting = (voting: { votes: Map<number, number> }) => {
+  const counts = new Map<number, number>();
+  for (const target of voting.votes.values()) counts.set(target, (counts.get(target) || 0) + 1);
+  const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
+  return counts.size >= 3 && Math.max(0, ...counts.values()) * 2 <= total;
+};
 
 const decisionLabel = (item: ContributionItem) => item.kind === 'found_black' ? `голос в чёрного №${item.seat}`
   : item.kind === 'vote_red' ? `голос в красного №${item.seat}` : item.kind === 'check_black' ? `проверка: чёрный №${item.seat}` : 'завещание';
@@ -163,7 +174,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
       const found = new Map<number, ContributionItem>();
       const obvious = new Set<number>();
       const isObvious = obviousBlacksFor(me.seat, facts, roleOf);
-      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated')) {
+      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated' && !isSplitVoting(item))) {
         const target = voting.votes.get(me.seat);
         if (!target) continue;
         const critical = voting.critical === true;
@@ -192,7 +203,8 @@ export function gameContribution(envelope: any): SeatContribution[] {
         else if (blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
       }
       for (const seat of colorsBySeat.get(me.seat)!.black) {
-        if (blackRole(roleOf.get(seat))) will.push({ kind: 'will_right', seat, points: W.colorRight.black });
+        // Owner, 2026-10-26: a black this red already found with his vote earns once — the will does not pay for him again.
+        if (blackRole(roleOf.get(seat))) will.push(found.has(seat) ? { kind: 'will_already', seat, points: 0 } : { kind: 'will_right', seat, points: W.colorRight.black });
         else if (redRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack });
       }
       // A sheriff label on a black is still a wrong red colour; compatible red+sheriff labels count once.
@@ -292,6 +304,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Первым записал чёрным, потом его вывели', of('led_table')),
       group('Первым записал чёрным красного, потом его вывели', of('misled_table')),
       group('В завещании угадал', of('will_right')),
+      group('В завещании назвал чёрным, уже засчитан за голос (0)', of('will_already')),
       group('В завещании ошибся в', of('will_wrong')),
       group('Проверкой нашёл чёрного', of('check_black')),
     ];

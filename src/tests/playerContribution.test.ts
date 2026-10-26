@@ -294,3 +294,31 @@ describe('«первая мысль»: the first red who named a seat black in h
     expect(by(2).items.find((item) => item.kind === 'misled_table')?.points).toBeCloseTo(-0.2, 6);
   });
 });
+
+import { isSplitVoting } from '../lib/playerContribution.ts';
+
+describe('agreed split («попил») and a black already paid by a vote (owner, 2026-10-26)', () => {
+  const voting = (votes: Array<[number, number]>) => ({ votes: new Map(votes) });
+  it('a voting is a split when three or more candidates got votes and the one who left had no more than half', () => {
+    expect(isSplitVoting(voting([[1, 9], [3, 9], [8, 9], [2, 2], [9, 2], [4, 1], [7, 1], [6, 4]]))).toBe(true);
+    expect(isSplitVoting(voting([[1, 9], [3, 9], [8, 9], [2, 9], [9, 2], [4, 1]]))).toBe(false);
+    expect(isSplitVoting(voting([[1, 9], [3, 9], [8, 2], [2, 2]]))).toBe(false);
+  });
+
+  it('a black named in the will after the same red voted for him earns nothing more', () => {
+    const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+    const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: 'alive' }));
+    results[1].color_protocol = [{ mark: 'black', seat_numbers: [8] }]; results[1].exit_type = 'killed';
+    const events = [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 8 },
+      { seq: 3, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
+      { seq: 4, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 8, value: 'voted_day' },
+      { seq: 5, at: 'x', round: 2, phase: 'night', kind: 'exit', seat: 2, value: 'killed' },
+    ];
+    const me = gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === 2)!;
+    expect(me.items.filter((item) => item.kind === 'found_black')).toHaveLength(1);
+    expect(me.items.some((item) => item.kind === 'will_right')).toBe(false);
+    expect(me.items.some((item) => item.kind === 'will_already')).toBe(true);
+  });
+});

@@ -229,3 +229,12 @@ describe('Live Game engine state model', () => {
     expect(restored.discipline.players['1']).toMatchObject({ id: '1', team: 'red', regularFouls: 0 });
   });
 });
+
+import { votedOutExitReason } from '../components/LiveGameEngine/engineStateModel';
+describe('voted-out exit reason (audit L1)', () => {
+  it('is the zero round on day 0 and a day vote afterwards', () => {
+    expect(votedOutExitReason(0)).toBe('voted_zero_round');
+    expect(votedOutExitReason(1)).toBe('voted_day');
+    expect(votedOutExitReason(4)).toBe('voted_day');
+  });
+});

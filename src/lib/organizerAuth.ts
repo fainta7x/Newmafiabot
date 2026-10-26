@@ -1,3 +1,4 @@
+import { requestJson } from './requestJson.ts';
 /**
  * Request headers of the organizer session (architecture programme, 2026-10-26): one definition instead of eleven copies.
  * The organizer's bearer token, when this device keeps one in `organizer_token`, goes as `Authorization`; `json` adds the
@@ -11,3 +12,11 @@ export const organizerHeaders = (json = true): Record<string, string> => {
   }
   return headers;
 };
+
+/**
+ * A JSON request of the organizer session: the organizer headers plus `requestJson`'s failure handling (the server's
+ * `error` text, otherwise the caller's fallback). Replaces the hand-written `fetch` + `organizerHeaders` +
+ * `if (!response.ok) throw new Error(body?.error || '…')` blocks one for one.
+ */
+export const organizerJson = <T = any>(url: string, fallbackError: string, init: RequestInit = {}): Promise<T> =>
+  requestJson<T>(url, { ...init, headers: { ...organizerHeaders(false), ...(init.headers as Record<string, string> || {}) } }, fallbackError);

@@ -63,6 +63,7 @@ import {
   createEmptyActivePlayer,
   createInitialLiveDiscipline,
   normalizeLiveSnapshotForRestore,
+  votedOutExitReason,
 } from "./LiveGameEngine/engineStateModel.js";
 import {
   type PersistedLiveSession,
@@ -1159,7 +1160,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const current = votingRounds[activeVotingRoundIndex];
     if (!current) return;
     saveSnapshot();
-    const exitReason: NonNullable<ActivePlayerState['exit_reason']> = current.day_number === 0 ? 'voted_zero_round' : 'voted_day';
+    const exitReason: NonNullable<ActivePlayerState['exit_reason']> = votedOutExitReason(current.day_number);
     eliminatePlayer(slot, `Голосование (День ${roundNumber})`, exitReason);
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
       ? { ...round, outcome: 'single_eliminated', eliminated_seats: [slot] }
@@ -1264,7 +1265,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     } : round));
 
     if (result.resolvedOutcome === 'all_tied_eliminated') {
-      const exitReason: NonNullable<ActivePlayerState['exit_reason']> = current.day_number === 0 ? 'voted_zero_round' : 'voted_day';
+      const exitReason: NonNullable<ActivePlayerState['exit_reason']> = votedOutExitReason(current.day_number);
       result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (День ${roundNumber})`, exitReason));
       const farewellQueue = buildVotingFarewellQueue(result.eliminatedSeats, current.nominated_seats);
       setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; спорные ${winners.map((s) => `#${s}`).join(', ')} заголосованы. Прощальные минуты: ${farewellQueue.map((s) => `#${s}`).join(', ')}.` }]);

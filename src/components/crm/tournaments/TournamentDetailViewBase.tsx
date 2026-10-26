@@ -1,26 +1,6 @@
 import { useResumeLiveGame } from '../../../lib/useResumeLiveGame.ts';
-import { countGames } from '../../../lib/russianPlural';
 import React, { useState, useRef } from 'react';
-import {
-  ArrowLeft,
-  RefreshCw,
-  Play,
-  ArrowLeftRight,
-  Calendar,
-  MapPin,
-  CheckCircle2,
-  AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-  Edit2,
-  Check,
-  X,
-  FileText,
-  Image as ImageIcon,
-  Trophy,
-  RotateCcw,
-} from 'lucide-react';
+import { CheckCircle2, AlertCircle, Users, X, FileText, Trophy, Award } from 'lucide-react';
 import { TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
 import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
@@ -34,16 +14,13 @@ import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
 import { CorrectParticipantModal } from './CorrectParticipantModal.tsx';
-import { UserCheck, FileSpreadsheet, FileCheck, Award, Send } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
-import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
-import { TournamentGameSetup } from './TournamentGameSetup.tsx';
-import {
-  isRoleOptionDisabled,
-} from '../../../lib/tournamentRoleValidation.ts';
-import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 import { tournamentGameEditRights } from './tournamentGameEditRights.ts';
+import { TournamentOrganizationTab } from './TournamentOrganizationTab.tsx';
+import { TournamentGamesTab } from './TournamentGamesTab.tsx';
+import { SwapSeatsModal } from './SwapSeatsModal.tsx';
+import { TournamentCardHeader } from './TournamentCardHeader.tsx';
 import { useTournamentActions } from './useTournamentActions.ts';
 import { useTournamentDetail } from './useTournamentDetail.ts';
 
@@ -59,11 +36,11 @@ interface TournamentDetailViewProps {
 
 const ALL_TABS: TournamentTab[] = ['organization', 'games', 'standings', 'nominations'];
 
-const ROLES_LIST = [
-  { id: 'citizen', label: 'Мирный', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
-  { id: 'sheriff', label: 'Шериф', color: 'bg-amber-500/10 text-amber-400 border-amber-500/30 font-bold' },
-  { id: 'mafia', label: 'Мафия', color: 'bg-rose-500/10 text-rose-400 border-rose-500/30' },
-  { id: 'don', label: 'Дон', color: 'bg-purple-500/10 text-purple-400 border-purple-500/30 font-bold' },
+const TAB_BUTTONS: Array<{ id: TournamentTab; label: string; Icon: React.ElementType; iconClass?: string }> = [
+  { id: 'organization', label: 'Организация', Icon: FileText },
+  { id: 'games', label: 'Игры', Icon: Users },
+  { id: 'standings', label: 'Таблица', Icon: Trophy, iconClass: 'text-amber-400' },
+  { id: 'nominations', label: 'Номинации', Icon: Award, iconClass: 'text-cyan-400' },
 ];
 
 export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
@@ -78,7 +55,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [activeTab, setActiveTabRaw] = useState<TournamentTab>(tabs[0] || 'organization');
   // A step screen shows only its own tabs; a jump to another tab (e.g. to games after the start) stays inside them.
   const setActiveTab = (tab: TournamentTab) => setActiveTabRaw(tabs.includes(tab) ? tab : tabs[0]);
-  const [showRoster, setShowRoster] = useState(false);
 
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
@@ -165,99 +141,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const currentGame: TournamentGame | undefined = games[selectedGameIdx];
   const seats: TournamentGameSeat[] = currentGame?.seats || [];
 
-  const {
-    activeGameInTournament,
-    isAnotherGameActive,
-    roleCounts,
-    isCorrection,
-    canEditCurrentGameJudgeAndRoles,
-    canEditJudgeInline,
-    canSwapSeatsCurrentGame,
-    canCorrectCurrentGame,
-  } = tournamentGameEditRights(tournament.status, games, currentGame);
+  const rights = tournamentGameEditRights(tournament.status, games, currentGame);
 
   return (
     <div className="space-y-5 text-text-primary">
       {/* Top Header & Navigation */}
-      {!hideHeader ? (
-      <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary bg-surface-2 hover:bg-surface-hover px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Назад</span>
-            </button>
-            
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                tournament.status === 'active'
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                  : tournament.status === 'correction'
-                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 animate-pulse'
-                  : tournament.status === 'completed'
-                  ? 'bg-surface-2 text-text-muted border-border-soft'
-                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-              }`}
-            >
-              {tournament.status === 'active'
-                ? 'Турнир идёт'
-                : tournament.status === 'correction'
-                ? 'Режим корректировки'
-                : tournament.status === 'completed'
-                ? 'Завершён'
-                : (tournament.status as string) === 'cancelled'
-                ? 'Отменён'
-                : 'Черновик'}
-            </span>
-            {(tournament.status === 'draft' || tournament.status === 'active') && !games.some((g: any) => g.status === 'active' || g.status === 'completed') && (
-              <button
-                type="button"
-                data-testid="cancel-tournament-button"
-                onClick={handleCancelTournament}
-                disabled={actionLoading}
-                className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 px-2 py-1 rounded-lg border border-rose-500/30 cursor-pointer"
-              >
-                Отменить турнир
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <h2 className="text-xl font-black text-text-primary tracking-tight">{tournament.title}</h2>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-text-muted" />
-              {new Date(tournament.date).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' })}
-            </span>
-            {tournament.venue && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-text-muted" />
-                {tournament.venue}
-              </span>
-            )}
-            {tournament.stage && <span className="text-accent font-semibold">{tournament.stage}</span>}
-            {tournament.chief_judge_name && (
-              <span className="text-text-muted flex items-center gap-1.5">
-                <PlayerAvatar nickname={tournament.chief_judge_name} size="xs" />
-                Главный судья: {tournament.chief_judge_name}
-              </span>
-            )}
-          </div>
-          {tournament.notes && (
-            <p className="text-xs text-text-muted italic pt-1">{tournament.notes}</p>
-          )}
-        </div>
-
-        
-      </div>
-      ) : null}
+      {!hideHeader ? <TournamentCardHeader tournament={tournament} games={games} actionLoading={actionLoading} onBack={onBack} onCancel={handleCancelTournament} /> : null}
 
       {/* Feedback banner */}
       {feedbackMsg && (
@@ -281,803 +170,59 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       {/* Navigation Tabs */}
       {tabs.length > 1 ? (
       <div className={`grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft overflow-hidden`}>
-        {tabs.includes('organization') ? (<button
-          type="button"
-          onClick={() => setActiveTab('organization')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'organization'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <FileText className="w-4 h-4 shrink-0" />
-          <span className="line-clamp-2">Организация</span>
-        </button>) : null}
-
-        {tabs.includes('games') ? (<button
-          type="button"
-          onClick={() => setActiveTab('games')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'games'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <Users className="w-4 h-4 shrink-0" />
-          <span className="line-clamp-2">Игры</span>
-        </button>) : null}
-
-        {tabs.includes('standings') ? (<button
-          type="button"
-          onClick={() => setActiveTab('standings')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'standings'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <Trophy className="w-4 h-4 shrink-0 text-amber-400" />
-          <span className="line-clamp-2">Таблица</span>
-        </button>) : null}
-
-        {tabs.includes('nominations') ? (<button
-          type="button"
-          onClick={() => setActiveTab('nominations')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'nominations'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <Award className="w-4 h-4 shrink-0 text-cyan-400" />
-          <span className="line-clamp-2">Номинации</span>
-        </button>) : null}
+        {TAB_BUTTONS.filter((item) => tabs.includes(item.id)).map(({ id, label, Icon, iconClass }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
+              activeTab === id
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+            }`}
+          >
+            <Icon className={`w-4 h-4 shrink-0${iconClass ? ` ${iconClass}` : ''}`} />
+            <span className="line-clamp-2">{label}</span>
+          </button>
+        ))}
       </div>
       ) : null}
 
       {activeTab === 'organization' && (
-        <div className="space-y-5">
-          <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                <FileText className="w-4 h-4 text-accent" />
-                Управление турниром
-              </h3>
-            </div>
-            
-        {isDraft ? (
-          <div className="space-y-3 pt-3 border-t border-border-soft">
-            {/* Readiness Badge & Export Button */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-surface-2 p-3 rounded-2xl border border-border-soft">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-text-secondary">Статус готовности:</span>
-                <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
-                    tournament.start_readiness?.ready
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-danger/10 text-danger border-danger/30'
-                  }`}
-                >
-                  {tournament.start_readiness?.ready ? 'Готов к запуску' : 'Требуется исправление'}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowSeatingExportModal(true)}
-                className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <ImageIcon className="w-3.5 h-3.5" />
-                <span>Рассадка для игроков (PNG)</span>
-              </button>
-            </div>
-
-            {/* List of readiness errors if not ready */}
-            {tournament.start_readiness && !tournament.start_readiness.ready && (
-              <div className="p-3 bg-danger/10 border border-danger/30 rounded-2xl text-danger text-xs space-y-1">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Для запуска турнира необходимо устранить замечания:</span>
-                </div>
-                <ul className="list-disc list-inside space-y-0.5 text-[11px] font-medium pl-1">
-                  {tournament.start_readiness.errors.map((err, idx) => (
-                    <li key={idx}>{err}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedImportGameId(undefined);
-                  setShowProtocolImportModal(true);
-                }}
-                className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Загрузить бланк игры</span>
-              </button>
-
-              {!registrationFlow ? (
-                <button
-                  type="button"
-                  onClick={() => setShowEditDataModal(true)}
-                  className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                >
-                  <FileText className="w-3.5 h-3.5 text-accent" />
-                  <span>Редактировать данные</span>
-                </button>
-              ) : null}
-
-              {!registrationFlow ? (
-                <button
-                  type="button"
-                  onClick={() => setShowEditRosterModal(true)}
-                  className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                >
-                  <Users className="w-3.5 h-3.5 text-accent" />
-                  <span>Изменить состав</span>
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={handleRegenerateSeating}
-                disabled={actionLoading}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
-                <span>Перегенерировать рассадку</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSendSeatMessages}
-                disabled={actionLoading}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <Send className="w-3.5 h-3.5 text-accent" />
-                <span>Разослать места игрокам</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleOpenStartModal}
-                disabled={actionLoading || !tournament.start_readiness?.ready}
-                title={!tournament.start_readiness?.ready ? 'Исправьте ошибки перед запуском' : 'Запустить турнир'}
-                className={`font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] ml-auto ${
-                  tournament.start_readiness?.ready
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
-                    : 'bg-surface-2 text-text-muted border border-border-soft opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Запустить турнир</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3 pt-3 border-t border-border-soft">
-            {/* Completion Readiness & Controls for Active Tournament */}
-            {tournament.status === 'active' && (() => {
-              const readiness = tournament.complete_readiness || { isReady: false, errors: ['Ошибка загрузки готовности'] };
-              return (
-                <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3.5">
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 font-bold text-text-primary">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>Прогресс турнира:</span>
-                      <span className="font-mono text-accent text-sm font-black">
-                        {games.filter((g) => g.status === 'completed').length} из {countGames(games.length)} завершено
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleSendSeatMessages}
-                      disabled={actionLoading}
-                      className="bg-surface-3 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                    >
-                      <Send className="w-3.5 h-3.5 text-accent" />
-                      <span>Разослать места игрокам</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!readiness.isReady || actionLoading}
-                      onClick={() => setShowCompleteModal(true)}
-                      className={`font-extrabold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 cursor-pointer min-h-[38px] ${
-                        readiness.isReady
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                          : 'bg-surface-3 text-text-muted cursor-not-allowed border border-border-soft/60 shadow-none'
-                      }`}
-                    >
-                      <Trophy className="w-3.5 h-3.5" />
-                      <span>Завершить турнир</span>
-                    </button>
-                  </div>
-
-                  {/* Errors List if not ready */}
-                  {!readiness.isReady && readiness.errors && readiness.errors.length > 0 && (
-                    <div className="border-t border-border-soft/60 pt-3 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-danger font-bold text-[11px] uppercase tracking-wider">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Необходимо исправить для завершения:</span>
-                      </div>
-                      <ul className="list-disc list-inside space-y-0.5 text-[11px] text-text-secondary leading-relaxed pl-1">
-                        {readiness.errors.map((err: string, idx: number) => (
-                          <li key={idx} className="font-sans">{err}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Correction Mode Section */}
-            {tournament.status === 'correction' && (() => {
-              const readiness = tournament.complete_readiness || { isReady: false, errors: ['Ошибка загрузки готовности'] };
-              return (
-                <div className="space-y-3">
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-2 text-amber-300 text-xs">
-                    <div className="flex items-center gap-2 font-black uppercase tracking-wider text-amber-400 text-sm">
-                      <AlertCircle className="w-5 h-5 shrink-0" />
-                      <span>Режим корректировки турнира</span>
-                    </div>
-                    <p className="text-text-secondary leading-relaxed">
-                      Турнир возвращён из завершённых для внесения исправлений. Публичные результаты временно скрыты, а результаты спорных ситуаций аннулированы. Для изменения судьи и ролей откройте протокол нужной игры для правки. После внесения правок завершите турнир повторно.
-                    </p>
-                  </div>
-
-                  <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-2 font-bold text-text-primary">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Прогресс турнира:</span>
-                        <span className="font-mono text-accent text-sm font-black">
-                          {games.filter((g) => g.status === 'completed').length} из {countGames(games.length)} завершено
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={!readiness.isReady || actionLoading}
-                        onClick={() => setShowCompleteModal(true)}
-                        className={`font-extrabold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 cursor-pointer min-h-[38px] ${
-                          readiness.isReady
-                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                            : 'bg-surface-3 text-text-muted cursor-not-allowed border border-border-soft/60 shadow-none'
-                        }`}
-                      >
-                        <Trophy className="w-3.5 h-3.5" />
-                        <span>Повторно завершить турнир</span>
-                      </button>
-                    </div>
-
-                    {!readiness.isReady && readiness.errors && readiness.errors.length > 0 && (
-                      <div className="border-t border-border-soft/60 pt-3 space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-danger font-bold text-[11px] uppercase tracking-wider">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>Необходимо исправить для завершения:</span>
-                        </div>
-                        <ul className="list-disc list-inside space-y-0.5 text-[11px] text-text-secondary leading-relaxed pl-1">
-                          {readiness.errors.map((err: string, idx: number) => (
-                            <li key={idx} className="font-sans">{err}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {tournament.status === 'completed' && (
-              <div className="space-y-4">
-                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-xs text-emerald-400 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <Trophy className="w-4.5 h-4.5 text-amber-400 shrink-0" />
-                    <div>
-                      <span className="font-bold block text-text-primary">Турнир официально завершён</span>
-                      <p className="text-[11px] text-text-muted mt-0.5">
-                        Результаты зафиксированы. Организатор может вернуть турнир на корректировку при необходимости.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowReopenModal(true)}
-                    className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px] shrink-0"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Редактировать завершённый турнир</span>
-                  </button>
-                </div>
-
-                <TournamentOfficialResults
-                  tournamentId={tournamentId}
-                  refreshTrigger={refreshTrigger}
-                  onResolve={() => refresh()}
-                />
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 pt-1 flex-wrap">
-              {(tournament.status === 'active' || tournament.status === 'correction') && (
-                <button
-                  type="button"
-                  onClick={() => setShowEditDataModal(true)}
-                  className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                >
-                  <FileText className="w-3.5 h-3.5 text-accent" />
-                  <span>Редактировать данные</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowSeatingExportModal(true)}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <ImageIcon className="w-3.5 h-3.5 text-accent" />
-                <span>Рассадка для игроков (PNG)</span>
-              </button>
-            </div>
-          </div>
-        )}
-          </div>
-          {/* Roster / Participants Accordion */}
-          <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-3">
-            <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowRoster(!showRoster)}>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-accent" />
-                <h3 className="text-sm font-bold text-text-primary">Состав участников ({tournament.participants?.length || 0} человек)</h3>
-              </div>
-              <div className="flex items-center gap-4">
-                {isDraft && !registrationFlow && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowEditRosterModal(true); }}
-                    className="text-xs text-accent hover:underline font-bold"
-                  >
-                    Изменить состав
-                  </button>
-                )}
-                <div className="flex items-center gap-1.5 text-text-muted">
-                  <span className="text-xs">{showRoster ? 'Скрыть' : 'Показать'}</span>
-                  {showRoster ? <ChevronLeft className="w-4 h-4 -rotate-90" /> : <ChevronRight className="w-4 h-4" />}
-                </div>
-              </div>
-            </div>
-
-            {showRoster && (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
-              {tournament.participants?.map((p) => (
-                <div key={p.id} className="bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center space-y-0.5">
-                  <PlayerAvatar
-                    playerId={p.player_id || undefined}
-                    avatarVersion={p.avatar_updated_at}
-                    forceStoredLookup
-                    nickname={p.player_nickname || p.display_name}
-                    size="md"
-                    className="mx-auto mb-1"
-                  />
-                  <span className="w-5 h-5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold inline-flex items-center justify-center mb-1">
-                    {p.participant_number}
-                  </span>
-                  <span className="text-xs font-bold text-text-primary block truncate">{p.display_name}</span>
-                  {p.player_nickname && p.player_nickname !== p.display_name && (
-                    <span className="text-[10px] text-text-muted block truncate">({p.player_nickname})</span>
-                  )}
-                  {tournament.status !== 'completed' && !registrationFlow && (
-                    <button
-                      type="button"
-                      onClick={() => setCorrectingParticipant(p)}
-                      className="text-[10px] text-accent hover:underline font-bold mt-1 inline-flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <UserCheck className="w-3 h-3" />
-                      <span>Исправить</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            )}
-          </div>
-
-        </div>
+        <TournamentOrganizationTab
+          tournament={tournament} tournamentId={tournamentId} games={games} isDraft={isDraft} registrationFlow={registrationFlow}
+          actionLoading={actionLoading} refreshTrigger={refreshTrigger} onRefresh={() => refresh()}
+          onSeatingExport={() => setShowSeatingExportModal(true)}
+          onImportBlank={(gameId) => { setSelectedImportGameId(gameId); setShowProtocolImportModal(true); }}
+          onEditData={() => setShowEditDataModal(true)}
+          onEditRoster={() => setShowEditRosterModal(true)}
+          onRegenerateSeating={handleRegenerateSeating}
+          onSendSeatMessages={handleSendSeatMessages}
+          onStart={handleOpenStartModal}
+          onComplete={() => setShowCompleteModal(true)}
+          onReopen={() => setShowReopenModal(true)}
+          onCorrectParticipant={setCorrectingParticipant}
+        />
       )}
-
 
       {activeTab === 'standings' ? (
         <TournamentStandingsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
       ) : activeTab === 'nominations' ? (
         <TournamentNominationsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
       ) : activeTab === 'games' ? (
-        <div className="space-y-5">
-          {/* Selected Game Selector & Navigator */}
-      <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
-        {/* Game Tabs / Nav */}
-        <div className="flex items-center justify-between gap-2 bg-surface-2 p-1.5 rounded-2xl border border-border-soft">
-          <button
-            onClick={() => setSelectedGameIdx(Math.max(0, selectedGameIdx - 1))}
-            disabled={selectedGameIdx === 0}
-            className="p-2 text-text-secondary hover:text-text-primary disabled:opacity-30 cursor-pointer"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1">
-            {games.map((g, idx) => {
-              const isSel = idx === selectedGameIdx;
-              const isDone = g.status === 'completed';
-              const isRun = g.status === 'active';
-              return (
-                <button
-                  key={g.id}
-                  ref={isSel ? (node) => { node?.scrollIntoView?.({ block: 'nearest', inline: 'center' }); } : undefined}
-                  onClick={() => setSelectedGameIdx(idx)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap ${
-                    isSel
-                      ? 'bg-accent text-white shadow-sm'
-                      : isRun
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                      : isDone
-                      ? 'bg-surface-1 text-text-muted border border-border-soft'
-                      : 'bg-surface-1 text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  Игра {g.game_number}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => setSelectedGameIdx(Math.min(games.length - 1, selectedGameIdx + 1))}
-            disabled={selectedGameIdx === games.length - 1}
-            className="p-2 text-text-secondary hover:text-text-primary disabled:opacity-30 cursor-pointer"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Current Game Details Header */}
-        {currentGame && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-2 p-4 rounded-2xl border border-border-soft">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-text-primary whitespace-nowrap">Игра №{currentGame.game_number}</h3>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      currentGame.status === 'active'
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                        : currentGame.status === 'completed'
-                        ? 'bg-surface-1 text-text-muted border border-border-soft'
-                        : 'bg-surface-1 text-text-secondary border border-border-soft'
-                    }`}
-                  >
-                    {currentGame.status === 'active' ? 'Идёт сейчас' : currentGame.status === 'completed' ? 'Завершено' : 'Запланировано'}
-                  </span>
-                </div>
-
-                {/* Judge info */}
-                <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
-                  <span>Судья:</span>
-                  {!editingJudge && (currentGame.judge_name || tournament.chief_judge_name) && (
-                    <PlayerAvatar nickname={currentGame.judge_name || tournament.chief_judge_name} size="xs" />
-                  )}
-                  {editingJudge && canEditJudgeInline ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={judgeInput}
-                        onChange={(e) => setJudgeInput(e.target.value)}
-                        className="bg-surface-1 border border-border-soft rounded px-2 py-0.5 text-xs text-text-primary"
-                        placeholder="Имя судьи"
-                      />
-                      <button onClick={handleSaveJudge} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded cursor-pointer">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setEditingJudge(false)} className="p-1 text-text-muted hover:bg-surface-hover rounded cursor-pointer">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : canEditJudgeInline ? (
-                    <button
-                      onClick={() => {
-                        setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
-                        setEditingJudge(true);
-                      }}
-                      className="font-semibold text-text-primary hover:text-accent flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>{currentGame.judge_name || tournament.chief_judge_name || 'Назначить судью'}</span>
-                      <Edit2 className="w-3 h-3 text-text-muted" />
-                    </button>
-                  ) : (
-                    <span className="font-semibold text-text-primary">
-                      {currentGame.judge_name || tournament.chief_judge_name || 'Не указан'}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Game Action Buttons: two columns on a phone so the card does not grow by one screen */}
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center [&>button]:w-full [&>button]:justify-center [&>button]:text-center sm:[&>button]:w-auto">
-                <button
-                  type="button"
-                  disabled={currentGame.status === 'planned'}
-                  title={currentGame.status === 'planned' ? 'Сначала запустите игру' : ''}
-                  onClick={() => {
-                    if (currentGame.status !== 'planned') {
-                      setProtocolGameId(currentGame.id);
-                      setShowGameProtocolModal(true);
-                    }
-                  }}
-                  className={`font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 min-h-[40px] shadow-sm ${
-                    currentGame.status === 'planned'
-                      ? 'bg-zinc-800/50 text-zinc-500 border border-zinc-700/50 cursor-not-allowed opacity-60'
-                      : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 cursor-pointer'
-                  }`}
-                >
-                  <FileCheck className="w-4 h-4 text-amber-400" />
-                  <span>Протокол игры</span>
-                </button>
-
-                {currentGame.status === 'active' && (
-                  <button
-                    type="button"
-                    data-testid="tournament-live-game-button"
-                    onClick={() => setLiveGameId(String(currentGame.id))}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 min-h-[40px] shadow-sm cursor-pointer"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Вести игру (движок)</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedImportGameId(currentGame.id);
-                    setShowProtocolImportModal(true);
-                  }}
-                  className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Загрузить бланк игры</span>
-                </button>
-
-                {currentGame.status === 'completed' && (
-                  <button
-                    type="button"
-                    id={`btn-game-${currentGame.game_number}-png-results-trigger`}
-                    onClick={() => {
-                      setExportGameId(currentGame.id);
-                      setExportGameNumber(currentGame.game_number);
-                      setIsExportModalOpen(true);
-                    }}
-                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Посмотреть результат</span>
-                  </button>
-                )}
-
-                {/* «Исправить» on a completed game: reopens it (and a completed tournament first) — owner, 2026-10-22 */}
-                {canCorrectCurrentGame && (
-                  <button
-                    type="button"
-                    data-testid="correct-completed-game-button"
-                    onClick={() => void handleCorrectGame(String(currentGame.id))}
-                    disabled={actionLoading}
-                    className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                  >
-                    <span>Исправить</span>
-                  </button>
-                )}
-
-                {/* A wrong click while dealing the roles: fixable in a running game until its protocol is completed */}
-                {(tournament.status === 'active' || tournament.status === 'correction') && currentGame.status === 'active' && (currentGame as any).protocol_status !== 'completed' && (
-                  <button
-                    type="button"
-                    data-testid="fix-active-game-roles-button"
-                    onClick={() => setRolesFixGameId(String(currentGame.id))}
-                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                  >
-                    <Users className="w-3.5 h-3.5 text-accent" />
-                    <span>Исправить роли</span>
-                  </button>
-                )}
-
-                {tournament.status === 'active' && currentGame.status === 'active' && (currentGame as any).protocol_status !== 'completed' && (
-                  <button
-                    type="button"
-                    data-testid="reset-game-to-planned-button"
-                    onClick={handleResetGameToPlanned}
-                    disabled={actionLoading}
-                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                  >
-                    <span>Вернуть игру в план</span>
-                  </button>
-                )}
-
-                {(tournament.status === 'active' || tournament.status === 'draft') && games.length > 1 && games[games.length - 1]?.status === 'planned' && !(games[games.length - 1] as any).protocol_status && (
-                  <button
-                    type="button"
-                    data-testid="drop-last-game-button"
-                    onClick={handleDropLastGame}
-                    disabled={actionLoading}
-                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                  >
-                    <span title={`${games.length} → ${games.length - 1} игр`}>Убрать игру №{games.length}</span>
-                  </button>
-                )}
-
-                {/* Swap seats / Correct players on seats allowed in draft/planned or active game in correction mode with draft protocol */}
-                {canSwapSeatsCurrentGame && currentGame.status !== 'planned' && (
-                  <button
-                    onClick={() => {
-                      setSwapSeat1(1);
-                      setSwapSeat2(2);
-                      setShowSwapModal(true);
-                    }}
-                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                  >
-                    <ArrowLeftRight className="w-3.5 h-3.5 text-accent" />
-                    <span>Исправить игроков на местах</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {currentGame.status === 'planned' ? (
-              <TournamentGameSetup
-                tournamentId={tournamentId}
-                game={currentGame}
-                tournamentStatus={tournament.status}
-                isAnotherGameActive={isAnotherGameActive}
-                activeGameNumber={activeGameInTournament?.game_number}
-                judgeName={currentGame.judge_name}
-                chiefJudgeName={tournament.chief_judge_name}
-                canEditJudgeAndRoles={canEditCurrentGameJudgeAndRoles}
-                canSwapSeats={canSwapSeatsCurrentGame}
-                onOpenSwapModal={() => {
-                  setSwapSeat1(1);
-                  setSwapSeat2(2);
-                  setShowSwapModal(true);
-                }}
-                onEditJudgeClick={() => {
-                  setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
-                  setEditingJudge(true);
-                }}
-                onGameStarted={() => {
-                  loadDetail();
-                }}
-                setFeedbackMsg={setFeedbackMsg}
-              />
-            ) : (
-              <>
-                {/* Role Composition Summary Box */}
-                <div className="bg-surface-2/60 p-3 rounded-2xl border border-border-soft text-xs space-y-2">
-                  <span className="font-bold text-text-secondary text-[11px] block">Проверка состава ролей перед запуском:</span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
-                    <div className={`p-2 rounded-xl border ${roleCounts.citizen === 6 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                      <span>Мирные: {roleCounts.citizen} / 6</span>
-                    </div>
-                    <div className={`p-2 rounded-xl border ${roleCounts.sheriff === 1 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                      <span>Шериф: {roleCounts.sheriff} / 1</span>
-                    </div>
-                    <div className={`p-2 rounded-xl border ${roleCounts.mafia === 2 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                      <span>Мафия: {roleCounts.mafia} / 2</span>
-                    </div>
-                    <div className={`p-2 rounded-xl border ${roleCounts.don === 1 ? 'bg-purple-500/10 border-purple-500/30 text-purple-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                      <span>Дон: {roleCounts.don} / 1</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 10 Seats Cards List */}
-                <div className="space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                    <span className="text-xs font-bold text-text-secondary block">
-                      Рассадка на игру №{currentGame.game_number}
-                      {!canEditCurrentGameJudgeAndRoles && ' (заблокирована для изменений)'}:
-                    </span>
-                    {isCorrection && currentGame.status === 'completed' && (
-                      <span className="text-[11px] text-amber-400 italic font-medium">
-                        Чтобы поменять судью или роли, откройте протокол для правки
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {seats.map((seat) => {
-                      const roleObj = ROLES_LIST.find((r) => r.id === seat.role);
-                      return (
-                        <div
-                          key={seat.id}
-                          className="bg-surface-2 p-3 rounded-2xl border border-border-soft flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-7 h-7 rounded-xl bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
-                              {seat.seat_number}
-                            </span>
-                            <PlayerAvatar playerId={seat.player_id || undefined} avatarVersion={seat.avatar_updated_at} forceStoredLookup nickname={seat.display_name} size="sm" />
-                            <div className="min-w-0">
-                              <span className="text-xs font-bold text-text-primary block truncate">
-                                {seat.display_name}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Role selection dropdown */}
-                          {canEditCurrentGameJudgeAndRoles ? (
-                            <select
-                              value={seat.role || ''}
-                              onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}
-                              className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
-                                roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
-                              }`}
-                            >
-                              <option
-                                value=""
-                                disabled={isRoleOptionDisabled(seats, seat.seat_number, null)}
-                                className="bg-surface-1 text-text-muted disabled:opacity-40"
-                              >
-                                -- Роль не выбрана --
-                              </option>
-                              <option
-                                value="citizen"
-                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'citizen')}
-                                className="bg-surface-1 text-emerald-400 font-semibold disabled:opacity-40"
-                              >
-                                Мирный ({roleCounts.citizen}/6)
-                              </option>
-                              <option
-                                value="sheriff"
-                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'sheriff')}
-                                className="bg-surface-1 text-amber-400 font-semibold disabled:opacity-40"
-                              >
-                                Шериф ({roleCounts.sheriff}/1)
-                              </option>
-                              <option
-                                value="mafia"
-                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'mafia')}
-                                className="bg-surface-1 text-rose-400 font-semibold disabled:opacity-40"
-                              >
-                                Мафия ({roleCounts.mafia}/2)
-                              </option>
-                              <option
-                                value="don"
-                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'don')}
-                                className="bg-surface-1 text-purple-400 font-semibold disabled:opacity-40"
-                              >
-                                Дон ({roleCounts.don}/1)
-                              </option>
-                            </select>
-                          ) : (
-                            <span
-                              className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
-                                roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
-                              }`}
-                            >
-                              {roleObj ? roleObj.label : 'Без роли'}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
+        <TournamentGamesTab
+          tournament={tournament} tournamentId={tournamentId} games={games} selectedGameIdx={selectedGameIdx} setSelectedGameIdx={setSelectedGameIdx}
+          currentGame={currentGame} seats={seats} rights={rights} actionLoading={actionLoading}
+          editingJudge={editingJudge} setEditingJudge={setEditingJudge} judgeInput={judgeInput} setJudgeInput={setJudgeInput}
+          handleSaveJudge={handleSaveJudge} handleCorrectGame={handleCorrectGame} handleResetGameToPlanned={handleResetGameToPlanned}
+          handleDropLastGame={handleDropLastGame} handleAssignRole={handleAssignRole} setFeedbackMsg={setFeedbackMsg} loadDetail={() => loadDetail()}
+          onOpenProtocol={(gameId) => { setProtocolGameId(gameId); setShowGameProtocolModal(true); }}
+          onLiveGame={setLiveGameId}
+          onImportBlank={(gameId) => { setSelectedImportGameId(gameId); setShowProtocolImportModal(true); }}
+          onExportResult={(game) => { setExportGameId(game.id); setExportGameNumber(game.game_number); setIsExportModalOpen(true); }}
+          onFixRoles={setRolesFixGameId}
+          onOpenSwap={() => { setSwapSeat1(1); setSwapSeat2(2); setShowSwapModal(true); }}
+        />
       ) : null}
 
       {/* EDIT TOURNAMENT DATA MODAL */}
@@ -1097,114 +242,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       />
 
       {/* SWAP SEATS MODAL */}
-      {showSwapModal && canSwapSeatsCurrentGame && (() => {
-        const seat1Obj = seats.find((s) => s.seat_number === swapSeat1);
-        const seat2Obj = seats.find((s) => s.seat_number === swapSeat2);
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-md w-full p-6 space-y-4 text-text-primary shadow-2xl">
-              <div className="flex items-center justify-between border-b border-border-soft pb-3">
-                <div className="flex items-center gap-2">
-                  <ArrowLeftRight className="w-5 h-5 text-accent" />
-                  <h3 className="text-base font-bold">Исправить игроков на местах</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSwapModal(false)}
-                  className="text-text-muted hover:text-text-primary p-1 rounded-full cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <p className="text-xs text-text-secondary">
-                Выберите два слота в Игра №{currentGame?.game_number}, которые следует поменять местами:
-              </p>
-
-              <div className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-text-secondary font-semibold mb-1">Первое место</label>
-                    <select
-                      value={swapSeat1}
-                      onChange={(e) => setSwapSeat1(parseInt(e.target.value))}
-                      className="w-full bg-surface-2 border border-border-soft rounded-xl p-2.5 text-text-primary font-bold focus:outline-none"
-                    >
-                      {seats.map((s) => (
-                        <option key={s.id} value={s.seat_number}>
-                          Место #{s.seat_number} — {s.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-text-secondary font-semibold mb-1">Второе место</label>
-                    <select
-                      value={swapSeat2}
-                      onChange={(e) => setSwapSeat2(parseInt(e.target.value))}
-                      className="w-full bg-surface-2 border border-border-soft rounded-xl p-2.5 text-text-primary font-bold focus:outline-none"
-                    >
-                      {seats.map((s) => (
-                        <option key={s.id} value={s.seat_number}>
-                          Место #{s.seat_number} — {s.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {seat1Obj && seat2Obj && swapSeat1 !== swapSeat2 && (
-                  <div className="bg-surface-2 p-3.5 rounded-2xl border border-border-soft space-y-2">
-                    <span className="text-[11px] font-bold text-accent uppercase tracking-wider block">
-                      Подтверждение назначения игроков:
-                    </span>
-                    <div className="space-y-1.5 text-xs font-medium">
-                      <div className="flex items-center justify-between">
-                        <span>Место #{swapSeat1}: <strong className="text-text-primary">{seat1Obj.display_name}</strong></span>
-                        <span className="text-accent font-bold">➔ станет {seat2Obj.display_name}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Место #{swapSeat2}: <strong className="text-text-primary">{seat2Obj.display_name}</strong></span>
-                        <span className="text-accent font-bold">➔ станет {seat1Obj.display_name}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-surface-2 p-3 rounded-xl border border-border-soft text-[11px] text-text-muted flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
-                  <p className="leading-relaxed">
-                    Роли и все действия протокола остаются у своих номеров мест
-                  </p>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSwapSeats}
-                    disabled={actionLoading || swapSeat1 === swapSeat2}
-                    className={`flex-1 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer min-h-[44px] flex items-center justify-center ${
-                      actionLoading || swapSeat1 === swapSeat2
-                        ? 'bg-surface-2 text-text-muted border border-border-soft cursor-not-allowed opacity-60'
-                        : 'bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20'
-                    }`}
-                  >
-                    {actionLoading ? 'Выполнение...' : 'Исправить игроков на местах'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowSwapModal(false)}
-                    className="bg-surface-2 hover:bg-surface-hover text-text-secondary font-bold px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer min-h-[44px]"
-                  >
-                    Отмена
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {showSwapModal && rights.canSwapSeatsCurrentGame && (
+        <SwapSeatsModal seats={seats} gameNumber={currentGame?.game_number} swapSeat1={swapSeat1} setSwapSeat1={setSwapSeat1} swapSeat2={swapSeat2} setSwapSeat2={setSwapSeat2}
+          actionLoading={actionLoading} onSwap={handleSwapSeats} onClose={() => setShowSwapModal(false)} />
+      )}
 
       {/* CORRECT PARTICIPANT MODAL */}
       <CorrectParticipantModal

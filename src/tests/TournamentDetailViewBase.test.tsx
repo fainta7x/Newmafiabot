@@ -172,6 +172,21 @@ describe('tournament card: games', () => {
     expect(JSON.stringify(save.mock.calls[0])).toContain('"role":"don"');
   });
 
+  it('two seats of a running game in correction are swapped after a preview', async () => {
+    const swap = vi.spyOn(api, 'swapTournamentSeats').mockResolvedValue({} as any);
+    await open(tournament({ status: 'correction', games: [game(1, 'active', { protocol_status: 'draft' })], complete_readiness: { isReady: false, errors: [] } }));
+    games();
+    fireEvent.click(screen.getByRole('button', { name: /Исправить игроков на местах/ }));
+    expect(screen.getByText(/станет Игрок 2/)).toBeTruthy();
+    const [first, second] = screen.getAllByRole('combobox').slice(-2) as HTMLSelectElement[];
+    fireEvent.change(first, { target: { value: '3' } });
+    fireEvent.change(second, { target: { value: '5' } });
+    expect(screen.getByText(/станет Игрок 5/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Исправить игроков на местах' }).at(-1)!);
+    await waitFor(() => expect(swap).toHaveBeenCalled());
+    expect(JSON.stringify(swap.mock.calls[0])).toMatch(/3.*5/);
+  });
+
   it('the judge of a planned game is edited inline', async () => {
     const save = vi.spyOn(api, 'updateGameJudge').mockResolvedValue({} as any);
     await open(tournament({ status: 'draft', games: [game(1, 'planned')] }));

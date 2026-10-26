@@ -8,8 +8,10 @@ describe('conducting a tournament game in the Live Game engine from the CRM', ()
 
   it('offers «Вести игру (движок)» for the active game and opens the same engine modal as the judge cabinet', () => {
     expect(base).toContain("import TournamentLiveGameModal from '../../player/TournamentLiveGameModal.tsx'");
-    expect(base).toContain('Вести игру (движок)');
-    const button = base.slice(base.indexOf('data-testid="tournament-live-game-button"') - 200, base.indexOf('Вести игру (движок)'));
+    // the game actions live in the «Игры» tab of the card since it was split (2026-10-26)
+    const gamesTab = read('../components/crm/tournaments/TournamentGamesTab.tsx');
+    expect(gamesTab).toContain('Вести игру (движок)');
+    const button = gamesTab.slice(gamesTab.indexOf('data-testid="tournament-live-game-button"') - 200, gamesTab.indexOf('Вести игру (движок)'));
     expect(button).toContain("currentGame.status === 'active'");
     expect(base).toContain("liveGame && liveGame.status === 'active' ? (");
   });

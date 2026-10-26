@@ -1985,3 +1985,7 @@ Acceptance before release: preserve the protocol on tag toggles (including revot
 
 Read-only Amvera run logs (12:30–13:10 UTC): `PUT /api/games/17/evening-protocol` answered 2.98 MB each (5 saves), `GET /api/games?archived=0` 23.3 MB, nginx buffered both to temp files, `[PERF] event loop stalled` up to 2.5 s. Game 17's protocol is 1.43 MB, of which `replay_frames` 1.39 MB.
 - [P1, fixed in PR #1040] `src/server/routes/gamesRoutes.ts`, `gamesRoutesBase.ts` `normalizeGame`: sent `replay_frames` and duplicated `protocol_text` to every client list/save response.
+
+## Tournament card split — 2026-10-26 (Claude, architecture programme)
+
+`TournamentDetailViewBase.tsx` (1333 lines, 32 % coverage) first got 15 rendering tests of every state (draft ready/not ready, running, correction, completed, roster, feedback, step tabs; games: planned/active/completed, roles in correction, inline judge, seat swap), then its markup moved unchanged into `TournamentCardHeader`, `TournamentOrganizationTab`, `TournamentGamesTab`, `SwapSeatsModal` (frame 374 lines). The two copies of the completion panel (running / correction) are one `CompletionPanel`; the four tab buttons are one list. No behaviour or visual change intended.

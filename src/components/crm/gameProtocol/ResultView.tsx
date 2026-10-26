@@ -3,11 +3,8 @@ import { AlertTriangle, ChevronDown, UserRoundCog } from 'lucide-react';
 import { api as backend, type Player } from '../../../lib/api';
 import { clubGamesApi } from '../../../lib/clubGamesApi';
 import { describeLiveGameEvents } from '../../../lib/liveGameEventText';
-import { Btn, Card, Chip, Eyebrow, SeatBadge, cx } from './ui';
+import { Btn, Card, Chip, Eyebrow, cx } from './ui';
 import type { ProtocolApi } from './types';
-import { LockedNote } from './PlayersView';
-import { teamOfRole } from './protocolReview';
-import { ExitTag, FoulTag, RoleTag } from './tags';
 import { RevealsCard } from './RevealsCard';
 import { GameAnalysis } from '../tournaments/protocol/GameAnalysis';
 
@@ -80,21 +77,13 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
   );
 };
 
-export const ResultView: React.FC<Props> = ({ api }) => {
+/** Who won (or the PPK that decided it): the first thing on the protocol page. */
+export const WinnerSection: React.FC<Props> = ({ api }) => {
   const { protocol, results, locked } = api;
   const ppk = protocol.end_reason === 'ppk';
   const culprit = results.find((player) => player.participant_id === protocol.ppk_culprit_participant_id);
-  const [journalOpen, setJournalOpen] = useState(false);
-  const lines = useMemo(() => {
-    const names = new Map(results.map((player) => [player.seat_number, player.display_name]));
-    return describeLiveGameEvents(Array.isArray(protocol.events) ? protocol.events : [], (seat) => `#${seat}${names.get(seat) ? ` ${names.get(seat)}` : ''}`);
-  }, [protocol.events, results]);
-  const sorted = results.slice().sort((a, b) => a.seat_number - b.seat_number);
-
   return (
-    <div className="space-y-5">
-      {locked ? <LockedNote /> : null}
-
+    <div className="space-y-3">
       <section aria-label="Победитель" className="space-y-2">
         <Eyebrow className="px-1">Победитель</Eyebrow>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Победившая команда">
@@ -110,6 +99,23 @@ export const ResultView: React.FC<Props> = ({ api }) => {
       {ppk ? (
         <Card tone="warn" className="flex items-center gap-3"><AlertTriangle className="h-5 w-5 shrink-0 text-amber-100" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="text-sm font-semibold">Игра закончилась ППК</div><div className="text-[12px] text-white/60">Виновник: #{culprit?.seat_number} {culprit?.display_name}. Победитель определён автоматически.</div></div>{!locked ? <Btn kind="ghost" className="px-3 text-[13px]" onClick={() => api.cancelPpk()}>Отменить</Btn> : null}</Card>
       ) : null}
+
+    </div>
+  );
+};
+
+/** Everything about the game besides the winner and the players: replacements, reveals, analysis, notes, the journal. */
+export const ResultView: React.FC<Props> = ({ api }) => {
+  const { protocol, results, locked } = api;
+  const [journalOpen, setJournalOpen] = useState(false);
+  const lines = useMemo(() => {
+    const names = new Map(results.map((player) => [player.seat_number, player.display_name]));
+    return describeLiveGameEvents(Array.isArray(protocol.events) ? protocol.events : [], (seat) => `#${seat}${names.get(seat) ? ` ${names.get(seat)}` : ''}`);
+  }, [protocol.events, results]);
+  const sorted = results.slice().sort((a, b) => a.seat_number - b.seat_number);
+
+  return (
+    <div className="space-y-5">
 
       <GuestSeatReplacement api={api} />
 
@@ -137,18 +143,6 @@ export const ResultView: React.FC<Props> = ({ api }) => {
       <section aria-label="Заметка судьи" className="space-y-2">
         <label htmlFor="judge-notes" className="block px-1"><Eyebrow>Заметка судьи</Eyebrow></label>
         <textarea id="judge-notes" rows={3} disabled={locked} value={protocol.judge_notes || ''} onChange={(event) => api.setJudgeNotes(event.target.value)} placeholder="Особенности партии, тайминги" className="w-full rounded-2xl border border-white/12 bg-white/[0.04] p-3.5 text-sm leading-5 text-white placeholder:text-white/30 disabled:opacity-70" />
-      </section>
-
-      <section aria-label="Все игроки" className="space-y-2">
-        <Eyebrow className="px-1">Все игроки</Eyebrow>
-        <Card className="divide-y divide-white/8 p-0">
-          {sorted.map((player) => (
-            <div key={player.participant_id} className="flex min-h-16 items-center gap-3 px-3.5 py-2">
-              <SeatBadge seat={player.seat_number} team={teamOfRole(player.role)} size="sm" dim={player.exit_type !== 'alive'} />
-              <div className="min-w-0 flex-1 py-1"><div className="truncate text-sm font-semibold">{player.display_name}</div><div className="mt-1 flex flex-wrap gap-1"><RoleTag role={player.role} /><ExitTag exit={player.exit_type} />{player.regular_fouls ? <FoulTag count={player.regular_fouls} /> : null}{(player.minor_technical_fouls || 0) + (player.major_technical_fouls || 0) ? <FoulTag count={(player.minor_technical_fouls || 0) + (player.major_technical_fouls || 0)} kind="minor" /> : null}</div></div>
-            </div>
-          ))}
-        </Card>
       </section>
 
       {lines.length ? (

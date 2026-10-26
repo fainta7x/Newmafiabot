@@ -85,14 +85,14 @@ for (const [width, height] of sizes) {
     await check('ballot sheet');
     await page.screenshot({ path: testInfo.outputPath(`protocol-ballot-${width}.png`) });
     await page.getByRole('dialog').getByRole('button', { name: /Борис|Глеб/ }).last().click();
-    await place(page, width, 'Обзор').click();
+    await place(page, width, 'Протокол').click();
     await expect(page.getByText(/Вы изменили · /)).toBeVisible();
     await check('overview with changes');
     await page.screenshot({ path: testInfo.outputPath(`protocol-changes-${width}.png`) });
     await page.getByRole('button', { name: /Вернуть: Девятка|Вернуть: Круг 1/ }).click();
     await expect(page.getByText(/Вы изменили/)).toHaveCount(0);
 
-    await place(page, width, 'Игроки').click();
+    await place(page, width, 'Протокол').click();
     await expect(page.getByText('Убит ночью').first()).toBeVisible();
     await check('players');
     await page.screenshot({ path: testInfo.outputPath(`protocol-players-${width}.png`) });
@@ -101,7 +101,7 @@ for (const [width, height] of sizes) {
     await page.screenshot({ path: testInfo.outputPath(`protocol-player-sheet-${width}.png`) });
     await page.keyboard.press('Escape');
 
-    await place(page, width, 'Итог').click();
+    await place(page, width, 'Протокол').click();
     await check('result');
     await page.screenshot({ path: testInfo.outputPath(`protocol-result-${width}.png`) });
     expect(errors).toEqual([]);
@@ -123,7 +123,7 @@ for (const [width, height] of [[390, 844], [1280, 820]]) {
     expect(result.outside, 'elements outside the viewport').toEqual([]);
     expect(result.small, 'targets under 44px').toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`tournament-points-${width}.png`) });
-    await place(page, width, 'Игроки').click();
+    await place(page, width, 'Протокол').click();
     await expect(page.getByText('Убит ночью').first()).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`tournament-players-${width}.png`) });
     expect(errors).toEqual([]);

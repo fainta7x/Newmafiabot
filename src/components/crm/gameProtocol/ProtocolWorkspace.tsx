@@ -5,7 +5,7 @@ import { ProtocolWindow, type ProtocolTab } from './ProtocolWindow';
 import { OverviewView } from './OverviewView';
 import { GameFlowView } from './GameFlowView';
 import { PlayerSheet, PlayersList } from './PlayersView';
-import { ResultView } from './ResultView';
+import { ResultView, WinnerSection } from './ResultView';
 import { Card, type Tone } from './ui';
 import { buildCircles, computeChanges, computeIssues, type Change, type ProtocolState } from './protocolReview';
 import type { ProtocolApi } from './types';
@@ -67,12 +67,12 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
     // Say exactly what is missing, on screen (an alert() can be swallowed by a Telegram WebView).
     if (!roleCountsMatchTable(roleCounts, playerResults.length)) {
       setCompleteHint(`Перед подтверждением установите роли: ${isSupportedTableSize(playerResults.length) ? tableRolesLabel(playerResults.length) : '6 мирных, Шериф, 2 мафии и Дон'}.`);
-      setActiveTab('players');
+      setActiveTab('overview');
       return;
     }
     if (!protocol.winner_team) {
-      setCompleteHint('Укажите победившую команду в разделе «Итог».');
-      setActiveTab('result');
+      setCompleteHint('Укажите победившую команду вверху раздела «Протокол».');
+      setActiveTab('overview');
       return;
     }
     if (protocol.votes?.length) {
@@ -92,7 +92,8 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
   const goto = (tab: ProtocolTab, target?: { circle?: number; seat?: number }) => {
     if (target?.circle != null) setCircle(target.circle);
     if (tab === 'players' && target?.seat != null) setSelectedSeat(target.seat);
-    setActiveTab(tab);
+    // «Игроки» and «Итог» live on the protocol page now.
+    setActiveTab(tab === 'players' || tab === 'result' ? 'overview' : tab);
   };
   const hint = completeHint || saveError || null;
   const toggleReviewed = (index: number) => setReviewed((prev) => ({ ...prev, [index]: !prev[index] }));
@@ -122,18 +123,18 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
         </Card>
       ) : null}
       {activeTab === 'overview' && (
-        <OverviewView api={api} circles={circles} issues={issues} changes={changes} reviewed={reviewed} onToggleReviewed={toggleReviewed} onGoto={goto} onRevert={onRevert} onConfirm={() => void confirmGame()} onReopen={() => void onReopen()} busy={!!busy} />
+        <>
+          <OverviewView api={api} circles={circles} issues={issues} changes={changes} reviewed={reviewed} onToggleReviewed={toggleReviewed} onGoto={goto} onRevert={onRevert} onConfirm={() => void confirmGame()} onReopen={() => void onReopen()} busy={!!busy}
+            winner={<WinnerSection api={api} />}
+            players={<PlayersList api={api} issues={issues} onOpen={setSelectedSeat} />}
+            details={<ResultView api={api} />}
+            footer={resultExtra} />
+          <PlayerSheet api={api} seat={selectedSeat} onClose={() => setSelectedSeat(null)} />
+        </>
       )}
       {activeTab === 'game' && (
         <GameFlowView api={api} circles={circles} circleIndex={circle} onCircle={setCircle} reviewed={reviewed} onToggleReviewed={toggleReviewed} issues={issues} />
       )}
-      {activeTab === 'players' && (
-        <>
-          <PlayersList api={api} issues={issues} onOpen={setSelectedSeat} />
-          <PlayerSheet api={api} seat={selectedSeat} onClose={() => setSelectedSeat(null)} />
-        </>
-      )}
-      {activeTab === 'result' && <><ResultView api={api} />{resultExtra}</>}
       {activeTab === 'points' && extra?.points}
     </ProtocolWindow>
   );

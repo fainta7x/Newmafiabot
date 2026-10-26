@@ -50,7 +50,6 @@ export const PlayersList: React.FC<ListProps> = ({ api, issues, onOpen }) => {
   const sorted = api.results.slice().sort((a, b) => a.seat_number - b.seat_number);
   return (
     <div className="space-y-4">
-      {api.locked ? <LockedNote /> : null}
       <ul className="space-y-2">
         {sorted.map((player) => {
           const team = teamOfRole(player.role);

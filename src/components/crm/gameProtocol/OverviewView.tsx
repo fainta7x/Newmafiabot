@@ -1,9 +1,10 @@
 import React from 'react';
 import { AlertTriangle, Check, ChevronRight, RotateCcw } from 'lucide-react';
-import { Btn, Card, Eyebrow, cx } from './ui';
+import { Btn, Card, cx } from './ui';
 import type { ProtocolApi } from './types';
 import { exitLine, type Change, type CircleModel, type Issue } from './protocolReview';
 import { InfoTag, NeedsTag } from './tags';
+import { LockedNote } from './PlayersView';
 import type { ProtocolTab } from './ProtocolWindow';
 
 type Props = {
@@ -18,9 +19,12 @@ type Props = {
   onConfirm: () => void;
   onReopen: () => void;
   busy: boolean;
+  /** The rest of the one protocol page (owner, 2026-10-26: «Обзор», «Игроки» и «Итог» — одно окно). */
+  winner?: React.ReactNode;
+  players?: React.ReactNode;
+  details?: React.ReactNode;
+  footer?: React.ReactNode;
 };
-
-const winnerTitle = (team: string | null | undefined) => (team === 'red' ? 'Победа красных' : team === 'black' ? 'Победа чёрных' : 'Победитель не указан');
 
 const circleTags = (circle: CircleModel, api: ProtocolApi, nameOf: (seat: number) => string): React.ReactNode[] => {
   const rounds = (api.protocol.votes || []).filter((round: any) => Number(round.day_number ?? 0) === circle.index) as any[];
@@ -33,37 +37,16 @@ const circleTags = (circle: CircleModel, api: ProtocolApi, nameOf: (seat: number
   return lines.length ? lines.map((line) => <span key={line} className="block text-[13px] leading-5 text-white/75">{line}</span>) : [<span key="e" className="text-[12px] text-white/40">без записей</span>];
 };
 
-export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, reviewed, onToggleReviewed, onGoto, onRevert, onConfirm, onReopen, busy }) => {
-  const { protocol, results } = api;
-  const votes = (protocol.votes || []) as any[];
-  const votingsCount = votes.filter((round) => (round.nominated_seats || []).length > 0).length;
-  const left = results.filter((player) => player.exit_type !== 'alive').length;
+export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, reviewed, onToggleReviewed, onGoto, onRevert, onConfirm, onReopen, busy, winner, players, details, footer }) => {
+  const { protocol } = api;
   const reviewedCount = circles.filter((circle) => reviewed[circle.index]).length;
   const errors = issues.filter((issue) => issue.severity === 'error');
   const confirmed = protocol.status === 'completed';
 
   return (
     <div className="space-y-5">
-      <Card className="rounded-[28px] p-5">
-        <Eyebrow>Итог игры</Eyebrow>
-        <div className="mt-1.5 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-2xl font-semibold leading-8">{winnerTitle(protocol.winner_team)}</div>
-            <div className="mt-1 text-[13px] text-white/50">{protocol.end_reason === 'ppk' ? 'Игра закончилась ППК' : 'Игра доиграна'}</div>
-          </div>
-          <div aria-hidden="true" className={cx('flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border text-xl font-semibold', protocol.winner_team === 'red' ? 'border-rose-300/35 bg-rose-300/[0.10] text-rose-50' : protocol.winner_team === 'black' ? 'border-white/20 bg-black/40 text-white/90' : 'border-white/10 bg-white/[0.05] text-white/40')}>
-            {protocol.winner_team === 'red' ? 'К' : protocol.winner_team === 'black' ? 'Ч' : '?'}
-          </div>
-        </div>
-        <dl className="mt-4 grid grid-cols-4 gap-2 text-center">
-          {[['Кругов', circles.length], ['Голосований', votingsCount], ['Ночей', (protocol.shots || []).length], ['Вышло из игры', left]].map(([label, value]) => (
-            <div key={String(label)} className="rounded-2xl bg-black/25 px-1 py-2.5">
-              <dd className="text-lg font-semibold tabular-nums leading-6">{value}</dd>
-              <dt className="text-[11px] leading-4 text-white/45">{label}</dt>
-            </div>
-          ))}
-        </dl>
-      </Card>
+      {api.locked ? <LockedNote /> : null}
+      {winner}
 
       <section aria-labelledby="todo-title">
         <div className="mb-2 flex items-baseline justify-between px-1">
@@ -93,6 +76,13 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
         )}
       </section>
 
+      {players ? (
+        <section aria-labelledby="players-title" id="protocol-players">
+          <h2 id="players-title" className="mb-2 px-1 text-base font-semibold">Игроки</h2>
+          {players}
+        </section>
+      ) : null}
+
       <section aria-labelledby="circles-title">
         <div className="mb-2 flex items-baseline justify-between px-1">
           <h2 id="circles-title" className="text-base font-semibold">Круги</h2>
@@ -120,6 +110,8 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
         </ul>
       </section>
 
+      {details}
+
       {changes.length ? (
         <section aria-labelledby="changes-title">
           <h2 id="changes-title" className="mb-2 px-1 text-base font-semibold">Вы изменили · {changes.length}</h2>
@@ -136,6 +128,8 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
           </ul>
         </section>
       ) : null}
+
+      {footer}
 
       <div className="space-y-2 pt-1">
         {confirmed ? (

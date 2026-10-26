@@ -32,7 +32,7 @@ describe('protocol editor autosave', () => {
   it('saves one edit once and settles on «Сохранено» instead of re-saving its own server echo', async () => {
     const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(makeGame('draft'));
-    go('Игроки');
+    go('Протокол');
     openPlayer(1);
     fireEvent.click(sheet().getByRole('button', { name: 'Фолы: больше' }));
     await settle();
@@ -45,11 +45,11 @@ describe('protocol editor autosave', () => {
     const calls: any[] = [];
     vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => { calls.push(payload.protocol.status); return echo(payload); });
     open(makeGame('draft', 'red'));
-    go('Игроки');
+    go('Протокол');
     openPlayer(1);
     fireEvent.click(sheet().getByRole('button', { name: 'Фолы: больше' })); // pending autosave (draft)
     fireEvent.click(sheet().getByRole('button', { name: 'Закрыть' }));
-    go('Обзор');
+    go('Протокол');
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить игру' })); // before the 1 s timer fires
     await settle();
     expect(calls[calls.length - 1]).toBe('completed');
@@ -79,7 +79,7 @@ describe('club voting confirmation', () => {
     go('Ход игры');
     expect(screen.getByTestId('voting-summary').textContent).toMatch(/остаётся за столом/);
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить результат' }));
-    go('Обзор');
+    go('Протокол');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Подтвердить игру' })); });
     const payload = save.mock.calls.at(-1)![1];
     expect(payload.protocol.status).toBe('completed');
@@ -144,7 +144,7 @@ describe('undoing a PPK and a judge removal', () => {
   it('«Отменить ППК» gives the game back its winner choice', async () => {
     const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(makeGame('draft', 'red'));
-    go('Игроки');
+    go('Протокол');
     openPlayer(8); // a black player causes it
     fireEvent.click(sheet().getByRole('button', { name: 'ППК' }));
     expect(sheet().getByRole('button', { name: 'Отменить ППК' })).toBeTruthy();
@@ -157,7 +157,7 @@ describe('undoing a PPK and a judge removal', () => {
   it('«Отменить удаление» returns a player removed by the judge', async () => {
     const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(makeGame('draft', 'red'));
-    go('Игроки');
+    go('Протокол');
     openPlayer(3);
     fireEvent.click(sheet().getByRole('button', { name: 'Удалить судьёй' }));
     fireEvent.click(sheet().getByRole('button', { name: 'Отменить удаление' }));
@@ -174,11 +174,11 @@ describe('what the judge changed', () => {
   it('lists a change since the window opened and takes it back', async () => {
     vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(makeGame('draft', 'red'));
-    go('Игроки');
+    go('Протокол');
     openPlayer(2);
     fireEvent.click(sheet().getByRole('radio', { name: 'Мафия' }));
     fireEvent.click(sheet().getByRole('button', { name: 'Закрыть' }));
-    go('Обзор');
+    go('Протокол');
     expect(screen.getByText(/Вы изменили · 1/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Вернуть: Роль/ }));
     expect(screen.queryByText(/Вы изменили/)).toBeNull();
@@ -200,7 +200,7 @@ describe('taking back a voting change', () => {
     go('Ход игры');
     fireEvent.click(screen.getByRole('tab', { name: /Круг 1/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить результат' }));
-    go('Обзор');
+    go('Протокол');
     expect(screen.getByText(/Вы изменили · 2/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Вернуть: Круг 1/ }));
     expect(screen.queryByText(/Вы изменили/)).toBeNull();

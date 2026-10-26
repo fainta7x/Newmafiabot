@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react';
-import { History, LayoutDashboard, Scale, Trophy, Users, X } from 'lucide-react';
+import { History, LayoutDashboard, Scale, X } from 'lucide-react';
 import { Chip, cx, type Tone } from './ui';
 
 export type ProtocolTab = 'overview' | 'game' | 'players' | 'result' | 'points';
 
 export const TAB_META: Array<{ id: ProtocolTab; label: string; title: string; icon: React.ElementType }> = [
-  { id: 'overview', label: 'Обзор', title: 'Обзор', icon: LayoutDashboard },
+  // Owner, 2026-10-26: «Обзор», «Игроки» and «Итог» repeated each other — they are one place now; «Ход игры» stays.
+  // The ids 'players' and 'result' remain as targets of «Что проверить» and lead to that one place.
+  { id: 'overview', label: 'Протокол', title: 'Протокол', icon: LayoutDashboard },
   { id: 'game', label: 'Ход игры', title: 'Ход игры', icon: History },
-  { id: 'players', label: 'Игроки', title: 'Игроки', icon: Users },
-  { id: 'result', label: 'Итог', title: 'Итог игры', icon: Trophy },
   { id: 'points', label: 'Баллы', title: 'Баллы судьи', icon: Scale },
 ];
 

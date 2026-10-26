@@ -241,3 +241,6 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     discipline: snapshot.discipline || createInitialLiveDiscipline(snapshotTableSize(snapshot)),
   };
 };
+
+/** How a player voted out by day leaves the table: in the zero round (day 0) or on a later day (audit L1, 2026-10-26). */
+export const votedOutExitReason = (dayNumber: number | undefined): 'voted_zero_round' | 'voted_day' => (dayNumber === 0 ? 'voted_zero_round' : 'voted_day');

@@ -2063,3 +2063,7 @@ Owner approves proposal1–4, rejects5 and confirms tournament will colours. Sco
 - FIXED: protocol_bonus removed from club/tournament Elo personal terms, while sporting standings are untouched. Tournament will evidence comes from stored colours/PU/LH/exits through one helper used by both rebuild/history; missing evidence is not guessed.
 - Owner explicitly rejects any new manual-judge reason requirement or duplicate-award prohibition; those earlier recommendations are superseded.
 Validation:86 adapted native focused test bodies passed, including16 new approved-policy cases and legacy voting/discipline/will/SVG explanation cases. Full Vitest/typecheck/build are delegated to exact-head GitHub CI; no local full-suite claim. No real exports committed, no production write or deployment. Status: implemented, exact-head CI pending.
+
+### Elo policy v4 (#1047) ran on production — 2026-10-26 15:00 UTC (Claude, organizer login, GET only)
+
+Answers the open point of the global review («this audit does not prove the latest Elo replay ran»): runtime build e22ca24 (main with #1047/#1048); Elo changed for 23 players compared with the 14:35 copy taken after #1040's v3 rebuild (e.g. Богданчик 1407 → 1476, Пристань 1437 → 1415, Гриня 1177 → 1132), so the `2026-10-elo-find-credit-v4` rebuild replayed the history.

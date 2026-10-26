@@ -30,14 +30,20 @@ export const CONTRIBUTION_WEIGHTS = {
   sheriffFoundBlack: 0.1,
   blackNamedRed: 0.3, blackNamedBlack: -0.2, blackNotNamed: 0.1,
   donFoundSheriffFirstNight: 0.2,
+  /** Owner, 2026-10-26: «первая мысль» — the first red who named a seat black in his will, when the table then voted it out. */
+  ledTable: 0.2, misledTable: -0.2,
+  /** A vote for a red who left in that very voting costs twice. */
+  votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'led_table' | 'misled_table';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
   /** Series lines: which decision in a row (2 or 3 = third and later) and what that decision was. */
   step?: number; source?: ContributionKind;
+  /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
+  stayed?: boolean; votedOut?: boolean;
 }
 /** A run of two or more decisions of the same sign in a row, in game order, with the extra it earned. */
 export interface StreakRun { sign: 1 | -1; labels: string[]; points: number }
@@ -133,6 +139,22 @@ export function gameContribution(envelope: any): SeatContribution[] {
     // Alive at the finish is sufficient evidence; otherwise an unknown chronology earns nothing.
     return me.exitType === 'alive';
   };
+  // Who was voted out and when; who first named each seat black in a will («первая мысль», owner 2026-10-26).
+  const votedOutAt = new Map<number, number>();
+  for (const event of facts.events) if (event.kind === 'exit' && event.value === 'voted_day' && event.seat) votedOutAt.set(event.seat, event.seq);
+  const votedOutSeats = new Set<number>(seats.filter((item) => item.exitType === 'voted_day').map((item) => item.seat));
+  for (const seat of votedOutAt.keys()) votedOutSeats.add(seat);
+  const firstNamedBlackBy = new Map<number, number>();
+  if (facts.full) {
+    const wills = seats.filter((item) => redRole(item.role) && killedEvent(item.seat) && colorsBySeat.get(item.seat)!.black.size)
+      .sort((a, b) => killedEvent(a.seat)!.seq - killedEvent(b.seat)!.seq);
+    for (const author of wills) for (const seat of colorsBySeat.get(author.seat)!.black) {
+      if (firstNamedBlackBy.has(seat)) continue;
+      const out = votedOutAt.get(seat);
+      if (out != null && out > killedEvent(author.seat)!.seq) firstNamedBlackBy.set(seat, author.seat);
+      else firstNamedBlackBy.set(seat, -1);
+    }
+  }
   return seats.map((me) => {
     const items: ContributionItem[] = [];
     const streaks: StreakRun[] = [];
@@ -148,12 +170,15 @@ export function gameContribution(envelope: any): SeatContribution[] {
         if (blackRole(roleOf.get(target))) {
           if (isObvious(target, voting.round)) { if (!found.has(target)) obvious.add(target); }
           else if (!found.has(target)) {
-            const item: ContributionItem = { kind: 'found_black', seat: target, points: W.foundBlack };
+            // Owner, 2026-10-26: a vote for a black the table never voted out may be random — it earns half.
+            const stayed = !votedOutSeats.has(target);
+            const item: ContributionItem = { kind: 'found_black', seat: target, points: stayed ? W.foundBlack / 2 : W.foundBlack, stayed };
             found.set(target, item); obvious.delete(target);
             if (facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: 1, items: [item] });
           }
         } else if (redRole(roleOf.get(target))) {
-          const item: ContributionItem = { kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1), critical };
+          const votedOut = voting.eliminated === target;
+          const item: ContributionItem = { kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.
           if (target !== me.seat && facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: -1, items: [item] });
@@ -185,6 +210,9 @@ export function gameContribution(envelope: any): SeatContribution[] {
         items.push(...wrong);
         if (right.length) items.push({ kind: 'will_blocked', seat: me.seat, points: 0 });
       } else items.push(...will);
+      for (const [seat, author] of firstNamedBlackBy) if (author === me.seat) {
+        items.push(blackRole(roleOf.get(seat)) ? { kind: 'led_table', seat, points: W.ledTable } : { kind: 'misled_table', seat, points: W.misledTable });
+      }
       if (me.role === 'sheriff') {
         const checkedTargets = new Set<number>();
         for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
@@ -254,11 +282,15 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], streaks: StreakRun[] = []): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
-    ? [group('Нашёл шерифа в первую ночь', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
+    ? [group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
-      group('Голосовал в чёрных', of('found_black')),
+      group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),
+      group('Голосовал в чёрных, которых не вывели (половина)', of('found_black').filter((item) => item.stayed)),
       group('Голосовал в уже известных чёрных (без баллов)', of('obvious_black')),
-      group('Голосовал в красных', of('vote_red')),
+      group('Голосовал в красных', of('vote_red').filter((item) => !item.votedOut)),
+      group('Голосовал в красных, которых вывели (×2)', of('vote_red').filter((item) => item.votedOut)),
+      group('Первым записал чёрным, потом его вывели', of('led_table')),
+      group('Первым записал чёрным красного, потом его вывели', of('misled_table')),
       group('В завещании угадал', of('will_right')),
       group('В завещании ошибся в', of('will_wrong')),
       group('Проверкой нашёл чёрного', of('check_black')),

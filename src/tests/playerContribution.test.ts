@@ -118,13 +118,13 @@ describe('found blacks count once each (owner, 2026-10-25)', () => {
   ];
   const by = (n: number) => gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === n)!;
 
-  it('voting twice for the same black earns once, +0.2 also on the critical circle', () => {
+  it('voting twice for the same black earns once; a black never voted out earns half', () => {
     expect(by(2).items.filter((item) => item.kind === 'found_black')).toHaveLength(1);
-    expect(by(2).points).toBeCloseTo(0.2, 6);
+    expect(by(2).points).toBeCloseTo(0.1, 6);
   });
 
-  it('a vote for a red costs, a different black earns again', () => {
-    expect(by(4).points).toBeCloseTo(-0.1 + 0.2, 6);
+  it('a vote for a red who left in that voting costs twice; a black voted out earns in full', () => {
+    expect(by(4).points).toBeCloseTo(-0.2 + 0.2, 6);
   });
 
   it('votes against a black do not move his points', () => {
@@ -263,5 +263,34 @@ describe('owner corrections of 2026-10-26', () => {
     const don = (round: number) => gameContribution({ protocol: { winner_team: 'black', events: events(round) }, player_results: results }).find((item) => item.seat === 10)!;
     expect(don(1).items.find((item) => item.kind === 'don_found_sheriff')?.points).toBeCloseTo(0.2, 6);
     expect(don(2).items.some((item) => item.kind === 'don_found_sheriff')).toBe(false);
+  });
+});
+
+describe('«первая мысль»: the first red who named a seat black in his will (owner, 2026-10-26)', () => {
+  const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+  const build = (firstWill: number[], secondWill: number[], votedOut: number) => {
+    const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: 'alive' }));
+    results[1].color_protocol = [{ mark: 'black', seat_numbers: firstWill }]; results[1].exit_type = 'killed';
+    results[2].color_protocol = [{ mark: 'black', seat_numbers: secondWill }]; results[2].exit_type = 'killed';
+    const events = [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: 'x', round: 1, phase: 'night', kind: 'exit', seat: 2, value: 'killed' },
+      { seq: 3, at: 'x', round: 2, phase: 'night', kind: 'exit', seat: 3, value: 'killed' },
+      { seq: 4, at: 'x', round: 3, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
+      { seq: 5, at: 'x', round: 3, phase: 'day_voting', kind: 'exit', seat: votedOut, value: 'voted_day' },
+      { seq: 6, at: 'x', round: 3, phase: 'night', kind: 'game_end', value: 'red' },
+    ];
+    return (seat: number) => gameContribution({ protocol: { winner_team: 'red', events }, player_results: results }).find((item) => item.seat === seat)!;
+  };
+
+  it('only the first author gets the bonus when that black is voted out', () => {
+    const by = build([8], [8], 8);
+    expect(by(2).items.find((item) => item.kind === 'led_table')?.points).toBeCloseTo(0.2, 6);
+    expect(by(3).items.some((item) => item.kind === 'led_table')).toBe(false);
+  });
+
+  it('leading the table to vote out a red costs the author', () => {
+    const by = build([4], [], 4);
+    expect(by(2).items.find((item) => item.kind === 'misled_table')?.points).toBeCloseTo(-0.2, 6);
   });
 });

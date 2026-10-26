@@ -24,8 +24,9 @@ describe('corrected voting results use the final marker for Elo', () => {
       event('vote_round_result', { value: '2:single_eliminated' }),
       event('exit', { seat: 2, value: 'voted_day' }),
     ].map((row, index) => ({ ...row, seq: index + 1 }));
-    expect(contribution(events, 1)).toBeCloseTo(-0.1, 10);
-    expect(contribution(events, 3)).toBeCloseTo(0.2, 10);
+    // seat 1 voted for red 2, who left in that voting (×2); seat 3 voted for black 8, never voted out (half)
+    expect(contribution(events, 1)).toBeCloseTo(-0.2, 10);
+    expect(contribution(events, 3)).toBeCloseTo(0.1, 10);
   });
 
   it('scores a confirmed single elimination even when its first marker said tie', () => {
@@ -36,8 +37,8 @@ describe('corrected voting results use the final marker for Elo', () => {
       event('vote_round_result', { value: '1:single_eliminated' }),
       event('exit', { seat: 2, value: 'voted_day' }),
     ].map((row, index) => ({ ...row, seq: index + 1 }));
-    expect(contribution(events, 1)).toBeCloseTo(0.2, 10);
-    expect(contribution(events, 3)).toBeCloseTo(-0.1, 10);
+    expect(contribution(events, 1)).toBeCloseTo(0.1, 10);
+    expect(contribution(events, 3)).toBeCloseTo(-0.2, 10);
     const facts = gameActionFacts({ id: 'correction', source: 'club', date: '', winner: 'red', events,
       seats: results.map((row) => ({ seat: row.seat_number, playerId: row.player_id, role: row.role as any })) });
     expect(facts.votings.map((voting) => voting.outcome)).toEqual(['single_eliminated']);
@@ -64,7 +65,7 @@ describe('corrected voting results use the final marker for Elo', () => {
       seats: results.map((row) => ({ seat: row.seat_number, playerId: row.player_id, role: row.role as any })) });
     expect(facts.full).toBe(true);
     expect(facts.votings.find((voting) => voting.round === 3)?.critical).toBe(true);
-    expect(contribution(events, 1)).toBeCloseTo(-0.2, 10);
+    expect(contribution(events, 1)).toBeCloseTo(-0.4, 10);
   });
 
   it('does not invent complete chronology for an already-alive restored seat', () => {

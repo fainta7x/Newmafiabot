@@ -35,7 +35,7 @@ export const CONTRIBUTION_WEIGHTS = {
   colorRight: { red: 0.075, black: 0.2 }, colorWrong: { calledRed: -0.1, calledBlack: -0.1 }, willFollowedFactor: 2,
   /**
    * The pool (owner, 2026-10-26): a player can find three blacks, +8 each, so all the pluses of one game together are worth at
-   * most +24 Elo (votes, will, series, checks, splits). Minuses are counted in full. The ЛХ of the first killed is separate.
+   * most +24 Elo (votes, will, checks, splits); the series comes on top of the pool. Minuses are counted in full. The ЛХ of the first killed is separate.
    */
   positivePool: 0.6,
   sheriffFoundBlack: 0.1,
@@ -326,7 +326,8 @@ export function gameContribution(envelope: any): SeatContribution[] {
         else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
       }
     }
-    const pluses = items.reduce((sum, item) => sum + Math.max(0, item.points), 0);
+    // Owner, 2026-10-26: the series may go over the pool — that is its point.
+    const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' ? 0 : Math.max(0, item.points)), 0);
     if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const points = items.reduce((sum, item) => sum + item.points, 0);
     return { seat: me.seat, role: me.role, points, items, streaks };

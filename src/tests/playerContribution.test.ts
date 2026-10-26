@@ -302,6 +302,12 @@ describe('«первая мысль»: the first red who named a seat black in h
     expect(me.items.find((item) => item.kind === 'pool_cap')?.points).toBeLessThan(0);
     expect(contributionBreakdown(me.role, me.items).some((line) => line.startsWith('Больше +24 за игру не набрать'))).toBe(true);
   });
+
+  it('the series goes over the pool (owner, 2026-10-26)', () => {
+    const me = build([8, 9, 10], [], 8, [4, 5, 6])(2);
+    const streak = me.items.filter((item) => item.kind === 'streak_correct').reduce((sum, item) => sum + item.points, 0);
+    expect(me.points).toBeCloseTo(0.6 + streak, 6);
+  });
 });
 
 import { unscoredVotings } from '../lib/playerContribution.ts';

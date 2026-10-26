@@ -315,11 +315,13 @@ describe('agreed split («попил») and a black already paid by a vote (owne
       { seq: 3, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
       { seq: 4, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 3, value: 'voted_day' },
     ];
-    const seat2 = (agreed: boolean) => gameContribution({ protocol: { winner_team: 'red', events, votes: [{ round_number: 1, day_number: 0 }, { round_number: 2, day_number: 1, no_scoring: agreed }] }, player_results: results }).find((item) => item.seat === 2)!;
+    const seat2 = (agreed: boolean) => gameContribution({ protocol: { winner_team: 'red', events, votes: [{ round_number: 1, day_number: 0 }, { round_number: 2, day_number: 1, no_scoring: agreed, eliminated_seats: [3] }] }, player_results: results }).find((item) => item.seat === 2)!;
     expect(seat2(false).points).toBeLessThan(0);
-    // only the colour of the one who left counts: a red left → −1 Elo for every red voter
+    // only the colour of the one who left counts: a red left → −2 Elo for every red voter (a black left would be +4)
     expect(seat2(true).items.map((item) => item.kind)).toEqual(['split_outcome']);
-    expect(seat2(true).points * 40).toBeCloseTo(-1, 6);
+    expect(seat2(true).points * 40).toBeCloseTo(-2, 6);
+    // balance: at a восьмёрка with three blacks a random outcome is worth about zero
+    expect((3 / 8) * 4 + (5 / 8) * -2).toBeCloseTo(0.25, 6);
   });
 
   it('a black named in the will after the same red voted for him earns nothing more', () => {

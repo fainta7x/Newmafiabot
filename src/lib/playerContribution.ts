@@ -32,8 +32,13 @@ export const CONTRIBUTION_WEIGHTS = {
   donFoundSheriffFirstNight: 0.2,
   /** Owner, 2026-10-26: «первая мысль» — the first red who named a seat black in his will, when the table then voted it out. */
   ledTable: 0.2, misledTable: -0.2,
-  /** A voting tagged «без оценок» (split): every red who voted shares only its result — a black left +2 Elo, a red left −1. */
-  splitBlackOut: 0.05, splitRedOut: -0.025,
+  /**
+   * A voting tagged «без оценок» (a split): nobody's own read shows, so every red who voted shares only its result. Balanced
+   * (owner asked, 2026-10-26): half of a found black (+4 Elo) because the result is shared and agreed; the red side is set so
+   * that a split which hits a random candidate is worth zero at a восьмёрка or шестёрка after a miss (a black is about one
+   * in three of the players there): +4 × 3/5 ≈ −2.
+   */
+  splitBlackOut: 0.1, splitRedOut: -0.05,
   /** A vote for a red who left in that very voting costs twice. */
   votedOutRedFactor: 2,
 } as const;
@@ -124,6 +129,17 @@ export function gameContribution(envelope: any): SeatContribution[] {
   } satisfies StatGame);
   const W = CONTRIBUTION_WEIGHTS;
   const splits = unscoredVotings(protocol);
+  // Who voted in each tagged voting and who left after it (protocol `eliminated_seats`, so a raise of two counts too).
+  const splitResults = [...splits].map((key) => {
+    const [round, number] = key.split(':').map(Number);
+    const voting = facts.circles.find((circle) => circle.round === round)?.votings.find((item) => item.number === number);
+    const protocolRound = (Array.isArray(protocol?.votes) ? protocol.votes : []).slice()
+      .sort((x: any, y: any) => Number(x?.round_number) - Number(y?.round_number))
+      .filter((item: any) => Number(item?.day_number ?? 0) === round - 1)[number - 1];
+    const voters = new Set<number>((voting?.votes || []).flatMap((ballot) => ballot.voters));
+    const left: number[] = Array.isArray(protocolRound?.eliminated_seats) ? protocolRound.eliminated_seats.map(Number) : [];
+    return { voters, left };
+  });
   // Old protocols bypassed the new validation. Ignore self marks and contradictory evidence in a rebuild too.
   const colorsBySeat = new Map(seats.map((item) => {
     const red = new Set<number>(); const black = new Set<number>(); const mentioned = new Set<number>();
@@ -184,12 +200,14 @@ export function gameContribution(envelope: any): SeatContribution[] {
       const found = new Map<number, ContributionItem>();
       const obvious = new Set<number>();
       const isObvious = obviousBlacksFor(me.seat, facts, roleOf);
-      // Owner, 2026-10-26: in a voting tagged «без оценок» only the colour of the player who left counts, the same for every red voter.
-      for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated' && splits.has(`${item.round}:${item.number}`))) {
-        if (!voting.votes.has(me.seat) || !voting.eliminated) continue;
-        const color = roleOf.get(voting.eliminated);
-        if (blackRole(color)) items.push({ kind: 'split_outcome', seat: voting.eliminated, points: W.splitBlackOut });
-        else if (redRole(color)) items.push({ kind: 'split_outcome', seat: voting.eliminated, points: W.splitRedOut });
+      // Owner, 2026-10-26: in a voting tagged «без оценок» only the colour of whoever left counts — one player or several
+      // («с подъёмом») — the same for every red who voted in it.
+      for (const split of splitResults) {
+        if (!split.voters.has(me.seat)) continue;
+        for (const seat of split.left) {
+          if (blackRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, points: W.splitBlackOut });
+          else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, points: W.splitRedOut });
+        }
       }
       for (const voting of facts.votings.filter((item) => item.outcome === 'single_eliminated' && !splits.has(`${item.round}:${item.number}`))) {
         const target = voting.votes.get(me.seat);

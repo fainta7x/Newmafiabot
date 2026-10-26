@@ -2076,3 +2076,9 @@ Validation:86 adapted native focused test bodies passed, including16 new approve
 ### Elo policy v4 (#1047) ran on production — 2026-10-26 15:00 UTC (Claude, organizer login, GET only)
 
 Answers the open point of the global review («this audit does not prove the latest Elo replay ran»): runtime build e22ca24 (main with #1047/#1048); Elo changed for 23 players compared with the 14:35 copy taken after #1040's v3 rebuild (e.g. Богданчик 1407 → 1476, Пристань 1437 → 1415, Гриня 1177 → 1132), so the `2026-10-elo-find-credit-v4` rebuild replayed the history.
+
+## Minute result scan parsed every recent game's whole protocol — 2026-10-26 (Claude)
+
+- [fixed] `clubResultPostService.runClubResultPosts` («game_blanks»): for each recent evening it `JSON.parse`d the full `protocol_text` of every not-yet-posted game every minute only to learn «completed club game»; with the replay frames that is ~1.4 MB a game, matching the ~1.5 s of non-SQLite work a minute measured on 2026-10-22. Now SQLite extracts `$.kind` and `$.protocol.status` only.
+- [open, proposal for the owner] Every request that reads a club protocol (profiles, achievements, Elo history, analytics, the games list) still carries the replay frames inside `protocol_text`. Moving the frames to their own table (a one-time data migration of every club game) would make all of them light; needs the owner's «да» because it rewrites the stored protocols.
+- Checked, already fixed earlier: the bot's «недобор» uses 8 for a novice evening; the «today» post reserves the attempt and warns that a post may have gone out after a network error.

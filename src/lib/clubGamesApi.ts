@@ -1,3 +1,4 @@
+import { organizerHeaders } from './organizerAuth.ts';
 import type { PlayerResultData, TournamentGameProtocolData } from './api';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from './liveDeathProtocol';
 import type { LiveBroadcastLayout, LiveBroadcastState } from './liveBroadcast';
@@ -69,15 +70,6 @@ const FINAL_SAVE_KEY_PREFIX = 'mafia_club_final_save_v1:';
 const FINAL_SAVE_RETRY_DELAYS_MS = [0, 250, 750];
 
 export const clubGamePendingProtocolKey = (gameId: number | string) => `${FINAL_SAVE_KEY_PREFIX}${String(gameId)}`;
-
-const organizerHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('organizer_token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 class ClubGameRequestError extends Error {
   readonly status: number;

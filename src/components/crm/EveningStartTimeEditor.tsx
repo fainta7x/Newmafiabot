@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 
@@ -20,12 +21,7 @@ type Notice = {
   retry_available: boolean;
 };
 
-const authHeaders = (json = false) => {
-  const headers: Record<string, string> = json ? { 'Content-Type': 'application/json' } : {};
-  const token = typeof window !== 'undefined' ? localStorage.getItem('organizer_token') : null;
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-};
+const authHeaders = (json = false) => organizerHeaders(json);
 
 export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
   eveningId: string;

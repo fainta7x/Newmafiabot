@@ -1,6 +1,6 @@
 import { defaultZeroRoundRule, isZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
@@ -12,10 +12,11 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
-import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayVote, type LiveBroadcastReplayFrame, sanitizeBroadcastReplayFrames, MAX_REPLAY_FRAMES } from '../../lib/liveBroadcast';
+import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
-import { evictReplayFrames, replayFramesKey, setItemFreeingSpace } from '../../lib/liveStorageBudget';
+import { evictReplayFrames } from '../../lib/liveStorageBudget';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume';
+import { useClubLiveBroadcast, useLiveAliveSeats } from './useClubLiveBroadcast.ts';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder, renumberVotingRoundsSequentially } from '../../lib/liveClubSession';
 import { buildFinalChronology } from '../../lib/liveGameEventLog';
@@ -183,16 +184,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
   const [trainingIdentityPositions, setTrainingIdentityPositions] = useState<Record<number, React.CSSProperties>>({});
   const [rolesHidden, setRolesHidden] = useState(true);
-  const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const [broadcastSetupOpen, setBroadcastSetupOpen] = useState(false);
   const [sceneCopied, setSceneCopied] = useState<string | null>(null);
   const [broadcastConfig, setBroadcastConfig] = useState<LiveBroadcastConfig | null>(null);
   const [broadcastConfigLoading, setBroadcastConfigLoading] = useState(false);
   const [broadcastConfigError, setBroadcastConfigError] = useState<string | null>(null);
   const [broadcastCopied, setBroadcastCopied] = useState(false);
-  const [broadcastConnection, setBroadcastConnection] = useState<'idle' | 'connecting' | 'live' | 'offline'>('idle');
-  const replayFramesRef = useRef<LiveBroadcastReplayFrame[] | null>(null);
-  const broadcastConnectionRef = useRef(broadcastConnection);
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
@@ -201,10 +198,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const liveRecorder = useMemo(() => new ClubLiveSessionRecorder(game.id), [game.id]);
   // Replay frames of earlier games of this device (finished or abandoned) are dead weight: they once filled the storage.
   useEffect(() => { evictReplayFrames(game.id); }, [game.id]);
-
-  useEffect(() => {
-    broadcastConnectionRef.current = broadcastConnection;
-  }, [broadcastConnection]);
 
   // A virtual table has no independent geometry: attach its decorative CRM
   // identity overlay to the actual interactive grid, not to the taller
@@ -301,127 +294,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     };
   }, []);
 
-  useEffect(() => {
-    if (livePhase === 'setup') {
-      setLiveAlive({});
-      return;
-    }
-
-    let lastSignature = '';
-    const syncAliveState = () => {
-      try {
-        const parsed = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
-        const next: Record<number, boolean> = {};
-        for (const player of Array.isArray(parsed?.activePlayers) ? parsed.activePlayers : []) {
-          const slot = Number(player?.slot_num);
-          if (Number.isInteger(slot) && slot >= 1 && slot <= 10) next[slot] = player?.alive !== false;
-        }
-        const signature = JSON.stringify(next);
-        if (signature !== lastSignature) {
-          lastSignature = signature;
-          setLiveAlive(next);
-        }
-      } catch {}
-    };
-
-    syncAliveState();
-    const intervalId = window.setInterval(syncAliveState, 300);
-    return () => window.clearInterval(intervalId);
-  }, [livePhase]);
-
-  useEffect(() => {
-    if (livePhase === 'setup') {
-      setBroadcastConnection('idle');
-      return;
-    }
-
-    let disposed = false;
-    let inFlight = false;
-    let lastSentSignature = '';
-    let lastSuccessfulAt = 0;
-    let retryAfter = 0;
-    const metadata = {
-      gameId: game.id,
-      globalGameNumber: game.global_game_number,
-      tableName: game.table_name || null,
-      players: (game.club_protocol?.player_results || []).map((player) => ({
-        seat: player.seat_number,
-        playerId: player.player_id,
-        nickname: player.display_name,
-      })),
-    };
-
-    const syncBroadcast = async () => {
-      if (disposed || inFlight) return;
-      if (Date.now() < retryAfter) return;
-      try {
-        const raw = localStorage.getItem('mafia_live_session');
-        if (!raw) return;
-        const built = buildLiveBroadcastState(JSON.parse(raw), metadata);
-        if (!built) return;
-        const votesKey = `mafia_live_broadcast_votes:${game.id}`;
-        let storedVotes: LiveBroadcastDayVote[] = [];
-        try {
-          const parsed = JSON.parse(localStorage.getItem(votesKey) || '[]');
-          if (Array.isArray(parsed)) storedVotes = parsed;
-        } catch { /* start a fresh history */ }
-        if (built.phaseKey === 'setup' || built.phaseKey === 'zero_night') storedVotes = [];
-        const dayVotes = mergeBroadcastDayVotes(storedVotes, built);
-        if (dayVotes !== storedVotes || !storedVotes.length) {
-          try { localStorage.setItem(votesKey, JSON.stringify(dayVotes)); } catch { /* storage full: still publish */ }
-        }
-        const deadSeats = new Set(built.players.filter((player) => !player.alive).map((player) => player.seat));
-        const protocols = Object.entries(readStoredDeathProtocols())
-          .map(([seat, protocol]) => ({ seat: Number(seat), ...protocol }))
-          .filter((protocol) => deadSeats.has(protocol.seat) && (protocol.red.length || protocol.black.length || protocol.sheriff.length));
-        const state = { ...built, protocols, dayVotes };
-        // Capture the same published OBS presentation for replay, rather than reimagining
-        // the game from text events. Bound the log and only sample changed frames.
-        const framesKey = replayFramesKey(game.id);
-        try {
-          // The frames live in memory while the game runs and are written to the device only when they changed.
-          if (replayFramesRef.current === null) replayFramesRef.current = sanitizeBroadcastReplayFrames(JSON.parse(localStorage.getItem(framesKey) || '[]'));
-          const existing = replayFramesRef.current;
-          const previous = existing.at(-1);
-          const nowMs = Date.now();
-          const lastMs = previous ? Date.parse(previous.at) : 0;
-          const meaningfulChange = !previous || JSON.stringify({
-            ...previous.state, timerSeconds: null, updatedAt: '',
-          }) !== JSON.stringify({ ...state, timerSeconds: null, updatedAt: '' });
-          if (meaningfulChange || nowMs - lastMs >= 10_000) {
-            const frame: LiveBroadcastReplayFrame = { at: new Date(nowMs).toISOString(), state };
-            replayFramesRef.current = [...existing, frame].slice(-MAX_REPLAY_FRAMES);
-            // Full storage must never cost the live session: the frames of other games go first, then these frames stop.
-            setItemFreeingSpace(framesKey, JSON.stringify(replayFramesRef.current), game.id);
-          }
-        } catch { /* Do not interrupt live judging if device storage is exhausted. */ }
-        const signature = JSON.stringify(state);
-        const now = Date.now();
-        if (signature === lastSentSignature && now - lastSuccessfulAt < 5_000) return;
-
-        inFlight = true;
-        if (broadcastConnectionRef.current === 'idle') setBroadcastConnection('connecting');
-        await clubGamesApi.publishBroadcastState(game.id, state);
-        if (disposed) return;
-        lastSentSignature = signature;
-        lastSuccessfulAt = Date.now();
-        retryAfter = 0;
-        setBroadcastConnection('live');
-      } catch {
-        retryAfter = Date.now() + 2_000;
-        if (!disposed) setBroadcastConnection('offline');
-      } finally {
-        inFlight = false;
-      }
-    };
-
-    void syncBroadcast();
-    const intervalId = window.setInterval(() => void syncBroadcast(), 350);
-    return () => {
-      disposed = true;
-      window.clearInterval(intervalId);
-    };
-  }, [game, livePhase]);
+  const liveAlive = useLiveAliveSeats(livePhase);
+  const { connection: broadcastConnection, forgetReplayFrames } = useClubLiveBroadcast(game, livePhase);
 
   const openBroadcastSetup = async () => {
     setBroadcastSetupOpen(true);
@@ -453,8 +327,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     if (resumable) forgetOpenLiveGame('club', game.id);
     liveRecorder.finish();
     // The frames went to the server with the protocol; they must not fill the device for the next games.
-    try { localStorage.removeItem(replayFramesKey(game.id)); } catch { /* ignore */ }
-    replayFramesRef.current = null;
+    forgetReplayFrames();
     clearStoredDeathProtocols();
     setSaveError(null);
     onUpdated(updated);

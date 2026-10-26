@@ -15,19 +15,19 @@ const shot = (extra: object = {}) => ({ night_number: 1, target_seat: 0, result:
 
 describe('judge-attributed miss penalty', () => {
   it('penalizes only the selected black on a black loss; never a team win', () => {
-    close(score(players(), { shots: [shot()] }, 8).points, -0.3);
+    close(score(players(), { shots: [shot()] }, 8).points, -0.15);
     close(score(players(), { shots: [shot()] }, 9).points, 0);
     close(score(players(), { winner_team: 'black', shots: [shot()] }, 8).points, 0);
   });
   it('can assign all three; intentional and legacy/unassigned misses are neutral', () => {
-    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).points, -0.3);
+    for (const seat of [8, 9, 10]) close(score(players(), { shots: [shot({ miss_responsible_seats: [8, 9, 10] })] }, seat).points, -0.15);
     close(score(players(), { shots: [shot({ miss_reason: 'intentional', miss_responsible_seats: [] })] }, 8).points, 0);
     close(score(players(), { shots: [{ night_number: 1, result: 'agreement_failed', target_seat: 0 }] }, 8).points, 0);
   });
-  it('two attributed misses cost 12 Elo, inside the automatic cap of 20', () => {
+  it('two attributed misses cost 12 Elo, inside the automatic cap of 35', () => {
     const protocol = { winner_team: 'red', shots: [shot(), shot({ night_number: 2 })] };
     const rows = players();
-    close(score(rows, protocol, 8).points, -0.6);
+    close(score(rows, protocol, 8).points, -0.3);
     const prepared: PreparedEloEvent = { source: 'club', sourceId: 'miss6', sortAt: '', sortOrder: 1, winnerTeam: 'red',
       players: rows.map((player) => ({ playerId: player.player_id, team: ['mafia', 'don'].includes(player.role) ? 'black' : 'red',
         canonicalPersonalGamePoints: 0, contribution: { role: player.role, raw: score(rows, protocol, player.seat_number).points } })) };
@@ -114,9 +114,7 @@ describe('the series line says which decision in a row and what it was (owner, 2
   it('names the second and third decisions with their extra', () => {
     const lines = contributionBreakdown('citizen', [
       { kind: 'found_black', seat: 4, points: 0.2 }, { kind: 'found_black', seat: 5, points: 0.2 }, { kind: 'found_black', seat: 8, points: 0.2 },
-      { kind: 'streak_correct', seat: 5, points: 0.05, step: 2, source: 'found_black' },
-      { kind: 'streak_correct', seat: 8, points: 0.1, step: 3, source: 'found_black' },
-    ]);
-    assert.ok(lines.includes('Серия верных решений подряд (×1,25 за 2-е, ×1,5 с 3-го): 2-е — голос в №5 +1 · 3-е и далее — голос в №8 +2'));
+    ], [{ sign: 1, labels: ['голос в чёрного №4', 'голос в чёрного №5', 'голос в чёрного №8'], points: 0.15 }]);
+    assert.ok(lines.includes('Верно подряд: голос в чёрного №4 → голос в чёрного №5 → голос в чёрного №8: +6'));
   });
 });

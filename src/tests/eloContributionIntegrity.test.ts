@@ -44,8 +44,8 @@ describe('Elo colour evidence integrity', () => {
     rows[7].exit_type = 'voted_day'; rows[7].exit_order = 1;
     rows[8].exit_type = 'voted_day'; rows[8].exit_order = 3;
     expect(elo(rows, 8)).toBe(0);
-    expect(elo(rows, 9)).toBe(2);
-    expect(elo(rows, 10)).toBe(2);
+    expect(elo(rows, 9)).toBe(4);
+    expect(elo(rows, 10)).toBe(4);
   });
 
   it('does not invent eligibility for an out black with no chronology', () => {
@@ -62,7 +62,7 @@ describe('Elo colour evidence integrity', () => {
     events[0].phase = 'zero_night'; events[0].round = 1;
     expect(elo(rows, 8, events)).toBe(0);
     const beforeExit = [events[0], events[2], events[1]];
-    expect(elo(rows, 8, beforeExit)).toBe(mark === 'red' ? 6 : mark === 'black' ? -4 : 2);
+    expect(elo(rows, 8, beforeExit)).toBe(mark === 'red' ? 12 : mark === 'black' ? -8 : 4);
   });
 });
 

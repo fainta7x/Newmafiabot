@@ -12,19 +12,19 @@ const black = (bonus: number, discipline = 0, contribution = 0) => {
 };
 
 describe('personal Elo stays secondary; discipline keeps its original weight', () => {
-  it('a +0.5 sporting bonus adds +10, so an equal-table black win becomes +25', () => {
+  it('a +0.5 sporting bonus adds +20, so an equal-table black win becomes +35', () => {
     const row = black(0.5);
-    expect(row.personalDelta).toBe(10);
-    expect(row.totalDelta).toBeCloseTo(25, 10);
+    expect(row.personalDelta).toBe(20);
+    expect(row.totalDelta).toBeCloseTo(35, 10);
   });
 
   it('bounds all personal sources together without scaling discipline down', () => {
     const row = black(1, 1, 1);
-    expect(row.personalDelta).toBe(20);
-    expect(row.contributionDelta).toBe(20);
-    expect(row.personalCapDelta).toBe(-10);
+    expect(row.personalDelta).toBe(40);
+    expect(row.contributionDelta).toBe(40);
+    expect(row.personalCapDelta).toBe(-45);
     expect(row.disciplinaryDelta).toBe(-40);
-    expect(row.totalDelta).toBeCloseTo(5, 10);
+    expect(row.totalDelta).toBeCloseTo(10, 10);
   });
 
   it('a minor technical foul still costs 12 Elo even with no bonuses', () => {
@@ -36,15 +36,15 @@ describe('personal Elo stays secondary; discipline keeps its original weight', (
 
   it('caps excessive negative personal scores separately from discipline', () => {
     const row = black(-2, 1, -1);
-    expect(row.personalDelta + row.contributionDelta + row.personalCapDelta).toBe(-30);
+    expect(row.personalDelta + row.contributionDelta + row.personalCapDelta).toBe(-35);
     expect(row.disciplinaryDelta).toBe(-40);
   });
 
-  it('caps the automatic contribution at 20 while retaining raw points for explanations', () => {
+  it('caps the automatic contribution at 35 while retaining raw points for explanations', () => {
     const events: PreparedEloEvent[] = [{ source: 'club', sourceId: '1', sortAt: '', sortOrder: 1, winnerTeam: 'black',
       players: [{ playerId: 'p', team: 'black', canonicalPersonalGamePoints: 0, contribution: { role: 'mafia', raw: 4 } }] }];
     normalizeContributions(events);
-    expect(events[0].players[0].contributionPoints).toBe(1);
+    expect(events[0].players[0].contributionPoints).toBe(0.875);
     expect(events[0].players[0].contribution?.raw).toBe(4);
   });
 
@@ -59,8 +59,8 @@ describe('personal Elo stays secondary; discipline keeps its original weight', (
   it('explains automatic contribution, personal cap and discipline in the same sum', () => {
     const row = black(1, 1, 1);
     const explanation = explainEloDelta({ ...row, won: true });
-    expect(explanation.formula).toBe('15 + 20 + 20 − 10 − 40 = 5');
-    expect(explanation.details.some((line) => line.includes('ограничение личной части −10'))).toBe(true);
+    expect(explanation.formula).toBe('15 + 40 + 40 − 45 − 40 = 10');
+    expect(explanation.details.some((line) => line.includes('ограничение личной части −45'))).toBe(true);
     expect(explanation.details.some((line) => line.includes('дисциплина −40'))).toBe(true);
   });
 });

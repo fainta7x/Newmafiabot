@@ -39,7 +39,9 @@ export interface ContributionItem {
   /** Series lines: which decision in a row (2 or 3 = third and later) and what that decision was. */
   step?: number; source?: ContributionKind;
 }
-export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[] }
+/** A run of two or more decisions of the same sign in a row, in game order, with the extra it earned. */
+export interface StreakRun { sign: 1 | -1; labels: string[]; points: number }
+export interface SeatContribution { seat: number; role: StatRole | null; points: number; items: ContributionItem[]; streaks: StreakRun[] }
 interface ColorProtocolEntry { mark?: unknown; seat_numbers?: unknown }
 
 const seatList = (value: unknown): number[] => (Array.isArray(value) ? [...new Set(value.map(Number).filter((seat) => Number.isInteger(seat) && seat > 0))] : []);
@@ -79,6 +81,9 @@ function obviousBlacksFor(seat: number, facts: ReturnType<typeof gameActionFacts
   return (target: number, votingRound: number) => votingRound >= fromRound
     && (target === falseCheck.claimer || sheriffChecks.some((check) => check.target === target && check.round < votingRound));
 }
+
+const decisionLabel = (item: ContributionItem) => item.kind === 'found_black' ? `голос в чёрного №${item.seat}`
+  : item.kind === 'vote_red' ? `голос в красного №${item.seat}` : item.kind === 'check_black' ? `проверка: чёрный №${item.seat}` : 'завещание';
 
 export function gameContribution(envelope: any): SeatContribution[] {
   const protocol = envelope?.protocol || {};
@@ -130,6 +135,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
   };
   return seats.map((me) => {
     const items: ContributionItem[] = [];
+    const streaks: StreakRun[] = [];
     if (redRole(me.role)) {
       const decisions: StreakDecision<ContributionItem>[] = [];
       const found = new Map<number, ContributionItem>();
@@ -194,9 +200,22 @@ export function gameContribution(envelope: any): SeatContribution[] {
       if ((!wrong.length || firstKilled) && right.length) decisions.push({ seq: wrong.length ? null : willSeq, sign: 1, items: right });
       if (wrong.length) decisions.push({ seq: firstKilled && right.length ? null : willSeq, sign: -1, items: wrong });
       // Owner, 2026-10-26: the first killed is rated by his best move and his will, without a series bonus.
-      for (const [item, factor] of firstKilled ? [] : decisionStreakMultipliers(decisions)) {
+      const factors = firstKilled ? new Map<ContributionItem, number>() : decisionStreakMultipliers(decisions);
+      for (const [item, factor] of factors) {
         const extra = item.points * (factor - 1);
         if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, step: factor >= 1.5 ? 3 : 2, source: item.kind });
+      }
+      // The runs themselves, for the game blank: which decisions came in a row (owner, 2026-10-26).
+      if (!firstKilled) {
+        let run: StreakRun | null = null;
+        const close = () => { if (run && run.labels.length >= 2 && Math.abs(run.points) > 1e-10) streaks.push(run); run = null; };
+        for (const decision of [...decisions].sort((a, b) => (a.seq ?? Infinity) - (b.seq ?? Infinity))) {
+          if (!decision.items.length) continue;
+          if (decision.seq === null || !run || run.sign !== decision.sign) { close(); run = { sign: decision.sign, labels: [], points: 0 }; }
+          run!.labels.push(decisionLabel(decision.items[0]));
+          for (const item of decision.items) run!.points += item.points * ((factors.get(item) ?? 1) - 1);
+        }
+        close();
       }
     } else if (blackRole(me.role)) {
       for (const night of missedShotNights(protocol, me.seat)) items.push({ kind: 'shot_miss', seat: me.seat, night, points: -MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT });
@@ -215,7 +234,7 @@ export function gameContribution(envelope: any): SeatContribution[] {
       }
     }
     const points = items.reduce((sum, item) => sum + item.points, 0);
-    return { seat: me.seat, role: me.role, points, items };
+    return { seat: me.seat, role: me.role, points, items, streaks };
   });
 }
 
@@ -232,7 +251,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
  * The breakdown of a seat's contribution in short plain words and Elo (owner, 2026-10-25: «попроще и попонятнее»), one
  * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +4»; caps are shown separately by the game blank.
  */
-export function contributionBreakdown(role: StatRole | null, items: ContributionItem[]): string[] {
+export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], streaks: StreakRun[] = []): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
     ? [group('Нашёл шерифа в первую ночь', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
@@ -245,18 +264,9 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Проверкой нашёл чёрного', of('check_black')),
     ];
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
-  // A series line says which decision in a row earned the extra and what it was (owner, 2026-10-26: «непонятно описана серия»).
-  for (const [kind, label] of [['streak_correct', 'Серия верных решений подряд'], ['streak_wrong', 'Серия ошибок подряд']] as const) {
-    const entries = of(kind);
-    if (!entries.length) continue;
-    const parts = new Map<string, number>();
-    for (const item of entries) {
-      const what = item.source === 'found_black' ? `голос в №${item.seat}` : item.source === 'vote_red' ? `голос в красного №${item.seat}`
-        : item.source === 'check_black' ? `проверка №${item.seat}` : 'завещание';
-      const key = `${item.step === 3 ? '3-е и далее' : '2-е'} — ${what}`;
-      parts.set(key, (parts.get(key) || 0) + item.points);
-    }
-    lines.push(`${label} (×1,25 за 2-е, ×1,5 с 3-го): ${[...parts].map(([key, points]) => `${key} ${signedElo(elo(points))}`).join(' · ')}`);
+  // The series in plain words: which decisions came in a row and what the run added (owner, 2026-10-26).
+  for (const run of streaks) {
+    lines.push(`${run.sign > 0 ? 'Верно подряд' : 'Ошибки подряд'}: ${run.labels.join(' → ')}: ${signedElo(elo(run.points))}`);
   }
   const misses = of('shot_miss');
   if (misses.length) lines.push(`Промахи: ночи ${misses.map((item) => item.night).join(', ')}: ${signedElo(elo(misses.reduce((sum, item) => sum + item.points, 0)))}`);

@@ -12,7 +12,7 @@ const body = (metricKey: string, rows: any[], extra: Record<string, unknown> = {
 const row = (rank: number, id: string, nickname: string, value: number, text: string, me = false) => ({ rank, player_id: id, nickname, avatar_url: null, value, value_text: text, games: 7, is_me: me });
 const respond = (payload: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } }));
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('rankings by figure', () => {
   it('lists the leaders, marks the viewer and reloads for another figure, season and format', async () => {
@@ -28,6 +28,8 @@ describe('rankings by figure', () => {
     expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('Всё время · Все форматы, игр в выборе: 12');
 
     fireEvent.click(screen.getByRole('button', { name: 'Показатель' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Найти показатель' }), {target:{value:'прирост'}});
+    expect(screen.queryByRole('option', {name:'Победы'})).toBeNull();
     fireEvent.click(screen.getByRole('option', { name: 'Прирост Elo' }));
     await waitFor(() => expect(screen.getByText('+24')).toBeDefined());
     expect(screen.getByText('−12')).toBeDefined();

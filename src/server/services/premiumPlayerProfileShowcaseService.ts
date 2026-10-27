@@ -53,7 +53,7 @@ export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: 
     .filter((achievement) => achievement.earned)
     .sort((a, b) => dateTime(b.earned_at) - dateTime(a.earned_at));
 
-  const timeline: Array<{ id: string; type: string; date: string | null; icon: string; title: string; description: string | null }> = [];
+  const timeline: Array<{ id: string; type: string; date: string | null; icon: string; title: string; description: string | null; game_key?: string | null }> = [];
   if (player.created_at) timeline.push({ id: 'joined', type: 'joined', date: String(player.created_at), icon: '◆', title: 'Вступление в клуб', description: 'Начало истории игрока в 2LA Noire.' });
   for (const item of manualMilestones) timeline.push({ id: String(item.id), type: 'milestone', date: item.milestone_date || item.created_at || null, icon: item.icon || '◆', title: String(item.title), description: item.description || null });
   for (const award of awards) timeline.push({ id: `award:${award.id}`, type: 'award', date: award.award_date || award.created_at || null, icon: '🏆', title: award.title, description: [award.tournament_name, award.place_result].filter(Boolean).join(' · ') || null });
@@ -62,7 +62,7 @@ export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: 
   for (const threshold of [1, 10, 25, 50, 100, 250]) {
     if (completedGames.length < threshold) continue;
     const game = completedGames[threshold - 1];
-    timeline.push({ id: `games:${threshold}`, type: 'games', date: game?.date || null, icon: '🎭', title: threshold === 1 ? 'Первая завершённая игра' : `${threshold} завершённых игр`, description: game?.title || null });
+    timeline.push({ id: `games:${threshold}`, type: 'games', game_key: isSelf&&/^(club|tournament):/.test(String(game?.id))?String(game.id):null, date: game?.date || null, icon: '🎭', title: threshold === 1 ? 'Первая завершённая игра' : `${threshold} завершённых игр`, description: game?.title || null });
   }
 
   timeline.sort((a, b) => dateTime(b.date) - dateTime(a.date) || a.id.localeCompare(b.id));

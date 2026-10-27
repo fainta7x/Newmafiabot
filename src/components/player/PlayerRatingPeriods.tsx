@@ -111,15 +111,18 @@ export default function PlayerRatingPeriods({
   playerId: string;
   onOpenGame?: (gameKey: string) => void;
 }) {
+  const saved=(()=>{try{return JSON.parse(sessionStorage.getItem(`season-view:${playerId}`)||'{}');}catch{return {};}})();
   const [periods, setPeriods] = useState<PeriodListResponse | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [listRetry, setListRetry] = useState(0);
   const [detailRetry, setDetailRetry] = useState(0);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(saved.period||null);
   const [detail, setDetail] = useState<RatingPeriodDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(saved.player||null);
+  useEffect(()=>{try{sessionStorage.setItem(`season-view:${playerId}`,JSON.stringify({period:selectedPeriodId,player:selectedPlayerId}));}catch{}},[playerId,selectedPeriodId,selectedPlayerId]);
+  const choosePeriod=(id:string)=>{setSelectedPlayerId(null);setSelectedPeriodId(id);};
 
   useEffect(() => {
     let cancelled = false;
@@ -134,7 +137,7 @@ export default function PlayerRatingPeriods({
         if (cancelled) return;
         setPeriods(next);
         const firstPeriod = next.active_periods[0] || next.completed_periods[0] || null;
-        setSelectedPeriodId((current) => current || firstPeriod?.id || null);
+        setSelectedPeriodId((current) => [...next.active_periods,...next.completed_periods].some(p=>p.id===current)?current:firstPeriod?.id||null);
       } catch (error: any) {
         if (!cancelled) setListError(error?.message || 'Не удалось загрузить рейтинговые периоды');
       }
@@ -151,7 +154,6 @@ export default function PlayerRatingPeriods({
     setDetailLoading(true);
     setDetail(null);
     setDetailError(null);
-    setSelectedPlayerId(null);
     void (async () => {
       try {
         const body = await getJson<any>(`/api/player/rating-periods/${encodeURIComponent(selectedPeriodId)}`, 'Не удалось загрузить таблицу периода');
@@ -200,7 +202,7 @@ export default function PlayerRatingPeriods({
                 <button
                   key={period.id}
                   type="button"
-                  onClick={() => setSelectedPeriodId(period.id)}
+                  onClick={() => choosePeriod(period.id)}
                   className={`shrink-0 rounded-xl px-3 py-2 text-xs font-medium ${selectedPeriodId === period.id ? 'bg-white text-black' : 'bg-black/20 text-white/55'}`}
                 >
                   {periodTypeLabel(period.type)}
@@ -221,7 +223,7 @@ export default function PlayerRatingPeriods({
             </div>
           ) : null)}
           {selectedPeriodId && !periods.active_periods.some((period) => period.id === selectedPeriodId) && (
-            <button type="button" onClick={() => setSelectedPeriodId(periods.active_periods[0].id)} className="text-sm text-white/55">← Вернуться к текущему сезону</button>
+            <button type="button" onClick={() => choosePeriod(periods.active_periods[0].id)} className="text-sm text-white/55">← Вернуться к текущему сезону</button>
           )}
         </Section>
       )}
@@ -318,7 +320,7 @@ export default function PlayerRatingPeriods({
       {periods.completed_periods.length > 0 && selectedPlayerId === null && (
         <Section title="Прошлые периоды">
           <div className="space-y-2">{periods.completed_periods.map((period) => (
-            <button key={period.id} type="button" onClick={() => setSelectedPeriodId(period.id)} className={`w-full rounded-2xl border p-3 text-left ${selectedPeriodId === period.id ? 'border-white/20 bg-white/[0.08]' : 'border-transparent bg-black/20'}`}>
+            <button key={period.id} type="button" onClick={() => choosePeriod(period.id)} className={`w-full rounded-2xl border p-3 text-left ${selectedPeriodId === period.id ? 'border-white/20 bg-white/[0.08]' : 'border-transparent bg-black/20'}`}>
               <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{period.title}</div><div className="mt-1 text-xs text-white/35">{formatRange(period.starts_at, period.ends_at)}</div></div><div className="shrink-0 text-[11px] text-white/35">{periodTypeLabel(period.type)} ›</div></div>
             </button>
           ))}</div>

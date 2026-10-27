@@ -15,7 +15,8 @@ type RoleTable = {
 
 /** «По ролям»: the club's Dons, mafia, Sheriffs and citizens, each with games, wins and the role's own reveal figures. */
 export default function PlayerRoleTables({ period, format }: { period: string; format: string }) {
-  const [role, setRole] = useState('don');
+  const [role, setRole] = useState(()=>{try{return sessionStorage.getItem('community-role-view')||'don';}catch{return 'don';}});
+  useEffect(()=>{try{sessionStorage.setItem('community-role-view',role);}catch{}},[role]);
   const [data, setData] = useState<RoleTable | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);

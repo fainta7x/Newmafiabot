@@ -102,7 +102,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} target={target} onOpen={(view) => open('wallet', view)} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
-        <PlayerProfileHub data={currentData} initialTab={profileTabFromTarget(target)} />
+        <PlayerProfileHub data={currentData} initialTab={profileTabFromTarget(target)} onTabChange={tab=>open('profile',`tab:${tab}`)} />
       ) : section === 'settings' ? (
         <PlayerSettingsHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (

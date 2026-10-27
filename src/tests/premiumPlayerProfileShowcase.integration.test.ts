@@ -63,4 +63,16 @@ describe('premium profile showcase API', () => {
     const showcase = await request(app).get('/api/player/profiles/p1/showcase').set('Cookie', playerCookie);
     expect(showcase.body.timeline.some((item: any) => item.type === 'milestone' && item.title === 'Первый турнир')).toBe(true);
   });
+  it('links a recorded career milestone only in the owner showcase',async()=>{
+    await db.run(`INSERT INTO game_evenings(id,title,starts_at,status,format,created_at,updated_at) VALUES ('ev-link','Связанный вечер',?,'completed','CASUAL',?,?)`,[stamp,stamp,stamp]);
+    const protocol={kind:'club_evening_protocol',player_results:[{player_id:'p1',participant_id:'seat1',display_name:'Player',seat_number:1,role:'citizen'}],protocol:{status:'completed',winner_team:'red',completed_at:stamp,votes:[],shots:[],events:[]}};
+    await db.run(`INSERT INTO games(id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES (1,'ev-link',1,?,'red','Red',?,'[]',?)`,[stamp,JSON.stringify(protocol),stamp]);
+    const own=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie',playerCookie);
+    expect(own.status).toBe(200);
+    expect(own.body.timeline.find((x:any)=>x.type==='games')?.game_key).toBe('club:1');
+    const other=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie',`player_token=${generatePlayerSessionToken('other-viewer')}`);
+    expect(other.status).toBe(200);
+    expect(other.body.timeline.every((x:any)=>!x.game_key)).toBe(true);
+  });
+
 });

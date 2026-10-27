@@ -7,7 +7,7 @@ const open = vi.hoisted(() => vi.fn());
 vi.mock('../components/player/playerProfileNavigation.ts', () => ({ openCanonicalPlayerProfile: open }));
 const duo = { a_id: 'a', a_name: 'Анна', b_id: 'b', b_name: 'Борис', team: 'red', games: 4, wins: 3, win_rate: 75, a_avatar_url: '', b_avatar_url: '' };
 function setup(data: unknown) { vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(data)))); render(<PlayerClubConnections />); }
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); open.mockReset(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); open.mockReset(); });
 it('makes club pairs primary, switches the list and opens canonical profiles', async () => {
   setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] }, club_most_played: { red: [{ ...duo, a_name: 'Вера', a_id: 'v' }], black: [] } });
   const club = await screen.findByTestId('club-duos');

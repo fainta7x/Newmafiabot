@@ -26,7 +26,7 @@ export type ProfileSeason = { label: string; games: number; wins: number; win_ra
 export default function PlayerProfileCareerSections({ stats, season, gameStats, nightShots, reveals, circleExits }: { stats: ProfileCareerStats; season: ProfileSeason; gameStats?: PlayerGameStatistics | null; nightShots?: NightShots; reveals?: RevealNumbers; circleExits?: CircleExitNumbers }) {
   if (!stats) return null;
   return <>
-    <section aria-label="Результаты и команды" className="space-y-4 pb-3">
+    <section data-profile-stat="results" aria-label="Результаты и команды" className="scroll-mt-36 space-y-4 pb-3">
       <dl aria-label="Серии побед" className="grid grid-cols-2 gap-3">
         <div><dt className="text-xs text-white/55">Побед подряд сейчас</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{stats.current_streak ?? '—'}</dd></div>
         <div><dt className="text-xs text-white/55">Рекорд серии</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{stats.best_streak ?? '—'}</dd></div>
@@ -52,9 +52,9 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
         <div><dt className="text-xs text-white/55">На нулевом круге</dt><dd className="mt-1 text-lg font-semibold">{stats.zero_round_voted ?? '—'}</dd></div>
       </dl>}
     </section>
-    <PlayerGameNumbers stats={gameStats} totalGames={stats.games} />
-    <PlayerNightShots shots={nightShots} />
-    <PlayerReveals numbers={reveals} />
-    <PlayerCircleExits numbers={circleExits} />
+    <div data-profile-stat="decisions" className="scroll-mt-36"><PlayerGameNumbers stats={gameStats} totalGames={stats.games} /></div>
+    <div data-profile-stat="night" className="scroll-mt-36"><PlayerNightShots shots={nightShots} /></div>
+    <div data-profile-stat="reveals" className="scroll-mt-36"><PlayerReveals numbers={reveals} /></div>
+    <div data-profile-stat="exits" className="scroll-mt-36"><PlayerCircleExits numbers={circleExits} /></div>
   </>;
 }

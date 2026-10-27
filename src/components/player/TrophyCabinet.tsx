@@ -19,9 +19,9 @@ function Exhibit({item}:{item:CabinetItem}) {
   return <NominationPlaque glyph={nominationGlyphFromTitle(item.title)} />;
 }
 
-export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy=false}:{
+export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy=false,pinLimitReached=false}:{
   awards:CabinetVerifiedAward[];earnedAchievements:CabinetAchievement[];
-  onPinAward?:(id:string)=>void;busy?:boolean;
+  onPinAward?:(id:string)=>void;busy?:boolean;pinLimitReached?:boolean;
 }) {
   const [category,setCategory]=useState<CabinetCategory>('cups');
   const [page,setPage]=useState(0);
@@ -113,8 +113,8 @@ export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy
       {active.eveningId && <a data-testid="cabinet-open-evening" className="trophy-cabinet__destination" href={'/player/events/' + encodeURIComponent(active.eveningId)}>
         Открыть вечер <ArrowUpRight size={17}/>
       </a>}
-      {active.awardId&&onPinAward&&<button type="button" disabled={busy} className="trophy-cabinet__pin"
-        onClick={()=>onPinAward(active.awardId!)}>{active.pinned?'Убрать из закреплённых':'Закрепить в профиле'}</button>}
+      {active.awardId&&onPinAward&&<button type="button" disabled={busy||(!active.pinned&&pinLimitReached)} className="trophy-cabinet__pin"
+        onClick={()=>onPinAward(active.awardId!)}>{active.pinned?'Убрать из закреплённых':pinLimitReached?'Закреплено 3 награды':'Закрепить в профиле'}</button>}
     </aside>}
     {openTournamentId && <div className="trophy-cabinet__event-overlay" data-testid="cabinet-tournament-overlay" role="dialog" aria-modal="true" aria-label="Турнир и его результаты">
       <PlayerTournamentView tournamentId={openTournamentId} onBack={()=>setOpenTournamentId(null)} />

@@ -1,3 +1,4 @@
+import { openPlayerGame } from './playerProfileNavigation.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import { useEffect, useState } from 'react';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
@@ -78,7 +79,7 @@ export default function PlayerRatingHub({
       ) : tab === 'season' ? (
         <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
           <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
-            <PlayerRatingPeriods playerId={data.player.id} />
+            <PlayerRatingPeriods playerId={data.player.id} onOpenGame={openPlayerGame} />
           </div>
         </main>
       ) : (

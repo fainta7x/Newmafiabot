@@ -1,3 +1,4 @@
+import { readProfileView, writeProfileView } from '../../lib/profileViewMemory.ts';
 import { countGames, countWins } from '../../lib/russianPlural';
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -11,7 +12,6 @@ import PlayerGoMafiaLink from './PlayerGoMafiaLink.tsx';
 import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
 import PlayerEloJourney from './PlayerEloJourney.tsx';
 import StaffWorkStats from './StaffWorkStats.tsx';
-import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
 import { GAME_ROLES, GAME_ROLE_KEYS } from '../../shared/gameRoles.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
@@ -48,70 +48,86 @@ const gameLinkProps = (id:any) => {
   return {href:`/player/games/${encodeURIComponent(key)}`,onClick:(event:React.MouseEvent)=>{event.preventDefault();openPlayerGame(key);}};
 };
 
-type CareerSearch = { period: 'all' | 'season' | 'custom'; from: string; to: string; role: string; team: string; result: string };
-// Keep a search when returning from a game within this app session; never cache player data here.
-const careerSearches = new Map<string, CareerSearch>();
-
-export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,learning,initialTab}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;/** «Обучение» tab of the own «Прогресс». */learning?:ReactNode;initialTab?:string|null}) {
+export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,learning,initialTab,onTabChange}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;/** «Обучение» tab of the own «Прогресс». */learning?:ReactNode;initialTab?:string|null;onTabChange?:(tab:string)=>void}) {
+  const remembered=useMemo(()=>readProfileView(selfPlayerId,playerId),[selfPlayerId,playerId]);
+  const [summaryRetry,setSummaryRetry]=useState(0);
+  const [contentRetry,setContentRetry]=useState(0);
+  const [scopeError,setScopeError]=useState('');
+  const [scopeLoading,setScopeLoading]=useState(false);
+  const failedScope=useRef<{period:string;format:string}|null>(null);
   const tabs:Array<[Tab,string]>=learning?[...TABS,['learning','Обучение']]:TABS;
   const mainTabs: Array<[Tab,string]> = learning
     ? [['overview','Обзор'],['games','Карьера'],['awards','Награды'],['connections','Связи'],['learning','Обучение']]
     : [['overview','Обзор'],['games','Карьера'],['awards','Награды'],['connections','Связи']];
   const groupOf=(value:Tab):Tab=>value==='roles'||value==='elo'?'games':value==='history'?'awards':value;
-  const [tab,setTab]=useState<Tab>(()=>tabs.some(([key])=>key===initialTab)?initialTab as Tab:'overview');
+  const [tab,setTab]=useState<Tab>(()=>tabs.some(([key])=>key===initialTab)?initialTab as Tab:tabs.some(([key])=>key===remembered.tab)?remembered.tab as Tab:'overview');
   const activeGroup=groupOf(tab);
   useEffect(()=>{
-    const requested=tabs.some(([key])=>key===initialTab)?initialTab as Tab:'overview';
+    const requested=tabs.some(([key])=>key===initialTab)?initialTab as Tab:tabs.some(([key])=>key===remembered.tab)?remembered.tab as Tab:'overview';
     setTab(requested);
   },[initialTab]);
   const [summary,setSummary]=useState<any>(null);
   // One scope for the overview statistics: a rating season or all time, and an evening format (owner, 2026-10-12).
-  const [statPeriod,setStatPeriod]=useState('all');
-  const [statFormat,setStatFormat]=useState('all');
+  const [statPeriod,setStatPeriod]=useState(remembered.statPeriod||'all');
+  const [statFormat,setStatFormat]=useState(remembered.statFormat||'all');
   const statRequest=useRef(0);
   const [birthday,setBirthday]=useState<any>(null);
   const [data,setData]=useState<any>(null);
-  const [loading,setLoading]=useState(true);
+  const [contentLoading,setLoading]=useState(false);
+  const [summaryLoading,setSummaryLoading]=useState(true);
   const [error,setError]=useState('');
   const [brokenAvatarUrl,setBrokenAvatarUrl]=useState<string|null>(null);
   const [settings,setSettings]=useState(false);
-  const [period,setPeriod]=useState<'all'|'season'|'custom'>(()=>careerSearches.get(playerId)?.period||'all');
+  const [period,setPeriod]=useState<'all'|'season'|'custom'>(()=>remembered.period||'all');
   const [activePeriod,setActivePeriod]=useState<Period|null>(null);
-  const [from,setFrom]=useState(()=>careerSearches.get(playerId)?.from||'');
-  const [to,setTo]=useState(()=>careerSearches.get(playerId)?.to||'');
-  const [role,setRole]=useState(()=>careerSearches.get(playerId)?.role||'');
-  const [team,setTeam]=useState(()=>careerSearches.get(playerId)?.team||'');
-  const [result,setResult]=useState(()=>careerSearches.get(playerId)?.result||'');
-  const [offset,setOffset]=useState(0);
-  const latestSearch=useRef<CareerSearch>({period,from,to,role,team,result});
-  latestSearch.current={period,from,to,role,team,result};
-  useEffect(()=>{
-    const saved=careerSearches.get(playerId);
-    setPeriod(saved?.period||'all'); setFrom(saved?.from||''); setTo(saved?.to||'');
-    setRole(saved?.role||''); setTeam(saved?.team||''); setResult(saved?.result||'');
-    return ()=>{careerSearches.set(playerId,latestSearch.current);};
-  },[playerId]);
+  const [from,setFrom]=useState(()=>remembered.from||'');
+  const [to,setTo]=useState(()=>remembered.to||'');
+  const [role,setRole]=useState(()=>remembered.role||'');
+  const [team,setTeam]=useState(()=>remembered.team||'');
+  const [result,setResult]=useState(()=>remembered.result||'');
+  const [offset,setOffset]=useState(remembered.offset||0);
   const scrollRef=useRef<HTMLDivElement>(null);
-  const scrollByTab=useRef<Record<string,number>>({});
+  const scrollByTab=useRef<Record<string,number>>(remembered.scrolls||{});
+  const latestView=useRef({});
+  latestView.current={tab,period,from,to,role,team,result,statPeriod,statFormat,offset};
+  useEffect(()=>{
+    const save=()=>{
+      const view=latestView.current as {tab?:string};
+      if(scrollRef.current&&view.tab) scrollByTab.current[view.tab]=scrollRef.current.scrollTop;
+      writeProfileView(selfPlayerId,playerId,{...latestView.current,scrolls:scrollByTab.current});
+    };
+    window.addEventListener('pagehide',save);
+    return ()=>{save();window.removeEventListener('pagehide',save);};
+  },[playerId,selfPlayerId]);
+  const restoreScroll=useRef(true);
   const playerRequestGeneration=useRef(0);
   const isSelf=mode==='self';
+  const loading=summaryLoading||(['games','roles','elo'].includes(tab)&&!(tab==='elo'&&isSelf)&&contentLoading);
 
   useEffect(()=>{
     const generation=++playerRequestGeneration.current;
     const controller=new AbortController();
+    restoreScroll.current=true;
     setSummary(null);
-    setStatPeriod('all');
-    setStatFormat('all');
+    const view=readProfileView(selfPlayerId,playerId);
+    statRequest.current+=1;
+    setStatPeriod(view.statPeriod||'all'); setStatFormat(view.statFormat||'all');
+    setPeriod(view.period||'all'); setFrom(view.from||''); setTo(view.to||'');
+    setRole(view.role||''); setTeam(view.team||''); setResult(view.result||'');
+    setScopeError(''); setScopeLoading(false);
     setBirthday(null);
     setData(null);
     setError('');
-    setLoading(true);
+    setSummaryLoading(true);
     setSettings(false);
-    setOffset(0);
-    scrollByTab.current={};
+    setOffset(view.offset||0);
+    scrollByTab.current=view.scrolls||{};
     if(scrollRef.current) scrollRef.current.scrollTop=0;
+    const savedScope=new URLSearchParams();
+    if(view.statPeriod&&view.statPeriod!=='all') savedScope.set('period',view.statPeriod);
+    if(view.statFormat&&view.statFormat!=='all') savedScope.set('format',view.statFormat);
     Promise.all([
-      json(`/api/player/profiles/${encodeURIComponent(playerId)}/summary`,controller.signal),
+      json(`/api/player/profiles/${encodeURIComponent(playerId)}/summary${savedScope.size?`?${savedScope}`:''}`,controller.signal),
       json(`/api/player/profiles/${encodeURIComponent(playerId)}/birthday`,controller.signal).catch((reason)=>{
         if(reason?.name==='AbortError') throw reason;
         return null;
@@ -120,30 +136,36 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       if(generation!==playerRequestGeneration.current) return;
       setSummary(s);
       setBirthday(b);
+
     }).catch((reason:any)=>{
       if(reason?.name==='AbortError'||generation!==playerRequestGeneration.current) return;
       setError(reason?.message||'Ошибка загрузки');
     }).finally(()=>{
-      if(generation===playerRequestGeneration.current) setLoading(false);
+      if(generation===playerRequestGeneration.current) setSummaryLoading(false);
     });
     return ()=>controller.abort();
-  },[playerId]);
+  },[playerId,summaryRetry]);
   useEffect(()=>{
     const current=summary?.filters;
     if(!current||(current.period===statPeriod&&current.format===statFormat)) return;
     const generation=++statRequest.current;
+    const controller=new AbortController();
+    setScopeLoading(true); setScopeError('');
     const query=new URLSearchParams();
     if(statPeriod!=='all') query.set('period',statPeriod);
     if(statFormat!=='all') query.set('format',statFormat);
-    json(`/api/player/profiles/${encodeURIComponent(playerId)}/summary${query.toString()?`?${query}`:''}`).then((next)=>{
+    json(`/api/player/profiles/${encodeURIComponent(playerId)}/summary${query.toString()?`?${query}`:''}`,controller.signal).then((next)=>{
       if(generation!==statRequest.current) return;
       // Only the numbers that depend on the scope are replaced; the rest of the page stays put.
       setSummary((previous:any)=>previous?{...previous,stats:next.stats,season:next.season,game_stats:next.game_stats,night_shots:next.night_shots,reveals:next.reveals,circle_exits:next.circle_exits,filters:next.filters,recent_games:next.recent_games}:previous);
-    }).catch(()=>{
-      if(generation!==statRequest.current) return;
+    }).catch((reason)=>{
+      if(reason?.name==='AbortError'||generation!==statRequest.current) return;
+      failedScope.current={period:statPeriod,format:statFormat};
+      setScopeError('Не удалось обновить статистику. Сохранён предыдущий срез.');
       setStatPeriod(current.period);
       setStatFormat(current.format);
-    });
+    }).finally(()=>{if(generation===statRequest.current)setScopeLoading(false);});
+    return ()=>controller.abort();
   },[statPeriod,statFormat,summary?.filters?.period,summary?.filters?.format,playerId]);
 
   useEffect(()=>{
@@ -171,10 +193,11 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     return q.toString();
   },[role,team,result,period,from,to,activePeriod,offset]);
 
-  useEffect(()=>{setOffset(0)},[role,team,result,period,from,to]);
+
 
   useEffect(()=>{
     if(tab==='overview'||tab==='awards'||tab==='history'||tab==='connections'||tab==='learning'||settings||(tab==='elo'&&isSelf)) return;
+    if(!summary||(!isSelf&&summary.stats==null)) return;
     const generation=playerRequestGeneration.current;
     const controller=new AbortController();
     setData(null);
@@ -188,10 +211,17 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       if(reason?.name==='AbortError'||generation!==playerRequestGeneration.current) return;
       setError(reason?.message||'Ошибка загрузки');
     }).finally(()=>{
-      if(generation===playerRequestGeneration.current) setLoading(false);
+      if(!controller.signal.aborted&&generation===playerRequestGeneration.current) setLoading(false);
     });
     return ()=>controller.abort();
-  },[tab,playerId,gameQuery,settings,statPeriod,statFormat]);
+  },[tab,playerId,gameQuery,settings,statPeriod,statFormat,contentRetry,summaryRetry,Boolean(summary),summary?.stats===null]);
+
+  useEffect(()=>{
+    if(!restoreScroll.current||loading||!summary) return;
+    if((tab==='games'||tab==='roles'||(tab==='elo'&&!isSelf))&&!data&&!error) return;
+    const frame=requestAnimationFrame(()=>{if(scrollRef.current)scrollRef.current.scrollTop=scrollByTab.current[tab]||0;restoreScroll.current=false;});
+    return ()=>cancelAnimationFrame(frame);
+  },[tab,loading,summary,data,error]);
 
   const switchTab=(next:Tab)=>{
     // Selecting the already visible sub-tab must not clear its fetched data.
@@ -200,11 +230,13 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     setSettings(false);
     setError('');
     setData(null);
+    restoreScroll.current=true;
     setTab(next);
-    requestAnimationFrame(()=>{if(scrollRef.current) scrollRef.current.scrollTop=scrollByTab.current[next]||0;});
+    if(isSelf) onTabChange?.(next);
+
   };
 
-  if(error&&!summary) return <div className="p-5 text-sm text-red-300">{error}</div>;
+  if(error&&!summary) return <div role="alert" className="space-y-3 p-5 text-sm text-rose-200"><p>{error}</p><button type="button" onClick={()=>setSummaryRetry(v=>v+1)} className="min-h-11 rounded-xl border border-white/15 px-4">Повторить загрузку профиля</button></div>;
   const p=summary?.player||summary?.profile||{};
   const stats=summary?.stats||{};
   /* the player switched «Игровая статистика» off: the server sends no numbers, so say so instead of showing dashes */
@@ -226,9 +258,13 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const birthdayText=birthday?.day&&birthday?.month ? `${String(birthday.day).padStart(2,'0')}.${String(birthday.month).padStart(2,'0')}${birthday.year?`.${birthday.year}`:''}` : null;
 
   const scopeSelector=summary?.filters&&(summary.filters.seasons.length>0||summary.filters.formats.length>1||statPeriod!=='all'||statFormat!=='all')?<section data-testid="profile-stats-scope" aria-label="Что считать в статистике" className="grid grid-cols-2 gap-2">
-            <label className="text-[11px] text-white/45">Период<select aria-label="Период статистики" value={statPeriod} onChange={e=>setStatPeriod(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Вся карьера</option><option value="season">Текущий рейтинговый сезон</option><option value="recent10">Последние 10 игр</option>{summary.filters.seasons.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
-            <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера" value={statFormat} onChange={e=>setStatFormat(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{summary.filters.formats.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+            <label className="text-[11px] text-white/45">Период<select aria-label="Период статистики" value={statPeriod} onChange={e=>{setOffset(0);setStatPeriod(e.target.value);}} className="mobile-field mt-1 w-full text-sm"><option value="all">Вся карьера</option><option value="season">Текущий рейтинговый сезон</option><option value="recent10">Последние 10 игр</option>{summary.filters.seasons.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+            <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера" value={statFormat} onChange={e=>{setOffset(0);setStatFormat(e.target.value);}} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{summary.filters.formats.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+            {scopeLoading&&<p role="status" className="col-span-2 text-xs text-white/60">Обновляем статистику… До завершения показан предыдущий срез.</p>}
+            {scopeError&&<div role="alert" className="col-span-2 text-xs text-rose-200"><p>{scopeError}</p><button type="button" className="mt-1 min-h-11 rounded-lg px-2 font-semibold" onClick={()=>{if(failedScope.current){setStatPeriod(failedScope.current.period);setStatFormat(failedScope.current.format);}}}>Повторить обновление</button></div>}
           </section>:null;
+  const recentGames=((summary?.recent_games||[]).length>0&&<section aria-label="Последние игры" className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]"><header className="flex items-center justify-between gap-3 px-4 pt-2"><h2 className="text-sm font-semibold">Последние игры</h2><button type="button" onClick={()=>switchTab('games')} className="min-h-11 rounded-lg px-2 text-xs font-semibold text-white/70">Все игры ›</button></header><div className="divide-y divide-white/[.07]">{summary.recent_games.slice(0,4).map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const Row:any=link?'a':'div';return <Row key={g.id||g.game_id} {...(link||{})} className="ds-focus-ring flex min-h-11 items-center gap-3 px-4 py-3"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{g.title||'Игра'}{g.game_number?` · №${g.game_number}`:''}</span><span className="mt-1 block text-xs leading-5 text-white/60">{[fmt(g.played_at||g.date),roleLabel(g.role),teamLabel(g.team),g.won===true?'Победа':g.won===false?'Поражение':'Результат не указан'].filter(Boolean).join(' · ')}</span></span>{link&&<span aria-hidden="true" className="text-lg text-white/45">›</span>}</Row>})}</div></section>);
+  const detailedStats=(<details open data-testid="profile-more-stats" className="group mt-4 border-t border-white/10"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm font-semibold">Подробная статистика<span className="text-white/45 transition group-open:rotate-180">⌄</span></summary><div className="space-y-4 pb-1"><PlayerProfileCareerSections stats={summary?.stats} season={summary?.season} gameStats={summary?.game_stats} nightShots={summary?.night_shots} reveals={summary?.reveals} circleExits={summary?.circle_exits}/></div></details>);
   return <div ref={scrollRef} className="canonical-profile h-full min-h-0 overflow-y-auto bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
       <div className="profile-identity flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&ownerSettings&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
@@ -256,41 +292,48 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
           {scopeSelector}
           <PlayerProfileStatsHero games={stats.games??stats.completed_games??null} wins={stats.wins??null} winRate={stats.win_rate??null} elo={p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'} seasonPlace={summary?.season?.place??null} />
           {summary?.filters?<p data-testid="profile-stats-scope-note" className="mt-3 text-xs leading-5 text-white/55">Статистика за: {summary.filters.period_label} · {summary.filters.format_label} · {countWins(stats.wins??0)} из {stats.games??0} игр. Elo — общий рейтинг, а место — по победам текущего сезона.</p>:null}
-          <details open data-testid="profile-more-stats" className="group mt-4 border-t border-white/10"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm font-semibold">Подробная статистика<span className="text-white/45 transition group-open:rotate-180">⌄</span></summary><div className="space-y-4 pb-1"><PlayerProfileCareerSections stats={summary?.stats} season={summary?.season} gameStats={summary?.game_stats} nightShots={summary?.night_shots} reveals={summary?.reveals} circleExits={summary?.circle_exits}/></div></details>
+
+        </section>}
+        {!statsHidden&&recentGames}
+        {!statsHidden&&<section className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
+          {isSelf&&<PlayerInsightsPanel/>}
+          <nav aria-label="Разделы подробной статистики" className="mb-2 flex flex-wrap gap-2">{[['results','Результаты'],['decisions','Решения'],['night','Ночью'],['reveals','Вскрытия'],['exits','Круги ухода']].map(([key,label])=><button type="button" key={key} onClick={()=>scrollRef.current?.querySelector(`[data-profile-stat="${key}"]`)?.scrollIntoView({block:'start'})} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs">{label}</button>)}</nav>
+          {detailedStats}
         </section>}
         <PlayerGoMafiaLink playerId={playerId} isSelf={isSelf} />
         <PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="pinned"/>
         <StaffWorkStats stats={summary?.staff} testId="profile-staff-stats" />
-        {(summary?.recent_games||[]).length>0&&<section aria-label="Последние игры" className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]"><header className="flex items-center justify-between gap-3 px-4 pt-2"><h2 className="text-sm font-semibold">Последние игры</h2><button type="button" onClick={()=>switchTab('games')} className="min-h-11 rounded-lg px-2 text-xs font-semibold text-white/70">Все игры ›</button></header><div className="divide-y divide-white/[.07]">{summary.recent_games.slice(0,4).map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const Row:any=link?'a':'div';return <Row key={g.id||g.game_id} {...(link||{})} className="ds-focus-ring flex min-h-11 items-center gap-3 px-4 py-3"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{g.title||'Игра'}{g.game_number?` · №${g.game_number}`:''}</span><span className="mt-1 block text-xs leading-5 text-white/60">{[fmt(g.played_at||g.date),roleLabel(g.role),teamLabel(g.team),g.won===true?'Победа':g.won===false?'Поражение':'Результат не указан'].filter(Boolean).join(' · ')}</span></span>{link&&<span aria-hidden="true" className="text-lg text-white/45">›</span>}</Row>})}</div></section>}
+
 
       </div>}
-      {!settings&&tab==='games'&&<>
+      {!settings&&statsHidden&&['games','roles','elo'].includes(tab)&&<section className="rounded-2xl border border-white/10 p-4 text-sm text-white/60"><p>Игровая статистика скрыта игроком</p><p className="mt-1">Игры, роли и Elo недоступны.</p></section>}
+      {!settings&&tab==='games'&&!statsHidden&&<>
         {scopeSelector}
-        <div className="flex flex-wrap gap-2">{(['all','custom'] as const).map(k=><button key={k} onClick={()=>setPeriod(k)} className={`min-h-11 rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'Любые даты':'Диапазон дат'}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{(['all','custom'] as const).map(k=><button key={k} onClick={()=>{setOffset(0);setPeriod(k);}} className={`min-h-11 rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'Любые даты':'Диапазон дат'}</button>)}</div>
         {period==='season'&&<div className="text-xs text-white/45">{activePeriod?.title||'Активный сезон не задан'}</div>}
-        {period==='custom'&&<div className="grid grid-cols-2 gap-2"><label className="text-xs text-white/60">С даты<input type="date" value={from} max={to||undefined} onChange={e=>setFrom(e.target.value)} className="mobile-field mt-1 w-full"/></label><label className="text-xs text-white/60">По дату<input type="date" value={to} min={from||undefined} onChange={e=>setTo(e.target.value)} className="mobile-field mt-1 w-full"/></label></div>}
+        {period==='custom'&&<div className="grid grid-cols-2 gap-2"><label className="text-xs text-white/60">С даты<input type="date" value={from} max={to||undefined} onChange={e=>{setOffset(0);setFrom(e.target.value);}} className="mobile-field mt-1 w-full"/></label><label className="text-xs text-white/60">По дату<input type="date" value={to} min={from||undefined} onChange={e=>{setOffset(0);setTo(e.target.value);}} className="mobile-field mt-1 w-full"/></label></div>}
         {gameConstraints.length > 0 && <div className="rounded-2xl border border-sky-200/15 bg-sky-200/[.04] p-3" aria-label="Выбранные фильтры игр"><p className="text-xs leading-5 text-white/75">Показаны: {gameConstraints.join(' · ')}</p><button type="button" onClick={resetGameSearch} className="mt-1 min-h-11 rounded-lg px-2 text-xs font-semibold text-sky-200">Сбросить фильтры</button></div>}
         <details className="rounded-2xl border border-white/10 p-3"><summary className="flex min-h-11 cursor-pointer items-center text-sm">Дополнительные фильтры</summary><div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <label className="text-xs text-white/50">Роль<select aria-label="Роль" value={role} onChange={e=>setRole(e.target.value)} className="mobile-field mt-1 w-full text-sm">{ROLE_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
-          <label className="text-xs text-white/50">Команда<select aria-label="Команда" value={team} onChange={e=>setTeam(e.target.value)} className="mobile-field mt-1 w-full text-sm">{TEAM_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
-          <label className="text-xs text-white/50">Результат<select aria-label="Результат" value={result} onChange={e=>setResult(e.target.value)} className="mobile-field mt-1 w-full text-sm">{RESULT_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
+          <label className="text-xs text-white/50">Роль<select aria-label="Роль" value={role} onChange={e=>{setOffset(0);setRole(e.target.value);}} className="mobile-field mt-1 w-full text-sm">{ROLE_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
+          <label className="text-xs text-white/50">Команда<select aria-label="Команда" value={team} onChange={e=>{setOffset(0);setTeam(e.target.value);}} className="mobile-field mt-1 w-full text-sm">{TEAM_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
+          <label className="text-xs text-white/50">Результат<select aria-label="Результат" value={result} onChange={e=>{setOffset(0);setResult(e.target.value);}} className="mobile-field mt-1 w-full text-sm">{RESULT_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
         </div></details>
-        {error?<div className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>:null}
+        {error?<div className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}<button type="button" onClick={()=>setContentRetry(v=>v+1)} className="mt-2 block min-h-11 rounded-lg border border-white/15 px-3 font-semibold">Повторить</button></div>:null}
         <div className="profile-game-list divide-y divide-white/[.07] overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]">{games.map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const meta=[roleLabel(g.role),teamLabel(g.team)].filter(Boolean).join(' · ');return <article key={g.id||g.game_id} className="min-w-0 p-4"><div className="flex items-center gap-3"><RoleMark role={g.role} /><div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><b className="min-w-0 truncate">{g.title||'Игра'}{g.game_number?` · №${g.game_number}`:''}</b><span className="shrink-0 text-xs text-white/50">{fmt(g.played_at||g.date)}</span></div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-white/60"><span className="min-w-0">{[meta,g.won===true?'победа':g.won===false?'поражение':null].filter(Boolean).join(' · ')}</span>{g.elo_delta!=null&&<span className={`shrink-0 font-semibold ${Number(g.elo_delta)>0?'text-emerald-300':Number(g.elo_delta)<0?'text-red-300':'text-white/40'}`}>Elo {deltaText(g.elo_delta)}</span>}</div></div></div>{gameChips(g).length>0&&<div className="mt-2 flex flex-wrap gap-1.5">{gameChips(g).map((chip)=><span key={chip} className="rounded-full bg-white/[.07] px-2 py-1 text-[11px] text-white/60">{chip}</span>)}</div>}{(g.table_name||g.judge_name)&&<div className="mt-2 text-[11px] text-white/35">{[g.table_name,g.judge_name?`судья ${g.judge_name}`:null].filter(Boolean).join(' · ')}</div>}{link&&<a {...link} className="mt-2 inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-semibold text-sky-200/70 hover:bg-white/5">Открыть игру ›</a>}</article>})}</div>
-        {!loading&&games.length===0?<div className="rounded-2xl border border-white/10 p-5 text-center text-sm text-white/45">По выбранным фильтрам игр нет.</div>:null}
+        {!loading&&!error&&games.length===0?<div className="rounded-2xl border border-white/10 p-5 text-center text-sm text-white/45">По выбранным фильтрам игр нет.</div>:null}
         {total>15&&<div className="flex justify-between"><button disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-15))} className="min-h-11 rounded-xl bg-white/10 px-4 py-2 text-sm disabled:opacity-30">Назад</button><button disabled={offset+15>=total} onClick={()=>setOffset(offset+15)} className="min-h-11 rounded-xl bg-white/10 px-4 py-2 text-sm disabled:opacity-30">Дальше</button></div>}
       </>}
-      {!settings&&(tab==='roles'||(tab==='elo'&&!isSelf))&&error?<div className="rounded-xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">{error}</div>:null}
+      {!settings&&!statsHidden&&(tab==='roles'||(tab==='elo'&&!isSelf))&&error?<div className="rounded-xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">{error}<button type="button" onClick={()=>setContentRetry(v=>v+1)} className="mt-2 block min-h-11 rounded-lg border border-white/15 px-3 font-semibold">Повторить</button></div>:null}
       {!settings&&tab==='roles'&&scopeSelector}
-      {!settings&&tab==='roles'&&!error&&<section className="profile-role-list divide-y divide-white/[.07] rounded-3xl border border-white/10 bg-white/[.035] px-4" aria-label="Ролевая статистика">{(data?.roles||data?.items||[]).map((r:any)=>{const played=Number(r.games??r.total??0);const rate=played?Math.max(0,Math.min(100,Number(r.win_rate)||0)):0;const dark=r.role==='mafia'||r.role==='don';return <article key={r.role} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3"><div className="flex items-center gap-3"><RoleMark role={r.role} /><div><h3 className="text-sm font-semibold">{roleLabel(r.role)||r.label||r.role}</h3><p className="mt-1 text-xs text-white/55">{dark?'Чёрная команда':'Красная команда'} · {played?countGames(played):'Нет игр'}</p></div></div><p className="text-right text-lg font-semibold tabular-nums">{played?`${rate}%`:'—'}<span className="block text-xs font-normal text-white/55">побед</span></p><div aria-hidden="true" className="col-span-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={'h-full rounded-full '+(dark?'bg-violet-300':'bg-rose-300')} style={{width:`${rate}%`}}/></div></article>})}</section>}
+      {!settings&&tab==='roles'&&!error&&!statsHidden&&<section className="profile-role-list divide-y divide-white/[.07] rounded-3xl border border-white/10 bg-white/[.035] px-4" aria-label="Ролевая статистика">{(data?.roles||data?.items||[]).map((r:any)=>{const played=Number(r.games??r.total??0);const rate=played?Math.max(0,Math.min(100,Number(r.win_rate)||0)):0;const dark=r.role==='mafia'||r.role==='don';return <article key={r.role} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3"><div className="flex items-center gap-3"><RoleMark role={r.role} /><div><h3 className="text-sm font-semibold">{roleLabel(r.role)||r.label||r.role}</h3><p className="mt-1 text-xs text-white/55">{dark?'Чёрная команда':'Красная команда'} · {played?countGames(played):'Нет игр'}</p></div></div><p className="text-right text-lg font-semibold tabular-nums">{played?`${rate}%`:'—'}<span className="block text-xs font-normal text-white/55">побед</span></p><div aria-hidden="true" className="col-span-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={'h-full rounded-full '+(dark?'bg-violet-300':'bg-rose-300')} style={{width:`${rate}%`}}/></div></article>})}</section>}
 
       {!settings&&tab==='elo'&&isSelf&&<>{scopeSelector}<PlayerEloJourney embedded period={statPeriod} format={statFormat} onOpenGame={openPlayerGame}/></>}
       {!settings&&tab==='elo'&&!isSelf&&scopeSelector}
-      {!settings&&tab==='elo'&&!isSelf&&!error&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">История Elo</h2><div className="mt-3 space-y-2">{eloPoints.map((x:any,i:number)=><article key={x.id||i} className="rounded-xl bg-white/[.035] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium">{x.title||'Игра'}{x.game_number?` · #${x.game_number}`:''}</div><div className="mt-1 text-xs text-white/45">{fmt(x.date||x.played_at)}{roleLabel(x.role)?` · ${roleLabel(x.role)}`:''}{gameLinkProps(x.id)?<> · <a {...gameLinkProps(x.id)!} className="text-sky-200/70">игра ›</a></>:null}</div></div><div className="shrink-0 text-right"><div className="text-base font-semibold">{eloText(x.elo_after)}</div><div className={`text-xs ${Number(x.elo_delta)>0?'text-emerald-300':Number(x.elo_delta)<0?'text-red-300':'text-white/40'}`}>{deltaText(x.elo_delta)}</div></div></div></article>)}</div>{!loading&&eloPoints.length===0?<div className="mt-3 rounded-xl bg-white/[.035] p-5 text-center text-sm text-white/45">Истории Elo пока нет. Она появится после первых игр, которые идут в рейтинг.</div>:null}</section>}
+      {!settings&&tab==='elo'&&!isSelf&&!error&&!statsHidden&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">История Elo</h2><div className="mt-3 space-y-2">{eloPoints.map((x:any,i:number)=><article key={x.id||i} className="rounded-xl bg-white/[.035] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium">{x.title||'Игра'}{x.game_number?` · #${x.game_number}`:''}</div><div className="mt-1 text-xs text-white/45">{fmt(x.date||x.played_at)}{roleLabel(x.role)?` · ${roleLabel(x.role)}`:''}{gameLinkProps(x.id)?<> · <a {...gameLinkProps(x.id)!} className="text-sky-200/70">игра ›</a></>:null}</div></div><div className="shrink-0 text-right"><div className="text-base font-semibold">{eloText(x.elo_after)}</div><div className={`text-xs ${Number(x.elo_delta)>0?'text-emerald-300':Number(x.elo_delta)<0?'text-red-300':'text-white/40'}`}>{deltaText(x.elo_delta)}</div></div></div></article>)}</div>{!loading&&eloPoints.length===0?<div className="mt-3 rounded-xl bg-white/[.035] p-5 text-center text-sm text-white/45">Истории Elo пока нет. Она появится после первых игр, которые идут в рейтинг.</div>:null}</section>}
       {!settings&&tab==='learning'&&learning}
       {!settings&&tab==='awards'&&<><PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="awards"/>{isSelf?<PlayerAwardSuggestionAction/>:null}</>}
       {!settings&&tab==='history'&&<PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="history"/>}
-      {!settings&&tab==='connections'&&<>{isSelf?<SmartFriendInviteSuggestions/>:null}{isSelf?<PlayerInsightsPanel/>:null}<PremiumProfileConnections playerId={playerId} selfPlayerId={selfPlayerId}/></>}
+      {!settings&&tab==='connections'&&<><PremiumProfileConnections playerId={playerId} selfPlayerId={selfPlayerId}/></>}
       {loading&&!settings&&<div className="py-10 text-center text-sm text-white/45">Загрузка…</div>}
     </main>
   </div>;

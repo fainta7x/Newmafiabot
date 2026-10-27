@@ -63,13 +63,14 @@ function VersatileScene({ members, red, black }: { members: ConnectionMember[]; 
   </div>;
 }
 
-export default function ClubConnectionStories({ stories }: { stories: Stories }) {
-  const [view, setView] = useState<'teams' | 'opposition' | 'circle'>('teams');
+export default function ClubConnectionStories({ stories, pairs }: { stories: Stories; pairs?: ReactNode }) {
+  const [view, setView] = useState<'teams' | 'opposition' | 'circle' | 'pairs'>(()=>{try{const value=sessionStorage.getItem('club-stories-view');return value==='opposition'||value==='circle'||(value==='pairs'&&pairs)?value:'teams';}catch{return 'teams';}});
   return <section data-testid="club-stories" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
     <header><h2 className="text-lg font-semibold">Кто с кем играет</h2><p className="mt-1 text-xs leading-5 text-white/55">Команды, соперники и знакомства за игровым столом.</p></header>
-    <SegmentedControl className="relative mt-4" value={view} onValueChange={setView} ariaLabel="Что показать"
-      items={[{ value: 'teams', label: 'Команды' }, { value: 'opposition', label: 'Соперники' }, { value: 'circle', label: 'Знакомства' }]} />
+    <SegmentedControl scrollable className="relative mt-4" value={view} onValueChange={value=>{setView(value);try{sessionStorage.setItem('club-stories-view',value);}catch{}}} ariaLabel="Что показать"
+      items={[{ value: 'teams', label: 'Команды' }, { value: 'opposition', label: 'Соперники' }, { value: 'circle', label: 'Знакомства' },...(pairs?[{value:'pairs' as const,label:'Пары'}]:[])]} />
     <div data-testid={'club-stories-' + view} className={'relative mt-4 grid gap-5 ' + (view === 'teams' ? 'lg:grid-cols-3' : view === 'opposition' ? 'lg:grid-cols-2' : 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]')}>
+      {view === 'pairs'&&<div className="col-span-full">{pairs}</div>}
       {view === 'teams' && <>
         <Feature title="Чёрные тройки" description="Дон и две мафии, игравшие вместе." tone="violet" empty={!stories.black_trios.length}>
           {stories.black_trios.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['don', 'mafia', 'mafia']}/>)}

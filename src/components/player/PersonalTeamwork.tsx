@@ -52,17 +52,20 @@ const wins = (item: Teammate) => `${countGames(item.games)} · ${countWins(item.
 
 /** «Моя команда»: the personal team-building view of the profile → Связи tab (owner request 2026-10-10). */
 export default function PersonalTeamwork() {
+  const [error,setError]=useState('');
+  const [retry,setRetry]=useState(0);
   const [data, setData] = useState<Teamwork | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false;setError('');
     void fetch('/api/player/team-connections', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {if(!response.ok)throw new Error();return response.json();})
       .then((body) => { if (!cancelled && body?.my_team) setData(body as Teamwork); })
-      .catch(() => { /* the rest of the tab stays usable */ });
+      .catch(() => {if(!cancelled)setError('Не удалось загрузить сыгранность');});
     return () => { cancelled = true; };
-  }, []);
+  }, [retry]);
 
+  if(error)return <div role="alert" className="rounded-2xl border border-white/10 p-4 text-sm text-white/65">{error}<button type="button" onClick={()=>setRetry(v=>v+1)} className="mt-2 block min-h-11 px-3">Повторить загрузку команды</button></div>;
   if (!data) return null;
   const hasTeam = data.my_team.red.length > 0 || data.my_team.black.length > 0;
   const { counts, closest } = data.stages;

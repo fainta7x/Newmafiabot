@@ -89,12 +89,15 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
   const [data, setData] = useState<ClubWorldData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSeasonKey, setSelectedSeasonKey] = useState<string | null>(null);
+  const [selectedSeasonKey, setSelectedSeasonKey] = useState<string | null>(()=>{try{return sessionStorage.getItem('club-archive-season');}catch{return null;}});
+  const [retry,setRetry]=useState(0);
+  useEffect(()=>{try{if(selectedSeasonKey)sessionStorage.setItem('club-archive-season',selectedSeasonKey);}catch{}},[selectedSeasonKey]);
   // The season top starts with five rows.
   const [topOpen, setTopOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);setError(null);
     void fetch('/api/player/club-world', { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
@@ -102,12 +105,12 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
         if (cancelled) return;
         const next = body as ClubWorldData;
         setData(next);
-        setSelectedSeasonKey(next.season_history?.find((item) => item.key !== next.season?.key)?.key || null);
+        setSelectedSeasonKey(current=>next.season_history?.some(item=>item.key===current)?current:next.season_history?.find((item) => item.key !== next.season?.key)?.key || null);
       })
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить сезоны'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [retry]);
 
   const selectedSeason = useMemo(
     () => data?.season_history?.find((item) => item.key === selectedSeasonKey) || null,
@@ -115,7 +118,7 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
   );
 
   if (loading) return <div className="rounded-2xl bg-white/[0.035] px-3 py-8 text-center text-xs text-white/30">Загружаем сезоны…</div>;
-  if (error || !data) return <div className="rounded-2xl bg-rose-400/[0.07] px-3 py-4 text-sm text-rose-200/65">{error || 'Сезоны недоступны'}</div>;
+  if (error || !data) return <div className="rounded-2xl bg-rose-400/[0.07] px-3 py-4 text-sm text-rose-200/65">{error || 'Сезоны недоступны'}<button type="button" onClick={()=>setRetry(v=>v+1)} className="mt-2 block min-h-11 px-3">Повторить загрузку сезонов</button></div>;
 
   const viewerRank = data.season.ranking.find((item) => item.player_id === data.viewer_id) || null;
 

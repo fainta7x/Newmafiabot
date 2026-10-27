@@ -86,7 +86,7 @@ export default function PlayerCommunityHub({
           <>
             <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={(next) => { setActivity(next); onOpen('clubworld', next); }} itemClassName="px-1 text-[12px]" />
             {activity === 'form' && <PlayerClubActivity />}
-            {activity === 'matches' && <PlayerStoriesPanel />}
+            {activity === 'matches' && <PlayerStoriesPanel viewerId={data.player.id} />}
             {activity === 'season' && <PlayerSeasonsPanel part="season" />}
             {activity === 'history' && <PlayerSeasonsPanel part="history" />}
           </>

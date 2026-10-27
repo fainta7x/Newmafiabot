@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — owner requests page-by-page product usability review
+
+Owner explicitly prioritizes logic and convenience over long bug hunts/test runs: review every existing app page in order; improve the current single-table product, without multi-table expansion and without changing rating names/meanings. Review completed against main da055097 (includes merged #1056): [full page inventory, findings and proposed batches](UX_PAGE_REVIEW_2026-10-27.md). All canonical navigation groups and meaningful nested modes are covered by source review; 41 mobile preview states inspected, using synthetic data. This is not signed-in production verification or a full interaction test. Application code/rules unchanged. Eighteen observations/proposals are OPEN, with priority and evidence in the report; recommended first discussion is booking/change/cancellation and price visibility (U01–U03, U17). Implementation of a new UX batch remains to be agreed with the owner; do not autonomously start the full proposal list. Claude's open #1054 voting work is acknowledged separately, not duplicated.
+
 ## 2026-10-26 — deployed and checked: club Elo, protocol window, lighter saves
 
 main 0caf65c (#1040 Elo rules and protocol window, #1043 tournament card split, #1045 one protocol autosave, organizer requests, live bridge load) runs on Amvera (mirror ce16aba) after a 70-minute Amvera registry outage. Checked read-only: health ok, Elo rebuilt (27 of 39 players changed), games list 0.73 MB instead of 23 MB. Still to watch: whether `[PERF] event loop stalled` lines disappear during the next live evening.

@@ -2110,3 +2110,31 @@ Scope: the chain engine journal → `mapEngineResultToProtocol` → `PUT /api/ga
 - [fixed by the owner, 2026-10-27] The owner added the split of the восьмёрка after the miss in the protocol window (№3 Богданчик 4 – №5 Алоэ 4, revote 4–4, 0 votes to raise, everybody stays); the record was read back (GET) as a draft at 07:27 UTC. Still as before: nights 2 and 3 stored as `agreement_failed` (the owner: «промах»), №3's note «Голосование (День 3)», the game a draft. [fixed in code, owner: «можешь через код … всё сделать и сохранить»] One-time `completeGame20AfterOwnerFix.ts` (migration `2026-10-game20-owner-fix-v1`): misses, the stale note and the completion, through the ordinary protocol save (`saveClubEveningProtocol`, now shared by the route and this correction); only on the record exactly as the owner left it, old values kept. Run against the real record read at 07:27 UTC (local copy): accepted. Test `completeGame20AfterOwnerFix.test.ts`. Production run: to verify after deploy.
 - [fixed] `protocolReview.ts` `circleTitle`: the circles were named from the chronology's exits, so after the correction the window still said «Семёрка после промаха» (the stray exit of №3). Who left now comes from the protocol's votings and shots; only a judge's removal is read from the chronology. «Разбор партии» (`GameAnalysis.tsx`) passes the protocol too. Its list of exits per circle is still the chronology; an exit the protocol does not have is marked «по протоколу остался в игре» (test `gameAnalysisView.test.tsx`). Test in `gameProtocolReview.test.ts`.
 
+
+
+## 2026-10-27 — complete navigation inventory: logic and usability (GPT)
+
+Scope: owner's requested sequential product review of existing Player Cabinet, organizer CRM/tools, tournaments, live judging/protocol, learning, auxiliary games, public/auth/broadcast entry points. Baseline main da055097. Full evidence, page coverage and priorities: [UX_PAGE_REVIEW_2026-10-27.md](UX_PAGE_REVIEW_2026-10-27.md). Source review covers all canonical navigation families; 41 synthetic mobile preview states visually inspected at 390 × 844. No broad tests, production mutations or app-code changes. Source-only rows are explicitly distinct from visually inspected rows. Preserve rating semantics, detailed stats defaults and the single-table scope. Existing #1054 work is not counted as missing implementation to duplicate.
+
+All entries below are **open proposals**, not automatically approved changes; observed mismatches and discretionary improvements are distinguished in the report.
+
+- [open, U01] `PlayerEventSlotDetail.tsx`, `PlayerEveningWorkspace.tsx`: evening summary precedes the booking choices and pushes the main task below the first viewport.
+- [open, U02] `PlayerEventSlotDetail.tsx`: «Отменить запись» clears only draft slots; a separate save is needed, without a clear departure decision for unsaved changes.
+- [open, U03] `PlayerEventsCalendar.tsx`: nearest-event price suffix says per game even for a rating-format entry that the detail page correctly labels per evening; #1056 calculator fixes are preserved.
+- [open, U04] `PlayerPayments.tsx`: unavailable online-payment section is rendered ahead of actual payable evenings.
+- [open, U05] `PlayerSettingsHub.tsx`, `PlayerProfileSettings.tsx`: one long page mixes explicit-save identity edits with immediately persisted photos/preferences; clarify save scope and local result.
+- [open, U06] `PlayerCommunityHub.tsx`, `PlayerRatingHub.tsx`: nested navigation truncates «Показатели» at the inspected mobile width; preserve names/meanings while giving the label room.
+- [open, U07] `PlayerHistoryStatsView.tsx`, `CanonicalPremiumPlayerProfile.tsx`: the two personal-history entry points have different search/filter capability; retain both purposes but make finding the same game consistent.
+- [open, U08] `EveningActiveRosterView.tsx`, `EveningGameCreateSheet.tsx`, `EveningCloseoutPanel.tsx`: the generic add action has different planned/attendance consequences by context; explain them without merging domain facts.
+- [open, U09] `EveningPaymentsPanel.tsx`: «Вернуть оплату» on a waived row removes the waiver rather than refunding money; name the actual consequence.
+- [open, U10] `EveningCloseoutPanel.tsx`: summary blockers are informational instead of direct jumps to their repair locations; preserve existing closing policy.
+- [open, U11] `gameProtocol/PlayersView.tsx`, `OverviewView.tsx`: locked note still points to «Обзор» after tab consolidation; reopen action is far down the protocol.
+- [open, U12] `TournamentDetailViewBase.tsx`, `PlayerTournamentResults.tsx`: nested tab/selection context is local state; improve restoration without rebuilding existing live resume.
+- [open, U13] `public/PublicGuide.tsx`, `MafiaReasoningCourse.tsx`: resume/recent content follows the catalog; some headings repeat the header. Reorder/trim, no second catalog.
+- [open, U14] `PublicGuide.tsx`, `MafiaReasoningCourse.tsx`, `SplitVoteTraining.tsx`: browser-local study progress and profile-confirmed exam results have different persistence scopes; make the distinction visible before proposing new sync work.
+- [open, U15] `SplitVoteTraining.tsx`, `SplitTableMap.tsx`: repeated labels plus the diagram push the short-answer interaction below a 390 × 844 viewport; preserve legible seat sizes and exam rules.
+- [open, U16] `PlayerReplayScreen.tsx`: event-index seeking makes it awkward to find a specific voting/night; offer chapters based only on real saved events.
+- [open, U17] actual mounted `PublicJoinView.vk-direct.tsx` (Vite import transform confirmed): changed slot selection hides the final price until save; show a policy-consistent estimate before confirming.
+- [open, U18] `public/guide/GuideScreens.tsx`, `SIMPLE_RULES`: simple-rules mode starts with sanctions; editorial proposal to introduce the normal action sequence first, without changing domain rules.
+
+Recommendation: discuss one coherent booking batch first (U01–U03, U17); other proposals remain open for owner choice, not a mandate to implement every optional polish row.

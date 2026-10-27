@@ -101,7 +101,7 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
       unseatedExpectedCount = Math.max(0, expectedPlayersCount - seatedExpectedCount);
       const gameSummary = await db.get<any>(`
         SELECT COUNT(*) AS total,
-               SUM(CASE WHEN winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed
+               SUM(CASE WHEN json_valid(protocol_text) AND json_extract(protocol_text, '$.protocol.status') = 'completed' THEN 1 ELSE 0 END) AS completed
           FROM games
          WHERE evening_id=?
       `, [nextEvening.id]);

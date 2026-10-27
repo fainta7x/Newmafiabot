@@ -64,7 +64,8 @@ describe('invite audience schema', () => {
   it('does not query the legacy games.status column from the CRM overview', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/crmRoutes.ts'), 'utf8');
     expect(source).not.toContain("status='completed' OR winner_team IS NOT NULL");
-    expect(source).toContain('SUM(CASE WHEN winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed');
+    // a draft is stored with winner_team 'draft': the protocol's own status says whether a game is completed (2026-10-27)
+    expect(source).toContain("SUM(CASE WHEN json_valid(protocol_text) AND json_extract(protocol_text, '$.protocol.status') = 'completed' THEN 1 ELSE 0 END) AS completed");
   });
 
   it('moves legacy blocked/paused states into the canonical contact status once', async () => {

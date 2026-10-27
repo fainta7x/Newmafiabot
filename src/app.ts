@@ -151,6 +151,7 @@ import { applyEloTableLevelMigration } from './server/dataMigrations/applyEloTab
 import { applyOwnerNoScoringTags } from './server/dataMigrations/applyOwnerNoScoringTags.ts';
 import { moveReplayFramesOutOfProtocols } from './server/dataMigrations/moveReplayFramesOutOfProtocols.ts';
 import { completeGame20AfterOwnerFix } from './server/dataMigrations/completeGame20AfterOwnerFix.ts';
+import { completeGame17Draft } from './server/dataMigrations/completeGame17Draft.ts';
 import { applyPlayerStarterTokenGrant } from './server/dataMigrations/applyPlayerStarterTokenGrant.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
@@ -226,6 +227,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
     try { await applyEloTableLevelMigration(db); } catch (error) { console.error('[ELO] Table-level rebuild failed:', error); }
     // Game №20: the misses, the stale note and the completion the owner asked for after fixing the split (2026-10-27).
     try { console.info('[DATA CORRECTION] game №20:', JSON.stringify(await completeGame20AfterOwnerFix(db))); } catch (error) { console.error('[DATA CORRECTION] game №20 failed (nothing changed):', error); }
+    // Game №17: a reopened draft left unfinished; the owner: «Завершить как есть» (2026-10-27).
+    try { console.info('[DATA CORRECTION] game №17:', JSON.stringify(await completeGame17Draft(db))); } catch (error) { console.error('[DATA CORRECTION] game №17 failed (nothing changed):', error); }
   }
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   // One tournament format for everybody and the forced judge/organizer of Bogdan's tournaments (owner, 2026-10-06): a file snapshot

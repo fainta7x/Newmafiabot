@@ -69,7 +69,10 @@ const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringif
 globalThis.fetch = async (input: RequestInfo | URL) => {
   const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const url = new URL(raw, window.location.origin);
-  if (url.pathname === '/api/crm/command-center') return jsonResponse(COMMAND_CENTER);
+  // `?unfinished=1`: a past game left in draft (owner, 2026-10-27: game №17 of 23.10).
+  if (url.pathname === '/api/crm/command-center') return jsonResponse(new URLSearchParams(window.location.search).get('unfinished')
+    ? { ...COMMAND_CENTER, unfinished_games: [{ id: 17, global_number: 17, evening: { id: 'e0', title: 'Спортивная мафия · пятница', starts_at: '2026-10-23T17:00:00.000Z' } }] }
+    : COMMAND_CENTER);
   return jsonResponse({ error: 'E2E route not mocked' }, 404);
 };
 

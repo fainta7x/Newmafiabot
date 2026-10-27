@@ -80,6 +80,21 @@ describe('personal games, club archive and the page of one game', () => {
     expect(within(archive).getByText('Чужая игра в клубе')).toBeTruthy();
   });
 
+  it('searches the Moscow calendar day rather than the raw UTC day', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json({games:[{id:'club:night',source:'club',title:'Ночная игра',date:'2026-10-03T22:30:00Z',game_number:41,format:'CASUAL',winner_team:'red',judge_name:null}]})));
+    render(<PlayerGamesArchive data={data} />);
+    const archive=screen.getByTestId('player-club-archive');
+    (archive as HTMLDetailsElement).open=true;fireEvent(archive,new Event('toggle'));
+    await within(archive).findByText('Ночная игра');
+    const search=screen.getByRole('searchbox',{name:'Найти в архиве'});
+    fireEvent.change(search,{target:{value:'2026-10-03'}});
+    expect(within(archive).queryByText('Ночная игра')).toBeNull();
+    fireEvent.change(search,{target:{value:'2026-10-04'}});
+    expect(within(archive).getByText('Ночная игра')).toBeTruthy();
+    fireEvent.change(search,{target:{value:'04.10.2026'}});
+    expect(within(archive).getByText('Ночная игра')).toBeTruthy();
+  });
+
   it('returns from a game to the opened archive and the same search', async () => {
     stubFetch();
     const view = render(<PlayerGamesArchive data={data} initialGameKey={null} />);

@@ -71,7 +71,11 @@ export default function PlayerGamesArchive({
 
   const matchingGames = useMemo(() => {
     const query = archiveQuery.trim().toLocaleLowerCase('ru-RU');
-    return (allGames || []).filter(game => !query || [game.title, game.game_number > 0 ? `№${game.game_number} ${game.game_number}` : '', game.judge_name, formatDate(game.date), formatMoscowDate(game.date, 'numeric'), game.date?.slice(0, 10)].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU').includes(query));
+    return (allGames || []).filter(game => {
+      const day = formatMoscowDate(game.date, 'numeric');
+      const isoDay = day ? day.split('.').reverse().join('-') : null;
+      return !query || [game.title, game.game_number > 0 ? `№${game.game_number} ${game.game_number}` : '', game.judge_name, formatDate(game.date), day, isoDay].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU').includes(query);
+    });
   }, [allGames, archiveQuery]);
 
   const personalGames = data.games?.all ?? [];

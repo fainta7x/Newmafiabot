@@ -274,8 +274,8 @@ export default function PlayerGameDetail({
             <span className="pt-2.5 text-center text-xs font-semibold tabular-nums text-white/40">{String(item.seat_number).padStart(2, '0')}</span>
             <Avatar player={item} large />
             <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-1.5"><FitText minPx={11} className="min-w-0 text-sm font-semibold leading-5 text-white">{item.nickname}</FitText>{isSelf ? <span className="shrink-0 text-[11px] text-sky-100/70">вы</span> : null}</div>
-              <div className="mt-0.5 flex min-h-4 items-center"><RoleChip role={item.role} /></div>
+              <FitText as="div" minPx={11} className="text-sm font-semibold leading-5 text-white">{item.nickname}</FitText>
+              <div className="mt-0.5 flex min-h-4 items-center gap-1.5"><RoleChip role={item.role} />{isSelf ? <span className="text-[11px] text-sky-100/70">вы</span> : null}</div>
               {events.length ? <p className="mt-1 break-words text-[11px] leading-4 text-white/55">{events.join(' · ')}</p> : null}
             </div>
             <div className="min-w-0 text-right">

@@ -39,7 +39,7 @@ window.fetch = (async (input: any, init?: any) => {
     const seats = game.club_protocol.player_results.map((row: any, index: number) => {
       const team = row.role === 'mafia' || row.role === 'don' ? 'black' : 'red';
       const won = team === winner;
-      return { seat: row.seat_number, nickname: row.display_name || row.nickname || `Игрок ${row.seat_number}`, role: row.role, won, eloDelta: won ? 51 : -35, eloAfter: 1000 + index * 17, eloContribution: index % 3 === 2 ? 26 : 16, lines: LINES[index % 3] };
+      return { seat: row.seat_number, nickname: row.display_name || row.nickname || `Игрок ${row.seat_number}`, role: row.role, won, eloDelta: won ? 51 : -35, eloAfter: 1000 + index * 17, eloContribution: [16, 0, 26][index % 3], lines: LINES[index % 3] };
     });
     return new Response(JSON.stringify({ table: { redAvg: 1057, blackAvg: 1067, level: 'команды одного уровня', redChancePercent: 30 }, seats }), { status: 200, headers: { 'content-type': 'application/json' } });
   }

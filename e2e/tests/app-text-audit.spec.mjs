@@ -56,6 +56,7 @@ export const PAGES = [
   ['owner-evenings-answers', '/e2e/owner-evenings.html?screen=answers'],
   ['project-board', '/e2e/project-board.html'],
   ['protocol-window', '/e2e/protocol-window.html?draft=1'],
+  ['protocol-window-completed', '/e2e/protocol-window.html'],
   ['protocol-window-tournament', '/e2e/protocol-window.html?kind=tournament&draft=1'],
   ['tournament-live-game', '/e2e/tournament-live-game.html?mode=audit'],
   ['live-game-cabinet', '/e2e/live-game-cabinet.html', 'phone'],

@@ -146,3 +146,16 @@ for (const [width, height] of [[390, 844], [1280, 820]]) {
   });
 }
 
+
+// A confirmed club game shows «Эло за игру» as on the result blank (owner, 2026-10-27).
+for (const width of [360, 390]) test(`confirmed club game shows its Elo blank at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 844 });
+  await page.goto('/e2e/protocol-window.html');
+  const blank = page.getByTestId('protocol-elo-blank');
+  await blank.scrollIntoViewIfNeeded();
+  await expect(page.getByTestId('protocol-elo-table')).toContainText('шанс красных 30%');
+  await expect(page.locator('[data-testid^="protocol-elo-seat-"]')).toHaveCount(10);
+  await expect(page.getByTestId('protocol-elo-seat-1')).toContainText('Голосовал в чёрных №10, №1: +16');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await blank.screenshot({ path: info.outputPath(`elo-blank-${width}.png`) });
+});

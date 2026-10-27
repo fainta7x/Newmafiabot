@@ -17,11 +17,14 @@ import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 
 export type ProtocolState = { protocol: TournamentGameProtocolData; results: PlayerResultData[] };
 
+/** «после двух промахов» (owner, 2026-10-27: numbers in words). */
+const MISSES_IN_WORDS: Record<number, string> = { 2: 'двух', 3: 'трёх', 4: 'четырёх', 5: 'пяти', 6: 'шести', 7: 'семи', 8: 'восьми', 9: 'девяти' };
+
 const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девятка', 8: 'Восьмёрка', 7: 'Семёрка', 6: 'Шестёрка', 5: 'Пятёрка', 4: 'Угадайка при 4', 3: 'Угадайка' };
 
 /**
  * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
- * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после оставления при 8 и 2 промахов» … Without a chronology the
+ * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после оставления при 8 и двух промахов» … Without a chronology the
  * number of players is unknown, so an old game keeps «Круг N».
  * Who left comes from the protocol itself — its votings and shots — so a corrected protocol renames the circles that follow
  * (owner, 2026-10-27: game №20 kept «Семёрка» after the vote that put №3 out was corrected to «everybody stayed»). Only a
@@ -59,19 +62,17 @@ export const circleTitle = (
   };
   const name = TABLE_NAMES[atTableAt(index)] || `Круг ${index}`;
   const dayOut = votedOutOnDay(index - 1).length;
-  // The split of the previous day ended with everybody staying: there was a tie and nobody left.
-  const splitStayed = dayOut === 0 && index > 1 && (votes
-    ? votes.some((round) => Number(round.day_number ?? 0) === index - 1 && round.outcome === 'tie_revote')
-    : true);
+  // Nobody left on the previous day (a split with everybody staying, or nobody nominated): «оставление» (owner, 2026-10-27).
+  const stayed = dayOut === 0 && index > 1;
   let misses = 0;
   for (let night = index; night >= 1 && killedAtNight(night).length === 0; night -= 1) misses += 1;
   const notes: string[] = [];
-  // Owner, 2026-10-27: «Восьмёрка после оставления при 8 и 2 промахов»; the zero round with everybody staying is the standard
+  // Owner, 2026-10-27: «Восьмёрка после оставления при 8 и двух промахов»; the zero round with everybody staying is the standard
   // course of the game, so it gives no qualifier; a raised split stays «попила с подъёмом».
   if (dayOut >= 2) notes.push('попила с подъёмом');
-  else if (splitStayed) notes.push(`оставления при ${atTableAt(index - 1)}`);
+  else if (stayed) notes.push(`оставления при ${atTableAt(index - 1)}`);
   if (misses === 1) notes.push('промаха');
-  else if (misses > 1) notes.push(`${misses} промахов`);
+  else if (misses > 1) notes.push(`${MISSES_IN_WORDS[misses] || misses} промахов`);
   return notes.length ? `${name} после ${notes.join(' и ')}` : name;
 };
 

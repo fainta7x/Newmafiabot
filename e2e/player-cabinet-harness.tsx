@@ -1,3 +1,4 @@
+import { DEFAULT_EVENING_PRICES, eveningSelectionPrice } from '../src/lib/eveningPrices.ts';
 import { clubStoriesFixture } from './club-connection-stories.fixture.ts';
 import ReactDOM from 'react-dom/client';
 import { useEffect, useState } from 'react';
@@ -24,12 +25,22 @@ if (new URLSearchParams(location.search).get('scenario') === 'compact') {
   regular_fouls: 0, minor_technical_fouls: 0, major_technical_fouls: 0, best_move: index === 0, first_killed: index === 0, zero_round_voted: false,
  }));
 }
+const booking = new URLSearchParams(location.search).get('booking');
 const next = new Date(Date.now() + 7 * 86400000).toISOString();
-const evening = { id: 'preview-evening', title: 'Пятничный вечер клуба 2LA Noire', starts_at: next, venue: 'Суп с котом', format: 'CASUAL', status: 'published', default_price: 400 };
+const evening = { id: 'preview-evening', title: 'Пятничный вечер клуба 2LA Noire', starts_at: next, venue: 'Суп с котом', format: booking === 'novice' ? 'NOVICE' : booking === 'rating' ? 'RATING' : 'CASUAL', status: 'published', default_price: 400 };
 const personalEvening = { ...evening, response_status: 'late', participation: { response_status: 'late', registration_status: 'waitlist', attendance_status: 'pending', slot_numbers: [1, 3] } };
-let paymentsUnavailable = new URLSearchParams(location.search).get('payments') === 'error';
+let paymentFailures = Number(new URLSearchParams(location.search).get('paymentFailures') || (new URLSearchParams(location.search).get('payments') === 'error' ? 1 : 0));
+let overviewFailures = Number(new URLSearchParams(location.search).get('overviewFailures') || 0);
+let slotFailures = Number(new URLSearchParams(location.search).get('slotFailures') || 0);
+let saveFailures = Number(new URLSearchParams(location.search).get('saveFailures') || 0);
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));
 const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: 100, slots: eventSlots };
+const bookingSlots = (booking === 'novice' ? eventSlots.slice(0,2) : eventSlots).map((slot) => ({ ...slot, price: booking === 'novice' ? 200 : 100, target_players: booking === 'novice' ? 9 : 11, registered_count: booking === 'novice' ? 9 : slot.registered_count, participants: [] }));
+let slotPlan = {
+ event: { ...evening, event_type: 'evening', assembled: true, assembled_slots: booking === 'novice' ? 2 : 1, required_slots: booking === 'novice' ? 2 : 4, required_players_per_slot: booking === 'novice' ? 9 : 11, price_per_game: booking === 'rating' ? 500 : booking === 'novice' ? 200 : 100, max_evening_price: booking ? null : 400 },
+ pricing: DEFAULT_EVENING_PRICES, slots: bookingSlots,
+ selection: { slot_ids: bookingSlots.filter(s=>s.selected).map(s=>s.id), games: 2, total: booking === 'rating' ? 500 : booking === 'novice' ? 400 : 200 },
+};
 const paymentData = {
  summary: { amount_due: 400, amount_paid: 200, outstanding: 200, historical_debt: 200, open: 1, closed: 2 },
  current: [{ participant_id: 'participant-preview', evening_id: evening.id, title: evening.title, starts_at: evening.starts_at, venue: evening.venue, evening_status: 'published', attendance_status: 'going', amount_due: 400, amount_paid: 200, outstanding: 200, payment_status: 'partial', updated_at: new Date().toISOString() }],
@@ -74,8 +85,22 @@ const pulse = {
  players_with_form: 10,
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-globalThis.fetch = async (input: RequestInfo | URL) => {
+globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
+ if (url.pathname === '/api/player/evenings/preview-evening/slots') {
+  if (init?.method === 'PUT') {
+   if (saveFailures-- > 0) return json({ error: 'Не удалось сохранить: нет связи' },503);
+   const ids: string[] = JSON.parse(String(init.body)).slot_ids;
+   const chosen = slotPlan.slots.filter(s => ids.includes(s.id));
+   slotPlan = { ...slotPlan, selection: { slot_ids: ids, games: ids.length, total: eveningSelectionPrice(evening.format, chosen.map(s=>s.price), DEFAULT_EVENING_PRICES) } };
+   if (new URLSearchParams(location.search).get('slowSave')) await new Promise<void>(resolve => { (window as any).__releaseSlotSave = resolve; });
+  } else if (slotFailures-- > 0) return json({ error: 'Не удалось загрузить игры: нет связи' },503);
+  return json(slotPlan);
+ }
+ if (url.pathname === '/api/player/evenings/preview-evening/overview') {
+  if (overviewFailures-- > 0) return json({ error: 'Не удалось загрузить вечер: нет связи' },503);
+  return json({ evening, participation: { response_status: 'going', registration_status: 'confirmed', attendance_status: 'pending', can_change_selection: true }, roster: [], tables: [{ id: 'one', name: 'Основной стол', host_name: 'Ведущий', capacity: 10, players: [] }], games: [], score: { red: 0, black: 0, completed: 0, running: 0 } });
+ }
  if (url.pathname.endsWith('/summary') && url.pathname.startsWith('/api/player/profiles/')) return json(profileSummary);
  if (url.pathname.endsWith('/birthday')) return json({});
  if (url.pathname.endsWith('/showcase')) return json({ awards: [], pinned_awards: [], history: [] });
@@ -100,7 +125,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   case '/api/player/bets': return json({ balance: 100, active: null, blocked: null, history: [], club_stats: { games: 0, black_wins: 0, red_wins: 0, black_win_rate: null, red_win_rate: null } });
   case '/api/player/payments': {
    // After a retry the same fixture is available; this exercises real error recovery.
-   if (paymentsUnavailable) { paymentsUnavailable = false; return json({ error: 'Нет связи' }, 503); }
+   if (paymentFailures-- > 0) return json({ error: 'Нет связи' }, 503);
    return json(paymentData);
   }
   case '/api/rating': return json({ players: NAMES.map((nickname,index) => ({ player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, place: index+1 })) });

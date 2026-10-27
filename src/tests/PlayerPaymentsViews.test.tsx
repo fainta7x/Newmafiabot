@@ -20,6 +20,34 @@ it('keeps the complete standalone payment screen by default', async () => {
   expect(screen.getByText('Прошлый вечер')).toBeTruthy();
 });
 
+it('replaces a failed initial load with retry instead of leaving an endless loading message', async () => {
+  fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Нет связи' }), { status: 503 }));
+  render(<PlayerPayments view="current" />);
+  await screen.findByText('Нет связи');
+  expect(screen.queryByText('Загрузка оплаты…')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+  await screen.findByText('Предстоящий вечер');
+  expect(screen.queryByTestId('player-payments-error')).toBeNull();
+});
+
+it('treats malformed successful data as a retryable error rather than crashing the page', async () => {
+  fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+  render(<PlayerPayments view="current" />);
+  expect(await screen.findByTestId('player-payments-error')).toBeTruthy();
+  expect(screen.queryByText('Загрузка оплаты…')).toBeNull();
+});
+
+it('notifies the wallet when a gift is applied, even if reloading the detail fails', async () => {
+  const changed = vi.fn();
+  render(<PlayerPayments view="current" onChanged={changed} />);
+  const action = await screen.findByRole('button', { name: /Использовать бесплатный вечер/ });
+  fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 })).mockRejectedValueOnce(new Error('Не удалось обновить'));
+  fireEvent.click(action);
+  await screen.findByText('Не удалось обновить');
+  expect(changed).toHaveBeenCalledOnce();
+  expect(screen.getByText('Предстоящий вечер')).toBeTruthy();
+});
+
 it('retains paid totals, credits and the free-evening action without repeating wallet debt/history', async () => {
   render(<PlayerPayments view="current" />);
   const action = await screen.findByRole('button', { name: /Использовать бесплатный вечер/ });

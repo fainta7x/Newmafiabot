@@ -10,7 +10,7 @@ describe('night shots in the profile', () => {
     render(<PlayerNightShots shots={{ killed: 4, games_as_red: 9, black_nights: 12, black_misses: 5, partners: [{ player_id: 'x', nickname: 'Иван', kills: 3, together: 5 }] }} />);
     const block = screen.getByTestId('profile-night-shots');
     expect(block.textContent).toContain('Убит ночью 4 из 9 игр за красных');
-    expect(block.textContent).toContain('Чаще всего убивают, когда в чёрных:');
+    expect(block.textContent).toContain('Убит ночью в играх, где за чёрных играли:');
     expect(block.textContent).toContain('Иван');
     expect(block.textContent).toContain('3 из 5 игр');
     expect(block.textContent).toContain('ночей без жертвы 5 из 12');

@@ -101,22 +101,8 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
           : 'Профиль пока не привязан'}</p></div>
       {link && <a className="text-xs text-amber-200 underline" href={link.profile_url} target="_blank" rel="noopener noreferrer">Открыть ↗</a>}
     </div>
+    <p className="mt-2 text-xs leading-5 text-white/60">Источник: GoMafia. Внешние результаты считаются отдельно от игр 2LA Noire.</p>
     {(linkError||careerError)&&<div role="alert" className="mt-3 rounded-xl border border-amber-200/20 p-3 text-xs text-amber-100"><p>{linkError||careerError}</p><button type="button" onClick={()=>{setLinkError('');setCareerError('');setRetry(v=>v+1);}} className="mt-2 min-h-11 px-3">Повторить загрузку GoMafia</button></div>}
-    {(isSelf || organizer) && !linkError && <div className="mt-3 space-y-2">
-      <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'ID этого игрока на GoMafia' : 'Твой ID на GoMafia'}</label>
-      <div className="flex min-h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/15 bg-white/[.07] focus-within:border-amber-200/60">
-        <span className="flex shrink-0 items-center bg-black/25 px-3 text-sm text-white/45">gomafia.pro/stats/</span>
-        <input id="gomafia-player-url" value={input} onChange={e => setInput(goMafiaIdFromInput(e.target.value))} inputMode="numeric" autoComplete="off"
-          placeholder="1202"
-          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-white outline-none" />
-      </div>
-      <p className="text-[11px] leading-4 text-white/40">Это число в конце адреса твоего профиля на gomafia.pro, например для gomafia.pro/stats/1202 пиши 1202. Целую ссылку тоже можно вставить, число возьмём сами.</p>
-      <button type="button" onClick={() => void save()} disabled={busy || !input.trim()}
-        className="min-h-11 rounded-xl bg-amber-200 px-4 text-sm font-semibold text-black disabled:opacity-50">
-        {busy ? 'Сохраняем…' : link ? 'Обновить привязку' : 'Привязать GoMafia'}
-      </button>
-      {message && <p role="status" className="text-xs text-white/70">{message}</p>}
-    </div>}
     {years.length > 0 && <label className="mt-4 block text-xs text-white/70">Период спортивной карьеры
       <select aria-label="Год спортивной карьеры" value={year} onChange={e => setYear(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-neutral-900 px-3 text-sm text-white">
         <option value="all">За всё время</option>
@@ -190,5 +176,20 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     </details>}
     {career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
     <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>
-  </section>;
+      {(isSelf || organizer) && !linkError && <details open={!snap} className="mt-3 space-y-2"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Привязка профиля GoMafia</summary>
+      <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'ID этого игрока на GoMafia' : 'Твой ID на GoMafia'}</label>
+      <div className="flex min-h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/15 bg-white/[.07] focus-within:border-amber-200/60">
+        <span className="flex shrink-0 items-center bg-black/25 px-3 text-sm text-white/45">gomafia.pro/stats/</span>
+        <input id="gomafia-player-url" value={input} onChange={e => setInput(goMafiaIdFromInput(e.target.value))} inputMode="numeric" autoComplete="off"
+          placeholder="1202"
+          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-white outline-none" />
+      </div>
+      <p className="text-[11px] leading-4 text-white/40">Это число в конце адреса твоего профиля на gomafia.pro, например для gomafia.pro/stats/1202 пиши 1202. Целую ссылку тоже можно вставить, число возьмём сами.</p>
+      <button type="button" onClick={() => void save()} disabled={busy || !input.trim()}
+        className="min-h-11 rounded-xl bg-amber-200 px-4 text-sm font-semibold text-black disabled:opacity-50">
+        {busy ? 'Сохраняем…' : link ? 'Обновить привязку' : 'Привязать GoMafia'}
+      </button>
+      {message && <p role="status" className="text-xs text-white/70">{message}</p>}
+    </details>}
+</section>;
 }

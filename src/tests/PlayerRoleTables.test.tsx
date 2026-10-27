@@ -44,5 +44,5 @@ it('shows the complete list extent without removing names or game denominators',
  render(<PlayerRoleTables period="all" format="all"/>);
  expect(await screen.findByText(/Показано 1 из 40 игроков/)).toBeDefined();
  expect(screen.getByTestId('role-row-p1').textContent).toContain('Очень длинное имя игрока');
- expect(screen.getByTestId('role-row-p1').textContent).toContain('3 игры');
+ expect(screen.getByTestId('role-row-p1').textContent).toContain('2 победы из 3 игр');
 });

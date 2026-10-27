@@ -15,6 +15,7 @@ const summaryFor = (id: string) => ({
   viewer: { is_self: id === 'preview-player', is_organizer: false },
   player: { id, nickname: id === 'preview-player' ? 'Чагин' : id === 'friend-1' ? 'Дэнди' : 'Недоступный игрок', full_name: id === 'preview-player' ? 'Евгений Чагин' : null, avatar_url: null, elo: 1542, rating_position: 4, rating_movement_30d: 18.4 },
   stats: { games: 48, wins: 29, win_rate: 60.4 },
+  ...(params.has("content")?{filters:{period_label:"Вся карьера",format_label:"Все форматы",seasons:[],formats:[]},season:{label:"Осень 2026",games:9,wins:6,win_rate:67,place:3,total_players:21},night_shots:{killed:4,games_as_red:20,black_nights:12,black_misses:2,partners:[{player_id:"mate",nickname:"Напарник",kills:2,together:6}]},reveals:{sheriffGames:12,sheriffReveals:5,sheriffCheckedDon:1,sheriffCheckedMafia:2,sheriffCheckedRed:3,blackGames:16,blackReveals:0,blackCovers:0,townChances:0},circle_exits:{games:48,votedOut:8,byAlive:{"3":2,"5":3,"8":3},critical:2}}:{}),
   game_stats: { games:12, votesAsRed:{count:8,total:12,percent:66.7}, nominationsAsRed:{count:3,total:5,percent:60},bestMove:{count:2,averageBlack:2},firstKilled:{count:2,total:20},sheriffChecks:{count:2,total:4,percent:50},donChecks:{count:1,total:3,percent:33.3},
     actions:{ votes:{red:{red:4,black:8,sheriff:1,unknown:0},black:{red:6,black:1,sheriff:2,unknown:0}},criticalVotes:{red:{red:1,black:3,sheriff:0,unknown:0},black:{red:2,black:0,sheriff:1,unknown:0}},checks:{sheriff:{red:2,black:2,sheriff:0,unknown:0},don:{red:2,black:1,sheriff:1,unknown:0}},excludedVotingDays:5,unknownCriticalDays:2}},
   recent_games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', won: true }],
@@ -84,7 +85,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
     const games = params.has('history') ? rows.filter(game => (!url.searchParams.get('role') || game.role === url.searchParams.get('role')) && (!url.searchParams.get('team') || game.team === url.searchParams.get('team')) && (!url.searchParams.get('result') || game.won === (url.searchParams.get('result') === 'win'))) : rows;
     return json({games,total:games.length,offset:0,limit:15,next_offset:null});
   }
-  if (url.pathname.endsWith('/roles')) return json({ roles: [{ role: 'sheriff', label: 'Шериф', games: 12, wins: 8, win_rate: 66.7 }, { role: 'citizen', label: 'Мирный', games: 20, wins: 12, win_rate: 60 }, { role: 'mafia', label: 'Мафия', games: 10, wins: 6, win_rate: 60 }, { role: 'don', label: 'Дон', games: 6, wins: 3, win_rate: 50 }] });
+  if (url.pathname.endsWith('/roles')) return json({ roles: [{ role: 'sheriff', label: 'Шериф', games: 12, wins: 8, win_rate: 66.7, recent_form: ['W','L','W','W','L'] }, { role: 'citizen', label: 'Мирный', games: 20, wins: 12, win_rate: 60 }, { role: 'mafia', label: 'Мафия', games: 10, wins: 6, win_rate: 60 }, { role: 'don', label: 'Дон', games: 6, wins: 3, win_rate: 50 }] });
   if (url.pathname.endsWith('/elo')) return json({ points: [{ id: 'club:g4', title: 'Пятничный вечер', game_number: 4, date: iso(2), role: 'sheriff', elo_before: 1527, elo_after: 1542, elo_delta: 15 }] });
   if (url.pathname.endsWith('/showcase')) return json(showcase);
   if (url.pathname.endsWith('/connections')) return json({ connections: [connection], most_successful_partnership: connection, invited_by: null, invited_players: [] });
@@ -104,6 +105,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname === '/api/player/friend-invite-suggestions') return json({ suggestions: [{ ...connection, evening: invitationEvening }] });
   if (url.pathname === '/api/player/evening-invitations/inbox') return json({ invitations: [] });
   if (url.pathname === '/api/player/profile-completeness') return json({ completeness: { percentage: 88, complete: false, missing_fields: ['phone'], important_missing_fields: [], next_missing_field: 'phone', fields: { phone: { label: 'Телефон', weight: 12, complete: false, state: 'missing' } }, updated_at: null, checked_at: null } });
+  if (url.pathname === '/api/player/insights' && params.has('content')) return json({performance:{recent10:{games:10,wins:6,win_rate:60},recent20:{games:20,wins:10,win_rate:50},career:{games:48,wins:29,win_rate:60.4},last30_days:{games:13,wins:8,win_rate:61.5}},insights:[]});
   if (url.pathname === '/api/player/insights') return json({ performance: { recent10: { games: 0 }, recent20: { games: 0 }, last30_days: { games: 0 }, roles: [] }, insights: [], opponents: { nemesis: [], comfortable: [] }, social_graph: { center: { nickname: 'Игрок' }, nodes: [] }, elo_history: { points: [] } });
   if (url.pathname === '/api/player/rating-periods') return json({ active_periods: [{ id: 'season-1', title: 'Осень 2026', starts_at: iso(60), ends_at: startsAt(60) }] });
   if (url.pathname === '/api/player/award-suggestions') return json({ success: true }, 201);

@@ -1,5 +1,7 @@
 import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
+import { gameResultText } from '../../lib/playerResultObservations.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 type RankingEntry = {
@@ -23,12 +25,20 @@ type RecordEntry = {
 type SeasonItem = {
   key: string;
   label: string;
+  start?: number;
+  end?: number;
   games: number;
   players: number;
   ranking: RankingEntry[];
   viewer: null | { games: number; wins: number; win_rate: number; place: number | null };
   champion: RankingEntry | null;
 };
+
+function SeasonContext({ season }: { season: SeasonItem }) {
+  const dates=typeof season.start==='number'&&typeof season.end==='number'&&Number.isFinite(season.start)&&Number.isFinite(season.end)&&season.end>season.start
+    ? `${formatMoscowDate(new Date(season.start).toISOString())} — ${formatMoscowDate(new Date(season.end-1).toISOString())}` : null;
+  return <p className="mt-2 text-xs leading-5 text-white/60">{dates&&<span className="block">{dates}</span>}Места по числу побед, затем по проценту побед и числу игр.</p>;
+}
 
 type ClubWorldData = {
   viewer_id: string;
@@ -60,7 +70,7 @@ function RankingRows({ rows, viewerId, limit = 10 }: { rows: RankingEntry[]; vie
           <Avatar src={item.avatar_url} name={item.nickname} size={32} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[11px] font-semibold">{item.nickname}{item.player_id === viewerId ? ' · вы' : ''}</div>
-            <div className="text-[11px] text-white/25">{item.wins}/{item.games} побед</div>
+            <div className="text-[11px] leading-5 text-white/60">{gameResultText(item)}</div>
           </div>
           <div className="text-[11px] font-black">{item.win_rate}%</div>
         </button>
@@ -140,6 +150,7 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
             {selectedSeason && (
               <div className="mt-3">
                 <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[11px] text-white/25">{countPlayers(selectedSeason.players)} · {countGames(selectedSeason.games)}</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[11px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[11px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
+                <SeasonContext season={selectedSeason}/>
                 <div className="mt-3"><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
               </div>
             )}
@@ -166,6 +177,7 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
           </div>
           {viewerRank && <div className="rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-black">#{viewerRank.place}</div><div className="text-[11px] text-white/25">моё место</div></div>}
         </div>
+        <SeasonContext season={data.season}/>
         {data.season.viewer && (
           <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
             <div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.season.viewer.games}</div><div className="text-[11px] text-white/25">игр</div></div>

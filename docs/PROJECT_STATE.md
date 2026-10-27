@@ -1,16 +1,30 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — use checking time for the next content analysis
+
+Owner: «параллельно можешь дальше делать анализ и улучшения». Explicitly continue the already authorized Community/Progress content scope during #1072 CI; canonical §4e records this preference. Complete the next connected review of indicator detail, shared-game context and goals before its application changes. Keep #1072 stable except for concrete CI findings. No unrelated queue work or production actions.
+
+Exact #1072 head9f51160 passed CI4569/CodeQL3876/Gitleaks3873; UI2257 preview job122467425398 found three old exact-text expectations for achievement progress (152 other cases pass); layout job still running at observation. Correct those expectations in the same PR, preserving the progress numbers and requiring the approved remaining counts. No product rollback or new feature in that correction.
+
+## 2026-10-27 — approved Community/Progress content plan implemented
+
+Owner: «Да, конечно. Делай». This approves the complete CT01–CT15 plan and satisfies the prior analysis-only gate. All three content stages implemented as one candidate: coherent Overview; factual observations with explicit windows/denominators; role outcomes/action contexts; metric source/sort/methodology; form/season/distance interpretation; Elo-versus-sporting-point labels; external/staff summaries; same-team/opponent context; goals before earned items; task-first learning. [Per-item implementation and evidence](reviews/2026-10-27-community-content/README.md). No new rating/formula/group/cutoff/privacy/award rule; detailed stats stay open.
+
+Review #1070 merged as37f414d after exactd70f464 passed CI4564/CodeQL3871/Gitleaks3868. Claude #1071 merged as41621af and is included without changing its protocol/Elo owners. Local focused checks, TypeScript/lint, release audit and dependency guard pass; four preview cases cover80 clean audits at all four required sizes, plus eight audited before/after captures. Exact-head CI/merge pending at authoring. No production write/message, Amvera synchronization or live runtime verification by this workstream. New aggregates/scores explicitly excluded by the plan remain excluded, not unfinished CT fixes.
+
+Next action — assistant: complete required exact-head CI and merge this approved candidate, respecting the bounded handoff in AGENTS §4a. No further owner decision is needed for this implementation.
+
 ## 2026-10-27 — game protocols in the style of the Elo result blanks (owner «Да, переделывай»)
 
 Owner: «в таком формате… всё расписывалось в протоколах игры… супер наглядно» (the result blanks of 23.10). The player's game page shows each seat as a blank card in seat order — seat, avatar, nickname, role, «ПОБЕДА», «Эло ±N · после», and every line of the breakdown («За действия в игре», each action, caps, discipline) — with the team strength under the title; points show on rating and tournament evenings only, as on the blank; the rest of a seat's details opens on tap. The organizer's protocol window of a confirmed club game has «Эло за игру» with the same cards. One server source for the picture and both screens (`seatEloLines` in `clubResultData.ts`), tests compare them word for word. Branch `claude/eager-newton-mov0k7`.
 
 ## 2026-10-27 — Community/Progress: content quality before more menu mechanics
 
-Owner redirects this work to «улучшением контента и его качества ... удобного отображения всех статистик и показателей и ориентирования»; latest «Продолжи этот чат» resumes that scope. [Complete content review](UX_COMMUNITY_PROGRESS_CONTENT_REVIEW_2026-10-27.md) records CT01–CT15, the content inventory, available data, examples and a three-stage proposal. **Analysis only; no new application edits. Await owner agreement on this complete content plan before implementing it.** Preserve rating names/meanings/grouping/formulas, privacy, earned awards and existing cutoffs; detailed statistics stay open. Canonical §4e now records the content-first correction.
+Owner redirects this work to «улучшением контента и его качества ... удобного отображения всех статистик и показателей и ориентирования»; latest «Продолжи этот чат» resumes that scope. [Complete content review](UX_COMMUNITY_PROGRESS_CONTENT_REVIEW_2026-10-27.md) records CT01–CT15, the content inventory, available data, examples and a three-stage proposal. **Historical analysis-only stage; the owner subsequently approved implementation as recorded above.** Preserve rating names/meanings/grouping/formulas, privacy, earned awards and existing cutoffs; detailed statistics stay open. Canonical §4e now records the content-first correction.
 
 Baseline source review and isolated content walkthrough:80cf75b. Reconciled with current main3d2d71d (#1069); its profile changes concern fitting/wrapping text, not the statistical semantics below. #1068 is merged as80cf75b after exact2599da3 passed CI4560/UI2253/CodeQL3867/Gitleaks3864; #1067 is merged as5420b3e. Their older pending-at-authoring paragraphs below are historical. No deployment or production-content verification is claimed by this review; preserve the separate Claude deployment record below. No Amvera synchronization or production writes.
 
-Next action: owner reviews the complete content plan. After agreement, implement the connected first block: coherent Overview, factual insights, useful role/action presentation, sample/source context and clear Elo-versus-sporting-point labels. No broad app test suite is needed for this docs-only analysis.
+The analysis proposed the following connected first block, subsequently approved: coherent Overview, factual insights, useful role/action presentation, sample/source context and clear Elo-versus-sporting-point labels. No broad app test suite is needed for this docs-only analysis.
 
 ## 2026-10-27 — step 2: the layout and text audit covers the whole app (PR from `claude/eager-newton-mov0k7`)
 
@@ -1046,6 +1060,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- Сообщество и Прогресс: понятные периоды и выборки, победы/игры и недавние исходы по ролям, фактическая аналитика, контекст связей, цели перед полученным и обучение по задачам (текущий кандидат; после слияния, без изменения рейтингов).
 
 - Протокол игры в кабинете — как картинка итогов в чате: у каждого игрока карточка с ролью, победой, «Эло +N · рейтинг после» и разбором, за что начислено; сверху сила команд и шанс красных. Баллы на карточке — только на рейтинговых и турнирных вечерах.
 

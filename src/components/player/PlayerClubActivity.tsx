@@ -124,6 +124,7 @@ export default function PlayerClubActivity() {
           </div>
           {data && <div className="shrink-0 text-[11px] text-white/50">{data.players_with_form} в форме</div>}
         </header>
+        <p className="mt-3 text-xs leading-5 text-white/60">Форма по последним 10 играм. Стрелка — изменение места относительно 7 дней назад.</p>
 
         {loading && <div className="mt-4 rounded-2xl bg-black/20 px-3 py-6 text-center text-[13px] text-white/50">Считаем активность…</div>}
         {error && <div role="alert" data-testid="player-form-error" className="mt-4 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] p-4">

@@ -1,6 +1,6 @@
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import { useEffect, useState, type ReactNode } from 'react';
-import { countGames, countWins } from '../../lib/russianPlural';
+import { countGames } from '../../lib/russianPlural';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 type Person = { player_id: string; nickname: string; avatar_url: string };
@@ -48,7 +48,7 @@ function Card({ testId, eyebrow, title, hint, children }: { testId: string; eyeb
   );
 }
 
-const wins = (item: Teammate) => `${countGames(item.games)} · ${countWins(item.wins)}`;
+const wins = (item: Teammate) => `В одной команде: ${countGames(item.games)} · победы ${item.wins} из ${item.games}`;
 
 /** «Моя команда»: the personal team-building view of the profile → Связи tab (owner request 2026-10-10). */
 export default function PersonalTeamwork() {
@@ -73,7 +73,7 @@ export default function PersonalTeamwork() {
 
   return (
     <div data-testid="personal-teamwork" className="space-y-3">
-      <Card testId="my-team" eyebrow="Команда" title="Моя команда" hint="Кто чаще всего в одной команде.">
+      <Card testId="my-team" eyebrow="Команда" title="Моя команда" hint="Совместные результаты одной командой, отдельно за красных и чёрных.">
         {hasTeam ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {([['red', '🔴 За красных'], ['black', '⚫ За чёрных']] as const).map(([team, label]) => (
@@ -105,7 +105,7 @@ export default function PersonalTeamwork() {
       ) : null}
 
       {data.opponents.hard.length || data.opponents.easy.length ? (
-        <Card testId="my-opponents" eyebrow="Соперники" title="С кем играть против" hint="Здесь те, с кем игра друг против друга была хотя бы три раза.">
+        <Card testId="my-opponents" eyebrow="Соперники" title="С кем играть против" hint="Победы твоей команды в играх друг против друга. В списке — соперники от трёх таких игр.">
           <div className="grid gap-3 sm:grid-cols-2">
             {([['hard', 'Сложные соперники', 'border border-rose-200/[0.07] bg-rose-300/[0.035]'], ['easy', 'Удобные соперники', 'border border-emerald-200/[0.07] bg-emerald-300/[0.035]']] as const).map(([key, label, tone]) => (
               <div key={key}>

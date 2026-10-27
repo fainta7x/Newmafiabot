@@ -17,6 +17,7 @@ export default function StaffWorkStats({ stats, variant = 'player', testId }: { 
   const crm = variant === 'crm';
   return (
     <section data-testid={testId} className={crm ? 'space-y-1.5 rounded-[17px] border border-border-soft bg-surface-1 p-2.5' : 'space-y-2 rounded-[22px] border border-white/10 bg-white/[0.03] p-3'}>
+      {!crm&&<h2 className="px-1 text-sm font-semibold text-white/80">Участие в работе клуба</h2>}
       {rows.map((row) => (
         <div key={row.icon} className={crm ? 'rounded-[12px] bg-surface-2 px-3 py-2' : 'rounded-2xl bg-white/[0.04] px-3 py-2'}>
           <div className={crm ? 'text-[14px] font-bold text-text-primary' : 'text-[14px] font-semibold text-white'}>{row.icon} {row.title}</div>

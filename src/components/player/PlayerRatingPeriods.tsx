@@ -280,6 +280,7 @@ export default function PlayerRatingPeriods({
           ) : (
             <>
               <Section title="Мой результат">
+                <p className="mb-3 text-xs leading-5 text-white/60">{formatRange(detail.period.starts_at,detail.period.ends_at)} · спортивные баллы периода{detail.distance_games>0?` · зачётная дистанция: ${countGames(detail.distance_games)}`:''}</p>
                 {selfStanding ? (
                   <>
                     <div className="grid grid-cols-4 gap-1.5 text-center">

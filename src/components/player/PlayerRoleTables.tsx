@@ -1,5 +1,5 @@
-import { countGames } from '../../lib/russianPlural';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
+import { gameResultText } from '../../lib/playerResultObservations.ts';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -46,7 +46,7 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
           className={`min-h-11 rounded-xl px-1 text-[12px] font-semibold ${role === item.key ? 'bg-white text-black' : 'bg-white/[0.07] text-white/70'}`}>{getPlayerGameRoleLabel(item.key) ?? item.label}</button>
       ))}
     </div>
-    {data && !loading && !error ? <p className="mt-3 px-1 text-xs leading-5 text-white/55">Показано {data.rows.length} из {data.total} игроков · {data.role.hint} · в играх выбранного периода: {data.games_in_scope}</p> : null}
+    {data && !loading && !error ? <div className="mt-3 space-y-1 px-1 text-xs leading-5 text-white/60"><p>Порядок по числу игр в роли, затем по проценту побед.</p><p>Показано {data.rows.length} из {data.total} игроков · {data.role.hint} · в играх выбранного периода: {data.games_in_scope}</p></div> : null}
     {error ? <div role="alert" className="mt-3 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
       : loading || !data ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю таблицу…</div>
       : data.rows.length ? <div className="mt-2 divide-y divide-white/[.07]">
@@ -56,10 +56,10 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-xs font-semibold text-white/70">{index + 1}</span>
             {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : null}
             <span className="min-w-0 flex-1 break-words text-sm font-medium">{row.nickname}</span>
-            <span className="shrink-0 text-right text-[12px] tabular-nums text-white/60">{countGames(row.games)} · <b className="text-white">{row.win_rate}%</b></span>
+            <span className="shrink-0 text-right text-[12px] tabular-nums text-white/60"><b className="text-white">{row.win_rate}%</b><span className="block">побед</span></span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5 pl-10">
-            <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] text-white/60">победы {row.wins}</span>
+            <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] text-white/60">{gameResultText(row)}</span>
             {data.role.columns.map((column) => <span key={column.key} className="rounded-full bg-amber-200/10 px-2 py-0.5 text-[11px] text-amber-100/80">{column.label}: <b>{row.figures[column.key] ?? 0}</b></span>)}
           </div>
         </button>)}

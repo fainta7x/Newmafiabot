@@ -71,6 +71,7 @@ export default function PlayerTournamentResults() {
           <div className="mb-3 px-1">
             <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/40">Турниры</div>
             <p className="mt-1 text-[13px] leading-5 text-white/50">Состав, игры, таблица и номинации любого турнира — даже если участия нет.</p>
+            <p className="mt-2 text-xs leading-5 text-white/60">В идущем турнире таблица промежуточная. Итоговые места — после завершения; доступность результатов определяет организатор.</p>
           </div>
           {error ? <div role="alert" className="space-y-3 rounded-2xl bg-white/[0.03] p-4 text-sm text-red-300"><p>{error}</p><button type="button" onClick={() => setRetryKey((key) => key + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
             : items === null ? <div role="status" className="rounded-2xl bg-white/[0.03] p-4 text-sm text-white/45">Загружаем турниры…</div>

@@ -21,6 +21,10 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 **Already implemented:** Player Cabinet ↔ Organizer CRM bidirectional mode switching. Do not propose “connect the two apps” as new work unless a concrete missing transition is identified.
 
+## Player settings recovery
+
+- Settings hub: `PlayerSettingsHub.tsx`; notification/invitation/privacy preferences retain their existing endpoint owners. `PlayerSettingsLoadState.tsx` supplies the common initial-load error/retry state. `PlayerProfilePrivacySettings.tsx` serializes visibility saves and accepts the server-confirmed visibility. Focused UI coverage: `src/tests/PlayerSettingsRecovery.test.tsx`.
+
 ## Events / calendar / registration
 
 - Player UI: `src/components/player/PlayerEventsCalendar.tsx`; non-Mafia event detail and sign-up: `PlayerCustomEventDetail.tsx`.

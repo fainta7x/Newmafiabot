@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — settings clarity and recovery (continued owner request)
+
+Owner: «Окей, тогда продолжай улучшение приложения». Continue existing single-table usability work with focused verification, following AGENTS.md §4e. Search/instruction PR #1062 merged as de4b03b after exact head9488769 passed CI4543, UI2245, CodeQL3850 and Gitleaks3847; #1061 is Claude's active Live Engine branch, whose UI2244 reports four truncated labels at360px and two at390px. Do not overwrite that branch or present its green non-browser checks as completion. This slice improves settings load recovery, confirmed save feedback and serial privacy edits; no privacy policy, notification routing or sending behavior changes. No production writes or Amvera synchronization.
+
+Implemented S01–S03: named settings sections with retry after initial load failure, invitation pending/confirmed feedback, and serial privacy saves with canonical confirmation/rollback. Nine focused rendered tests in three files pass; release safety audit, dependency guard, TypeScript and changed-file lint pass. Three setting retry flows and invitation pending/confirmed controls checked at360/390px; six before/after/state screenshots inspected. [Evidence](reviews/2026-10-27-settings-feedback/README.md). Exact-head CI/merge pending at candidate authoring.
+
 ## 2026-10-27 — proportionate verification and continued improvements
 
 Owner: «Ты можешь куда нить себе в инструкцию это вписать и продолжить работать?» Record the time/proportion agreement in canonical AGENTS.md §4e: one coherent candidate, focused checks, one mobile evidence pass, documentation at the end, no optional post-publication polish or CI polling. Continue existing-page logic/usability research within the approved single-table scope. PR #1060 is merged as d290066 after exact head f76d61e passed CI4540, UI2243, CodeQL3847 and Gitleaks3844. No Amvera synchronization or production data writes are authorized by this follow-up.
@@ -975,6 +981,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- В настройках приглашений, уведомлений и приватности можно повторить загрузку после ошибки. Приглашения показывают сохранение и подтверждение; приватность не принимает вторую правку, пока сохраняется первая. Из текущей поставки; не объявлено.
 
 - В рейтинге Elo можно найти игрока по нику, сохранив настоящее место; поиск в рейтинге и каталоге игроков очищается одним нажатием. Из текущей поставки; не объявлено.
 

@@ -1,5 +1,15 @@
 # Audit log
 
+## 2026-10-27 — settings recovery and confirmed edits (GPT)
+
+Baseline d290066. Owner authorizes continued usability improvements. Trace: settings hub → three preference components → existing GET/PUT/PATCH endpoints.
+
+- [fixed in code, S01] `PlayerInviteSettings.tsx`, `PlayerNotificationSettings.tsx`, `PlayerProfilePrivacySettings.tsx`: initial GET errors leave only an error sentence; no action retries the load. Acceptance: clear retry returns to loading and then the existing controls, without remount/page reload.
+- [fixed in code, S02] `PlayerInviteSettings.tsx`: switches are blocked during saving but neither pending nor confirmed success is shown. Acceptance: pending/saved/error states reflect the actual request; a failed save keeps the last confirmed preferences.
+- [fixed in code, S03] `PlayerProfilePrivacySettings.tsx`: switches remain enabled while a whole visibility object is being saved, allowing overlapping requests and stale rollback. Acceptance: one in-flight save, disable edits while pending, use canonical successful visibility and restore the last confirmed state on failure.
+
+Verification: nine focused rendered tests in three files pass, including initial-load recovery for each preference group, pending/confirmed/failed invitation saves, privacy serialization, server-confirmed state in the next write and failure rollback. Safety audit, dependency guard, TypeScript and changed-file lint pass. At360/390px, browser GET-failure retry in all three groups and invitation pending/confirmed behavior pass; six actual mobile section screenshots inspected. See `reviews/2026-10-27-settings-feedback/README.md`. No production data reads/writes. Exact-head CI pending at authoring. #1061 UI failure is a separate active Claude workstream; logs name truncation in timer label/name and vote focus name at360/390px.
+
 ## 2026-10-27 — finding players without losing ranking context (GPT)
 
 Owner asks to persist the shorter workflow and continue existing-page usability improvements. Baseline d290066; source path: community hub → Elo table / club directory → canonical profile overlay.

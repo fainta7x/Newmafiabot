@@ -7,6 +7,8 @@ const page = (body) => `<!doctype html><html><head><meta charset="utf-8"><style>
 
 const CASES = [
   ['clean page', page('<div style="padding:20px"><h1>Заголовок</h1><button>Кнопка</button></div>'), null],
+  ['multiline scroll text clipped before the footer is clean', page('<div style="width:180px;height:32px;overflow-y:auto"><p style="margin:0;line-height:20px">Первая строка и продолжение длинного текста, который занимает несколько строк внутри прокручиваемой области страницы.</p></div><div style="position:fixed;left:0;top:40px;background:rgba(255,255,0,.06)">Меню страницы</div>'), null],
+  ['multiline scroll text painted under the footer is an overlap', page('<div style="width:180px;height:32px;overflow-y:visible"><p style="margin:0;line-height:20px">Первая строка и продолжение длинного текста, который занимает несколько строк внутри прокручиваемой области страницы.</p></div><div style="position:fixed;left:0;top:40px;background:rgba(255,255,0,.06)">Меню страницы</div>'), /text on text/],
   ['label cut to «…», text far wider than its box', page('<div style="width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Очень длинное название этапа голосования</div>'), /truncated/],
   ['text on text', page('<div style="position:relative;height:40px"><span style="position:absolute;left:10px;top:10px">Первый текст</span><span style="position:absolute;left:30px;top:12px">Второй текст</span></div>'), /text on text/],
   ['button partly under a translucent badge', page('<button style="position:absolute;left:100px;top:10px;width:80px;height:30px">Авто</button><div style="position:fixed;left:40px;top:8px;width:90px;height:20px;pointer-events:none;background:rgba(255,200,0,.1);backdrop-filter:blur(8px)">ТЕСТ</div>'), /covered button «Авто»/],

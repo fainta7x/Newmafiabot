@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { readCommunityView, writeCommunityView, type CommunityRatingView } from '../../lib/communityViewMemory.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import PlayerClubActivity from './PlayerClubActivity.tsx';
@@ -55,13 +56,28 @@ export default function PlayerCommunityHub({
   onOpenClocktower?: () => void;
   onOpenProfileElo?: () => void;
 }) {
+  const remembered=useRef(readCommunityView(data.player.id));
   const [view, setView] = useState<CommunityView>(() => viewFor(section, target));
-  // Old links to /player/seasons (clubworld) still land on the season.
-  const [activity, setActivity] = useState<ActivityView>(() => activityFor(section, target));
-  useEffect(() => { setView(viewFor(section, target)); setActivity(activityFor(section, target)); }, [section, target]);
+  // Explicit addresses win; leaving a group must not clear its remembered subview.
+  const [activity, setActivity] = useState<ActivityView>(() => section==='clubworld'?activityFor(section,target):remembered.current.activity);
+  useEffect(() => {
+    const next=readCommunityView(data.player.id);
+    if(section==='rating'||section==='ratingperiods'||section==='ratingtournaments')next.rating={section,target:section==='rating'&&target==='metrics'?'metrics':null};
+    if(section==='clubworld')next.activity=activityFor(section,target);
+    remembered.current=next;writeCommunityView(data.player.id,next);
+    setView(viewFor(section,target));setActivity(next.activity);
+  }, [section,target,data.player.id]);
+  const chooseRating=(next:CommunityRatingView['section'],nextTarget:string|null=null)=>{
+    remembered.current.rating={section:next,target:next==='rating'&&nextTarget==='metrics'?'metrics':null};
+    writeCommunityView(data.player.id,remembered.current);onOpen(next,nextTarget);
+  };
+  const chooseActivity=(next:ActivityView)=>{
+    setActivity(next);remembered.current.activity=next;writeCommunityView(data.player.id,remembered.current);onOpen('clubworld',next);
+  };
   const choose = (next: CommunityView) => {
     setView(next);
-    onOpen(next === 'rating' ? 'rating' : next === 'activity' ? 'clubworld' : 'club', next === 'connections' || next === 'games' ? next : next === 'activity' ? activity : null);
+    if(next==='rating'){onOpen(remembered.current.rating.section,remembered.current.rating.target);return;}
+    onOpen(next==='activity'?'clubworld':'club',next==='connections'||next==='games'?next:next==='activity'?activity:null);
   };
 
   return (
@@ -84,7 +100,7 @@ export default function PlayerCommunityHub({
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}
         {view === 'activity' && (
           <>
-            <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={(next) => { setActivity(next); onOpen('clubworld', next); }} itemClassName="px-1 text-[12px]" />
+            <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={chooseActivity} itemClassName="px-1 text-[12px]" />
             {activity === 'form' && <PlayerClubActivity />}
             {activity === 'matches' && <PlayerStoriesPanel viewerId={data.player.id} />}
             {activity === 'season' && <PlayerSeasonsPanel part="season" />}
@@ -102,7 +118,7 @@ export default function PlayerCommunityHub({
       </div>
       {view === 'rating' ? (
         <div className="mt-2">
-          <PlayerRatingHub embedded data={data} section={section === 'club' || section === 'clubworld' ? 'rating' : section} target={target} onOpen={onOpen} onOpenProfileElo={onOpenProfileElo} />
+          <PlayerRatingHub embedded data={data} section={section === 'club' || section === 'clubworld' ? remembered.current.rating.section : section} target={section === 'club' || section === 'clubworld' ? remembered.current.rating.target : target} onOpen={chooseRating} onOpenProfileElo={onOpenProfileElo} />
         </div>
       ) : null}
 

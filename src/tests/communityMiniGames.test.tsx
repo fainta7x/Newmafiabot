@@ -39,3 +39,31 @@ describe('«Сообщество»: the «Мини-игры» tab', () => {
     expect(screen.getByTestId('directory')).toBeTruthy();
   });
 });
+
+it.each([['ratingperiods',null],['rating','metrics'],['ratingtournaments',null]] as const)('returns to the last rating route %s/%s after another group and remount', (section,target)=>{
+ const onOpen=vi.fn();
+ const first=render(<PlayerCommunityHub data={data} section={section} target={target} onOpen={onOpen}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Связи'}));
+ first.rerender(<PlayerCommunityHub data={data} section="club" target="connections" onOpen={onOpen}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Рейтинг'}));
+ expect(onOpen).toHaveBeenLastCalledWith(section,target);
+ first.unmount();
+ render(<PlayerCommunityHub data={data} section="club" target="connections" onOpen={onOpen}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Рейтинг'}));
+ expect(onOpen).toHaveBeenLastCalledWith(section,target);
+});
+
+it('keeps the activity choice, respects a direct link and separates viewers',()=>{
+ const onOpen=vi.fn();
+ const first=render(<PlayerCommunityHub data={data} section="clubworld" target="history" onOpen={onOpen}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Связи'}));
+ first.rerender(<PlayerCommunityHub data={data} section="club" target="connections" onOpen={onOpen}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Активность'}));
+ expect(onOpen).toHaveBeenLastCalledWith('clubworld','history');
+ first.rerender(<PlayerCommunityHub data={data} section="clubworld" target="matches" onOpen={onOpen}/>);
+ expect(screen.getByRole('button',{name:'Матчи'}).getAttribute('aria-current')).toBe('page');
+ first.unmount();
+ render(<PlayerCommunityHub data={{player:{id:'another'}} as any} section="club" target="connections" onOpen={onOpen}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Активность'}));
+ expect(onOpen).toHaveBeenLastCalledWith('clubworld','form');
+});

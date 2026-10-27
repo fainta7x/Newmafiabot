@@ -1,0 +1,22 @@
+[
+  {
+    "id": "rating",
+    "route": "http://127.0.0.1:4193/e2e/player-cabinet.html?route=%2Fplayer%2Frating"
+  },
+  {
+    "id": "activity",
+    "route": "http://127.0.0.1:4193/e2e/player-cabinet.html?route=%2Fplayer%2Fseasons%2Fform"
+  },
+  {
+    "id": "stale-search",
+    "value": "Прирост"
+  },
+  {
+    "id": "escape",
+    "open": "true"
+  },
+  {
+    "id": "public-labels",
+    "labels": "Мои награды\nМои цели"
+  }
+]

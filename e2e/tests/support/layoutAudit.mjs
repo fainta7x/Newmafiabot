@@ -146,7 +146,8 @@ export const auditScreen = () => {
         const stack = document.elementsFromPoint(o.cx, o.cy);
         const ia = stack.findIndex((e) => e === a.el || a.el.contains(e));
         const ib = stack.findIndex((e) => e === b.el || b.el.contains(e));
-        if (ia < 0 && ib < 0) continue;
+        // A text run outside an ancestor scroll clip is not painted at this intersection.
+        if (ia < 0 || ib < 0) continue;
         const top = ia < 0 ? ib : ib < 0 ? ia : Math.min(ia, ib);
         const low = ia < 0 || ib < 0 ? stack.length : Math.max(ia, ib);
         // Layers between the viewer and a text add up: three half-dark layers hide it as well as one dark one.

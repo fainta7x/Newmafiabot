@@ -40,3 +40,16 @@ it('shows a failed pin write without losing the loaded awards',async()=>{
   expect(screen.getByTestId('profile-awards-list')).toBeDefined();
   expect(fetcher.mock.calls.filter(([,init])=>init?.method==='PATCH')).toHaveLength(1);
 });
+
+it('labels the viewed player awards and keeps public achievement choices read-only',async()=>{
+ const fetcher=vi.fn(async()=>new Response(JSON.stringify({awards:[],pinned_awards:[],earned_achievements:[],timeline:[],achievements:{categories:[],earned:0,total:0},stats:{verified_awards:0}})));
+ vi.stubGlobal('fetch',fetcher);
+ render(<PremiumProfileShowcase playerId="other" isSelf={false} section="awards"/>);
+ await screen.findByRole('button',{name:'Награды игрока'});
+ expect(screen.queryByRole('button',{name:'Мои цели'})).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Достижения'}));
+ const path=screen.getByRole('combobox',{name:'Путь достижений'}) as HTMLSelectElement;
+ fireEvent.change(path,{target:{value:path.options[1].value}});
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ expect(screen.queryByText('Закрепить достижение')).toBeNull();
+});

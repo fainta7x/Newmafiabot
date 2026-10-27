@@ -2261,3 +2261,20 @@ Scope: every Live Engine screen from the roster to day 1 (roster, setup, role de
 - [fixed] CI (Chrome on Ubuntu, wider font than local Chromium with Inter) found what local runs passed: «Кто против [N] Ник?» nickname, «Свободная посадка» and «Шериф · #6: ЧЁРНЫЙ!» in the timer cut to «…» at 360/390 px. These one-line labels now fit their font to their box (`FitText`), and the phone audit runs a second time in a wide font so a label that only just fits fails locally too.
 - [fixed] With CI's fonts reproduced locally (`e2e/fonts-ci.conf`, no Inter) two labels still could not fit at 360 px in any size: the nickname in «Кто против [N] Ник?» (under 380 px the cell now shows «Кто против [N]?», the nickname stays on the candidate's lit seat card) and the night check result «Шериф · #6: ЧЁРНЫЙ!» (it may take two lines now; the night cell has room).
 
+
+## 2026-10-27 — app-wide layout and text audit, step 2 (owner: «не только Live Engine, а вообще везде»)
+
+Scope: 55 harness pages (`e2e/tests/app-text-audit.spec.mjs`: the whole player cabinet by route, player profile/rating/game detail, CRM pages, protocol window, trainers, poker, live reveal, broadcast scenes on computer screens only) at 360×640, 390×844, 1366×768, 1440×900 and the phones again in a wide font, with every visible tab, in CI's fonts (`e2e/fonts-ci.conf`). First: 28 of 29 harnesses loaded 2–4 of the app's 16 stylesheets — now all load `e2e/appStyles.ts` (guard `harnessStyles.test.ts`). Detector learned window chrome (page content scrolled under the bottom menu is not a defect, content it hides for good is) and svg rings.
+
+- [open] Player top bar (`PlayerQuickAccessBar.tsx`): «2LA Noire» cut to «…» at 360 px.
+- [open] Long nicknames run under the next cell: game detail rows (`game-player-*`: over «+1», «⌄», the next seat), CRM players list (over «Ходит постоянно», off screen on phones), live reveal seats (`live-reveal-seat-*`, off screen), profile header name.
+- [open] «Вечера»: «Правила и словарь · памятка перед первым вечером» runs off screen and under «›» (`player-guide-link`).
+- [open] Wallet: an evening title under «Частично».
+- [open] Home: «MVP вечера «Вечер клуба»» cut in the vote prompt card.
+- [open] Cabinet section tabs: «Приватность» (settings) and «Мини-игры» (community) past the right edge at 390 px; «Прошедшие» cut in a wide font.
+- [open] Protocol window header: «Основной стол · судья …» cut and under «·», «Сохранено».
+- [open] CRM evenings week: the date «29» over «окт».
+- [open] CRM evening roster header and «Закрытие» cut in a wide font at 360 px.
+- [open] Live game in the cabinet / tournament window (no game top bar): phase pill «Нулевой круг» cut on a computer.
+- [open] Tournament live game: «Результат движка будет сохранён…» cut in a wide font at 360 px.
+- [open] Broadcast reveal (OBS, computer): role «Мирный» cut, an avatar initial under a badge.

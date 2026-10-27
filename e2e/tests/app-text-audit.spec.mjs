@@ -58,8 +58,8 @@ export const PAGES = [
   ['protocol-window', '/e2e/protocol-window.html?draft=1'],
   ['protocol-window-tournament', '/e2e/protocol-window.html?kind=tournament&draft=1'],
   ['tournament-live-game', '/e2e/tournament-live-game.html?mode=audit'],
-  ['live-game-cabinet', '/e2e/live-game-cabinet.html'],
-  ['live-game-cabinet-night', '/e2e/live-game-cabinet.html?phase=night'],
+  ['live-game-cabinet', '/e2e/live-game-cabinet.html', 'phone'],
+  ['live-game-cabinet-night', '/e2e/live-game-cabinet.html?phase=night', 'phone'],
   ['live-game-overlay', '/e2e/live-game-overlay.html', 'broadcast'],
   ['live-reveal', '/e2e/live-reveal.html'],
   ['live-broadcast-reveal', '/e2e/live-broadcast-reveal.html', 'broadcast'],
@@ -70,11 +70,12 @@ const WIDE_FONT = ':root{--font-sans:"DejaVu Sans",sans-serif}html,body{font-fam
 
 for (const [width, height, wideFont] of VIEWPORTS) {
   test.describe(`app text audit at ${width}x${height}${wideFont ? ' in a wide font' : ''}`, () => {
-    // An OBS broadcast scene is shown in OBS on a computer screen, never on a phone.
-    for (const [name, url] of PAGES.filter(([, , kind]) => kind !== 'broadcast' || width > 1000)) {
+    // An OBS broadcast scene is drawn for OBS's 1920×1080 canvas, so it is checked once, at that size.
+    // A phone fixture (one centre panel in a phone column) is checked on phones only.
+    for (const [name, url, kind] of PAGES.filter(([, , kind]) => (kind !== 'broadcast' || (width === 1440 && !wideFont)) && (kind !== 'phone' || width < 700))) {
       test(name, async ({ page }, info) => {
         test.setTimeout(60_000);
-        await page.setViewportSize({ width, height });
+        await page.setViewportSize(kind === 'broadcast' ? { width: 1920, height: 1080 } : { width, height });
         if (wideFont) await page.addInitScript((css) => document.addEventListener('DOMContentLoaded', () => { const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style); }), WIDE_FONT);
         const report = [];
         const check = async (screen) => {

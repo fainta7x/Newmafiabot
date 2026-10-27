@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from './Button.tsx';
+import { FitText } from './FitText.tsx';
 
 export type SegmentedControlItem<T extends string> = {
   value: T;
@@ -62,7 +63,8 @@ export function SegmentedControl<T extends string>({
               itemClassName,
             )}
           >
-            <span className={scrollable ? "whitespace-nowrap" : "truncate"}>{item.label}</span>
+            {/* A label shrinks to fit its segment instead of «…» (owner, 2026-10-27). */}
+            {scrollable ? <span className="whitespace-nowrap">{item.label}</span> : <FitText minPx={9} className="block w-full">{item.label}</FitText>}
           </Button>
         );
       })}

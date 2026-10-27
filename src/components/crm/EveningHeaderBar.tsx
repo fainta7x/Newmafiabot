@@ -32,7 +32,7 @@ export const EveningHeaderBar: React.FC<{ eveningId: string; refreshKey?: number
       <button type="button" onClick={onBack} className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-[12px] pr-2 text-[12px] font-bold text-text-muted" aria-label="Назад к событиям">
         <ChevronLeft className="h-4 w-4" />События
       </button>
-      <p className="min-w-0 flex-1 truncate text-[12px] text-text-secondary">{[when, evening?.venue].filter(Boolean).join(' · ')}</p>
+      <p className="min-w-0 flex-1 break-words text-[12px] leading-4 text-text-secondary">{[when, evening?.venue].filter(Boolean).join(' · ')}</p>
       {status ? <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${status.className}`}>{status.label}</span> : null}
     </div>
   );

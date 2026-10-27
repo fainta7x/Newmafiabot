@@ -91,8 +91,12 @@ export const auditScreen = () => {
     if (!rects.length || !shown(el)) continue;
     // Text scrolled out of a scroll box, or outside the window, is not on screen.
     let hiddenByScroll = false;
+    let inScroller = false;
     // The part of the first line the reader can see: inside every box that clips it and inside the window.
     const seen = { left: Math.max(rects[0].left, 0), top: Math.max(rects[0].top, 0), right: Math.min(rects[0].right, vw), bottom: Math.min(rects[0].bottom, vh) };
+    // Every box that clips the text (all its lines), for comparing it with other text: a label cut to «…» still reports
+    // its whole width, but only the part inside these boxes is drawn.
+    const clip = { left: 0, top: 0, right: vw, bottom: vh };
     // The text's own element counts too: a label that hides its own overflow clips its text.
     for (let p = el; p; p = p.parentElement) {
       const style = getComputedStyle(p);
@@ -100,9 +104,15 @@ export const auditScreen = () => {
       if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
         seen.left = Math.max(seen.left, box.left); seen.top = Math.max(seen.top, box.top);
         seen.right = Math.min(seen.right, box.right); seen.bottom = Math.min(seen.bottom, box.bottom);
+        clip.left = Math.max(clip.left, box.left); clip.top = Math.max(clip.top, box.top);
+        clip.right = Math.min(clip.right, box.right); clip.bottom = Math.min(clip.bottom, box.bottom);
       }
       const out = rects.every((r) => r.bottom <= box.top + 1 || r.top >= box.bottom - 1 || r.right <= box.left + 1 || r.left >= box.right - 1);
-      if (['auto', 'scroll'].includes(style.overflowY) || ['auto', 'scroll'].includes(style.overflowX)) { if (out) { hiddenByScroll = true; break; } }
+      if (['auto', 'scroll'].includes(style.overflowY) || ['auto', 'scroll'].includes(style.overflowX)) {
+        if (out) { hiddenByScroll = true; break; }
+        // Inside a strip that scrolls, a half-shown item is scrolling, not a cut: the boxes around the strip do not count.
+        if (p.scrollWidth > p.clientWidth + 1 || p.scrollHeight > p.clientHeight + 1) { inScroller = true; break; }
+      }
       else if (['hidden', 'clip'].includes(style.overflowY) || ['hidden', 'clip'].includes(style.overflowX)) {
         if (out) { hiddenByScroll = true; break; }
         // Text that sticks out of a box which hides overflow is cut.
@@ -136,9 +146,12 @@ export const auditScreen = () => {
     if (underWindow || offText === 3) { pendingCuts.length = 0; continue; }
     if (coverOver) { issues.add(`text «${text.slice(0, 30)}» covered by ${name(coverOver)}`); pendingCuts.length = 0; continue; }
     for (const cut of pendingCuts) issues.add(cut);
-    if (rects.some((r) => r.right > vw + 1 || r.left < -1)) issues.add(`off screen «${text.slice(0, 30)}»`);
+    if (!inScroller && rects.some((r) => r.right > vw + 1 || r.left < -1)) issues.add(`off screen «${text.slice(0, 30)}»`);
     pendingCuts.length = 0;
-    items.push({ el, text, rects });
+    const drawn = rects
+      .map((r) => ({ left: Math.max(r.left, clip.left), top: Math.max(r.top, clip.top), right: Math.min(r.right, clip.right), bottom: Math.min(r.bottom, clip.bottom) }))
+      .filter((r) => r.right - r.left > 1 && r.bottom - r.top > 1);
+    items.push({ el, text, rects: drawn });
   }
 
   // «…»: a label shortened by text-overflow or a line clamp.

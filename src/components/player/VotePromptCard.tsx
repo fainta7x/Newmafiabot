@@ -28,7 +28,7 @@ export default function VotePromptCard() {
       <div className="flex items-center gap-3">
         <span className="text-xl" aria-hidden="true">🏆</span>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[14px] font-bold">MVP вечера «{pending.title}»</h2>
+          <h2 className="text-[14px] font-bold leading-snug">MVP вечера «{pending.title}»</h2>
           <p className="mt-0.5 text-[12px] leading-4 text-white/60">
             {pending.voted
               ? `Ты проголосовал за ${pending.my_vote_nickname || 'игрока'} · до ${untilText(pending.deadline)}`

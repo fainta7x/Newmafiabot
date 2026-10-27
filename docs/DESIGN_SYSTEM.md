@@ -66,6 +66,10 @@ Typical hierarchy:
 
 Avoid decorative fonts, blanket bold, excessive uppercase and arbitrary negative letter-spacing.
 
+### Long nicknames and names (owner, 2026-10-27)
+
+A nickname, a player's name or a short title in a compact row, a card or a window header is never cut to «…»: its font shrinks until it fits one line (to a readable minimum), and below that it takes a second line. Use `FitText` (`src/components/ui/FitText.tsx`). Free text (descriptions, news, notes) simply wraps.
+
 ## Depth
 
 The product is restrained, not flat and not faux-3D.

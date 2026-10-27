@@ -6,6 +6,7 @@ import EveningPaymentsPanel from './EveningPaymentsPanel.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 import EveningCloseoutPanel from './EveningCloseoutPanel.tsx';
+import { FitText } from '../ui/FitText.tsx';
 
 interface EveningManagementViewProps {
   eveningId: string;
@@ -82,7 +83,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
               aria-current={pane === item.id ? 'page' : undefined}
               className={`flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[14px] font-semibold ${pane === item.id ? 'bg-white text-black' : 'text-text-secondary'}`}
             >
-              <span className="truncate">{item.label}</span>
+              <FitText minPx={9}>{item.label}</FitText>
             </button>
           ))}
           <button
@@ -106,7 +107,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
                 aria-current={pane === item.id ? 'page' : undefined}
                 className={`flex min-h-11 items-center justify-center gap-1 rounded-[9px] px-1 text-[13px] font-semibold ${pane === item.id ? 'bg-surface-2 text-text-primary' : 'text-text-secondary'}`}
               >
-                {item.icon}<span className="truncate">{item.label}</span>
+                {item.icon}<FitText minPx={9}>{item.label}</FitText>
               </button>
             ))}
           </div>

@@ -2,6 +2,7 @@ import { GAME_ROLES } from '../../shared/gameRoles.ts';
 import { useState } from 'react';
 import { REVEAL_COLOR_LABELS, type LiveReveal, type RevealColor } from '../../lib/liveReveals.ts';
 import type { ActivePlayerState } from './types.js';
+import { FitText } from '../ui/FitText.tsx';
 
 interface RevealPanelProps {
   players: ActivePlayerState[];
@@ -111,9 +112,9 @@ export default function RevealPanel({ players, reveals, rolesVisible, onAddRevea
                     data-testid={`live-reveal-seat-${player.slot_num}`}
                     aria-pressed={revealed}
                     onClick={() => (revealed ? onRemoveReveal(player.slot_num) : onAddReveal(player.slot_num))}
-                    className={`min-h-12 truncate rounded-2xl border px-3 text-left text-sm ${revealed ? 'border-amber-200/30 bg-amber-200/12 text-amber-50' : 'border-white/10 bg-black/20 text-white/70'} ${player.alive ? '' : 'opacity-55'}`}
+                    className={`min-h-12 break-words rounded-2xl border px-3 py-1.5 text-left text-sm leading-snug ${revealed ? 'border-amber-200/30 bg-amber-200/12 text-amber-50' : 'border-white/10 bg-black/20 text-white/70'} ${player.alive ? '' : 'opacity-55'}`}
                   >
-                    {seatName(player, player.slot_num)}{revealed ? ' · вскрылся' : ''}
+                    <FitText minPx={11} className="block w-full">{seatName(player, player.slot_num)}{revealed ? ' · вскрылся' : ''}</FitText>
                   </button>
                 );
               })}

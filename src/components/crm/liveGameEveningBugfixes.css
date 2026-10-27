@@ -1032,3 +1032,12 @@ html body .evening-live-engine-shell .live-judge-hud .live-judge-timer__name--st
   text-overflow: clip !important;
   line-height: 1.15 !important;
 }
+
+/* The setup screen (roster, settings, seating) is a long form, not the fixed game board: liveGameTelegram.css clips
+   `.evening-live-engine-shell > div` to the window for the board, which on a 360×640 phone left the tournament game's
+   seating and start button under the screen edge with nothing to scroll (2026-10-27). The form keeps its height and the
+   shell scrolls. */
+html body .evening-live-engine-shell > div[data-phase="setup"] {
+  height: auto !important;
+  overflow: visible !important;
+}

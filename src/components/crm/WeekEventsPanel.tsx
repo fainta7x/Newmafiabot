@@ -90,10 +90,10 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
             <button key={item.key} type="button" data-testid="crm-week-event" onClick={() => (item.tournament ? onOpenTournament(item.id) : onOpenEvening(item.id))}
               className={`flex min-h-24 w-full items-center gap-3.5 rounded-[14px] bg-surface-2 px-3.5 py-3 text-left active:opacity-90 ${kindRow(item.kind)}`}>
               <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-[12px] border text-center leading-none ${kindTone(item.kind)}`}>
-                <span><span className="block text-[11px] font-bold uppercase tracking-wide opacity-80">{parts.weekday}</span><span className="mt-1 block text-[24px] font-black">{parts.day}</span><span className="block text-[11px] opacity-80">{parts.month}</span></span>
+                <span><span className="block text-[11px] font-bold uppercase tracking-wide opacity-80">{parts.weekday}</span><span className="mt-1 block text-[24px] font-black leading-[1.1]">{parts.day}</span><span className="mt-0.5 block text-[11px] opacity-80">{parts.month}</span></span>
               </span>
               <span className="min-w-0 flex-1">
-                <strong className="block truncate text-[15px] text-text-primary">{item.title}</strong>
+                <strong className="block break-words text-[15px] leading-snug text-text-primary">{item.title}</strong>
                 <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-text-secondary">
                   <span className="font-semibold text-text-primary">{parts.time}</span>
                   <span className={`rounded-md border px-1.5 py-0.5 text-[12px] font-semibold ${kindTone(item.kind)}`}>{item.label}</span>

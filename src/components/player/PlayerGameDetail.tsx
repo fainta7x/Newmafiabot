@@ -14,6 +14,7 @@ import { VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from './PlayerGameRevealsScene.tsx';
 import PlayerGameActionJournal from './PlayerGameActionJournal.tsx';
 import { FitText } from '../ui/FitText.tsx';
+import { EloBreakdownLines, EloChange, EloTableLine } from '../game/EloBreakdown.tsx';
 
 export type PlayerGameEloChange = {
   id: string;
@@ -57,6 +58,8 @@ export type PlayerGameDetailData = {
     judge_name: string | null;
     table_name: string | null;
     elo_affected: boolean;
+    /** Team strength before the game, as on the result blank (red/black average Elo, level words, red win chance). */
+    elo_table?: { redAvg: number; blackAvg: number; level: string; redChancePercent: number } | null;
   };
   protocol: {
     events?: LiveGameEvent[];
@@ -112,6 +115,9 @@ export type PlayerGameDetailData = {
     elo_before: number | null;
     elo_after: number | null;
     elo_delta: number | null;
+    /** The Elo breakdown of the result blank (owner, 2026-10-27): every source in plain words. */
+    elo_contribution?: number | null;
+    elo_lines?: string[];
   }>;
 };
 
@@ -186,9 +192,9 @@ function RoleChip({ role }: { role: DetailPlayer['role'] }) {
   return <GameRoleBadge role={role} />;
 }
 
-function Avatar({ player }: { player: DetailPlayer }) {
+function Avatar({ player, large = false }: { player: DetailPlayer; large?: boolean }) {
   const [failed, setFailed] = useState(false);
-  return <span aria-hidden="true" className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-white/15 to-white/[.035] text-sm font-semibold text-white/70 ring-1 ring-white/10">
+  return <span aria-hidden="true" className={`relative grid shrink-0 place-items-center overflow-hidden bg-gradient-to-br from-white/15 to-white/[.035] font-semibold text-white/70 ring-1 ${large ? 'h-10 w-10 rounded-full text-base ring-rose-300/30' : 'h-7 w-7 rounded-lg text-sm ring-white/10'}`}>
     {player.nickname.trim().slice(0, 1).toUpperCase() || '?'}
     {player.avatar_url && !failed && <img src={player.avatar_url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
   </span>;
@@ -236,12 +242,8 @@ export default function PlayerGameDetail({
   const knownVotes = myVotes ? myVotes.red + myVotes.black : 0;
   const correctVotes = myVotes ? (me?.team === 'red' ? myVotes.black : myVotes.red) : 0;
 
-  const sides = detail ? [
-    { team: 'red' as const, title: 'Красные', players: detail.players.filter((player) => player.team === 'red') },
-    { team: 'black' as const, title: 'Чёрные', players: detail.players.filter((player) => player.team === 'black') },
-  ].filter((side) => side.players.length) : [];
-  const unassigned = detail ? detail.players.filter((player) => player.team !== 'red' && player.team !== 'black') : [];
-
+  // Points count on rating and tournament evenings only, as on the result blank.
+  const scored = Boolean(detail && (detail.game.source === 'tournament' || ['RATING', 'TOURNAMENT'].includes(normalizeEveningFormat(detail.game.format))));
   const renderPlayer = (item: DetailPlayer) => {
     const isSelf = Boolean(item.player_id) && item.player_id === selfId;
     const exit = exitLabel(item.exit_type);
@@ -254,21 +256,37 @@ export default function PlayerGameDetail({
       item.score.disciplinary_penalty_points ? { label: 'дисциплина', value: -item.score.disciplinary_penalty_points } : null,
     ].filter(Boolean) as Array<{ label: string; value: number }>;
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
+    // One seat as on the result blank (owner, 2026-10-27: «в таком формате… всё расписывалось в протоколах игры»): who and what
+    // role, the result, Elo and every line of its breakdown; the rest of the details open below.
+    const events = [
+      item.first_killed ? 'Первый убитый' : null,
+      item.best_move ? `Лучший ход: ${item.best_move_seats.length ? item.best_move_seats.join(', ') : 'без номеров'}` : null,
+      item.regular_fouls ? `Фолы: ${item.regular_fouls}` : null,
+      item.minor_technical_fouls + item.major_technical_fouls ? `Техфолы: ${item.minor_technical_fouls + item.major_technical_fouls}` : null,
+      item.exit_type === 'removed' ? 'Удалён' : null,
+    ].filter(Boolean) as string[];
+    const lines = detail?.game.elo_affected ? item.elo_lines || [] : [];
+    const roleLabel = getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL;
     return (
-      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full border-b border-white/[0.07] ${isSelf ? 'bg-sky-200/[0.07]' : ''}`}>
-        <summary aria-label={`Место ${item.seat_number}: ${item.nickname}, ${(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}, ${signedScore(item.score.total_points)} балла`} className="grid min-h-11 min-w-0 cursor-pointer list-none grid-cols-[14px_minmax(0,1fr)_34px] items-center gap-1 px-1 py-1 leading-4">
-          <span className="text-center text-xs font-semibold text-white/45">{item.seat_number}</span>
-          <div className="grid min-w-0 content-center gap-0.5 text-xs leading-4">
-            <div className="flex min-h-4 min-w-0 items-center gap-1"><FitText minPx={9} className="min-w-0 flex-1 text-xs font-semibold leading-4 text-white">{item.nickname}</FitText><span aria-hidden="true" className="text-white/35 transition group-open:rotate-180">⌄</span></div>
-            <div className="flex h-4 items-center"><RoleChip role={item.role} /></div>
+      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.06]' : 'border-white/[0.08] bg-white/[0.03]'}`}>
+        <summary aria-label={`Место ${item.seat_number}: ${item.nickname}, ${roleLabel}${item.won ? ', победа' : ''}${detail?.game.elo_affected && item.elo_delta != null ? `, ${formatEloDelta(item.elo_delta)}` : ''}`} className="block min-h-11 min-w-0 cursor-pointer list-none px-2.5 py-2.5">
+          <div className="grid min-w-0 grid-cols-[18px_40px_minmax(0,1fr)_auto] items-start gap-2">
+            <span className="pt-2.5 text-center text-xs font-semibold tabular-nums text-white/40">{String(item.seat_number).padStart(2, '0')}</span>
+            <Avatar player={item} large />
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-1.5"><FitText minPx={11} className="min-w-0 text-sm font-semibold leading-5 text-white">{item.nickname}</FitText>{isSelf ? <span className="shrink-0 text-[11px] text-sky-100/70">вы</span> : null}</div>
+              <div className="mt-0.5 flex min-h-4 items-center"><RoleChip role={item.role} /></div>
+              {events.length ? <p className="mt-1 break-words text-[11px] leading-4 text-white/55">{events.join(' · ')}</p> : null}
+            </div>
+            <div className="min-w-0 text-right">
+              {scored ? <div className={`text-sm font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div> : item.won ? <div className="text-[11px] font-semibold tracking-[0.12em] text-emerald-300">ПОБЕДА</div> : null}
+              {detail?.game.elo_affected && item.elo_delta != null ? <div className="mt-0.5"><EloChange delta={item.elo_delta} after={item.elo_after} /></div> : null}
+            </div>
           </div>
-          <div className="min-w-0 text-right">
-            <div className={`text-xs font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
-            {detail?.game.elo_affected && item.elo_delta != null ? <div aria-label={`Изменение Elo: ${formatEloDelta(item.elo_delta)}`} className={`whitespace-nowrap text-[10px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta).replace(/\s*Elo$/, '')}</div> : <div className="text-[10px] text-white/35">баллы</div>}
-          </div>
+          <EloBreakdownLines lines={lines} contribution={item.elo_contribution} testId={`game-player-${item.seat_number}-elo`} />
+          <span className="mt-1.5 flex items-center justify-end gap-1 text-[11px] text-white/40">Подробнее<span aria-hidden="true" className="transition group-open:rotate-180">⌄</span></span>
         </summary>
-        <div className="space-y-2 border-t border-white/[0.06] px-2 pb-3 pt-2.5 text-xs text-white/65">
-          <div className="flex min-w-0 items-center gap-2"><Avatar player={item} /><div className="min-w-0 break-words"><p className="font-semibold text-white">{item.nickname}{isSelf ? <span className="ml-1.5 text-sky-100/70">вы</span> : null}</p><p>Место №{item.seat_number} · {(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</p></div></div>
+        <div className="space-y-2 border-t border-white/[0.06] px-2.5 pb-3 pt-2.5 text-xs text-white/65">
           {(exit || marks.length > 0) && <p className="break-words">{[exit, ...marks].filter(Boolean).join(' · ')}</p>}
           <div>
             <div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Из чего баллы</div>
@@ -344,30 +362,12 @@ export default function PlayerGameDetail({
             {me && <div data-testid="game-mine" className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/10 pt-2">
               <span className="text-[11px] text-white/45">Моя игра</span><RoleChip role={me.role}/>
               <span className={`text-xs font-semibold ${me.won ? 'text-emerald-200' : 'text-rose-200'}`}>{me.won ? 'Победа' : 'Поражение'}</span>
-              <span className="ml-auto text-xs font-semibold tabular-nums">{signedScore(me.score.total_points)}</span>
-              {detail.game.elo_affected && me.elo_delta != null && <span className={`text-[11px] tabular-nums ${pointsTone(me.elo_delta)}`}>{formatEloDelta(me.elo_delta)}</span>}
+              {scored && <span className="ml-auto text-xs font-semibold tabular-nums">{signedScore(me.score.total_points)}</span>}
+              {detail.game.elo_affected && me.elo_delta != null && <span className={`${scored ? '' : 'ml-auto '}text-[11px] tabular-nums ${pointsTone(me.elo_delta)}`}>{formatEloDelta(me.elo_delta)}</span>}
             </div>}
 
           </section>
 
-
-          <section aria-label="Составы и баллы" className="min-w-0 px-2 py-2 sm:px-3">
-            <h2 className="mb-2 text-xs font-semibold text-white/65">Составы и баллы</h2>
-            <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4">
-              {sides.map((side) => (
-                <div key={side.team} className="min-w-0">
-                  <div className="mb-1 flex min-h-6 flex-wrap items-center gap-1">
-                    <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
-                    <h3 className="text-xs font-semibold text-white/80">{side.title}</h3>
-                    {detail.game.winner_team === side.team ? <span className="text-xs text-emerald-200"><span aria-hidden="true">✓</span><span className="sr-only">победили</span></span> : null}
-                    <span className="ml-auto text-right text-[10px] text-white/45">баллы{detail.game.elo_affected ? '/Elo' : ''}</span>
-                  </div>
-                  <div className="min-w-0">{side.players.map(renderPlayer)}</div>
-                </div>
-              ))}
-              {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}
-            </div>
-          </section>
 
           <div className="border-t border-white/10 px-3">{me && <details data-testid="game-personal-stats" className="mt-1"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs text-white/70">Как я сыграл эту игру<span aria-hidden="true">⌄</span></summary><dl className="grid grid-cols-2 gap-3 border-t border-white/10 py-2 text-xs">
               <div><dt className="text-white/45">Точность голосования</dt><dd className="mt-1 text-lg font-semibold">{knownVotes ? `${Math.round(correctVotes / knownVotes * 100)}%` : '—'}</dd><p className="mt-1 text-[11px] text-white/50">{knownVotes ? `${correctVotes} из ${knownVotes} в ${me.team === 'red' ? 'чёрных' : 'красных'}` : 'Нет подходящих записанных голосов'}</p></div>
@@ -385,6 +385,13 @@ export default function PlayerGameDetail({
               </div>)}
             </div>
           </details>}
+          <section aria-label="Итоги игры по игрокам" className="min-w-0 border-t border-white/10 px-2 py-2 sm:px-3">
+            <h2 className="mb-1 text-xs font-semibold text-white/65">Итоги игры по игрокам</h2>
+            {detail.game.elo_table ? <div className="mb-2"><EloTableLine table={detail.game.elo_table} testId="game-elo-table" /></div> : null}
+            <div className="grid min-w-0 gap-2 lg:grid-cols-2">{[...detail.players].sort((a, b) => a.seat_number - b.seat_number).map(renderPlayer)}</div>
+            <p className="mt-2 text-[10px] leading-4 text-white/35">{detail.game.elo_affected ? 'Эло — изменение рейтинга за игру и рейтинг после неё. ' : 'Эта игра рейтинг Эло не меняет. '}Нажмите на игрока, чтобы открыть подробности.</p>
+          </section>
+
           <details data-testid="game-full-protocol" className="group border-t border-white/10 px-3"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
           {detail.protocol.reveals?.length ? (
             <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">

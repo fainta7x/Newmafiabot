@@ -28,6 +28,21 @@ window.fetch = (async (input: any, init?: any) => {
     }
     return new Response(JSON.stringify({ game: { id: 'g', game_number: 21, judge_name: 'Судья' }, protocol: game.club_protocol.protocol, player_results: game.club_protocol.player_results }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
+  // «Эло за игру» of a confirmed game: real lines of a club blank (23.10, game №2).
+  if (url.includes('/elo-blank')) {
+    const LINES = [
+      ['За действия в игре: +16 Эло', 'Попил, ушёл красный №9: −2', 'Голосовал в чёрных №10, №1: +16', 'Верно подряд: голос в чёрного №10 → голос в чёрного №1: +2'],
+      ['За действия в игре: 0 Эло', 'Записан чёрным у №7: −4', 'Не записан у №5: +4'],
+      ['Лучший ход: +4 Эло', 'За действия в игре: +26 Эло', 'В завещании угадал №1, №4: +16', 'В завещании снова назвал №10 — уже засчитан', 'Верно подряд: голос в чёрного №10 → завещание: +4'],
+    ];
+    const winner = game.club_protocol.protocol.winner_team;
+    const seats = game.club_protocol.player_results.map((row: any, index: number) => {
+      const team = row.role === 'mafia' || row.role === 'don' ? 'black' : 'red';
+      const won = team === winner;
+      return { seat: row.seat_number, nickname: row.display_name || row.nickname || `Игрок ${row.seat_number}`, role: row.role, won, eloDelta: won ? 51 : -35, eloAfter: 1000 + index * 17, eloContribution: index % 3 === 2 ? 26 : 16, lines: LINES[index % 3] };
+    });
+    return new Response(JSON.stringify({ table: { redAvg: 1057, blackAvg: 1067, level: 'команды одного уровня', redChancePercent: 30 }, seats }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
   if (url.includes('/api/tournaments/t')) return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } });
   if (url.includes('/api/players')) return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
   return realFetch(input, init);

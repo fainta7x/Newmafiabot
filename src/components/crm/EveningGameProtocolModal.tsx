@@ -3,6 +3,7 @@ import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { describeLegacyRepairs, repairLegacyClubProtocol } from '../../lib/legacyClubProtocol.ts';
 import { ProtocolWorkspace } from './gameProtocol/ProtocolWorkspace';
+import { EloBlankSection } from './gameProtocol/EloBlankSection';
 import { useProtocolEditing } from './gameProtocol/useProtocolEditing';
 import { useProtocolAutosave } from './gameProtocol/useProtocolAutosave';
 import type { ProtocolState } from './gameProtocol/protocolReview';
@@ -113,6 +114,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       onReopen={reopenDraft}
       onClose={() => void close()}
       resetKey={`${game.id}:${isOpen}`}
+      resultExtra={protocol.status === 'completed' ? <EloBlankSection gameId={game.id} version={String(protocol.updated_at || protocol.completed_at || '')} /> : null}
     />
   );
 };

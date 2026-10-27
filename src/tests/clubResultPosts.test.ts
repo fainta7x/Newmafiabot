@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { loadEveningSummary, loadGameBlank, loadSeasonTable, seatEffectiveness } from '../server/services/clubResultData.ts';
+import { loadEveningSummary, loadGameBlank, loadGameEloBlank, loadSeasonTable, seatEffectiveness, seatEloLines } from '../server/services/clubResultData.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from '../server/services/clubResultImages.ts';
 import { ensureClubResultPostSchema, queueEveningPlayerCards, runClubResultPosts } from '../server/services/clubResultPostService.ts';
 
@@ -85,6 +85,19 @@ describe('club game blank', () => {
     expect(blank!.seats[9].eloDelta).toBeLessThan(0);
     expect(svg).toContain('Эло +');
     expect(renderPng(svg).subarray(1, 4).toString()).toBe('PNG');
+  });
+
+  it('the protocol window shows the blank\'s Elo lines word for word (owner, 2026-10-27)', async () => {
+    const { db, addGame } = await setup('CASUAL');
+    const id = await addGame(1, 'red');
+    const [blank, elo] = await Promise.all([loadGameBlank(db, id), loadGameEloBlank(db, id)]);
+    expect(elo!.table).toEqual(blank!.table);
+    expect(elo!.seats.map((seat) => seat.lines)).toEqual(blank!.seats.map((seat) => seatEloLines(seat)));
+    expect(elo!.seats.map((seat) => [seat.seat, seat.eloDelta, seat.eloAfter])).toEqual(blank!.seats.map((seat) => [seat.seat, seat.eloDelta, seat.eloAfter]));
+    // The first killed named the three blacks in the best move: the line is in both.
+    expect(elo!.seats[1].lines.some((line) => line.startsWith('Лучший ход:'))).toBe(true);
+    // A draft has no Elo yet.
+    expect(await loadGameEloBlank(db, await addGame(2, 'red', {}, 'draft'))).toBeNull();
   });
 
   it('shows points on a rating evening', async () => {

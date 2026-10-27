@@ -11,6 +11,18 @@ import './appStyles.ts';
 const score = (total: number, extra: Record<string, number> = {}) => ({ win_point: 0, judge_bonus: 0, protocol_bonus: 0, ci_points: 0, best_move_points: 0, disciplinary_penalty_points: 0, total_points: total, ...extra });
 const names = ['Богданчик', 'Алоэ', 'Дина', 'Знак с очень длинным ником игрока', 'Дон Эль', 'Тень', 'Маша', 'Игорь', 'Вера', 'Чагин'];
 const roles = ['citizen', 'mafia', 'sheriff', 'citizen', 'don', 'citizen', 'citizen', 'mafia', 'citizen', 'citizen'] as const;
+const ELO_LINES: Array<[number | null, string[]]> = [
+  [16, ['За действия в игре: +16 Эло', 'Попил, ушёл красный №9: −2', 'Голосовал в чёрных №10, №1: +16', 'Верно подряд: голос в чёрного №10 → голос в чёрного №1: +2']],
+  [0, ['За действия в игре: 0 Эло', 'Записан чёрным у №7: −4', 'Не записан у №5: +4']],
+  [6, ['За действия в игре: +6 Эло', 'Попил, ушёл красный №9: −2', 'Голосовал в уже известных чёрных №10 — без баллов', 'Проверкой нашёл чёрного №10: +4', 'Проверенного чёрного вывел стол №10: +4']],
+  [26, ['За действия в игре: +26 Эло', 'Попил, ушёл красный №9: −2', 'Голосовал в чёрных №10: +8', 'В завещании угадал №1, №4: +16', 'В завещании снова назвал №10 — уже засчитан', 'Верно подряд: голос в чёрного №10 → завещание: +4']],
+  [0, ['За действия в игре: 0 Эло', 'Проверкой в первую ночь нашёл шерифа №9: +8', 'Записан чёрным у №5, №7: −8']],
+  [-16, ['За действия в игре: −16 Эло', 'В завещании ошибся в №10, №6: −8', 'В завещании назвал чёрным красного, стол его вывел (×2) №9: −8', 'Завещание с ошибкой: за верные цвета плюсов нет']],
+  [null, []],
+  [0, ['За действия в игре: 0 Эло', 'Ушёл на девятке: −8', 'Записан красным у №5: +8']],
+  [16, ['За действия в игре: +16 Эло', 'Попил, ушёл красный №9: −2', 'Голосовал в чёрных №10, №1: +16', 'Верно подряд: голос в чёрного №10 → голос в чёрного №1: +2']],
+  [16, ['За действия в игре: +16 Эло', 'Попил, ушёл красный №9: −2', 'Голосовал в чёрных №10, №1: +16', 'Верно подряд: голос в чёрного №10 → голос в чёрного №1: +2']],
+];
 const players = names.map((nickname, index) => {
   const role = roles[index];
   const team = role === 'mafia' || role === 'don' ? 'black' : 'red';
@@ -23,11 +35,14 @@ const players = names.map((nickname, index) => {
     first_killed: index === 3, zero_round_voted: index === 0, best_move: index === 3, best_move_source: index === 3 ? 'first_killed' : null, best_move_seats: index === 3 ? [2, 5, 6] : [],
     score: won ? score(index === 2 ? 1.5 : 1, { win_point: 1, ...(index === 2 ? { judge_bonus: 0.5 } : {}) }) : score(0),
     elo_before: 1000 + index, elo_after: 1000 + index + (won ? 11 : -9), elo_delta: won ? 11 : -9,
+    // The blank's breakdown as the server writes it (lines of a real game, 23.10 №2).
+    elo_contribution: ELO_LINES[index][0],
+    elo_lines: ELO_LINES[index][1],
   };
 }) as PlayerGameDetailData['players'];
 
 const detail: PlayerGameDetailData = {
-  game: { id: 'club:11', source: 'club', title: 'Игровой вечер — 9 октября', date: '2026-10-09T18:00:00.000Z', game_number: 11, format: 'CASUAL', winner_team: 'red', judge_name: 'Точка', table_name: 'Основной стол', elo_affected: true },
+  game: { id: 'club:11', source: 'club', title: 'Игровой вечер — 9 октября', date: '2026-10-09T18:00:00.000Z', game_number: 11, format: 'CASUAL', winner_team: 'red', judge_name: 'Точка', table_name: 'Основной стол', elo_affected: true, elo_table: { redAvg: 1057, blackAvg: 1067, level: 'команды одного уровня', redChancePercent: 30 } },
   protocol: {
     events: [
       {seq:1,at:'',round:1,phase:'zero_night',kind:'game_start'},

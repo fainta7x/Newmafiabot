@@ -252,7 +252,14 @@ const loadCurrentGameForRecovery = async (gameId: number): Promise<ClubGameRecor
   return game;
 };
 
+export type ClubGameEloBlank = {
+  table: { redAvg: number; blackAvg: number; level: string; redChancePercent: number } | null;
+  seats: Array<{ seat: number; nickname: string; role: string | null; won: boolean; eloDelta: number | null; eloAfter: number | null; eloContribution: number | null; lines: string[] }>;
+};
+
 export const clubGamesApi = {
+  /** The Elo part of a confirmed game's result blank (team strength, each seat's change and its breakdown). */
+  eloBlank: (gameId: number | string) => request<ClubGameEloBlank>(`/api/games/${encodeURIComponent(String(gameId))}/elo-blank`),
   list: (eveningId: string) => request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}`),
   listArchived: (eveningId: string) => request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}&archived=1`),
   create: (eveningId: string, data: {

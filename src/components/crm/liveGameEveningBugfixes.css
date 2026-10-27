@@ -543,13 +543,62 @@ html body .live-judge-breaker__seat[aria-pressed='true'] {
   white-space: nowrap;
 }
 
-/* With the shortcut row the counters lose their spare height and the hint (covered by the bar anyway) is dropped, so the
-   counters stay fully visible on a phone. */
-.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(.live-judge-vote-shortcuts) > .live-judge-hud__hint {
+/* The vote count fits the centre cell without anything sitting on anything (owner, 2026-10-27: the shortcut row overlapped
+   the counters): «Голосов» and «Осталось» are short cards with the number under the label, «Отменить голос» an icon button with its label kept for
+   assistive tech, so the counters, the shortcut row and the step buttons each keep their own line. */
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px !important;
+  gap: 4px !important;
+  flex: 0 0 auto;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat {
+  display: flex;
+  min-height: 30px !important;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 3px 6px !important;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat__label {
+  font-size: 8px !important;
+  letter-spacing: 0.01em !important;
+  white-space: nowrap;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat__value {
+  margin-top: 0 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 0 !important;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo .live-judge-stat__label {
   display: none;
 }
 
-.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(.live-judge-vote-shortcuts) > .live-judge-vote-summary .live-judge-stat {
-  min-height: 0 !important;
-  padding-block: 3px !important;
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo__value {
+  margin: 0 !important;
+  font-size: 0 !important;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo__value svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+/* On the narrowest phones the numbered chips say «queue» by themselves: the label would wrap four candidates to a second line. */
+@media (max-width: 380px) {
+  .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__label {
+    display: none;
+  }
 }

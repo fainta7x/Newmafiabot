@@ -48,10 +48,10 @@ for (const width of [360, 390]) {
       await expect(roster.getByText('Все участники уже пришли.')).toBeVisible();
 
       await roster.getByRole('button', { name: 'Добавить игрока на вечер' }).click();
-      const sheet = page.getByRole('dialog', { name: 'Добавить на вечер' });
+      const sheet = page.getByRole('dialog', { name: 'Добавить в состав вечера' });
       await expect(sheet).toContainText('не ставит ответ «Иду»');
       await sheet.getByRole('button', { name: /Ручной Игрок С Очень Длинным Ником/ }).click();
-      await sheet.getByRole('button', { name: 'Добавить · 1', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Добавить в состав · 1', exact: true }).click();
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');
       await expect(manualRow).toBeVisible();
       await expect(manualRow).toContainText('В составе');

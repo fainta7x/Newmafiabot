@@ -1,10 +1,9 @@
 /** @vitest-environment jsdom */
 /**
- * Game #20 (2026-10-23) was saved without its day-3 voting and with #3 «alive» (AUDIT_LOG 2026-10-24 P4). The engine is not
- * where the rounds went: replaying the same sequence — a day vote whose elimination is undone and re-voted into a tie and a
- * revote, the next day's tie and revote, then a PPK — the journal hands over every round and today's save accepts it. The
- * live save of that night was refused by the build of the day (a missed shot stored as target 0, fixed since) and the
- * record was then edited until it passed.
+ * Game #20 (2026-10-23) was saved without its day-3 voting (AUDIT_LOG 2026-10-24 P4, 2026-10-27). The engine is not where
+ * rounds go: a sequence shaped like that game's journal — a day vote whose elimination is undone and re-voted into a tie and
+ * a revote, the next day's tie and revote, then a PPK — hands over every round, and today's save accepts it. (In the real
+ * game the day-3 revote was a second tie and everybody stayed; the journal shows 5–3 after a stray vote.)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -91,7 +90,7 @@ describe('judge engine: an undone elimination and two revoting days reach the sa
     await press(/Выключите музыку/);
     await press(/Итоги ночи/);
     await press(/Зафиксировать ночь/);
-    // Day 3: #5, #8, #2, #3 nominated; 4–4 between #5 and #3, revote 3–5 → #3 out; again no shot; day 4 ends by a PPK of #10.
+    // Day 3: #5, #8, #2, #3 nominated; 4–4 between #5 and #3, revote 3–5 → #3 out (as the journal reads); again no shot; day 4 ends by a PPK of #10.
     const nominate = (slot: number) => fireEvent.click(screen.getByRole('button', { name: `Выставить #${slot}` }));
     const order = [2, 3, 5, 6, 7, 8, 10, 1];
     const noms = [5, 8, 2, 3];

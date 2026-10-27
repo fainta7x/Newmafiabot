@@ -1114,7 +1114,7 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
-- **Game #20 (2026-10-23) record (Claude, 2026-10-27, asked):** the stored protocol lacks the day-3 voting and shows #3 alive, while its events and replay frames show #3 voted out; the live save was refused by that night's build and the record was edited until it passed (AUDIT_LOG 2026-10-27 «P4»). Correct it through the protocol window? Changes Elo and statistics of that game's players.
+- **Game #20 (2026-10-23) record (Claude, 2026-10-27, asked):** per the owner, in the восьмёрка after the miss №5 Алоэ and №3 Богданчик split twice and everybody stayed; the stored protocol lacks that split (and keeps the two misses as «договорённость не состоялась»). Add it through the protocol window? The table decision's count is not in the journal (AUDIT_LOG 2026-10-27 «P4»).
 
 - **Application continuity (owner, 2026-10-26; APPROVED except rating-label proposal):** personal Home evening/RSVP/reserve/exact game choices first, persistent Community/Activity/Wallet routes, explicit debt-summary failures/retry, and evidence-led judge reliability corrections are implemented in the current candidate. Ranking names, meanings, scoring and hierarchy remain unchanged; routing alone preserves the Metrics tab. Club protocol close now waits for a successful flush and keeps failed/unsent edits open. Focused source/UI evidence is in AUDIT_LOG → «approved application continuity fixes». Required exact-head CI/merge are still gates; no production write or deploy has been performed. Optional feature expansion and any architecture replacement are outside this batch.
 

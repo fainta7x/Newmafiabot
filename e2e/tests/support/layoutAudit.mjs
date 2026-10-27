@@ -36,6 +36,32 @@ export const auditScreen = () => {
     }
     return null;
   };
+  // Window chrome: a fixed or sticky bar along the top or bottom edge (the bottom menu, a top bar). Content of a page that
+  // can still scroll passes under it — that is scrolling, not a defect; content it covers for good is.
+  const chromeOf = (el) => {
+    for (let node = el; node && node !== document.body; node = node.parentElement) {
+      const position = getComputedStyle(node).position;
+      if (position !== 'fixed' && position !== 'sticky') continue;
+      const r = node.getBoundingClientRect();
+      if (r.width >= 0.5 * vw && r.height <= 0.4 * vh && (r.top <= 2 || r.bottom >= vh - 2)) return node;
+    }
+    return null;
+  };
+  const canScrollPast = (el, chrome) => {
+    const down = chrome.getBoundingClientRect().top > vh / 2;
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      const scrolls = node === document.scrollingElement || ['auto', 'scroll'].includes(style.overflowY);
+      if (!scrolls || node.scrollHeight <= node.clientHeight + 1) continue;
+      if (down ? node.scrollTop + node.clientHeight < node.scrollHeight - 1 : node.scrollTop > 0) return true;
+    }
+    return false;
+  };
+  // Covers that only mean «scrolled under the menu» are left out; the rest are defects.
+  const realCover = (cover, el) => {
+    const chrome = chromeOf(cover);
+    return !(chrome && !chrome.contains(el) && canScrollPast(el, chrome));
+  };
   const shown = (el) => {
     for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
       const style = getComputedStyle(node);
@@ -104,7 +130,8 @@ export const auditScreen = () => {
       // Under an open window (a large fixed layer) text is meant to be out of sight.
       if (layers.some((e) => modalOf(e) && !modalOf(e).contains(el))) { underWindow = true; break; }
       // Anything else drawn over the text — a button, a badge, an icon, a card — hides part of it.
-      coverOver = coverOver || layers.find((e) => coverAlpha(e) >= 0.3 || ['svg', 'IMG', 'BUTTON'].includes(e.tagName)) || null;
+      // An svg shape (a ring around a percentage) is drawn around the text, not over it; an image or a button is over it.
+      coverOver = coverOver || layers.find((e) => (coverAlpha(e) >= 0.3 || ['IMG', 'BUTTON'].includes(e.tagName)) && realCover(e, el)) || null;
     }
     if (underWindow || offText === 3) { pendingCuts.length = 0; continue; }
     if (coverOver) { issues.add(`text «${text.slice(0, 30)}» covered by ${name(coverOver)}`); pendingCuts.length = 0; continue; }
@@ -140,6 +167,14 @@ export const auditScreen = () => {
       for (const ra of a.rects) for (const rb of b.rects) {
         const o = inter(ra, rb);
         if (o.x <= 2 || o.y <= 2) continue;
+        // One text in the window chrome, the other in the page under it that can still scroll out: scrolling.
+        const ca = chromeOf(a.el);
+        const cb = chromeOf(b.el);
+        if (ca !== cb && (ca || cb)) {
+          const chrome = ca || cb;
+          const below = ca ? b.el : a.el;
+          if (!chrome.contains(below) && canScrollPast(below, chrome)) continue;
+        }
         const ma = modalOf(a.el);
         const mb = modalOf(b.el);
         if (ma !== mb && (ma || mb) && coverAlpha(ma || mb) >= 0.5) continue;
@@ -193,7 +228,7 @@ export const auditScreen = () => {
       if (own < 0) continue;
       const over = above.slice(0, own).filter((e) => !e.contains(button) && !e.closest('[role="status"]'));
       if (over.some((e) => { const m = modalOf(e); return m && !m.contains(button); })) break;
-      const cover = over.find((e) => drawnAt(e, x, y));
+      const cover = over.find((e) => drawnAt(e, x, y) && realCover(e, button));
       if (cover) {
         const label = (button.getAttribute('aria-label') || button.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
         if (label) issues.add(`covered button «${label}» under ${name(cover)}`);

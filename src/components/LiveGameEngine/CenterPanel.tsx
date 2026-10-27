@@ -11,7 +11,7 @@ import type { ZeroNightMusicState } from "./engineStateModel.js";
 import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
 import { seatColorVars } from "./seatColors.ts";
 import { SeatBadge } from "./SeatBadge.tsx";
-import { FitText } from "./FitText.tsx";
+import { FitText } from "../ui/FitText.tsx";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
 import {

@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — owner: layout and text checked on every change, everywhere
+
+Owner: «мог бы ты все тексты в Live engine проверить и все элементы… на мобильном разрешении и для десктопа», then «всегда при внесении изменений… всё это проверялось и фиксилось… не только Live Engine, а вообще везде». Step 1 (Live Engine) is coded in PR `claude/eager-newton-mov0k7`: an automatic layout audit on every Live Engine screen at 360/390/1366/1440 (`e2e/tests/live-game-text-audit.spec.mjs`, in the UI preview CI), its findings fixed, the rule in `AGENTS.md` («Layout and text gate»). **Next, step 2 (already asked for by the owner): the same audit for every other app page** (player cabinet, CRM, evenings, profiles, trainers, protocol window, broadcast) — one shared detector module, every `e2e/*.html` harness on the route, every harness loading the app's stylesheets, findings fixed.
+
+Open question for the owner (2026-10-27, see AUDIT_LOG): the Telegram layout rules of the live game (44 px header, board from Telegram's stable height, whole-window guard) have been inactive since #745 kept a wrapper div; revive them or delete them.
+
 ## 2026-10-27 — Community and Progress: full analysis before changes
 
 Owner shifts the product focus to the Player Cabinet: «Сообщество» and «Прогресс». Explicit correction: «сначала давай всё проанализируй и потом будем делать исправления», not repeated batches of four discoveries immediately fixed. This workstream is analysis only: cover every mounted tab/nested mode, source behavior and relevant mobile preview states, then provide one consolidated proposal for owner agreement before application edits. The initially mentioned connections split/search is only a proposal, not approved implementation. Canonical process rule added to AGENTS.md §4e. No application edits have been made in this workstream.
@@ -1021,6 +1027,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.
 - В живой игре после слома попила можно отметить, кто его сломал, или выбрать «Не знаю».
 - Судье: голосование в центре стола стало проще — одна строка кандидатов с их голосами, крупнее, без красного; карточка каждого проголосовавшего окрашена в цвет номера того, за кого он голосует (за №1 — синим, за №5 — зелёным), голос за текущего кандидата выделен рамкой.
+- Судье на маленьком телефоне: «↩ отменить последнее событие» и «Журнал» — в верхней панели игры (раньше панель «События» уходила за край экрана), журнал открывается окном; кнопка «Состояние» на телефоне тоже в верхней панели.
+- Судье на телефоне: кнопка «Авто» переехала в верхнюю панель игры, а название этапа в центре стола больше не обрезается («Переголосование», «Нулевая ночь» целиком); на компьютере у «Авто» снова есть надпись; статус на карточке («Речь ✓», «Убит») больше не лежит поверх ника.
 - Судье: на переголосовании кнопка «Поделилось также» повторяет голоса прошлого круга одним нажатием; кнопка «Цифрами» открывает окно, где голоса вводятся по каждому кандидату цифрами, как лучший ход, и сразу видно, кто за кого уже проголосовал.
 - Названия кругов в протоколе: «Нулевой круг», «Восьмёрка после оставления при 8 и двух промахов»; после правки протокола названия следующих кругов пересчитываются.
 

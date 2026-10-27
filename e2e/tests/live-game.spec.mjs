@@ -104,10 +104,12 @@ const expectCanonicalJudgeBaseline = async (page) => {
   expect(seatColors.five).not.toBe(seatColors.six);
 };
 
-const prepareGame = async (page, testInfo) => {
+const prepareGame = async (page, testInfo, { zeroRoundRule } = {}) => {
   await page.goto('/e2e/live-game.html');
   // The roster is confirmed first, then the physical role deal starts with its music choice.
   await page.getByRole('button', { name: 'Подтвердить состав' }).click();
+  // A test game defaults to the club setting (owner, 2026-10-23); a test that follows a zero-round exit picks the tournament one.
+  if (zeroRoundRule) await page.getByTestId('zero-round-rule').getByRole('radio', { name: zeroRoundRule }).click();
   await expectNoHorizontalOverflow(page, 'setup');
   await attachViewport(page, testInfo, '01-setup.png');
 
@@ -206,7 +208,7 @@ test.describe('Live Game browser stabilization', () => {
   test.setTimeout(90_000);
 
   test('conducts a zero-round vote and a complete first-night cycle on mobile', async ({ page }, testInfo) => {
-    await prepareGame(page, testInfo);
+    await prepareGame(page, testInfo, { zeroRoundRule: 'Турнирная' });
 
     await startSpeech(page, 1);
     await expectHudLocked(page, 'speech timer');
@@ -274,7 +276,8 @@ test.describe('Live Game browser stabilization', () => {
     const eliminatedIdentity = page.locator('.evening-live-identity[data-seat="2"][data-alive="false"]');
     const eliminatedAvatar = eliminatedIdentity.locator('.evening-live-player-avatar');
     await expect(eliminatedAvatar).toBeVisible();
-    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toHaveCount(0);
+    // an eliminated player stays recognizable: the nickname stays, dimmed (liveGameSeatCabinet.css)
+    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toBeVisible();
     const eliminatedAvatarOpacity = await eliminatedAvatar.evaluate((node) => Number(getComputedStyle(node).opacity));
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar remains secondary').toBeGreaterThanOrEqual(0.25);
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar must not compete with status').toBeLessThanOrEqual(0.5);
@@ -310,7 +313,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(killedFarewellAction.getByRole('button', { name: 'Удалить', exact: true })).toBeVisible();
     await expect(killedFarewellAction.getByRole('button', { name: 'ППК', exact: true })).toBeVisible();
     await killedFarewellAction.getByRole('button', { name: '×', exact: true }).click();
-    await page.getByRole('button', { name: /Протокол убитого · 15с/ }).click();
+    await page.getByRole('button', { name: /Протокол убитого · \d+с/ }).click();
 
     const deathProtocol = page.getByText('Протокол убитого', { exact: true }).locator('xpath=ancestor::div[contains(@class,"max-w-2xl")][1]');
     await expectHorizontallyInsideViewport(page, deathProtocol, 'death protocol');
@@ -391,8 +394,8 @@ test.describe('Live Game browser stabilization', () => {
       await finishSpeech(page, slot);
     }
 
+    // a cancelled voting has nothing to announce: «К голосованию» goes straight to the night
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
-    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
     await expect(page.getByText('Ближайшее голосование отменено из-за удаления', { exact: true })).toBeVisible();
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'discipline cancellation night');

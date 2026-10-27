@@ -24,6 +24,8 @@
   line-height: 1 !important;
   font-weight: 700 !important;
   letter-spacing: 0.12em !important;
+  /* Room above «#N · Ник»: with both lines at line-height 1 the name's capitals touched the label (2026-10-27). */
+  margin-bottom: 4px !important;
 }
 
 .fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl > div:first-child > div:first-child > div:nth-child(2) {

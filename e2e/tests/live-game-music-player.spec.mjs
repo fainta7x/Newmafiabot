@@ -31,8 +31,9 @@ test.describe('Live game music player', () => {
 
     await page.goto('/e2e/live-game.html');
     await expect(page.getByText('Раздача ролей', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Подтвердить состав' }).click();
     await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-    await page.getByText('Подготовьте 10 карт').locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Начать раздачу', exact: true }).click();
+    await page.getByTestId('physical-role-deal-start').click();
 
     for (const role of ROLE_SEQUENCE) {
       await page.getByRole('button', { name: new RegExp(role) }).click();

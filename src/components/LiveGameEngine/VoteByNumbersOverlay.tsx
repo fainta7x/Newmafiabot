@@ -91,11 +91,14 @@ export function VoteByNumbersOverlay({
                 className={`flex w-full items-center gap-2 rounded-xl px-2 py-1 text-left ${current ? 'bg-white/[0.07] ring-1 ring-white/25' : ''}`}
               >
                 <SeatBadge seat={candidate} />
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white/70">{nicknameOf(candidate) || `Игрок ${candidate}`}</span>
-                <span className="flex flex-wrap justify-end gap-1">
-                  {voted.length
-                    ? voted.map((seat) => <span key={seat} className="inline-flex h-6 min-w-6 items-center justify-center rounded-lg border px-1 font-mono text-xs font-black" style={{ background: SEAT_COLORS[candidate]?.fill, borderColor: SEAT_COLORS[candidate]?.line, color: candidate === 3 ? '#111827' : '#fff' }}>{seat}</span>)
-                    : <span className="text-xs text-white/30">—</span>}
+                {/* The nickname keeps its own line and the voters wrap under it: six voters no longer squeeze it to «…». */}
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="break-words text-xs font-semibold text-white/70">{nicknameOf(candidate) || `Игрок ${candidate}`}</span>
+                  {voted.length ? (
+                    <span className="flex flex-wrap gap-1">
+                      {voted.map((seat) => <span key={seat} className="inline-flex h-6 min-w-6 items-center justify-center rounded-lg border px-1 font-mono text-xs font-black" style={{ background: SEAT_COLORS[candidate]?.fill, borderColor: SEAT_COLORS[candidate]?.line, color: candidate === 3 ? '#111827' : '#fff' }}>{seat}</span>)}
+                    </span>
+                  ) : null}
                 </span>
                 <b className="w-6 text-right font-mono text-sm text-white">{voted.length}</b>
               </button>

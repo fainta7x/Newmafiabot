@@ -827,3 +827,208 @@ html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-numbe
 html body .evening-live-engine-shell .live-seat-card[data-vote-for='3'] .live-seat-number {
   color: #111827 !important;
 }
+
+/* The real phone cell is about 150 px high (liveGameMobileCenterPriority.css gives every button in the step bar 44 px).
+   The step buttons keep their 44 px; the strip, the focus card and the shortcut row get compact so nothing overlaps
+   (2026-10-27: the shortcut row grew to 44 px and climbed onto «Осталось» and «Отменить голос»). */
+@media (max-width: 699px) {
+  html body .evening-live-engine-shell .live-judge-hud:has(.live-judge-hud__stack--vote-count) > .live-judge-hud__header {
+    padding-block: 3px !important;
+    min-height: 0 !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count {
+    gap: 2px !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-strip__seat {
+    height: 22px;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-vote-summary {
+    row-gap: 3px !important;
+    padding-block: 2px !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-vote-actions {
+    padding-block: 0 !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-vote-summary > .live-judge-hud__title {
+    font-size: 14px !important;
+    line-height: 18px !important;
+    min-height: 0 !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat {
+    min-height: 26px !important;
+    height: 26px;
+    padding-block: 0 !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-shortcuts > .live-judge-action {
+    min-height: 24px !important;
+    height: 24px !important;
+  }
+}
+
+@media (max-width: 699px) and (max-height: 680px) {
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-shortcuts > .live-judge-action {
+    min-height: 24px !important;
+    height: 24px !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-actions > .live-judge-action {
+    min-height: 40px !important;
+  }
+}
+
+/* The voting order on a phone says «Очередь» before the numbered chips. liveGameMobileCenterPriority.css lifts every
+   order label to 12 px, which brought back the full «Очередность голосования» on two lines over the chips and pushed
+   «Следующий игрок» out of the revote-speech cell (2026-10-27, measured in the real stylesheet order). */
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell .live-judge-hud .live-judge-voting-order .live-judge-voting-order__label {
+    max-width: none;
+    font-size: 0 !important;
+    line-height: 1;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud .live-judge-voting-order .live-judge-voting-order__label::after {
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* «Авто» keeps its word everywhere (2026-10-27: on a desktop the icon-only header rule left an empty circle). */
+html body .evening-live-engine-shell .live-judge-hud__header .live-judge-hud__auto {
+  width: auto !important;
+  padding: 0 8px !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__header .live-judge-hud__auto span {
+  display: inline !important;
+}
+
+/* On a phone «Авто» sits in the top bar of the game window (CenterPanel portals it into #live-topbar-slot). The phone rule
+   that hides header-button captions (liveGameJudge.css) must not empty it. */
+html body .evening-live-topbar-slot .live-judge-hud__auto span {
+  display: inline !important;
+}
+
+html body .evening-live-topbar-slot .live-judge-hud__auto {
+  width: auto !important;
+}
+
+.evening-live-topbar-slot .live-judge-hud__auto {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  border: 1px solid rgb(30 41 59);
+  border-radius: 8px;
+  background: rgb(15 23 42);
+  padding: 0 7px;
+  color: rgb(148 163 184);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.evening-live-topbar-slot .live-judge-hud__auto[data-active='true'] {
+  border-color: rgba(242, 183, 92, 0.7);
+  background: rgba(242, 183, 92, 0.18);
+  color: #ffdf8f;
+}
+
+/* The phase pill says its whole name on a phone: two short lines rather than «ПЕРЕ…» (owner, 2026-10-27). */
+@media (max-width: 699px) {
+  html body .evening-live-engine-shell .live-judge-hud__header .live-judge-hud__phase {
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: normal;
+    font-size: 9px !important;
+    line-height: 10px !important;
+    letter-spacing: 0.02em !important;
+    padding-block: 4px !important;
+  }
+}
+
+/* Desktop seat cards: the avatar and the nickname fill the middle of the card, so the seat state («Речь ✓», «Убит»,
+   «Заголосован», a received vote count) sits on its own line under the nickname instead of on top of it (2026-10-27). */
+@media (min-width: 768px) {
+  html body .evening-live-engine-shell:has(.evening-live-identity-layer) .live-seat-card:not(.live-seat-card--voting) .live-seat-state {
+    top: auto !important;
+    bottom: 50px !important;
+    height: 20px !important;
+    transform: none !important;
+  }
+
+  /* A dead seat's nickname is already on its dimmed identity plate; the second copy sat under «Убит» / «Заголосован». */
+  html body .evening-live-engine-shell:has(.evening-live-identity-layer) .live-seat-card--dead .live-seat-footer__name {
+    display: none !important;
+  }
+}
+
+/* «Кто против [N] Ник?» on one phone line: a little smaller text so an ordinary nickname is not cut to «…». */
+@media (max-width: 699px) {
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-vote-summary > .live-judge-vote-focus {
+    font-size: 13px !important;
+    gap: 4px;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-focus__name {
+    font-size: 12px;
+  }
+}
+
+/* «↩» from the events panel in the phone top bar: the bar's own 28 px button size. */
+html body .evening-live-topbar-slot .evening-live-topbar-tool > button {
+  min-height: 28px !important;
+  min-width: 28px !important;
+  height: 28px;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+/* «Состояние» on a phone (2026-10-27): liveGameTelegram.css places it after the game number with
+   `top: var(--live-safe-top)`, but that variable is defined only by the 44 px Telegram header rule, which the game window's
+   wrapper keeps inactive (#745). Without it the button fell into the page flow — over «События» at 390 px, under the
+   screen edge at 360 px. It now sits in the 34 px top bar at the bar's 28 px size. */
+@media (max-width: 767px) {
+  html body:has(.fixed.inset-0.z-\[95\] > .sticky button[title="Закрыть движок"]) [data-testid="live-state-button"] {
+    top: calc(3px + var(--live-safe-top, 0px)) !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* The narrowest phones (under 380 px): «Кто против [N]?» has no room for a nickname in any font, so the cell shows the
+   coloured seat number and the nickname stays on the candidate's lit seat card (2026-10-27, CI without Inter). */
+.live-judge-vote-focus__mark {
+  display: none;
+}
+
+@media (max-width: 379px) {
+  html body .evening-live-engine-shell .live-judge-vote-focus__name {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-vote-focus__mark {
+    display: inline;
+  }
+}
+
+/* A night check's result («Шериф · #6: ЧЁРНЫЙ!») may take two lines instead of being cut to «…». */
+html body .evening-live-engine-shell .live-judge-hud .live-judge-timer__name--status {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  line-height: 1.15 !important;
+}

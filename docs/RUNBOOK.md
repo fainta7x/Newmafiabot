@@ -526,6 +526,19 @@ Always distinguish:
 - **deployed main**;
 - **runtime verified**.
 
+## Layout and text audit
+
+The gate itself is in `AGENTS.md` (Layout and text gate). The detector (`auditScreen` in `e2e/tests/support/layoutAudit.mjs`, used by `e2e/tests/live-game-text-audit.spec.mjs`) runs in the page on every screen of the route and reports: text runs that share pixels with nothing opaque between them; labels shortened by `text-overflow` or a line clamp; text sticking out of a box that hides overflow or out of the window; text with a button, badge, icon or card drawn over part of it (three points across the visible text); buttons with something drawn (a background, a blur, text — also `pointer-events: none` badges) over their centre or an inner corner; buttons with neither a visible caption nor an icon. What lies under an open window (a large fixed layer) and passing notices (`role="status"`) are left alone.
+
+Run it locally (vite on 5199, the pre-installed Chromium):
+
+```
+npx vite --port 5199 &
+cd e2e && FONTCONFIG_FILE=$PWD/fonts-ci.conf LIVE_TEXT_AUDIT_REPORT=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5199 npx playwright test tests/live-game-text-audit.spec.mjs
+```
+
+`e2e/fonts-ci.conf` hides the locally installed Inter so the page renders in the fonts CI has (DejaVu Sans, wider); without it a local run passes labels that CI cuts. Phones run twice, the second time in a wider font (DejaVu Sans with a little letter spacing): CI's Chrome on Ubuntu renders wider than a local Chromium with Inter, and real phones differ too, so a label that only just fits fails. A one-line label that may meet a long nickname or a wide font uses `FitText` (`src/components/LiveGameEngine/FitText.tsx`), which shrinks its font until it fits. `LIVE_TEXT_AUDIT_REPORT=1` prints every finding per screen and viewport; each screen's screenshot is in the test output folder. After changing the detector run its self-test first, `e2e/tests/layout-audit-detector.spec.mjs` (small pages with one known defect each, plus clean ones); add a case for every defect class it learns. The self-test runs in the UI preview CI too.
+
 ## Automatic UI preview
 
 The user-approved UI preview workflow automatically builds isolated pages and mobile evidence for relevant PR updates, including drafts. Follow [UI_PREVIEW](UI_PREVIEW.md) for artifacts, private publishing and the supported agent-browser path. It needs no manual workflow dispatch. Broad manual Playwright suites retain their separate release role.

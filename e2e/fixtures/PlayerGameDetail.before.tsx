@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import { restoreGameProtocolView } from '../../src/lib/gameProtocolView.ts';
+import { round2 } from '../../src/shared/numbers.ts';
+import { buildGameAnalysis } from '../../src/lib/liveGameAnalysis.ts';
+import { playerActionMetrics } from '../../src/lib/gameActionFacts.ts';
+import type { LiveGameEvent } from '../../src/shared/liveGameEvents.ts';
+import { getGameRoleDefinition, UNKNOWN_GAME_ROLE_LABEL } from '../../src/shared/gameRoles.ts';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../src/lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../src/lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../src/lib/playerGameResultLabels.ts';
-import { getPlayerGameRoleLabel } from '../../src/lib/playerGameRoleLabels.ts';
+import { GameRoleBadge } from '../../src/components/ui/GameRole.tsx';
 import { openCanonicalPlayerProfile } from '../../src/components/player/playerProfileNavigation.ts';
-import { GameTableScene, VoteSplitScene, NightShotScene } from '../../src/components/player/PlayerVisualScenes.tsx';
+import { VoteSplitScene, NightShotScene } from '../../src/components/player/PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from '../../src/components/player/PlayerGameRevealsScene.tsx';
+import PlayerGameActionJournal from '../../src/components/player/PlayerGameActionJournal.tsx';
+import { FitText } from '../../src/components/ui/FitText.tsx';
 
 export type PlayerGameEloChange = {
   id: string;
@@ -51,6 +59,7 @@ export type PlayerGameDetailData = {
     elo_affected: boolean;
   };
   protocol: {
+    events?: LiveGameEvent[];
     end_reason: string;
     votes: VoteRound[];
     shots: NightShot[];
@@ -111,8 +120,6 @@ type StoryEntry =
   | { key: string; order: number; kind: 'vote'; vote: PlayerGameDetailData['protocol']['votes'][number] }
   | { key: string; order: number; kind: 'night'; shot: PlayerGameDetailData['protocol']['shots'][number] };
 
-const roleLabel = (role: DetailPlayer['role']) => getPlayerGameRoleLabel(role) ?? 'Роль не указана';
-
 const winnerLabel = (winner: PlayerGameDetailData['game']['winner_team']) =>
   getPlayerGameWinnerLabel(winner) ?? 'Результат не указан';
 
@@ -125,7 +132,7 @@ const endReasonLabel = (reason: string) => {
 const exitLabel = (exit: string | null) => {
   if (exit === 'alive') return 'дожил до конца';
   if (exit === 'killed') return 'убит ночью';
-  if (exit === 'voted_zero_round') return 'заголосован в 0 круге';
+  if (exit === 'voted_zero_round') return 'заголосован в нулевом круге';
   if (exit === 'voted_day') return 'заголосован днём';
   if (exit === 'removed') return 'удалён';
   return null;
@@ -151,7 +158,7 @@ const shortNumber = (value: number) => {
 };
 
 const scoreNumber = (value: number) => {
-  const rounded = Math.round(value * 100) / 100;
+  const rounded = round2(value);
   return rounded.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 
@@ -163,12 +170,6 @@ export const formatEloDelta = (value: number | null | undefined) => {
   return `${rounded > 0 ? '+' : ''}${shortNumber(rounded)} Elo`;
 };
 
-const ROLE_CHIP: Record<string, string> = {
-  citizen: 'bg-rose-400/12 text-rose-100',
-  sheriff: 'bg-amber-300/15 text-amber-100',
-  mafia: 'bg-slate-300/15 text-slate-100',
-  don: 'bg-violet-300/15 text-violet-100',
-};
 const pointsTone = (value: number) => (value > 0 ? 'text-emerald-300' : value < 0 ? 'text-rose-300' : 'text-white/70');
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -182,12 +183,12 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 function RoleChip({ role }: { role: DetailPlayer['role'] }) {
-  return <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_CHIP[role || ''] || 'bg-white/[0.07] text-white/55'}`}>{roleLabel(role)}</span>;
+  return <GameRoleBadge role={role} />;
 }
 
 function Avatar({ player }: { player: DetailPlayer }) {
   const [failed, setFailed] = useState(false);
-  return <span aria-hidden="true" className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/15 to-white/[.035] text-sm font-semibold text-white/70 ring-1 ring-white/10">
+  return <span aria-hidden="true" className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-white/15 to-white/[.035] text-sm font-semibold text-white/70 ring-1 ring-white/10">
     {player.nickname.trim().slice(0, 1).toUpperCase() || '?'}
     {player.avatar_url && !failed && <img src={player.avatar_url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
   </span>;
@@ -199,13 +200,19 @@ export default function PlayerGameDetail({
   error,
   selfId,
   onBack,
+  onRetry,
 }: {
   detail: PlayerGameDetailData | null;
   loading: boolean;
   error: string | null;
   selfId: string;
   onBack: () => void;
+  onRetry?: () => void;
 }) {
+  const sheet = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (detail) return restoreGameProtocolView(detail.game.id, sheet.current);
+  }, [detail?.game.id]);
   const seatPlayer = (seat: number) => detail?.players.find((player) => player.seat_number === seat) || null;
   const seatLabel = (seat: number) => { const player = seatPlayer(seat); return player ? `#${seat} ${player.nickname}` : `#${seat}`; };
   const me = detail ? detail.players.find((player) => player.player_id && player.player_id === selfId) || null : null;
@@ -218,6 +225,16 @@ export default function PlayerGameDetail({
       ...detail.protocol.shots.map((shot): StoryEntry => ({ key: `night:${shot.night_number}`, order: (shot.night_number - 1) * 10 + 5, kind: 'night', shot })),
     ].sort((a, b) => a.order - b.order);
   }, [detail]);
+
+  const analysis = React.useMemo(() => buildGameAnalysis(detail?.protocol.events || []), [detail]);
+  const personal = React.useMemo(() => detail && me ? playerActionMetrics([{
+    id: detail.game.id, source: detail.game.source, date: detail.game.date || '', winner: detail.game.winner_team,
+    seats: detail.players.map(person => ({ seat: person.seat_number, role: person.role, playerId: person.player_id })),
+    events: detail.protocol.events || [],
+  }], selfId) : null, [detail, me, selfId]);
+  const myVotes = personal && me?.team ? personal.votes[me.team] : null;
+  const knownVotes = myVotes ? myVotes.red + myVotes.black : 0;
+  const correctVotes = myVotes ? (me?.team === 'red' ? myVotes.black : myVotes.red) : 0;
 
   const sides = detail ? [
     { team: 'red' as const, title: 'Красные', players: detail.players.filter((player) => player.team === 'red') },
@@ -238,25 +255,21 @@ export default function PlayerGameDetail({
     ].filter(Boolean) as Array<{ label: string; value: number }>;
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
     return (
-      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
-        <summary className="grid min-h-[60px] min-w-0 cursor-pointer list-none grid-cols-[20px_40px_minmax(0,1fr)_auto_12px] items-center gap-2 px-2.5 py-2">
-          <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
-          <Avatar player={item} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? <span className="ml-1.5 text-[11px] font-semibold text-sky-100/70">вы</span> : null}</div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <RoleChip role={item.role} />
-              {exit ? <span className="truncate text-[11px] text-white/40">{exit}</span> : null}
-              {marks.map((mark) => <span key={mark} className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[10px] text-white/55">{mark}</span>)}
-            </div>
+      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full border-b border-white/[0.07] ${isSelf ? 'bg-sky-200/[0.07]' : ''}`}>
+        <summary aria-label={`Место ${item.seat_number}: ${item.nickname}, ${(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}, ${signedScore(item.score.total_points)} балла`} className="grid min-h-11 min-w-0 cursor-pointer list-none grid-cols-[14px_minmax(0,1fr)_34px] items-center gap-1 px-1 py-1 leading-4">
+          <span className="text-center text-xs font-semibold text-white/45">{item.seat_number}</span>
+          <div className="grid min-w-0 content-center gap-0.5 text-xs leading-4">
+            <div className="flex min-h-4 min-w-0 items-center gap-1"><FitText minPx={9} className="min-w-0 flex-1 text-xs font-semibold leading-4 text-white">{item.nickname}</FitText><span aria-hidden="true" className="text-white/35 transition group-open:rotate-180">⌄</span></div>
+            <div className="flex h-4 items-center"><RoleChip role={item.role} /></div>
           </div>
-          <div className="shrink-0 text-right">
-            <div className={`text-base font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
-            {detail?.game.elo_affected && item.elo_delta != null ? <div className={`text-[11px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta)}</div> : <div className="text-[11px] text-white/25">баллы</div>}
+          <div className="min-w-0 text-right">
+            <div className={`text-xs font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
+            {detail?.game.elo_affected && item.elo_delta != null ? <div aria-label={`Изменение Elo: ${formatEloDelta(item.elo_delta)}`} className={`whitespace-nowrap text-[10px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta).replace(/\s*Elo$/, '')}</div> : <div className="text-[10px] text-white/35">баллы</div>}
           </div>
-          <span className="shrink-0 text-white/30 transition group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
-        <div className="space-y-2 border-t border-white/[0.06] px-3 pb-3 pt-2.5 text-[12px] text-white/55">
+        <div className="space-y-2 border-t border-white/[0.06] px-2 pb-3 pt-2.5 text-xs text-white/65">
+          <div className="flex min-w-0 items-center gap-2"><Avatar player={item} /><div className="min-w-0 break-words"><p className="font-semibold text-white">{item.nickname}{isSelf ? <span className="ml-1.5 text-sky-100/70">вы</span> : null}</p><p>Место №{item.seat_number} · {(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</p></div></div>
+          {(exit || marks.length > 0) && <p className="break-words">{[exit, ...marks].filter(Boolean).join(' · ')}</p>}
           <div>
             <div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Из чего баллы</div>
             {parts.length ? <div className="mt-1.5 flex flex-wrap gap-1.5">{parts.map((part) => <span key={`${part.label}:${part.value}`} className={`rounded-full px-2 py-1 text-[11px] ${part.value > 0 ? 'bg-emerald-400/10 text-emerald-200/80' : 'bg-rose-400/10 text-rose-200/80'}`}>{part.label} {signedScore(part.value)}</span>)}</div> : <div className="mt-1 text-white/35">Дополнительных начислений нет.</div>}
@@ -277,7 +290,7 @@ export default function PlayerGameDetail({
             </div>
           ) : null}
           {item.removal_reason || item.notes ? <div className="leading-5 text-white/40">{item.removal_reason ? <div>Причина удаления: {item.removal_reason}</div> : null}{item.notes ? <div>{item.notes}</div> : null}</div> : null}
-          {item.player_id ? <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id!)} className="min-h-9 rounded-xl bg-white/[0.07] px-3 text-[12px] text-white/70">Открыть профиль игрока</button> : null}
+          {item.player_id ? <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id!)} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-[12px] text-white/70">Открыть профиль игрока</button> : null}
           <div className="border-t border-white/[0.06] pt-2 text-[11px] text-white/35">
             {detail?.game.elo_affected && item.elo_delta != null
               ? `Elo: ${formatEloDelta(item.elo_delta)}${item.elo_before != null && item.elo_after != null ? ` · было ${shortNumber(item.elo_before)}, стало ${shortNumber(item.elo_after)}` : ''}`
@@ -308,61 +321,71 @@ export default function PlayerGameDetail({
 
   return (
     <>
-      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/65">
-        ← Назад к играм
-      </button>
+      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-lg bg-white/[0.05] px-3 text-xs text-white/65">← Назад</button>
 
       {loading && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игры…</p>}
-      {error && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/55">{error}</p>}
+      {error && <div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/65"><p>{error}</p>{onRetry && <button type="button" onClick={onRetry} className="ds-focus-ring min-h-11 w-full rounded-xl border border-white/15 bg-white/[.06] px-3 font-semibold">Повторить</button>}</div>}
 
       {detail && (
-        <>
-          <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035] p-4">
-            <header data-testid="game-hero">
-              <p className="text-xs text-white/55">Игра №{detail.game.game_number} · {formatDate(detail.game.date)} · {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}</p>
-              <h1 className="mt-1 text-xl font-semibold">{detail.game.title}</h1>
-              <p className="mt-3 text-base font-semibold">{winnerLabel(detail.game.winner_team)}</p>
-              <p className="mt-1 text-xs text-white/55">{endReasonLabel(detail.protocol.end_reason)}</p>
-              {(detail.game.table_name || detail.game.judge_name) && <p className="mt-2 text-xs text-white/55">{[detail.game.table_name, detail.game.judge_name ? `судья ${detail.game.judge_name}` : null].filter(Boolean).join(' · ')}</p>}
-            </header>
-            {me && <div data-testid="game-mine" className="mt-4 border-t border-white/10 pt-3">
-              <h2 className="text-sm font-semibold">Мой результат</h2>
-              <div className="mt-2 flex items-center gap-3"><Avatar player={me}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><RoleChip role={me.role}/><span className={'text-sm font-semibold '+(me.won?'text-emerald-200':'text-rose-200')}>{me.won?'Победа':'Поражение'}</span></div><p className="mt-1 text-xs text-white/55">Место за столом {me.seat_number}{exitLabel(me.exit_type)?` · ${exitLabel(me.exit_type)}`:''}</p></div><div className="shrink-0 text-right"><p className={'text-xl font-semibold tabular-nums '+pointsTone(me.score.total_points)}>{signedScore(me.score.total_points)}</p><p className="text-xs text-white/55">{detail.game.elo_affected&&me.elo_delta!=null?formatEloDelta(me.elo_delta):'баллов за игру'}</p></div></div>
+        <article ref={sheet} data-testid="game-score-sheet" className="min-w-0 overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(145deg,rgba(244,63,94,.09),transparent_38%,rgba(139,92,246,.08))]">
+          <section className="border-b border-white/10 px-3 py-3" data-testid="game-hero">
+            <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[.18em] text-white/40"><span>2LA NOIRE</span><span>Итоговый бланк · №{detail.game.game_number}</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0"><div className="text-[11px] text-white/45">Игра №{detail.game.game_number} · {formatDate(detail.game.date)} · {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}</div>
+                <h1 className="break-words text-sm font-semibold sm:text-base">{detail.game.title}</h1></div>
+              <strong className={`text-sm ${detail.game.winner_team === 'red' ? 'text-rose-300' : detail.game.winner_team === 'black' ? 'text-violet-200' : 'text-white/75'}`}>{winnerLabel(detail.game.winner_team)}</strong>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/45">
+              <span>{endReasonLabel(detail.protocol.end_reason)}</span>
+              {detail.game.table_name && <span>{detail.game.table_name}</span>}
+              {detail.game.judge_name && <span>Судья {detail.game.judge_name}</span>}
+
+            </div>
+            {me && <div data-testid="game-mine" className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/10 pt-2">
+              <span className="text-[11px] text-white/45">Моя игра</span><RoleChip role={me.role}/>
+              <span className={`text-xs font-semibold ${me.won ? 'text-emerald-200' : 'text-rose-200'}`}>{me.won ? 'Победа' : 'Поражение'}</span>
+              <span className="ml-auto text-xs font-semibold tabular-nums">{signedScore(me.score.total_points)}</span>
+              {detail.game.elo_affected && me.elo_delta != null && <span className={`text-[11px] tabular-nums ${pointsTone(me.elo_delta)}`}>{formatEloDelta(me.elo_delta)}</span>}
             </div>}
-            <p aria-label="Ход игры в цифрах" className="mt-3 text-xs leading-5 text-white/55">Игроков: {detail.players.length} · голосований: {detail.protocol.votes.length} · ночных выстрелов: {detail.protocol.shots.length}</p>
+
           </section>
 
-          {keyMoments.length > 0 && (
-            <Section title="Главное в игре">
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {keyMoments.map((moment, index) => (
-                  <li key={`${moment.label}:${index}`} className="border-b border-white/[.07] py-2">
-                    <div className="text-[11px] text-white/40">{moment.label}</div>
-                    <div className="mt-0.5 text-sm font-medium text-white/90">{moment.value}</div>
-                    {moment.extra ? <div className="mt-0.5 text-[12px] text-white/50">{moment.extra}</div> : null}
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
 
-          <Section title="Составы и баллы" hint="Участники, их роли, действия и начисления.">
-            <details className="mb-3 border-b border-white/10 pb-2"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm text-white/70">Места за столом<span aria-hidden="true">▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
-            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+          <section aria-label="Составы и баллы" className="min-w-0 px-2 py-2 sm:px-3">
+            <h2 className="mb-2 text-xs font-semibold text-white/65">Составы и баллы</h2>
+            <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4">
               {sides.map((side) => (
                 <div key={side.team} className="min-w-0">
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-1 flex min-h-6 flex-wrap items-center gap-1">
                     <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
-                    <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
-                    {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
+                    <h3 className="text-xs font-semibold text-white/80">{side.title}</h3>
+                    {detail.game.winner_team === side.team ? <span className="text-xs text-emerald-200"><span aria-hidden="true">✓</span><span className="sr-only">победили</span></span> : null}
+                    <span className="ml-auto text-right text-[10px] text-white/45">баллы{detail.game.elo_affected ? '/Elo' : ''}</span>
                   </div>
-                  <div className="grid min-w-0 grid-cols-1 gap-2">{side.players.map(renderPlayer)}</div>
+                  <div className="min-w-0">{side.players.map(renderPlayer)}</div>
                 </div>
               ))}
               {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}
             </div>
-          </Section>
+          </section>
 
+          <div className="border-t border-white/10 px-3">{me && <details data-testid="game-personal-stats" className="mt-1"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs text-white/70">Как я сыграл эту игру<span aria-hidden="true">⌄</span></summary><dl className="grid grid-cols-2 gap-3 border-t border-white/10 py-2 text-xs">
+              <div><dt className="text-white/45">Точность голосования</dt><dd className="mt-1 text-lg font-semibold">{knownVotes ? `${Math.round(correctVotes / knownVotes * 100)}%` : '—'}</dd><p className="mt-1 text-[11px] text-white/50">{knownVotes ? `${correctVotes} из ${knownVotes} в ${me.team === 'red' ? 'чёрных' : 'красных'}` : 'Нет подходящих записанных голосов'}</p></div>
+              <div><dt className="text-white/45">Баллы за игру</dt><dd className="mt-1 text-lg font-semibold">{signedScore(me.score.total_points)}</dd><p className="mt-1 text-[11px] text-white/50">Судья {signedScore(me.score.judge_bonus)} · протокол {signedScore(me.score.protocol_bonus)}</p></div>
+              {me.best_move && <div><dt className="text-white/45">Лучший ход</dt><dd className="mt-1">{me.best_move_seats.filter(seat => seatPlayer(seat)?.team === 'black').length} чёрных из {me.best_move_seats.length}</dd></div>}
+              {(me.role === 'sheriff' || me.role === 'don') && personal && <div><dt className="text-white/45">Результативные проверки</dt><dd className="mt-1">{me.role === 'sheriff' ? personal.checks.sheriff.black : personal.checks.don.sheriff} из {personal.checks[me.role].red + personal.checks[me.role].black}</dd></div>}
+            </dl><p className="pb-2 text-[10px] leading-4 text-white/40">Учитываем записанные голоса обычных дней с одним заголосованным. Нулевой круг и уход нескольких игроков исключены.</p></details>}</div>
+          {keyMoments.length > 0 && <details data-testid="game-key-moments" className="border-b border-white/10 px-3">
+            <summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/80">Главное в игре<span aria-hidden="true" className="text-white/40">ПУ · ЛХ ▾</span></summary>
+            <div className="grid grid-cols-2 gap-3 pb-3">
+              {keyMoments.map((moment, index) => <div key={`${moment.label}:${index}`} className="min-w-0">
+                <div className="text-xs text-white/50">{moment.label}</div>
+                <div className="break-words text-xs font-medium text-white/90">{moment.value}</div>
+                {moment.extra && <div className="mt-1 break-words text-xs text-white/60">{moment.extra}</div>}
+              </div>)}
+            </div>
+          </details>}
+          <details data-testid="game-full-protocol" className="group border-t border-white/10 px-3"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
           {detail.protocol.reveals?.length ? (
             <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">
               <ul data-testid="game-reveals" className="grid gap-3 lg:grid-cols-2">
@@ -400,19 +423,23 @@ export default function PlayerGameDetail({
           ) : null}
 
           {(story.length > 0 || detail.protocol.replacement) && (
-            <Section title="Ход игры" hint="Хронология партии: голосования, переголосования и ночные выстрелы. Шкалы показывают доли голосов среди выставленных кандидатов.">
-              <ol data-testid="game-story-timeline" className="relative space-y-3 border-l-2 border-amber-200/20 pl-4 sm:pl-6">
+            <Section title="Ход игры" hint="Голоса игроков по кругам и ночные выстрелы. Номера соответствуют местам за столом.">
+              <ol data-testid="game-story-timeline" className="space-y-1.5">
                 {story.map((entry) => {
                   if (entry.kind === 'night') {
                     const shot = entry.shot;
-                    const tone = shot.result === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
+                    // The confirmed first-killed participant is the authoritative first-night outcome.
+                    // Do not display a contradictory draft 'miss' when the saved protocol confirms this same victim.
+                    const confirmedFirstNightKill = shot.night_number === 1 && detail.protocol.first_killed?.seat_number === shot.target_seat;
+                    const shotResult = confirmedFirstNightKill ? 'killed' : shot.result;
+                    const tone = shotResult === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
                     return (
-                      <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-violet-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
+                      <li key={entry.key} className="rounded-xl border border-white/10 bg-white/[0.025] px-2.5 py-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shotResult)}</span>
                         </div>
-                        <NightShotScene target={seatLabel(shot.target_seat)} seat={shot.target_seat} result={shot.result} />
+                        <NightShotScene target={seatLabel(shot.target_seat)} seat={shot.target_seat} result={shotResult} />
                       </li>
                     );
                   }
@@ -421,16 +448,19 @@ export default function PlayerGameDetail({
                   const top = Math.max(1, ...counts.map((item) => item.votes));
                   const leaders = counts.filter((item) => item.votes === top && top > 0);
                   const result = vote.outcome === 'tie_revote' ? 'Ничья — переголосование'
-                    : vote.outcome === 'night' ? 'Никто не заголосован — наступает ночь'
-                    : vote.outcome === 'eliminated' ? (leaders.length === 1 ? `Заголосован ${seatLabel(leaders[0].seat)}` : 'Игрок заголосован')
+                    : ['night', 'no_elimination'].includes(vote.outcome || '') ? 'Никто не заголосован — наступает ночь'
+                    : ['eliminated', 'single_eliminated'].includes(vote.outcome || '') ? (leaders.length === 1 ? `Заголосован ${seatLabel(leaders[0].seat)}` : 'Игрок заголосован')
                     : vote.outcome ? vote.outcome.replaceAll('_', ' ') : null;
                   return (
-                    <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-rose-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
+                    <li key={entry.key} className="rounded-xl border border-white/10 bg-white/[0.025] px-2.5 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg text-rose-200/70">◉</span>{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
                       </div>
-                      <VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} />
-                      {result ? <div className="mt-3 rounded-xl border border-white/[.08] bg-black/25 px-3 py-2 text-[12px] font-medium text-white/75">{result}</div> : null}
+                      {(() => {
+                        const ballots = analysis.circles.find(circle => circle.round === vote.day_number + 1)?.votings.find(round => round.number === vote.round_number)?.votes || [];
+                        return ballots.length ? <div aria-label="Кто в кого голосовал" className="mt-1.5 space-y-1">{ballots.map(ballot => <div key={ballot.candidate} className="flex flex-wrap items-center gap-1.5 rounded-lg bg-black/20 px-2 py-1.5 text-[11px]"><span className="flex min-w-0 items-center gap-1.5"><GameRoleBadge role={seatPlayer(ballot.candidate)?.role}/><span className="truncate" title={seatLabel(ballot.candidate)}>{seatLabel(ballot.candidate)}</span></span><span aria-hidden="true" className="text-white/40">←</span><span className="flex flex-wrap gap-1">{ballot.voters.map(seat => <span key={seat} title={seatLabel(seat)} aria-label={seatLabel(seat)} className={seatPlayer(seat)?.team === "black" ? "rounded bg-violet-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-violet-200" : seatPlayer(seat)?.team === "red" ? "rounded bg-rose-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-rose-200" : "rounded bg-white/10 px-1.5 py-0.5 tabular-nums text-white/70"}>{seat}</span>)}</span></div>)}</div> : <><p className="mt-2 text-[11px] text-white/45">Индивидуальные голоса не записаны. В протоколе сохранились только суммы.</p><VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} /></>;
+                      })()}
+                      {result ? <div className="mt-1.5 text-[11px] font-semibold text-white/75">{result}</div> : null}
                     </li>
                   );
                 })}
@@ -439,12 +469,15 @@ export default function PlayerGameDetail({
             </Section>
           )}
 
+          <PlayerGameActionJournal events={detail.protocol.events || []} players={detail.players} />
+
           {detail.protocol.judge_notes && (
             <Section title="Заметка судьи">
               <p className="rounded-2xl bg-black/20 px-3 py-3 text-sm leading-5 text-white/65">{detail.protocol.judge_notes}</p>
             </Section>
           )}
-        </>
+          </div></details>
+        </article>
       )}
     </>
   );

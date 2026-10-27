@@ -125,19 +125,32 @@ describe('player game page', () => {
     expect(screen.getByText('назвал чёрными #2, #3, #5 · угадал 2 из 3')).toBeDefined();
   });
 
-  it('groups the table by team, marks the winners and hides details until opened', () => {
-    view();
-    expect(screen.getByText('Красные')).toBeDefined();
-    expect(screen.getByText('Чёрные')).toBeDefined();
-    expect(screen.getAllByText('победили')).toHaveLength(1);
+  it('shows each seat as on the result blank: result, Elo and its breakdown; details open on tap (owner, 2026-10-27)', () => {
+    const lines = ['За действия в игре: +16 Эло', 'Голосовал в чёрных №10, №1: +16'];
+    view({ detail: { ...detail, game: { ...detail.game, elo_table: { redAvg: 1057, blackAvg: 1067, level: 'команды одного уровня', redChancePercent: 30 } },
+      players: detail.players.map((player) => player.seat_number === 3 ? { ...player, elo_contribution: 16, elo_lines: lines } : player) } });
+    expect(screen.getByTestId('game-elo-table').textContent).toBe('Красные 1057 · Чёрные 1067 · команды одного уровня · шанс красных 30%');
+    // Seats in order, one card each.
+    expect(screen.getAllByTestId(/^game-player-\d+$/).map((row) => row.dataset.testid)).toEqual(detail.players.map((player) => `game-player-${player.seat_number}`).sort((a, b) => Number(a.split('-')[2]) - Number(b.split('-')[2])));
     const row = screen.getByTestId('game-player-3');
     expect(row.tagName).toBe('DETAILS');
     expect((row as HTMLDetailsElement).open).toBe(false);
-    expect(within(row).getByText('+1,5')).toBeDefined();
+    expect(within(row).getByText('ПОБЕДА')).toBeDefined();
+    expect(within(row).getByText('Эло +12')).toBeDefined();
+    // The breakdown is on the card itself, before anything is opened; «За действия в игре» is coloured by its sign.
+    expect(within(screen.getByTestId('game-player-3-elo')).getAllByRole('listitem').map((item) => item.textContent)).toEqual(lines);
+    expect(within(row).getByText(lines[0]).className).toContain('text-emerald-300');
+    // An ordinary evening has no points on the card; where they come from is in the details.
+    expect(within(row).queryByText('+1,5')).toBeNull();
     fireEvent.click(row.querySelector('summary')!);
     expect((row as HTMLDetailsElement).open).toBe(true);
     expect(within(row).getByText('судья +0,5')).toBeDefined();
     expect(within(screen.getByTestId('game-player-9')).getByText('вы')).toBeDefined();
+  });
+
+  it('shows the points of a rating evening on the card', () => {
+    view({ detail: { ...detail, game: { ...detail.game, format: 'RATING' } } });
+    expect(within(screen.getByTestId('game-player-3')).getByText('+1,5')).toBeDefined();
   });
 
   it('tells the game in order: zero circle, first night, first day, second night', () => {
@@ -162,7 +175,7 @@ describe('player game page', () => {
     expect(screen.queryByTestId('game-mine')).toBeNull();
     expect(screen.queryByText('Ход игры')).toBeNull();
     expect(screen.queryByText('Заметка судьи')).toBeNull();
-    expect(screen.getByText('Составы и баллы')).toBeDefined();
+    expect(screen.getByText('Итоги игры по игрокам')).toBeDefined();
   });
 });
 

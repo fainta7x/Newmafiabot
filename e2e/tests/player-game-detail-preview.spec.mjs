@@ -10,10 +10,11 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
   await expect(page.getByTestId('game-hero')).toContainText('Победа красных');
   await expect(page.getByTestId('game-mine')).toContainText('Моя игра');
   await expect(page.getByText('Главное в игре')).toBeVisible();
-  await expect(page.getByText('Составы и баллы')).toBeVisible();
-  const roster = page.getByRole('region', { name: 'Составы и баллы', exact: true });
-  await expect(page.locator('[data-testid^="game-player-"]')).toHaveCount(10);
-  expect((await roster.boundingBox()).y + (await roster.boundingBox()).height).toBeLessThanOrEqual(713);
+  // Each seat as on the result blank (owner, 2026-10-27): result, Elo and every line of its breakdown on the card.
+  await expect(page.getByText('Итоги игры по игрокам')).toBeVisible();
+  await expect(page.getByTestId('game-elo-table')).toContainText('шанс красных 30%');
+  await expect(page.locator('details[data-testid^="game-player-"]')).toHaveCount(10);
+  await expect(page.getByTestId('game-player-1-elo')).toContainText('Голосовал в чёрных №10, №1: +16');
   await page.screenshot({ path: testInfo.outputPath(`game-overview-${width}.png`) });
   await page.getByTestId('game-key-moments').locator(':scope > summary').click();
   await expect(page.getByText('Знак с очень длинным ником игрока', { exact: false }).first()).toBeVisible();
@@ -30,7 +31,7 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
   expect(heights.every((height) => height >= 44)).toBe(true);
   await expect(page.getByTestId('game-table-scene')).toHaveCount(0);
   await expect(page.getByTestId('game-action-journal')).toBeVisible();
-  for (const row of await page.locator('[data-testid^="game-player-"] > summary').all()) {
+  for (const row of await page.locator('details[data-testid^="game-player-"] > summary').all()) {
     const rowBox = await row.boundingBox();
     expect(rowBox.x).toBeGreaterThanOrEqual(0);
     expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(width);

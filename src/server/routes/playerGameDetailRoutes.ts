@@ -7,6 +7,8 @@ import { getPlayerSessionId } from '../auth.ts';
 import { revealsForGamePage, revealVersions } from '../../lib/revealStats.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from '../services/playerEloHistoryService.ts';
+import { eloTableOfEvent, seatEloLines, seatEloOfGame } from '../services/clubResultData.ts';
+import { gameContribution } from '../../lib/playerContribution.ts';
 import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 const router = Router();
@@ -253,10 +255,12 @@ router.get('/games/:gameKey', async (req, res) => {
         };
       });
 
+      const contributions = new Map(gameContribution(payload).map((item) => [item.seat, item]));
       const players = results.map((result: any) => {
         const playerId = String(result?.player_id || '').trim() || null;
         const participantId = String(result?.participant_id || '').trim();
         const player = playerId ? playersById.get(playerId) : null;
+        const seatElo = seatEloOfGame(payload, eloEvent, result, contributions);
         const role = normalizeGameRole(result?.role);
         const team = gameTeamOfRole(role);
         const won = Boolean(team && winnerTeam && team === winnerTeam);
@@ -310,6 +314,9 @@ router.get('/games/:gameKey', async (req, res) => {
           elo_before: elo?.eloBefore ?? null,
           elo_after: elo?.eloAfter ?? null,
           elo_delta: elo?.totalDelta ?? null,
+          // The blank's breakdown (owner, 2026-10-27): the same lines as the result picture in the club chat.
+          elo_contribution: seatElo?.eloContribution ?? null,
+          elo_lines: seatElo ? seatEloLines(seatElo) : [],
         };
       }).sort((a: any, b: any) => a.seat_number - b.seat_number);
 
@@ -325,6 +332,7 @@ router.get('/games/:gameKey', async (req, res) => {
           judge_name: row.judge_name || null,
           table_name: row.table_name || null,
           elo_affected: Boolean(eloEvent),
+          elo_table: eloTableOfEvent(eloEvent),
         },
         protocol: {
           events: sanitizeLiveGameEvents(protocol.events),
@@ -461,6 +469,7 @@ router.get('/games/:gameKey', async (req, res) => {
         judge_name: game.judge_name || null,
         table_name: null,
         elo_affected: Boolean(eloEvent),
+        elo_table: eloTableOfEvent(eloEvent),
       },
       protocol: {
         events: sanitizeLiveGameEvents(safeJsonParse<any>(game.events_json, [])),

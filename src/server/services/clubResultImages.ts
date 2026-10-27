@@ -1,4 +1,3 @@
-import { ELO_CONTRIBUTION_CAP, ELO_PERSONAL_CAP } from '../../shared/eloWeights.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import fs from 'node:fs';
@@ -11,7 +10,7 @@ import {
   renderNoirExportBrandHeader,
   renderNoirExportFooter,
 } from '../../lib/exportNoirTheme.ts';
-import type { BlankSeat, EveningSummary, GameBlank, SeasonTable, SummaryPlayer, TournamentAnnouncement } from './clubResultData.ts';
+import { seatEloLines, type BlankSeat, type EveningSummary, type GameBlank, type SeasonTable, type SummaryPlayer, type TournamentAnnouncement } from './clubResultData.ts';
 
 // The club chat pictures (owner, 2026-10-01), in the same noir style as the tournament game blank.
 
@@ -60,12 +59,9 @@ function seatEvents(seat: BlankSeat) {
 const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
-  const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
+  // The lines are shared with the in-app protocols (`seatEloLines`); here a long one breaks at «·» so it never leaves the card.
   const lines: string[] = [];
-  for (const line of seat.personalLines || []) lines.push(line);
-  if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
-  // Each kind of action on its own line; a long one breaks at «·» so it never leaves the card.
-  for (const line of seat.contributionLines) {
+  for (const line of seatEloLines(seat)) {
     let current = '';
     for (const piece of line.split(' · ')) {
       const next = current ? `${current} · ${piece}` : piece;
@@ -73,9 +69,6 @@ export function contributionTextLines(seat: BlankSeat): string[] {
     }
     if (current) lines.push(current);
   }
-  if (Math.round(seat.eloContributionCap || 0)) lines.push(`Срезано пределом действий (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
-  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Поправка по личным пределам (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
-  if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
   return lines;
 }
 

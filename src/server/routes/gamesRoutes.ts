@@ -253,6 +253,19 @@ export async function saveClubEveningProtocol(db: DatabaseWrapper, gameId: numbe
   return row;
 }
 
+// The Elo part of the result blank for the organizer's protocol window (owner, 2026-10-27).
+router.get('/:gameId/elo-blank', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { loadGameEloBlank } = await import('../services/clubResultData.ts');
+    const blank = await loadGameEloBlank(req.db || (await getDb()), String(req.params.gameId));
+    if (!blank) return res.status(404).json({ error: 'Игра не завершена или не найдена' });
+    return res.json(blank);
+  } catch (error: any) {
+    console.error('[GAMES] Elo blank failed:', error);
+    return res.status(500).json({ error: 'Не удалось загрузить Эло за игру' });
+  }
+});
+
 router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const db = req.db || (await getDb());

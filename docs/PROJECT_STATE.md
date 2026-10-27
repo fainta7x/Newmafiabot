@@ -6,9 +6,28 @@ Owner: «мог бы ты все тексты в Live engine проверить 
 
 Open question for the owner (2026-10-27, see AUDIT_LOG): the Telegram layout rules of the live game (44 px header, board from Telegram's stable height, whole-window guard) have been inactive since #745 kept a wrapper div; revive them or delete them.
 
+## 2026-10-27 — next pages reviewed alongside settings CI
+
+Owner: «Параллельно продолжай анализ по страницам далее». Reviewed nine linked surfaces: evening recap, game archive/detail, personal result, detailed protocol, Replay variants, speeches, automatic factual recap, seasonal accruals and activity match card. Source/mount evidence and eight concrete findings F01–F08: [result flow review](UX_RESULT_FLOW_REVIEW_2026-10-27.md), registered in AUDIT_LOG. No new runtime/phone verification or scoring finding is claimed. Continue the already authorized existing-page usability scope with load recovery and truthful Back/audio labels, then canonical protocol links with retained source context; do not add a playlist or change ranking meanings.
+
+Settings PR #1063 is merged as de7e99f after exact head30e51dd passed CI4545, UI2246, CodeQL3852 and Gitleaks3849. Current review changes documentation only; application implementation of F01–F08 remains open. Amvera synchronization and production writes remain outside this work. Claude's #1061 remains open with its previously diagnosed UI2244 failure; do not overwrite the active branch.
+
+
+## 2026-10-27 — settings clarity and recovery (continued owner request)
+
+Owner: «Окей, тогда продолжай улучшение приложения». Continue existing single-table usability work with focused verification, following AGENTS.md §4e. Search/instruction PR #1062 merged as de4b03b after exact head9488769 passed CI4543, UI2245, CodeQL3850 and Gitleaks3847; #1061 is Claude's active Live Engine branch, whose UI2244 reports four truncated labels at360px and two at390px. Do not overwrite that branch or present its green non-browser checks as completion. This slice improves settings load recovery, confirmed save feedback and serial privacy edits; no privacy policy, notification routing or sending behavior changes. No production writes or Amvera synchronization.
+
+Implemented S01–S03: named settings sections with retry after initial load failure, invitation pending/confirmed feedback, and serial privacy saves with canonical confirmation/rollback. Nine focused rendered tests in three files pass; release safety audit, dependency guard, TypeScript and changed-file lint pass. Three setting retry flows and invitation pending/confirmed controls checked at360/390px; six before/after/state screenshots inspected. [Evidence](reviews/2026-10-27-settings-feedback/README.md). Exact-head CI/merge pending at candidate authoring.
+
+## 2026-10-27 — proportionate verification and continued improvements
+
+Owner: «Ты можешь куда нить себе в инструкцию это вписать и продолжить работать?» Record the time/proportion agreement in canonical AGENTS.md §4e: one coherent candidate, focused checks, one mobile evidence pass, documentation at the end, no optional post-publication polish or CI polling. Continue existing-page logic/usability research within the approved single-table scope. PR #1060 is merged as d290066 after exact head f76d61e passed CI4540, UI2243, CodeQL3847 and Gitleaks3844. No Amvera synchronization or production data writes are authorized by this follow-up.
+
+Implemented this follow-up: Elo nickname search preserves canonical places and values; Elo and player-directory queries clear in one tap. Release safety audit, dependency guard, TypeScript and changed-file lint pass. Nine focused rendered checks pass; actual before/after mobile evidence inspected (see [lookup review](reviews/2026-10-27-player-lookup/README.md)). Exact-head CI/merge pending at authoring. Latest GET health returned ok; deployment of this candidate is not claimed.
+
 ## 2026-10-27 — continued usability research and implementation
 
-Owner: «Окей, продолжай исследование приложения и улучшения его». Continue concrete improvements to existing single-table flows, using the approved page review and current source; no new rating meanings, economy or game rules. Completed #1059: final head8358550 passed CI4537, UI2241, CodeQL3844 and Gitleaks3841; merged as53c18c9. The two fresh-visit tests now isolate their sessions, and a regression protects within-tournament restoration and independent defaults across IDs. Current H01–H04 slice in PR #1060 is implemented: actual Elo history first, searchable loaded archive with retained context, visible/resettable career-game filters and real game numbers/personal outcomes in evening recap links.27 focused checks in six files pass; four mobile before/after pairs inspected, plus search/clear, filter reset, exact protocol key and Elo expansion at360/390. See UX_HISTORY_REVIEW_2026-10-27.md. Exact-head CI/merge pending at candidate authoring. No production data writes; Amvera sync remains outside this work.
+Owner: «Окей, продолжай исследование приложения и улучшения его». Continue concrete improvements to existing single-table flows, using the approved page review and current source; no new rating meanings, economy or game rules. Completed #1059: final head8358550 passed CI4537, UI2241, CodeQL3844 and Gitleaks3841; merged as53c18c9. The two fresh-visit tests now isolate their sessions, and a regression protects within-tournament restoration and independent defaults across IDs. Current H01–H04 slice in PR #1060 is implemented: actual Elo history first, searchable loaded archive with retained context, visible/resettable career-game filters and real game numbers/personal outcomes in evening recap links.27 focused checks in six files pass; four mobile before/after pairs inspected, plus search/clear, filter reset, exact protocol key and Elo expansion at360/390. See UX_HISTORY_REVIEW_2026-10-27.md. Merged in #1060; current verification is recorded above. No production data writes; Amvera sync remains outside this work.
 
 ## 2026-10-27 — owner authorizes necessary usability improvements
 
@@ -975,6 +994,10 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- В настройках приглашений, уведомлений и приватности можно повторить загрузку после ошибки. Приглашения показывают сохранение и подтверждение; приватность не принимает вторую правку, пока сохраняется первая. Из текущей поставки; не объявлено.
+
+- В рейтинге Elo можно найти игрока по нику, сохранив настоящее место; поиск в рейтинге и каталоге игроков очищается одним нажатием. Из текущей поставки; не объявлено.
 
 - История игр: реальные изменения Elo раньше прогноза; в общем архиве можно искать среди загруженных игр; выбранные фильтры карьеры видны и сбрасываются; итоги вечера показывают настоящие номера протоколов и личный результат. Из текущей поставки; не объявлено.
 

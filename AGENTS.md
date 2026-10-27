@@ -125,6 +125,17 @@ The assistant has real admin and developer access to this project. Forgetting it
 - **If the harness blocks a production read**, do not work around it: finish the rest, tell the owner in one line what read was blocked and why, and ask them to add the permission rule.
 - When a diagnosis used production data, say so in the answer and record the finding in `docs/AUDIT_LOG.md`.
 
+## 4e. Time proportionate to the improvement (owner, 2026-10-27)
+
+The owner considers forty minutes excessive for a small usability batch. Prioritize the logic and convenience of existing pages; avoid turning that work into a global bug hunt.
+
+- Finish discovery and source review for one coherent batch before publishing its PR.
+- Verify the affected actions with focused checks. Repeat a passed check only after a relevant change, concrete failure or unresolved concern; keep the required CI gates in §6.
+- Capture and inspect mobile before/after evidence once per coherent visual batch. Repeat only when a subsequent visual change makes that evidence stale.
+- Write the necessary documentation at the end of the batch, rather than repeatedly rewriting it during implementation.
+- After publishing the candidate, change it only for a concrete discovered problem; do not add optional polish that restarts CI. Follow the bounded wait and handoff in §4a.
+- Prefer one connected delivery. Do not start another workstream merely to fill CI waiting time or promise background work.
+
 ## 5. PR budget — hard rule (GPT/Codex only)
 
 **Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.

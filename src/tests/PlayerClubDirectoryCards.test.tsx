@@ -45,7 +45,9 @@ describe('ЛК «Сообщество → Игроки» native player directory
     expect(screen.queryByTestId('club-player-p1')).toBeNull();
     expect(screen.queryByTestId('club-player-p2')).toBeNull();
     expect(screen.getByText('Найдено: 1')).toBeDefined();
-    fireEvent.change(screen.getByTestId('club-search'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
+    expect(document.activeElement).toBe(screen.getByTestId('club-search'));
+    expect(getJson).toHaveBeenCalledTimes(1);
     expect(screen.getAllByRole('button', { name: /Открыть профиль/ })).toHaveLength(3);
   });
 
@@ -73,6 +75,8 @@ describe('ЛК «Сообщество → Игроки» native player directory
     await screen.findByTestId('club-player-p1');
     fireEvent.change(screen.getByTestId('club-search'), { target: { value: 'Неизвестный' } });
     expect(screen.getByText('Никого не нашли')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
+    expect(screen.getAllByRole('button', { name: /Открыть профиль/ })).toHaveLength(3);
     unmount();
     vi.mocked(getJson).mockResolvedValue({ players: [] });
     render(<PlayerClubDirectory selfId="p2" />);

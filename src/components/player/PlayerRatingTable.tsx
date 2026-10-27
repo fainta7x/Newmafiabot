@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Search, X } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { Input } from '../ui/Input.tsx';
 import { getJson } from '../../lib/requestJson.ts';
 
 type RatingPlayer = { place: number; player_id: string; nickname: string; elo: number; avatar_url?: string | null };
@@ -57,6 +58,8 @@ export default function PlayerRatingTable({ playerId }: { playerId: string }) {
   const [players, setPlayers] = useState<RatingPlayer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
+  const [search, setSearch] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
 
   const loadRating = useCallback(async () => {
     const requestId = ++requestSeq.current;
@@ -77,6 +80,8 @@ export default function PlayerRatingTable({ playerId }: { playerId: string }) {
   }, [loadRating]);
 
   const sorted = useMemo(() => (players || []).slice().sort((a, b) => a.place - b.place), [players]);
+  const query = search.trim().toLocaleLowerCase('ru-RU');
+  const matches = sorted.filter((item) => item.nickname.toLocaleLowerCase('ru-RU').includes(query));
   const leaders = sorted.filter((item) => item.place <= 3);
   const others = sorted.filter((item) => item.place > 3);
   const self = players?.find((item) => item.player_id === playerId) || null;
@@ -114,6 +119,13 @@ export default function PlayerRatingTable({ playerId }: { playerId: string }) {
             {players ? <span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[12px] text-white/65" aria-label={`${players.length} игроков`}>{players.length}</span> : null}
           </div>
 
+          {players && players.length > 0 && <div className="relative mb-3">
+            <label htmlFor="rating-search" className="sr-only">Найти в рейтинге</label>
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-white/45" />
+            <Input ref={searchInput} id="rating-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="!pl-12 !pr-12 [&::-webkit-search-cancel-button]:appearance-none" />
+            {search && <button type="button" aria-label="Очистить поиск" onClick={() => { setSearch(''); searchInput.current?.focus(); }} className="ds-focus-ring absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-xl text-white/60"><X aria-hidden="true" className="h-4 w-4" /></button>}
+          </div>}
+
           {error ? (
             <div role="alert" data-testid="rating-load-error" className="space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] p-4">
               <p className="text-[13px] leading-5 text-rose-100/80">{error}</p>
@@ -121,6 +133,12 @@ export default function PlayerRatingTable({ playerId }: { playerId: string }) {
             </div>
           ) : players === null ? (
             <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-[13px] text-white/50">Загружаем рейтинг…</div>
+          ) : query && players.length ? (
+            <div className="space-y-2" aria-label="Результаты поиска в рейтинге">
+              <p role="status" className="px-1 text-[12px] text-white/50">Найдено: {matches.length} из {players.length} · места в общем рейтинге</p>
+              {matches.map((person) => <RatingPersonCard key={person.player_id} person={person} selfId={playerId} />)}
+              {!matches.length && <p className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm leading-5 text-white/50">Никого не нашли. Измените запрос или очистите поиск, чтобы увидеть весь рейтинг.</p>}
+            </div>
           ) : players.length ? (
             <div className="space-y-4">
               {leaders.length > 0 ? (

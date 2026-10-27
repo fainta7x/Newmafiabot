@@ -1,5 +1,43 @@
 # Audit log
 
+## 2026-10-27 — result/protocol/replay/season navigation review (GPT)
+
+Owner asks to continue page analysis in parallel with pending settings checks. Baseline main de7e99f; source and runtime-mount review only, no new phone walkthrough, tests or production reads/writes. Full examples, evidence and acceptance proposals: `UX_RESULT_FLOW_REVIEW_2026-10-27.md`.
+
+- [open, F01] `PlayerGameDetail.tsx` / `PlayerEveningsHub.tsx`: fixed «К играм» label contradicts the preserved recap return destination.
+- [open, F02] `PlayerGameDetail.tsx` / `PlayerHistoryStatsView.tsx`: detail GET error has no retry action.
+- [open, F03] `PlayerReplayScreen.tsx`: Replay and speech GET failures have no independent retry.
+- [open, F04] `App.tsx` / `PlayerGameDetail.tsx`: opening Replay unmounts the protocol's uncontrolled details; return recreates closed disclosures. Scroll restoration remains unverified.
+- [open, F05] `PlayerReplayScreen.tsx`: continuous-listening wording exceeds independent audio controls; no sequential playback handler.
+- [open, F06] `PlayerRatingHub.tsx`: sole mounted PlayerRatingPeriods omits onOpenGame, so its implemented protocol link never renders. Preserve period/player context when wiring it.
+- [open, F07] `playerReplayRoutes.ts`: no recognized analysis facts yields a statement about absent turning points, instead of explaining the limited record.
+- [open, F08] `PlayerStoriesPanel.tsx`: match summary knows gameKey but has no canonical protocol action.
+
+Existing #1060 actual recap numbers, archive search and #1059 replay chapters are confirmed present; do not propose them again. No domain/scoring defect is established by this navigation review.
+
+
+## 2026-10-27 — settings recovery and confirmed edits (GPT)
+
+Baseline d290066. Owner authorizes continued usability improvements. Trace: settings hub → three preference components → existing GET/PUT/PATCH endpoints.
+
+- [fixed in code, S01] `PlayerInviteSettings.tsx`, `PlayerNotificationSettings.tsx`, `PlayerProfilePrivacySettings.tsx`: initial GET errors leave only an error sentence; no action retries the load. Acceptance: clear retry returns to loading and then the existing controls, without remount/page reload.
+- [fixed in code, S02] `PlayerInviteSettings.tsx`: switches are blocked during saving but neither pending nor confirmed success is shown. Acceptance: pending/saved/error states reflect the actual request; a failed save keeps the last confirmed preferences.
+- [fixed in code, S03] `PlayerProfilePrivacySettings.tsx`: switches remain enabled while a whole visibility object is being saved, allowing overlapping requests and stale rollback. Acceptance: one in-flight save, disable edits while pending, use canonical successful visibility and restore the last confirmed state on failure.
+
+Verification: nine focused rendered tests in three files pass, including initial-load recovery for each preference group, pending/confirmed/failed invitation saves, privacy serialization, server-confirmed state in the next write and failure rollback. Safety audit, dependency guard, TypeScript and changed-file lint pass. At360/390px, browser GET-failure retry in all three groups and invitation pending/confirmed behavior pass; six actual mobile section screenshots inspected. See `reviews/2026-10-27-settings-feedback/README.md`. No production data reads/writes. Exact-head CI pending at authoring. #1061 UI failure is a separate active Claude workstream; logs name truncation in timer label/name and vote focus name at360/390px.
+
+## 2026-10-27 — finding players without losing ranking context (GPT)
+
+Owner asks to persist the shorter workflow and continue existing-page usability improvements. Baseline d290066; source path: community hub → Elo table / club directory → canonical profile overlay.
+
+- [fixed in code, C01] `PlayerRatingTable.tsx`: finding a particular nickname requires scrolling the whole rating even though canonical rows already contain the name and actual place. Acceptance: local nickname search, original server places and Elo, separate zero-match/reset state, unchanged default leaders and own standing.
+- [fixed in code, C02] `PlayerClubDirectory.tsx`: zero-match copy only asks the player to edit the query; clearing a long query requires manual deletion. Acceptance: a visible 44px clear action whenever text is entered, keyboard focus returned to search, whole loaded roster restored without another request.
+
+Verification: release safety audit, dependency guard, TypeScript and changed-file lint pass; 9 focused rendered tests in two files pass; static preview built and five 390×844 screenshots inspected. Browser checks cover nickname/no-match/reset, original place/Elo, focus, 44px clear target and no horizontal overflow at360/390×480 (reduced viewport, not an actual OS keyboard). Evidence: `reviews/2026-10-27-player-lookup/README.md`. Exact-head CI pending at authoring.
+
+Scope is presentation and local filtering only; no new ranking, server query, production data mutation or Amvera sync. Canonical work-process instruction is AGENTS.md §4e.
+
+
 ## 2026-10-27 — history discovery and actual Elo explanation (GPT)
 
 Owner authorizes continued usability improvements. Baseline: #1059 candidate8358550, without changes to rating/economy rules. Source findings before implementation:

@@ -46,6 +46,31 @@ describe('ЛК «Сообщество → Рейтинг → Elo»: карточ
     expect(openCanonicalPlayerProfile).toHaveBeenCalledWith('p4');
   });
 
+  it('finds a nickname without renumbering places or changing my standing, and clears locally', async () => {
+    const fetchRating = vi.fn(async () => json({ players }));
+    vi.stubGlobal('fetch', fetchRating);
+    render(<PlayerRatingTable playerId="p4" />);
+    await screen.findByTestId('rating-self-card');
+    const search = screen.getByRole('searchbox', { name: 'Найти в рейтинге' });
+    fireEvent.change(search, { target: { value: '  БоР  ' } });
+    expect(screen.getByRole('status').textContent).toContain('Найдено: 1 из 4');
+    expect(screen.getByRole('button', { name: 'Открыть профиль Борис, место 2, Elo 1560' })).toBeDefined();
+    expect(screen.queryByTestId('rating-leaders')).toBeNull();
+    expect(screen.getByTestId('rating-self-card').textContent).toContain('#4');
+    fireEvent.click(screen.getByRole('button', { name: /Открыть профиль Борис/ }));
+    expect(openCanonicalPlayerProfile).toHaveBeenCalledWith('p2');
+    expect((search as HTMLInputElement).value).toBe('  БоР  ');
+    fireEvent.change(search, { target: { value: 'Нет такого игрока' } });
+    expect(screen.getByRole('status').textContent).toContain('Найдено: 0 из 4');
+    expect(screen.getByText(/Никого не нашли/)).toBeDefined();
+    expect(screen.queryByText('Рейтинг пока пуст.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
+    expect(document.activeElement).toBe(search);
+    expect(screen.getByTestId('rating-leaders')).toBeDefined();
+    expect(screen.getByTestId('rating-other-players')).toBeDefined();
+    expect(fetchRating).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps tied third-place players in the leaders collection', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ players: [
       { place: 1, player_id: 'a', nickname: 'А', elo: 1600 },

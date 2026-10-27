@@ -21,7 +21,7 @@ const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девя
 
 /**
  * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
- * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после попила посидеть и промаха» … Without a chronology the
+ * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после оставления при 8 и 2 промахов» … Without a chronology the
  * number of players is unknown, so an old game keeps «Круг N».
  * Who left comes from the protocol itself — its votings and shots — so a corrected protocol renames the circles that follow
  * (owner, 2026-10-27: game №20 kept «Семёрка» after the vote that put №3 out was corrected to «everybody stayed»). Only a
@@ -50,20 +50,28 @@ export const circleTitle = (
   const killedAtNight = (night: number) => (shots
     ? shots.filter((shot) => Number(shot.night_number) === night && shot.result === 'killed' && Number(shot.target_seat) > 0).map((shot) => Number(shot.target_seat))
     : [...journalOut.values()].filter((event) => event.round === night && event.value === 'killed').map((event) => Number(event.seat)));
-  const out = new Set<number>();
-  for (let day = 0; day < index; day += 1) votedOutOnDay(day).forEach((seat) => out.add(seat));
-  for (let night = 1; night <= index; night += 1) killedAtNight(night).forEach((seat) => out.add(seat));
-  for (const event of journalOut.values()) if (event.value === 'removed') out.add(Number(event.seat));
-  const atTable = tableSize - out.size;
-  const name = TABLE_NAMES[atTable] || `Круг ${index}`;
+  const atTableAt = (circle: number) => {
+    const out = new Set<number>();
+    for (let day = 0; day < circle; day += 1) votedOutOnDay(day).forEach((seat) => out.add(seat));
+    for (let night = 1; night <= circle; night += 1) killedAtNight(night).forEach((seat) => out.add(seat));
+    for (const event of journalOut.values()) if (event.value === 'removed' && event.round <= circle) out.add(Number(event.seat));
+    return tableSize - out.size;
+  };
+  const name = TABLE_NAMES[atTableAt(index)] || `Круг ${index}`;
   const dayOut = votedOutOnDay(index - 1).length;
-  const killed = killedAtNight(index).length > 0;
+  // The split of the previous day ended with everybody staying: there was a tie and nobody left.
+  const splitStayed = dayOut === 0 && index > 1 && (votes
+    ? votes.some((round) => Number(round.day_number ?? 0) === index - 1 && round.outcome === 'tie_revote')
+    : true);
+  let misses = 0;
+  for (let night = index; night >= 1 && killedAtNight(night).length === 0; night -= 1) misses += 1;
   const notes: string[] = [];
-  // The zero round with everybody staying is the standard course of the game (owner): no qualifier after it.
+  // Owner, 2026-10-27: «Восьмёрка после оставления при 8 и 2 промахов»; the zero round with everybody staying is the standard
+  // course of the game, so it gives no qualifier; a raised split stays «попила с подъёмом».
   if (dayOut >= 2) notes.push('попила с подъёмом');
-  else if (dayOut === 0 && index > 1) notes.push('попила посидеть');
-  if (!killed) notes.push('промаха');
-  // «Восьмёрка после попила посидеть и промаха» (owner, 2026-10-27).
+  else if (splitStayed) notes.push(`оставления при ${atTableAt(index - 1)}`);
+  if (misses === 1) notes.push('промаха');
+  else if (misses > 1) notes.push(`${misses} промахов`);
   return notes.length ? `${name} после ${notes.join(' и ')}` : name;
 };
 

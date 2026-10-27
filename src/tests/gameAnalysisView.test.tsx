@@ -33,6 +33,15 @@ describe('game analysis view', () => {
     expect(screen.getByText(/заголосован/)).toBeTruthy();
   });
 
+  it('marks an exit of the chronology that the corrected protocol does not have (game №20, 2026-10-27)', () => {
+    seq = 0;
+    const events = [ev(1, 'exit', { seat: 3, value: 'voted_day' }), ev(2, 'game_end', { value: 'red' })];
+    const corrected = players.map((player: any) => ({ ...player, exit_type: 'alive' }));
+    render(<GameAnalysis events={events as any} playerResults={corrected} />);
+    fireEvent.click(screen.getByTestId('game-analysis-circle-1').querySelector('button')!);
+    expect(screen.getByText(/по протоколу остался в игре/)).toBeTruthy();
+  });
+
   it('shows the two competing versions of the table when two players revealed in a circle', () => {
     seq = 0;
     const events = [

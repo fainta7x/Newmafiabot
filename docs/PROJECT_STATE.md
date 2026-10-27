@@ -1,10 +1,14 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — step 2: the layout and text audit covers the whole app (PR from `claude/eager-newton-mov0k7`)
+
+All 29 harnesses load the app's stylesheets (`e2e/appStyles.ts`); `e2e/tests/app-text-audit.spec.mjs` checks 55 pages × 4 sizes + a wide font on phones (UI preview CI job «Layout and text audit»); findings fixed (see AUDIT_LOG). Owner decisions: long nicknames shrink their font, then wrap (DESIGN_SYSTEM); the inactive Telegram layout rules of the Live Engine are deleted (next small PR); then the music-player test; then the architecture programme («Да можешь в принципе начать по архитектуре задачи делать», 2026-10-27). Deployed and checked in production 2026-10-27: #1061, #1058 (game №17 completed and in all ten players' profiles), #1054.
+
 ## 2026-10-27 — owner: layout and text checked on every change, everywhere
 
 Owner: «мог бы ты все тексты в Live engine проверить и все элементы… на мобильном разрешении и для десктопа», then «всегда при внесении изменений… всё это проверялось и фиксилось… не только Live Engine, а вообще везде». Step 1 (Live Engine) is coded in PR `claude/eager-newton-mov0k7`: an automatic layout audit on every Live Engine screen at 360/390/1366/1440 (`e2e/tests/live-game-text-audit.spec.mjs`, in the UI preview CI), its findings fixed, the rule in `AGENTS.md` («Layout and text gate»). **Next, step 2 (already asked for by the owner): the same audit for every other app page** (player cabinet, CRM, evenings, profiles, trainers, protocol window, broadcast) — one shared detector module, every `e2e/*.html` harness on the route, every harness loading the app's stylesheets, findings fixed.
 
-Open question for the owner (2026-10-27, see AUDIT_LOG): the Telegram layout rules of the live game (44 px header, board from Telegram's stable height, whole-window guard) have been inactive since #745 kept a wrapper div; revive them or delete them.
+Owner decision (2026-10-27): the inactive Telegram layout rules of the live game (dead since #745 kept a wrapper div) are deleted.
 
 ## 2026-10-27 — Community and Progress: full analysis before changes
 

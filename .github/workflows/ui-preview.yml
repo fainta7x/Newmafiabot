@@ -55,3 +55,32 @@ jobs:
           name: ui-preview-evidence
           path: e2e/preview-results
           retention-days: 14
+
+  layout-audit:
+    name: Layout and text audit (all app pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: e2e
+      - name: Build isolated preview (no database or secrets)
+        run: node scripts/buildUiPreview.mjs
+      - name: Check every app page for text on text, «…», cut text and covered buttons
+        run: npx playwright test --config playwright-layout-audit.config.mjs
+        working-directory: e2e
+      - name: Save audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-audit-evidence
+          path: e2e/layout-audit-results
+          retention-days: 14

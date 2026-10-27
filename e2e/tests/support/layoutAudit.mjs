@@ -141,7 +141,8 @@ export const auditScreen = () => {
       if (layers.some((e) => modalOf(e) && !modalOf(e).contains(el))) { underWindow = true; break; }
       // Anything else drawn over the text — a button, a badge, an icon, a card — hides part of it.
       // An svg shape (a ring around a percentage) is drawn around the text, not over it; an image or a button is over it.
-      coverOver = coverOver || layers.find((e) => (coverAlpha(e) >= 0.3 || ['IMG', 'BUTTON'].includes(e.tagName)) && realCover(e, el)) || null;
+      // A layer marked data-layout-cover="intended" covers by an approved design (the OBS «Убит» ribbon over a portrait).
+      coverOver = coverOver || layers.find((e) => (coverAlpha(e) >= 0.3 || ['IMG', 'BUTTON'].includes(e.tagName)) && realCover(e, el) && !e.closest('[data-layout-cover="intended"]')) || null;
     }
     if (underWindow || offText === 3) { pendingCuts.length = 0; continue; }
     if (coverOver) { issues.add(`text «${text.slice(0, 30)}» covered by ${name(coverOver)}`); pendingCuts.length = 0; continue; }
@@ -180,6 +181,7 @@ export const auditScreen = () => {
       for (const ra of a.rects) for (const rb of b.rects) {
         const o = inter(ra, rb);
         if (o.x <= 2 || o.y <= 2) continue;
+        if (a.el.closest('[data-layout-cover="intended"]') || b.el.closest('[data-layout-cover="intended"]')) continue;
         // One text in the window chrome, the other in the page under it that can still scroll out: scrolling.
         const ca = chromeOf(a.el);
         const cb = chromeOf(b.el);

@@ -2266,15 +2266,17 @@ Scope: every Live Engine screen from the roster to day 1 (roster, setup, role de
 
 Scope: 55 harness pages (`e2e/tests/app-text-audit.spec.mjs`: the whole player cabinet by route, player profile/rating/game detail, CRM pages, protocol window, trainers, poker, live reveal, broadcast scenes on computer screens only) at 360×640, 390×844, 1366×768, 1440×900 and the phones again in a wide font, with every visible tab, in CI's fonts (`e2e/fonts-ci.conf`). First: 28 of 29 harnesses loaded 2–4 of the app's 16 stylesheets — now all load `e2e/appStyles.ts` (guard `harnessStyles.test.ts`). Detector learned window chrome (page content scrolled under the bottom menu is not a defect, content it hides for good is) and svg rings.
 
-- [open] Player top bar (`PlayerQuickAccessBar.tsx`): «2LA Noire» cut to «…» at 360 px.
-- [open] Long nicknames run under the next cell: game detail rows (`game-player-*`: over «+1», «⌄», the next seat), CRM players list (over «Ходит постоянно», off screen on phones), live reveal seats (`live-reveal-seat-*`, off screen), profile header name.
-- [open] «Вечера»: «Правила и словарь · памятка перед первым вечером» runs off screen and under «›» (`player-guide-link`).
-- [open] Wallet: an evening title under «Частично».
-- [open] Home: «MVP вечера «Вечер клуба»» cut in the vote prompt card.
-- [open] Cabinet section tabs: «Приватность» (settings) and «Мини-игры» (community) past the right edge at 390 px; «Прошедшие» cut in a wide font.
-- [open] Protocol window header: «Основной стол · судья …» cut and under «·», «Сохранено».
-- [open] CRM evenings week: the date «29» over «окт».
-- [open] CRM evening roster header and «Закрытие» cut in a wide font at 360 px.
-- [open] Live game in the cabinet / tournament window (no game top bar): phase pill «Нулевой круг» cut on a computer.
-- [open] Tournament live game: «Результат движка будет сохранён…» cut in a wide font at 360 px.
-- [open] Broadcast reveal (OBS, computer): role «Мирный» cut, an avatar initial under a badge.
+- [fixed] Player top bar (`PlayerQuickAccessBar.tsx`): «2LA Noire» cut to «…» at 360 px.
+- [fixed, owner «Уменьшать шрифт»: FitText shrinks, then wraps] Long nicknames run under the next cell: game detail rows (`game-player-*`: over «+1», «⌄», the next seat), CRM players list (over «Ходит постоянно», off screen on phones), live reveal seats (`live-reveal-seat-*`, off screen), profile header name.
+- [fixed] «Вечера»: «Правила и словарь · памятка перед первым вечером» runs off screen and under «›» (`player-guide-link`).
+- [fixed] Wallet: an evening title under «Частично».
+- [fixed] Home: «MVP вечера «Вечер клуба»» cut in the vote prompt card.
+- [fixed: the strips scroll sideways — detector learned it; «Прошедшие» via FitText in SegmentedControl] Cabinet section tabs: «Приватность» (settings) and «Мини-игры» (community) past the right edge at 390 px; «Прошедшие» cut in a wide font.
+- [fixed] Protocol window header: «Основной стол · судья …» cut and under «·», «Сохранено».
+- [fixed] CRM evenings week: the date «29» over «окт».
+- [fixed] CRM evening roster header and «Закрытие» cut in a wide font at 360 px.
+- [wontfix: a phone-column fixture of the centre panel, now checked on phones only] Live game in the cabinet / tournament window (no game top bar): phase pill «Нулевой круг» cut on a computer.
+- [fixed, real bug] Tournament live game: «Результат движка будет сохранён…» cut in a wide font at 360 px.
+- [fixed: role label FitText; the «Убит» ribbon over the portrait is the approved overlay, marked data-layout-cover="intended"; checked at OBS's 1920×1080] Broadcast reveal (OBS, computer): role «Мирный» cut, an avatar initial under a badge.
+- [fixed, real bug] The live game's setup screen (roster, settings, seating) did not scroll on a 360×640 phone: `liveGameTelegram.css` clips `.evening-live-engine-shell > div` to the window for the game board; in a tournament game the seating and the start button stayed under the screen edge, in a club game the bottom of the roster confirmation. The engine root now carries `data-phase`, and the setup form keeps its height (`liveGameEveningBugfixes.css`).
+

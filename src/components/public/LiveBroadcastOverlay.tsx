@@ -6,6 +6,7 @@ import { Ban, Crosshair, Hand, Radio, Skull, Star, UserRoundX } from 'lucide-rea
 import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBroadcastPlayer, type LiveBroadcastState, type LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
+import { FitText } from '../ui/FitText.tsx';
 
 type LiveBroadcastOverlayProps = {
   token: string;
@@ -375,13 +376,14 @@ export default function LiveBroadcastOverlay({ token, replayState }: LiveBroadca
                   <div className="live-broadcast-seat-number">{player.seat}</div>
                   {/* Role emblem as on club streams (owner reference, 2026-10-01): the badge colour tells the role. */}
                   <div className={`live-broadcast-emblem is-${kind}`} title={(getGameRoleDefinition(kind)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}><RoleIcon kind={kind} /></div>
-                  {!player.alive ? <div className={`live-broadcast-out-ribbon is-${player.statusKind}`}><span>{OUT_WORDS[player.statusKind] || 'Выбыл'}</span></div> : null}
+                  {/* The approved overlay lays the «Убит» ribbon over the portrait on purpose (data-layout-cover for the layout audit). */}
+                  {!player.alive ? <div data-layout-cover="intended" className={`live-broadcast-out-ribbon is-${player.statusKind}`}><span>{OUT_WORDS[player.statusKind] || 'Выбыл'}</span></div> : null}
                 </div>
                 <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">
                     {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
                   </div>
-                  <div className="live-broadcast-role">{(getGameRoleDefinition(kind)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</div>
+                  <FitText as="div" minPx={9} className="live-broadcast-role">{(getGameRoleDefinition(kind)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</FitText>
                 </div>
               </div>
               <div className="live-broadcast-player-name">{player.nickname}</div>

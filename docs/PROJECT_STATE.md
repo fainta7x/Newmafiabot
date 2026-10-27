@@ -366,6 +366,8 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 ## Current product state
 
+- **Application continuity — MERGED (#1049, 2026-10-26; verified 2026-10-27):** Home prioritizes the player's next booked evening and shows actual RSVP/reserve/exact game choices; Community/Activity/Wallet subviews restore through reload and Back; payment-summary failures offer retry and preserve clearly identified confirmed amounts; closing a draft protocol waits for a successful flush. Rating labels, meanings, hierarchy and scoring remain unchanged (Metrics changes are routing only). Final head `346064eb` passed CI, UI preview, CodeQL and Gitleaks; merged as `e9828408`. All paths are retained in main `70c3494`. #1051 was closed as duplicate. Before/after: `docs/reviews/2026-10-26-application/`. Read-only runtime health is healthy, but the mirrored runtime revision does not by itself prove this batch deployed. No new owner decision is pending for this batch; remaining verification is signed-in live use and simultaneous real-table load, without production data writes.
+
 ### Player application
 
 The public split-vote trainer linked from Player Cabinet includes basic and advanced personal-vote questions and an interactive whole-table level. In the interactive level the player processes nominees in nomination order, assigns each of the ten seat cards once or skips a nominee, reviews the distribution, and receives one final check. Practice and exam each run for five questions; the exam ends on the first incorrect full distribution. The level also offers endless practice. Passing the basic exam unlocks advanced; passing advanced unlocks interactive and mixed endless training. Passed exams persist per authenticated player in SQLite, while anonymous visitors can only practice basic questions. Deployment of changes must be verified separately.
@@ -956,7 +958,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
-- Application continuity (candidate, 2026-10-26): Home shows your next registration and chosen games; Community/Wallet tabs keep their place after reload; payment-load failures offer retry; a protocol stays open if saving fails. Announce only after merge.
+- Application continuity (merged #1049, 2026-10-26): Home shows your next registration and chosen games; Community/Wallet tabs keep their place after reload; payment-load failures offer retry; a protocol stays open if saving fails. Not announced.
 
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.
 - В живой игре после слома попила можно отметить, кто его сломал, или выбрать «Не знаю».
@@ -1118,7 +1120,6 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 - **Game №20 (2026-10-23) record:** the owner added the split by hand; the rest (misses, №3's stale note, completion) is a one-time correction in PR #1053 that runs on the first start after the deploy — to verify on production then. «Разбор партии» marks the stray exit of №3 Богданчик «по протоколу остался в игре»; the replay still shows the journal.
 
-- **Application continuity (owner, 2026-10-26; APPROVED except rating-label proposal):** personal Home evening/RSVP/reserve/exact game choices first, persistent Community/Activity/Wallet routes, explicit debt-summary failures/retry, and evidence-led judge reliability corrections are implemented in the current candidate. Ranking names, meanings, scoring and hierarchy remain unchanged; routing alone preserves the Metrics tab. Club protocol close now waits for a successful flush and keeps failed/unsent edits open. Focused source/UI evidence is in AUDIT_LOG → «approved application continuity fixes». Required exact-head CI/merge are still gates; no production write or deploy has been performed. Optional feature expansion and any architecture replacement are outside this batch.
 
 - Idea (owner 2026-10-26, not built): replace the fixed 30/70 base win chance in Elo with something adaptive — from the club's real red/black win rate, the players' and the teams' win rates. Claude's note: the club's 19 counted games are 9 red / 10 black (47 % red), far from the assumed 30 %, but too few to trust; a shrunk estimate (30/70 prior + real results, weight growing with games) is the safe form; individual/team win rates must not be added on top of Elo, which already measures them (double counting). Owner decision 2026-10-26: stay on 30/70 for now.
 

@@ -1,4 +1,4 @@
-import { ChevronRight, Search, UserRound } from 'lucide-react';
+import { ChevronRight, Search, UserRound, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '../ui/Input.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -18,6 +18,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const requestSeq = useRef(0);
+  const searchInput = useRef<HTMLInputElement>(null);
 
   const loadPlayers = useCallback(async () => {
     const requestId = ++requestSeq.current;
@@ -56,7 +57,8 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
       <div className="relative mt-4">
         <label htmlFor="club-search" className="sr-only">Найти игрока</label>
         <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-white/45" />
-        <Input id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="!pl-12" />
+        <Input ref={searchInput} type="search" id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="!pl-12 !pr-12 [&::-webkit-search-cancel-button]:appearance-none" />
+        {search && <button type="button" aria-label="Очистить поиск" onClick={() => { setSearch(''); searchInput.current?.focus(); }} className="ds-focus-ring absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-xl text-white/60"><X aria-hidden="true" className="h-4 w-4" /></button>}
       </div>
 
       {error ? (
@@ -98,7 +100,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
         <div className="mt-3 flex flex-col items-center rounded-2xl bg-black/20 px-4 py-7 text-center">
           <UserRound aria-hidden="true" className="h-6 w-6 text-white/40" />
           <p className="mt-2 text-sm font-semibold text-white/75">{players.length ? 'Никого не нашли' : 'Список игроков пока пуст'}</p>
-          <p className="mt-1 text-[12px] leading-4 text-white/45">{players.length ? 'Можно изменить поиск.' : 'Игроки появятся здесь, когда добавятся в клуб.'}</p>
+          <p className="mt-1 text-[12px] leading-4 text-white/45">{players.length ? 'Измените запрос или очистите поиск, чтобы увидеть всех игроков.' : 'Игроки появятся здесь, когда добавятся в клуб.'}</p>
         </div>
       )}
     </section>

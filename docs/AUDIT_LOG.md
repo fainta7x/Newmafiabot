@@ -1,5 +1,17 @@
 # Audit log
 
+## 2026-10-27 — finding players without losing ranking context (GPT)
+
+Owner asks to persist the shorter workflow and continue existing-page usability improvements. Baseline d290066; source path: community hub → Elo table / club directory → canonical profile overlay.
+
+- [fixed in code, C01] `PlayerRatingTable.tsx`: finding a particular nickname requires scrolling the whole rating even though canonical rows already contain the name and actual place. Acceptance: local nickname search, original server places and Elo, separate zero-match/reset state, unchanged default leaders and own standing.
+- [fixed in code, C02] `PlayerClubDirectory.tsx`: zero-match copy only asks the player to edit the query; clearing a long query requires manual deletion. Acceptance: a visible 44px clear action whenever text is entered, keyboard focus returned to search, whole loaded roster restored without another request.
+
+Verification: release safety audit, dependency guard, TypeScript and changed-file lint pass; 9 focused rendered tests in two files pass; static preview built and five 390×844 screenshots inspected. Browser checks cover nickname/no-match/reset, original place/Elo, focus, 44px clear target and no horizontal overflow at360/390×480 (reduced viewport, not an actual OS keyboard). Evidence: `reviews/2026-10-27-player-lookup/README.md`. Exact-head CI pending at authoring.
+
+Scope is presentation and local filtering only; no new ranking, server query, production data mutation or Amvera sync. Canonical work-process instruction is AGENTS.md §4e.
+
+
 ## 2026-10-27 — history discovery and actual Elo explanation (GPT)
 
 Owner authorizes continued usability improvements. Baseline: #1059 candidate8358550, without changes to rating/economy rules. Source findings before implementation:

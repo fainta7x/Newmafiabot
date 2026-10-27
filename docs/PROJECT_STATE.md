@@ -1,8 +1,14 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — proportionate verification and continued improvements
+
+Owner: «Ты можешь куда нить себе в инструкцию это вписать и продолжить работать?» Record the time/proportion agreement in canonical AGENTS.md §4e: one coherent candidate, focused checks, one mobile evidence pass, documentation at the end, no optional post-publication polish or CI polling. Continue existing-page logic/usability research within the approved single-table scope. PR #1060 is merged as d290066 after exact head f76d61e passed CI4540, UI2243, CodeQL3847 and Gitleaks3844. No Amvera synchronization or production data writes are authorized by this follow-up.
+
+Implemented this follow-up: Elo nickname search preserves canonical places and values; Elo and player-directory queries clear in one tap. Release safety audit, dependency guard, TypeScript and changed-file lint pass. Nine focused rendered checks pass; actual before/after mobile evidence inspected (see [lookup review](reviews/2026-10-27-player-lookup/README.md)). Exact-head CI/merge pending at authoring. Latest GET health returned ok; deployment of this candidate is not claimed.
+
 ## 2026-10-27 — continued usability research and implementation
 
-Owner: «Окей, продолжай исследование приложения и улучшения его». Continue concrete improvements to existing single-table flows, using the approved page review and current source; no new rating meanings, economy or game rules. Completed #1059: final head8358550 passed CI4537, UI2241, CodeQL3844 and Gitleaks3841; merged as53c18c9. The two fresh-visit tests now isolate their sessions, and a regression protects within-tournament restoration and independent defaults across IDs. Current H01–H04 slice in PR #1060 is implemented: actual Elo history first, searchable loaded archive with retained context, visible/resettable career-game filters and real game numbers/personal outcomes in evening recap links.27 focused checks in six files pass; four mobile before/after pairs inspected, plus search/clear, filter reset, exact protocol key and Elo expansion at360/390. See UX_HISTORY_REVIEW_2026-10-27.md. Exact-head CI/merge pending at candidate authoring. No production data writes; Amvera sync remains outside this work.
+Owner: «Окей, продолжай исследование приложения и улучшения его». Continue concrete improvements to existing single-table flows, using the approved page review and current source; no new rating meanings, economy or game rules. Completed #1059: final head8358550 passed CI4537, UI2241, CodeQL3844 and Gitleaks3841; merged as53c18c9. The two fresh-visit tests now isolate their sessions, and a regression protects within-tournament restoration and independent defaults across IDs. Current H01–H04 slice in PR #1060 is implemented: actual Elo history first, searchable loaded archive with retained context, visible/resettable career-game filters and real game numbers/personal outcomes in evening recap links.27 focused checks in six files pass; four mobile before/after pairs inspected, plus search/clear, filter reset, exact protocol key and Elo expansion at360/390. See UX_HISTORY_REVIEW_2026-10-27.md. Merged in #1060; current verification is recorded above. No production data writes; Amvera sync remains outside this work.
 
 ## 2026-10-27 — owner authorizes necessary usability improvements
 
@@ -969,6 +975,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- В рейтинге Elo можно найти игрока по нику, сохранив настоящее место; поиск в рейтинге и каталоге игроков очищается одним нажатием. Из текущей поставки; не объявлено.
 
 - История игр: реальные изменения Elo раньше прогноза; в общем архиве можно искать среди загруженных игр; выбранные фильтры карьеры видны и сбрасываются; итоги вечера показывают настоящие номера протоколов и личный результат. Из текущей поставки; не объявлено.
 

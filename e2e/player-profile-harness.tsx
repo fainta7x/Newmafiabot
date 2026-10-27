@@ -81,7 +81,11 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname === '/api/player/achievement-preferences') return json(showcase.achievement_preferences);
   if (url.pathname.endsWith('/summary')) return json(summaryFor(targetPlayerId));
   if (url.pathname.endsWith('/birthday')) return json({ day: 14, month: 8, year: null });
-  if (url.pathname.endsWith('/games')) return json({ games: [4, 3, 2].map(number => ({ id: `club:g${number}`, title: 'Пятничный вечер', date: iso(2), game_number: number, role: number === 4 ? 'sheriff' : 'citizen', team: 'red', won: number !== 3, elo_before: 1527, elo_after: 1542, elo_delta: number === 3 ? -15 : 15 })), total: 3, offset: 0, limit: 15, next_offset: null });
+  if (url.pathname.endsWith('/games')) {
+    const rows = [4, 3, 2].map(number => ({ id: `club:g${number}`, title: 'Пятничный вечер', date: iso(2), game_number: number, role: number === 4 ? 'sheriff' : 'citizen', team: 'red', won: number !== 3, elo_before: 1527, elo_after: 1542, elo_delta: number === 3 ? -15 : 15 }));
+    const games = params.has('history') ? rows.filter(game => (!url.searchParams.get('role') || game.role === url.searchParams.get('role')) && (!url.searchParams.get('team') || game.team === url.searchParams.get('team')) && (!url.searchParams.get('result') || game.won === (url.searchParams.get('result') === 'win'))) : rows;
+    return json({games,total:games.length,offset:0,limit:15,next_offset:null});
+  }
   if (url.pathname.endsWith('/roles')) return json({ roles: [{ role: 'sheriff', label: 'Шериф', games: 12, wins: 8, win_rate: 66.7 }, { role: 'citizen', label: 'Мирный', games: 20, wins: 12, win_rate: 60 }, { role: 'mafia', label: 'Мафия', games: 10, wins: 6, win_rate: 60 }, { role: 'don', label: 'Дон', games: 6, wins: 3, win_rate: 50 }] });
   if (url.pathname.endsWith('/elo')) return json({ points: [{ id: 'club:g4', title: 'Пятничный вечер', game_number: 4, date: iso(2), role: 'sheriff', elo_before: 1527, elo_after: 1542, elo_delta: 15 }] });
   if (url.pathname.endsWith('/showcase')) return json(showcase);

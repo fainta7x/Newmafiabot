@@ -57,7 +57,7 @@ if (isRecap) window.fetch = async () => new Response(JSON.stringify({summaries:[
   id:'past-1', title:'Пятничный клубный вечер', starts_at:'2026-10-09T18:00:00Z',settled_at:'2026-10-10T00:00:00Z',venue:'Суп с Котом',
   games:4, red_wins:3, black_wins:1,score:'3:1',player:{games:3,wins:2,losses:1,win_rate:67,elo_before:1500,elo_after:1522,elo_delta:22,roles:['citizen','sheriff']},
   best_elo_rise:{player_id:'p3',nickname:'Дина',avatar_url:'',elo_delta:31}, most_games:{player_id:'p4',nickname:'Богдан',avatar_url:'',games:4},
-  awards:[{category:'mvp',label:'Игрок вечера',player_id:'p3',nickname:'Дина',avatar_url:'',votes:7}],facts:['Красные выиграли три партии из четырёх'],game_ids:['club:11','club:12','club:13','club:14'],
+  awards:[{category:'mvp',label:'Игрок вечера',player_id:'p3',nickname:'Дина',avatar_url:'',votes:7}],facts:['Красные выиграли три партии из четырёх'],game_ids:['club:11','club:12','club:13','club:14'],game_links:[11,12,13,14].map((number,index)=>({id:`club:${number}`,game_number:number,winner_team:index===1?'black':'red',personal:index===3?null:{role:index===0?'sheriff':'citizen',won:index!==1}})),
 }]}),{headers:{'Content-Type':'application/json'}});
 ReactDOM.createRoot(document.getElementById('root')!).render(isRecap ? <EveningSummaries onOpenGame={(key)=>{document.body.dataset.openedGame=key;}} /> :
   <main className="mx-auto flex max-w-[430px] flex-col gap-3 p-3 pb-24 text-white">

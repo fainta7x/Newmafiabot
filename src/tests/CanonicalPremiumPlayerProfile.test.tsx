@@ -67,6 +67,13 @@ describe('CanonicalPremiumPlayerProfile', () => {
       const value = String(url);
       return value.includes('role=sheriff') && value.includes('team=black') && value.includes('result=win');
     })).toBe(true));
+    expect(screen.getByLabelText('Выбранные фильтры игр').textContent).toContain('Шериф · Чёрные · Победа');
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map(([url]) => String(url)).filter(url => url.includes('/games?'));
+      expect(urls.at(-1)).not.toMatch(/role=|team=|result=|from=|to=/);
+    });
+    expect(screen.queryByLabelText('Выбранные фильтры игр')).toBeNull();
   });
 
   it('keeps fetched games visible when the active nested Games tab is clicked again', async () => {

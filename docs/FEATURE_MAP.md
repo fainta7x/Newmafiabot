@@ -14,7 +14,9 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Persistent hub targets: `src/lib/appNavigation.ts` → `PlayerCabinetShell.tsx` → Community/Rating/Wallet; Community connections/mini-games, Activity subviews and Wallet tabs have addressable paths. Legacy wallet `?tab=` links remain supported.
 - Personal Home evening: `src/lib/playerHomeEvening.ts` selects from the GET-only participation projection in `playerSelfCoreRoutes.ts`; shared debt loading/error/retry: `src/hooks/usePlayerDebtSummary.ts`.
 - Primary hubs (menu of four): `PlayerHomeDashboard.tsx`, `PlayerEveningsHub.tsx`, `PlayerCommunityHub.tsx` (with `PlayerRatingHub.tsx`), `PlayerProfileHub.tsx` («Прогресс»); `PlayerSettingsHub.tsx` and `PlayerWalletHub.tsx` from the header. Club news for players: `GET /api/player/news` (`loadClubNews` in `clubDigestService.ts`).
-- History/stats content: `src/components/player/PlayerHistoryStatsView.tsx`.
+- History/stats content: `src/components/player/PlayerHistoryStatsView.tsx`. Loaded-archive search and its disclosure/query context live here; career game filters are owned by `CanonicalPremiumPlayerProfile.tsx`.
+- Past evening recap links: `src/server/services/playerEveningSummaryService.ts` projects canonical `game_links` (number/winner/viewer participation), consumed by `PlayerEveningSummaries.tsx`; legacy `game_ids` remains supported without guessed numbering.
+- Actual Elo change history and optional forecast presentation: `PlayerEloJourney.tsx`; calculation/API ownership is unchanged.
 - API family: `/api/player/*` mounts in `src/app.ts`, especially `src/server/routes/playerSelfRoutes.ts` and related player route modules.
 
 **Already implemented:** Player Cabinet ↔ Organizer CRM bidirectional mode switching. Do not propose “connect the two apps” as new work unless a concrete missing transition is identified.

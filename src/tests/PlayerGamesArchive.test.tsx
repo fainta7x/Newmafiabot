@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PlayerGamesArchive from '../components/player/PlayerHistoryStatsView.tsx';
 
@@ -69,6 +69,48 @@ describe('personal games, club archive and the page of one game', () => {
     fireEvent(details, new Event('toggle'));
     expect(await screen.findByText('Чужая игра в клубе')).toBeDefined();
     expect(screen.getByText(/Моя предыдущая игра/)).toBeDefined();
+    const archive = screen.getByTestId('player-club-archive');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Найти в архиве' }), { target: { value: 'Чужая' } });
+    expect(within(archive).queryByText('Моя последняя игра')).toBeNull();
+    expect(within(archive).getByText('Показано 1 из 2')).toBeTruthy();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Найти в архиве' }), { target: { value: 'ничего такого' } });
+    expect(within(archive).getByText(/По этому запросу игр не найдено/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить поиск' }));
+    expect(within(archive).getByText('Моя последняя игра')).toBeTruthy();
+    expect(within(archive).getByText('Чужая игра в клубе')).toBeTruthy();
+  });
+
+  it('searches the Moscow calendar day rather than the raw UTC day', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json({games:[{id:'club:night',source:'club',title:'Ночная игра',date:'2026-10-03T22:30:00Z',game_number:41,format:'CASUAL',winner_team:'red',judge_name:null}]})));
+    render(<PlayerGamesArchive data={data} />);
+    const archive=screen.getByTestId('player-club-archive');
+    (archive as HTMLDetailsElement).open=true;fireEvent(archive,new Event('toggle'));
+    await within(archive).findByText('Ночная игра');
+    const search=screen.getByRole('searchbox',{name:'Найти в архиве'});
+    fireEvent.change(search,{target:{value:'2026-10-03'}});
+    expect(within(archive).queryByText('Ночная игра')).toBeNull();
+    fireEvent.change(search,{target:{value:'2026-10-04'}});
+    expect(within(archive).getByText('Ночная игра')).toBeTruthy();
+    fireEvent.change(search,{target:{value:'04.10.2026'}});
+    expect(within(archive).getByText('Ночная игра')).toBeTruthy();
+  });
+
+  it('returns from a game to the opened archive and the same search', async () => {
+    stubFetch();
+    const view = render(<PlayerGamesArchive data={data} initialGameKey={null} />);
+    const archive = screen.getByTestId('player-club-archive');
+    (archive as HTMLDetailsElement).open = true;
+    fireEvent(archive, new Event('toggle'));
+    await within(archive).findByText('Моя последняя игра');
+    fireEvent.change(screen.getByRole('searchbox', {name:'Найти в архиве'}), {target:{value:'последняя'}});
+    fireEvent.click(within(archive).getByRole('button', {name:/Моя последняя игра/}));
+    view.rerender(<PlayerGamesArchive data={data} initialGameKey="club:g1" />);
+    await screen.findByTestId('detail');
+    view.rerender(<PlayerGamesArchive data={data} initialGameKey={null} />);
+    await screen.findByTestId('player-my-games');
+    expect((screen.getByTestId('player-club-archive') as HTMLDetailsElement).open).toBe(true);
+    expect((screen.getByRole('searchbox', {name:'Найти в архиве'}) as HTMLInputElement).value).toBe('последняя');
+    expect(screen.getByTestId('player-club-archive').querySelectorAll('.player-archive-list button')).toHaveLength(1);
   });
 
   it('opens deep-linked club games and returns to personal games when URL loses target', async () => {

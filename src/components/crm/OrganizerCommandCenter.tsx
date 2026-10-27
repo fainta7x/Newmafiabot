@@ -68,6 +68,8 @@ type CommandCenterResponse = {
     unpaid: Array<{ id: string; player_id: string; nickname: string; amount_due: number; amount_paid: number }>;
     tasks: Array<any>;
   };
+  /** Games of past evenings still in draft (absent from profiles, Elo and statistics until completed). */
+  unfinished_games?: Array<{ id: number; global_number: number; evening: { id: string; title: string; starts_at: string | null } }>;
   generated_at: string;
 };
 
@@ -285,6 +287,16 @@ export default function OrganizerCommandCenter({
     {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEveningSection(data.wrapup!.evening.id, 'payments')} aria-label="Открыть оплаты прошлого вечера" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
       <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">долг за {data.wrapup!.evening.title}: {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
+    </section> : null}
+
+    {/* A past game left in draft counts nowhere (owner, 2026-10-27, game №17). */}
+    {data?.unfinished_games?.length ? <section data-testid="unfinished-games" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
+      <div className="text-[13px] font-semibold text-warning">Незавершённые игры · {data.unfinished_games.length}</div>
+      <p className="mt-0.5 text-[12px] leading-4 text-text-muted">Пока игра не завершена, её нет в профилях, Эло и статистике игроков.</p>
+      <div className="mt-2 space-y-1.5">{data.unfinished_games.map((game) => <button key={game.id} type="button" onClick={() => onOpenEveningSection(game.evening.id, 'games')} className="flex min-h-11 w-full items-center gap-2 rounded-[10px] bg-surface-1 px-2.5 text-left">
+        <span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">Игра №{game.global_number}</strong><span className="block truncate text-[12px] text-text-muted">{game.evening.title} · {formatPaymentDate(game.evening.starts_at)}</span></span>
+        <span className="shrink-0 text-[12px] font-semibold text-accent">Открыть</span><ArrowRight className="h-4 w-4 shrink-0 text-text-secondary" />
+      </button>)}</div>
     </section> : null}
 
     {levelDecisions.length ? <section data-testid="level-decisions" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">

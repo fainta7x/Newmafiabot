@@ -962,6 +962,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Организатору: на «Сегодня» напоминание «Незавершённые игры» — игры прошедших вечеров, оставшиеся черновиком (их нет в профилях и Эло).
 - Application continuity (merged #1049, 2026-10-26): Home shows your next registration and chosen games; Community/Wallet tabs keep their place after reload; payment-load failures offer retry; a protocol stays open if saving fails. Not announced.
 
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.

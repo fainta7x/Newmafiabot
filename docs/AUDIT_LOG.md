@@ -2148,3 +2148,13 @@ All entries below are **open proposals**, not automatically approved changes; ob
 - [open, U18] `public/guide/GuideScreens.tsx`, `SIMPLE_RULES`: simple-rules mode starts with sanctions; editorial proposal to introduce the normal action sequence first, without changing domain rules.
 
 Recommendation: discuss one coherent booking batch first (U01–U03, U17); other proposals remain open for owner choice, not a mandate to implement every optional polish row.
+
+## 2026-10-27 — Missing games in player profiles (owner: «у Диссонанса не все игры … нужно всё перепроверить у всех игроков»)
+
+Scope: profile → «Карьера» → «Игры» (`loadPremiumProfileGames`) against the stored games, for every player, on production read-only (organizer `GET /api/games`, `GET /api/player/profiles/:id/games`).
+- Checked all 21 players with a profile: each one's completed club games (in the protocol by `player_id`) are exactly the club games of their profile. The profile code is right.
+- [fixed in code, owner «Завершить как есть»] **Game №17 of 2026-10-23 is a draft**: completed on 23.10, reopened on 2026-10-26 12:57 UTC (while the protocol window hung on saving) and never completed again, so it is missing for all ten of its players (Jin, Алоэ, Богданчик, Дина, Диссонанс, Насон, Перец, Пристань, Серый, ФМ) — profiles, Elo, statistics. The record passes today's checks unchanged. One-time `completeGame17Draft.ts` (migration `2026-10-game17-complete-v1`) completes it through the ordinary save, only if it is still the draft saved at 12:57:30.390Z. Production run: to verify after deploy.
+- Game №19 has no Диссонанс in its protocol (the owner thought he played all five games that evening); not changed.
+- [fixed] `crmRoutes.ts` `/overview`: «completed games» counted every game with a winner, and a draft is stored with `winner_team = 'draft'`, so a reopened draft read as completed. Now the protocol's status decides.
+- [done, owner «да»] Reminder «Незавершённые игры» on the organizer's «Сегодня» (`OrganizerCommandCenter.tsx`, `unfinished_games` of `/api/crm/command-center`): club games of evenings that started more than 6 h ago and are not completed or archived, with «Открыть» to the evening's games. Test `unfinishedGamesReminder.test.ts`.
+

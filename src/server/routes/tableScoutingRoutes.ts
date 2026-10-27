@@ -172,7 +172,23 @@ router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
       }
     }
 
-    return res.json({ snapshot, wrapup, generated_at: new Date().toISOString() });
+    // A game of a past evening still in draft is missing from every profile, Elo and statistic (game №17, 2026-10-23, reopened
+    // and left unfinished; owner, 2026-10-27): the organizer is reminded until it is completed or archived.
+    const unfinishedBefore = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const unfinishedRows = await db.all(`
+      SELECT g.id, g.global_game_number, g.evening_id, e.title AS evening_title, e.starts_at
+        FROM games g JOIN game_evenings e ON e.id = g.evening_id
+       WHERE g.archived_at IS NULL AND e.status != 'cancelled' AND e.starts_at < ?
+         AND json_valid(g.protocol_text) AND json_extract(g.protocol_text, '$.kind') = 'club_evening_protocol'
+         AND COALESCE(json_extract(g.protocol_text, '$.protocol.status'), 'draft') != 'completed'
+       ORDER BY e.starts_at DESC, g.global_game_number ASC
+       LIMIT 10`, [unfinishedBefore]);
+    const unfinished_games = unfinishedRows.map((row: any) => ({
+      id: Number(row.id), global_number: Number(row.global_game_number || 0),
+      evening: { id: String(row.evening_id), title: String(row.evening_title || 'Игровой вечер'), starts_at: row.starts_at || null },
+    }));
+
+    return res.json({ snapshot, wrapup, unfinished_games, generated_at: new Date().toISOString() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось собрать пульт организатора' });
   }

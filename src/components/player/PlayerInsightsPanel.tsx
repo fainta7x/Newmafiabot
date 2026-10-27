@@ -36,6 +36,7 @@ type InsightsData = {
 
 
 export default function PlayerInsightsPanel() {
+  const [retry,setRetry]=useState(0);
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,20 +44,22 @@ export default function PlayerInsightsPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);setError(null);
     void fetch('/api/player/insights', { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить аналитику');
+        if(!body?.performance||!Array.isArray(body?.insights)) throw new Error('Не удалось загрузить аналитику');
         if (!cancelled) setData(body as InsightsData);
       })
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить аналитику'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [retry]);
 
 
   if (loading) return <div className="mt-4 rounded-2xl bg-white/[0.03] px-3 py-6 text-center text-[11px] text-white/25">Считаем личную аналитику…</div>;
-  if (error || !data) return <div className="mt-4 rounded-2xl bg-rose-400/[0.06] px-3 py-3 text-[11px] text-rose-200/55">{error || 'Аналитика недоступна'}</div>;
+  if (error || !data) return <div className="mt-4 rounded-2xl bg-rose-400/[0.06] px-3 py-3 text-[11px] text-rose-200/55">{error || 'Аналитика недоступна'}<button type="button" onClick={()=>setRetry(v=>v+1)} className="mt-2 block min-h-11 px-3">Повторить загрузку аналитики</button></div>;
 
   return <div className="mt-5 rounded-[22px] border border-white/[0.06] bg-white/[0.022] p-3">
     <button type="button" onClick={() => setExpanded((value) => !value)} className="flex w-full items-start justify-between gap-3 text-left">

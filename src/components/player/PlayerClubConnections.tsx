@@ -60,7 +60,7 @@ function DuoRow({ duo }: { duo: ClubDuo }) {
 }
 
 export default function PlayerClubConnections() {
-  const [clubView, setClubView] = useState<'best' | 'played'>('best');
+  const [clubView, setClubView] = useState<'best' | 'played'>(()=>{try{return sessionStorage.getItem('club-duos-view')==='played'?'played':'best';}catch{return 'best';}});
   const [data, setData] = useState<RelationshipData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,14 +96,12 @@ export default function PlayerClubConnections() {
   );
   if (!data) return null;
 
-  return (
-    <div className="player-connections-layout space-y-3">
-      {data.club_stories && <ClubConnectionStories stories={data.club_stories} />}
-      <section data-testid="club-duos" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
+  const pairs = (
+<section data-testid="club-duos" className={data.club_stories?'':'rounded-3xl border border-white/10 bg-white/[.035] p-4'}>
         <h2 className="mt-1 text-lg font-semibold">Лучшие пары</h2>
         <p className="mt-1 text-xs leading-relaxed text-white/45">Кто чаще всего выигрывает вместе — отдельно за красных и за чёрных.</p>
         <div aria-label="Показать клубные пары" className="mt-3 flex gap-2">
-          {([['best', 'По результатам'], ['played', 'Самые сыгранные']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={clubView === value} onClick={() => setClubView(value)} className={`min-h-11 flex-1 rounded-xl px-2 text-[12px] font-medium ${clubView === value ? 'bg-amber-200/10 text-amber-100' : 'bg-white/[0.035] text-white/55'}`}>{label}</button>)}
+          {([['best', 'По результатам'], ['played', 'Самые сыгранные']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={clubView === value} onClick={() => {setClubView(value);try{sessionStorage.setItem('club-duos-view',value);}catch{}}} className={`min-h-11 flex-1 rounded-xl px-2 text-[12px] font-medium ${clubView === value ? 'bg-amber-200/10 text-amber-100' : 'bg-white/[0.035] text-white/55'}`}>{label}</button>)}
         </div>
         <p className="mt-2 text-[11px] text-white/40">{clubView === 'best' ? 'В списке пары, которые сыграли вместе хотя бы дважды.' : 'Пары, которые чаще всего играли в одной команде.'}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -123,6 +121,11 @@ export default function PlayerClubConnections() {
           })}
         </div>
       </section>
+  );
+  return (
+    <div className="player-connections-layout space-y-3">
+      {data.club_stories ? <ClubConnectionStories stories={data.club_stories} pairs={pairs} /> : pairs}
+
     </div>
   );
 }

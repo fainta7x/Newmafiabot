@@ -22,17 +22,20 @@ function Row({ item, kind }: { item: Person; kind: 'mate' | 'rival' }) {
 
 /** «С последнего вечера»: who the player sat with at the last finished evening or tournament. */
 export default function PersonalRecentEvening() {
+  const [error,setError]=useState('');
+  const [retry,setRetry]=useState(0);
   const [event, setEvent] = useState<RecentEvent | null | undefined>(undefined);
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false;setError('');
     void fetch('/api/player/relationships', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {if(!response.ok)throw new Error();return response.json();})
       .then((body) => { if (!cancelled) setEvent(body?.recent_event || null); })
-      .catch(() => { if (!cancelled) setEvent(null); });
+      .catch(() => {if(!cancelled)setError('Не удалось загрузить последний вечер');});
     return () => { cancelled = true; };
-  }, []);
+  }, [retry]);
 
+  if(error)return <div role="alert" className="rounded-2xl border border-white/10 p-4 text-sm text-white/65">{error}<button type="button" onClick={()=>setRetry(v=>v+1)} className="mt-2 block min-h-11 px-3">Повторить загрузку вечера</button></div>;
   if (!event) return null;
   const when = new Date(event.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });
   return (

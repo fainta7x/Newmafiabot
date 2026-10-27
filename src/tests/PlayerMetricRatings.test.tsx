@@ -12,7 +12,7 @@ const body = (metricKey: string, rows: any[], extra: Record<string, unknown> = {
 const row = (rank: number, id: string, nickname: string, value: number, text: string, me = false) => ({ rank, player_id: id, nickname, avatar_url: null, value, value_text: text, games: 7, is_me: me });
 const respond = (payload: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } }));
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('rankings by figure', () => {
   it('lists the leaders, marks the viewer and reloads for another figure, season and format', async () => {
@@ -28,6 +28,8 @@ describe('rankings by figure', () => {
     expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('Всё время · Все форматы, игр в выборе: 12');
 
     fireEvent.click(screen.getByRole('button', { name: 'Показатель' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Найти показатель' }), {target:{value:'прирост'}});
+    expect(screen.queryByRole('option', {name:'Победы'})).toBeNull();
     fireEvent.click(screen.getByRole('option', { name: 'Прирост Elo' }));
     await waitFor(() => expect(screen.getByText('+24')).toBeDefined());
     expect(screen.getByText('−12')).toBeDefined();
@@ -73,4 +75,26 @@ describe('rankings by figure', () => {
     expect(line.textContent).toContain('убит, когда в чёрных Иван');
     expect(line.textContent).toContain('из 9 общих игр');
   });
+});
+
+it('starts a fresh search after selection and supports clear and Escape without a metric change',async()=>{
+ vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>respond(body(new URL(String(input),'http://localhost').searchParams.get('metric')||'wins',[]))));
+ render(<PlayerMetricRatings/>);
+ await screen.findByTestId('metric-ratings-scope');
+ const trigger=screen.getByRole('button',{name:'Показатель'});
+ fireEvent.click(trigger);
+ fireEvent.change(screen.getByRole('searchbox',{name:'Найти показатель'}),{target:{value:'прирост'}});
+ fireEvent.click(screen.getByRole('option',{name:'Прирост Elo'}));
+ expect(document.activeElement).toBe(trigger);
+ fireEvent.click(trigger);
+ const search=screen.getByRole('searchbox',{name:'Найти показатель'}) as HTMLInputElement;
+ expect(search.value).toBe('');
+ fireEvent.change(search,{target:{value:'несуществующий'}});
+ fireEvent.click(screen.getByRole('button',{name:'Очистить поиск показателя'}));
+ expect(search.value).toBe('');expect(document.activeElement).toBe(search);
+ expect(screen.getByRole('option',{name:'Победы'})).toBeDefined();
+ fireEvent.keyDown(search,{key:'Escape'});
+ expect(trigger.getAttribute('aria-expanded')).toBe('false');
+ expect(document.activeElement).toBe(trigger);
+ expect(trigger.textContent).toContain('Прирост Elo');
 });

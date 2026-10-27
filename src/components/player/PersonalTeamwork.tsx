@@ -30,7 +30,7 @@ function Row({ person, line, tone = 'bg-black/20' }: { person: Person; line: Rea
     <button type="button" onClick={() => openCanonicalPlayerProfile(person.player_id)} className={`flex min-h-12 w-full items-center gap-3 rounded-2xl p-2.5 text-left active:bg-white/[0.05] ${tone}`}>
       <Avatar person={person} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold">{person.nickname}</div>
+        <div className="break-words whitespace-normal text-sm font-semibold">{person.nickname}</div>
         <div className="mt-0.5 text-[11px] leading-4 text-white/45">{line}</div>
       </div>
     </button>
@@ -52,17 +52,20 @@ const wins = (item: Teammate) => `${countGames(item.games)} · ${countWins(item.
 
 /** «Моя команда»: the personal team-building view of the profile → Связи tab (owner request 2026-10-10). */
 export default function PersonalTeamwork() {
+  const [error,setError]=useState('');
+  const [retry,setRetry]=useState(0);
   const [data, setData] = useState<Teamwork | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false;setError('');
     void fetch('/api/player/team-connections', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {if(!response.ok)throw new Error();return response.json();})
       .then((body) => { if (!cancelled && body?.my_team) setData(body as Teamwork); })
-      .catch(() => { /* the rest of the tab stays usable */ });
+      .catch(() => {if(!cancelled)setError('Не удалось загрузить сыгранность');});
     return () => { cancelled = true; };
-  }, []);
+  }, [retry]);
 
+  if(error)return <div role="alert" className="rounded-2xl border border-white/10 p-4 text-sm text-white/65">{error}<button type="button" onClick={()=>setRetry(v=>v+1)} className="mt-2 block min-h-11 px-3">Повторить загрузку команды</button></div>;
   if (!data) return null;
   const hasTeam = data.my_team.red.length > 0 || data.my_team.black.length > 0;
   const { counts, closest } = data.stages;

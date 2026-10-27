@@ -33,6 +33,7 @@ test('subviews survive refresh, browser Back and mini-game return addresses', as
  const community = page.getByLabel('Разделы сообщества');
  await community.getByRole('button', { name: 'Связи', exact: true }).click();
  expect(new URL(page.url()).searchParams.get('route')).toBe('/player/club/connections');
+ await page.getByLabel('Что показать').getByRole('button', { name: 'Пары', exact: true }).click();
  await page.reload();
  await expect(page.getByTestId('club-duo-p1-p2')).toBeVisible();
  await community.getByRole('button', { name: 'Мини-игры' }).click();

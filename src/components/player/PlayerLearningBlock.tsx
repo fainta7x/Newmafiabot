@@ -1,11 +1,19 @@
+import { readProgress } from '../../lib/guideProgress.ts';
+import { GUIDE_LESSONS, findGuideEntry } from '../../lib/guideCatalog.ts';
 import { ArrowRight, BookOpen, BookOpenCheck, ChevronRight, GraduationCap, Gavel, LibraryBig, Brain } from 'lucide-react';
 
 /** Learning lives in Progress; the public guide is the one canonical content source. */
 const guideLink = (tab: string) => `/guide?from=progress&tab=${encodeURIComponent(tab)}`;
 
 export default function PlayerLearningBlock() {
+  const progress=readProgress();
+  const recent=progress.recent?findGuideEntry(progress.recent):null;
+  const nextLesson=GUIDE_LESSONS.findIndex(lesson=>!progress.lessons.includes(lesson.id));
+  const hasProgress=progress.lessons.length>0||progress.quizBest!==null;
+  const continueUrl=recent?guideLink(recent.id):nextLesson>=0?`${guideLink('lessons')}&lesson=${nextLesson+1}`:guideLink('quiz');
   return (
     <div className="space-y-4" data-testid="player-learning">
+      {(recent||hasProgress)&&<a data-testid="player-learning-continue" href={continueUrl} className="ds-focus-ring block min-h-20 rounded-2xl border border-amber-200/25 bg-amber-200/[.06] p-4"><span className="block text-xs text-white/55">Недавно на этом устройстве</span><strong className="mt-1 block text-base">Продолжить{recent?`: ${recent.title}`:' обучение'} ›</strong><span className="mt-1 block text-xs text-white/60">{recent?'Открыть знакомый раздел':nextLesson>=0?'Следующий непрочитанный урок':'Перейти к практике'}</span></a>}
       <section className="rounded-[24px] border border-amber-200/20 bg-gradient-to-br from-amber-200/[.09] via-white/[.04] to-transparent p-4">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.12em] text-amber-100/75">
           <GraduationCap className="h-4 w-4" /> Обучение

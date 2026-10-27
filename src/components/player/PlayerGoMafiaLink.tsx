@@ -18,6 +18,9 @@ export const goMafiaIdFromInput = (value: string) => {
 };
 
 export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false }: { playerId: string; isSelf: boolean; organizer?: boolean }) {
+  const [retry,setRetry]=useState(0);
+  const [linkError,setLinkError]=useState('');
+  const [careerError,setCareerError]=useState('');
   const [link, setLink] = useState<Linked | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,13 +32,13 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     const abort = new AbortController();
     setLink(null);
     setCareer(null);
-    setYear('all');
+    setYear('all');setLinkError('');setCareerError('');
     fetch(`/api/player/gomafia/players/${encodeURIComponent(playerId)}`, { credentials: 'include', signal: abort.signal })
       .then(async res => { if (!res.ok) throw new Error('Не удалось загрузить связь GoMafia'); return res.json(); })
       .then(body => { if (!abort.signal.aborted) setLink(body.link ?? null); })
-      .catch(() => { /* External profile link is optional; do not block a player's profile. */ });
+      .catch(() => { if(!abort.signal.aborted)setLinkError('Не удалось загрузить привязку GoMafia'); });
     return () => abort.abort();
-  }, [playerId]);
+  }, [playerId,retry]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -44,15 +47,16 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       try {
         const response = await fetch('/api/player/gomafia/players/' + encodeURIComponent(playerId) + '/career',
           { credentials: 'include', signal: controller.signal });
-        const data = response.ok ? await response.json() : null;
+        if(!response.ok)throw new Error('Не удалось загрузить внешнюю карьеру');
+        const data = await response.json();
         if (controller.signal.aborted) return;
         setCareer(data);
         if (data?.syncing && Date.now() - started < 10 * 60 * 1000) timer = setTimeout(() => void loadCareer(), 5000);
-      } catch { /* External data never blocks the club profile. */ }
+      } catch { if(!controller.signal.aborted)setCareerError('Не удалось загрузить внешнюю карьеру'); }
     };
     void loadCareer();
     return () => { controller.abort(); if (timer) clearTimeout(timer); };
-  }, [playerId, link?.external_player_id, link?.status]);
+  }, [playerId, link?.external_player_id, link?.status, retry]);
   const stat = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : '—';
   const snap = year === 'all' ? career?.snapshot : career?.yearly_stats?.find((s: any) => String(s.year) === year);
   const years = [...new Set<number>([...(career?.yearly_stats ?? []).map((s: any) => Number(s.year)), ...(career?.tournaments ?? []).map((t: any) => Number(t.dateStart?.slice(0,4)))])].filter(Number.isFinite).sort((a,b)=>b-a);
@@ -97,7 +101,8 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
           : 'Профиль пока не привязан'}</p></div>
       {link && <a className="text-xs text-amber-200 underline" href={link.profile_url} target="_blank" rel="noopener noreferrer">Открыть ↗</a>}
     </div>
-    {(isSelf || organizer) && <div className="mt-3 space-y-2">
+    {(linkError||careerError)&&<div role="alert" className="mt-3 rounded-xl border border-amber-200/20 p-3 text-xs text-amber-100"><p>{linkError||careerError}</p><button type="button" onClick={()=>{setLinkError('');setCareerError('');setRetry(v=>v+1);}} className="mt-2 min-h-11 px-3">Повторить загрузку GoMafia</button></div>}
+    {(isSelf || organizer) && !linkError && <div className="mt-3 space-y-2">
       <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'ID этого игрока на GoMafia' : 'Твой ID на GoMafia'}</label>
       <div className="flex min-h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/15 bg-white/[.07] focus-within:border-amber-200/60">
         <span className="flex shrink-0 items-center bg-black/25 px-3 text-sm text-white/45">gomafia.pro/stats/</span>

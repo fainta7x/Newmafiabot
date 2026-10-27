@@ -17,16 +17,18 @@ function mockApi() {
     return new Response(JSON.stringify({ invitations: [] }));
   }));
 }
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 it('shows one plain personal list with Напарники / Соперники filters and no rule-book wording', async () => {
   mockApi();
   render(<PremiumProfileConnections playerId="me" selfPlayerId="me" />);
   expect(await screen.findByText('С кем я играю')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Моя команда' }));
   expect(screen.getByText('Лучший напарник')).toBeTruthy();
   expect(screen.getByText('Вместе выиграли 2 из 5 игр (40%)')).toBeTruthy();
   expect(document.body.textContent).not.toMatch(/Только факты|скрытого рейтинга|выборк/);
 
+  fireEvent.click(screen.getByRole('button', { name: 'Игроки' }));
   fireEvent.click(screen.getByRole('button', { name: 'Соперники' }));
   const rows = screen.getAllByRole('button').map((button) => button.textContent || '').filter((text) => text.includes('друг против друга'));
   expect(rows[0]).toContain('Борис');
@@ -40,3 +42,36 @@ it('speaks about the other player when viewing someone else', async () => {
   render(<PremiumProfileConnections playerId="other" selfPlayerId="me" />);
   expect(await screen.findByText('С кем играет игрок')).toBeTruthy();
 });
+
+it('searches the loaded people, clears the query and separates invitations from teamwork',async()=>{
+  mockApi();
+  render(<PremiumProfileConnections playerId="search" selfPlayerId="search"/>);
+  await screen.findByText('С кем я играю');
+  const input=screen.getByRole('searchbox',{name:'Найти среди связей'});
+  fireEvent.change(input,{target:{value:'  БоР  '}});
+  expect(screen.getByText('Борис')).toBeDefined();
+  expect(screen.queryByText('Анна')).toBeNull();
+  expect(screen.getByRole('status').textContent).toContain('Показано 1 из 2');
+  fireEvent.change(input,{target:{value:'нет такого'}});
+  expect(screen.getByText(/Никого не нашли/)).toBeDefined();
+  fireEvent.click(screen.getByRole('button',{name:'Очистить'}));
+  expect(screen.getByText('Анна')).toBeDefined();
+  fireEvent.click(screen.getByRole('button',{name:'Приглашения'}));
+  expect(await screen.findByText(/Входящих приглашений пока нет/)).toBeDefined();
+  expect(screen.queryByText('С кем я играю')).toBeNull();
+});
+
+ it('restores the personal list query and filter after returning to it',async()=>{
+  mockApi();
+  const first=render(<PremiumProfileConnections playerId="return" selfPlayerId="return"/>);
+  await screen.findByText('С кем я играю');
+  fireEvent.change(screen.getByRole('searchbox',{name:'Найти среди связей'}),{target:{value:'Бор'}});
+  fireEvent.click(screen.getByRole('button',{name:'Соперники'}));
+  first.unmount();
+  render(<PremiumProfileConnections playerId="return" selfPlayerId="return"/>);
+  await screen.findByText('С кем я играю');
+  expect((screen.getByRole('searchbox',{name:'Найти среди связей'}) as HTMLInputElement).value).toBe('Бор');
+  expect(screen.getByRole('button',{name:'Соперники'}).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByText('Борис')).toBeDefined();
+  expect(screen.queryByText('Анна')).toBeNull();
+ });

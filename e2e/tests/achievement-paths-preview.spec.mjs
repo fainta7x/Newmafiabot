@@ -12,6 +12,7 @@ for (const width of [360,390,1440]) {
     await page.getByTestId('game-action-metrics').scrollIntoViewIfNeeded();
     await page.screenshot({path:testInfo.outputPath(`action-metrics-${width}.png`),fullPage:true});
     await page.getByRole('button',{name:'Награды',exact:true}).click();
+    await page.getByRole('button',{name:'Мои цели',exact:true}).click();
     const paths=page.getByTestId('achievement-paths');
     await expect(paths).toBeVisible();
     await expect(paths.getByRole('heading',{name:'Дело доведено'})).toBeVisible();

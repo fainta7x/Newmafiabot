@@ -1,10 +1,11 @@
+import { writeProgress } from '../lib/guideProgress.ts';
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import PlayerLearningBlock from '../components/player/PlayerLearningBlock.tsx';
 import { appBackTarget } from '../lib/appNavigation.ts';
 
-afterEach(() => cleanup());
+afterEach(() => {cleanup();localStorage.clear();});
 
 describe('«Прогресс → Обучение»: categorized entry rather than a duplicate guide', () => {
   it('offers an immediate judge trainer and three clearly named directions', () => {
@@ -27,4 +28,11 @@ describe('«Прогресс → Обучение»: categorized entry rather th
     window.history.replaceState(null, '', '/guide?tab=roles');
     expect(appBackTarget('/guide')).toBe('/player/events');
   });
+});
+
+it('continues an existing guide section without inventing account progress',()=>{
+  writeProgress({lessons:[],quizBest:null,recent:'judge-conduct'});
+  render(<PlayerLearningBlock/>);
+  expect(screen.getByTestId('player-learning-continue').getAttribute('href')).toBe('/guide?from=progress&tab=judge-conduct');
+  expect(screen.getByText('Недавно на этом устройстве')).toBeDefined();
 });

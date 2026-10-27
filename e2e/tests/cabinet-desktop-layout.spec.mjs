@@ -59,7 +59,7 @@ for (const width of [390, 1024, 1366, 1440]) {
     for (const name of ['Игроки', 'Связи']) {
       await page.getByLabel('Разделы сообщества').getByRole('button', { name, exact: true }).click();
       if (name === 'Игроки') await expect(page.getByTestId('club-directory').getByRole('button')).toHaveCount(10);
-      if (name === 'Связи') await expect(page.getByTestId('club-duos')).toBeVisible();
+      if (name === 'Связи') await expect(page.getByTestId('club-stories')).toBeVisible();
       await shot(`community-${name}`);
       if (name === 'Связи') {
         const stories = page.getByTestId('club-stories');
@@ -75,6 +75,7 @@ for (const width of [390, 1024, 1366, 1440]) {
         await stories.getByText('Что здесь считается', { exact: true }).click();
         await stories.locator('details').evaluate(el => el.scrollIntoView({ block: 'center' }));
         await shot('stories-help');
+        await page.getByLabel('Что показать').getByRole('button', { name: 'Пары', exact: true }).click();
         const duos = page.getByTestId('club-duos');
         await duos.evaluate(el => el.scrollIntoView({ block: 'center' }));
         await expect(duos.getByText('Александра с длинным никнеймом', { exact: true })).toBeVisible();

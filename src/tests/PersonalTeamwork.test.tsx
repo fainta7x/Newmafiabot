@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import PersonalTeamwork from '../components/player/PersonalTeamwork.tsx';
 
@@ -26,9 +26,13 @@ it('shows the personal team views in plain words', async () => {
   expect(within(screen.getByTestId('never-played')).getByText('Дарья')).toBeTruthy();
 });
 
-it('renders nothing when the data cannot be loaded', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 500 })));
-  const { container } = render(<PersonalTeamwork />);
-  await new Promise<void>((resolve) => { setTimeout(resolve, 20); });
-  expect(container.textContent).toBe('');
+it('reports a failed load and retries without leaving the team view', async () => {
+  const fetcher=vi.fn().mockResolvedValueOnce(new Response('{}', {status:500})).mockResolvedValueOnce(new Response(JSON.stringify(body)));
+  vi.stubGlobal('fetch',fetcher);
+  render(<PersonalTeamwork />);
+  expect((await screen.findByRole('alert')).textContent).toContain('Не удалось загрузить сыгранность');
+  fireEvent.click(screen.getByRole('button',{name:'Повторить загрузку команды'}));
+  expect(within(await screen.findByTestId('my-team')).getByText('Анна')).toBeTruthy();
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
 });

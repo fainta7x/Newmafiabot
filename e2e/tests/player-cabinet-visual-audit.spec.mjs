@@ -125,6 +125,7 @@ for (const width of [360, 390]) test(`compact cabinet groups retain context at $
 
   await nav.getByRole('button', { name: 'Сообщество', exact: true }).click();
   await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Связи', exact: true }).click();
+  await page.getByLabel('Что показать').getByRole('button', { name: 'Пары', exact: true }).click();
   const duo = page.getByTestId('club-duo-p1-p2');
   await expect(duo).toContainText('12 игр вместе');
   await expect(duo.getByRole('button')).toHaveCount(2);
@@ -136,7 +137,7 @@ for (const width of [360, 390]) test(`compact cabinet groups retain context at $
   await expect(page.getByTestId('profile-completion-card')).toHaveCount(0);
   const stats = page.getByTestId('profile-club-summary');
   await expect(stats.getByTestId('profile-key-stats')).toContainText('1542');
-  await expect(stats.getByTestId('profile-more-stats')).toHaveJSProperty('open', true);
+  await expect(page.getByTestId('profile-more-stats')).toHaveJSProperty('open', true);
   await page.screenshot({ path: info.outputPath(`compact-progress-${width}.png`), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

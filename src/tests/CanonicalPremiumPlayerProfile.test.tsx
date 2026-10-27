@@ -5,6 +5,7 @@ import CanonicalPremiumPlayerProfile from '../components/player/CanonicalPremium
 
 vi.mock('../components/player/PremiumProfileConnections.tsx', () => ({ default: () => <div data-testid="connections-stub" /> }));
 vi.mock('../components/player/PremiumProfileShowcase.tsx', () => ({ default: ({ section }: any) => <div data-testid={`showcase-${section}`} /> }));
+vi.mock('../components/player/PlayerInsightsPanel.tsx', () => ({ default: () => <div data-testid="insights-stub" /> }));
 vi.mock('../components/player/PlayerEloJourney.tsx', () => ({ default: ({ period, format }: { period?: string; format?: string }) => <div data-testid="elo-journey-stub" data-period={period} data-format={format} /> }));
 vi.mock('../components/player/SmartFriendInviteSuggestions.tsx', () => ({ default: () => <div data-testid="smart-friends-stub" /> }));
 vi.mock('../components/player/PlayerAwardSuggestionAction.tsx', () => ({ default: () => <div data-testid="award-suggestion-stub" /> }));
@@ -20,6 +21,7 @@ const summary = (id: string, nickname: string) => ({
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -154,14 +156,14 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(await screen.findByTestId('learning-hub-stub')).toBeDefined();
   });
 
-  it('shows owner-only award suggestion and smart friend suggestions', async () => {
+  it('shows owner-only award suggestion and delegates personal connections to its owner', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).includes('/summary') ? response(summary('self', 'Игрок')) : response({})));
     render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
     await screen.findByText('Игрок');
     fireEvent.click(screen.getByRole('button', { name: 'Награды' }));
     expect(screen.getByTestId('award-suggestion-stub')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Связи' }));
-    expect(screen.getByTestId('smart-friends-stub')).toBeDefined();
+    expect(screen.getByTestId('connections-stub')).toBeDefined();
   });
 
   it('shows the games with Russian labels, the title, the Elo change and a link to the game', async () => {
@@ -265,4 +267,66 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(screen.getByTestId('profile-key-stats').textContent).toContain('Место в сезоне');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('period=period%3Aautumn&format=RATING'))).toBe(true);
   });
+});
+
+it('reports nested tab navigation and restores the page and filters after returning from a game', async () => {
+  const route=vi.fn();
+  const fetcher=vi.fn((input:RequestInfo|URL)=>{
+    const url=String(input);
+    if(url.includes('/summary'))return response(summary('memory','Игрок с памятью'));
+    if(url.includes('/games?'))return response({games:[{id:'club:1',title:'Нужная партия',role:'sheriff'}],total:40});
+    return response({});
+  });
+  vi.stubGlobal('fetch',fetcher);
+  const first=render(<CanonicalPremiumPlayerProfile playerId="memory" selfPlayerId="memory" mode="self" initialTab="games" onTabChange={route}/>);
+  await screen.findByText('Нужная партия');
+  fireEvent.click(screen.getByText('Дополнительные фильтры'));
+  fireEvent.change(screen.getByRole('combobox',{name:'Роль'}),{target:{value:'sheriff'}});
+  await waitFor(()=>expect(fetcher.mock.calls.some(([url])=>String(url).includes('role=sheriff'))).toBe(true));
+  fireEvent.click(screen.getByRole('button',{name:'Дальше'}));
+  await waitFor(()=>expect(fetcher.mock.calls.some(([url])=>String(url).includes('offset=15'))).toBe(true));
+  fireEvent.click(screen.getByRole('button',{name:'Роли'}));
+  expect(route).toHaveBeenLastCalledWith('roles');
+  first.unmount();fetcher.mockClear();
+  render(<CanonicalPremiumPlayerProfile playerId="memory" selfPlayerId="memory" mode="self" initialTab="games"/>);
+  await screen.findByText('Нужная партия');
+  expect(fetcher.mock.calls.some(([url])=>String(url).includes('offset=15')&&String(url).includes('role=sheriff'))).toBe(true);
+});
+
+it('keeps a failed games request distinct from a confirmed empty result and offers retry',async()=>{
+  let games=0;
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>{
+    const url=String(input);
+    if(url.includes('/summary'))return response(summary('retry','Повтор'));
+    if(url.includes('/games?'))return ++games===1?response({error:'Нет связи с играми'},503):response({games:[],total:0});
+    return response({});
+  }));
+  render(<CanonicalPremiumPlayerProfile playerId="retry" selfPlayerId="retry" mode="self" initialTab="games"/>);
+  await screen.findByText('Нет связи с играми');
+  expect(screen.queryByText('По выбранным фильтрам игр нет.')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Повторить'}));
+  await screen.findByText('По выбранным фильтрам игр нет.');
+  expect(games).toBe(2);
+});
+
+it('returns each progress group to its last nested view, including after remount',async()=>{
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).includes('/summary')?response(summary('groups','Выбор раздела')):response({roles:[]})));
+  const first=render(<CanonicalPremiumPlayerProfile playerId="groups" selfPlayerId="groups" mode="self"/>);
+  await screen.findByText('Выбор раздела');
+  fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  fireEvent.click(screen.getByRole('button',{name:'Роли'}));
+  fireEvent.click(screen.getByRole('button',{name:'Награды'}));
+  fireEvent.click(screen.getByRole('button',{name:'История клуба'}));
+  fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  expect(screen.getByRole('button',{name:'Роли'}).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button',{name:'Награды'}));
+  expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button',{name:'Связи'}));
+  first.unmount();
+  render(<CanonicalPremiumPlayerProfile playerId="groups" selfPlayerId="groups" mode="self"/>);
+  await screen.findByText('Выбор раздела');
+  fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  expect(screen.getByRole('button',{name:'Роли'}).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button',{name:'Награды'}));
+  expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
 });

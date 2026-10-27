@@ -1,5 +1,31 @@
 # Audit log
 
+## 2026-10-27 — Community/Progress menu follow-up and exact CI findings
+
+Scope: finish the complete approved plan and continue existing-menu usability, after source review of all affected nav owners. Before edits:
+
+- [fixed, MF01] `desktop-workspaces.css`: full-width selector targets the old direct details child; the new statistics section is now squeezed into the 2fr column (UI2250 at1024/1366/1440). Restore intended width, keep assertion.
+- [fixed, MF02] pair preview cases in cabinet hierarchy/continuity/visual audit still expect pairs outside the selected story view. Update actual navigation through Pairs, preserve content/return assertions.
+- [fixed, MF03] `PersonalTeamwork.test.tsx` expects a silent failure; agreed recovery now renders an error. Verify retry and eventual data instead.
+- [fixed, MF04] `CanonicalPremiumPlayerProfile.tsx`: group click always picks Games/Showcase even after selecting Roles/Elo/History. Remember the last nested choice per group, route and refresh remain canonical.
+- [fixed, MF05] `ClubConnectionStories.tsx` and personal connections controls: horizontal overflow/ellipsis can conceal a menu label or invite count. Opt in to wrapping labels and keep the four club choices visible together.
+- [fixed, MF06] profile/cabinet harnesses omit app stylesheets. Load the exact main.tsx stylesheet order before trusting screenshots/audit; extend the existing parity guard. Detector remains unchanged.
+- [fixed, MF07] first real-styles menu audit: page content/controls scroll visibly under the fixed bottom navigation; constrain the existing Community/Progress scroll viewport between chrome, retaining all content.
+- [fixed, MF08] same audit: brand/full name and a long team nickname are cut; main Community carousel leaves Mini-games off-screen. Wrap labels at their source and expose all section choices.
+- [fixed, MF11] inspecting the scrolled statistics before/after image shows content behind sticky profile navigation. Keep identity/tabs outside the scrolling main region; the same main scroller owns restore/jump actions. Add scrolled navigation to the unchanged detector route. First frame verification identified a redundant hidden-overflow wrapper clipping partial lines already inside the main scroller; clipping now belongs only to that scroller, without a detector exception.
+- [fixed, MF10] `e2e/player-cabinet-harness.tsx`: duplicate identical /api/player/me case surfaced when linting the touched harness; remove the unreachable copy, keep the first response.
+- [fixed, MF09] same audit: percentage ring sits above its number in hit testing; trophy shelf ledge intersects an exhibit hit area. Correct stacking/geometry, keep artwork and detector unchanged.
+
+
+
+Verification:20 focused tests (team recovery, grouped navigation and stylesheet parity), then15 profile cases after the scroller change; TypeScript and changed-source lint pass (the harness duplicate is removed).13 affected preview cases pass, including the previously failing pair routes and desktop widths; after the final profile-frame correction, five layout/shorter-viewport cases pass, with53 clean screen audits across360×640,390×844,1366×768 and1440×900 plus the shortened Telegram viewport. Detector unchanged, no new exceptions. Eight before/after images inspected; the club pair labels were arranged in2×2 after visual inspection showed awkward word breaks. Evidence and limits: `reviews/2026-10-27-community-progress-implementation/menu-followup/README.md`. Release safety audit2452 passes. Required CI on the updated PR head remains the merge gate; no deployment or production action claimed.
+
+## 2026-10-27 — approved complete Community/Progress implementation
+
+Owner explicitly approves the consolidated CP01–CP15 plan from #1066. Before edits, findings/acceptance are registered in that review and its AUDIT_LOG; this work applies them as connected stages, not a new discovery/fix loop. Local owners: CP01/02/03/12/15 CanonicalPremiumPlayerProfile and shell; CP04 ClubConnectionStories/PlayerClubConnections; CP05/06/13 PremiumProfileConnections; CP07/08 PlayerMetricRatings; CP09 RatingHub/RatingPeriods/Stories; CP10/11 Showcase/TrophyCabinet; CP14 LearningBlock and canonical guide progress. All fifteen items are now implemented as one candidate. Source review found two context details before publication: the match-list load must validate/preserve the saved evening rather than always select latest; personal-list query/filter and inner club/award views must survive remount. Both are addressed. Existing game/economy/privacy rules stay fixed.
+
+Focused tests cover route callback/filter-page restoration, game error versus successful empty/retry, search/return context, metric search, award write failure, and existing learning continuation. Four showcase API integration tests pass, including canonical game links for self and no link disclosure for another viewer. One coherent before/after pass: thirteen actual390px screenshots inspected; grouped connections, collection/goals, overview ordering, learning continue; route refresh checked at360/390/1440. See `reviews/2026-10-27-community-progress-implementation/README.md`. Final affected component batch30/30, integration4/4 and preview specs4/4; TypeScript/lint and release audit2436 pass, dependency guard clean; required exact-head external CI is a separate gate. No production DB, Amvera sync or real notification actions.
+
 ## 2026-10-27 — complete Community/Progress analysis before changes (GPT)
 
 Owner explicitly requires the entire analysis and one consolidated plan before application changes. Baseline5a69c78; full51-unit inventory, fifteen findings/proposals and three proposed delivery blocks: `UX_COMMUNITY_PROGRESS_REVIEW_2026-10-27.md`.24 synthetic preview states opened,14 of25 screenshots visually inspected,3 focused browser observations. No test suite, production writes or application edits. Populated metrics/tournament/season tables and some nested states reviewed by source; fixture gaps are not production defects.

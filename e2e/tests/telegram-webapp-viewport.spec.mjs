@@ -170,7 +170,9 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
   await page.getByRole('button', { name: 'Награды', exact: true }).click();
   await expect(page.getByTestId('award-suggestion-action')).toBeVisible();
   await page.getByRole('button', { name: 'Связи', exact: true }).click();
+  await page.getByRole('button', { name: /^Приглашения/ }).click();
   await expect(page.getByTestId('smart-friend-invite-suggestions')).toBeVisible();
+  await page.getByRole('button', { name: 'Моя команда', exact: true }).click();
   await expect(page.getByTestId('my-team')).toBeVisible();
   await expect(page.getByTestId('never-played')).toBeVisible();
   const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));

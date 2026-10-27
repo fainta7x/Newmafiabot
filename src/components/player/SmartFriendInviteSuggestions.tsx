@@ -32,17 +32,19 @@ function openPlayerProfile(playerId: string) {
 }
 
 export default function SmartFriendInviteSuggestions() {
+  const [error,setError]=useState('');
   const [items, setItems] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyPlayerId, setBusyPlayerId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
   const load = async () => {
+    setLoading(true);setError('');
     try {
       const body = await getJson<any>('/api/player/friend-invite-suggestions', 'Не удалось загрузить подсказки');
       setItems(Array.isArray(body.suggestions) ? body.suggestions : []);
     } catch {
-      setItems([]);
+      setError('Не удалось загрузить подсказки приглашений');
     } finally {
       setLoading(false);
     }
@@ -73,7 +75,7 @@ export default function SmartFriendInviteSuggestions() {
     }
   };
 
-  if (!loading && items.length === 0 && !message) return null;
+  if (!loading && items.length === 0 && !message && !error) return null;
 
   return (
     <section data-testid="smart-friend-invite-suggestions" className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
@@ -81,6 +83,7 @@ export default function SmartFriendInviteSuggestions() {
       <h2 className="mt-1 text-base font-semibold">С кем часто играется</h2>
       <p className="mt-1 text-xs leading-5 text-white/40">Знакомые по играм, которые ещё не записаны на ближайший вечер, куда запись уже есть.</p>
 
+      {error&&<div role="alert" className="mt-3 text-sm text-rose-200"><p>{error}</p><button type="button" onClick={()=>void load()} className="mt-2 min-h-11 px-3">Повторить загрузку подсказок</button></div>}
       {loading ? <div className="py-5 text-center text-xs text-white/30">Ищем, кого можно позвать…</div> : null}
 
       <div className="mt-3 space-y-2">

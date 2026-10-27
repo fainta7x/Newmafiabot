@@ -34,7 +34,7 @@ export default function PlayerQuickAccessBar({
     >
       <div className="player-cabinet-toolbar mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-2 px-3 pr-[58px]">
         <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring min-w-0 flex-1 rounded-lg text-left">
-          <div className="truncate text-sm font-semibold tracking-[0.08em] text-white/78">2LA Noire</div>
+          <div className="break-words text-xs font-semibold tracking-[0.03em] text-white/78">2LA Noire</div>
           <div className="mt-0.5 truncate text-[12px] text-white/50">{player.nickname}</div>
         </button>
 

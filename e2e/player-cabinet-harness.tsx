@@ -1,3 +1,19 @@
+import '../src/index.css';
+import '../src/styles/design-system.css';
+import '../src/styles/telegram-viewport.css';
+import '../src/releasePolish.css';
+import '../src/components/crm/liveGameJudge.css';
+import '../src/components/crm/liveGameDesktopParity.css';
+import '../src/components/crm/liveGameCabinetShell.css';
+import '../src/components/crm/liveGameSeatCabinet.css';
+import '../src/components/crm/liveGameActionPriority.css';
+import '../src/components/crm/liveGameNightReadability.css';
+import '../src/components/crm/liveGameRecoveryPolish.css';
+import '../src/components/crm/liveGameDeathProtocolCabinet.css';
+import '../src/components/crm/liveGameTelegram.css';
+import '../src/components/crm/liveGameMobileCenterPriority.css';
+import '../src/components/crm/liveGameUrgentResume.css';
+import '../src/components/public/liveBroadcastCompact.css';
 import App from '../src/App.tsx';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice } from '../src/lib/eveningPrices.ts';
 import { clubStoriesFixture } from './club-connection-stories.fixture.ts';
@@ -7,9 +23,6 @@ import { parsePlayerRoute, playerPathForSection } from '../src/lib/appNavigation
 import PlayerCabinetShell from '../src/components/player/PlayerCabinetShell.tsx';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import type { PlayerMeResponse } from '../src/types/player.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
 
 const data: PlayerMeResponse = {
  player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: 100, game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },
@@ -121,7 +134,6 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/tournaments': return json({ tournaments: [] });
   case '/api/player/relationships': return json({ club_stories: clubStoriesFixture, rivals: rankingRows.slice(0,3).map(r => ({ ...r, avatar_url: '' })), teammates: rankingRows.slice(3,6).map(r => ({ ...r, avatar_url: '' })), club_duos: { red: [{ a_id: 'p1', b_id: 'p2', a_name: 'Александра с длинным никнеймом', b_name: 'Богданчик', team: 'red', games: 12, wins: 8, win_rate: 67, a_avatar_url: '', b_avatar_url: '' }], black: [] }, club_most_played: { red: [{ a_id: 'p3', b_id: 'p4', a_name: 'Чагин', b_name: 'Ночной игрок', team: 'red', games: 20, wins: 11, win_rate: 55, a_avatar_url: '', b_avatar_url: '' }], black: [] }, club_first_games: { red: [], black: [{ a_id: 'p5', b_id: 'p6', a_name: 'Новая пара', b_name: 'Второй игрок', team: 'black', games: 1, wins: 1, win_rate: 100, a_avatar_url: '', b_avatar_url: '' }] }, recent_event: { title: 'Клубный вечер 2 октября', date: '2026-10-02T18:00:00Z', teammates: rankingRows.slice(0,3).map(r => ({ ...r, avatar_url: '' })), rivals: rankingRows.slice(3,6).map(r => ({ ...r, avatar_url: '' })) } });
   case '/api/player/evening-summaries': return json({ summaries: [{ id: 'past-1', title: 'Вечер клуба — итоги', starts_at: new Date(Date.now()-86400000).toISOString(), settled_at: next, venue: 'Суп с котом', games: 4, red_wins: 3, black_wins: 1, score: '3:1', player: { games: 3, wins: 2, losses: 1, win_rate: 67, elo_before: 1520, elo_after: 1542, elo_delta: 22, roles: ['citizen','sheriff'] }, best_elo_rise: null, most_games: null, awards: [], facts: ['Красные выиграли три игры'], game_ids: [] }] });
-  case '/api/player/me': return json(data);
   case '/api/player/evenings': return json({ evenings: new URLSearchParams(location.search).get('scenario') === 'personal' ? [{ ...evening, id: 'earlier-evening', title: 'Ближайший открытый вечер', starts_at: new Date(Date.now() + 86400000).toISOString(), response_status: 'unanswered' }, personalEvening] : [evening] });
   case '/api/player/calendar': return json({ events: [calendarEvent] });
   case '/api/player/economy': return json({ balance: 100, shop_items: [{ id: 'item-1', name: 'Игровая привилегия', description: 'Пример доступного клубного предложения', price: 50, icon: '◇', item_type: 'service' }], purchases: [], ledger: { items: [], total: 0 } });

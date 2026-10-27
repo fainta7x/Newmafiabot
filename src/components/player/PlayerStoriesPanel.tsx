@@ -1,3 +1,4 @@
+import { openPlayerGame } from './playerProfileNavigation.ts';
 import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import type { PlayerGameDetailData } from './PlayerGameDetail.tsx';
@@ -111,6 +112,7 @@ function MatchSpotlight({ gameKey, onClose }: { gameKey: string; onClose: () => 
         {error && <div role="alert" className="mt-4 space-y-3 rounded-2xl bg-rose-400/10 px-3 py-4 text-sm text-rose-200/80"><p>{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>}
 
         {detail && <>
+          <button type="button" onClick={()=>openPlayerGame(gameKey)} className="mt-3 min-h-11 w-full rounded-xl border border-white/15 px-3 text-sm font-semibold">Открыть полный протокол ›</button>
           <div className={`mt-4 rounded-[24px] border p-5 text-center ${detail.game.winner_team === 'red' ? 'border-rose-300/15 bg-rose-400/[0.06]' : 'border-white/10 bg-white/[0.045]'}`}>
             <div className="text-[11px] uppercase tracking-[0.16em] text-white/35">Игра №{detail.game.game_number}</div>
             <div className="mt-2 text-2xl font-black">{detail.game.winner_team === 'red' ? '🔴' : '⚫'} Победа: {winnerText(detail.game.winner_team)}</div>
@@ -144,12 +146,14 @@ function MatchSpotlight({ gameKey, onClose }: { gameKey: string; onClose: () => 
   );
 }
 
-export default function PlayerStoriesPanel() {
+export default function PlayerStoriesPanel({viewerId=''}:{viewerId?:string}) {
+  const saved=(()=>{try{return JSON.parse(sessionStorage.getItem(`matches-view:${viewerId}`)||'{}');}catch{return {};}})();
   const [data, setData] = useState<StoriesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEveningId, setSelectedEveningId] = useState<string | null>(null);
-  const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
+  const [selectedEveningId, setSelectedEveningId] = useState<string | null>(saved.evening||null);
+  const [selectedGameKey, setSelectedGameKey] = useState<string | null>(saved.game||null);
+  useEffect(()=>{try{sessionStorage.setItem(`matches-view:${viewerId}`,JSON.stringify({evening:selectedEveningId,game:selectedGameKey}));}catch{}},[viewerId,selectedEveningId,selectedGameKey]);
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
@@ -162,7 +166,7 @@ export default function PlayerStoriesPanel() {
         if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить ленту клуба');
         if (!cancelled) {
           setData(body as StoriesData);
-          setSelectedEveningId(body?.latest_evening?.id || null);
+          setSelectedEveningId(current=>body.evenings?.some((evening:EveningRecap)=>evening.id===current)?current:body?.latest_evening?.id||null);
         }
       })
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить ленту клуба'); })

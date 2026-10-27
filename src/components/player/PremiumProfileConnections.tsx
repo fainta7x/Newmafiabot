@@ -1,7 +1,11 @@
+import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
+import { SegmentedControl } from '../ui/SegmentedControl.tsx';
+import { Input } from '../ui/Input.tsx';
+import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import PersonalRecentEvening from './PersonalRecentEvening.tsx';
 import PersonalTeamwork from './PersonalTeamwork.tsx';
 import { useEffect, useMemo, useState } from 'react';
-import { getJson, getJsonIfOk, sendJson } from '../../lib/requestJson.ts';
+import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type SharedGame = {
   id: string;
@@ -76,6 +80,7 @@ const inviteStateLabel = (state?: InvitationState) => ({
 }[state || 'eligible'] || 'Недоступно');
 
 const unavailableReasonLabel = (context: InvitationContext) => {
+  if (context.reason==='load_failed') return 'Не удалось проверить возможность приглашения';
   if (context.recipient_state === 'unavailable' || String(context.reason || '').startsWith('recipient_') || context.reason === 'player_not_found') return 'Игрок недоступен для приглашения';
   if (context.reason === 'registered') return 'Игрок уже записан';
   if (context.reason === 'reserve') return 'Игрок уже в резерве';
@@ -91,12 +96,7 @@ const unavailableReasonHint = (context: InvitationContext) => {
   return 'Приглашение не записывает игрока на вечер — он запишется сам.';
 };
 
-function openPlayerProfile(playerId: string) {
-  const path = `/player/players/${encodeURIComponent(playerId)}`;
-  const current = window.location.pathname;
-  window.history.pushState({ playerProfileReturn: current }, '', path);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
+const openPlayerProfile = openCanonicalPlayerProfile;
 
 function openEvening(eveningId: string) {
   const path = `/player/events/${encodeURIComponent(eveningId)}`;
@@ -129,10 +129,16 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   const [selectedEveningId, setSelectedEveningId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [filter, setFilter] = useState<'all' | 'mates' | 'rivals'>('all');
+  const [selfSection,setSelfSection]=useState<'players'|'team'|'invites'>(()=>{try{const saved=sessionStorage.getItem(`connections-view:${playerId}`);return saved==='team'||saved==='invites'?saved:'players';}catch{return 'players';}});
+  const [search,setSearch]=useState(()=>{try{return sessionStorage.getItem(`connections-search:${selfPlayerId}:${playerId}`)||'';}catch{return '';}});
+  const [inboxLoading,setInboxLoading]=useState(false);
+  const [inboxError,setInboxError]=useState('');
+  const [connectionsHidden,setConnectionsHidden]=useState(false);
+  const [filter, setFilter] = useState<'all' | 'mates' | 'rivals'>(()=>{try{const value=sessionStorage.getItem(`connections-filter:${selfPlayerId}:${playerId}`);return value==='mates'||value==='rivals'?value:'all';}catch{return 'all';}});
+  useEffect(()=>{try{sessionStorage.setItem(`connections-search:${selfPlayerId}:${playerId}`,search);sessionStorage.setItem(`connections-filter:${selfPlayerId}:${playerId}`,filter);}catch{}},[selfPlayerId,playerId,search,filter]);
 
   const loadConnections = async () => {
-    setConnectionsError('');
+    setConnectionsError('');setConnectionsHidden(false);
     try {
       const body = await getJson<any>(`/api/player/profiles/${encodeURIComponent(playerId)}/connections`, 'Не удалось загрузить связи');
       setConnections(Array.isArray(body.connections) ? body.connections : []);
@@ -144,6 +150,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       setMostSuccessful(null);
       setInvitedBy(null);
       setInvitedPlayers([]);
+      setConnectionsHidden(error?.status===403&&String(error?.message).includes('скрыты'));
       setConnectionsError(error?.message || 'Не удалось загрузить связи');
     }
   };
@@ -159,30 +166,31 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         return stillExists ? current : firstAvailable?.id || body.evenings?.[0]?.id || '';
       });
     } catch {
-      setContext({ can_invite: false, reason: 'unavailable', recipient_state: 'unavailable', evenings: [] });
+      setContext({ can_invite: false, reason: 'load_failed', evenings: [] });
       setSelectedEveningId('');
     }
   };
 
   const loadInbox = async () => {
     if (!isSelf) return;
+    setInboxLoading(true);setInboxError('');
     try {
-      const body = await getJsonIfOk<any>('/api/player/evening-invitations/inbox');
+      const body = await getJson<any>('/api/player/evening-invitations/inbox','Не удалось загрузить приглашения');
       if (body) setInbox(Array.isArray(body.invitations) ? body.invitations : []);
-    } catch {
-      // Connections remain usable if invitation inbox cannot be refreshed.
-    }
+    } catch (reason:any) {setInboxError(reason?.message||'Не удалось обновить приглашения');}
+    finally{setInboxLoading(false);}
   };
 
   useEffect(() => { void loadConnections(); }, [playerId]);
   useEffect(() => { setContext(null); setSelectedEveningId(''); void (isSelf ? loadInbox() : loadInviteContext()); }, [playerId, selfPlayerId]);
 
   const shown = useMemo(() => {
-    const list = connections || [];
+    const query=search.trim().toLocaleLowerCase('ru-RU');
+    const list = (connections || []).filter(item=>!query||item.nickname.toLocaleLowerCase('ru-RU').includes(query));
     if (filter === 'mates') return list.filter((item) => item.same_team_games > 0).sort((a, b) => b.same_team_games - a.same_team_games);
     if (filter === 'rivals') return list.filter((item) => item.opponent_games > 0).sort((a, b) => b.opponent_games - a.opponent_games);
     return list;
-  }, [connections, filter]);
+  }, [connections, filter, search]);
 
   const selectedEvening = useMemo(() => context?.evenings.find((item) => item.id === selectedEveningId) || null, [context, selectedEveningId]);
   const selectedState = selectedEvening?.existing_invitation ? 'already_invited' : selectedEvening?.state || 'eligible';
@@ -224,7 +232,13 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
 
   return (
     <section data-testid="premium-profile-connections" className="space-y-3">
-      {isSelf && inbox.length > 0 ? (
+      {isSelf&&<><SegmentedControl wrapLabels ariaLabel="Мои связи" value={selfSection} onValueChange={next=>{setSelfSection(next);try{sessionStorage.setItem(`connections-view:${playerId}`,next);}catch{}}} items={[{value:'players',label:'Игроки'},{value:'team',label:'Моя команда'},{value:'invites',label:inbox.length?`Приглашения · ${inbox.length}`:'Приглашения'}]} />
+      <p className="px-1 text-xs leading-5 text-white/55">{selfSection==='players'?'Найдите игрока и откройте его профиль.':selfSection==='team'?'Ваша сыгранность, роли и соперники.':'Кто зовёт на вечер и кого можно позвать.'}</p></>}
+      {isSelf&&selfSection==='invites'&&<SmartFriendInviteSuggestions/>}
+      {isSelf&&selfSection==='invites'&&inboxLoading&&<p role="status" className="p-3 text-sm text-white/60">Загружаем приглашения…</p>}
+      {isSelf&&selfSection==='invites'&&inboxError&&<div role="alert" className="rounded-2xl border border-rose-300/20 p-3 text-sm text-rose-200"><p>{inboxError}</p><button type="button" onClick={()=>void loadInbox()} className="mt-2 min-h-11 px-3">Повторить загрузку приглашений</button></div>}
+      {isSelf&&selfSection==='invites'&&!inboxLoading&&!inboxError&&inbox.length===0&&<p className="rounded-2xl border border-white/10 p-4 text-sm text-white/60">Входящих приглашений пока нет. Позвать знакомого можно из его профиля.</p>}
+      {isSelf && selfSection==='invites' && inbox.length > 0 ? (
         <div className="rounded-[26px] border border-amber-200/10 bg-amber-200/[0.045] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/55">Приглашения</div>
           <h2 className="mt-1 text-base font-semibold">Зовут на игру</h2>
@@ -272,13 +286,13 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div data-testid="invitation-unavailable-state" className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Приглашение</div>
           <h2 className="mt-1 text-base font-semibold">{unavailableReasonLabel(context)}</h2>
-          <p className="mt-1 text-xs leading-5 text-white/40">{unavailableReasonHint(context)}</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">{context.reason==='load_failed'?'Попробуйте загрузить доступные вечера ещё раз.':unavailableReasonHint(context)}</p>{context.reason==='load_failed'&&<button type="button" onClick={()=>void loadInviteContext()} className="mt-2 min-h-11 px-3 text-sm">Повторить проверку</button>}
         </div>
       ) : null}
 
       {message ? <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-3 text-xs leading-5 text-white/65">{message}</div> : null}
 
-      {(invitedBy || invitedPlayers.length > 0) ? <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
+      {(!isSelf||selfSection==='invites')&&(invitedBy || invitedPlayers.length > 0) ? <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Клуб</div>
         <h2 className="mt-1 text-base font-semibold">Кто привёл в клуб</h2>
         <p className="mt-1 text-xs leading-5 text-white/35">Это отмечает организатор.</p>
@@ -288,18 +302,19 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         </div>
       </div> : null}
 
-      {mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
+      {(!isSelf||selfSection==='team')&&mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Лучший напарник</div>
         <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">Вместе выиграли {mostSuccessful.same_team_wins || 0} из {mostSuccessful.same_team_games} игр ({Math.round(Number(mostSuccessful.same_team_win_rate || 0))}%)</div></div><span className="text-white/25">→</span></div>
       </button> : null}
 
-      {isSelf ? <PersonalTeamwork /> : null}
+      {isSelf&&selfSection==='team' ? <PersonalTeamwork /> : null}
 
-      <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
+      {(!isSelf||selfSection==='players')&&<div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">
           <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи</div><h2 className="mt-1 text-base font-semibold">{isSelf ? 'С кем я играю' : 'С кем играет игрок'}</h2></div>
           {connections ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-white/40">{connections.length}</span> : null}
         </div>
+        {!!connections?.length&&<div className="mt-3 flex items-center gap-2"><label className="min-w-0 flex-1 text-xs text-white/60">Найти игрока<Input type="search" aria-label="Найти среди связей" value={search} onChange={event=>setSearch(event.target.value)} className="mt-1" /></label>{search&&<button type="button" onClick={()=>setSearch('')} className="mt-4 min-h-11 rounded-lg px-3 text-xs text-white/70">Очистить</button>}</div>}
         {connections && connections.length > 0 ? (
           <div role="group" aria-label="Кого показать" className="mt-3 grid grid-cols-3 gap-1.5">
             {([['all', 'Все'], ['mates', 'Напарники'], ['rivals', 'Соперники']] as const).map(([value, label]) => (
@@ -307,8 +322,8 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
             ))}
           </div>
         ) : null}
-        {connectionsError ? <div className="mt-3 rounded-2xl bg-rose-300/[0.06] p-3 text-xs text-rose-100/70">{connectionsError}</div> : connections === null ? <div className="mt-3 py-8 text-center text-xs text-white/30">Загружаем…</div> : connections.length ? (
-          <div className="mt-3 space-y-2">
+        {connectionsError ? <div className="mt-3 rounded-2xl bg-rose-300/[0.06] p-3 text-xs text-rose-100/70">{connectionsError}{!connectionsHidden&&<button type="button" onClick={()=>void loadConnections()} className="mt-2 block min-h-11 px-3">Повторить загрузку связей</button>}</div> : connections === null ? <div className="mt-3 py-8 text-center text-xs text-white/30">Загружаем…</div> : connections.length ? (
+          <div className="mt-3 space-y-2"><p role="status" className="text-xs text-white/50">Показано {shown.length} из {connections.length}</p>
             {shown.map((item) => (
               <button key={item.player_id} type="button" onClick={() => openPlayerProfile(item.player_id)} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/20 p-2.5 text-left active:bg-white/[0.05]">
                 <Avatar src={item.avatar_url} name={item.nickname} />
@@ -321,12 +336,12 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
                 <span className="text-white/25">→</span>
               </button>
             ))}
-            {!shown.length ? <div className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">{filter === 'mates' ? 'Пока нет игроков, с кем получилось сыграть в одной команде.' : 'Пока нет игроков, с кем получилось сыграть друг против друга.'}</div> : null}
+            {!shown.length ? <div className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">{search.trim()?'Никого не нашли. Измените запрос или очистите поиск.':filter === 'mates' ? 'Пока нет игроков, с кем получилось сыграть в одной команде.' : 'Пока нет игроков, с кем получилось сыграть друг против друга.'}</div> : null}
           </div>
         ) : <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">{isSelf ? 'Здесь появятся игроки, с которыми уже сыграно несколько игр.' : 'Пока нет общих игр, чтобы что-то показать.'}</div>}
-      </div>
+      </div>}
 
-      {isSelf ? <PersonalRecentEvening /> : null}
+      {isSelf&&selfSection==='team' ? <PersonalRecentEvening /> : null}
     </section>
   );
 }

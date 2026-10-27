@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PlayerRoleTables from '../components/player/PlayerRoleTables.tsx';
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 const table = (key: string, label: string, columns: Array<{ key: string; label: string }>, rows: any[]) => ({
   role: { key, label, hint: `Игроки, игравшие: ${label}`, columns },
@@ -37,4 +37,12 @@ describe('role tables', () => {
     fireEvent.click(screen.getByTestId('role-tab-mafia'));
     await waitFor(() => expect(screen.getByText('В этом выборе за эту роль пока никто не играл.')).toBeDefined());
   });
+});
+
+it('shows the complete list extent without removing names or game denominators',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({...table('don','Дон',[],[{player_id:'p1',nickname:'Очень длинное имя игрока',games:3,wins:2,win_rate:67,figures:{}}]),total:40}))));
+ render(<PlayerRoleTables period="all" format="all"/>);
+ expect(await screen.findByText(/Показано 1 из 40 игроков/)).toBeDefined();
+ expect(screen.getByTestId('role-row-p1').textContent).toContain('Очень длинное имя игрока');
+ expect(screen.getByTestId('role-row-p1').textContent).toContain('3 игры');
 });

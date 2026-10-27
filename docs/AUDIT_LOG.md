@@ -1,5 +1,21 @@
 # Audit log
 
+## 2026-10-27 — next existing-menu context pass, complete findings before edits
+
+Baseline5420b3e (#1067 merged after exact b027692 passed CI4558/UI2252/CodeQL3865/Gitleaks3862). Owner: «продолжаем, может, следующий этап улучшения этих менюшек». Reviewed the complete navigation/control map in15 current owners: Community/Rating hubs, metrics/roles/season/tournaments, directory/club stories, activity/archive/match selector, canonical profile, personal connections, showcase/paths and learning. Preserve prior CP01–CP15 semantics, names/formulas, privacy and earned awards. This connected continuation addresses existing-menu context/copy/search gaps; no new product section.
+
+- [fixed, MC01] `PlayerCommunityHub.tsx`: opening another Community group resets the rating route; Season/Metrics → Connections → Rating falls back to Elo. Remember last rating route per viewer; direct links take precedence.
+- [fixed, MC02] same owner: effect resets Activity choice from Archive/Matches to Form when another group opens. Preserve explicit inner choice across group changes/remount, keeping legacy /seasons defaults.
+- [fixed, MC03] `PlayerMetricRatings.tsx`: choosing a searched metric leaves that query in the next picker opening; no explicit clear or Escape close. Clear committed search, add clear and return focus on selection/Escape; no automatic phone-keyboard popup.
+- [fixed, MC04] `PremiumProfileShowcase.tsx`: a public profile says “Мои награды / Мои цели”. Use labels belonging to the viewed player; keep self labels, gates and save behavior.
+- [fixed, MC06] menu audit at390px falsely pairs an invisible continuation of a multiline paragraph below its scroll clip with the footer text. Screenshot shows no painted overlap; pair comparison accepts a missing hit-test element. Add paired clipped/unclipped self-tests, require both text elements at the intersection; keep all real-overlap/truncation/button cases and thresholds.
+- [fixed, MC05] `PlayerRoleTables.tsx`: response total is not visible and long names are truncated. Retain all current rows, values and sample denominators, show shown/total and wrap full identity.
+
+Checked and retained: existing main menu geometry, profile nested view memory, pair semantics, archive season/match selection, filter meanings, existing guide progress and self-only achievement save guards. No rating renaming/reorganization. Test-only prerequisite: add healthy synthetic metric/role responses to the existing cabinet harness, whose missing endpoints are not production defects. Complete browser reproduction precedes application edits. No production read/write or Amvera synchronization.
+
+
+Browser reproduced all original context/copy/search cases before edits (before.json). Implemented MC01–MC05 as one connected batch.17 component/structure cases pass;15 browser cases pass (four sizes × six menu states =24 clean screen audits, plus11 detector self-tests). MC06 was reproduced by a paired self-test before the correction: clipped invisible text failed, visible overlap still detected; after correction all11 self-tests pass. No threshold or product exception added. Eight actual before/after images inspected. Existing direct links, legacy /seasons default and viewer-separated context covered; public path selection makes no write. TypeScript and changed-source lint pass; release safety audit2464 and dependency guard0cycles/violations pass. Full evidence/limits: `reviews/2026-10-27-community-menu-context/README.md`. No production write/message or Amvera synchronization. Previous #1067 UI2252 CI artifact12749363546 downloaded as bytes; the actual390px pair/statistics screenshots inspected after CI, consistent with the accepted layout.
+
 ## 2026-10-27 — Community/Progress menu follow-up and exact CI findings
 
 Scope: finish the complete approved plan and continue existing-menu usability, after source review of all affected nav owners. Before edits:

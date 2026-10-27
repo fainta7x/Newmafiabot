@@ -76,3 +76,25 @@ describe('rankings by figure', () => {
     expect(line.textContent).toContain('из 9 общих игр');
   });
 });
+
+it('starts a fresh search after selection and supports clear and Escape without a metric change',async()=>{
+ vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>respond(body(new URL(String(input),'http://localhost').searchParams.get('metric')||'wins',[]))));
+ render(<PlayerMetricRatings/>);
+ await screen.findByTestId('metric-ratings-scope');
+ const trigger=screen.getByRole('button',{name:'Показатель'});
+ fireEvent.click(trigger);
+ fireEvent.change(screen.getByRole('searchbox',{name:'Найти показатель'}),{target:{value:'прирост'}});
+ fireEvent.click(screen.getByRole('option',{name:'Прирост Elo'}));
+ expect(document.activeElement).toBe(trigger);
+ fireEvent.click(trigger);
+ const search=screen.getByRole('searchbox',{name:'Найти показатель'}) as HTMLInputElement;
+ expect(search.value).toBe('');
+ fireEvent.change(search,{target:{value:'несуществующий'}});
+ fireEvent.click(screen.getByRole('button',{name:'Очистить поиск показателя'}));
+ expect(search.value).toBe('');expect(document.activeElement).toBe(search);
+ expect(screen.getByRole('option',{name:'Победы'})).toBeDefined();
+ fireEvent.keyDown(search,{key:'Escape'});
+ expect(trigger.getAttribute('aria-expanded')).toBe('false');
+ expect(document.activeElement).toBe(trigger);
+ expect(trigger.textContent).toContain('Прирост Elo');
+});

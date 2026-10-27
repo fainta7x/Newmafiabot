@@ -1,5 +1,13 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — next Community/Progress menu context stage implemented
+
+Owner asks to continue the next improvement stage. Previous #1067 is merged as5420b3e; exact b027692 passed CI4558, UI2252, CodeQL3865 and Gitleaks3862. The actual UI2252 pair/statistics screenshots were inspected after CI; no deployment/runtime claim.
+
+Complete current menu-map review was registered as MC01–MC05 before application edits. Implemented: viewer-specific remembered Rating/Activity routes with explicit-link priority; predictable metric search reset/clear/Escape/focus; correct public award labels; role-list shown/total and complete names. Rating names, grouping, formulas and privacy remain unchanged. A detector false positive for invisible multiline text below a scroll clip was reproduced by paired tests and corrected in the intersection hit-test guard; real overlap/truncation/covered-button cases remain checked, no new exception/threshold.
+
+Verification:17 component/structure cases,15 browser cases (24 menu-state audits at360/390/1366/1440 plus11 detector self-tests), eight inspected before/after images, release safety audit2464 and dependency guard clean; TypeScript and changed-source lint pass. [Evidence and limits](reviews/2026-10-27-community-menu-context/README.md). Required exact-head CI/merge pending at authoring. No new owner decision, production writes, external messages or Amvera synchronization within this existing-menu continuation.
+
 ## 2026-10-27 — continue Community/Progress menu usability
 
 Owner: «Окей, продолжай, и улучшай эти менюшки дальше». One connected update of #1067 now includes the full CP01–CP15 plan, fixes its exact CI4555/UI2250 findings and preserves merged Claude #1061 (main1cd10bd). New menu improvements: return to the last Career/Awards subview; all Community destinations and club story choices visible together; full connection labels/long team nicknames; bounded Community content and a profile main scroller between persistent menus. The profile header/tabs do not scroll over content, and keyboard/short viewport keeps the work area above the bottom navigation. Detailed statistics remain open and full-width. No rating/privacy rules changed.
@@ -1021,6 +1029,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- Menu context continuation candidate: Community reopens the last rating/activity subview; metric search clears and closes predictably; public award labels and role-list extent/full names are clearer. Announceable after merge.
 
 - Результат игры, Replay и записи речей можно повторно загрузить после ошибки. Возврат из Replay восстанавливает раскрытый протокол и место страницы; подписи возврата и прослушивания уточнены. Из текущей поставки; не объявлено.
 

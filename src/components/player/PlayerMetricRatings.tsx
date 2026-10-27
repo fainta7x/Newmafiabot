@@ -29,6 +29,9 @@ function PlayerLine({ row }: { row: Row }) {
 /** Club rankings by one figure of the statistics: who collected the most, over a season or all time and an evening format. */
 export default function PlayerMetricRatings() {
   const [view, setView] = useState<'metrics' | 'roles'>(()=>{try{return sessionStorage.getItem('community-metric-mode')==='roles'?'roles':'metrics';}catch{return 'metrics';}});
+  const pickerTrigger=useRef<HTMLButtonElement>(null);
+  const pickerSearch=useRef<HTMLInputElement>(null);
+  const closePicker=()=>{setPickerOpen(false);pickerTrigger.current?.focus();};
   const [pickerOpen, setPickerOpen] = useState(false);
   const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('community-metric-view')||'{}');}catch{return {};}})();
   const [metric, setMetric] = useState(saved.metric||'wins');
@@ -67,12 +70,12 @@ export default function PlayerMetricRatings() {
     <section data-testid="metric-ratings-controls" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
       {view === 'metrics' ? <div className="relative">
         <span className="block text-[11px] text-white/45">Показатель</span>
-        <button type="button" aria-label="Показатель" aria-expanded={pickerOpen} onClick={() => setPickerOpen((value) => !value)} className="mt-1 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/15 bg-black/25 px-3 text-left text-sm font-semibold text-white">
+        <button ref={pickerTrigger} type="button" aria-label="Показатель" aria-expanded={pickerOpen} onClick={() => setPickerOpen((value) => !value)} className="mt-1 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/15 bg-black/25 px-3 text-left text-sm font-semibold text-white">
           {currentMetricLabel}<span aria-hidden="true" className="text-white/50">{pickerOpen ? '⌃' : '⌄'}</span>
         </button>
-        {pickerOpen ? <div role="listbox" aria-label="Выбрать показатель" className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-white/15 bg-[#17171d] p-2">
-          <label className="block p-1 text-xs text-white/60">Найти показатель<input type="search" aria-label="Найти показатель" value={metricSearch} onChange={event=>setMetricSearch(event.target.value)} className="mobile-field mt-1 w-full" /></label>{!availableMetrics.length&&<p className="p-3 text-sm text-white/60">По этому запросу показателей нет.</p>}
-          {groups.map((group) => <div key={group}><div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/40">{group}</div><div className="grid grid-cols-1 gap-1">{availableMetrics.filter((item) => item.group === group).map((item) => <button role="option" aria-selected={metric === item.key} key={item.key} type="button" onClick={() => { setMetric(item.key); setPickerOpen(false); }} className={`min-h-10 rounded-lg px-3 text-left text-[12px] ${metric === item.key ? 'bg-white text-black' : 'bg-white/5 text-white/80 hover:bg-white/10'}`}>{item.label}</button>)}</div></div>)}
+        {pickerOpen ? <div role="listbox" aria-label="Выбрать показатель" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closePicker();}}} className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-white/15 bg-[#17171d] p-2">
+          <div className="flex items-end gap-2 p-1"><label className="min-w-0 flex-1 text-xs text-white/60">Найти показатель<input ref={pickerSearch} type="search" aria-label="Найти показатель" value={metricSearch} onChange={event=>setMetricSearch(event.target.value)} className="mobile-field mt-1 w-full" /></label>{metricSearch&&<button type="button" aria-label="Очистить поиск показателя" onClick={()=>{setMetricSearch('');pickerSearch.current?.focus();}} className="min-h-11 shrink-0 rounded-lg px-2 text-xs text-white/70">Очистить</button>}</div>{!availableMetrics.length&&<p className="p-3 text-sm text-white/60">По этому запросу показателей нет.</p>}
+          {groups.map((group) => <div key={group}><div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/40">{group}</div><div className="grid grid-cols-1 gap-1">{availableMetrics.filter((item) => item.group === group).map((item) => <button role="option" aria-selected={metric === item.key} key={item.key} type="button" onClick={() => { setMetric(item.key); setMetricSearch(''); closePicker(); }} className={`min-h-10 rounded-lg px-3 text-left text-[12px] ${metric === item.key ? 'bg-white text-black' : 'bg-white/5 text-white/80 hover:bg-white/10'}`}>{item.label}</button>)}</div></div>)}
         </div> : null}
       </div> : null}
       <div className={`${view === 'metrics' ? 'mt-2 ' : ''}grid grid-cols-2 gap-2`}>

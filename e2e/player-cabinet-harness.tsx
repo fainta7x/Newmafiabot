@@ -121,6 +121,13 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  switch (url.pathname) {
   case '/api/auth/me': return json({ role: 'ORGANIZER', isOrganizer: true, linked: true });
   case '/api/player/me': return json(data);
+  case '/api/rating/metrics': {
+   const key=url.searchParams.get('metric')||'wins';
+   const metrics=[{key:'wins',label:'Победы',group:'Победы'},{key:'win_rate',label:'Винрейт',group:'Победы'},{key:'elo_gain',label:'Прирост Elo',group:'Elo'}];
+   const current=metrics.find(item=>item.key===key)||metrics[0];
+   return json({metric:{...current,unit:key==='elo_gain'?'elo':'count',hint:'Подтверждённые результаты выбранных игр'},metrics,filters:{period:'all',format:'all',period_label:'Всё время',format_label:'Все форматы',seasons:[],formats:[]},games_in_scope:12,total:40,rows:[{rank:1,player_id:'p1',nickname:'Александра с длинным никнеймом',value:8,value_text:key==='elo_gain'?'+8':'8',games:12,is_me:false}],me:null});
+  }
+  case '/api/rating/roles': return json({role:{key:url.searchParams.get('role')||'don',label:'Дон',hint:'Результаты по выбранной роли',columns:[]},roles:[{key:'don',label:'Дон'},{key:'mafia',label:'Мафия'},{key:'sheriff',label:'Шериф'},{key:'citizen',label:'Мирный'}],games_in_scope:12,total:40,rows:[{player_id:'p1',nickname:'Александра с длинным никнеймом',games:12,wins:8,win_rate:67,figures:{},is_me:false}]});
   case '/api/player/news': return json({ news: [{ id: 'news-1', published_at: new Date().toISOString(), text: 'В пятницу встречаемся за игровым столом. Выберите удобные игры заранее — это поможет собрать состав и начать вовремя.' }] });
   case '/api/player/novice': return json({ player: { club_stage: 'CLUB', game_level: 'club' }, applications: [], free_visits_remaining: 0, can_self_register: true });
   case '/api/player/profile-completeness': return json({ completeness: { percentage: 100, complete: true, missing_fields: [], important_missing_fields: [], next_missing_field: null, fields: {} } });

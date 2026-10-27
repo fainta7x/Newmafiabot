@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { rememberGameProtocolView } from '../lib/gameProtocolView.ts';
 import PlayerGameDetail, { type PlayerGameDetailData } from '../components/player/PlayerGameDetail.tsx';
 
 afterEach(cleanup);
@@ -186,5 +187,34 @@ describe('owner score-sheet detail', () => {
     view();
     expect(screen.getByTestId('game-personal-stats').textContent).toContain('Нет подходящих записанных голосов');
     expect(screen.queryByLabelText('Кто в кого голосовал')).toBeNull();
+  });
+});
+
+
+describe('protocol return context', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+  it('restores expanded details in the same history entry, but not another game', () => {
+    let restoreScroll!: FrameRequestCallback;
+    vi.stubGlobal('requestAnimationFrame', vi.fn(callback => { restoreScroll = callback; return 1; }));
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    window.history.replaceState({ gameReturn: '/player/recaps/evening-1' }, '', '/player/games/club%3A1');
+    const first = view();
+    const protocol = screen.getByTestId('game-full-protocol') as HTMLDetailsElement;
+    const player = screen.getByTestId('game-player-2') as HTMLDetailsElement;
+    protocol.open = true; player.open = true;
+    const scrollOwner = screen.getByTestId('game-score-sheet').parentElement!;
+    scrollOwner.scrollTop = 175;
+    rememberGameProtocolView('club:1');
+    expect(window.history.state.gameReturn).toBe('/player/recaps/evening-1');
+    first.unmount();
+    const second = view();
+    restoreScroll(0);
+    expect(screen.getByTestId('game-score-sheet').parentElement!.scrollTop).toBe(175);
+    expect((screen.getByTestId('game-full-protocol') as HTMLDetailsElement).open).toBe(true);
+    expect((screen.getByTestId('game-player-2') as HTMLDetailsElement).open).toBe(true);
+    second.unmount();
+    view({ detail: { ...detail, game: { ...detail.game, id: 'club:2' } } });
+    expect((screen.getByTestId('game-full-protocol') as HTMLDetailsElement).open).toBe(false);
   });
 });

@@ -65,11 +65,15 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
   const [clips, setClips] = useState<SpeechClip[]>([]);
   const [clipsLoading, setClipsLoading] = useState(false);
   const [clipsError, setClipsError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [clipsRetry, setClipsRetry] = useState(0);
   const [speechView, setSpeechView] = useState<SpeechView>('chronological');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setPlaying(false);
+    setClipsLoading(false);
     setError(null);
     setData(null);
     setClips([]);
@@ -87,7 +91,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить Replay'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [gameKey]);
+  }, [gameKey, retry]);
 
   useEffect(() => {
     const gameId = data?.replay_available ? data.game?.id : null;
@@ -111,7 +115,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
       .finally(() => { if (!cancelled) setClipsLoading(false); });
 
     return () => { cancelled = true; };
-  }, [data?.replay_available, data?.game?.id]);
+  }, [data?.replay_available, data?.game?.id, clipsRetry]);
 
   const replayLength = data?.replay_frames?.length || data?.engine_events?.length || data?.events.length || 0;
   useEffect(() => {
@@ -157,13 +161,13 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
   </div>;
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="loading" icon="🎬" title="Восстанавливаем партию…" description="Собираем сохранённую хронологию игры." /></div></main>;
-  if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="error" icon="⚠️" title="Replay недоступен" description={error || 'Не удалось загрузить сохранённую игру.'} actionLabel="Назад" onAction={goBack} /></div></main>;
+  if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="error" icon="⚠️" title="Replay недоступен" description={error || 'Не удалось загрузить сохранённую игру.'} actionLabel="Повторить" onAction={() => setRetry(value => value + 1)} /><button type="button" onClick={goBack} className="ds-focus-ring mt-3 min-h-11 w-full rounded-xl border border-white/15 px-3 text-sm font-semibold">Назад к протоколу</button></div></main>;
 
   if (!data.replay_available) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="empty" icon="📼" title="Подробного Replay нет" description={data.analysis.join(' ') || 'Для этой игры нет полной пошаговой хронологии.'} actionLabel="Назад" onAction={goBack} /></div></main>;
 
   return <main className="min-h-screen bg-[#090a0d] px-3 pb-12 pt-3 text-white">
     <div className="mx-auto w-full max-w-[520px]">
-      <div className="flex items-center justify-between gap-3"><button type="button" onClick={goBack} className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/55">←</button><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/25">Replay · завершённая игра</div><div className="h-11 w-11" /></div>
+      <div className="flex items-center justify-between gap-3"><button type="button" onClick={goBack} aria-label="Назад к протоколу" className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/55">←</button><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/25">Replay · завершённая игра</div><div className="h-11 w-11" /></div>
 
       <section className="mt-3 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-4 text-center"><div className="text-[11px] uppercase tracking-[0.15em] text-white/25">{data.game?.title}</div><h1 className="mt-1 text-2xl font-black">Игра №{data.game?.number || '—'}</h1><div className={`mt-3 text-lg font-black ${data.game?.winner_team === 'red' ? 'text-rose-300' : 'text-white'}`}>{data.game?.winner_team === 'red' ? '🔴 Победа красных' : data.game?.winner_team === 'black' ? '⚫ Победа чёрных' : 'Игра завершена'}</div></section>
 
@@ -191,8 +195,8 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
       )}
 
       <section className="mt-3 rounded-[24px] border border-violet-200/10 bg-violet-200/[0.035] p-4">
-        <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">🎙️ Записи речей</div><div className="mt-1 text-[11px] leading-4 text-white/25">Слушай всю игру подряд или быстро переходи к нужному кругу.</div></div>{clips.length ? <div className="rounded-lg bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-white/30">{clips.length}</div> : null}</div>
-        {clipsLoading ? <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[11px] text-white/30">Загружаем записи…</div> : clipsError ? <div className="mt-3 rounded-xl bg-rose-300/[0.06] px-3 py-3 text-[11px] leading-4 text-rose-100/45">{clipsError}</div> : clips.length ? <>
+        <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">🎙️ Записи речей</div><div className="mt-1 text-[11px] leading-4 text-white/25">Выбери запись речи или нужный круг.</div></div>{clips.length ? <div className="rounded-lg bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-white/30">{clips.length}</div> : null}</div>
+        {clipsLoading ? <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[11px] text-white/30">Загружаем записи…</div> : clipsError ? <div role="alert" className="mt-3 space-y-3 rounded-xl bg-rose-300/[0.06] px-3 py-3 text-xs leading-5 text-rose-100/80"><p>{clipsError}</p><button type="button" onClick={() => setClipsRetry(value => value + 1)} className="ds-focus-ring min-h-11 w-full rounded-xl border border-white/15 bg-white/[.06] px-3 font-semibold">Повторить загрузку речей</button></div> : clips.length ? <>
           <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-black/20 p-1">
             <button type="button" onClick={() => setSpeechView('chronological')} className={`min-h-9 rounded-xl px-2 text-[11px] font-bold transition ${speechView === 'chronological' ? 'bg-white text-black' : 'text-white/35'}`}>По порядку</button>
             <button type="button" onClick={() => setSpeechView('rounds')} className={`min-h-9 rounded-xl px-2 text-[11px] font-bold transition ${speechView === 'rounds' ? 'bg-white text-black' : 'text-white/35'}`}>По кругам</button>

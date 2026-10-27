@@ -1,5 +1,12 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — result and Replay recovery implementation
+
+Owner: «Отлично, продолжай». Implement the first connected result-flow block F01–F05: truthful Back label, retry the same game/Replay/speech GET, restore protocol disclosures on return from Replay, and accurate speech-listening copy. F06 seasonal context/link, F07 limited-record analysis wording and F08 match-card link remain the next connected follow-up; no claim they are fixed here. Review PR #1064 merged as9cd619c after exact head0cadc07 passed CI4547, CodeQL3854 and Gitleaks3851; its docs-only scope requires no UI preview. Preserve Amvera sync exclusion and the active Claude #1061 branch. Only focused checks and one mobile evidence pass; no production writes.
+
+
+Implemented F01–F05 in one result/Replay slice.22 focused tests in four files pass; affected13 rerun after the nested-scroll correction. Release audit/dependency guard pass; TypeScript and changed-source lint checked. Browser component harness: retry game/Replay/clips; clips keep the replay step; native Back restores both disclosures and genuinely nonzero nested scrolling at360/390px. Eight actual screenshots inspected; [evidence](reviews/2026-10-27-result-replay-flow/README.md). Exact-head CI/merge pending at candidate authoring. This is isolated component/browser evidence, not signed-in production verification.
+
 ## 2026-10-27 — next pages reviewed alongside settings CI
 
 Owner: «Параллельно продолжай анализ по страницам далее». Reviewed nine linked surfaces: evening recap, game archive/detail, personal result, detailed protocol, Replay variants, speeches, automatic factual recap, seasonal accruals and activity match card. Source/mount evidence and eight concrete findings F01–F08: [result flow review](UX_RESULT_FLOW_REVIEW_2026-10-27.md), registered in AUDIT_LOG. No new runtime/phone verification or scoring finding is claimed. Continue the already authorized existing-page usability scope with load recovery and truthful Back/audio labels, then canonical protocol links with retained source context; do not add a playlist or change ranking meanings.
@@ -988,6 +995,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- Результат игры, Replay и записи речей можно повторно загрузить после ошибки. Возврат из Replay восстанавливает раскрытый протокол и место страницы; подписи возврата и прослушивания уточнены. Из текущей поставки; не объявлено.
 
 - В настройках приглашений, уведомлений и приватности можно повторить загрузку после ошибки. Приглашения показывают сохранение и подтверждение; приватность не принимает вторую правку, пока сохраняется первая. Из текущей поставки; не объявлено.
 

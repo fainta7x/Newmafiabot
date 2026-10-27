@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import PlayerReplayScreen from '../src/components/player/PlayerReplayScreen.tsx';
+import PlayerHistoryStatsView from '../src/components/player/PlayerHistoryStatsView.tsx';
 import ReactDOM from 'react-dom/client';
 import PlayerGameDetail, { type PlayerGameDetailData } from '../src/components/player/PlayerGameDetail.tsx';
 import PlayerEveningSummaries from '../src/components/player/PlayerEveningSummaries.tsx';
@@ -49,6 +52,38 @@ const detail: PlayerGameDetailData = {
   players,
 };
 
+const query = new URLSearchParams(location.search);
+const flowMode = query.get('screen');
+const isFlow = flowMode === 'flow' || flowMode === 'replay';
+if (isFlow) {
+  let gameFailures = Number(query.get('failGame') || 0);
+  let replayFailures = Number(query.get('failReplay') || 0);
+  let clipFailures = Number(query.get('failClips') || 0);
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  window.fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith('/replay')) {
+      if (replayFailures-- > 0) return json({ error: 'Нет связи с Replay' }, 503);
+      return json({ game_key: 'club:11', replay_available: true, game: { id: '11', number: 11, title: detail.game.title, winner_team: 'red' }, players: detail.players, events: ['Начало игры', 'Ночь', 'Игра завершена'].map((title, index) => ({ id: String(index), type: index === 1 ? 'night' : 'round', round: index, title, text: title })), analysis: ['Сохранились ключевые события партии.'] });
+    }
+    if (url.endsWith('/clips')) {
+      if (clipFailures-- > 0) return json({ error: 'Записи речей временно недоступны' }, 503);
+      return json({ clips: [] });
+    }
+    if (gameFailures-- > 0) return json({ error: 'Игра временно недоступна' }, 503);
+    return json(detail);
+  };
+}
+function ResultFlowPreview() {
+  const [replayOpen, setReplayOpen] = useState(flowMode === 'replay');
+  useEffect(() => {
+    const sync = () => setReplayOpen(location.pathname.includes('/player/replay/'));
+    addEventListener('popstate', sync);
+    return () => removeEventListener('popstate', sync);
+  }, []);
+  return replayOpen ? <PlayerReplayScreen gameKey="club:11" onBack={() => history.back()} /> : <PlayerHistoryStatsView data={{ player: { id: 'p3' }, games: { all: [] } } as any} initialGameKey="club:11" />;
+}
+
 const GameDetail = new URLSearchParams(location.search).has('before') ? BeforeGameDetail : PlayerGameDetail;
 
 const isRecap = new URLSearchParams(location.search).get('screen') === 'recap';
@@ -59,7 +94,7 @@ if (isRecap) window.fetch = async () => new Response(JSON.stringify({summaries:[
   best_elo_rise:{player_id:'p3',nickname:'Дина',avatar_url:'',elo_delta:31}, most_games:{player_id:'p4',nickname:'Богдан',avatar_url:'',games:4},
   awards:[{category:'mvp',label:'Игрок вечера',player_id:'p3',nickname:'Дина',avatar_url:'',votes:7}],facts:['Красные выиграли три партии из четырёх'],game_ids:['club:11','club:12','club:13','club:14'],game_links:[11,12,13,14].map((number,index)=>({id:`club:${number}`,game_number:number,winner_team:index===1?'black':'red',personal:index===3?null:{role:index===0?'sheriff':'citizen',won:index!==1}})),
 }]}),{headers:{'Content-Type':'application/json'}});
-ReactDOM.createRoot(document.getElementById('root')!).render(isRecap ? <EveningSummaries onOpenGame={(key)=>{document.body.dataset.openedGame=key;}} /> :
+ReactDOM.createRoot(document.getElementById('root')!).render(isFlow ? <ResultFlowPreview /> : isRecap ? <EveningSummaries onOpenGame={(key)=>{document.body.dataset.openedGame=key;}} /> :
   <main className="mx-auto flex max-w-[430px] flex-col gap-3 p-3 pb-24 text-white">
     <GameDetail detail={detail} loading={false} error={null} selfId="p3" onBack={() => undefined} />
   </main>,

@@ -150,7 +150,6 @@ import { applyEloScaleMigration } from './server/dataMigrations/applyEloScaleMig
 import { applyEloTableLevelMigration } from './server/dataMigrations/applyEloTableLevelMigration.ts';
 import { applyOwnerNoScoringTags } from './server/dataMigrations/applyOwnerNoScoringTags.ts';
 import { moveReplayFramesOutOfProtocols } from './server/dataMigrations/moveReplayFramesOutOfProtocols.ts';
-import { correctGame20EightSplit } from './server/dataMigrations/correctGame20EightSplit.ts';
 import { applyPlayerStarterTokenGrant } from './server/dataMigrations/applyPlayerStarterTokenGrant.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
@@ -221,8 +220,6 @@ export async function createApp(customDb?: DatabaseWrapper) {
     try { await applyEloScaleMigration(db); } catch (error) { console.error('[ELO] ×5 scale switch failed:', error); }
     // The replay frames leave the protocols for their own table (owner, 2026-10-27), so the rebuilds below read light protocols.
     try { await moveReplayFramesOutOfProtocols(db); } catch (error) { console.error('[REPLAY] Moving replay frames out of protocols failed:', error); }
-    // Game №20: the split the saved record lost (owner, 2026-10-27).
-    try { console.info('[DATA CORRECTION] game №20 split:', JSON.stringify(await correctGame20EightSplit(db))); } catch (error) { console.error('[DATA CORRECTION] game №20 split failed (nothing changed):', error); }
     // The owner's «без оценок» tags first, so the one-time Elo rebuild below already uses them.
     try { await applyOwnerNoScoringTags(db); } catch (error) { console.error('[ELO] Owner no-scoring tags failed:', error); }
     try { await applyEloTableLevelMigration(db); } catch (error) { console.error('[ELO] Table-level rebuild failed:', error); }

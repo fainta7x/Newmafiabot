@@ -121,7 +121,7 @@ export const ResultView: React.FC<Props> = ({ api }) => {
 
       <RevealsCard api={api} />
 
-      <GameAnalysis events={protocol.events} playerResults={api.results} />
+      <GameAnalysis events={protocol.events} playerResults={api.results} protocol={protocol} />
 
       <section aria-label="Замена в игре" className="space-y-2">
         <div className="flex items-center justify-between px-1"><Eyebrow>Замена в игре</Eyebrow>

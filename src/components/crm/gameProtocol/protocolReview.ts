@@ -23,27 +23,45 @@ const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девя
  * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
  * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после попила посидеть и промаха» … Without a chronology the
  * number of players is unknown, so an old game keeps «Круг N».
+ * Who left comes from the protocol itself — its votings and shots — so a corrected protocol renames the circles that follow
+ * (owner, 2026-10-27: game №20 kept «Семёрка» after the vote that put №3 out was corrected to «everybody stayed»). Only a
+ * judge's removal, which the protocol does not place in time, is read from the chronology.
  */
-export const circleTitle = (index: number, protocol?: Pick<TournamentGameProtocolData, 'events'> | null, tableSize = CLASSIC_TABLE_SIZE) => {
+export const circleTitle = (
+  index: number,
+  protocol?: Partial<Pick<TournamentGameProtocolData, 'events' | 'votes' | 'shots'>> | null,
+  tableSize = CLASSIC_TABLE_SIZE,
+) => {
   if (index === 0) return 'Нулевой круг';
   const events = Array.isArray(protocol?.events) ? protocol!.events : [];
   if (!events.some((event) => event.kind === 'exit')) return `Круг ${index}`;
-  const round = index + 1;
+  const votes = Array.isArray(protocol?.votes) ? (protocol!.votes as unknown as VotingRound[]) : null;
+  const shots = Array.isArray(protocol?.shots) ? protocol!.shots : null;
   // A cancelled exit («restored») gives the seat back.
-  const out = new Map<number, LiveGameEvent>();
+  const journalOut = new Map<number, LiveGameEvent>();
   for (const event of events) {
-    if (!event.seat || event.round >= round) continue;
-    if (event.kind === 'exit') out.set(event.seat, event); else if (event.kind === 'restored') out.delete(event.seat);
+    if (!event.seat || event.round > index) continue;
+    if (event.kind === 'exit') journalOut.set(event.seat, event); else if (event.kind === 'restored') journalOut.delete(event.seat);
   }
+  // Day d is voted in engine round d + 1, night n closes engine round n.
+  const votedOutOnDay = (day: number) => (votes
+    ? [...new Set(votes.filter((round) => Number(round.day_number ?? 0) === day && (round.outcome === 'single_eliminated' || round.outcome === 'all_tied_eliminated')).flatMap((round) => round.eliminated_seats || []).map(Number))]
+    : [...journalOut.values()].filter((event) => event.round === day + 1 && event.value !== 'killed' && event.value !== 'removed').map((event) => Number(event.seat)));
+  const killedAtNight = (night: number) => (shots
+    ? shots.filter((shot) => Number(shot.night_number) === night && shot.result === 'killed' && Number(shot.target_seat) > 0).map((shot) => Number(shot.target_seat))
+    : [...journalOut.values()].filter((event) => event.round === night && event.value === 'killed').map((event) => Number(event.seat)));
+  const out = new Set<number>();
+  for (let day = 0; day < index; day += 1) votedOutOnDay(day).forEach((seat) => out.add(seat));
+  for (let night = 1; night <= index; night += 1) killedAtNight(night).forEach((seat) => out.add(seat));
+  for (const event of journalOut.values()) if (event.value === 'removed') out.add(Number(event.seat));
   const atTable = tableSize - out.size;
   const name = TABLE_NAMES[atTable] || `Круг ${index}`;
-  const previous = [...out.values()].filter((event) => event.round === round - 1);
-  const dayOut = previous.filter((event) => event.value !== 'killed').length;
-  const killed = previous.some((event) => event.value === 'killed');
+  const dayOut = votedOutOnDay(index - 1).length;
+  const killed = killedAtNight(index).length > 0;
   const notes: string[] = [];
   // The zero round with everybody staying is the standard course of the game (owner): no qualifier after it.
   if (dayOut >= 2) notes.push('попила с подъёмом');
-  else if (dayOut === 0 && round - 1 > 1) notes.push('попила посидеть');
+  else if (dayOut === 0 && index > 1) notes.push('попила посидеть');
   if (!killed) notes.push('промаха');
   // «Восьмёрка после попила посидеть и промаха» (owner, 2026-10-27).
   return notes.length ? `${name} после ${notes.join(' и ')}` : name;

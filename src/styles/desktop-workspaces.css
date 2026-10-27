@@ -42,6 +42,7 @@
   .profile-overview > [data-testid="profile-club-summary"],
   .profile-overview > [data-testid="profile-key-stats"],
   .profile-overview > [data-testid="profile-stats-hidden"],
+  .profile-overview > [data-testid="profile-detailed-statistics"],
   .profile-overview > [data-testid="profile-more-stats"] { grid-column: 1 / -1; }
   .profile-game-list, .profile-role-list { max-width: 100%; }
   .profile-game-list > *, .profile-role-list > * { min-width: 0; margin-block: 0; }

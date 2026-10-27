@@ -29,7 +29,7 @@ export default function PremiumProfileShowcase({playerId,isSelf,section='all'}:{
   {pinMessage&&<p role="status" className="px-1 text-xs text-white/65">{pinMessage}</p>}
   {error&&<p role="alert" className="rounded-2xl border border-rose-300/20 p-3 text-sm text-rose-200">{error}</p>}
   {showAwards&&<>
-  <SegmentedControl ariaLabel="Награды и цели" value={awardView} onValueChange={value=>{setAwardView(value);try{sessionStorage.setItem(`showcase-view:${playerId}`,value);}catch{}}} items={[{value:'collection',label:'Мои награды'},{value:'goals',label:'Мои цели'}]}/>
+  <SegmentedControl wrapLabels ariaLabel="Награды и цели" value={awardView} onValueChange={value=>{setAwardView(value);try{sessionStorage.setItem(`showcase-view:${playerId}`,value);}catch{}}} items={[{value:'collection',label:'Мои награды'},{value:'goals',label:'Мои цели'}]}/>
   {awardView==='collection'&&<>
   {isSelf&&<div className="px-1"><div className="flex items-center justify-between gap-3"><p className="text-xs text-white/60">Закреплено {pinnedIds.length} из 3 наград</p><button type="button" onClick={()=>{if(awardList.current){awardList.current.open=true;awardList.current.scrollIntoView({block:'start'});}}} className="min-h-11 shrink-0 rounded-xl border border-white/15 px-3 text-xs font-semibold">Оформить профиль</button></div>{pinnedIds.length>=3&&<p className="mt-1 text-xs leading-5 text-white/60">Чтобы закрепить другую награду, сначала уберите одну из закреплённых.</p>}</div>}
   <TrophyCabinet awards={data.awards} earnedAchievements={data.earned_achievements}

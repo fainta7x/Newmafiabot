@@ -151,6 +151,8 @@ export default function JudgeTestGameModal({
       <EveningLiveGameModal
         game={game}
         trainingMode={training}
+        // The test game says so in the window's own top bar, where it covers nothing (2026-10-27).
+        titleBadge={training ? undefined : <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.04em] text-amber-200 md:px-2 md:text-[10px] md:tracking-[0.08em]">Тест<span className="hidden md:inline"> · не сохраняется</span></span>}
         onClose={() => {
           if (!completedRef.current) onClose(false);
         }}
@@ -159,9 +161,6 @@ export default function JudgeTestGameModal({
           onClose(true);
         }}
       />
-      {!training && <div className="pointer-events-none fixed left-1/2 top-1 z-[125] -translate-x-1/2 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-200 backdrop-blur-xl">
-        Тест · не сохраняется
-      </div>}
     </>
   );
 }

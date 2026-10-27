@@ -30,7 +30,7 @@ function Row({ person, line, tone = 'bg-black/20' }: { person: Person; line: Rea
     <button type="button" onClick={() => openCanonicalPlayerProfile(person.player_id)} className={`flex min-h-12 w-full items-center gap-3 rounded-2xl p-2.5 text-left active:bg-white/[0.05] ${tone}`}>
       <Avatar person={person} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold">{person.nickname}</div>
+        <div className="break-words whitespace-normal text-sm font-semibold">{person.nickname}</div>
         <div className="mt-0.5 text-[11px] leading-4 text-white/45">{line}</div>
       </div>
     </button>

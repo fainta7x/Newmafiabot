@@ -62,6 +62,11 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const groupOf=(value:Tab):Tab=>value==='roles'||value==='elo'?'games':value==='history'?'awards':value;
   const [tab,setTab]=useState<Tab>(()=>tabs.some(([key])=>key===initialTab)?initialTab as Tab:tabs.some(([key])=>key===remembered.tab)?remembered.tab as Tab:'overview');
   const activeGroup=groupOf(tab);
+  const groupTabs=useRef({career:['games','roles','elo'].includes(remembered.groupTabs?.career||'')?remembered.groupTabs!.career as Tab:'games' as Tab,awards:remembered.groupTabs?.awards==='history'?'history' as Tab:'awards' as Tab});
+  useEffect(()=>{
+    if(['games','roles','elo'].includes(tab)) groupTabs.current.career=tab;
+    if(tab==='awards'||tab==='history') groupTabs.current.awards=tab;
+  },[tab]);
   useEffect(()=>{
     const requested=tabs.some(([key])=>key===initialTab)?initialTab as Tab:tabs.some(([key])=>key===remembered.tab)?remembered.tab as Tab:'overview';
     setTab(requested);
@@ -86,10 +91,10 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const [team,setTeam]=useState(()=>remembered.team||'');
   const [result,setResult]=useState(()=>remembered.result||'');
   const [offset,setOffset]=useState(remembered.offset||0);
-  const scrollRef=useRef<HTMLDivElement>(null);
+  const scrollRef=useRef<HTMLElement>(null);
   const scrollByTab=useRef<Record<string,number>>(remembered.scrolls||{});
   const latestView=useRef({});
-  latestView.current={tab,period,from,to,role,team,result,statPeriod,statFormat,offset};
+  latestView.current={tab,period,from,to,role,team,result,statPeriod,statFormat,offset,groupTabs:groupTabs.current};
   useEffect(()=>{
     const save=()=>{
       const view=latestView.current as {tab?:string};
@@ -265,15 +270,15 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
           </section>:null;
   const recentGames=((summary?.recent_games||[]).length>0&&<section aria-label="Последние игры" className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]"><header className="flex items-center justify-between gap-3 px-4 pt-2"><h2 className="text-sm font-semibold">Последние игры</h2><button type="button" onClick={()=>switchTab('games')} className="min-h-11 rounded-lg px-2 text-xs font-semibold text-white/70">Все игры ›</button></header><div className="divide-y divide-white/[.07]">{summary.recent_games.slice(0,4).map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const Row:any=link?'a':'div';return <Row key={g.id||g.game_id} {...(link||{})} className="ds-focus-ring flex min-h-11 items-center gap-3 px-4 py-3"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{g.title||'Игра'}{g.game_number?` · №${g.game_number}`:''}</span><span className="mt-1 block text-xs leading-5 text-white/60">{[fmt(g.played_at||g.date),roleLabel(g.role),teamLabel(g.team),g.won===true?'Победа':g.won===false?'Поражение':'Результат не указан'].filter(Boolean).join(' · ')}</span></span>{link&&<span aria-hidden="true" className="text-lg text-white/45">›</span>}</Row>})}</div></section>);
   const detailedStats=(<details open data-testid="profile-more-stats" className="group mt-4 border-t border-white/10"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm font-semibold">Подробная статистика<span className="text-white/45 transition group-open:rotate-180">⌄</span></summary><div className="space-y-4 pb-1"><PlayerProfileCareerSections stats={summary?.stats} season={summary?.season} gameStats={summary?.game_stats} nightShots={summary?.night_shots} reveals={summary?.reveals} circleExits={summary?.circle_exits}/></div></details>);
-  return <div ref={scrollRef} className="canonical-profile h-full min-h-0 overflow-y-auto bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
-      <div className="profile-identity flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&ownerSettings&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
+  return <div className="canonical-profile flex h-[var(--tg-viewport-height,100dvh)] min-h-0 flex-col overflow-visible bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
+    <header className="relative z-20 shrink-0 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
+      <div className="profile-identity flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="break-words text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="break-words text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&ownerSettings&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
     </header>
-    {!settings&&<div className="sticky z-10 border-b border-white/10 bg-[#090a0d]/96 px-2 py-2" data-profile-sticky-tabs>
+    {!settings&&<div className="static z-10 shrink-0 border-b border-white/10 bg-[#090a0d]/96 px-2 py-2" data-profile-sticky-tabs>
       {isSelf&&<p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[.12em] text-white/35">Прогресс</p>}
       <nav className={`mx-auto grid w-full max-w-3xl ${learning?'grid-cols-5':'grid-cols-4'} gap-1`} aria-label={isSelf?'Разделы прогресса':'Разделы профиля'}>
         {mainTabs.map(([key,label])=><button key={key} type="button" data-track={`profile-group-${key}`}
-          aria-current={activeGroup===key?'page':undefined} onClick={()=>switchTab(key)}
+          aria-current={activeGroup===key?'page':undefined} onClick={()=>switchTab(key==='games'?groupTabs.current.career:key==='awards'?groupTabs.current.awards:key)}
           className={`min-h-11 min-w-0 rounded-xl px-0.5 text-center text-[10px] font-semibold sm:text-xs ${activeGroup===key?'bg-white text-black':'bg-white/[.07] text-white/75 hover:bg-white/[.11]'}`}>{label}</button>)}
       </nav>
       {(activeGroup==='games'||activeGroup==='awards')&&<nav className="mt-2 flex gap-1.5" aria-label={activeGroup==='games'?'Разделы карьеры':'Разделы наград'}>
@@ -283,7 +288,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
             className={`min-h-11 rounded-lg px-3 text-xs font-medium ${tab===key?'bg-amber-200/15 text-amber-100 ring-1 ring-amber-200/25':'bg-white/[.045] text-white/65'}`}>{label}</button>)}
       </nav>}
     </div>}
-    <main className="profile-content mx-auto w-full max-w-5xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)] lg:px-8">
+    <main ref={scrollRef} className="profile-content mx-auto min-h-0 w-full max-w-5xl flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-[calc(var(--app-content-bottom)+24px)] lg:px-8">
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<div className="profile-overview space-y-4">
         {isSelf&&<PlayerProfileCompletionCard compact/>}
@@ -295,7 +300,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
 
         </section>}
         {!statsHidden&&recentGames}
-        {!statsHidden&&<section className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
+        {!statsHidden&&<section data-testid="profile-detailed-statistics" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
           {isSelf&&<PlayerInsightsPanel/>}
           <nav aria-label="Разделы подробной статистики" className="mb-2 flex flex-wrap gap-2">{[['results','Результаты'],['decisions','Решения'],['night','Ночью'],['reveals','Вскрытия'],['exits','Круги ухода']].map(([key,label])=><button type="button" key={key} onClick={()=>scrollRef.current?.querySelector(`[data-profile-stat="${key}"]`)?.scrollIntoView({block:'start'})} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs">{label}</button>)}</nav>
           {detailedStats}

@@ -1,7 +1,7 @@
 export type ProfileView = {
   tab?: string; period?: 'all' | 'season' | 'custom'; from?: string; to?: string;
   role?: string; team?: string; result?: string; statPeriod?: string; statFormat?: string;
-  offset?: number; scrolls?: Record<string, number>;
+  offset?: number; scrolls?: Record<string, number>; groupTabs?: {career?:string;awards?:string};
 };
 const key = (viewer: string, player: string) => `profile-view:${viewer}:${player}`;
 /** Preferences only: never persist profile responses, contacts or game data. */

@@ -21,7 +21,7 @@
 .trophy-cabinet__lighting{position:absolute;inset:0 8%;pointer-events:none;background:radial-gradient(ellipse 20% 40% at 18% 4%,rgba(200,214,231,.09),transparent 97%),radial-gradient(ellipse 20% 40% at 50% 3%,rgba(200,214,231,.08),transparent 97%),radial-gradient(ellipse 20% 40% at 82% 4%,rgba(200,214,231,.09),transparent 97%);transform:translateZ(0)}
 .trophy-cabinet__shelves{position:absolute;inset:0 8%;display:grid;grid-template-rows:1fr 1fr;gap:10px;padding:14px 4px 2px;transform:translateZ(24px)}
 .trophy-cabinet__shelf{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;justify-content:flex-end}
-.trophy-cabinet__slots{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;height:calc(100% - 14px);gap:5px;padding:0 2px 1px}
+.trophy-cabinet__slots{position:relative;z-index:3;flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;height:auto;gap:5px;padding:0 2px 1px}
 .trophy-cabinet__exhibit{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;width:100%;height:100%;padding:4px 1px 8px;border-radius:10px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.014));border:1px solid transparent;color:#eaeef1;transform:translateZ(12px);transition:transform .18s,border-color .18s,background .18s}
 .trophy-cabinet__exhibit:hover,.trophy-cabinet__exhibit--active{transform:translateZ(18px) translateY(-4px);border-color:rgba(189,204,224,.26);background:rgba(205,216,231,.045)}
 .trophy-cabinet__exhibit:focus-visible{outline:2px solid #d2d9e0;outline-offset:1px}
@@ -33,7 +33,7 @@
 .trophy-cabinet__exhibit-caption{font-size:8px;line-height:11px;color:#c4ccd2}
 .trophy-cabinet__empty-slot{height:100%;display:flex;align-items:end;justify-content:center;padding-bottom:18px}
 .trophy-cabinet__empty-slot span{display:block;width:42%;height:2px;background:rgba(255,255,255,.035);border-radius:4px}
-.trophy-cabinet__ledge{position:relative;z-index:2;height:14px;background:linear-gradient(180deg,#444d59 0%,#242b35 40%,#11151d 100%);border-radius:2px 2px 4px 4px;border-top:1px solid rgba(228,234,240,.3);box-shadow:0 12px 20px rgba(0,0,0,.55),inset 0 -1px rgba(255,255,255,.09);transform:translateZ(16px)}
+.trophy-cabinet__ledge{position:relative;flex-shrink:0;z-index:2;height:14px;background:linear-gradient(180deg,#444d59 0%,#242b35 40%,#11151d 100%);border-radius:2px 2px 4px 4px;border-top:1px solid rgba(228,234,240,.3);box-shadow:0 12px 20px rgba(0,0,0,.55),inset 0 -1px rgba(255,255,255,.09);transform:translateZ(16px)}
 .trophy-cabinet__ledge:before{content:'';position:absolute;left:0;right:0;top:-14px;height:15px;background:linear-gradient(180deg,#303b49,#1c2631);transform-origin:bottom;transform:rotateX(62deg);border:1px solid rgba(255,255,255,.07)}
 .trophy-cabinet__empty{position:absolute;left:16px;right:16px;top:45%;z-index:3;transform:translateY(-50%);padding:12px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(12,15,20,.86);color:rgba(255,255,255,.63);font-size:12px;line-height:1.6;text-align:center;pointer-events:none}
 .trophy-cabinet__controls{display:flex;align-items:center;justify-content:space-between;gap:6px;border-top:1px solid rgba(255,255,255,.07);padding:9px 11px}

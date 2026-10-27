@@ -10,17 +10,23 @@ import { TRAINING_PEOPLE } from '../src/lib/judgeTrainingSetup.ts';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import { createInitialGameDiscipline } from '../src/lib/gameDiscipline.ts';
 import { createEmptyLiveProtocolMarkers } from '../src/lib/gameProtocolCore.ts';
+// The same stylesheets in the same order as src/main.tsx, so the harness shows the app's real geometry.
 import '../src/index.css';
 import '../src/styles/design-system.css';
+import '../src/styles/telegram-viewport.css';
 import '../src/releasePolish.css';
 import '../src/components/crm/liveGameJudge.css';
+import '../src/components/crm/liveGameDesktopParity.css';
 import '../src/components/crm/liveGameCabinetShell.css';
 import '../src/components/crm/liveGameSeatCabinet.css';
 import '../src/components/crm/liveGameActionPriority.css';
 import '../src/components/crm/liveGameNightReadability.css';
-import '../src/components/crm/liveGameTelegram.css';
 import '../src/components/crm/liveGameRecoveryPolish.css';
 import '../src/components/crm/liveGameDeathProtocolCabinet.css';
+import '../src/components/crm/liveGameTelegram.css';
+import '../src/components/crm/liveGameMobileCenterPriority.css';
+import '../src/components/crm/liveGameUrgentResume.css';
+import '../src/components/public/liveBroadcastCompact.css';
 
 const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === 'audit';
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';

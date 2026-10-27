@@ -232,7 +232,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
 
   return (
     <section data-testid="premium-profile-connections" className="space-y-3">
-      {isSelf&&<><SegmentedControl ariaLabel="Мои связи" value={selfSection} onValueChange={next=>{setSelfSection(next);try{sessionStorage.setItem(`connections-view:${playerId}`,next);}catch{}}} items={[{value:'players',label:'Игроки'},{value:'team',label:'Моя команда'},{value:'invites',label:inbox.length?`Приглашения · ${inbox.length}`:'Приглашения'}]} />
+      {isSelf&&<><SegmentedControl wrapLabels ariaLabel="Мои связи" value={selfSection} onValueChange={next=>{setSelfSection(next);try{sessionStorage.setItem(`connections-view:${playerId}`,next);}catch{}}} items={[{value:'players',label:'Игроки'},{value:'team',label:'Моя команда'},{value:'invites',label:inbox.length?`Приглашения · ${inbox.length}`:'Приглашения'}]} />
       <p className="px-1 text-xs leading-5 text-white/55">{selfSection==='players'?'Найдите игрока и откройте его профиль.':selfSection==='team'?'Ваша сыгранность, роли и соперники.':'Кто зовёт на вечер и кого можно позвать.'}</p></>}
       {isSelf&&selfSection==='invites'&&<SmartFriendInviteSuggestions/>}
       {isSelf&&selfSection==='invites'&&inboxLoading&&<p role="status" className="p-3 text-sm text-white/60">Загружаем приглашения…</p>}

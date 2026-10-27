@@ -11,6 +11,7 @@ import type { ZeroNightMusicState } from "./engineStateModel.js";
 import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
 import { seatColorVars } from "./seatColors.ts";
 import { SeatBadge } from "./SeatBadge.tsx";
+import { FitText } from "./FitText.tsx";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
 import {
@@ -225,6 +226,18 @@ export default function CenterPanel(props: CenterPanelProps) {
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
   const [numbersOpen, setNumbersOpen] = React.useState(false);
+  // On a phone «Авто» lives in the game's top bar (owner, 2026-10-27: «ПЕРЕ…»): next to «Авто», «←» and «Выйти» the phase
+  // pill had about 60 px and «Переголосование» needs 86. The game window offers the place as `#live-topbar-slot`; the
+  // panel only portals into it and never touches the table's DOM.
+  const [topbarSlot, setTopbarSlot] = React.useState<HTMLElement | null>(null);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const phone = window.matchMedia('(max-width: 699px)');
+    const sync = () => setTopbarSlot(phone.matches ? document.getElementById('live-topbar-slot') : null);
+    sync();
+    phone.addEventListener?.('change', sync);
+    return () => phone.removeEventListener?.('change', sync);
+  }, []);
   // The numbers window belongs to one vote count: it closes when the count ends.
   React.useEffect(() => { if (votingStage !== 'collecting') setNumbersOpen(false); }, [votingStage]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
@@ -504,10 +517,11 @@ export default function CenterPanel(props: CenterPanelProps) {
     const showSpeechExtension = Boolean(onSpeechExtension && speechExtensionAvailability?.allowed);
     return (
       <div className="live-judge-timer">
-        <div className="live-judge-timer__label">{timerLabel}</div>
-        <div className="live-judge-timer__name" data-testid={nightActionStatus ? 'live-game-night-status' : undefined}>
-          {nightActionStatus || timerName}
-        </div>
+        <FitText as="div" minPx={7} className="live-judge-timer__label">{timerLabel}</FitText>
+        {/* A night check's result is read whole — it may take two lines; a nickname fits its one line. */}
+        {nightActionStatus
+          ? <div className="live-judge-timer__name live-judge-timer__name--status" data-testid="live-game-night-status">{nightActionStatus}</div>
+          : <FitText as="div" className="live-judge-timer__name">{timerName}</FitText>}
         <div className={`live-judge-timer__time ${timeLeft <= 10 ? 'live-judge-timer__time--danger' : ''}`}>{timeLeft}с</div>
         <div className="live-judge-timer__bar"><div style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} /></div>
         <div className={`live-judge-timer__buttons ${showSpeechExtension ? 'live-judge-timer__buttons--with-extension' : ''}`}>
@@ -629,6 +643,8 @@ export default function CenterPanel(props: CenterPanelProps) {
         handleResolveVoting();
       };
 
+      const quickSplitButton = <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>;
+
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--vote-count">
           {/* One strip for the order, the candidate being counted and every candidate's votes (owner, 2026-10-27: too many
@@ -653,7 +669,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             ))}
           </div>
           <div className="live-judge-vote-summary live-judge-vote-summary--with-undo" title={isLast ? `Остаток уйдёт к #${nominee} при подведении итога` : undefined}>
-            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <SeatBadge seat={nominee} size="xs" />{nomineeNickname ? '' : '?'}</span>{nomineeNickname ? <span className="live-judge-vote-focus__name">{nomineeNickname}?</span> : null}</div>
+            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <SeatBadge seat={nominee} size="xs" />{nomineeNickname ? <span className="live-judge-vote-focus__mark">?</span> : '?'}</span>{nomineeNickname ? <FitText className="live-judge-vote-focus__name">{nomineeNickname}?</FitText> : null}</div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"
@@ -690,12 +706,12 @@ export default function CenterPanel(props: CenterPanelProps) {
                   </div>
                   <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
                 </div>
-              ) : (
-                <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>
-              )
+              ) : handleVoteToggle ? null : quickSplitButton
             ) : null}
             {handleVoteToggle ? (
               <div className="live-judge-vote-shortcuts">
+                {/* «Попил» shares the shortcut row: next to «←» and «Следующий →» it cut both off on a phone (2026-10-27). */}
+                {quickSplitAvailable && handleQuickSplit && !splitPicking ? quickSplitButton : null}
                 {sameSplitAvailable && handleSameSplit ? (
                   <button type="button" data-testid="live-same-split" disabled={pendingVotingResolution} onClick={handleSameSplit} className="live-judge-action">Поделилось также</button>
                 ) : null}
@@ -1025,22 +1041,25 @@ export default function CenterPanel(props: CenterPanelProps) {
   const showFooter = showFooterSummary || (showFooterAction && Boolean(prevStep || nextStep));
   const footerSingle = !(prevStep && nextStep);
 
+  const autoControl = phase !== 'setup' && !(phase === 'day_voting' && votingStage === 'collecting' && autoCountdown === null) ? (autoCountdown !== null ? (
+    <button type="button" data-testid="live-auto-stop" onClick={stopAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active="true" aria-label="Отменить автоматический переход">
+      <span>Стоп <span data-testid="live-auto-countdown">{autoCountdown}</span></span>
+    </button>
+  ) : (
+    <button type="button" data-testid="live-auto-toggle" onClick={toggleAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active={autoAdvance ? 'true' : 'false'} aria-pressed={autoAdvance} title="Авторежим: после таймера следующий шаг наступает сам">
+      <span>Авто</span>
+    </button>
+  )) : null;
+
   return (
     <>
+      {topbarSlot && autoControl ? createPortal(autoControl, topbarSlot) : null}
       <div data-testid="live-judge-hud" className="live-judge-hud col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none">
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">
             {/* No timer runs while votes are counted: «Авто» steps aside so the pill can say «Переголосование 1» in full. */}
-            {phase !== 'setup' && !(phase === 'day_voting' && votingStage === 'collecting' && autoCountdown === null) && (autoCountdown !== null ? (
-              <button type="button" data-testid="live-auto-stop" onClick={stopAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active="true" aria-label="Отменить автоматический переход">
-                <span>Стоп <span data-testid="live-auto-countdown">{autoCountdown}</span></span>
-              </button>
-            ) : (
-              <button type="button" data-testid="live-auto-toggle" onClick={toggleAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active={autoAdvance ? 'true' : 'false'} aria-pressed={autoAdvance} title="Авторежим: после таймера следующий шаг наступает сам">
-                <span>Авто</span>
-              </button>
-            ))}
+            {!topbarSlot && autoControl}
             {canUseVotingBack && (
               <button type="button" data-testid={canReturnToSpeeches ? "live-voting-back-to-speeches" : undefined} onClick={handleVotingBack} className="live-judge-hud__header-button"><ArrowLeft /><span>{canReturnToSpeeches ? "К речам" : "Назад"}</span></button>
             )}

@@ -72,8 +72,8 @@ export default function PlayerCommunityHub({
         </header>
 
         <SegmentedControl
-          scrollable
-          className="max-w-[430px]"
+          wrapLabels
+          className="player-community-menu max-w-[430px]"
           ariaLabel="Разделы сообщества"
           value={view}
           items={NAV}

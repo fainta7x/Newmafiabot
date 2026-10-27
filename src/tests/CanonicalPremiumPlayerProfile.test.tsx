@@ -308,3 +308,25 @@ it('keeps a failed games request distinct from a confirmed empty result and offe
   await screen.findByText('По выбранным фильтрам игр нет.');
   expect(games).toBe(2);
 });
+
+it('returns each progress group to its last nested view, including after remount',async()=>{
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).includes('/summary')?response(summary('groups','Выбор раздела')):response({roles:[]})));
+  const first=render(<CanonicalPremiumPlayerProfile playerId="groups" selfPlayerId="groups" mode="self"/>);
+  await screen.findByText('Выбор раздела');
+  fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  fireEvent.click(screen.getByRole('button',{name:'Роли'}));
+  fireEvent.click(screen.getByRole('button',{name:'Награды'}));
+  fireEvent.click(screen.getByRole('button',{name:'История клуба'}));
+  fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  expect(screen.getByRole('button',{name:'Роли'}).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button',{name:'Награды'}));
+  expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button',{name:'Связи'}));
+  first.unmount();
+  render(<CanonicalPremiumPlayerProfile playerId="groups" selfPlayerId="groups" mode="self"/>);
+  await screen.findByText('Выбор раздела');
+  fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  expect(screen.getByRole('button',{name:'Роли'}).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button',{name:'Награды'}));
+  expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
+});

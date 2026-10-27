@@ -82,4 +82,18 @@ describe('EveningDeathProtocolBridge final-night routing', () => {
 
     expect(goToDay).toHaveBeenCalledTimes(1);
   });
+
+  it('gives the death-protocol task only in the guided training, not in the free test game', async () => {
+    const players = Array.from({ length: 10 }, (_, index) => ({ slot_num: index + 1, nickname: `Игрок ${index + 1}`, team: index < 3 ? 'black' : 'red', alive: index !== 0 }));
+    localStorage.setItem('mafia_live_session', JSON.stringify({ postNightStage: 'death_protocol', shotPlayerSlot: 1, timeLeft: 12, roundNumber: 1, sessionKey: 'club:-2147483000', activePlayers: players }));
+
+    const free = render(<EveningDeathProtocolBridge />);
+    expect((await screen.findByTestId('live-death-protocol-save') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('judge-training-death-task')).toBeNull();
+    free.unmount();
+
+    render(<><div className="evening-live-training-modal" /><EveningDeathProtocolBridge /></>);
+    expect(await screen.findByTestId('judge-training-death-task')).toBeTruthy();
+    expect((screen.getByTestId('live-death-protocol-save') as HTMLButtonElement).disabled).toBe(true);
+  });
 });

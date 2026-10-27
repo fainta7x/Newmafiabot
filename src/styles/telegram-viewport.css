@@ -166,3 +166,33 @@ body {
     padding-bottom: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom) + 12px) !important;
   }
 }
+
+/* Cabinet work surfaces scroll between the fixed chrome, so no partially covered row remains clickable. */
+.player-cabinet-shell:has(> [data-testid="player-community-hub"]),
+.player-cabinet-shell:has(> .canonical-profile) {
+  display: flex;
+  flex-direction: column;
+  height: var(--tg-viewport-height);
+  min-height: 0 !important;
+  overflow: hidden;
+}
+.player-cabinet-shell:has(> [data-testid="player-community-hub"]) > .h-14,
+.player-cabinet-shell:has(> .canonical-profile) > .h-14,
+.player-cabinet-shell:has(> [data-testid="player-community-hub"]) > .player-live-status-slot,
+.player-cabinet-shell:has(> .canonical-profile) > .player-live-status-slot { flex-shrink: 0; }
+.player-cabinet-shell > [data-testid="player-community-hub"],
+.player-cabinet-shell > .canonical-profile {
+  flex: 1 1 0;
+  min-height: 0 !important;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+/* All five community destinations stay visible: three above, two full-width halves below. */
+@media (max-width: 639px) {
+  .player-community-menu { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+  .player-community-menu > button { grid-column: span 2; }
+  .player-community-menu > button:nth-last-child(-n+2) { grid-column: span 3; }
+}
+
+.player-cabinet-shell > .canonical-profile { overflow: visible; }

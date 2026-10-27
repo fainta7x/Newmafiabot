@@ -1,0 +1,22 @@
+[
+  {
+    "label": "before",
+    "view": "return",
+    "selected": "Игры"
+  },
+  {
+    "label": "before",
+    "view": "statistics",
+    "width": 399.609375
+  },
+  {
+    "label": "after",
+    "view": "return",
+    "selected": "Роли"
+  },
+  {
+    "label": "after",
+    "view": "statistics",
+    "width": 1070
+  }
+]

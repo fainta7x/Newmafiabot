@@ -222,7 +222,9 @@ export const EveningDeathProtocolBridge: React.FC = () => {
           timeLeft: Math.max(0, Number(parsed?.timeLeft || 0)),
           killedName: String(killedPlayer?.nickname || (shotPlayerSlot ? `Игрок ${shotPlayerSlot}` : '')),
           winner,
-          training: parsed?.sessionKey === 'club:-2147483000',
+          // The guided training and the free test game share the sandbox key; only the guided one (its modal carries
+          // `evening-live-training-modal`) gives the death-protocol task and locks «Сохранить» until it is done.
+          training: parsed?.sessionKey === 'club:-2147483000' && Boolean(document.querySelector('.evening-live-training-modal')),
           roundNumber: Number(parsed?.roundNumber) || 1,
         };
         const signature = JSON.stringify(next);

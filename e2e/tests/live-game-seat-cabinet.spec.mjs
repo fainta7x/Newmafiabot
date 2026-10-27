@@ -32,10 +32,9 @@ const capture = async (page, testInfo, name) => {
 
 const prepareZeroRound = async (page) => {
   await page.goto('/e2e/live-game.html');
+  await page.getByRole('button', { name: 'Подтвердить состав' }).click();
   await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-  const intro = page.getByText('Подготовьте 10 карт');
-  await expect(intro).toBeVisible();
-  await intro.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Начать раздачу', exact: true }).click();
+  await page.getByTestId('physical-role-deal-start').click();
   for (const role of ROLE_SEQUENCE) await page.getByRole('button', { name: new RegExp(role) }).click();
   await page.getByRole('button', { name: /Роли зафиксированы/ }).click();
   await page.getByRole('button', { name: /Включите музыку/ }).click();

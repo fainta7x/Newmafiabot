@@ -15,6 +15,10 @@ Owner approved the complete CP01–CP15 plan after [full review](../../UX_COMMUN
 | CP14 | Continue the existing guide section/next lesson using device-local guide progress; catalog remains below. |
 | CP15 | Hidden public statistics use a neutral message across games/roles/Elo and do not start blocked statistic requests. Server privacy gates unchanged. |
 
+## Current follow-up evidence
+
+The menu continuation after #1061 uses full app stylesheet parity and the unchanged layout gate. See [current menu report](menu-followup/README.md); it supersedes earlier partial-harness screenshots for the affected views. The original CP01–CP15 record below remains history.
+
 ## Evidence
 
 Synthetic isolated previews, same baseline/after fixtures, not a signed-in production walkthrough. Thirteen390px screenshots captured and inspected. The learning fixture uses the same valid existing `judge-conduct` progress in both versions. No real invitation was sent or pin written to production.

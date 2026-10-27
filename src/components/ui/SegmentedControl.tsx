@@ -16,6 +16,7 @@ export function SegmentedControl<T extends string>({
   className,
   itemClassName,
   scrollable = false,
+  wrapLabels = false,
 }: {
   value: T;
   items: Array<SegmentedControlItem<T>>;
@@ -24,6 +25,7 @@ export function SegmentedControl<T extends string>({
   className?: string;
   itemClassName?: string;
   scrollable?: boolean;
+  wrapLabels?: boolean;
 }) {
   const navRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -54,7 +56,7 @@ export function SegmentedControl<T extends string>({
             disabled={item.disabled}
             aria-current={active ? 'page' : undefined}
             onClick={() => onValueChange(item.value)}
-            style={{ minHeight: '40px', paddingInline: '4px' }}
+            style={{ minHeight: wrapLabels ? '44px' : '40px', paddingInline: '4px' }}
             className={cn(
               'min-w-0 rounded-xl text-[11px] font-semibold',
               scrollable && 'min-w-11 shrink-0 !px-3',
@@ -62,7 +64,7 @@ export function SegmentedControl<T extends string>({
               itemClassName,
             )}
           >
-            <span className={scrollable ? "whitespace-nowrap" : "truncate"}>{item.label}</span>
+            <span className={wrapLabels ? "min-w-0 whitespace-normal break-words text-center leading-4" : scrollable ? "whitespace-nowrap" : "truncate"}>{item.label}</span>
           </Button>
         );
       })}

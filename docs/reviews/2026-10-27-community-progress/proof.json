@@ -1,0 +1,22 @@
+[
+  {
+    "proof": "progress-tab-refresh",
+    "before": {
+      "url": "http://127.0.0.1:4194/e2e/player-profile.html?history=1",
+      "active": "page"
+    },
+    "after": {
+      "url": "http://127.0.0.1:4194/e2e/player-profile.html?history=1",
+      "overview": "page"
+    }
+  },
+  {
+    "proof": "game-error-vs-empty",
+    "body": "←\nЧ\nЧагин\nЕвгений Чагин\nДень рождения: 14.08\nРедактировать\n\nПРОГРЕСС\n\nОбзор\nКарьера\nНаграды\nСвязи\nИгры\nРоли\nElo\nЛюбые даты\nДиапазон дат\nДополнительные фильтры\nНет связи, действие не выполнено\nПо выбранным фильтрам игр нет."
+  },
+  {
+    "proof": "pin-error-visibility",
+    "failedRequests": 1,
+    "errorVisible": 0
+  }
+]

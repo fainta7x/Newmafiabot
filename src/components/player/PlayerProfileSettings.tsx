@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.ts';
 import React, { useEffect, useRef, useState } from 'react';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
@@ -21,7 +22,11 @@ type PrivateSettings = {
 export default function PlayerProfileSettings({ player, onPlayerChange }: { player: Player; onPlayerChange: (player: Player) => void }) {
   const [identity, setIdentity] = useState<PlayerIdentityDraft>({ nickname: player.nickname || '', fullName: player.full_name || '', phone: player.phone || '' });
   const [privateSettings, setPrivateSettings] = useState<PrivateSettings>({ birth_day: null, birth_month: null, birth_year: null, preferred_format: null });
+  const [savedProfile, setSavedProfile] = useState(() => JSON.stringify({ identity: { nickname: identity.nickname.trim(), fullName: identity.fullName.trim(), phone: identity.phone.trim() }, privateSettings }));
+  const snapshot = JSON.stringify({ identity: { nickname: identity.nickname.trim(), fullName: identity.fullName.trim(), phone: identity.phone.trim() }, privateSettings });
+  const dirty = Boolean(savedProfile && savedProfile !== snapshot);
   const [saving, setSaving] = useState(false);
+  useUnsavedChanges(dirty || saving, saving ? 'Сохранение анкеты ещё не подтверждено. Выйти со страницы?' : 'Изменения анкеты не сохранены. Выйти и отбросить их?');
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarDeleteOpen, setAvatarDeleteOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -39,12 +44,14 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
         const body = await getJsonIfOk<any>('/api/player/profile-settings');
         if (!body || cancelled) return;
         const row = body?.player || {};
-        setPrivateSettings({
+        const loaded = {
           birth_day: row.birth_day ?? null,
           birth_month: row.birth_month ?? null,
           birth_year: row.birth_year ?? null,
           preferred_format: row.preferred_format ?? null,
-        });
+        };
+        setPrivateSettings(loaded);
+        setSavedProfile(JSON.stringify({ identity: { nickname: (player.nickname || '').trim(), fullName: (player.full_name || '').trim(), phone: (player.phone || '').trim() }, privateSettings: loaded }));
       } catch {}
     })();
     return () => { cancelled = true; };
@@ -67,6 +74,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
       }, 'Не удалось сохранить профиль');
       onPlayerChange({ ...player, ...body.player } as Player);
       requestPlayerProfileCompletenessRefresh();
+      setSavedProfile(snapshot);
       setMessage('Профиль сохранён');
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить профиль');
@@ -121,7 +129,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
   return (
     <div className="space-y-3">
       <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Фото профиля</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Фото профиля</div><p className="mt-1 text-xs text-white/55">Фото сохраняется сразу после загрузки.</p>
         <div className="mt-3 flex items-center gap-4">
           {player.avatar_url ? <img src={player.avatar_url} alt={player.nickname} className="h-24 w-24 shrink-0 rounded-[24px] object-cover ring-1 ring-white/15" /> : <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[24px] bg-white/10 text-3xl font-semibold text-white/65">{player.nickname.slice(0, 1).toUpperCase()}</div>}
           <div className="min-w-0 flex-1 space-y-2">
@@ -165,6 +173,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
           <input id="preferred-format" value={privateSettings.preferred_format || ''} onChange={(event) => setPrivateSettings((value) => ({ ...value, preferred_format: event.target.value || null }))} placeholder="Например, рейтинговые вечера" className="mobile-field mt-2" />
         </div>
 
+        {dirty && <p role="status" className="text-xs text-amber-100">Анкета изменена. Нажмите «Сохранить изменения».</p>}
         {error ? <FieldMessage className="mt-3" tone="error" data-testid="profile-form-message">{error}</FieldMessage> : null}
         {message ? <FieldMessage className="mt-3" tone="success" data-testid="profile-form-message">{message}</FieldMessage> : null}
         <Button data-testid="profile-save" type="button" size="lg" disabled={saving} onClick={() => void saveProfile()} className="mt-4 w-full">{saving ? 'Сохраняем…' : 'Сохранить изменения'}</Button>

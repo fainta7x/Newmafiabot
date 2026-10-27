@@ -85,7 +85,7 @@ export const RulesScreen = () => {
       <p className="px-1 text-[13px] leading-5 text-white/50">{mode === 'simple'
         ? 'Главное для первого вечера. Тема раскрывается нажатием.'
         : 'Полный свод с терминами клуба — для тех, кто уже играл. Незнакомое слово можно найти в «Словаре».'}</p>
-      <Accordion key={mode} blocks={mode === 'simple' ? SIMPLE_RULES : TABLE_RULES} />
+      <Accordion key={mode} blocks={mode === 'simple' ? [{ title: 'Как идёт игра', points: SCENARIO.slice(4, 8).map(step => step.text) }, ...SIMPLE_RULES] : TABLE_RULES} />
     </div>
   );
 };

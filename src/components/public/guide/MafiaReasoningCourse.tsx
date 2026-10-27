@@ -186,8 +186,8 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   return <div ref={courseTop} className="space-y-4" data-testid="mafia-reasoning-course">
     {view === 'chapters' ? <>
       <header className="px-1">
-        <h2 className="text-xl font-semibold">Игровое мышление</h2>
-        <p className="mt-1 text-sm text-white/60">Нужно выбрать тему, чтобы начать.</p>
+        <h2 className="text-xl font-semibold">Выбери тему</h2>
+        <p className="mt-1 text-sm text-white/60">Ответы и продолжение курса сохраняются на этом устройстве.</p>
       </header>
       <section aria-label="Уровни мышления" className="space-y-2">
         {REASONING_LEVELS.map((item, index) => {

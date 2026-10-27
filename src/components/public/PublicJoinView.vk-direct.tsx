@@ -1,3 +1,5 @@
+import { DEFAULT_EVENING_PRICES, eveningSelectionPrice, type EveningPrices } from '../../lib/eveningPrices.ts';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.ts';
 import { countGames, countPlayers } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Check, ExternalLink, MapPin, Sparkles } from 'lucide-react';
@@ -9,7 +11,7 @@ interface PublicJoinViewProps { eveningId: string; }
 
 type SlotPerson = { id: string; nickname: string };
 type GameSlot = { id: string; slot_number: number; starts_at: string; ends_at: string; price: number; target_players: number; registered_count: number; selected: boolean; participants: SlotPerson[] };
-type SlotPlan = { event: { price_per_game: number; assembled: boolean; assembled_slots: number; required_slots: number; required_players_per_slot: number }; slots: GameSlot[]; selection: { slot_ids: string[]; games: number; total: number } };
+type SlotPlan = { pricing?: EveningPrices; event: { format?: string; max_evening_price?: number | null; price_per_game: number; assembled: boolean; assembled_slots: number; required_slots: number; required_players_per_slot: number }; slots: GameSlot[]; selection: { slot_ids: string[]; games: number; total: number } };
 
 const request = async (url: string, options?: RequestInit) => {
   const response = await fetch(url, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) }, ...options });
@@ -122,6 +124,9 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const sameSelection = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
   const changed = draft !== null && !sameSelection(draft, savedIds);
 
+  useUnsavedChanges(changed, 'Выбор игр ещё не сохранён. Выйти и отбросить изменения?');
+  const estimatedTotal = slotPlan ? eveningSelectionPrice(evening?.format || slotPlan.event.format, slotPlan.slots.filter(slot => pickedIds.includes(slot.id)).map(slot => slot.price), slotPlan.pricing || { ...DEFAULT_EVENING_PRICES, rating_entry: slotPlan.event.price_per_game, casual_cap: slotPlan.event.max_evening_price ?? Infinity, novice_cap: slotPlan.event.max_evening_price ?? null }) : 0;
+
   const toggleSlot = (slotId: string) => {
     if (!vkReady || busy || !slotPlan) return;
     const next = new Set(pickedIds);
@@ -177,7 +182,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
         {slot.participants.length ? <div className="mt-2 flex flex-wrap gap-1.5">{slot.participants.map((person) => <span key={person.id} className="rounded-full bg-white/[0.055] px-2 py-1 text-[10px] text-white/55">{person.nickname}</span>)}</div> : <div className="mt-2 text-[10px] text-white/25">Пока никто не записался</div>}
       </button>; })}</div>
       {vkReady ? <div className="mt-3 space-y-2" data-testid="join-confirm">
-        <div className="flex items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3"><div><div className="text-xs text-white/35">{changed ? 'Выбрано, ещё не сохранено' : 'Запись'}</div><div className="mt-0.5 text-sm font-semibold">{pickedIds.length ? countGames(pickedIds.length) : 'Игры не выбраны'}</div></div>{!changed ? <strong className="text-lg">{formatRubles(slotPlan.selection.total)}</strong> : null}</div>
+        <div className="flex items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3"><div><div className="text-xs text-white/35">{changed ? 'Выбрано, ещё не сохранено' : 'Запись'}</div><div className="mt-0.5 text-sm font-semibold">{pickedIds.length ? countGames(pickedIds.length) : 'Игры не выбраны'}</div></div><strong className="text-lg" aria-label={changed ? "Предварительная стоимость" : "Стоимость записи"}>{formatRubles(changed ? estimatedTotal : slotPlan.selection.total)}</strong></div>
         {changed ? <button type="button" disabled={busy} onClick={() => void confirmSelection()} className="min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d] disabled:opacity-50">{busy ? 'Сохраняем…' : !draft?.length ? 'Отменить запись' : savedIds.length ? 'Сохранить изменения' : `Записаться · ${countGames(draft.length)}`}</button> : null}
         {changed ? <button type="button" disabled={busy} onClick={() => setDraft(null)} className="min-h-11 w-full rounded-2xl border border-white/10 px-4 text-sm text-white/60">Вернуть как было</button> : null}
         {savedMessage && !changed ? <div className="rounded-2xl border border-emerald-300/10 bg-emerald-400/[0.08] px-4 py-3 text-sm text-emerald-100/85">{savedMessage} Чтобы изменить, отметь другие игры и сохрани.</div> : null}

@@ -397,7 +397,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
               <p className="text-[10px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются.</p>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_auto]">
                 <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник · можно оставить пустым" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
-                <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя</button>
+                <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя в игру</button>
               </div>
             </div>
           </div>

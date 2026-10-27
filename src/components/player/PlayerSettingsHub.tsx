@@ -17,12 +17,13 @@ export default function PlayerSettingsHub({ data, onPlayerChange }: { data: Play
           <h1 className="text-2xl font-semibold">Настройки</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">Мои данные, уведомления, приглашения, кто видит профиль и музыка для вечера</p>
         </header>
-        <div className="player-settings-primary"><PlayerProfileSettings player={player} onPlayerChange={updatePlayer} /></div>
+        <nav aria-label="Разделы настроек" className="flex gap-2 overflow-x-auto pb-1">{[['data','Данные'],['notifications','Уведомления'],['invites','Приглашения'],['privacy','Приватность'],['music','Музыка']].map(([id,label]) => <a key={id} href={`#settings-${id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-xl border border-white/10 px-3 text-xs text-white/75">{label}</a>)}</nav>
+        <div id="settings-data" className="player-settings-primary scroll-mt-20"><PlayerProfileSettings player={player} onPlayerChange={updatePlayer} /></div>
         <div className="player-settings-secondary space-y-4">
-        <PlayerNotificationSettings nickname={player.nickname} />
-        <PlayerInviteSettings />
-        <PlayerProfilePrivacySettings />
-        <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
+        <section id="settings-notifications" className="scroll-mt-20"><p className="mb-1 text-xs text-white/55">Изменения сохраняются сразу</p><PlayerNotificationSettings nickname={player.nickname} /></section>
+        <section id="settings-invites" className="scroll-mt-20"><p className="mb-1 text-xs text-white/55">Изменения сохраняются сразу</p><PlayerInviteSettings /></section>
+        <section id="settings-privacy" className="scroll-mt-20"><p className="mb-1 text-xs text-white/55">Изменения сохраняются сразу</p><PlayerProfilePrivacySettings /></section>
+        <details id="settings-music" className="scroll-mt-20 rounded-2xl border border-white/10 bg-white/[.03] p-4">
           <summary className="cursor-pointer font-semibold">Моя музыка для вечера</summary>
           <div className="mt-4"><PlayerMusicSlots /></div>
         </details>

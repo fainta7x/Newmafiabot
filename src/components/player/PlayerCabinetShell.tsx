@@ -1,3 +1,4 @@
+import { confirmPageLeave } from '../../lib/pageLeave.ts';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerBottomNavigation from './PlayerBottomNavigation.tsx';
@@ -67,6 +68,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   }, [profilePlayerId]);
 
   const open = (requested: PlayerCabinetSection, target: string | null = null) => {
+    if (!confirmPageLeave()) return;
     const next = normalizePlayerCabinetSection(requested);
     // Personal Elo history is the «Elo» tab of the profile (old links and notifications say «elo»).
     // A notification may carry the game key as its target; the Elo journey itself is always the profile tab.

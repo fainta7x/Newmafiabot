@@ -45,7 +45,7 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
 
   return (
     <div className="space-y-5">
-      {api.locked ? <LockedNote /> : null}
+      {api.locked ? <div className="space-y-2"><LockedNote /><Btn kind="primary" block onClick={onReopen} disabled={busy}>Исправить протокол</Btn></div> : null}
       {winner}
 
       <section aria-labelledby="todo-title">
@@ -134,7 +134,7 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
       <div className="space-y-2 pt-1">
         {confirmed ? (
           <>
-            <Btn kind="primary" big block onClick={onReopen} disabled={busy}>Исправить протокол</Btn>
+            {!api.locked && <Btn kind="primary" big block onClick={onReopen} disabled={busy}>Исправить протокол</Btn>}
             <p className="px-2 text-center text-[12px] text-white/45">Игра подтверждена. Чтобы что-то поправить, верните её на исправление.</p>
           </>
         ) : (

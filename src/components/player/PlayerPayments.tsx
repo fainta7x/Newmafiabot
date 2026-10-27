@@ -133,6 +133,7 @@ function PaymentCard({ item, freeCredits, applying, onUseFree, testAvailable = f
 }
 
 function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
+  if (!online.available) return <p className="px-1 text-xs leading-5 text-white/50">Онлайн-оплата пока не подключена. Оплату вечера отмечает организатор.</p>;
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -305,18 +306,17 @@ export default function PlayerPayments({ onBack, onChanged, view = 'full' }: { o
       {loading && data && <p role="status" className="px-1 text-xs text-white/50">Обновляем оплату…</p>}
       {!data ? loading ? <div role="status" className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/45">Загрузка оплаты…</div> : null : (
         <>
+          {!historyOnly && data.robokassa_test_available && <p className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] px-3 py-3 text-xs leading-5 text-amber-100/70">Тест Robokassa: выбери вечер ниже. Деньги не списываются, настоящий долг и жетоны не меняются.</p>}
+
+          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId !== null || payingId !== null} onUseFree={useFreeEvening} testAvailable={data.robokassa_test_available} paying={payingId !== null} onTestPay={testPay} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
+          {!historyOnly && data.online_payment && <PaymentPurposeGrid online={data.online_payment} />}
+
           {!historyOnly && <section className={embedded ? "rounded-2xl border border-white/10 bg-white/[0.03] p-3" : "rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.035] p-4"}>
             {!embedded && <><div className="text-xs uppercase tracking-[0.18em] text-white/35">По игровым вечерам</div>
             <div className="mt-2 text-3xl font-semibold text-white">{rubles(data.summary.historical_debt)}</div>
             <div className="mt-1 text-[11px] text-white/35">долг только за фактически посещённые вечера</div></>}
             <div className={`${embedded ? "" : "mt-3 "}grid grid-cols-2 gap-2`}><div className="rounded-2xl bg-black/20 p-3"><div className="text-lg font-semibold text-white/80">{rubles(data.summary.amount_paid)}</div><div className="mt-1 text-[11px] text-white/35">оплачено всего</div></div><div className="rounded-2xl bg-black/20 p-3"><div className="text-lg font-semibold text-white/80">{data.free_evening_credits}</div><div className="mt-1 text-[11px] text-white/35">бесплатных вечеров</div></div></div>
           </section>}
-
-          {!historyOnly && data.online_payment && <PaymentPurposeGrid online={data.online_payment} />}
-
-          {!historyOnly && data.robokassa_test_available && <p className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] px-3 py-3 text-xs leading-5 text-amber-100/70">Тест Robokassa: выбери вечер ниже. Деньги не списываются, настоящий долг и жетоны не меняются.</p>}
-
-          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId !== null || payingId !== null} onUseFree={useFreeEvening} testAvailable={data.robokassa_test_available} paying={payingId !== null} onTestPay={testPay} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
 
           {view !== 'current' && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">История вечеров</h2>{data.history.length ? <div className="space-y-2">{data.history.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={0} applying={false} onUseFree={() => {}} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">История оплат пока пустая.</p>}</section>}
         </>

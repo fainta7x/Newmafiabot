@@ -84,7 +84,7 @@ describe('public guide for novices', () => {
   it('replaces trivia with five stages of analysis and concrete reasoning feedback', () => {
     render(<PublicGuide initialTab="quiz" />);
     expect(screen.getByTestId('mafia-reasoning-course')).toBeTruthy();
-    expect(screen.getByTestId('mafia-reasoning-course').querySelector('h2')?.textContent).toBe('Игровое мышление');
+    expect(screen.getByTestId('mafia-reasoning-course').querySelector('h2')?.textContent).toBe('Выбери тему');
     expect(screen.queryByTestId('reasoning-task')).toBeNull();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByTestId('reasoning-level-facts'));
@@ -143,14 +143,14 @@ describe('public guide for novices', () => {
     expect(topics.filter((text) => text.includes('Попил в первый день'))).toHaveLength(1);
   });
 
-  it('puts every section on the first screen and the trainers two taps away', () => {
+  it('puts continuation before the catalog and keeps trainers two taps away', () => {
     window.localStorage.clear();
     render(<PublicGuide />);
     const sections = screen.getByTestId('guide-sections');
     // «Другие игры» (not mafia training) is a slim link below the novice path, so the first phone screen stays as it was.
     for (const id of ['lessons', ...GUIDE_SHELVES.map((shelf) => shelf.id).filter((id) => id !== 'games')]) expect(sections.querySelector(`[data-testid="guide-section-${id}"]`)).toBeTruthy();
-    // The sections come before the novice path, so a returning player does not scroll past the lessons.
-    expect(sections.compareDocumentPosition(screen.getByTestId('guide-continue')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The personal next lesson comes first; the complete catalog stays directly after it.
+    expect(screen.getByTestId('guide-continue').compareDocumentPosition(sections) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId('guide-section-trainers').textContent).toContain('Попил');
     expect(sections.querySelector('[data-testid="guide-section-games"]')).toBeNull();
     expect(screen.getByTestId('guide-section-games').textContent).toContain('Кровь на часовой башне');

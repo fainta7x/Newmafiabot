@@ -30,7 +30,8 @@ describe('existing booking screen correctness', () => {
   render(<PlayerEventSlotDetail event={{ ...event, format: 'RATING' }} {...props} />);
   await screen.findByText(/750 ₽ за вечер/);
   expect(screen.getByText('750 ₽')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Отменить запись' }));
+  fireEvent.click(screen.getByRole('button', { name: /Игра 1/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Игра 2/ }));
   expect(screen.getByText('0 ₽')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Весь вечер' }));
   expect(screen.getByText('750 ₽')).toBeTruthy();

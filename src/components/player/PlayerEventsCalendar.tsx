@@ -1,3 +1,4 @@
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
@@ -20,6 +21,7 @@ type EventItem = {
   starts_at: string;
   venue?: string | null;
   format: string;
+  status?: string;
   event_type: 'evening' | 'tournament' | 'custom' | 'poker';
   assembled?: boolean;
   assembled_slots?: number;
@@ -471,7 +473,7 @@ export default function PlayerEventsCalendar({
                 </div>
                 <SlotLoadGrid event={nearest} />
                 <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.07] pt-3">
-                  <div className="text-[12px] text-white/50">{nearest.event_type === 'evening' ? `${nearest.assembled_slots || 0}/${countGames(nearest.required_slots || 4)} собрано · ${formatRubles(nearest.price_per_game || 100)}/игра` : nearest.event_type === 'custom' ? `${nearest.participant_count || 0}/${nearest.participant_limit || 0} мест` : nearest.event_type === 'poker' ? (nearest.poker_status === 'running' ? 'идёт игра' : `${countPlayers(nearest.participant_count || 0)}${nearest.registration_status ? ' · запись есть' : ''}`) : `${nearest.participant_count || 0} участников`}</div>
+                  <div className="text-[12px] text-white/50">{nearest.event_type === 'evening' ? `${nearest.assembled_slots || 0}/${countGames(nearest.required_slots || 4)} собрано · ${formatRubles(nearest.price_per_game ?? 0)} ${normalizeEveningFormat(nearest.format) === 'RATING' ? 'за вечер' : 'за игру'}` : nearest.event_type === 'custom' ? `${nearest.participant_count || 0}/${nearest.participant_limit || 0} мест` : nearest.event_type === 'poker' ? (nearest.poker_status === 'running' ? 'идёт игра' : `${countPlayers(nearest.participant_count || 0)}${nearest.registration_status ? ' · запись есть' : ''}`) : `${nearest.participant_count || 0} участников`}</div>
                   <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black">{nearest.event_type === 'evening' ? 'Выбрать игры' : 'Открыть'} →</span>
                 </div>
               </button>

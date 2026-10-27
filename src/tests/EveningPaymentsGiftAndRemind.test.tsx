@@ -26,7 +26,7 @@ describe('payments panel: gift an evening and remind the debtors (owner, 2026-10
     fireEvent.click(screen.getByRole('button', { name: 'Подарить' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PATCH' && call.body.waived === true && call.body.reason === 'Подарочный вечер')).toBe(true));
     expect(await screen.findByText('Освобождён от оплаты')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Вернуть оплату' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить подарок' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PATCH' && call.body.waived === false)).toBe(true));
     await waitFor(() => expect(screen.queryByText('Освобождён от оплаты')).toBeNull());
   });

@@ -1,3 +1,4 @@
+import App from '../src/App.tsx';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice } from '../src/lib/eveningPrices.ts';
 import { clubStoriesFixture } from './club-connection-stories.fixture.ts';
 import ReactDOM from 'react-dom/client';
@@ -34,7 +35,7 @@ let overviewFailures = Number(new URLSearchParams(location.search).get('overview
 let slotFailures = Number(new URLSearchParams(location.search).get('slotFailures') || 0);
 let saveFailures = Number(new URLSearchParams(location.search).get('saveFailures') || 0);
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));
-const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: 100, slots: eventSlots };
+const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: booking === 'rating' ? 500 : 100, slots: eventSlots };
 const bookingSlots = (booking === 'novice' ? eventSlots.slice(0,2) : eventSlots).map((slot) => ({ ...slot, price: booking === 'novice' ? 200 : 100, target_players: booking === 'novice' ? 9 : 11, registered_count: booking === 'novice' ? 9 : slot.registered_count, participants: [] }));
 let slotPlan = {
  event: { ...evening, event_type: 'evening', assembled: true, assembled_slots: booking === 'novice' ? 2 : 1, required_slots: booking === 'novice' ? 2 : 4, required_players_per_slot: booking === 'novice' ? 9 : 11, price_per_game: booking === 'rating' ? 500 : booking === 'novice' ? 200 : 100, max_evening_price: booking ? null : 400 },
@@ -105,6 +106,8 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  if (url.pathname.endsWith('/birthday')) return json({});
  if (url.pathname.endsWith('/showcase')) return json({ awards: [], pinned_awards: [], history: [] });
  switch (url.pathname) {
+  case '/api/auth/me': return json({ role: 'ORGANIZER', isOrganizer: true, linked: true });
+  case '/api/player/me': return json(data);
   case '/api/player/news': return json({ news: [{ id: 'news-1', published_at: new Date().toISOString(), text: 'В пятницу встречаемся за игровым столом. Выберите удобные игры заранее — это поможет собрать состав и начать вовремя.' }] });
   case '/api/player/novice': return json({ player: { club_stage: 'CLUB', game_level: 'club' }, applications: [], free_visits_remaining: 0, can_self_register: true });
   case '/api/player/profile-completeness': return json({ completeness: { percentage: 100, complete: true, missing_fields: [], important_missing_fields: [], next_missing_field: null, fields: {} } });
@@ -153,4 +156,11 @@ function CabinetPreview() {
   setRoute(readRoute());
  }} onOpenAdmin={() => { location.href = './crm-evening-roster.html'; }} />;
 }
-ReactDOM.createRoot(document.getElementById('root')!).render(<AppErrorBoundary><CabinetPreview /></AppErrorBoundary>);
+const rootMode = new URLSearchParams(location.search).get('root') === '1';
+if (rootMode) {
+ const source = new URL(location.href);
+ const target = new URL(source.searchParams.get('route') || '/player', location.origin);
+ for (const [key, value] of source.searchParams) if (key !== 'root' && key !== 'route') target.searchParams.set(key, value);
+ history.replaceState({}, '', target);
+}
+ReactDOM.createRoot(document.getElementById('root')!).render(<AppErrorBoundary>{rootMode ? <App /> : <CabinetPreview />}</AppErrorBoundary>);

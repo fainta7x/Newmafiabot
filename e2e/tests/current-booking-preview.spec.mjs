@@ -22,7 +22,11 @@ for (const width of [360,390]) test(`booking uses server facts and survives save
  await page.goto('/e2e/player-cabinet.html?booking=rating&route=%2Fplayer%2Fevents%2Fpreview-evening');
  await expect(page.getByText(/500 ₽ за вечер/)).toBeVisible();
  await expect(page.getByText('500 ₽',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Отменить запись'}).click();
+ await page.getByRole('button',{name:'Отменить запись',exact:true}).click();
+ const cancelDialog=page.getByRole('alertdialog');
+ await expect(cancelDialog).toBeVisible();
+ await cancelDialog.getByRole('button',{name:'Отменить запись',exact:true}).click();
+ await expect(page.getByText('Запись отменена',{exact:true})).toBeVisible();
  await expect(page.getByText('0 ₽',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Весь вечер'}).click();
  await expect(page.getByText('500 ₽',{exact:true})).toBeVisible();

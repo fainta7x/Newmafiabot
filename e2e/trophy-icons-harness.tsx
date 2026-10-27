@@ -1,8 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { NominationPlaque, PlaceMedal, type NominationGlyph } from '../src/components/player/TrophyIcons.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 import '../src/components/player/TrophyCabinet.css';
 
 const glyphs: NominationGlyph[] = ['sheriff', 'don', 'mafia', 'citizen', 'mvp', 'move', 'star'];

@@ -1,7 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import LiveBroadcastOverlay from '../src/components/public/LiveBroadcastOverlay.tsx';
 import { buildLiveBroadcastState } from '../src/lib/liveBroadcast.ts';
-import '../src/index.css';
+import './appStyles.ts';
 
 const roles = ['Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Шериф', 'Мафия', 'Мафия', 'Дон'];
 const names = ['Богданчик', 'Алоэ', 'Дина', 'Знак', 'Тень', 'Маша', 'Игорь', 'Вера', 'Чагин', 'Дон Эль'];

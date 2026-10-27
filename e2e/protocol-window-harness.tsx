@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { EveningGameProtocolModal } from '../src/components/crm/EveningGameProtocolModal.tsx';
 import { GameProtocolModal } from '../src/components/crm/tournaments/GameProtocolModal.tsx';
 import { buildProtocolWindowGame } from './fixtures/protocolWindowGame.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
+import './appStyles.ts';
 
 const params = new URLSearchParams(window.location.search);
 const game: any = buildProtocolWindowGame(params.get('draft') ? 'draft' : 'completed');

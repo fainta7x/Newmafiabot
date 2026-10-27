@@ -1,8 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { DisciplineConfirmationOverlay } from '../src/components/LiveGameEngine/LiveGameOverlays.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const player = {
   slot_num: 6,

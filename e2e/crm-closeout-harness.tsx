@@ -1,8 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import EveningCloseoutPanel from '../src/components/crm/EveningCloseoutPanel.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 // The production OrganizerCRM shell scrolls the window. The global app CSS keeps
 // html/body/#root at 100% for full-screen game surfaces, so this isolated evidence

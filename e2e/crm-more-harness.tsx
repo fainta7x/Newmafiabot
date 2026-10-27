@@ -1,9 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import { Calendar, Menu, RefreshCw, Users } from 'lucide-react';
 import MoreCRM from '../src/components/crm/MoreCRM.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const nav = [
   { id: 'overview', label: 'Сегодня', icon: RefreshCw },

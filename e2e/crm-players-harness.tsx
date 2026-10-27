@@ -2,9 +2,7 @@ import ReactDOM from 'react-dom/client';
 import { Calendar, Menu, RefreshCw, Users } from 'lucide-react';
 import { api } from '../src/lib/api.ts';
 import PlayersHubCRM from '../src/components/crm/PlayersHubCRM.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const futureStart = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
 const now = new Date().toISOString();

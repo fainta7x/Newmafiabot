@@ -7,9 +7,7 @@ import { parsePlayerRoute, playerPathForSection } from '../src/lib/appNavigation
 import PlayerCabinetShell from '../src/components/player/PlayerCabinetShell.tsx';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import type { PlayerMeResponse } from '../src/types/player.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const data: PlayerMeResponse = {
  player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: 100, game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },

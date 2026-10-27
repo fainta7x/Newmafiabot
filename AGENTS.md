@@ -212,7 +212,7 @@ Owner: «всегда при внесении изменений или корр
 - **The detector checks itself** (`e2e/tests/layout-audit-detector.spec.mjs`, in CI): a change to the detector keeps every self-test case green, and a defect class it newly learns gets a case.
 - **Findings are fixed in the same PR.** Never relax the detector, raise a threshold or add an exception to get green; an allowed exception (e.g. the two-line journal preview) is written in the spec with its reason, and a new one needs the owner's «да».
 - **A new screen, step, sheet or button joins the audit route in the same PR**: the Live Engine route in `e2e/tests/live-game-text-audit.spec.mjs`; every other app page through the site-wide audit (being built after the Live Engine one, see `docs/PROJECT_STATE.md`).
-- **Harness = app.** A browser harness loads the app's stylesheets in the app's order (`src/main.tsx`; guarded by `src/tests/liveGameHarnessStyles.test.ts`). Screenshots or measurements from a harness that does not are not evidence — on 2026-10-27 such a harness hid overlaps that only phones had.
+- **Harness = app.** Every browser harness loads the app's stylesheets in the app's order through `e2e/appStyles.ts` (the list of `src/main.tsx`; guarded by `src/tests/harnessStyles.test.ts`). Screenshots or measurements from a harness that does not are not evidence — on 2026-10-27 such a harness hid overlaps that only phones had.
 - The audit runs by itself in the UI preview CI on every PR touching `src/` or `e2e/`; a red audit blocks the merge like any failing test. Screenshots sent to the owner are checked by the audit, not by eye.
 
 ## 7. Database safety

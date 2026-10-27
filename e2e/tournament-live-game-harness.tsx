@@ -4,20 +4,7 @@ import ScopedEveningDeathProtocolBridge from '../src/components/crm/ScopedEvenin
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import { createInitialGameDiscipline } from '../src/lib/gameDiscipline.ts';
 import { createEmptyLiveProtocolMarkers } from '../src/lib/gameProtocolCore.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/styles/telegram-viewport.css';
-import '../src/releasePolish.css';
-import '../src/components/crm/liveGameJudge.css';
-import '../src/components/crm/liveGameDesktopParity.css';
-import '../src/components/crm/liveGameCabinetShell.css';
-import '../src/components/crm/liveGameSeatCabinet.css';
-import '../src/components/crm/liveGameActionPriority.css';
-import '../src/components/crm/liveGameNightReadability.css';
-import '../src/components/crm/liveGameRecoveryPolish.css';
-import '../src/components/crm/liveGameDeathProtocolCabinet.css';
-import '../src/components/crm/liveGameTelegram.css';
-import '../src/components/crm/liveGameUrgentResume.css';
+import './appStyles.ts';
 
 const mode = new URLSearchParams(window.location.search).get('mode') || 'audit';
 const deathMode = mode === 'death';

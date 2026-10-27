@@ -1,9 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import { api } from '../src/lib/api.ts';
 import { EveningWorkspace } from '../src/components/crm/EveningWorkspace.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const now = new Date();
 const startsAt = new Date(now.getTime() - 60 * 60 * 1000).toISOString();

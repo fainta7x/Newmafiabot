@@ -8,9 +8,7 @@ import { Card, CardContent, CardHeader } from '../src/components/ui/Card.tsx';
 import { SegmentedControl } from '../src/components/ui/SegmentedControl.tsx';
 import type { PlayerCabinetSection } from '../src/components/player/playerCabinetNavigation.ts';
 import type { PlayerMeResponse } from '../src/types/player.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const player = {
   id: 'p1',

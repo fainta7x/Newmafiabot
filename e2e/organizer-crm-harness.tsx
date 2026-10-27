@@ -1,9 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import OrganizerCRM from '../src/components/OrganizerCRM.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/styles/telegram-viewport.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const future = new Date(Date.now() + 3 * 86400000).toISOString();
 const evening = { id: 'e1', title: 'Пятничный клубный вечер', starts_at: future, venue: 'Суп с котом', format: 'CASUAL', status: 'published', capacity: 20, default_price: 400, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };

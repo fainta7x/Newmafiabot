@@ -2,9 +2,7 @@ import { ACHIEVEMENTS } from '../src/lib/achievementCatalog';
 import { STORY_IDS } from '../src/lib/achievementStories';
 import ReactDOM from 'react-dom/client';
 import CanonicalPremiumPlayerProfile from '../src/components/player/CanonicalPremiumPlayerProfile.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const params = new URLSearchParams(location.search);
 const target = params.get('target');

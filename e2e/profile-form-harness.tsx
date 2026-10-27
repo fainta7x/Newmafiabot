@@ -1,8 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import PlayerProfileSettings from '../src/components/player/PlayerProfileSettings.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 type ProfilePlayer = Parameters<typeof PlayerProfileSettings>[0]['player'];
 

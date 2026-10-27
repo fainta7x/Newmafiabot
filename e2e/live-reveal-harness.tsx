@@ -3,9 +3,7 @@ import ReactDOM from 'react-dom/client';
 import RevealPanel from '../src/components/LiveGameEngine/RevealPanel.tsx';
 import { createEmptyActivePlayer } from '../src/components/LiveGameEngine/engineStateModel.ts';
 import { addReveal, removeAnnouncedCheck, removeReveal, setAnnouncedCheck, type LiveReveal } from '../src/lib/liveReveals.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const names = ['Богданчик', 'Алоэ', 'Дина', 'Знак с очень длинным ником', 'Дон Эль', 'Тень', 'Маша', 'Игорь', 'Вера', 'Чагин'];
 const players = names.map((nickname, index) => ({ ...createEmptyActivePlayer(index + 1), nickname, role: index === 4 ? ('don' as const) : ('citizen' as const), team: index === 4 ? 'black' as const : 'red' as const, alive: index !== 5 }));

@@ -150,8 +150,8 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.queryByText(/голосование математически решено/i)).toBeNull();
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
-    expect(screen.getByText(/Нажмите игроков, голосующих против #2/i)).toBeTruthy();
-    expect(screen.getByText('6', { exact: true })).toBeTruthy();
+    expect(document.querySelector('.live-judge-vote-focus [data-seat-badge="2"]')).toBeTruthy();
+    expect(screen.getByRole('tab', { selected: true }).textContent).toContain('#2');
     expect(screen.getByRole('button', { name: /Следующий/i })).toBeTruthy();
   });
 
@@ -199,9 +199,10 @@ describe('CenterPanel live flow guardrails', () => {
       votingStage="collecting"
     />);
 
+    // the candidate strip shows each candidate's own voters; «Осталось» counts the rest
+    expect(screen.getByTestId('live-vote-tally-2').textContent).toBe('2');
     const stats = document.querySelectorAll('.live-judge-stat__value');
-    expect(stats[0]?.textContent).toBe('2');
-    expect(stats[1]?.textContent).toBe('8/10');
+    expect(stats[0]?.textContent).toBe('8/10');
   });
 
   it('keeps the last candidate explicit until the judge actually finalizes', () => {
@@ -230,7 +231,7 @@ describe('CenterPanel live flow guardrails', () => {
       votingStage="collecting"
     />);
 
-    expect(screen.getByText(/Остаток уйдёт к #5 при подведении итога/i)).toBeTruthy();
+    expect(document.querySelector('.live-judge-vote-summary')?.getAttribute('title')).toMatch(/Остаток уйдёт к #5 при подведении итога/i);
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
     expect(screen.getByRole('button', { name: /Подвести итог/i })).toBeTruthy();

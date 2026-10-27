@@ -38,9 +38,10 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
-    await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #3');
+    await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование');
+    await expect(page.getByRole('tab', { selected: true })).toContainText('#3');
     for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();
-    const voteCount = page.locator('.live-judge-vote-summary .live-judge-stat').filter({ hasText: 'Голосов' }).locator('.live-judge-stat__value');
+    const voteCount = page.locator('.live-judge-vote-strip__seat[aria-selected="true"] .live-judge-vote-strip__count');
     await expect(voteCount).toHaveText('5');
     const undoVote = page.getByRole('button', { name: 'Отменить последний голос', exact: true });
     await expect(undoVote).toBeEnabled();
@@ -54,7 +55,7 @@ for (const width of [360, 390]) {
     expect(collectingBodyFits).toBe(true);
     await page.screenshot({ path: info.outputPath('voting-collecting.png') });
     await nextCandidate.click();
-    await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #4');
+    await expect(page.getByRole('tab', { selected: true })).toContainText('#4');
     await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
     await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();
     await page.locator('.live-seat-card[data-seat="2"]').click();

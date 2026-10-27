@@ -154,6 +154,46 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
   });
 }
 
+// The vote count lives in one small table cell: the counters, «Цифрами» and the step buttons each keep their own line,
+// nothing covers a button and no text leaves its box (owner, 2026-10-27: the shortcut row climbed onto the counters).
+for (const [width, height] of [[360, 780], [390, 844], [1366, 768], [1440, 900]]) {
+  test(`Live Game vote count has no overlaps at ${width}x${height}`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/e2e/live-game.html?mode=audit');
+    await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+    await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Цифрами', exact: true })).toBeVisible();
+    const problems = await page.evaluate(() => {
+      const stack = document.querySelector('.live-judge-hud__stack--voting-scroll');
+      const hud = document.querySelector('.live-judge-hud').getBoundingClientRect();
+      const bar = stack.querySelector('.live-judge-vote-actions');
+      const visible = (el) => el.getBoundingClientRect().height > 0 && getComputedStyle(el).display !== 'none';
+      const rows = [...[...stack.children].filter((el) => el !== bar), ...(bar ? [...bar.children] : [])].filter(visible)
+        .map((el) => ({ name: el.className.split(' ')[0], r: el.getBoundingClientRect() }));
+      const found = [];
+      rows.forEach((a, i) => rows.slice(i + 1).forEach((b) => {
+        const x = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+        const y = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+        if (x > 1 && y > 1) found.push(`${a.name} overlaps ${b.name}`);
+      }));
+      for (const row of rows) if (row.r.bottom > hud.bottom + 1) found.push(`${row.name} leaves the panel`);
+      for (const button of stack.querySelectorAll('button')) {
+        const r = button.getBoundingClientRect();
+        if (!r.height) continue;
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (!(top === button || button.contains(top))) found.push(`«${button.getAttribute('aria-label') || button.textContent.trim()}» is covered`);
+      }
+      for (const el of stack.querySelectorAll('.live-judge-stat, .live-judge-action')) {
+        if (el.scrollWidth > el.clientWidth + 1) found.push(`text leaves «${el.textContent.trim()}»`);
+      }
+      return found;
+    });
+    await page.screenshot({ path: info.outputPath(`live-vote-count-${width}x${height}.png`), fullPage: false });
+    expect(problems).toEqual([]);
+  });
+}
+
 for (const width of [360, 390]) {
   test(`Tournament CRM role corrections reach the live engine at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 800 });

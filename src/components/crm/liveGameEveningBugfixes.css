@@ -522,3 +522,308 @@ html body .live-judge-breaker__seat[aria-pressed='true'] {
   background: rgba(245, 158, 11, 0.22);
   color: #fff3d6;
 }
+
+/* «Поделилось также» and «Цифрами» (owner, 2026-10-27): their own full-width row above «←» and «Следующий», so the primary
+   step keeps its width on a phone. */
+.evening-live-engine-shell .live-judge-vote-actions > .live-judge-vote-shortcuts {
+  order: 0;
+  display: flex;
+  flex: 1 1 100%;
+  gap: 6px;
+  width: 100%;
+}
+
+.evening-live-engine-shell .live-judge-vote-shortcuts > .live-judge-action {
+  min-width: 0;
+  min-height: 26px !important;
+  height: 26px;
+  flex: 1 1 0;
+  padding-inline: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* The vote count fits the centre cell without anything sitting on anything (owner, 2026-10-27: the shortcut row overlapped
+   the counters): «Голосов» and «Осталось» are short cards with the number under the label, «Отменить голос» an icon button with its label kept for
+   assistive tech, so the counters, the shortcut row and the step buttons each keep their own line. */
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px !important;
+  gap: 4px !important;
+  flex: 0 0 auto;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat {
+  display: flex;
+  min-height: 28px !important;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 2px 6px !important;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat__label {
+  font-size: 8px !important;
+  letter-spacing: 0.01em !important;
+  white-space: nowrap;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat__value {
+  margin-top: 0 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 0 !important;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo .live-judge-stat__label {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo__value {
+  margin: 0 !important;
+  font-size: 0 !important;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-vote-undo__value svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+/* On the narrowest phones the numbered chips say «queue» by themselves: the label would wrap four candidates to a second line. */
+@media (max-width: 380px) {
+  .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__label {
+    display: none;
+  }
+}
+
+/* A laptop's centre cell is wide but low: the shortcuts share the row of «←» and «Следующий» instead of taking a line. */
+@media (min-width: 700px) {
+  .evening-live-engine-shell .live-judge-vote-actions > .live-judge-vote-shortcuts {
+    order: 2;
+    flex: 0 1 auto;
+    width: auto;
+  }
+
+  .evening-live-engine-shell .live-judge-vote-shortcuts > .live-judge-action {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 32px !important;
+    padding-inline: 12px;
+  }
+}
+
+/* Short phones (360×640): 6 px less so the vote count still fits its cell without scrolling. */
+@media (max-height: 680px) and (max-width: 699px) {
+  .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__seat {
+    height: 16px !important;
+  }
+
+  .evening-live-engine-shell .live-judge-vote-shortcuts > .live-judge-action {
+    min-height: 23px !important;
+    height: 23px;
+  }
+}
+
+/* ---------- Vote count, seat-card way (owner, 2026-10-27: «очень много элементов», «всё мелкое», «неясно, кто за кого»,
+   «слишком красный») ---------- */
+html body .evening-live-engine-shell .live-judge-hud:has(.live-judge-hud__stack--vote-count) {
+  --live-stage: #f2b75c;
+  --live-stage-soft: rgba(242, 183, 92, 0.08);
+  --live-stage-line: rgba(242, 183, 92, 0.22);
+}
+
+.evening-live-engine-shell .live-judge-vote-strip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__seat {
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 38px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__count {
+  min-width: 16px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 3px;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__seat[aria-selected='true'] {
+  border-color: #f2b75c;
+  background: rgba(242, 183, 92, 0.18);
+  color: #fff3d6;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__seat[aria-selected='true'] .live-judge-vote-strip__count {
+  background: #f2b75c;
+  color: #1a1305;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-hud__title {
+  font-size: 15px !important;
+  line-height: 1.1 !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-hud__title strong {
+  color: #f2b75c;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary {
+  grid-template-columns: minmax(0, 1fr) 44px !important;
+}
+
+/* «Осталось» reads as one line: label left, number right. */
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat:not(.live-judge-vote-undo) {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat__label {
+  font-size: 9px !important;
+  letter-spacing: 0 !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat__value {
+  font-size: 15px !important;
+}
+
+/* The seat cards during the count (owner, 2026-10-27): each voter's card takes the colour of the seat number it voted for —
+   for №1 blue, for №5 green, for №4 red — so every vote is visible at once; a vote for the candidate being counted is
+   framed more strongly. `--seat-fill` / `--seat-line` come from `seatColors.ts`. */
+html body .evening-live-engine-shell .live-seat-card[data-vote] {
+  border-color: var(--seat-line) !important;
+  background: color-mix(in srgb, var(--seat-fill) 14%, #0d0f14) !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote='current'] {
+  background: color-mix(in srgb, var(--seat-fill) 26%, #0d0f14) !important;
+  box-shadow: inset 0 0 0 3px var(--seat-line), 0 0 14px color-mix(in srgb, var(--seat-line) 35%, transparent) !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-state__label {
+  font-size: 10px !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-vote-chip .live-seat-mini-number {
+  min-width: 30px;
+  height: 30px;
+  font-size: 16px;
+}
+
+/* Owner, 2026-10-27: «Голосо…» did not fit and «Кто против» sat in a random place. The pill gets the header to itself
+   (no «Авто» while counting) and plain letter spacing; «Кто против #N Ник?», «Осталось» and undo form one card — what is
+   being counted now — between the candidate strip and the buttons, which a line separates. */
+html body .evening-live-engine-shell .live-judge-hud:has(.live-judge-hud__stack--vote-count) .live-judge-hud__phase {
+  letter-spacing: 0.02em !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary {
+  grid-template-columns: minmax(0, 1fr) 36px !important;
+  row-gap: 3px !important;
+  padding: 3px 5px;
+  border: 1px solid rgba(242, 183, 92, 0.22);
+  border-radius: 12px;
+  background: rgba(242, 183, 92, 0.06);
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-focus {
+  display: flex;
+  grid-column: 1 / -1;
+  min-width: 0;
+  gap: 4px;
+  overflow: hidden;
+  margin: 0 !important;
+  color: #fff;
+  font-size: 14px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-focus strong {
+  color: #f2b75c;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-focus__name {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat {
+  min-height: 24px !important;
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-vote-actions {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 3px !important;
+}
+
+@media (max-height: 680px) and (max-width: 699px) {
+  .evening-live-engine-shell .live-judge-vote-strip__seat {
+    height: 23px;
+  }
+}
+
+/* «Осталось 10/10» (ten at the table) fits a 360 px phone. */
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat:not(.live-judge-vote-undo) {
+  gap: 3px !important;
+  padding-inline: 5px !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat__value {
+  font-size: 14px !important;
+}
+
+/* The candidate strip is the legend of those colours: each candidate's count wears the candidate's seat colour. */
+html body .evening-live-engine-shell .live-judge-vote-strip__seat .live-judge-vote-strip__count {
+  background: var(--seat-fill, rgba(255, 255, 255, 0.08)) !important;
+  color: #fff !important;
+}
+
+html body .evening-live-engine-shell .live-judge-vote-strip__seat[data-seat='3'] .live-judge-vote-strip__count {
+  color: #111827 !important;
+}
+
+/* The voter's own number badge wears the colour of the seat it voted for too (owner, 2026-10-27). */
+html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-number {
+  background: var(--seat-fill) !important;
+  border-color: var(--seat-line) !important;
+  color: #fff !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote-for='3'] .live-seat-number {
+  color: #111827 !important;
+}

@@ -8,6 +8,9 @@ import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../Judge
 
 const JUDGE_MUSIC_MENU_ENABLED = false;
 import type { ZeroNightMusicState } from "./engineStateModel.js";
+import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
+import { seatColorVars } from "./seatColors.ts";
+import { SeatBadge } from "./SeatBadge.tsx";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
 import {
@@ -65,6 +68,10 @@ interface CenterPanelProps {
   handleAllocateVotes: (nominee: number, count: number) => void;
   quickSplitAvailable?: boolean;
   handleQuickSplit?: (pair: [number, number]) => void;
+  sameSplitAvailable?: boolean;
+  handleSameSplit?: () => void;
+  /** The vote of one player for the candidate being counted (the seat cards and the numbers window). */
+  handleVoteToggle?: (voterSlot: number) => void;
   handleResolveVoting: () => void;
   nightSubPhase: NightSubPhase;
   shotPlayerSlot: number | null;
@@ -173,6 +180,9 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleUndoLastVote,
     quickSplitAvailable = false,
     handleQuickSplit,
+    sameSplitAvailable = false,
+    handleSameSplit,
+    handleVoteToggle,
     speechExtensionAvailability,
     onSpeechExtension,
     speechExtended = false,
@@ -214,6 +224,9 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
+  const [numbersOpen, setNumbersOpen] = React.useState(false);
+  // The numbers window belongs to one vote count: it closes when the count ends.
+  React.useEffect(() => { if (votingStage !== 'collecting') setNumbersOpen(false); }, [votingStage]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
@@ -394,8 +407,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     if (phase !== 'day_voting') return null;
     if (votingStage === 'setup') return 'Переход к голосованию';
     if (votingStage === 'collecting') {
-      const nominee = currentRound?.nominated_seats[currentVotingNomineeIndex];
-      return nominee ? `Голосование · кандидат #${nominee}` : 'Голосование';
+      // The candidate being counted is in the strip under it (owner, 2026-10-27); the pill says which voting it is.
+      return currentRound?.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование';
     }
     if (votingStage === 'revote_speeches') {
       const speaker = currentVotingResult?.winners[revoteSpeakerIndex] ?? activeSpeakerSlot;
@@ -595,13 +608,16 @@ export default function CenterPanel(props: CenterPanelProps) {
     const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
 
     if (votingStage === 'collecting') {
-      const { nominee, eligible, remaining, currentVotes, isLast } = buildCollectingVotingPresentation({
+      const { nominee, eligible, remaining, isLast } = buildCollectingVotingPresentation({
         eligibleVoterSeats,
         eligibleVoters: currentRound.eligible_voters,
         nominatedSeats: currentRound.nominated_seats,
         currentNomineeIndex: currentVotingNomineeIndex,
         votesByPlayer,
       });
+
+      const nomineeNickname = activePlayers.find((player) => player.slot_num === nominee)?.nickname || '';
+      const tallyOf = (seat: number) => eligibleVoterSeats.filter((voter) => votesByPlayer[voter] === seat).length;
 
       const finalizeVoting = () => {
         if (pendingVotingResolution) return;
@@ -614,12 +630,30 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
 
       return (
-        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
-          <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
-          {renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)}
-          <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
-          <div className="live-judge-vote-summary live-judge-vote-summary--with-undo">
-            <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
+        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--vote-count">
+          {/* One strip for the order, the candidate being counted and every candidate's votes (owner, 2026-10-27: too many
+              small elements in the cell); a tap moves to that candidate. */}
+          <div className="live-judge-vote-strip" role="tablist" aria-label={`Очередность голосования: ${currentRound.nominated_seats.map((seat) => `номер ${seat}`).join(', ')}`}>
+            {currentRound.nominated_seats.map((seat, index) => (
+              <button
+                key={`${seat}-${index}`}
+                type="button"
+                role="tab"
+                aria-selected={index === currentVotingNomineeIndex}
+                aria-label={`#${seat}: ${tallyOf(seat)} гол.`}
+                disabled={pendingVotingResolution}
+                onClick={() => selectVotingNomineeIndex(index)}
+                className="live-judge-vote-strip__seat"
+                data-seat={seat}
+                style={seatColorVars(seat) as React.CSSProperties}
+              >
+                <span>#{seat}</span>
+                <b className="live-judge-vote-strip__count" data-testid={`live-vote-tally-${seat}`}>{tallyOf(seat)}</b>
+              </button>
+            ))}
+          </div>
+          <div className="live-judge-vote-summary live-judge-vote-summary--with-undo" title={isLast ? `Остаток уйдёт к #${nominee} при подведении итога` : undefined}>
+            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <SeatBadge seat={nominee} size="xs" />{nomineeNickname ? '' : '?'}</span>{nomineeNickname ? <span className="live-judge-vote-focus__name">{nomineeNickname}?</span> : null}</div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"
@@ -632,11 +666,6 @@ export default function CenterPanel(props: CenterPanelProps) {
               <span className="live-judge-stat__label">Отменить</span>
               <span className="live-judge-vote-undo__value"><RotateCcw />голос</span>
             </button>
-          </div>
-          <div className="live-judge-hud__hint">
-            {isLast
-              ? `Нажмите голосующих. Остаток уйдёт к #${nominee} при подведении итога.`
-              : `Нажмите игроков, голосующих против #${nominee}.`}
           </div>
           <div className="live-judge-vote-actions">
             {quickSplitAvailable && handleQuickSplit ? (
@@ -665,6 +694,14 @@ export default function CenterPanel(props: CenterPanelProps) {
                 <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>
               )
             ) : null}
+            {handleVoteToggle ? (
+              <div className="live-judge-vote-shortcuts">
+                {sameSplitAvailable && handleSameSplit ? (
+                  <button type="button" data-testid="live-same-split" disabled={pendingVotingResolution} onClick={handleSameSplit} className="live-judge-action">Поделилось также</button>
+                ) : null}
+                <button type="button" data-testid="live-vote-numbers-open" disabled={pendingVotingResolution} onClick={() => setNumbersOpen(true)} className="live-judge-action">Цифрами</button>
+              </div>
+            ) : null}
             <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action" aria-label="Назад">←</button>
             {isLast ? (
               <button type="button" data-testid="live-voting-finalize" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
@@ -672,6 +709,22 @@ export default function CenterPanel(props: CenterPanelProps) {
               <button type="button" data-testid="live-voting-next" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
             )}
           </div>
+          {numbersOpen && handleVoteToggle ? (
+            <VoteByNumbersOverlay
+              nominees={currentRound.nominated_seats}
+              nomineeIndex={currentVotingNomineeIndex}
+              votesByPlayer={votesByPlayer}
+              voterSeats={eligibleVoterSeats}
+              tableSize={activePlayers.length}
+              nicknameOf={(seat) => activePlayers.find((player) => player.slot_num === seat)?.nickname || ''}
+              remaining={remaining}
+              busy={pendingVotingResolution}
+              onToggle={handleVoteToggle}
+              onSelectNominee={selectVotingNomineeIndex}
+              onFinish={() => { setNumbersOpen(false); finalizeVoting(); }}
+              onClose={() => setNumbersOpen(false)}
+            />
+          ) : null}
         </div>
       );
     }
@@ -978,7 +1031,8 @@ export default function CenterPanel(props: CenterPanelProps) {
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">
-            {phase !== 'setup' && (autoCountdown !== null ? (
+            {/* No timer runs while votes are counted: «Авто» steps aside so the pill can say «Переголосование 1» in full. */}
+            {phase !== 'setup' && !(phase === 'day_voting' && votingStage === 'collecting' && autoCountdown === null) && (autoCountdown !== null ? (
               <button type="button" data-testid="live-auto-stop" onClick={stopAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active="true" aria-label="Отменить автоматический переход">
                 <span>Стоп <span data-testid="live-auto-countdown">{autoCountdown}</span></span>
               </button>

@@ -245,9 +245,11 @@ test.describe('Live Game browser stabilization', () => {
     for (const voter of [1, 2, 3, 4, 5, 6]) {
       await seatCard(page, voter).click();
     }
-    await expect(votingHud.locator('.live-judge-stat__value').first()).toHaveText('6');
-    await expect(votingHud.locator('.live-judge-stat__value').nth(1)).toHaveText('4/10');
-    await expect(seatCard(page, 1).getByTestId('seat-vote-target-1')).toHaveText('→2');
+    // the candidate strip shows the votes of the candidate being counted; «Осталось» the rest (owner, 2026-10-27)
+    await expect(votingHud.locator('.live-judge-vote-strip__seat[aria-selected="true"] .live-judge-vote-strip__count')).toHaveText('6');
+    await expect(votingHud.locator('.live-judge-stat__value').first()).toHaveText('4/10');
+    await expect(seatCard(page, 1).getByTestId('seat-vote-target-1')).toHaveText('2');
+    await expect(seatCard(page, 1)).toHaveAttribute('data-vote', 'current');
     await attachViewport(page, testInfo, '04-voting-card-selection.png');
 
     await page.getByRole('button', { name: /Следующий/ }).click();

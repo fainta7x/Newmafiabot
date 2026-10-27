@@ -113,7 +113,7 @@ describe('protocol window: owner corrections 2026-10-26', () => {
     expect(circleTitle(2, { events: [exit(1, 5, 'killed'), exit(2, 3, 'killed')] } as any)).toBe('Восьмёрка после оставления при 9');
     // Game №20 of 2026-10-23: №9 killed, №4 voted out, a miss, a split with everybody staying, another miss (owner, 2026-10-27).
     const game20 = { events: [exit(1, 9, 'killed'), exit(2, 4, 'voted_day')] } as any;
-    expect([2, 3].map((index) => circleTitle(index, game20))).toEqual(['Восьмёрка после промаха', 'Восьмёрка после оставления при 8 и 2 промахов']);
+    expect([2, 3].map((index) => circleTitle(index, game20))).toEqual(['Восьмёрка после промаха', 'Восьмёрка после оставления при 8 и двух промахов']);
     // The journal still holds the stray vote that put №3 Богданчик out; the corrected protocol says everybody stayed.
     const corrected = {
       events: [exit(1, 9, 'killed'), exit(2, 4, 'voted_day'), exit(3, 3, 'voted_day')],
@@ -124,11 +124,12 @@ describe('protocol window: owner corrections 2026-10-26', () => {
       ],
       shots: [{ night_number: 1, target_seat: 9, result: 'killed' }, { night_number: 2, target_seat: 0, result: 'miss' }, { night_number: 3, target_seat: 0, result: 'agreement_failed' }],
     } as any;
-    expect([1, 2, 3].map((index) => circleTitle(index, corrected))).toEqual(['Девятка', 'Восьмёрка после промаха', 'Восьмёрка после оставления при 8 и 2 промахов']);
-    // A day with nobody nominated is no split: only the misses in a row are named.
-    expect(circleTitle(3, { ...corrected, votes: corrected.votes.slice(0, 1) })).toBe('Восьмёрка после 2 промахов');
+    expect([1, 2, 3].map((index) => circleTitle(index, corrected))).toEqual(['Девятка', 'Восьмёрка после промаха', 'Восьмёрка после оставления при 8 и двух промахов']);
+    // A day with nobody nominated is an «оставление» too (owner, 2026-10-27).
+    expect(circleTitle(3, { ...corrected, votes: corrected.votes.slice(0, 1) })).toBe('Восьмёрка после оставления при 8 и двух промахов');
+    expect(circleTitle(3, { ...corrected, shots: [corrected.shots[0], corrected.shots[1], { night_number: 3, target_seat: 7, result: 'killed' }] })).toBe('Семёрка после оставления при 8');
     // A judge's removal is placed in time only by the chronology.
-    expect(circleTitle(3, { ...corrected, events: [...corrected.events, exit(3, 6, 'removed')] })).toBe('Семёрка после оставления при 8 и 2 промахов');
+    expect(circleTitle(3, { ...corrected, events: [...corrected.events, exit(3, 6, 'removed')] })).toBe('Семёрка после оставления при 8 и двух промахов');
     expect(circleTitle(2, { events: [] } as any)).toBe('Круг 2');
   });
   it('the check answer follows the real role', () => {

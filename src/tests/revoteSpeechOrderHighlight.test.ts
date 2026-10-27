@@ -5,7 +5,8 @@ const source = readFileSync('src/components/LiveGameEngine/CenterPanel.tsx', 'ut
 
 describe('revote speech order highlight', () => {
   it('uses the voting nominee index only while collecting votes', () => {
-    expect(source).toContain('renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)');
+    // the vote count highlights the candidate being counted in its own strip (owner, 2026-10-27)
+    expect(source).toContain('aria-selected={index === currentVotingNomineeIndex}');
   });
 
   it('tracks the current 30-second speaker during revote speeches', () => {

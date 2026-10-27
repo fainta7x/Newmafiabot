@@ -24,7 +24,8 @@ describe('real-table live evening regression gate', () => {
   });
 
   it('keeps voting order visible and highlights the correct context', () => {
-    expect(centerSource).toContain('renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)');
+    // the vote count shows the order in its candidate strip (owner, 2026-10-27), the speeches and the table decision keep the chips
+    expect(centerSource).toContain('className="live-judge-vote-strip" role="tablist"');
     expect(centerSource).toContain('renderVotingOrder(participants, revoteSpeakerIndex)');
     expect(centerSource).toContain('renderVotingOrder(result.winners)');
   });

@@ -11,6 +11,7 @@ import {
   getSeatGridPositionClass,
   resolveSeatContainerClass,
 } from "./seatPresentationModel.js";
+import { seatColorVars } from './seatColors.ts';
 import {
   toggleTableDecisionVoter,
   useTableDecisionSelection,
@@ -208,6 +209,10 @@ export default function SeatCard(props: SeatCardProps) {
     handleSeatClick(slotNum);
   };
 
+  const voteTarget = phase === 'day_voting' && isInteractiveVoting && activeVoteNominee !== undefined && player.alive
+    ? votesByPlayer?.[slotNum]
+    : undefined;
+
   const renderVoteState = () => {
     if (!isInteractiveVoting || activeVoteNominee === undefined) return null;
     const presentation = buildSeatVoteStatusPresentation({
@@ -226,9 +231,9 @@ export default function SeatCard(props: SeatCardProps) {
       <div className="live-seat-state__votes" title={presentation.title}>
         {presentation.target !== undefined && (
           <div className="live-seat-state__vote-line">
-            <span className="live-seat-state__label">Голос</span>
+            <span className="live-seat-state__label">Голос за</span>
             <span className={`live-seat-state__value live-seat-vote-chip ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`} data-testid={`seat-vote-target-${slotNum}`}>
-              →<span className="live-seat-mini-number" data-seat={presentation.target}>{presentation.target}</span>
+              <span className="live-seat-mini-number" data-seat={presentation.target}>{presentation.target}</span>
             </span>
           </div>
         )}
@@ -315,6 +320,11 @@ export default function SeatCard(props: SeatCardProps) {
       onContextMenu={onOpenPlayerActions ? (event) => event.preventDefault() : undefined}
       data-seat={slotNum}
       data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
+      // Who voted for whom at a glance (owner, 2026-10-27): the card takes the colour of the candidate's seat number it voted
+      // for; a vote for the candidate being counted is framed more strongly.
+      data-vote={voteTarget === undefined ? undefined : (voteTarget === activeVoteNominee ? 'current' : 'other')}
+      data-vote-for={voteTarget}
+      style={voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
       className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}

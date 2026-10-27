@@ -1,5 +1,12 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — next pages reviewed alongside settings CI
+
+Owner: «Параллельно продолжай анализ по страницам далее». Reviewed nine linked surfaces: evening recap, game archive/detail, personal result, detailed protocol, Replay variants, speeches, automatic factual recap, seasonal accruals and activity match card. Source/mount evidence and eight concrete findings F01–F08: [result flow review](UX_RESULT_FLOW_REVIEW_2026-10-27.md), registered in AUDIT_LOG. No new runtime/phone verification or scoring finding is claimed. Continue the already authorized existing-page usability scope with load recovery and truthful Back/audio labels, then canonical protocol links with retained source context; do not add a playlist or change ranking meanings.
+
+Settings PR #1063 is merged as de7e99f after exact head30e51dd passed CI4545, UI2246, CodeQL3852 and Gitleaks3849. Current review changes documentation only; application implementation of F01–F08 remains open. Amvera synchronization and production writes remain outside this work. Claude's #1061 remains open with its previously diagnosed UI2244 failure; do not overwrite the active branch.
+
+
 ## 2026-10-27 — settings clarity and recovery (continued owner request)
 
 Owner: «Окей, тогда продолжай улучшение приложения». Continue existing single-table usability work with focused verification, following AGENTS.md §4e. Search/instruction PR #1062 merged as de4b03b after exact head9488769 passed CI4543, UI2245, CodeQL3850 and Gitleaks3847; #1061 is Claude's active Live Engine branch, whose UI2244 reports four truncated labels at360px and two at390px. Do not overwrite that branch or present its green non-browser checks as completion. This slice improves settings load recovery, confirmed save feedback and serial privacy edits; no privacy policy, notification routing or sending behavior changes. No production writes or Amvera synchronization.

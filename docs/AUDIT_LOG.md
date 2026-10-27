@@ -1,5 +1,21 @@
 # Audit log
 
+## 2026-10-27 — result/protocol/replay/season navigation review (GPT)
+
+Owner asks to continue page analysis in parallel with pending settings checks. Baseline main de7e99f; source and runtime-mount review only, no new phone walkthrough, tests or production reads/writes. Full examples, evidence and acceptance proposals: `UX_RESULT_FLOW_REVIEW_2026-10-27.md`.
+
+- [open, F01] `PlayerGameDetail.tsx` / `PlayerEveningsHub.tsx`: fixed «К играм» label contradicts the preserved recap return destination.
+- [open, F02] `PlayerGameDetail.tsx` / `PlayerHistoryStatsView.tsx`: detail GET error has no retry action.
+- [open, F03] `PlayerReplayScreen.tsx`: Replay and speech GET failures have no independent retry.
+- [open, F04] `App.tsx` / `PlayerGameDetail.tsx`: opening Replay unmounts the protocol's uncontrolled details; return recreates closed disclosures. Scroll restoration remains unverified.
+- [open, F05] `PlayerReplayScreen.tsx`: continuous-listening wording exceeds independent audio controls; no sequential playback handler.
+- [open, F06] `PlayerRatingHub.tsx`: sole mounted PlayerRatingPeriods omits onOpenGame, so its implemented protocol link never renders. Preserve period/player context when wiring it.
+- [open, F07] `playerReplayRoutes.ts`: no recognized analysis facts yields a statement about absent turning points, instead of explaining the limited record.
+- [open, F08] `PlayerStoriesPanel.tsx`: match summary knows gameKey but has no canonical protocol action.
+
+Existing #1060 actual recap numbers, archive search and #1059 replay chapters are confirmed present; do not propose them again. No domain/scoring defect is established by this navigation review.
+
+
 ## 2026-10-27 — settings recovery and confirmed edits (GPT)
 
 Baseline d290066. Owner authorizes continued usability improvements. Trace: settings hub → three preference components → existing GET/PUT/PATCH endpoints.

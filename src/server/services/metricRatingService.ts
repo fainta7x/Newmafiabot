@@ -437,7 +437,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   const mine = viewerIsPlayer ? ranked.find((row) => row.id === viewerId) : undefined;
 
   return {
-    metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, min_games: null, min_sample: null },
+    metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, lowerIsBetter: !!metric.lowerIsBetter, min_games: null, min_sample: null },
     metrics: METRICS.map((item) => ({ key: item.key, label: item.label, group: item.group })),
     filters: {
       period: season ? season.key : 'all',

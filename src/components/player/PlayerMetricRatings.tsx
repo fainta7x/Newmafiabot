@@ -6,7 +6,7 @@ import PlayerRoleTables from './PlayerRoleTables.tsx';
 
 type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; sample_text?: string | null; partner_nickname?: string | null; is_me: boolean };
 type Rating = {
-  metric: { key: string; label: string; group: string; unit: string; hint: string };
+  metric: { key: string; label: string; group: string; unit: string; hint: string; lowerIsBetter?: boolean };
   metrics: Array<{ key: string; label: string; group: string }>;
   filters: { period: string; format: string; period_label: string; format_label: string; seasons: Array<{ key: string; label: string }>; formats: Array<{ key: string; label: string }> };
   games_in_scope: number;
@@ -87,7 +87,9 @@ export default function PlayerMetricRatings() {
     <div className="mt-4 border-t border-white/10 pt-3">
       {data && !error && !loading ? <div className="mb-3 px-1" data-testid="metric-ratings-scope">
         <div className="text-sm font-semibold">{data.metric.label}</div><p className="mt-1 text-xs text-white/60">Показано {data.rows.length} из {data.total} игроков{data.me?'; ваша строка — отдельно ниже':''}</p>
-        <p className="mt-0.5 text-xs leading-5 text-white/55">{data.metric.hint}. Рядом с результатом — число игр или действий. Считаем: {data.filters.period_label} · {data.filters.format_label}, игр в выборе: {data.games_in_scope}.{data.metric.unit === 'elo' ? ' Это изменение рейтинга за выбранные игры, а не сам Elo.' : ''}</p>
+        <p className="mt-2 text-xs leading-5 text-white/65">{data.metric.key.startsWith('fed_')?'GoMafia · подтверждённые итоги турниров. Период и формат клуба не применяются.':`${data.filters.period_label} · ${data.filters.format_label}, игр в выборе: ${data.games_in_scope}`}</p>
+        <p className="mt-1 text-xs leading-5 text-white/55">{data.metric.lowerIsBetter || data.metric.key==='fed_avg_place'||data.metric.key==='fed_best_place'?'Меньшее значение — выше':'Большее значение — выше'}</p>
+        {data.metric.unit==='elo'&&<p className="mt-2 text-xs leading-5 text-white/60">Это изменение рейтинга за выбранные игры, а не сам Elo.</p>}
       </div> : null}
       {error ? <div role="alert" className="space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
         : loading || !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
@@ -96,6 +98,7 @@ export default function PlayerMetricRatings() {
           {data.me ? <><div className="px-2 pt-1 text-center text-[11px] text-white/30">· · ·</div><PlayerLine row={data.me} /></> : null}
         </div>
         : <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">По этому показателю пока нет подтверждённых данных за выбранный период.</div>}
+      {data&&!error&&!loading&&<details className="mt-3 border-t border-white/10 pt-1"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-white/70">Как считается показатель</summary><p className="pb-2 text-xs leading-5 text-white/60">{data.metric.hint}. Под результатом указан объём наблюдений: игры, действия или турниры.</p></details>}
     </div>
     </>}
     </section>

@@ -1,4 +1,4 @@
-import { rankRolePerformance } from '../../lib/rolePerformance.ts';
+import { playerResultObservations } from '../../lib/playerResultObservations.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
@@ -180,31 +180,7 @@ router.get('/insights', async (req, res) => {
         closeness: Math.min(1, item.total_games / Math.max(1, Math.max(...[...together.values()].map((value) => value.total_games)))),
       }));
 
-    const strongestRole = rankRolePerformance(roles)[0] || null;
-    const weakestRole = rankRolePerformance(roles, true)[0] || null;
-    const insights: Array<{ kind: string; title: string; text: string }> = [];
-    if (trend != null && Math.abs(trend) >= 10) {
-      insights.push({
-        kind: trend > 0 ? 'improving' : 'cooling',
-        title: trend > 0 ? 'Сейчас играешь лучше, чем обычно' : 'Сейчас играешь хуже, чем обычно',
-        text: `В последних 10 играх выиграно ${recent10.win_rate}%, за всю карьеру — ${career.win_rate}%.`,
-      });
-    }
-    if (strongestRole && weakestRole && strongestRole.role !== weakestRole.role && strongestRole.win_rate - weakestRole.win_rate >= 20) {
-      insights.push({
-        kind: 'role_gap',
-        title: 'Роли получаются по-разному',
-        text: `Лучше всего выходит ${strongestRole.role} (${strongestRole.win_rate}% побед), сложнее всего — ${weakestRole.role} (${weakestRole.win_rate}%).`,
-      });
-    }
-    if (red.games > 0 && black.games > 0 && Math.abs(red.win_rate - black.win_rate) >= 15) {
-      const better = red.win_rate > black.win_rate ? 'красных' : 'чёрных';
-      insights.push({
-        kind: 'side_gap',
-        title: `Сильнее за ${better}`,
-        text: `За красных выиграно ${red.win_rate}%, за чёрных — ${black.win_rate}%.`,
-      });
-    }
+    const insights = playerResultObservations({ career, recent10, red, black, roles });
 
     const eloHistory = await loadEloHistory(db, playerId, Number(player.elo || 0));
 

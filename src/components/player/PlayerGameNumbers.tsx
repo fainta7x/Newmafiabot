@@ -29,7 +29,11 @@ export default function PlayerGameNumbers({ stats, totalGames }: { stats: Player
   return <section className="border-t border-white/10 pt-4" aria-label="Точность решений">
     <div className="text-sm font-semibold text-white/85">Точность решений</div>
     <div className="mt-0.5 text-xs text-white/55">По всем доступным журналам: {stats.games} из {Math.max(stats.games, totalGames ?? stats.games)} игр</div>
-    <div className="mt-2 divide-y divide-white/[.07]">{tiles.map((tile) => <Tile key={tile.title} {...tile} />)}</div>
+    <div className="mt-3 space-y-4">{[
+      {title:'При игре за красных',items:tiles.filter(tile=>['Голоса в чёрных','Меткость выставлений'].includes(tile.title))},
+      {title:'Проверки ролей',items:tiles.filter(tile=>['Проверки шерифа','Проверки Дона'].includes(tile.title))},
+      {title:'Лучший ход и первый отстрел',items:tiles.filter(tile=>['Лучший ход','Первым убитым'].includes(tile.title))},
+    ].filter(group=>group.items.length>0).map(group=><div key={group.title}><h3 className="text-xs font-semibold text-white/60">{group.title}</h3><div className="divide-y divide-white/[.07]">{group.items.map(tile=><Tile key={tile.title} {...tile}/>)}</div></div>)}</div>
     {stats.actions && <details data-testid="game-action-metrics" className="mt-4 border-t border-white/10 pt-2">
       <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Проверки и голосования</summary>
       <p className="mt-2 text-xs leading-relaxed text-white/55">Не считаем нулевой круг и голосования, после которых одновременно вышло несколько игроков. Учитываем голос в каждой сохранённой фазе, включая переголосование, если в итоге дня вышел ровно один игрок. Важно, в кого был отдан голос, а не кого вывели. Шериф входит в красную команду.</p>

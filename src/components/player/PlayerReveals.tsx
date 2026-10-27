@@ -18,13 +18,14 @@ export default function PlayerReveals({ numbers }: { numbers: RevealNumbers }) {
   if (!asSheriff && !asBlack && !asTown && !asDon) return null;
   return <section data-testid="profile-reveals" aria-label="Вскрытия" className="border-t border-white/10 pt-4">
     <div className="text-sm font-semibold text-white/85">Вскрытия</div>
+    <p className="mt-1 text-xs leading-5 text-white/55">Что было объявлено за столом. Реальные ночные проверки показаны в разделе решений.</p>
     {asSheriff ? <div className="mt-2">
       <div className="text-xs leading-5 text-white/55">Шерифом вскрылся {numbers.sheriffReveals} из {numbers.sheriffGames} игр. Объявленные проверки:</div>
       <ul className="mt-1 space-y-1">
         <li className={row}><span>Дон</span><b>{numbers.sheriffCheckedDon}</b></li>
         <li className={row}><span>Мафия</span><b>{numbers.sheriffCheckedMafia}</b></li>
         <li className={row}><span>Красные</span><b>{numbers.sheriffCheckedRed}</b></li>
-        <li className={row}><span>Нашёл чёрных</span><b>{numbers.sheriffCheckedDon + numbers.sheriffCheckedMafia}</b></li>
+        <li className={row}><span>Чёрных среди объявленных проверок</span><b>{numbers.sheriffCheckedDon + numbers.sheriffCheckedMafia}</b></li>
       </ul>
     </div> : null}
     {asBlack ? <div className="mt-3">

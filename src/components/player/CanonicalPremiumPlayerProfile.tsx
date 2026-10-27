@@ -1,5 +1,5 @@
 import { readProfileView, writeProfileView } from '../../lib/profileViewMemory.ts';
-import { countGames, countWins } from '../../lib/russianPlural';
+import { countGames } from '../../lib/russianPlural';
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import PlayerAwardSuggestionAction from './PlayerAwardSuggestionAction.tsx';
@@ -10,6 +10,7 @@ import PlayerProfileStatsHero from './PlayerProfileStatsHero.tsx';
 import { RoleMark } from './PlayerGameGraphics.tsx';
 import PlayerGoMafiaLink from './PlayerGoMafiaLink.tsx';
 import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
+import PlayerRoleResults from './PlayerRoleResults.tsx';
 import PlayerEloJourney from './PlayerEloJourney.tsx';
 import StaffWorkStats from './StaffWorkStats.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
@@ -41,7 +42,7 @@ const eloText = (value: unknown) => Number.isFinite(Number(value)) && value!==nu
 const teamLabel = (team:any) => team==='red'?'Красные':team==='black'?'Чёрные':null;
 /** What the old «Мои игры» card showed: the seat, first killed, best move and the extra points of the game. */
 const signedPoints=(label:string,value:any)=>Number(value)?`${label} ${Number(value)>0?'+':''}${value}`:null;
-const gameChips = (g:any) => [g.seat_number>0?`№${g.seat_number} за столом`:null,g.first_killed?'ПУ':null,g.best_move?'ЛХ':null,signedPoints('судья',g.judge_bonus),signedPoints('бонус',g.protocol_bonus),signedPoints('Ci',g.ci_points),g.disciplinary_penalty_points?`штраф ${g.disciplinary_penalty_points}`:null].filter(Boolean) as string[];
+const gameChips = (g:any) => [g.seat_number>0?`№${g.seat_number} за столом`:null,g.first_killed?'ПУ':null,g.best_move?'ЛХ':null,signedPoints('Доп судьи',g.judge_bonus),signedPoints('Протокольный доп',g.protocol_bonus),signedPoints('Ci',g.ci_points),g.disciplinary_penalty_points?`штраф ${g.disciplinary_penalty_points}`:null].filter(Boolean) as string[];
 /** The page of one game (`/player/games/:key`, club and tournament games alike); a click opens it inside the app and Back returns here. */
 const gameLinkProps = (id:any) => {
   const key=String(id||'');
@@ -296,13 +297,13 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
         {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
         :<section data-testid="profile-club-summary" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
           {scopeSelector}
-          <PlayerProfileStatsHero games={stats.games??stats.completed_games??null} wins={stats.wins??null} winRate={stats.win_rate??null} elo={p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'} seasonPlace={summary?.season?.place??null} />
-          {summary?.filters?<p data-testid="profile-stats-scope-note" className="mt-3 text-xs leading-5 text-white/55">Статистика за: {summary.filters.period_label} · {summary.filters.format_label} · {countWins(stats.wins??0)} из {stats.games??0} игр. Elo — общий рейтинг, а место — по победам текущего сезона.</p>:null}
+          <PlayerProfileStatsHero games={stats.games??stats.completed_games??null} wins={stats.wins??null} winRate={stats.win_rate??null} elo={p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'} seasonPlace={summary?.season?.place??null} seasonLabel={summary?.season?.label} scopeLabel={summary?.filters?`${summary.filters.period_label} · ${summary.filters.format_label}`:undefined} />
+          {summary?.filters?<p data-testid="profile-stats-scope-note" className="mt-3 text-xs leading-5 text-white/55">Выборка: {summary.filters.period_label} · {summary.filters.format_label}. Текущее положение считается отдельно от выбранного среза.</p>:null}
 
         </section>}
         {!statsHidden&&recentGames}
+        {!statsHidden&&isSelf&&<PlayerInsightsPanel/>}
         {!statsHidden&&<section data-testid="profile-detailed-statistics" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
-          {isSelf&&<PlayerInsightsPanel/>}
           <nav aria-label="Разделы подробной статистики" className="mb-2 flex flex-wrap gap-2">{[['results','Результаты'],['decisions','Решения'],['night','Ночью'],['reveals','Вскрытия'],['exits','Круги ухода']].map(([key,label])=><button type="button" key={key} onClick={()=>scrollRef.current?.querySelector(`[data-profile-stat="${key}"]`)?.scrollIntoView({block:'start'})} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs">{label}</button>)}</nav>
           {detailedStats}
         </section>}
@@ -315,6 +316,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       {!settings&&statsHidden&&['games','roles','elo'].includes(tab)&&<section className="rounded-2xl border border-white/10 p-4 text-sm text-white/60"><p>Игровая статистика скрыта игроком</p><p className="mt-1">Игры, роли и Elo недоступны.</p></section>}
       {!settings&&tab==='games'&&!statsHidden&&<>
         {scopeSelector}
+        <p className="text-xs leading-5 text-white/60">Elo — изменение рейтинга за партию. Допы судьи, протокольные допы и Ci показаны в спортивных баллах; протокольный доп отдельно на Elo не влияет.</p>
         <div className="flex flex-wrap gap-2">{(['all','custom'] as const).map(k=><button key={k} onClick={()=>{setOffset(0);setPeriod(k);}} className={`min-h-11 rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'Любые даты':'Диапазон дат'}</button>)}</div>
         {period==='season'&&<div className="text-xs text-white/45">{activePeriod?.title||'Активный сезон не задан'}</div>}
         {period==='custom'&&<div className="grid grid-cols-2 gap-2"><label className="text-xs text-white/60">С даты<input type="date" value={from} max={to||undefined} onChange={e=>{setOffset(0);setFrom(e.target.value);}} className="mobile-field mt-1 w-full"/></label><label className="text-xs text-white/60">По дату<input type="date" value={to} min={from||undefined} onChange={e=>{setOffset(0);setTo(e.target.value);}} className="mobile-field mt-1 w-full"/></label></div>}
@@ -331,7 +333,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       </>}
       {!settings&&!statsHidden&&(tab==='roles'||(tab==='elo'&&!isSelf))&&error?<div className="rounded-xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">{error}<button type="button" onClick={()=>setContentRetry(v=>v+1)} className="mt-2 block min-h-11 rounded-lg border border-white/15 px-3 font-semibold">Повторить</button></div>:null}
       {!settings&&tab==='roles'&&scopeSelector}
-      {!settings&&tab==='roles'&&!error&&!statsHidden&&<section className="profile-role-list divide-y divide-white/[.07] rounded-3xl border border-white/10 bg-white/[.035] px-4" aria-label="Ролевая статистика">{(data?.roles||data?.items||[]).map((r:any)=>{const played=Number(r.games??r.total??0);const rate=played?Math.max(0,Math.min(100,Number(r.win_rate)||0)):0;const dark=r.role==='mafia'||r.role==='don';return <article key={r.role} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3"><div className="flex items-center gap-3"><RoleMark role={r.role} /><div><h3 className="text-sm font-semibold">{roleLabel(r.role)||r.label||r.role}</h3><p className="mt-1 text-xs text-white/55">{dark?'Чёрная команда':'Красная команда'} · {played?countGames(played):'Нет игр'}</p></div></div><p className="text-right text-lg font-semibold tabular-nums">{played?`${rate}%`:'—'}<span className="block text-xs font-normal text-white/55">побед</span></p><div aria-hidden="true" className="col-span-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={'h-full rounded-full '+(dark?'bg-violet-300':'bg-rose-300')} style={{width:`${rate}%`}}/></div></article>})}</section>}
+      {!settings&&tab==='roles'&&!error&&!statsHidden&&<PlayerRoleResults roles={data?.roles||data?.items||[]}/>}
 
       {!settings&&tab==='elo'&&isSelf&&<>{scopeSelector}<PlayerEloJourney embedded period={statPeriod} format={statFormat} onOpenGame={openPlayerGame}/></>}
       {!settings&&tab==='elo'&&!isSelf&&scopeSelector}

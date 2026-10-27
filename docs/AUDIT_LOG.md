@@ -2,18 +2,18 @@
 
 ## 2026-10-27 — Community/Progress content quality, complete review before edits
 
-Owner explicitly redirects work from button behavior to statistical meaning, presentation, hierarchy and orientation. Baseline80cf75b, reconciled with main3d2d71d/#1069. [Full CT01–CT15 review](UX_COMMUNITY_PROGRESS_CONTENT_REVIEW_2026-10-27.md) owns the inventory, evidence limits and proposed fixes. All findings remain open proposals; no application edits in this workstream.
+Owner explicitly redirects work from button behavior to statistical meaning, presentation, hierarchy and orientation. Baseline80cf75b, reconciled with main3d2d71d/#1069. [Full CT01–CT15 review](UX_COMMUNITY_PROGRESS_CONTENT_REVIEW_2026-10-27.md) owns the inventory, evidence limits and proposed fixes. All CT01–CT15 were subsequently approved and implemented; [evidence](reviews/2026-10-27-community-content/README.md). Findings below were registered before edits.
 
-- [open, CT01–CT03] `CanonicalPremiumPlayerProfile.tsx`, `PlayerInsightsPanel.tsx`, `playerInsightsRoutes.ts`: mixed scopes, overlapping windows, automatic skill judgments from win rates. Show facts, samples and the comparison basis.
-- [open, CT04] `CanonicalPremiumPlayerProfile.tsx`, `premiumPlayerProfileService.ts`: Roles leaves existing wins/last-five results unused; mixed-source average scores need a defined unit before exposure.
-- [open, CT05–CT06] `PlayerGameNumbers.tsx`, `PlayerNightShots.tsx`, `PlayerReveals.tsx`, `PlayerCircleExits.tsx`: improve reading of action contexts/denominators without turning team events, declared checks or exits into individual blame.
-- [open, CT07–CT08] `PlayerMetricRatings.tsx`, `metricRatingService.ts`, `PlayerRoleTables.tsx`: clarify frequency versus performance, federation scope versus club filters, and role order by games versus skill rank.
-- [open, CT09–CT10] `PlayerClubActivity.tsx`, `playerPulseRoutes.ts`, `PlayerSeasonsPanel.tsx`, `PlayerRatingPeriods.tsx`, `PlayerTournamentResults.tsx`: put calculation basis, movement interval, dates/rank basis and distance near the relevant result.
-- [open, CT11–CT12] `CanonicalPremiumPlayerProfile.tsx`, `PlayerEloJourney.tsx`, `PlayerGoMafiaLink.tsx`, `StaffWorkStats.tsx`: distinguish sporting points, manual extras and Elo; concise independent external-career/staff summaries.
-- [open, CT13] `PersonalTeamwork.tsx`, `ClubConnectionStories.tsx`: compare same-team/opponent/shared-table samples explicitly, preserving identities and current rules.
-- [open, CT14–CT15] `PremiumProfileShowcase.tsx`, `PlayerAchievementPaths.tsx`, `PlayerLearningBlock.tsx`: prioritize known goal conditions/progress and task-based guidance without invented awards or account progress.
+- [fixed, CT01–CT03] `CanonicalPremiumPlayerProfile.tsx`, `PlayerInsightsPanel.tsx`, `playerInsightsRoutes.ts`: mixed scopes, overlapping windows, automatic skill judgments from win rates. Show facts, samples and the comparison basis.
+- [fixed, CT04] `CanonicalPremiumPlayerProfile.tsx`, `premiumPlayerProfileService.ts`: Roles leaves existing wins/last-five results unused; mixed-source average scores need a defined unit before exposure.
+- [fixed, CT05–CT06] `PlayerGameNumbers.tsx`, `PlayerNightShots.tsx`, `PlayerReveals.tsx`, `PlayerCircleExits.tsx`: improve reading of action contexts/denominators without turning team events, declared checks or exits into individual blame.
+- [fixed, CT07–CT08] `PlayerMetricRatings.tsx`, `metricRatingService.ts`, `PlayerRoleTables.tsx`: clarify frequency versus performance, federation scope versus club filters, and role order by games versus skill rank.
+- [fixed, CT09–CT10] `PlayerClubActivity.tsx`, `playerPulseRoutes.ts`, `PlayerSeasonsPanel.tsx`, `PlayerRatingPeriods.tsx`, `PlayerTournamentResults.tsx`: put calculation basis, movement interval, dates/rank basis and distance near the relevant result.
+- [fixed, CT11–CT12] `CanonicalPremiumPlayerProfile.tsx`, `PlayerEloJourney.tsx`, `PlayerGoMafiaLink.tsx`, `StaffWorkStats.tsx`: distinguish sporting points, manual extras and Elo; concise independent external-career/staff summaries.
+- [fixed, CT13] `PersonalTeamwork.tsx`, `ClubConnectionStories.tsx`: compare same-team/opponent/shared-table samples explicitly, preserving identities and current rules.
+- [fixed, CT14–CT15] `PremiumProfileShowcase.tsx`, `PlayerAchievementPaths.tsx`, `PlayerLearningBlock.tsx`: prioritize known goal conditions/progress and task-based guidance without invented awards or account progress.
 
-One read-only isolated390px content walkthrough covered23 synthetic states; six screenshots were inspected at review time. Incomplete fixtures do not establish production defects; filled-state semantics were read in source. No new behavior tests, broad suites, production data actions, messages or deployment. Documentation verification only.
+One read-only isolated390px content walkthrough covered23 synthetic states; six screenshots were inspected at review time. Incomplete fixtures do not establish production defects; filled-state semantics were read in source. That initial review was documentation only. Approved implementation: affected component/integration checks, four browser cases/80 clean audits and eight audited before/after captures. No production data actions, messages or deployment.
 
 ## 2026-10-27 — next existing-menu context pass, complete findings before edits
 

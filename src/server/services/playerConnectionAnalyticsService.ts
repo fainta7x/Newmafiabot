@@ -2,6 +2,9 @@ import { winRatePercent } from '../../shared/stats.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 
+export const PROFILE_CONNECTION_MIN_GAMES=2;
+export const PROFILE_CONNECTION_LIMIT=24;
+
 export type SharedGameSummary = {
   id: string;
   source: 'club' | 'tournament';
@@ -125,9 +128,9 @@ export function buildAllPlayerConnectionAnalytics(snapshots: CompletedGameSnapsh
   const result = new Map<string, PlayerConnectionAnalytics[]>();
   for (const [playerId, bucket] of rows) {
     const connections = [...bucket.values()]
-      .filter((row) => row.shared_games >= 2)
+      .filter((row) => row.shared_games >= PROFILE_CONNECTION_MIN_GAMES)
       .sort((a, b) => b.shared_games - a.shared_games || b.lastMs - a.lastMs || a.nickname.localeCompare(b.nickname, 'ru'))
-      .slice(0, 24)
+      .slice(0, PROFILE_CONNECTION_LIMIT)
       .map((row) => ({
         player_id: row.player_id,
         nickname: row.nickname,

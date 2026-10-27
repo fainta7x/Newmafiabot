@@ -30,3 +30,11 @@ export const STORY_PATHS = [
   { id: 'club', name: 'Жизнь клуба', ids: ['brought_to_game','own_company','other_side_of_table','full_judge_evening'] },
 ];
 export const STORY_IDS = new Set(ACHIEVEMENT_STORIES.map(a => a.id));
+
+/** Reading context only. Conditions and evaluation remain in the existing story definitions/services. */
+export const STORY_CONTEXT_LABELS: Record<string,string> = {
+  case_closed:'В одной партии',last_argument:'В одной партии',two_shadows:'В одной партии',whole_picture:'В одной партии',trail_remains:'В одной партии',
+  two_cases:'В одной партии',case_handed_over:'В одной партии',alone_in_shadow:'В одной партии',identity_found:'В одной партии',
+  four_faces:'За игровую карьеру',full_shift:'За один вечер',first_distance:'В одном турнире',
+  brought_to_game:'Подтверждённые приглашения',own_company:'Подтверждённые приглашения',other_side_of_table:'Игра и судейство',full_judge_evening:'За один вечер',
+};

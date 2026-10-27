@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePlayerConnectionsSchema } from '../../db/ensurePlayerConnectionsSchema.ts';
-import { chooseMostSuccessfulPartnership, loadCachedPlayerConnectionAnalytics } from './playerConnectionAnalyticsService.ts';
+import { chooseMostSuccessfulPartnership, loadCachedPlayerConnectionAnalytics, PROFILE_CONNECTION_MIN_GAMES, PROFILE_CONNECTION_LIMIT } from './playerConnectionAnalyticsService.ts';
 
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
 
@@ -31,7 +31,8 @@ export async function loadEnrichedProfileConnections(db: DatabaseWrapper, player
     invited_players: invitedRows.map(referral),
     meta: {
       source: 'completed_games_revision_cache',
-      minimum_shared_games: 2,
+      minimum_shared_games: PROFILE_CONNECTION_MIN_GAMES,
+      maximum_connections: PROFILE_CONNECTION_LIMIT,
       successful_partnership_minimum_same_team_games: 3,
       note: 'Связи считаются только по завершённым играм; кэш инвалидируется триггерами при коррекции исходных игр.',
     },

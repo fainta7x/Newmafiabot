@@ -1,0 +1,26 @@
+import {expect,test} from '@playwright/test';
+import {auditScreen} from './support/layoutAudit.mjs';
+for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Content detail at ${width}x${height}`,async({page},info)=>{
+  test.setTimeout(60_000);await page.setViewportSize({width,height});
+  const check=async name=>{await page.evaluate(()=>document.fonts.ready);await expect.poll(()=>page.evaluate(auditScreen),{message:name}).toEqual([]);await page.screenshot({path:info.outputPath(`${name}-${width}.png`),animations:'disabled'});};
+  await page.goto('/e2e/player-profile.html?content=1&detail=1');
+  const actions=page.getByTestId('game-action-metrics');
+  await actions.locator('summary').click();
+  const red=page.getByRole('region',{name:'Голосования · играл красным',exact:true});
+  await expect(red).toContainText('Всего действий: 12');await red.scrollIntoViewIfNeeded();await check('decisions');
+  const checks=page.getByRole('region',{name:'Проверки доном',exact:true});await checks.scrollIntoViewIfNeeded();await check('checks');
+  await page.getByRole('button',{name:'Связи',exact:true}).click();await page.getByRole('button',{name:'Игроки',exact:true}).click();
+  await expect(page.getByText(/до 24 игроков/)).toBeVisible();await check('connections');
+  await page.getByText('Последние общие партии · 3',{exact:true}).click();
+  await expect(page.getByRole('link',{name:/Друг против друга/})).toBeVisible();
+  await expect(page.getByRole('link',{name:/Друг против друга/})).not.toContainText('проиграли');
+  await check('shared-games');
+  await page.getByRole('button',{name:'Награды',exact:true}).click();await page.getByRole('button',{name:'Мои цели',exact:true}).click();
+  await expect(page.getByTestId('achievement-path-completion')).toContainText('Получено: 1 из 2 историй');await check('goals');
+  await page.getByLabel('Путь достижений').selectOption('versatility');
+  await expect(page.getByTestId('achievement-path-completion')).toContainText('Получено: 0 из 3 историй');
+  await expect(page.getByText('Роли с победой:',{exact:true}).first()).toBeVisible();await check('role-goal');
+  await page.getByLabel('Путь достижений').selectOption('club');await check('club-goals');
+  await page.goto('/e2e/player-profile.html?target=friend&detail=1');await page.getByRole('button',{name:'Связи',exact:true}).click();
+  await expect(page.getByText(/Последние общие партии/)).toHaveCount(0);await check('public-connections');
+});

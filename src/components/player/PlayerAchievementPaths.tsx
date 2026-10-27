@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STORY_PATHS, STORY_IDS, type StoryEvidence } from '../../lib/achievementStories';
+import { STORY_PATHS, STORY_IDS, STORY_CONTEXT_LABELS, type StoryEvidence } from '../../lib/achievementStories';
 import { openPlayerGame } from './playerProfileNavigation';
 
 export type PathAchievement = { id: string; name: string; description: string; icon: string; earned: boolean; earned_at: string | null;
@@ -25,9 +25,10 @@ export default function PlayerAchievementPaths({ profile, isSelf, preferences }:
   };
   const card = (a: PathAchievement) => <article key={a.id} className={`rounded-2xl border p-4 ${a.earned ? 'border-amber-200/20 bg-amber-200/[.04]' : 'border-white/10 bg-black/20'}`}>
     <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{a.icon} {a.name}</h3><span className="shrink-0 text-xs text-white/50">{a.earned ? '✓ Получено' : a.rarity_name}</span></div>
+    {STORY_CONTEXT_LABELS[a.id]&&<p className="mt-2 text-xs font-semibold text-amber-100/70">{STORY_CONTEXT_LABELS[a.id]}</p>}
     <p className="mt-2 text-sm leading-relaxed text-white/60">{a.description}</p>
     {!a.earned && a.progress && a.progress.target > 1 && <p className="mt-2 text-sm text-white/70">Прогресс: {a.progress.current} из {a.progress.target} · осталось {Math.max(0,a.progress.target-a.progress.current)}</p>}
-    {a.id === 'four_faces' && (isSelf || a.earned) && <div className="mt-2 flex flex-wrap gap-2">{[['citizen','Мирный'],['sheriff','Шериф'],['mafia','Мафия'],['don','Дон']].map(([id,label]) => <span key={id} className="rounded-lg bg-white/5 px-2 py-1 text-xs">{a.earned || a.steps?.includes(id) ? '✓' : '○'} {label}</span>)}</div>}
+    {a.id === 'four_faces' && (isSelf || a.earned) && <div className="mt-2"><p className="text-xs text-white/60">Роли с победой:</p><div className="mt-2 flex flex-wrap gap-2">{[['citizen','Мирный'],['sheriff','Шериф'],['mafia','Мафия'],['don','Дон']].map(([id,label]) => <span key={id} className="rounded-lg bg-white/5 px-2 py-1 text-xs">{a.earned || a.steps?.includes(id) ? '✓' : '○'} {label}</span>)}</div></div>}
     {a.earned_at && <p className="mt-2 text-xs text-white/45">{new Date(a.earned_at).toLocaleDateString('ru-RU',{timeZone:'Europe/Moscow'})}</p>}
     {isSelf && a.earned && a.evidence && <p className="mt-2 text-sm text-white/60">{a.evidence.detail}</p>}
     {isSelf && a.earned && a.evidence?.gameId && <a className="mt-2 flex min-h-11 items-center text-sm underline" href={`/player/games/${encodeURIComponent(a.evidence.gameId)}`} onClick={e => { e.preventDefault();openPlayerGame(a.evidence!.gameId!); }}>Открыть партию</a>}
@@ -38,7 +39,8 @@ export default function PlayerAchievementPaths({ profile, isSelf, preferences }:
     <p className="mt-1 text-sm text-white/50">Цели в игре и жизни клуба. Истории открываются после завершения партии.</p>
     {error && <p role="alert" className="mt-3 text-sm text-rose-200">{error}</p>}
     <label className="mt-4 block text-sm text-white/70">Путь<select aria-label="Путь достижений" disabled={busy} value={path} onChange={e => isSelf ? void save(e.target.value,pins) : setPath(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/15 bg-[#090a0d] px-3 text-sm">{STORY_PATHS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-    {pathItems.some(a=>!a.earned)&&<div className="mt-4"><h3 className="text-sm font-semibold">Цели этого пути</h3><p className="mt-1 text-xs leading-5 text-white/55">Условие — в карточке. Числовой прогресс показан там, где он известен.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{pathItems.filter(a=>!a.earned).map(card)}</div></div>}
+    {pathItems.length>0&&<p data-testid="achievement-path-completion" className="mt-3 text-sm leading-6 text-white/75">Получено: {pathItems.filter(a=>a.earned).length} из {pathItems.length} историй.{pathItems.every(a=>a.earned)&&<span className="block text-amber-100">Все истории этого пути получены.</span>}</p>}
+    {pathItems.some(a=>!a.earned)&&<div className="mt-4"><h3 className="text-sm font-semibold">Цели этого пути</h3><div className="mt-3 grid gap-3 sm:grid-cols-2">{pathItems.filter(a=>!a.earned).map(card)}</div></div>}
     {pathItems.some(a=>a.earned)&&<div className="mt-4"><h3 className="text-sm font-semibold">Получено в этом пути</h3><div className="mt-3 grid gap-3 sm:grid-cols-2">{pathItems.filter(a=>a.earned).map(card)}</div></div>}
     {!pathItems.length&&<p className="mt-3 text-sm text-white/50">В этом пути пока нет доступных целей.</p>}
     {pins.length > 0 && <div className="mt-4"><h3 className="mb-2 text-sm font-semibold">Закреплённые истории</h3><div className="grid gap-3 sm:grid-cols-2">{stories.filter(a => a.earned && pins.includes(a.id)).map(card)}</div></div>}

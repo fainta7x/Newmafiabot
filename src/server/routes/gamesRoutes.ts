@@ -247,6 +247,9 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
     return res.json(normalizeGame(row));
   } catch (err: any) {
     const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');
+    // A refused save is how a finished live game loses data (game #20, 2026-10-23: the reason was nowhere to be found);
+    // the reason goes to the log with the game and the kind of save.
+    console.warn(`[PROTOCOL] save of game ${req.params.gameId} refused (${req.body?.protocol?.status === 'completed' ? 'completion' : 'draft'}): ${message}`);
     return res.status(400).json({ error: message });
   }
 });

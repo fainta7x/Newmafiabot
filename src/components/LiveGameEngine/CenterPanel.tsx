@@ -9,6 +9,7 @@ import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../Judge
 const JUDGE_MUSIC_MENU_ENABLED = false;
 import type { ZeroNightMusicState } from "./engineStateModel.js";
 import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
+import { seatColorVars } from "./seatColors.ts";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
 import {
@@ -642,6 +643,8 @@ export default function CenterPanel(props: CenterPanelProps) {
                 disabled={pendingVotingResolution}
                 onClick={() => selectVotingNomineeIndex(index)}
                 className="live-judge-vote-strip__seat"
+                data-seat={seat}
+                style={seatColorVars(seat) as React.CSSProperties}
               >
                 <span>#{seat}</span>
                 <b className="live-judge-vote-strip__count" data-testid={`live-vote-tally-${seat}`}>{tallyOf(seat)}</b>

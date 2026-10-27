@@ -716,16 +716,17 @@ html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-
   font-size: 15px !important;
 }
 
-/* The seat cards during the count: a vote for the candidate being counted lights the whole card green (candidates keep
-   their amber), a vote for another candidate dims it; the number it went to stays on the card. */
-html body .evening-live-engine-shell .live-seat-card[data-vote='current'] {
-  border-color: #34d399 !important;
-  background: rgba(16, 185, 129, 0.16) !important;
-  box-shadow: inset 0 0 0 2px rgba(52, 211, 153, 0.55) !important;
+/* The seat cards during the count (owner, 2026-10-27): each voter's card takes the colour of the seat number it voted for —
+   for №1 blue, for №5 green, for №4 red — so every vote is visible at once; a vote for the candidate being counted is
+   framed more strongly. `--seat-fill` / `--seat-line` come from `seatColors.ts`. */
+html body .evening-live-engine-shell .live-seat-card[data-vote] {
+  border-color: var(--seat-line) !important;
+  background: color-mix(in srgb, var(--seat-fill) 14%, #0d0f14) !important;
 }
 
-html body .evening-live-engine-shell .live-seat-card[data-vote='other'] {
-  opacity: 0.45;
+html body .evening-live-engine-shell .live-seat-card[data-vote='current'] {
+  background: color-mix(in srgb, var(--seat-fill) 26%, #0d0f14) !important;
+  box-shadow: inset 0 0 0 3px var(--seat-line), 0 0 14px color-mix(in srgb, var(--seat-line) 35%, transparent) !important;
 }
 
 html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-state__label {
@@ -804,4 +805,14 @@ html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-
 
 html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat__value {
   font-size: 14px !important;
+}
+
+/* The candidate strip is the legend of those colours: each candidate's count wears the candidate's seat colour. */
+html body .evening-live-engine-shell .live-judge-vote-strip__seat .live-judge-vote-strip__count {
+  background: var(--seat-fill, rgba(255, 255, 255, 0.08)) !important;
+  color: #fff !important;
+}
+
+html body .evening-live-engine-shell .live-judge-vote-strip__seat[data-seat='3'] .live-judge-vote-strip__count {
+  color: #111827 !important;
 }

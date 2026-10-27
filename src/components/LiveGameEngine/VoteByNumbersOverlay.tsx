@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { SEAT_COLORS } from "./seatColors.ts";
 
 interface VoteByNumbersOverlayProps {
   /** The candidates of this voting, in the order they are counted. */
@@ -57,9 +58,13 @@ export function VoteByNumbersOverlay({
                 aria-pressed={mine}
                 disabled={!atTable || elsewhere || busy}
                 onClick={() => onToggle(seat)}
-                style={{ opacity: !atTable ? 0.15 : elsewhere ? 0.3 : 1 }}
+                // A chosen voter wears the candidate's seat colour, like the seat cards (owner, 2026-10-27).
+                style={{
+                  opacity: !atTable ? 0.15 : elsewhere ? 0.3 : 1,
+                  ...(mine && SEAT_COLORS[nominee] ? { background: SEAT_COLORS[nominee].fill, borderColor: SEAT_COLORS[nominee].line, color: nominee === 3 ? '#111827' : '#fff' } : {}),
+                }}
                 className={`relative h-14 rounded-xl border font-mono text-lg font-bold ${mine
-                  ? 'border-emerald-300 bg-emerald-500/35 text-white ring-2 ring-emerald-300/70'
+                  ? 'ring-2 ring-white/70'
                   : 'border-white/15 bg-white/[0.06] text-white/85'}`}
               >
                 {seat}

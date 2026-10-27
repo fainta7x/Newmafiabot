@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PlayerSettingsLoadState from './PlayerSettingsLoadState.tsx';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type Channel = 'telegram' | 'vk';
@@ -19,6 +20,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
   const [error, setError] = useState('');
 
   const load = async () => {
+    setError('');
     const body = await getJson<any>('/api/player/notification-preferences', 'Не удалось загрузить настройки');
     setState(body as State);
   };
@@ -80,10 +82,10 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
     finally { setBusy(false); }
   };
 
-  if (!state) return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4 text-sm text-white/50">{error || 'Загружаем каналы уведомлений…'}</section>;
+  if (!state) return <PlayerSettingsLoadState title="Личные уведомления" loading="Загружаем каналы уведомлений…" error={error} onRetry={() => void load().catch((e) => setError(e?.message || 'Не удалось загрузить настройки'))} />;
   const vkLinked = state.channel_status?.vk?.linked === true;
   const telegramLinked = state.channel_status?.telegram?.linked === true;
-  return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4" data-testid="player-notification-settings">
+  return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4" data-testid="player-notification-settings" aria-busy={busy}>
     <h2 className="font-semibold">Личные уведомления</h2>
     <p className="mt-1 text-sm text-white/50">Выбирается один связанный канал. Одно уведомление не дублируется одновременно в Telegram и VK.</p>
     {!telegramLinked ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.025] p-3" data-testid="telegram-not-linked">
@@ -109,7 +111,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
     {state.channel_status?.vk?.problem?.message ? <div className="mt-3 rounded-xl bg-amber-400/10 p-3 text-sm text-amber-100">{state.channel_status.vk.problem.message}</div> : null}
     {!state.available_channels.length ? <div className="mt-3 text-sm text-white/50">Сначала нужно связать Telegram или VK с игровым профилем.</div> : null}
     <button type="button" disabled={busy || !state.personal_enabled || !state.effective_channel} onClick={()=>void sendTest()} className="mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/[.06] px-3 text-sm font-medium disabled:opacity-40">Отправить тестовое уведомление</button>
-    {message ? <div className="mt-2 text-xs text-emerald-300">{message}</div> : null}
-    {error ? <div className="mt-2 text-xs text-rose-300">{error}</div> : null}
+    {message ? <div role="status" className="mt-2 text-xs text-emerald-300">{message}</div> : null}
+    {error ? <div role="alert" className="mt-2 text-xs text-rose-300">{error}</div> : null}
   </section>;
 }

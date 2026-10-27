@@ -526,6 +526,19 @@ Always distinguish:
 - **deployed main**;
 - **runtime verified**.
 
+## Layout and text audit
+
+The gate itself is in `AGENTS.md` (Layout and text gate). The detector (`auditScreen` in `e2e/tests/live-game-text-audit.spec.mjs`) runs in the page on every screen of the route and reports: text runs that share pixels with nothing opaque between them; labels shortened by `text-overflow` or a line clamp; text sticking out of a box that hides overflow or out of the window; buttons with something drawn (a background, a blur, text — also `pointer-events: none` badges) over their centre or an inner corner; buttons with neither a visible caption nor an icon. What lies under an open window (a large fixed layer) and passing notices (`role="status"`) are left alone.
+
+Run it locally (vite on 5199, the pre-installed Chromium):
+
+```
+npx vite --port 5199 &
+cd e2e && LIVE_TEXT_AUDIT_REPORT=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5199 npx playwright test tests/live-game-text-audit.spec.mjs
+```
+
+`LIVE_TEXT_AUDIT_REPORT=1` prints every finding per screen and viewport; each screen's screenshot is in the test output folder. After changing the detector, prove it still finds a known defect (run it on `main` or revert one fix) before trusting a green run.
+
 ## Automatic UI preview
 
 The user-approved UI preview workflow automatically builds isolated pages and mobile evidence for relevant PR updates, including drafts. Follow [UI_PREVIEW](UI_PREVIEW.md) for artifacts, private publishing and the supported agent-browser path. It needs no manual workflow dispatch. Broad manual Playwright suites retain their separate release role.

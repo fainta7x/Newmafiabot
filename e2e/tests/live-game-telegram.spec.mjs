@@ -38,10 +38,9 @@ const prepareZeroRound = async (page) => {
   });
 
   await expect(page.getByText('Раздача ролей', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Подтвердить состав' }).click();
   await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-  const intro = page.getByText('Подготовьте 10 карт');
-  await expect(intro).toBeVisible();
-  await intro.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Начать раздачу', exact: true }).click();
+  await page.getByTestId('physical-role-deal-start').click();
 
   for (const role of ROLE_SEQUENCE) {
     await page.getByRole('button', { name: new RegExp(role) }).click();
@@ -64,7 +63,7 @@ test.describe('Live Game in Telegram WebApp host', () => {
     await prepareZeroRound(page);
 
     const hostMetrics = await page.evaluate(() => {
-      const modal = document.querySelector('.fixed.inset-0.z-\\[95\\]:has(> .evening-live-engine-shell)');
+      const modal = document.querySelector('.fixed.inset-0.z-\\[95\\]:has(.evening-live-engine-shell)');
       const shell = document.querySelector('.evening-live-engine-shell');
       const board = document.querySelector('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
       const fakeNav = document.querySelector('[data-testid="telegram-fake-bottom-nav"]');
@@ -99,7 +98,7 @@ test.describe('Live Game in Telegram WebApp host', () => {
     await expect(closeButton).toBeVisible();
 
     const headerMetrics = await page.evaluate(() => {
-      const modal = document.querySelector('.fixed.inset-0.z-\\[95\\]:has(> .evening-live-engine-shell)');
+      const modal = document.querySelector('.fixed.inset-0.z-\\[95\\]:has(.evening-live-engine-shell)');
       const header = modal?.querySelector(':scope > .sticky');
       const state = document.querySelector('[data-testid="live-state-button"]');
       const roles = header?.querySelector('button[title="Скрыть роли"]');

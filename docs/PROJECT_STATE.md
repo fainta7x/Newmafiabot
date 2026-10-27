@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — owner: layout and text checked on every change, everywhere
+
+Owner: «мог бы ты все тексты в Live engine проверить и все элементы… на мобильном разрешении и для десктопа», then «всегда при внесении изменений… всё это проверялось и фиксилось… не только Live Engine, а вообще везде». Step 1 (Live Engine) is coded in PR `claude/eager-newton-mov0k7`: an automatic layout audit on every Live Engine screen at 360/390/1366/1440 (`e2e/tests/live-game-text-audit.spec.mjs`, in the UI preview CI), its findings fixed, the rule in `AGENTS.md` («Layout and text gate»). **Next, step 2 (already asked for by the owner): the same audit for every other app page** (player cabinet, CRM, evenings, profiles, trainers, protocol window, broadcast) — one shared detector module, every `e2e/*.html` harness on the route, every harness loading the app's stylesheets, findings fixed.
+
 ## 2026-10-27 — continued usability research and implementation
 
 Owner: «Окей, продолжай исследование приложения и улучшения его». Continue concrete improvements to existing single-table flows, using the approved page review and current source; no new rating meanings, economy or game rules. Completed #1059: final head8358550 passed CI4537, UI2241, CodeQL3844 and Gitleaks3841; merged as53c18c9. The two fresh-visit tests now isolate their sessions, and a regression protects within-tournament restoration and independent defaults across IDs. Current H01–H04 slice in PR #1060 is implemented: actual Elo history first, searchable loaded archive with retained context, visible/resettable career-game filters and real game numbers/personal outcomes in evening recap links.27 focused checks in six files pass; four mobile before/after pairs inspected, plus search/clear, filter reset, exact protocol key and Elo expansion at360/390. See UX_HISTORY_REVIEW_2026-10-27.md. Exact-head CI/merge pending at candidate authoring. No production data writes; Amvera sync remains outside this work.
@@ -980,6 +984,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.
 - В живой игре после слома попила можно отметить, кто его сломал, или выбрать «Не знаю».
 - Судье: голосование в центре стола стало проще — одна строка кандидатов с их голосами, крупнее, без красного; карточка каждого проголосовавшего окрашена в цвет номера того, за кого он голосует (за №1 — синим, за №5 — зелёным), голос за текущего кандидата выделен рамкой.
+- Судье на телефоне: кнопка «Авто» переехала в верхнюю панель игры, а название этапа в центре стола больше не обрезается («Переголосование», «Нулевая ночь» целиком); на компьютере у «Авто» снова есть надпись; статус на карточке («Речь ✓», «Убит») больше не лежит поверх ника.
 - Судье: на переголосовании кнопка «Поделилось также» повторяет голоса прошлого круга одним нажатием; кнопка «Цифрами» открывает окно, где голоса вводятся по каждому кандидату цифрами, как лучший ход, и сразу видно, кто за кого уже проголосовал.
 - Названия кругов в протоколе: «Нулевой круг», «Восьмёрка после оставления при 8 и двух промахов»; после правки протокола названия следующих кругов пересчитываются.
 

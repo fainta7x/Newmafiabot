@@ -21,6 +21,7 @@ test.describe('Live Game setup hierarchy', () => {
 
   test('keeps role setup primary and secondary settings compact on mobile', async ({ page }, testInfo) => {
     await page.goto('/e2e/live-game.html');
+    await page.getByRole('button', { name: 'Подтвердить состав' }).click();
 
     const hero = page.getByTestId('club-game-setup-hero');
     const primary = page.getByTestId('club-game-start-role-deal');

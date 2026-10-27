@@ -425,6 +425,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {/* The live engine puts «Авто» here on a phone, where the centre cell has no room for it. */}
+          <div id="live-topbar-slot" className="evening-live-topbar-slot flex items-center empty:hidden" />
           {!trainingMode && <button
             type="button"
             disabled={trainingMode}

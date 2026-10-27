@@ -159,8 +159,10 @@ export default function JudgeTestGameModal({
           onClose(true);
         }}
       />
-      {!training && <div className="pointer-events-none fixed left-1/2 top-1 z-[125] -translate-x-1/2 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-200 backdrop-blur-xl">
-        Тест · не сохраняется
+      {/* On a phone the badge follows «Игра #0» instead of the centre of the top bar, where it covered «Авто»; it stays
+          under the game's windows (z 115 < 120), so «Лучший ход» and the other sheets cover it (2026-10-27). */}
+      {!training && <div className="pointer-events-none fixed left-[64px] top-1.5 z-[115] rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-amber-200 backdrop-blur-xl md:left-1/2 md:top-1 md:-translate-x-1/2 md:px-2.5 md:py-1 md:text-[11px] md:tracking-[0.14em]">
+        Тест<span className="hidden min-[380px]:inline"> · не сохраняется</span>
       </div>}
     </>
   );

@@ -933,6 +933,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const baseNextStep = getNextStepInfo();
   // Owner decision 2026-10-24: the automatic music menu is switched off, not removed. The judge only gets a plain
   // «Включите музыку» / «Выключите музыку» step and plays the music by hand; set JUDGE_MUSIC_MENU_ENABLED to bring it back.
+  // Its browser test (e2e/tests/live-game-music-player.spec.mjs, deleted 2026-10-27) is in Git history; restore it with the menu.
   const startNightMusic = () => (JUDGE_MUSIC_MENU_ENABLED ? requestJudgeNightMusicStart() : true);
   const stopGameMusic = () => { if (JUDGE_MUSIC_MENU_ENABLED) requestJudgeGameMusicStop(); };
   const nextStep = (() => {

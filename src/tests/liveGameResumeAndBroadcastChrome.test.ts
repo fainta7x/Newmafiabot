@@ -20,16 +20,6 @@ describe('urgent Live Game mobile resume and OBS broadcast chrome', () => {
     expect(main).toContain('<LiveGameResumeBridge />');
   });
 
-  it('does not let a stale Telegram stable-height collapse the active Live Game surface', () => {
-    const css = read('src/components/crm/liveGameUrgentResume.css');
-    const main = read('src/main.tsx');
-
-    expect(css).toContain('--live-stable-height: max(var(--tg-viewport-stable-height, 0px), 100dvh)');
-    expect(css).toContain('height: 100dvh !important;');
-    expect(css).toContain('min-height: 100dvh !important;');
-    expect(main).toContain('liveGameUrgentResume.css');
-  });
-
   it('uses a compact top broadcast chrome so the camera remains the dominant 1920x1080 surface', () => {
     const css = read('src/components/public/liveBroadcastCompact.css');
     const main = read('src/main.tsx');

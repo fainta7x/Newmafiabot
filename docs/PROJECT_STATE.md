@@ -1,5 +1,14 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — Community and Progress: full analysis before changes
+
+Owner shifts the product focus to the Player Cabinet: «Сообщество» and «Прогресс». Explicit correction: «сначала давай всё проанализируй и потом будем делать исправления», not repeated batches of four discoveries immediately fixed. This workstream is analysis only: cover every mounted tab/nested mode, source behavior and relevant mobile preview states, then provide one consolidated proposal for owner agreement before application edits. The initially mentioned connections split/search is only a proposal, not approved implementation. Canonical process rule added to AGENTS.md §4e. No application edits have been made in this workstream.
+
+Previous result/Replay PR #1065 merged as5a69c78 after exact head9508c32 passed CI4550, UI2248, CodeQL3857 and Gitleaks3854. Park remaining F06–F08 pending this new focus (F06/F08 are relevant findings within the review, not permission to implement them). No Amvera synchronization or production writes.
+
+
+Full analysis completed against5a69c78: [Community/Progress review](UX_COMMUNITY_PROGRESS_REVIEW_2026-10-27.md).51 source/mount units,24 isolated preview states,14 inspected images,3 short observed behaviors; fifteen consolidated findings/proposals CP01–CP15. No application edits. **Waiting on owner agreement** for the whole proposed three-stage plan: (1) navigation/context and truthful data states, (2) Community/connections tasks and source links, (3) personal overview/awards/learning. This is the active queue; earlier individually proposed fixes do not bypass the requested approval. Evidence/limits are in the report. Current PR contains instructions/docs/evidence only.
+
 ## 2026-10-27 — result and Replay recovery implementation
 
 Owner: «Отлично, продолжай». Implement the first connected result-flow block F01–F05: truthful Back label, retry the same game/Replay/speech GET, restore protocol disclosures on return from Replay, and accurate speech-listening copy. F06 seasonal context/link, F07 limited-record analysis wording and F08 match-card link remain the next connected follow-up; no claim they are fixed here. Review PR #1064 merged as9cd619c after exact head0cadc07 passed CI4547, CodeQL3854 and Gitleaks3851; its docs-only scope requires no UI preview. Preserve Amvera sync exclusion and the active Claude #1061 branch. Only focused checks and one mobile evidence pass; no production writes.

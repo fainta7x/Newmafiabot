@@ -1,5 +1,28 @@
 # Audit log
 
+## 2026-10-27 — complete Community/Progress analysis before changes (GPT)
+
+Owner explicitly requires the entire analysis and one consolidated plan before application changes. Baseline5a69c78; full51-unit inventory, fifteen findings/proposals and three proposed delivery blocks: `UX_COMMUNITY_PROGRESS_REVIEW_2026-10-27.md`.24 synthetic preview states opened,14 of25 screenshots visually inspected,3 focused browser observations. No test suite, production writes or application edits. Populated metrics/tournament/season tables and some nested states reviewed by source; fixture gaps are not production defects.
+
+- [proposal, CP01] `CanonicalPremiumPlayerProfile.tsx`: tab clicks change local state without route synchronization; refresh returns to Overview (browser-confirmed).
+- [proposal, CP02] `CanonicalPremiumPlayerProfile.tsx`: career view retains only part of the filter state; offset/stat scope reset on a new visit.
+- [proposal, CP03] `CanonicalPremiumPlayerProfile.tsx / PlayerProfileCareerSections.tsx`: overview prioritization leaves recent games below the long open statistics stack (UX proposal; keep details open).
+- [proposal, CP04] `PlayerClubConnections.tsx / ClubConnectionStories.tsx`: club pairs sit below long separate story content (UX navigation proposal).
+- [proposal, CP05] `CanonicalPremiumPlayerProfile.tsx / PremiumProfileConnections.tsx`: personal connections mix invitations, analytics, teamwork and directory in one long feed (UX proposal).
+- [proposal, CP06] `PremiumProfileConnections.tsx`: personal list lacks nickname search and uses its own profile opener instead of canonical navigation.
+- [proposal, CP07] `PlayerMetricRatings.tsx / metricRatingService.ts`: 37 grouped metric choices have no search and selection is local (UX proposal).
+- [proposal, CP08] `PlayerMetricRatings.tsx / metricRatingService.ts`: top30 + own-row projection does not display returned total/scope size.
+- [proposal, CP09] `PlayerRatingHub.tsx / PlayerStoriesPanel.tsx / PremiumProfileShowcase.tsx`: canonical source links are missing or unwired in season accruals, match card and timeline; preserve source context when wiring.
+- [proposal, CP10] `PremiumProfileShowcase.tsx / TrophyCabinet.tsx / PlayerAchievementPaths.tsx`: large cabinet and several award/goal presentations obscure task hierarchy (UX proposal; preserve graphics/earned rewards).
+- [proposal, CP11] `PremiumProfileShowcase.tsx / TrophyCabinet.tsx`: loaded-state pin failure is invisible (browser-confirmed); exhibit pin action does not communicate the existing three-award limit.
+- [proposal, CP12] `CanonicalPremiumPlayerProfile.tsx / PlayerInsightsPanel.tsx / PlayerSeasonsPanel.tsx`: inconsistent data states: games error plus empty result (browser-confirmed), silent scope rollback and missing local recovery.
+- [proposal, CP13] `PremiumProfileConnections.tsx`: failed inbox/eligibility reads can resemble no invitations or an unavailable recipient.
+- [proposal, CP14] `PlayerLearningBlock.tsx`: Progress learning entry is a static catalog rather than continuation from existing progress (UX proposal).
+- [proposal, CP15] `CanonicalPremiumPlayerProfile.tsx / premiumPlayerProfileRoutes.ts`: private statistics has an overview explanation but other tabs receive a generic request-error presentation; keep server privacy gates.
+
+All CP items await owner agreement on the complete plan. Workflow instruction is canonical AGENTS.md §4e. The previously floated connection split is not authorization to implement it. Preserve rating semantics, privacy, no new game-count cutoffs and detailed statistics open by default.
+
+
 ## 2026-10-27 — result/protocol/replay/season navigation review (GPT)
 
 Owner asks to continue page analysis in parallel with pending settings checks. Baseline main de7e99f; source and runtime-mount review only, no new phone walkthrough, tests or production reads/writes. Full examples, evidence and acceptance proposals: `UX_RESULT_FLOW_REVIEW_2026-10-27.md`.

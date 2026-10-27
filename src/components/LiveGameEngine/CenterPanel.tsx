@@ -614,6 +614,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         votesByPlayer,
       });
 
+      const nomineeNickname = activePlayers.find((player) => player.slot_num === nominee)?.nickname || '';
       const tallyOf = (seat: number) => eligibleVoterSeats.filter((voter) => votesByPlayer[voter] === seat).length;
 
       const finalizeVoting = () => {
@@ -647,8 +648,8 @@ export default function CenterPanel(props: CenterPanelProps) {
               </button>
             ))}
           </div>
-          <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
           <div className="live-judge-vote-summary live-judge-vote-summary--with-undo" title={isLast ? `Остаток уйдёт к #${nominee} при подведении итога` : undefined}>
+            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <strong>#{nominee}</strong>{nomineeNickname ? '' : '?'}</span>{nomineeNickname ? <span className="live-judge-vote-focus__name">{nomineeNickname}?</span> : null}</div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"
@@ -1026,7 +1027,8 @@ export default function CenterPanel(props: CenterPanelProps) {
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">
-            {phase !== 'setup' && (autoCountdown !== null ? (
+            {/* No timer runs while votes are counted: «Авто» steps aside so the pill can say «Переголосование 1» in full. */}
+            {phase !== 'setup' && !(phase === 'day_voting' && votingStage === 'collecting' && autoCountdown === null) && (autoCountdown !== null ? (
               <button type="button" data-testid="live-auto-stop" onClick={stopAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active="true" aria-label="Отменить автоматический переход">
                 <span>Стоп <span data-testid="live-auto-countdown">{autoCountdown}</span></span>
               </button>

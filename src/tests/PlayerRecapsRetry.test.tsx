@@ -20,6 +20,18 @@ afterEach(() => {
 });
 
 describe('ЛК «Вечера → Прошедшие» in-page recovery', () => {
+  it('links the actual game number and personal outcome, using no invented ordinal for legacy links', async () => {
+    const onOpenGame = vi.fn();
+    vi.stubGlobal('fetch', vi.fn(async () => json({summaries:[{...summary, game_ids:['club:41','club:old'], game_links:[{id:'club:41',game_number:41,winner_team:'red',personal:{role:'sheriff',won:true}}]}]})));
+    render(<PlayerEveningSummaries embedded initialEveningId="e1" onOpenGame={onOpenGame} />);
+    const link = await screen.findByRole('button', {name:/Игра №41/});
+    expect(link.textContent).toContain('Шериф · Победа');
+    expect(screen.queryByRole('button', {name:/Игра №1(?:\D|$)/})).toBeNull();
+    fireEvent.click(link);
+    expect(onOpenGame).toHaveBeenCalledWith('club:41','e1');
+    expect(screen.getByRole('button',{name:/Открыть игру/})).toBeTruthy();
+  });
+
   it('shows a retry when embedded summaries fail, then restores the actual evening', async () => {
     let attempts = 0;
     const fetchMock = vi.fn(async () => {

@@ -49,6 +49,7 @@ export type PlayerEveningSummary = {
   awards: EveningSummaryAward[];
   facts: string[];
   game_ids: string[];
+  game_links: Array<{ id: string; game_number: number | null; winner_team: 'red' | 'black'; personal?: { role: string | null; won: boolean } | null }>;
 };
 
 type Aggregate = {
@@ -259,6 +260,10 @@ export async function loadPlayerEveningSummaries(
       awards,
       facts: facts.slice(0, 5),
       game_ids: games.map((game) => game.id),
+      game_links: games.map((game) => {
+        const me = game.players.find(player => player.player_id === playerId);
+        return { id: game.id, game_number: game.game_number > 0 ? game.game_number : null, winner_team: game.winner_team, personal: me ? { role: me.role, won: me.won } : game.has_unresolved_players ? undefined : null };
+      }),
     });
   }
 

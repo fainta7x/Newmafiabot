@@ -211,6 +211,17 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const statsHidden=Boolean(summary)&&!isSelf&&summary?.stats==null;
   const games=data?.games||data?.items||[];
   const total=Number(data?.total||games.length);
+  const gameConstraints = [
+    role && ROLE_OPTIONS.find(([value]) => value === role)?.[1],
+    team && TEAM_OPTIONS.find(([value]) => value === team)?.[1],
+    result && RESULT_OPTIONS.find(([value]) => value === result)?.[1],
+    period === 'custom' && (from || to) && `${from ? `с ${fmt(from)}` : ''}${from && to ? ' ' : ''}${to ? `по ${fmt(to)}` : ''}`,
+    period === 'season' && (activePeriod?.title || 'Текущий сезон'),
+    statPeriod !== 'all' && (summary?.filters?.period_label || 'Выбранный период статистики'),
+    statFormat !== 'all' && (summary?.filters?.format_label || 'Выбранный формат'),
+  ].filter(Boolean);
+  const resetGameSearch = () => { setPeriod('all'); setFrom(''); setTo(''); setRole(''); setTeam(''); setResult(''); setStatPeriod('all'); setStatFormat('all'); setOffset(0); };
+
   const eloPoints=Array.isArray(data?.points)?data.points:Array.isArray(data?.history)?data.history:[];
   const birthdayText=birthday?.day&&birthday?.month ? `${String(birthday.day).padStart(2,'0')}.${String(birthday.month).padStart(2,'0')}${birthday.year?`.${birthday.year}`:''}` : null;
 
@@ -257,7 +268,8 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
         {scopeSelector}
         <div className="flex flex-wrap gap-2">{(['all','custom'] as const).map(k=><button key={k} onClick={()=>setPeriod(k)} className={`min-h-11 rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'Любые даты':'Диапазон дат'}</button>)}</div>
         {period==='season'&&<div className="text-xs text-white/45">{activePeriod?.title||'Активный сезон не задан'}</div>}
-        {period==='custom'&&<div className="grid grid-cols-2 gap-2"><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="rounded-xl bg-white/10 p-3"/><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="rounded-xl bg-white/10 p-3"/></div>}
+        {period==='custom'&&<div className="grid grid-cols-2 gap-2"><label className="text-xs text-white/60">С даты<input type="date" value={from} max={to||undefined} onChange={e=>setFrom(e.target.value)} className="mobile-field mt-1 w-full"/></label><label className="text-xs text-white/60">По дату<input type="date" value={to} min={from||undefined} onChange={e=>setTo(e.target.value)} className="mobile-field mt-1 w-full"/></label></div>}
+        {gameConstraints.length > 0 && <div className="rounded-2xl border border-sky-200/15 bg-sky-200/[.04] p-3" aria-label="Выбранные фильтры игр"><p className="text-xs leading-5 text-white/75">Показаны: {gameConstraints.join(' · ')}</p><button type="button" onClick={resetGameSearch} className="mt-1 min-h-11 rounded-lg px-2 text-xs font-semibold text-sky-200">Сбросить фильтры</button></div>}
         <details className="rounded-2xl border border-white/10 p-3"><summary className="flex min-h-11 cursor-pointer items-center text-sm">Дополнительные фильтры</summary><div className="mt-3 grid gap-2 sm:grid-cols-3">
           <label className="text-xs text-white/50">Роль<select aria-label="Роль" value={role} onChange={e=>setRole(e.target.value)} className="mobile-field mt-1 w-full text-sm">{ROLE_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
           <label className="text-xs text-white/50">Команда<select aria-label="Команда" value={team} onChange={e=>setTeam(e.target.value)} className="mobile-field mt-1 w-full text-sm">{TEAM_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>

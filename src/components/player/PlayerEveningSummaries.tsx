@@ -1,3 +1,4 @@
+import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { countGames } from '../../lib/russianPlural';
 import { RoleMark, TeamResultGraphic } from './PlayerGameGraphics.tsx';
@@ -39,6 +40,7 @@ type Summary = {
   awards: Award[];
   facts: string[];
   game_ids: string[];
+  game_links?: Array<{ id: string; game_number: number | null; winner_team?: 'red' | 'black'; personal?: { role: string | null; won: boolean } | null }>;
 };
 
 const signed = (value: number) => `${value > 0 ? '+' : ''}${round2(value)}`;
@@ -98,6 +100,7 @@ export default function PlayerEveningSummaries({
   }, [initialEveningId]);
 
   const selected = useMemo(() => summaries?.find((item) => item.id === selectedId) || null, [summaries, selectedId]);
+  const gameLinks = selected?.game_ids.map(id => selected.game_links?.find(game => game.id === id) || { id, game_number: null }) || [];
 
   if (!summaries && !error) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] text-white`}><div className="text-center"><div className="text-3xl">🎬</div><div className="mt-2 text-xs text-white/30">Собираем итоги вечеров…</div></div></main>;
   if (error) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] px-4 text-white`}><div role="alert" data-testid="player-recaps-error" className="w-full max-w-[430px] rounded-3xl bg-rose-300/[0.05] p-5 text-center text-sm"><p>{error}</p><button type="button" onClick={() => void loadSummaries()} className="mt-4 min-h-11 w-full rounded-xl bg-white px-4 text-sm font-semibold text-black">Повторить</button>{onBack && <button type="button" onClick={onBack} className="mt-2 min-h-11 w-full rounded-xl border border-white/15 px-4 text-sm font-semibold text-white">Назад</button>}</div></main>;
@@ -131,7 +134,7 @@ export default function PlayerEveningSummaries({
               </div>
               {onOpenGame && selected.game_ids.length > 0 && <div className="mt-4 border-t border-white/10 pt-3">
                 <h3 className="text-sm font-semibold">Протоколы игр вечера</h3>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="ds-focus-ring flex min-h-11 items-center justify-between gap-2 rounded-xl bg-white/[.05] px-3 text-left text-sm text-white/85"><span>Игра №{index + 1}</span><span aria-hidden="true" className="text-white/45">›</span></button>)}</div>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">{gameLinks.map(game => <button key={game.id} type="button" onClick={() => onOpenGame(game.id, selected.id)} className="ds-focus-ring flex min-h-11 items-center justify-between gap-2 rounded-xl bg-white/[.05] px-3 py-3 text-left text-sm text-white/85"><span className="min-w-0"><strong className="block text-sm">{game.game_number ? `Игра №${game.game_number}` : 'Открыть игру'}</strong>{game.winner_team && <span className="mt-1 block text-xs text-white/60">{getPlayerGameWinnerLabel(game.winner_team)?.replace(/^[🔴⚫]\s*/u, '')}</span>}{game.personal ? <span className="mt-1 block text-xs text-white/75">{game.personal.role ? roleLabel(game.personal.role) : 'Роль не указана'} · {game.personal.won ? 'Победа' : 'Поражение'}</span> : game.personal === null ? <span className="mt-1 block text-xs text-white/50">Не участвовал</span> : null}</span><span aria-hidden="true" className="shrink-0 text-white/45">›</span></button>)}</div>
               </div>}
 
             {(selected.facts.length > 0 || selected.awards.length > 0 || selected.best_elo_rise || selected.most_games) && <section aria-label="Памятные моменты вечера" className="mt-3 divide-y divide-white/10 border-t border-white/10">

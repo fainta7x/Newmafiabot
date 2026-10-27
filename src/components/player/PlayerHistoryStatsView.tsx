@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
@@ -41,6 +42,7 @@ export default function PlayerGamesArchive({
   onGameChange?: (gameKey: string | null) => void;
 }) {
   const [clubArchiveOpen, setClubArchiveOpen] = useState(false);
+  const [archiveQuery, setArchiveQuery] = useState('');
   const [allGames, setAllGames] = useState<AllGame[] | null>(null);
   const [allGamesError, setAllGamesError] = useState<string | null>(null);
   const archiveRequestSeq = useRef(0);
@@ -66,6 +68,11 @@ export default function PlayerGamesArchive({
     if (clubArchiveOpen) void loadClubArchive();
     return () => { archiveRequestSeq.current += 1; };
   }, [clubArchiveOpen, loadClubArchive]);
+
+  const matchingGames = useMemo(() => {
+    const query = archiveQuery.trim().toLocaleLowerCase('ru-RU');
+    return (allGames || []).filter(game => !query || [game.title, game.game_number > 0 ? `№${game.game_number} ${game.game_number}` : '', game.judge_name, formatDate(game.date), formatMoscowDate(game.date, 'numeric'), game.date?.slice(0, 10)].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU').includes(query));
+  }, [allGames, archiveQuery]);
 
   const personalGames = data.games?.all ?? [];
   const finished = personalGames.filter((game) => game.status === 'completed' && typeof game.won === 'boolean');
@@ -150,18 +157,22 @@ export default function PlayerGamesArchive({
               </button>)}
             </div> : <p className="px-4 pb-4 text-sm leading-5 text-white/60">После первой завершённой игры здесь появятся результаты и роли.</p>}
           </section>
-          <details className="rounded-3xl border border-white/10 bg-white/[0.025] p-4" onToggle={(event) => setClubArchiveOpen(event.currentTarget.open)}>
+          <details data-testid="player-club-archive" open={clubArchiveOpen} className="rounded-3xl border border-white/10 bg-white/[0.025] p-4" onToggle={(event) => setClubArchiveOpen(event.currentTarget.open)}>
             <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-white/70">
               Все игры клуба <span className="text-white/40">Открыть архив ▾</span>
             </summary>
-            <p className="mt-1 text-xs leading-5 text-white/45">Полный архив, включая игры других участников.</p>
+            <p className="mt-1 text-xs leading-5 text-white/45">Завершённые игры клуба и турниров, включая игры других участников. Поиск по загруженным записям.</p>
+            {allGames !== null && !allGamesError && <div className="mt-3 space-y-2">
+              <label className="block text-xs text-white/65">Найти в архиве<input type="search" value={archiveQuery} onChange={event => setArchiveQuery(event.target.value)} placeholder="Название, номер, судья или дата" className="mobile-field mt-1 w-full" /></label>
+              <div className="flex items-center justify-between gap-2"><p role="status" className="text-xs text-white/55">Показано {matchingGames.length} из {allGames.length}</p>{archiveQuery && <button type="button" onClick={() => setArchiveQuery('')} className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-semibold">Сбросить поиск</button>}</div>
+            </div>}
             <div className="mt-3">
               {allGamesError ? <div role="alert" data-testid="player-games-archive-error" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/60">
                   <p>{allGamesError}</p>
                   <button type="button" onClick={() => void loadClubArchive()} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 font-semibold text-white">Повторить</button>
                 </div>
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
-                : allGames.length ? <div className="player-archive-list divide-y divide-white/[.07]">{allGames.map((game) => {
+                : matchingGames.length ? <div className="player-archive-list divide-y divide-white/[.07]">{matchingGames.map((game) => {
                   const normalizedFormat = normalizeEveningFormat(game.format);
                   return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }}
                     className="ds-focus-ring flex min-h-11 w-full items-center gap-3 py-3 text-left hover:bg-white/[.035]">
@@ -170,7 +181,7 @@ export default function PlayerGamesArchive({
                       <span className="mt-1 block text-xs leading-5 text-white/55">{[formatDate(game.date), game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat], winnerLabel(game.winner_team), game.judge_name ? 'Судья ' + game.judge_name : null].filter(Boolean).join(' · ')}</span>
                     </span><span aria-hidden="true" className="text-lg text-white/45">›</span>
                   </button>;
-                })}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Завершённых игр пока нет.</p>}
+                })}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{allGames.length ? 'По этому запросу игр не найдено. Измени запрос или сбрось поиск.' : 'Завершённых игр пока нет.'}</p>}
             </div>
           </details>
           </>

@@ -69,3 +69,31 @@ for (const width of [360,390]) test(`evening recap is one result sheet at ${widt
   await sheet.getByRole('button',{name:/Игра №11/}).click();
   expect(await page.locator('body').getAttribute('data-opened-game')).toBe('club:11');
 });
+
+for (const width of [360, 390]) test(`result and speech retry retain protocol context at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  await page.goto('/e2e/player-game-detail.html?screen=flow&failGame=1&failClips=1');
+  await expect(page.getByRole('alert')).toContainText('Игра временно недоступна');
+  await expect(page.getByRole('button', { name: /Replay игры/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Повторить', exact: true }).click();
+  const protocol = page.getByTestId('game-full-protocol');
+  await protocol.locator('summary').first().click();
+  await page.getByTestId('game-player-3').locator('summary').first().click();
+  const replay = page.getByRole('button', { name: /Replay игры/ });
+  await replay.scrollIntoViewIfNeeded();
+  const readPosition = () => page.getByTestId('game-score-sheet').evaluate(sheet => { const result = [window.scrollY]; for (let p = sheet.parentElement; p; p = p.parentElement) result.push(p.scrollTop); return result; });
+  const position = await readPosition();
+  expect(Math.max(...position)).toBeGreaterThan(0);
+  await replay.click();
+  await expect(page.getByText('Записи речей временно недоступны')).toBeVisible();
+  const slider = page.getByRole('slider', { name: 'Шаг старой хронологии' });
+  await slider.fill('2');
+  await page.getByRole('button', { name: 'Повторить загрузку речей' }).click();
+  await expect(page.getByText('Для этой игры сохранённых речей нет.')).toBeVisible();
+  await expect(slider).toHaveValue('2');
+  await page.goBack();
+  await expect(protocol).toHaveAttribute('open', '');
+  await expect(page.getByTestId('game-player-3')).toHaveAttribute('open', '');
+  await expect.poll(async () => (await readPosition()).map((top, index) => Math.abs(top - position[index]))).toEqual(position.map(() => 0));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});

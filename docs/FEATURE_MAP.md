@@ -50,6 +50,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 ## Games / replay (the player's statistics live in the one profile)
 
+- Result → Replay return context: `src/lib/gameProtocolView.ts` snapshots the protocol disclosures plus window/ancestor scrolling in the current game history entry; `PlayerGameDetail.tsx` restores it after loading. Game/result retry stays in `PlayerHistoryStatsView.tsx`; Replay and independent clip retries stay in `PlayerReplayScreen.tsx`.
 - Replay chapter indices: `src/lib/replayChapters.ts` → `PlayerReplayScreen.tsx`, prioritizing the same frame/engine/legacy sequence as rendering. No inferred historical snapshots.
 - Tournament context: `TournamentDetailViewBase.tsx`, `useTournamentDetail.ts` and `PlayerTournamentView.tsx` keep per-tournament session tab/game ID; `PlayerTournamentResults.tsx` uses the query string for the opened result.
 

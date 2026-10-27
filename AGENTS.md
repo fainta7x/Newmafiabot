@@ -135,6 +135,7 @@ The owner considers forty minutes excessive for a small usability batch. Priorit
 - Write the necessary documentation at the end of the batch, rather than repeatedly rewriting it during implementation.
 - After publishing the candidate, change it only for a concrete discovered problem; do not add optional polish that restarts CI. Follow the bounded wait and handoff in §4a.
 - Prefer one connected delivery. Do not start another workstream merely to fill CI waiting time or promise background work.
+- **Complete analysis before implementation when requested (owner, 2026-10-27):** for the current Community/Progress review, inspect all tabs, nested states and transitions first; produce one consolidated set of findings and priorities. Wait for the owner to agree on that complete plan before changing the application. Do not alternate small discovery batches with immediate fixes.
 
 ## 5. PR budget — hard rule (GPT/Codex only)
 

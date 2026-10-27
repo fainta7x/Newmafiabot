@@ -630,3 +630,110 @@ html body .live-judge-breaker__seat[aria-pressed='true'] {
     height: 23px;
   }
 }
+
+/* ---------- Vote count, seat-card way (owner, 2026-10-27: «очень много элементов», «всё мелкое», «неясно, кто за кого»,
+   «слишком красный») ---------- */
+html body .evening-live-engine-shell .live-judge-hud:has(.live-judge-hud__stack--vote-count) {
+  --live-stage: #f2b75c;
+  --live-stage-soft: rgba(242, 183, 92, 0.08);
+  --live-stage-line: rgba(242, 183, 92, 0.22);
+}
+
+.evening-live-engine-shell .live-judge-vote-strip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__seat {
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 38px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__count {
+  min-width: 16px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 3px;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__seat[aria-selected='true'] {
+  border-color: #f2b75c;
+  background: rgba(242, 183, 92, 0.18);
+  color: #fff3d6;
+}
+
+.evening-live-engine-shell .live-judge-vote-strip__seat[aria-selected='true'] .live-judge-vote-strip__count {
+  background: #f2b75c;
+  color: #1a1305;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-hud__title {
+  font-size: 15px !important;
+  line-height: 1.1 !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--vote-count > .live-judge-hud__title strong {
+  color: #f2b75c;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary {
+  grid-template-columns: minmax(0, 1fr) 44px !important;
+}
+
+/* «Осталось» reads as one line: label left, number right. */
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat:not(.live-judge-vote-undo) {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat__label {
+  font-size: 9px !important;
+  letter-spacing: 0 !important;
+}
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll.live-judge-hud__stack--vote-count > .live-judge-vote-summary .live-judge-stat__value {
+  font-size: 15px !important;
+}
+
+/* The seat cards during the count: a vote for the candidate being counted lights the whole card green (candidates keep
+   their amber), a vote for another candidate dims it; the number it went to stays on the card. */
+html body .evening-live-engine-shell .live-seat-card[data-vote='current'] {
+  border-color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+  box-shadow: inset 0 0 0 2px rgba(52, 211, 153, 0.55) !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote='other'] {
+  opacity: 0.45;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-state__label {
+  font-size: 10px !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-vote-chip .live-seat-mini-number {
+  min-width: 30px;
+  height: 30px;
+  font-size: 16px;
+}

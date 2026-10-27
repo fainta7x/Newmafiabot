@@ -226,9 +226,9 @@ export default function SeatCard(props: SeatCardProps) {
       <div className="live-seat-state__votes" title={presentation.title}>
         {presentation.target !== undefined && (
           <div className="live-seat-state__vote-line">
-            <span className="live-seat-state__label">Голос</span>
+            <span className="live-seat-state__label">Голос за</span>
             <span className={`live-seat-state__value live-seat-vote-chip ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`} data-testid={`seat-vote-target-${slotNum}`}>
-              →<span className="live-seat-mini-number" data-seat={presentation.target}>{presentation.target}</span>
+              <span className="live-seat-mini-number" data-seat={presentation.target}>{presentation.target}</span>
             </span>
           </div>
         )}
@@ -315,6 +315,10 @@ export default function SeatCard(props: SeatCardProps) {
       onContextMenu={onOpenPlayerActions ? (event) => event.preventDefault() : undefined}
       data-seat={slotNum}
       data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
+      // Who voted for whom at a glance (owner, 2026-10-27): the whole card says «for the candidate being counted» or «for another».
+      data-vote={phase === 'day_voting' && isInteractiveVoting && activeVoteNominee !== undefined && player.alive && votesByPlayer?.[slotNum] !== undefined
+        ? (votesByPlayer[slotNum] === activeVoteNominee ? 'current' : 'other')
+        : undefined}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
       className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}

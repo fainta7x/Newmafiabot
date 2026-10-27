@@ -405,8 +405,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     if (phase !== 'day_voting') return null;
     if (votingStage === 'setup') return 'Переход к голосованию';
     if (votingStage === 'collecting') {
-      const nominee = currentRound?.nominated_seats[currentVotingNomineeIndex];
-      return nominee ? `Голосование · кандидат #${nominee}` : 'Голосование';
+      // The candidate being counted is in the strip under it (owner, 2026-10-27); the pill says which voting it is.
+      return currentRound?.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование';
     }
     if (votingStage === 'revote_speeches') {
       const speaker = currentVotingResult?.winners[revoteSpeakerIndex] ?? activeSpeakerSlot;
@@ -606,13 +606,15 @@ export default function CenterPanel(props: CenterPanelProps) {
     const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
 
     if (votingStage === 'collecting') {
-      const { nominee, eligible, remaining, currentVotes, isLast } = buildCollectingVotingPresentation({
+      const { nominee, eligible, remaining, isLast } = buildCollectingVotingPresentation({
         eligibleVoterSeats,
         eligibleVoters: currentRound.eligible_voters,
         nominatedSeats: currentRound.nominated_seats,
         currentNomineeIndex: currentVotingNomineeIndex,
         votesByPlayer,
       });
+
+      const tallyOf = (seat: number) => eligibleVoterSeats.filter((voter) => votesByPlayer[voter] === seat).length;
 
       const finalizeVoting = () => {
         if (pendingVotingResolution) return;
@@ -625,12 +627,28 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
 
       return (
-        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
-          <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
-          {renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)}
+        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--vote-count">
+          {/* One strip for the order, the candidate being counted and every candidate's votes (owner, 2026-10-27: too many
+              small elements in the cell); a tap moves to that candidate. */}
+          <div className="live-judge-vote-strip" role="tablist" aria-label={`Очередность голосования: ${currentRound.nominated_seats.map((seat) => `номер ${seat}`).join(', ')}`}>
+            {currentRound.nominated_seats.map((seat, index) => (
+              <button
+                key={`${seat}-${index}`}
+                type="button"
+                role="tab"
+                aria-selected={index === currentVotingNomineeIndex}
+                aria-label={`#${seat}: ${tallyOf(seat)} гол.`}
+                disabled={pendingVotingResolution}
+                onClick={() => selectVotingNomineeIndex(index)}
+                className="live-judge-vote-strip__seat"
+              >
+                <span>#{seat}</span>
+                <b className="live-judge-vote-strip__count" data-testid={`live-vote-tally-${seat}`}>{tallyOf(seat)}</b>
+              </button>
+            ))}
+          </div>
           <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
-          <div className="live-judge-vote-summary live-judge-vote-summary--with-undo">
-            <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
+          <div className="live-judge-vote-summary live-judge-vote-summary--with-undo" title={isLast ? `Остаток уйдёт к #${nominee} при подведении итога` : undefined}>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"
@@ -643,11 +661,6 @@ export default function CenterPanel(props: CenterPanelProps) {
               <span className="live-judge-stat__label">Отменить</span>
               <span className="live-judge-vote-undo__value"><RotateCcw />голос</span>
             </button>
-          </div>
-          <div className="live-judge-hud__hint">
-            {isLast
-              ? `Нажмите голосующих. Остаток уйдёт к #${nominee} при подведении итога.`
-              : `Нажмите игроков, голосующих против #${nominee}.`}
           </div>
           <div className="live-judge-vote-actions">
             {quickSplitAvailable && handleQuickSplit ? (

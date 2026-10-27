@@ -43,6 +43,7 @@ describe('player evening slot route hotfix', () => {
     expect(loaded.body.event).toMatchObject({ id: 'slot-evening', format: 'CASUAL' });
     expect(loaded.body.slots.length).toBeGreaterThan(0);
     expect(loaded.body.selection.slot_ids).toEqual([]);
+    expect(loaded.body.pricing).toMatchObject({ casual_game: 100, casual_cap: 400, rating_entry: 500 });
 
     const selectedId = loaded.body.slots[0].id;
     const saved = await request(app)
@@ -54,6 +55,7 @@ describe('player evening slot route hotfix', () => {
     expect(saved.body.selection.slot_ids).toEqual([selectedId]);
     expect(saved.body.selection.games).toBe(1);
     expect(saved.body.selection.total).toBe(100);
+    expect(saved.body.pricing).toEqual(loaded.body.pricing);
 
     const participant = await db.get<any>(
       `SELECT response_status, amount_due

@@ -374,6 +374,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   const ready = slots.filter((slot) => slot.registered_count >= requiredPlayers).length;
   const selected = slots.filter((slot) => slot.selected);
   return {
+    pricing: policy,
     event: {
       id: evening.id,
       title: evening.title,

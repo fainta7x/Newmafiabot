@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { playerPathForSection } from '../../lib/appNavigation.ts';
 import { getJson } from '../../lib/requestJson.ts';
@@ -59,23 +59,29 @@ export default function PlayerEveningWorkspace({
   const [data, setData] = useState<PlayerEveningWorkspaceData | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
+  const retry = useRef<() => void>(() => {});
 
   useEffect(() => {
     let active = true;
+    let requestSeq = 0;
     const refresh = async () => {
+      const requestId = ++requestSeq;
+      setBusy(true);
       try {
         const payload = await getJson(`/api/player/evenings/${encodeURIComponent(eveningId)}/overview`, 'Не удалось загрузить вечер', { cache: 'no-store' });
-        if (active) {
+        if (active && requestId === requestSeq) {
+          if (String(payload?.evening?.id) !== eveningId || !payload?.participation || !payload?.score || !Array.isArray(payload.roster) || !Array.isArray(payload.tables) || !Array.isArray(payload.games)) throw new Error('Не удалось загрузить вечер. Повторите запрос.');
           setData(payload as PlayerEveningWorkspaceData);
           setError('');
           onCanChangeSelection?.(Boolean(payload?.participation?.can_change_selection));
         }
       } catch (cause: any) {
-        if (active) setError(cause?.message || 'Не удалось загрузить вечер');
+        if (active && requestId === requestSeq) setError(cause?.message || 'Не удалось загрузить вечер');
       } finally {
-        if (active) setBusy(false);
+        if (active && requestId === requestSeq) setBusy(false);
       }
     };
+    retry.current = () => { void refresh(); };
     setBusy(true);
     setData(null);
     setError('');
@@ -87,7 +93,7 @@ export default function PlayerEveningWorkspace({
   }, [eveningId, refreshKey]);
 
   if (busy && !data) return <section className="mt-3 rounded-2xl bg-white/[0.035] p-4 text-xs text-white/50">Загружаем участников и игры…</section>;
-  if (!data) return <section role="status" className="mt-3 rounded-2xl border border-white/10 p-4 text-xs text-white/55">{error || 'Информация о вечере пока недоступна'}</section>;
+  if (!data) return <section role="alert" className="mt-3 rounded-2xl border border-white/10 p-4 text-xs text-white/55"><p>{error || 'Информация о вечере пока недоступна'}</p><button type="button" onClick={() => retry.current()} className="mt-2 min-h-11 w-full rounded-xl bg-white/10 px-3 font-semibold">Повторить</button></section>;
 
   const unassigned = data.roster.filter(person => !person.table_id || !data.tables.some(table => table.id === person.table_id));
   const activeGames = data.games.filter(game => game.status !== 'completed');
@@ -155,6 +161,6 @@ export default function PlayerEveningWorkspace({
       {activeGames.length > 0 && <div className="mt-3 space-y-2"><p className="px-1 text-[11px] uppercase tracking-wide text-amber-100/60">На столах сейчас</p>{activeGames.map(gameCard)}</div>}
       {finishedGames.length > 0 && <div className="mt-3 space-y-2"><p className="px-1 text-[11px] uppercase tracking-wide text-emerald-100/60">Завершённые партии</p>{finishedGames.map(gameCard)}</div>}
     </div>}
-    {error && <p role="status" className="px-1 text-[11px] text-amber-100/60">Не удалось обновить данные: {error}</p>}
+    {error && <div role="alert" className="rounded-2xl border border-amber-200/15 p-3 text-xs text-amber-100/70"><p>Не удалось обновить данные: {error}. Показаны последние подтверждённые данные.</p><button type="button" disabled={busy} onClick={() => retry.current()} className="mt-2 min-h-11 w-full rounded-xl bg-white/10 px-3 font-semibold disabled:opacity-40">{busy ? 'Обновляем…' : 'Повторить'}</button></div>}
   </section>;
 }

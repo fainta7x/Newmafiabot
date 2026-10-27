@@ -85,7 +85,7 @@ export default function PlayerWalletHub({
         </nav>
 
         {view === 'payments' && (
-          <PlayerPayments view="current" />
+          <PlayerPayments view="current" onChanged={() => void debt.reload()} />
         )}
 
         {(view === 'shop' || view === 'bets') && (

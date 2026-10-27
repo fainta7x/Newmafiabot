@@ -21,8 +21,8 @@ for (const width of [360,390,1440]) {
     await page.screenshot({path:testInfo.outputPath(`achievement-path-${width}.png`),fullPage:true});
     // All paths must render real definitions, including discrete role progress and the career path.
     await paths.locator('summary').filter({hasText:'Все истории'}).click();
-    await expect(paths.getByText('Прогресс: 2 из 4',{exact:true})).toBeVisible();
-    await expect(paths.getByText('Прогресс: 1 из 3',{exact:true})).toBeVisible();
+    await expect(paths.getByText('Прогресс: 2 из 4 · осталось 2',{exact:true})).toBeVisible();
+    await expect(paths.getByText('Прогресс: 1 из 3 · осталось 2',{exact:true})).toBeVisible();
     await page.screenshot({path:testInfo.outputPath(`achievement-catalog-${width}.png`),fullPage:true});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });

@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-28 — exact #1072 UI2257 finding
+
+- [fixed, CD00] `e2e/tests/achievement-paths-preview.spec.mjs`: three widths expect the exact old progress caption without the approved remaining-count suffix. UI2257 job122467425398 reports only these three failures (152 passed). Keep the numeric progress checks and require the remaining count in both known cases; no application change or weakened layout assertion. Focused verification recorded in the next content continuation.
+
 ## 2026-10-27 — Community/Progress content quality, complete review before edits
 
 Owner explicitly redirects work from button behavior to statistical meaning, presentation, hierarchy and orientation. Baseline80cf75b, reconciled with main3d2d71d/#1069. [Full CT01–CT15 review](UX_COMMUNITY_PROGRESS_CONTENT_REVIEW_2026-10-27.md) owns the inventory, evidence limits and proposed fixes. All CT01–CT15 were subsequently approved and implemented; [evidence](reviews/2026-10-27-community-content/README.md). Findings below were registered before edits.

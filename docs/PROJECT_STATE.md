@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — use checking time for the next content analysis
+
+Owner: «параллельно можешь дальше делать анализ и улучшения». Explicitly continue the already authorized Community/Progress content scope during #1072 CI; canonical §4e records this preference. Complete the next connected review of indicator detail, shared-game context and goals before its application changes. Keep #1072 stable except for concrete CI findings. No unrelated queue work or production actions.
+
+Exact #1072 head9f51160 passed CI4569/CodeQL3876/Gitleaks3873; UI2257 preview job122467425398 found three old exact-text expectations for achievement progress (152 other cases pass); layout job still running at observation. Correct those expectations in the same PR, preserving the progress numbers and requiring the approved remaining counts. No product rollback or new feature in that correction.
+
 ## 2026-10-27 — approved Community/Progress content plan implemented
 
 Owner: «Да, конечно. Делай». This approves the complete CT01–CT15 plan and satisfies the prior analysis-only gate. All three content stages implemented as one candidate: coherent Overview; factual observations with explicit windows/denominators; role outcomes/action contexts; metric source/sort/methodology; form/season/distance interpretation; Elo-versus-sporting-point labels; external/staff summaries; same-team/opponent context; goals before earned items; task-first learning. [Per-item implementation and evidence](reviews/2026-10-27-community-content/README.md). No new rating/formula/group/cutoff/privacy/award rule; detailed stats stay open.

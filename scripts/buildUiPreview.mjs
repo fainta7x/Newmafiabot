@@ -33,6 +33,10 @@ const pages = [
   'e2e/crm-closeout.html',
   'e2e/poker-harness.html',
   'e2e/protocol-window.html',
+  // Pages of the whole-app layout and text audit (e2e/tests/app-text-audit.spec.mjs) that no other preview check opens.
+  'e2e/player-rating.html',
+  'e2e/profile-form.html',
+  'e2e/live-game-cabinet.html',
 ];
 const bootstrapSource = 'src/lib/uiPreviewProductionBootstrap.ts';
 const bootstrapPath = path.join(root, bootstrapSource);

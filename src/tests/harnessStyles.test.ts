@@ -26,4 +26,11 @@ describe('browser harness styles', () => {
       for (const sheet of cssImports(entry!, '')) expect(appSheets.has(sheet), `${entry} loads ${sheet} itself`).toBe(false);
     }
   });
+
+  it('every page of the app layout and text audit is built into the UI preview CI runs it on', () => {
+    const built = new Set([...readFileSync('scripts/buildUiPreview.mjs', 'utf8').matchAll(/'(e2e\/[^']+\.html)'/g)].map((match) => `/${match[1]}`));
+    const audited = [...readFileSync('e2e/tests/app-text-audit.spec.mjs', 'utf8').matchAll(/'(\/e2e\/[^'?]+\.html)/g)].map((match) => match[1]);
+    expect(audited.length).toBeGreaterThan(20);
+    for (const page of audited) expect(built.has(page), `${page} is missing from scripts/buildUiPreview.mjs`).toBe(true);
+  });
 });

@@ -518,9 +518,10 @@ export default function CenterPanel(props: CenterPanelProps) {
     return (
       <div className="live-judge-timer">
         <FitText as="div" minPx={7} className="live-judge-timer__label">{timerLabel}</FitText>
-        <FitText as="div" className="live-judge-timer__name" data-testid={nightActionStatus ? 'live-game-night-status' : undefined}>
-          {nightActionStatus || timerName}
-        </FitText>
+        {/* A night check's result is read whole — it may take two lines; a nickname fits its one line. */}
+        {nightActionStatus
+          ? <div className="live-judge-timer__name live-judge-timer__name--status" data-testid="live-game-night-status">{nightActionStatus}</div>
+          : <FitText as="div" className="live-judge-timer__name">{timerName}</FitText>}
         <div className={`live-judge-timer__time ${timeLeft <= 10 ? 'live-judge-timer__time--danger' : ''}`}>{timeLeft}с</div>
         <div className="live-judge-timer__bar"><div style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} /></div>
         <div className={`live-judge-timer__buttons ${showSpeechExtension ? 'live-judge-timer__buttons--with-extension' : ''}`}>
@@ -668,7 +669,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             ))}
           </div>
           <div className="live-judge-vote-summary live-judge-vote-summary--with-undo" title={isLast ? `Остаток уйдёт к #${nominee} при подведении итога` : undefined}>
-            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <SeatBadge seat={nominee} size="xs" />{nomineeNickname ? '' : '?'}</span>{nomineeNickname ? <FitText className="live-judge-vote-focus__name">{nomineeNickname}?</FitText> : null}</div>
+            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <SeatBadge seat={nominee} size="xs" />{nomineeNickname ? <span className="live-judge-vote-focus__mark">?</span> : '?'}</span>{nomineeNickname ? <FitText className="live-judge-vote-focus__name">{nomineeNickname}?</FitText> : null}</div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"

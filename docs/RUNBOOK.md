@@ -534,10 +534,10 @@ Run it locally (vite on 5199, the pre-installed Chromium):
 
 ```
 npx vite --port 5199 &
-cd e2e && LIVE_TEXT_AUDIT_REPORT=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5199 npx playwright test tests/live-game-text-audit.spec.mjs
+cd e2e && FONTCONFIG_FILE=$PWD/fonts-ci.conf LIVE_TEXT_AUDIT_REPORT=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5199 npx playwright test tests/live-game-text-audit.spec.mjs
 ```
 
-Phones run twice, the second time in a wider font (DejaVu Sans with a little letter spacing): CI's Chrome on Ubuntu renders wider than a local Chromium with Inter, and real phones differ too, so a label that only just fits fails. A one-line label that may meet a long nickname or a wide font uses `FitText` (`src/components/LiveGameEngine/FitText.tsx`), which shrinks its font until it fits. `LIVE_TEXT_AUDIT_REPORT=1` prints every finding per screen and viewport; each screen's screenshot is in the test output folder. After changing the detector run its self-test first, `e2e/tests/layout-audit-detector.spec.mjs` (small pages with one known defect each, plus clean ones); add a case for every defect class it learns. The self-test runs in the UI preview CI too.
+`e2e/fonts-ci.conf` hides the locally installed Inter so the page renders in the fonts CI has (DejaVu Sans, wider); without it a local run passes labels that CI cuts. Phones run twice, the second time in a wider font (DejaVu Sans with a little letter spacing): CI's Chrome on Ubuntu renders wider than a local Chromium with Inter, and real phones differ too, so a label that only just fits fails. A one-line label that may meet a long nickname or a wide font uses `FitText` (`src/components/LiveGameEngine/FitText.tsx`), which shrinks its font until it fits. `LIVE_TEXT_AUDIT_REPORT=1` prints every finding per screen and viewport; each screen's screenshot is in the test output folder. After changing the detector run its self-test first, `e2e/tests/layout-audit-detector.spec.mjs` (small pages with one known defect each, plus clean ones); add a case for every defect class it learns. The self-test runs in the UI preview CI too.
 
 ## Automatic UI preview
 

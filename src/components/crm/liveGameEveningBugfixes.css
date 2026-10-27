@@ -1007,3 +1007,28 @@ html body .evening-live-topbar-slot .evening-live-topbar-tool > button {
     border-radius: 8px !important;
   }
 }
+
+/* The narrowest phones (under 380 px): «Кто против [N]?» has no room for a nickname in any font, so the cell shows the
+   coloured seat number and the nickname stays on the candidate's lit seat card (2026-10-27, CI without Inter). */
+.live-judge-vote-focus__mark {
+  display: none;
+}
+
+@media (max-width: 379px) {
+  html body .evening-live-engine-shell .live-judge-vote-focus__name {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-vote-focus__mark {
+    display: inline;
+  }
+}
+
+/* A night check's result («Шериф · #6: ЧЁРНЫЙ!») may take two lines instead of being cut to «…». */
+html body .evening-live-engine-shell .live-judge-hud .live-judge-timer__name--status {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  line-height: 1.15 !important;
+}

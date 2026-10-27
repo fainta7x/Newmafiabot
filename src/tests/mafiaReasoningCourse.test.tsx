@@ -186,13 +186,13 @@ describe('Mafia reasoning: case bank and plain language', () => {
 
   it('opens a chapter as its own view, resumes answered questions and returns to the picker', () => {
     render(<MafiaReasoningCourse />);
-    expect(screen.getByRole('heading', { name: 'Игровое мышление' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Выбери тему' })).toBeTruthy();
     expect(screen.queryByTestId('reasoning-task')).toBeNull();
-    expect(screen.queryByText(/Ответы сохраняются только на этом устройстве/)).toBeNull();
+    expect(screen.getByText('Ответы и продолжение курса сохраняются на этом устройстве.')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Игровое мышление' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Выбери тему' })).toBeNull();
     expect(screen.queryByTestId('reasoning-level-motives')).toBeNull();
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 1 из 10');
 
@@ -215,7 +215,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
   it('works on all five first-chapter situations and saves the passed result', () => {
     const finished = vi.fn();
     render(<MafiaReasoningCourse onCourseComplete={finished} />);
-    expect(screen.getByRole('heading', { name: 'Игровое мышление' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Выбери тему' })).toBeTruthy();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
     expect(screen.queryByTestId('reasoning-task')).toBeNull();
     fireEvent.click(screen.getByTestId('reasoning-level-facts'));

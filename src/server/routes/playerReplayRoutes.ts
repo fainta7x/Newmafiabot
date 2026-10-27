@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
-import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
+import { loadGameReplayFrames } from '../services/gameReplayFramesStore.ts';
 
 const router = Router();
 
@@ -205,7 +205,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
       events,
       // Verified engine chronology, kept verbatim for the OBS-style read-only replay.
       engine_events: sanitizeLiveGameEvents(protocol.events),
-      replay_frames: sanitizeBroadcastReplayFrames(protocol.replay_frames),
+      replay_frames: await loadGameReplayFrames(db, Number(row.id), protocol.replay_frames),
       analysis,
       meta: {
         source: 'События взяты из протокола игры. Если старый протокол не содержал пошаговые раунды, Replay показывает только доступные ключевые события.',

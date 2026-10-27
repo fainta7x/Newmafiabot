@@ -10,6 +10,7 @@ import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeA
 import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from '../services/eveningParticipantState.ts';
 import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
+import { saveGameReplayFrames } from '../services/gameReplayFramesStore.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
 import { replaceGuestWithRegisteredPlayer, replaceSeatWithGuest, setGuestAttendance } from '../services/guestPlayerService.ts';
@@ -237,6 +238,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
     const settlementContext = status === 'completed' ? (previousStatus === 'completed' ? 'correction' : 'completion') : (previousStatus === 'completed' ? 'reopen' : 'correction');
     await db.transaction(async (tx: any) => {
       await tx.run(`UPDATE games SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ? WHERE id = ?`, [winner || 'draft', winner ? `Победа ${winner}` : 'Черновик', judge.judge_name, judge.judge_player_id, JSON.stringify(nextProtocol), JSON.stringify(clubSlotsFromResults(canonical.playerResults)), gameId]);
+      if (canonical.replayFrames !== undefined) await saveGameReplayFrames(tx, gameId, canonical.replayFrames);
       await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: previousStatus !== 'completed' && status === 'completed', context: settlementContext });
     });
     const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameId]);

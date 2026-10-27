@@ -149,6 +149,7 @@ import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSch
 import { applyEloScaleMigration } from './server/dataMigrations/applyEloScaleMigration.ts';
 import { applyEloTableLevelMigration } from './server/dataMigrations/applyEloTableLevelMigration.ts';
 import { applyOwnerNoScoringTags } from './server/dataMigrations/applyOwnerNoScoringTags.ts';
+import { moveReplayFramesOutOfProtocols } from './server/dataMigrations/moveReplayFramesOutOfProtocols.ts';
 import { applyPlayerStarterTokenGrant } from './server/dataMigrations/applyPlayerStarterTokenGrant.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
@@ -217,6 +218,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
   if (db.dbPath !== ':memory:') {
     try { await applyEloScaleMigration(db); } catch (error) { console.error('[ELO] ×5 scale switch failed:', error); }
+    // The replay frames leave the protocols for their own table (owner, 2026-10-27), so the rebuilds below read light protocols.
+    try { await moveReplayFramesOutOfProtocols(db); } catch (error) { console.error('[REPLAY] Moving replay frames out of protocols failed:', error); }
     // The owner's «без оценок» tags first, so the one-time Elo rebuild below already uses them.
     try { await applyOwnerNoScoringTags(db); } catch (error) { console.error('[ELO] Owner no-scoring tags failed:', error); }
     try { await applyEloTableLevelMigration(db); } catch (error) { console.error('[ELO] Table-level rebuild failed:', error); }

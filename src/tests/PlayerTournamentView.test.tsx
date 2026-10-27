@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PlayerTournamentView from '../components/player/PlayerTournamentView';
 import PlayerTournamentResults from '../components/player/PlayerTournamentResults';
 
@@ -17,9 +17,22 @@ const base = {
   nominations: [{ category: 'best_player', title: 'Лучший игрок', has_tie: false, leader: { nickname: 'Аня', points: 1 }, candidates: [{ nickname: 'Аня', points: 1 }] }],
 };
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
+beforeEach(() => { sessionStorage.clear(); window.history.replaceState({}, '', '/'); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('player tournament view (owner, 2026-10-06)', () => {
+  it('restores the chosen section for this tournament after returning, without carrying it to another tournament', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => json({ ...base, tournament: { ...base.tournament, id: String(url).includes('t2') ? 't2' : 't1' } })));
+    const view = render(<PlayerTournamentView tournamentId="t1" onBack={() => undefined} />);
+    await screen.findByTestId('player-tournament-standings');
+    fireEvent.click(screen.getByTestId('player-tournament-tab-roster'));
+    view.unmount();
+    const returned = render(<PlayerTournamentView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByTestId('player-tournament-roster')).toBeTruthy();
+    returned.rerender(<PlayerTournamentView tournamentId="t2" onBack={() => undefined} />);
+    expect(await screen.findByTestId('player-tournament-standings')).toBeTruthy();
+  });
+
   it('opens a running tournament on its live table and nominations, with roles of finished games only', async () => {
     vi.stubGlobal('fetch', vi.fn(() => json(base)));
     render(<PlayerTournamentView tournamentId="t1" onBack={() => undefined} />);

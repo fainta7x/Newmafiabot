@@ -15,6 +15,9 @@ type ViewData = {
   nominations: Array<{ category: string; title: string; has_tie: boolean; leader: { nickname: string; points: number } | null; candidates: Array<{ nickname: string; points: number }> }> | null;
 };
 type Section = 'roster' | 'games' | 'results';
+const rememberedSection = (id: string): Section | null => {
+  try { const saved = sessionStorage.getItem(`player-tournament:${id}:section`); return saved === 'roster' || saved === 'games' || saved === 'results' ? saved : null; } catch { return null; }
+};
 
 const PHASE_LABEL: Record<Phase, string> = { registration: 'Идёт регистрация', registration_closed: 'Регистрация закрыта', live: 'Турнир идёт', finished: 'Завершён' };
 const GAME_STATUS: Record<string, string> = { planned: 'Ожидает', active: 'Идёт', completed: 'Завершена' };
@@ -34,8 +37,9 @@ const points = (value: number) => value.toLocaleString('ru-RU', { maximumFractio
 export default function PlayerTournamentView({ tournamentId, onBack }: { tournamentId: string; onBack: () => void }) {
   const [data, setData] = useState<ViewData | null>(null);
   const [error, setError] = useState('');
-  const [section, setSectionState] = useState<Section | null>(() => { try { const saved = sessionStorage.getItem(`player-tournament:${tournamentId}:section`); return saved === 'roster' || saved === 'games' || saved === 'results' ? saved : null; } catch { return null; } });
-  const setSection = (next: Section) => { setSectionState(next); try { sessionStorage.setItem(`player-tournament:${tournamentId}:section`, next); } catch { /* optional view memory */ } };
+  const [selection, setSelection] = useState(() => ({ id: tournamentId, section: rememberedSection(tournamentId) }));
+  const section = selection.id === tournamentId ? selection.section : rememberedSection(tournamentId);
+  const setSection = (next: Section) => { setSelection({ id: tournamentId, section: next }); try { sessionStorage.setItem(`player-tournament:${tournamentId}:section`, next); } catch { /* optional view memory */ } };
   const [registering, setRegistering] = useState(false);
   const requestSeq = useRef(0);
   const appliedSeq = useRef(0);

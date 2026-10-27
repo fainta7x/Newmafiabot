@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-27 — continued product review: tournament view memory and history
+
+Scope: owner asks to continue research and improvements, preserving existing single-table rules. First reproduce #1059 CI4536 shard1 failures in `PlayerTournamentView.test.tsx`: a preceding case selects roster and sessionStorage survives cleanup, so later fresh-visit cases expect results but actually restore roster. Status FIXED IN CODE (test isolation, not evidence of leaked tournament data). Acceptance: fresh-test sessions are isolated, one case explicitly demonstrates same-tournament remount restoration; default live result/hidden-table/error retry still work. An added regression first failed on mounted tournament-ID change; section memory is now scoped by tournament ID, preserving fallback defaults. All five focused tournament-view cases pass, including retained selection within one tournament and independent defaults for another. Subsequent source review covers history search and Elo explanation ordering, not a global test sweep. Production remains read-only.
+
 ## 2026-10-27 — current single-table booking and error recovery
 
 Owner explicitly defers multiple-table/load work and requests improvements to existing flows. Source baseline: main 35ced0f. No production write. Ratings and live-voting work in #1054 are outside this batch.

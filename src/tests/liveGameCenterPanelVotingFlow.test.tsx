@@ -150,7 +150,7 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.queryByText(/голосование математически решено/i)).toBeNull();
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
-    expect(screen.getByText(/Кто против/i).textContent).toContain('#2');
+    expect(document.querySelector('.live-judge-vote-focus [data-seat-badge="2"]')).toBeTruthy();
     expect(screen.getByRole('tab', { selected: true }).textContent).toContain('#2');
     expect(screen.getByRole('button', { name: /Следующий/i })).toBeTruthy();
   });

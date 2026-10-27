@@ -126,7 +126,7 @@ export default function PlayerGamesArchive({
           <>
           <section data-testid="player-my-games" className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]">
             <header className="p-4">
-              <h2 className="text-lg font-semibold">Мои игры</h2>
+              <h2 className="text-lg font-semibold">Мои игры</h2><a href="/player/profile/games" className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-sky-200">Найти игру по дате, роли или результату ›</a>
               {personalGames.length > 0 && <p className="mt-1 text-sm text-white/55">{countGames(personalGames.length)} · {wins} побед{finished.length ? ` · ${Math.round(wins / finished.length * 100)}% в завершённых` : ''}</p>}
             </header>
             {personalGames.length ? <div className="divide-y divide-white/[.07]">

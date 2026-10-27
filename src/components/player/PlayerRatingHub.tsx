@@ -58,6 +58,7 @@ export default function PlayerRatingHub({
           {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo по всем играм, кроме новичковых · рейтинги по показателям · сезон с доп. баллами · турниры</p>}
         </header>
         <SegmentedControl
+          scrollable
           ariaLabel="Разделы рейтинга"
           value={tab}
           items={TABS}

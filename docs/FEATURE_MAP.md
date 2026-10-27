@@ -9,6 +9,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Shell/router: `src/components/player/PlayerCabinetShell.tsx`.
 - Unified Player/Organizer mode switch: `src/components/ProductModeSwitch.tsx`; route-level wiring: `src/App.tsx` and `src/components/OrganizerCRM.tsx`.
 - Shared fixed chrome: `src/components/player/PlayerQuickAccessBar.tsx` and `src/components/player/PlayerBottomNavigation.tsx`.
+- Explicit-save departure guard: `src/hooks/useUnsavedChanges.ts` + `src/lib/pageLeave.ts`; `src/App.tsx` owns Back/Forward restoration, the shell/profile openers check before mutation. Booking and profile forms opt in; no global autosave rule.
 - Navigation model: `src/components/player/playerCabinetNavigation.ts`; focused coverage: `src/tests/playerCabinetNavigation.test.ts`.
 - Persistent hub targets: `src/lib/appNavigation.ts` → `PlayerCabinetShell.tsx` → Community/Rating/Wallet; Community connections/mini-games, Activity subviews and Wallet tabs have addressable paths. Legacy wallet `?tab=` links remain supported.
 - Personal Home evening: `src/lib/playerHomeEvening.ts` selects from the GET-only participation projection in `playerSelfCoreRoutes.ts`; shared debt loading/error/retry: `src/hooks/usePlayerDebtSummary.ts`.
@@ -42,6 +43,9 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Current behavior: `going` selects all slots; `late`/`thinking` do not invent exact slots; `declined` clears slots; manual exact selection persists through the canonical PUT/save path.
 
 ## Games / replay (the player's statistics live in the one profile)
+
+- Replay chapter indices: `src/lib/replayChapters.ts` → `PlayerReplayScreen.tsx`, prioritizing the same frame/engine/legacy sequence as rendering. No inferred historical snapshots.
+- Tournament context: `TournamentDetailViewBase.tsx`, `useTournamentDetail.ts` and `PlayerTournamentView.tsx` keep per-tournament session tab/game ID; `PlayerTournamentResults.tsx` uses the query string for the opened result.
 
 - Player UI: `PlayerEveningsHub.tsx` («Прошедшие», «Мои игры»), `PlayerHistoryStatsView.tsx` (the club archive and the page of one game, address `/player/games/:key`), `PlayerReplayScreen.tsx`. A player's own games: «Профиль → Игры» in `CanonicalPremiumPlayerProfile.tsx`; his Elo history: its «Elo» tab (`PlayerEloJourney.tsx` for himself). Statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» are in the one profile: `CanonicalPremiumPlayerProfile.tsx` + `PlayerProfileCareerSections.tsx`, all numbers from `premiumPlayerProfileService.ts` (`/api/player/profiles/:id/summary`). The old «Карьера»/«Статистика» screens and `/api/player/career/:id` are gone; `/player/career` and `/player/stats` open the profile.
 - Tournament card actions (start, complete, reopen, cancel, correct a game, seats, roles, judge): `src/components/crm/tournaments/useTournamentActions.ts`, shown by `TournamentDetailViewBase.tsx` (frame, tabs, modals) with its parts `TournamentCardHeader.tsx`, `TournamentOrganizationTab.tsx` (readiness, completion, correction, roster), `TournamentGamesTab.tsx` (game switcher, game actions, seats and roles), `SwapSeatsModal.tsx`; test `TournamentDetailViewBase.test.tsx`.

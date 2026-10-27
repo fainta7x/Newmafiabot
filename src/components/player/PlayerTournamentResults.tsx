@@ -36,7 +36,15 @@ const mineLabel = (item: TournamentItem) => (
 export default function PlayerTournamentResults() {
   const [items, setItems] = useState<TournamentItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenIdState] = useState<string | null>(() => new URLSearchParams(window.location.search).get('tournament'));
+  const setOpenId = (id: string | null) => {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('tournament', id); else url.searchParams.delete('tournament');
+    window.history.pushState({}, '', url);
+    setOpenIdState(id);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+  useEffect(() => { const restore = () => setOpenIdState(new URLSearchParams(window.location.search).get('tournament')); window.addEventListener('popstate', restore); return () => window.removeEventListener('popstate', restore); }, []);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {

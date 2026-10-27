@@ -258,7 +258,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
           <div className="flex shrink-0 items-center gap-1.5">
             <span className="rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[10px] font-bold text-text-muted">0 ₽</span>
             {participant.fee_waived && canGift ? (
-              <button type="button" disabled={busy} onClick={() => void setWaived(participant, false)} className="inline-flex min-h-[44px] items-center rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-muted disabled:opacity-40">Вернуть оплату</button>
+              <button type="button" disabled={busy} onClick={() => void setWaived(participant, false)} className="inline-flex min-h-[44px] items-center rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-muted disabled:opacity-40">Отменить подарок</button>
             ) : null}
           </div>
         ) : paid ? (

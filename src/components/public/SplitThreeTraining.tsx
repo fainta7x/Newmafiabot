@@ -159,6 +159,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
       {!session ? (
         <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
           <p className="text-sm leading-6 text-white/75">Одного игрока убили, за столом 9 человек. Голоса делят поровну между тремя выставленными — по 3 голоса каждому.</p>
+          <p className="text-xs leading-5 text-white/55">Сданные экзамены сохраняются в профиле. Практика не меняет результаты экзаменов.</p>
           <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
             <summary className="cursor-pointer font-semibold text-white">Правила попила на троих</summary>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>

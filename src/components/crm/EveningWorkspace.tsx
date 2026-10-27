@@ -85,7 +85,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
         ? <EveningRouteView eveningId={eveningId} refreshKey={headerKey} onOpenSection={openSection} onChanged={() => setHeaderKey((key) => key + 1)} />
         : null}
       {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
-      {section === 'management' || section === 'payments' || section === 'tables' || section === 'closeout' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'payments' || section === 'tables' || section === 'closeout' ? section : undefined} onEveningChanged={() => setHeaderKey((key) => key + 1)} /> : null}
+      {section === 'management' || section === 'payments' || section === 'tables' || section === 'closeout' ? <EveningManagementView onOpenGames={() => openSection('games')} eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'payments' || section === 'tables' || section === 'closeout' ? section : undefined} onEveningChanged={() => setHeaderKey((key) => key + 1)} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} /> : null}
     </div>
   );

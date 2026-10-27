@@ -34,7 +34,8 @@ const points = (value: number) => value.toLocaleString('ru-RU', { maximumFractio
 export default function PlayerTournamentView({ tournamentId, onBack }: { tournamentId: string; onBack: () => void }) {
   const [data, setData] = useState<ViewData | null>(null);
   const [error, setError] = useState('');
-  const [section, setSection] = useState<Section | null>(null);
+  const [section, setSectionState] = useState<Section | null>(() => { try { const saved = sessionStorage.getItem(`player-tournament:${tournamentId}:section`); return saved === 'roster' || saved === 'games' || saved === 'results' ? saved : null; } catch { return null; } });
+  const setSection = (next: Section) => { setSectionState(next); try { sessionStorage.setItem(`player-tournament:${tournamentId}:section`, next); } catch { /* optional view memory */ } };
   const [registering, setRegistering] = useState(false);
   const requestSeq = useRef(0);
   const appliedSeq = useRef(0);

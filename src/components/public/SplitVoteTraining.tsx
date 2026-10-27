@@ -141,7 +141,7 @@ export const SplitVoteTraining: React.FC = () => {
       {/* The intro stays on the level list; during a task the question comes first. */}
       {!session ? (
         <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
-          <p className="text-sm leading-6 text-white/75">За столом 10 человек. Уровни открываются по очереди: сдай экзамен — откроется следующий.</p>
+          <p className="text-sm leading-6 text-white/75">За столом 10 человек. Уровни открываются по очереди: сдай экзамен — откроется следующий. Сданные экзамены сохраняются в профиле; практика их не меняет.</p>
           <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
             <summary className="cursor-pointer font-semibold text-white">Правила попила на 10 человек</summary>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_VOTE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
@@ -191,7 +191,7 @@ export const SplitVoteTraining: React.FC = () => {
              </div>
              <p className="text-[12px] leading-5 text-white/60">{interactive ? 'Выбирай руки для каждого кандидата по порядку. Последний заберёт оставшиеся.' : 'Найди своё место на схеме и выбери кандидата.'}</p>
            </div>
-           <SplitTableMap candidates={scenario.candidates} split={scenario.pair} seat={scenario.seat}
+           <SplitTableMap compact candidates={scenario.candidates} split={scenario.pair} seat={scenario.seat}
             votes={checked ? splitVoteAssignments(scenario) : interactive ? { ...assignments, ...(nomineeIndex < scenario.candidates.length ? { [scenario.candidates[nomineeIndex]]: selectedSeats } : {}) } : undefined} />
           {interactive && !checked ? (
             nomineeIndex < scenario.candidates.length ? <div className="space-y-3" data-testid="split-vote-interactive">

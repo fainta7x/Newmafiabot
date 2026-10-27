@@ -291,11 +291,11 @@ export default function EveningActiveRosterView({
     <MobileSheet
       open={showAdd}
       onClose={() => setShowAdd(false)}
-      title="Добавить на вечер"
+      title="Добавить в состав вечера"
       subtitle={addMode === 'guest' ? 'Гость записывается без профиля: имя и способ связи с ним сохраняются на этом вечере.' : 'Добавление в состав не ставит ответ «Иду». Ответ игрока останется «Нет ответа», пока он сам не ответит.'}
       widthClass="sm:max-w-lg"
       footer={addMode === 'players'
-        ? <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={() => void addSelectedPlayers()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : `Добавить${selectedPlayerIds.length ? ` · ${selectedPlayerIds.length}` : ''}`}</button>
+        ? <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={() => void addSelectedPlayers()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : `Добавить в состав${selectedPlayerIds.length ? ` · ${selectedPlayerIds.length}` : ''}`}</button>
         : <button type="button" disabled={!guest.name.trim() || adding} onClick={() => void addGuest()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : 'Добавить гостя'}</button>}
     >
       <div className="space-y-3">

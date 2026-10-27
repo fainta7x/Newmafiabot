@@ -9,6 +9,8 @@ const PHASES: Record<string, string> = {
   shootout: 'Переголосование',
 };
 
+export const liveGamePhaseLabel = (phase: string): string => PHASES[phase] || phase.replaceAll('_', ' ') || 'Игра';
+
 const NIGHT_STEPS: Record<string, string> = {
   shooting: 'стрельба мафии',
   don: 'проверка Дона',

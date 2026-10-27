@@ -955,6 +955,8 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 
 - Clearing the selected games does **not** mean «Не иду». The player goes back to **«Нет ответа»** (`unanswered`) and the organizer is told that the player took the sign-up back. A player who has already answered «Не иду» himself stays «Не иду».
 - Every change of the answer is still recorded in the answer history with its source (`slot_selection_cleared`).
+- **Cancellation UI (owner-approved usability work, 2026-10-27).** «Отменить запись» first asks for confirmation, then immediately saves an empty selection through the same canonical slot PUT. There is no second hidden Save step. A failed request keeps the confirmed booking and allows retry. Ordinary slot edits remain an explicit-save draft; departing with unsaved edits asks whether to discard them. This does not change the response policy above.
+- **Price presentation.** Calendar and booking use the existing format policy: per-game price for regular/novice slots, one entry for a rating evening. Public joining shows a preliminary price before confirmation; the server remains authoritative for the saved quote.
 
 ## «Что нового» (owner, 2026-10-13)
 

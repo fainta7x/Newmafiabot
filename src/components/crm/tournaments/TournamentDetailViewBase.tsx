@@ -43,6 +43,11 @@ const TAB_BUTTONS: Array<{ id: TournamentTab; label: string; Icon: React.Element
   { id: 'nominations', label: 'Номинации', Icon: Award, iconClass: 'text-cyan-400' },
 ];
 
+const readTournamentTab = (id: string, tabs: TournamentTab[]): TournamentTab => {
+  try { const saved = sessionStorage.getItem(`tournament:${id}:tab`) as TournamentTab; if (tabs.includes(saved)) return saved; } catch { /* optional view memory */ }
+  return tabs[0] || 'organization';
+};
+
 export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   tournamentId,
   onBack,
@@ -52,9 +57,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // The card's own message line is owned by the actions below; a failed silent refresh reports through it.
   const reportRef = useRef<(message: string) => void>(() => undefined);
   const { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, refresh, loadDetail } = useTournamentDetail({ tournamentId, onSilentError: (message) => reportRef.current(message) });
-  const [activeTab, setActiveTabRaw] = useState<TournamentTab>(tabs[0] || 'organization');
-  // A step screen shows only its own tabs; a jump to another tab (e.g. to games after the start) stays inside them.
-  const setActiveTab = (tab: TournamentTab) => setActiveTabRaw(tabs.includes(tab) ? tab : tabs[0]);
+  const [tabState, setTabState] = useState(() => ({ id: tournamentId, tab: readTournamentTab(tournamentId, tabs) }));
+  const activeTab = tabState.id === tournamentId && tabs.includes(tabState.tab) ? tabState.tab : readTournamentTab(tournamentId, tabs);
+  const setActiveTab = (tab: TournamentTab) => {
+    const next = tabs.includes(tab) ? tab : tabs[0];
+    setTabState({ id: tournamentId, tab: next });
+    try { sessionStorage.setItem(`tournament:${tournamentId}:tab`, next); } catch { /* optional view memory */ }
+  };
 
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);

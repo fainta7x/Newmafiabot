@@ -48,6 +48,10 @@ const gameLinkProps = (id:any) => {
   return {href:`/player/games/${encodeURIComponent(key)}`,onClick:(event:React.MouseEvent)=>{event.preventDefault();openPlayerGame(key);}};
 };
 
+type CareerSearch = { period: 'all' | 'season' | 'custom'; from: string; to: string; role: string; team: string; result: string };
+// Keep a search when returning from a game within this app session; never cache player data here.
+const careerSearches = new Map<string, CareerSearch>();
+
 export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,learning,initialTab}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;/** «Обучение» tab of the own «Прогресс». */learning?:ReactNode;initialTab?:string|null}) {
   const tabs:Array<[Tab,string]>=learning?[...TABS,['learning','Обучение']]:TABS;
   const mainTabs: Array<[Tab,string]> = learning
@@ -71,14 +75,22 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const [error,setError]=useState('');
   const [brokenAvatarUrl,setBrokenAvatarUrl]=useState<string|null>(null);
   const [settings,setSettings]=useState(false);
-  const [period,setPeriod]=useState<'all'|'season'|'custom'>('all');
+  const [period,setPeriod]=useState<'all'|'season'|'custom'>(()=>careerSearches.get(playerId)?.period||'all');
   const [activePeriod,setActivePeriod]=useState<Period|null>(null);
-  const [from,setFrom]=useState('');
-  const [to,setTo]=useState('');
-  const [role,setRole]=useState('');
-  const [team,setTeam]=useState('');
-  const [result,setResult]=useState('');
+  const [from,setFrom]=useState(()=>careerSearches.get(playerId)?.from||'');
+  const [to,setTo]=useState(()=>careerSearches.get(playerId)?.to||'');
+  const [role,setRole]=useState(()=>careerSearches.get(playerId)?.role||'');
+  const [team,setTeam]=useState(()=>careerSearches.get(playerId)?.team||'');
+  const [result,setResult]=useState(()=>careerSearches.get(playerId)?.result||'');
   const [offset,setOffset]=useState(0);
+  const latestSearch=useRef<CareerSearch>({period,from,to,role,team,result});
+  latestSearch.current={period,from,to,role,team,result};
+  useEffect(()=>{
+    const saved=careerSearches.get(playerId);
+    setPeriod(saved?.period||'all'); setFrom(saved?.from||''); setTo(saved?.to||'');
+    setRole(saved?.role||''); setTeam(saved?.team||''); setResult(saved?.result||'');
+    return ()=>{careerSearches.set(playerId,latestSearch.current);};
+  },[playerId]);
   const scrollRef=useRef<HTMLDivElement>(null);
   const scrollByTab=useRef<Record<string,number>>({});
   const playerRequestGeneration=useRef(0);

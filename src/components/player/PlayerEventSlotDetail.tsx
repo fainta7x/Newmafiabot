@@ -1,3 +1,6 @@
+import ConfirmDialog from '../ui/ConfirmDialog.tsx';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.ts';
+import { confirmPageLeave } from '../../lib/pageLeave.ts';
 import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
@@ -16,6 +19,7 @@ type EventItem = {
   starts_at: string;
   venue?: string | null;
   format?: string;
+  status?: string;
   event_type: 'evening' | 'tournament' | 'custom' | 'poker';
   participant_count?: number;
 };
@@ -66,6 +70,7 @@ export default function PlayerEventSlotDetail({
   const [plan, setPlan] = useState<Plan | null>(null);
   const [draft, setDraft] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
@@ -125,14 +130,16 @@ export default function PlayerEventSlotDetail({
   }, [draft, plan]);
   const changed = Boolean(plan && (draft.length !== plan.selection.slot_ids.length || draft.some((id) => !plan.selection.slot_ids.includes(id))));
 
+  useUnsavedChanges(changed || busy, busy ? 'Сохранение записи ещё не подтверждено. Выйти со страницы?' : 'Изменения записи не сохранены. Выйти и отбросить их? Чтобы сохранить, нажмите «Отмена» и затем «Сохранить мой план».');
+
   const toggleSlot = (slotId: string) => {
     if (registrationLocked || savePending.current) return;
     setSaved(false);
     setDraft((current) => current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]);
   };
 
-  const save = async () => {
-    if (registrationLocked || savePending.current || !changed) return;
+  const save = async (selection = draft) => {
+    if (registrationLocked || savePending.current || !plan || (selection.length === plan.selection.slot_ids.length && selection.every(id => plan.selection.slot_ids.includes(id)))) return;
     const saveScope = scope.current;
     savePending.current = true;
     setBusy(true);
@@ -144,7 +151,7 @@ export default function PlayerEventSlotDetail({
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slot_ids: draft }),
+        body: JSON.stringify({ slot_ids: selection }),
       });
       const body = await response.json().catch(() => ({}));
       if (saveScope !== scope.current || eventId.current !== event.id) return;
@@ -156,6 +163,7 @@ export default function PlayerEventSlotDetail({
       setPlan(body);
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
       setSaved(true);
+      setCancelOpen(false);
       setWorkspaceRefreshKey(value => value + 1);
       onSaved();
     } catch (saveError: any) {
@@ -174,18 +182,19 @@ export default function PlayerEventSlotDetail({
   const requiredSlots = plan?.event.required_slots;
   const selectionLocked = registrationLocked || busy;
   const maxEveningPrice = Number(plan?.event.max_evening_price || 0);
-  const clearSelectionLabel = plan?.selection.slot_ids.length ? 'Отменить запись' : 'Очистить выбор';
+  const hasBooking = Boolean(plan?.selection.slot_ids.length);
+  const workspaceFirst = (plan?.event.status || event.status) === 'active' || (plan?.event.status || event.status) === 'completed';
+  const workspace = <PlayerEveningWorkspace eveningId={event.id} onOpenGame={(key, id) => { if (confirmPageLeave()) onOpenGame?.(key, id); }} onCanChangeSelection={(allowed) => setRegistrationLocked(!allowed)} refreshKey={workspaceRefreshKey} />;
 
   return (
     <main ref={rootRef} className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto max-w-[430px]">
-        <button type="button" onClick={onBack} className="min-h-11 rounded-xl bg-white/[0.05] px-3 text-xs font-semibold text-white/50">← События</button>
+        <button type="button" onClick={() => { if (confirmPageLeave()) onBack(); }} className="min-h-11 rounded-xl bg-white/[0.05] px-3 text-xs font-semibold text-white/50">← События</button>
 
         <header className="mt-3 px-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Запись на вечер</div>
-          <h1 className="mt-1 text-2xl font-semibold">{event.title}</h1>
+          <h1 className="mt-1 text-xl font-semibold">{event.title}</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">{eventDate(event.starts_at)}</p>
-          {event.venue ? <VenueAddress venue={event.venue} className="mt-1 block text-xs leading-5 text-white/60" /> : null}
+          {event.venue ? <details className="mt-1 text-xs text-white/60"><summary className="flex min-h-11 cursor-pointer items-center">{event.venue} · адрес и маршрут ▾</summary><VenueAddress venue={event.venue} className="mt-1 block leading-5" /></details> : null}
           {normalizeEveningFormat(event.format) === 'NOVICE' && noviceScheduleLine(event.starts_at)
             ? <p className="mt-2 rounded-xl bg-sky-300/[0.08] px-3 py-2 text-[12px] leading-5 text-sky-100/80">{noviceScheduleLine(event.starts_at)}. Опыт не нужен.</p>
             : null}
@@ -195,10 +204,10 @@ export default function PlayerEventSlotDetail({
 
         {!plan && !error && <div className="mt-3 rounded-2xl bg-white/[0.035] px-3 py-6 text-center text-sm text-white/35">Загружаем игры вечера…</div>}
 
-        <PlayerEveningWorkspace eveningId={event.id} onOpenGame={onOpenGame} onCanChangeSelection={(allowed) => setRegistrationLocked(!allowed)} refreshKey={workspaceRefreshKey} />
+        {workspaceFirst && workspace}
 
         {plan && (
-          <>
+          <section aria-label="Выбор игр и стоимость">
             <section className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.035] p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -211,9 +220,27 @@ export default function PlayerEventSlotDetail({
               </div>
             </section>
 
+            <section className="sticky top-16 z-20 mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="shrink-0"><div className="text-[11px] text-white/55">{countGames(draft.length)}</div><div className="text-lg font-semibold">{formatRubles(total)}</div></div>
+                <button disabled={busy || !changed || registrationLocked} type="button" onClick={() => { if (hasBooking && draft.length === 0) { setSaveError(null); setCancelOpen(true); } else void save(); }} className="min-h-12 flex-1 rounded-xl bg-white px-3 text-xs font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/50">{registrationLocked ? 'Запись закрыта' : busy ? 'Сохраняю…' : changed ? draft.length ? 'Сохранить мой план' : 'Отменить запись' : 'Изменений нет'}</button>
+              </div>
+              {maxEveningPrice > 0 && plan.slots.filter((slot) => draft.includes(slot.id)).reduce((sum, slot) => sum + slot.price, 0) > total && (
+                <div className="mt-2 text-right text-[11px] text-emerald-200/60">Лимит клубного вечера применён: не больше {formatRubles(maxEveningPrice)}</div>
+              )}
+              {changed && <p role="status" className="mt-2 text-xs text-amber-100">Выбор изменён, но ещё не сохранён.</p>}
+              {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-emerald-200/70">{plan.selection.slot_ids.length ? 'План сохранён' : 'Запись отменена'}</div>}
+              {saveError ? (
+                <div className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs leading-5 text-rose-100" role="alert">
+                  {saveError.needsFirstApplication ? 'Сначала выбери путь в разделе «События»: новичок сможет записаться сразу, опытного игрока проверит организатор.' : saveError.message}
+                  {saveError.needsFirstApplication ? <button type="button" onClick={onFirstApplication} className="mt-2 min-h-11 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
+                </div>
+              ) : null}
+
+            </section>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button disabled={selectionLocked} type="button" onClick={() => { setSaved(false); setDraft(plan.slots.map((slot) => slot.id)); }} className="min-h-11 rounded-xl bg-white/[0.07] text-xs font-semibold text-white/60">Весь вечер</button>
-              <button disabled={selectionLocked} type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-11 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{clearSelectionLabel}</button>
+              <button disabled={selectionLocked} type="button" onClick={() => { if (hasBooking) { setSaveError(null); setCancelOpen(true); } else { setSaved(false); setDraft([]); } }} className="min-h-11 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{hasBooking ? 'Отменить запись' : 'Очистить выбор'}</button>
             </div>
 
             <div className="mt-3 space-y-2">
@@ -240,27 +267,11 @@ export default function PlayerEventSlotDetail({
               })}
             </div>
 
-            <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
-              <div className="flex items-end justify-between gap-3">
-                <div><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">Мой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
-                <div className="text-right"><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{formatRubles(total)}</div></div>
-              </div>
-              {maxEveningPrice > 0 && plan.slots.filter((slot) => draft.includes(slot.id)).reduce((sum, slot) => sum + slot.price, 0) > total && (
-                <div className="mt-2 text-right text-[11px] text-emerald-200/60">Лимит клубного вечера применён: не больше {formatRubles(maxEveningPrice)}</div>
-              )}
-              {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-emerald-200/70">План сохранён</div>}
-              {saveError ? (
-                <div className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs leading-5 text-rose-100" role="alert">
-                  {saveError.needsFirstApplication ? 'Сначала выбери путь в разделе «События»: новичок сможет записаться сразу, опытного игрока проверит организатор.' : saveError.message}
-                  {saveError.needsFirstApplication ? <button type="button" onClick={onFirstApplication} className="mt-2 min-h-11 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
-                </div>
-              ) : null}
-              <button disabled={busy || !changed || registrationLocked} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
-                {registrationLocked ? 'Запись закрыта после отметки явки' : busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}
-              </button>
-            </section>
-          </>
+
+          </section>
         )}
+        {!workspaceFirst && workspace}
+        <ConfirmDialog open={cancelOpen} title="Отменить запись на игры?" description={saveError ? `Не удалось отменить запись: ${saveError.message}. Можно повторить или закрыть окно — запись пока сохранена.` : 'Выбранные игры будут сняты, организатор увидит отмену записи. Ответ «Не иду» не ставится автоматически. Можно будет записаться заново.'} confirmLabel="Отменить запись" busy={busy} onCancel={() => !busy && setCancelOpen(false)} onConfirm={() => save([])} />
       </div>
     </main>
   );

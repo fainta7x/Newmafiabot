@@ -45,7 +45,7 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
 
   return (
     <div className="space-y-5">
-      {api.locked ? <LockedNote /> : null}
+      {api.locked ? <div className="space-y-2"><LockedNote /><Btn kind="primary" block onClick={onReopen} disabled={busy}>Исправить протокол</Btn></div> : null}
       {winner}
 
       <section aria-labelledby="todo-title">

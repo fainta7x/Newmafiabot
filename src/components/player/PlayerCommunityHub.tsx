@@ -72,12 +72,13 @@ export default function PlayerCommunityHub({
         </header>
 
         <SegmentedControl
+          scrollable
           className="max-w-[430px]"
           ariaLabel="Разделы сообщества"
           value={view}
           items={NAV}
           onValueChange={choose}
-          itemClassName="!px-0 !text-[10px] tracking-tighter"
+          itemClassName="!text-[12px]"
         />
 
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}

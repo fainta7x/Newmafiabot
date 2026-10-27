@@ -90,7 +90,7 @@ export const PlayersList: React.FC<ListProps> = ({ api, issues, onOpen }) => {
 };
 
 export const LockedNote: React.FC = () => (
-  <Card className="flex items-center gap-3 p-3.5 text-[13px] leading-5 text-white/60"><Lock className="h-4 w-4 shrink-0" aria-hidden="true" />Игра подтверждена. Чтобы править, верните её на исправление в «Обзоре».</Card>
+  <Card className="flex items-center gap-3 p-3.5 text-[13px] leading-5 text-white/60"><Lock className="h-4 w-4 shrink-0" aria-hidden="true" />Игра подтверждена. Чтобы править, верните её на исправление в разделе «Протокол».</Card>
 );
 
 type SheetProps = { api: ProtocolApi; seat: number | null; onClose: () => void };

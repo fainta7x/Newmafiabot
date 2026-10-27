@@ -10,7 +10,7 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
-  const autoSelectedGameRef = useRef(false);
+  const autoSelectedGameRef = useRef<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -20,13 +20,15 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
   // The card opens on the game that is being played (or the next one to play), not on game 1 (audit 2026-10-04).
   useEffect(() => {
     const list: any[] = tournament?.games || [];
-    if (autoSelectedGameRef.current || list.length === 0) return;
-    autoSelectedGameRef.current = true;
+    if (autoSelectedGameRef.current === tournamentId || list.length === 0 || String(tournament?.id) !== tournamentId) return;
+    autoSelectedGameRef.current = tournamentId;
+    let remembered = -1;
+    try { const id = sessionStorage.getItem(`tournament:${tournamentId}:game`); remembered = list.findIndex(game => String(game.id) === id); } catch { /* optional view memory */ }
     const live = list.findIndex((game) => game.status === 'active');
     const next = list.findIndex((game) => game.status !== 'completed');
-    const target = live >= 0 ? live : next >= 0 ? next : 0;
-    if (target > 0) setSelectedGameIdx(target);
-  }, [tournament]);
+    const target = remembered >= 0 ? remembered : live >= 0 ? live : next >= 0 ? next : 0;
+    setSelectedGameIdx(target);
+  }, [tournament, tournamentId]);
 
   const loadDetail = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
@@ -56,5 +58,11 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
     }
   };
 
-  return { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, refresh: () => setRefreshTrigger((prev) => prev + 1), loadDetail };
+  const selectGame = (index: number) => {
+    setSelectedGameIdx(index);
+    const id = tournament?.games?.[index]?.id;
+    if (id != null) try { sessionStorage.setItem(`tournament:${tournamentId}:game`, String(id)); } catch { /* optional view memory */ }
+  };
+
+  return { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx: selectGame, refreshTrigger, refresh: () => setRefreshTrigger((prev) => prev + 1), loadDetail };
 };

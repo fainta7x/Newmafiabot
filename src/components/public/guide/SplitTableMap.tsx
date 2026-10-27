@@ -14,6 +14,7 @@ export const SPLIT_COLORS = ['#38bdf8', '#c084fc', '#34d399'] as const;
 export type TableClaim = { seat: number; check: number; black: boolean };
 
 type Props = {
+  compact?: boolean;
   killed?: number | null;
   /** Nomination order. */
   candidates: number[];
@@ -30,7 +31,7 @@ const position = (seat: number, radius: number) => {
   return { x: 150 + radius * Math.cos(angle), y: 150 + radius * Math.sin(angle) };
 };
 
-export const SplitTableMap = ({ killed = null, candidates, split, seat = null, claims = [], votes }: Props) => {
+export const SplitTableMap = ({ compact = false, killed = null, candidates, split, seat = null, claims = [], votes }: Props) => {
   // A vote for a nominee outside the split (a broken split) shows in grey.
   const splitColor = (candidate: number) => SPLIT_COLORS[split.indexOf(candidate)] ?? '#a1a1aa';
   const votedFor = (voter: number) => candidates.find((candidate) => votes?.[candidate]?.includes(voter));
@@ -40,7 +41,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
 
   return (
     <figure data-testid="split-table-map" className="min-w-0 space-y-2.5 rounded-2xl border border-white/15 bg-black/25 p-3">
-      <div>
+      {!compact && <><div>
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-white/55">Порядок выставления</p>
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Выставлены по порядку">
           {candidates.map((candidate, index) => <span key={candidate} className="inline-flex items-center gap-1.5">
@@ -55,6 +56,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
         {killed ? <span className="rounded-lg border border-rose-400/30 px-2 py-1 font-semibold text-rose-200">Убит: {killed}</span> : null}
         {seat ? <span className="rounded-lg border border-emerald-400/35 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-200">Я: {seat}</span> : null}
       </div>
+      </>}
       <svg viewBox="0 0 300 300" role="img" aria-label="Круглый стол. Стрелка у номера означает, за кого этот игрок проголосовал." className="mx-auto block w-full max-w-[294px]">
         <circle cx="150" cy="150" r="78" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" />
         <text x="150" y="141" textAnchor="middle" fontSize="12" fontWeight="700" fill="rgba(255,255,255,0.75)">За столом</text>

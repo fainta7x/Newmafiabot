@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { confirmPageLeave } from './lib/pageLeave.ts';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 const OrganizerCRM = lazy(() => import("./components/OrganizerCRM.tsx"));
 const BigScreenLive = lazy(() => import("./components/public/BigScreenLive.tsx"));
@@ -97,6 +98,13 @@ export default function App() {
 
 function AppContent() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
+  const currentPage = useRef({ url: `${window.location.pathname}${window.location.search}${window.location.hash}`, state: window.history.state, index: Number(window.history.state?.pageLeaveIndex) || 0 });
+  const restoringHistory = useRef(false);
+  useEffect(() => {
+    const state = { ...window.history.state, pageLeaveIndex: currentPage.current.index };
+    window.history.replaceState(state, '', currentPage.current.url);
+    currentPage.current.state = state;
+  }, []);
   const [search, setSearch] = useState(() => window.location.search);
   const [rootState, setRootState] = useState<RootState>({ status: 'loading' });
   const [loadingSlow, setLoadingSlow] = useState(false);
@@ -112,15 +120,35 @@ function AppContent() {
 
   const navigatePath = useCallback((nextPath: string, replace = false) => {
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (current === nextPath) return;
-    if (replace) window.history.replaceState({}, '', nextPath);
-    else window.history.pushState({}, '', nextPath);
+    if (current === nextPath || !confirmPageLeave(nextPath)) return;
+    const index = currentPage.current.index + (replace ? 0 : 1);
+    const state = { ...(replace ? window.history.state : {}), pageLeaveIndex: index };
+    if (replace) window.history.replaceState(state, '', nextPath);
+    else window.history.pushState(state, '', nextPath);
+    currentPage.current = { url: `${window.location.pathname}${window.location.search}${window.location.hash}`, state, index };
     setPathname(window.location.pathname);
     setSearch(window.location.search);
   }, []);
 
   useEffect(() => {
-    const handlePopState = () => { setPathname(window.location.pathname); setSearch(window.location.search); };
+    const handlePopState = () => {
+      if (restoringHistory.current) { restoringHistory.current = false; return; }
+      const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const previous = currentPage.current;
+      const index = window.history.state?.pageLeaveIndex;
+      if (!confirmPageLeave(next)) {
+        if (typeof index === 'number' && index !== previous.index) {
+          restoringHistory.current = true;
+          window.history.go(previous.index - index);
+        } else {
+          // A legacy/shared link may not carry our index. Keep the edited page open.
+          window.history.pushState(previous.state, '', previous.url);
+        }
+        return;
+      }
+      currentPage.current = { url: next, state: window.history.state, index: typeof index === 'number' ? index : previous.index };
+      setPathname(window.location.pathname); setSearch(window.location.search);
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);

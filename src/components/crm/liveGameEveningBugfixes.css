@@ -816,3 +816,14 @@ html body .evening-live-engine-shell .live-judge-vote-strip__seat .live-judge-vo
 html body .evening-live-engine-shell .live-judge-vote-strip__seat[data-seat='3'] .live-judge-vote-strip__count {
   color: #111827 !important;
 }
+
+/* The voter's own number badge wears the colour of the seat it voted for too (owner, 2026-10-27). */
+html body .evening-live-engine-shell .live-seat-card[data-vote] .live-seat-number {
+  background: var(--seat-fill) !important;
+  border-color: var(--seat-line) !important;
+  color: #fff !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card[data-vote-for='3'] .live-seat-number {
+  color: #111827 !important;
+}

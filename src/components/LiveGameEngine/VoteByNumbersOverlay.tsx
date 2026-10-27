@@ -59,16 +59,18 @@ export function VoteByNumbersOverlay({
                 disabled={!atTable || elsewhere || busy}
                 onClick={() => onToggle(seat)}
                 // A chosen voter wears the candidate's seat colour, like the seat cards (owner, 2026-10-27).
+                // A voter wears the seat colour of the candidate it voted for, like the seat cards (owner, 2026-10-27); a vote for
+                // another candidate stays visible in that colour but is blocked here.
                 style={{
-                  opacity: !atTable ? 0.15 : elsewhere ? 0.3 : 1,
-                  ...(mine && SEAT_COLORS[nominee] ? { background: SEAT_COLORS[nominee].fill, borderColor: SEAT_COLORS[nominee].line, color: nominee === 3 ? '#111827' : '#fff' } : {}),
+                  opacity: !atTable ? 0.15 : elsewhere ? 0.55 : 1,
+                  ...((mine || elsewhere) && SEAT_COLORS[votesFor] ? { background: SEAT_COLORS[votesFor].fill, borderColor: SEAT_COLORS[votesFor].line, color: votesFor === 3 ? '#111827' : '#fff' } : {}),
                 }}
                 className={`relative h-14 rounded-xl border font-mono text-lg font-bold ${mine
                   ? 'ring-2 ring-white/70'
                   : 'border-white/15 bg-white/[0.06] text-white/85'}`}
               >
                 {seat}
-                {elsewhere && <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-semibold text-white/35">→#{votesFor}</span>}
+                {elsewhere && <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-semibold">→#{votesFor}</span>}
               </button>
             );
           })}

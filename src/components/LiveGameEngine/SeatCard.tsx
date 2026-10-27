@@ -323,6 +323,7 @@ export default function SeatCard(props: SeatCardProps) {
       // Who voted for whom at a glance (owner, 2026-10-27): the card takes the colour of the candidate's seat number it voted
       // for; a vote for the candidate being counted is framed more strongly.
       data-vote={voteTarget === undefined ? undefined : (voteTarget === activeVoteNominee ? 'current' : 'other')}
+      data-vote-for={voteTarget}
       style={voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}

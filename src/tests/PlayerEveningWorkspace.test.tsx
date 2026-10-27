@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import PlayerEveningWorkspace from '../components/player/PlayerEveningWorkspace.tsx';
 
 vi.mock('../components/player/playerProfileNavigation.ts', () => ({
@@ -27,7 +27,32 @@ const overview = {
 };
 
 describe('PlayerEveningWorkspace', () => {
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
+
+  it('offers immediate retry when the overview fails to load', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Нет связи' }), { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...overview, roster: [], tables: [], games: [] }), { status: 200 }));
+    render(<PlayerEveningWorkspace eveningId="eve" />);
+    await screen.findByText('Нет связи');
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await screen.findByText('Вечер в деталях');
+    expect(screen.queryByText('Нет связи')).toBeNull();
+  });
+
+  it('does not restore an old permission after a newer poll confirmed attendance', async () => {
+    vi.useFakeTimers();
+    let finishOld!: (value: Response) => void;
+    const current = { ...overview, roster: [], tables: [], games: [] };
+    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(current), { status: 200 }));
+    const allowed = vi.fn();
+    render(<PlayerEveningWorkspace eveningId="eve" onCanChangeSelection={allowed} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(allowed).toHaveBeenLastCalledWith(false);
+    await act(async () => { finishOld(new Response(JSON.stringify({ ...current, participation: { ...current.participation, can_change_selection: true } }), { status: 200 })); });
+    expect(allowed).not.toHaveBeenCalledWith(true);
+    expect(screen.getByText('Присутствие отмечено')).toBeTruthy();
+  });
 
   it('renders both tables, safely distinguishes identical seat numbers and opens a completed protocol', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({

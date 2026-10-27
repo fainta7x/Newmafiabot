@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
@@ -188,7 +188,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
   );
 }
 
-export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () => void; view?: 'full' | 'current' | 'history' }) {
+export default function PlayerPayments({ onBack, onChanged, view = 'full' }: { onBack?: () => void; onChanged?: () => void; view?: 'full' | 'current' | 'history' }) {
   const embedded = view !== 'full';
   const historyOnly = view === 'history';
   const [data, setData] = useState<PaymentData | null>(null);
@@ -196,18 +196,29 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const requestSeq = useRef(0);
+  const mounted = useRef(true);
+  const actionPending = useRef(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    const requestId = ++requestSeq.current;
+    setLoading(true);
+    setError(null);
     try {
       const body = await getJson<any>('/api/player/payments', 'Не удалось загрузить оплату');
+      if (requestId !== requestSeq.current || !mounted.current) return;
+      if (!body?.summary || !Array.isArray(body.current) || !Array.isArray(body.history)) throw new Error('Не удалось загрузить оплату. Повторите запрос.');
       setData(body as PaymentData);
       setError(null);
     } catch (loadError: any) {
-      setError(loadError?.message || 'Не удалось загрузить оплату');
+      if (requestId === requestSeq.current && mounted.current) setError(loadError?.message || 'Не удалось загрузить оплату');
+    } finally {
+      if (requestId === requestSeq.current && mounted.current) setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { mounted.current = true; void load(); return () => { mounted.current = false; requestSeq.current += 1; }; }, [load]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -240,12 +251,14 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
   }, []);
 
   const testPay = async (participantId: string) => {
-    if (payingId || applyingId) return;
+    if (actionPending.current) return;
+    actionPending.current = true;
     setPayingId(participantId);
     setError(null);
     try {
       const response = await fetch(`/api/payments/robokassa/test/checkout/${encodeURIComponent(participantId)}`, { method: 'POST', credentials: 'include' });
       const checkout = await response.json();
+      if (!mounted.current) return;
       if (!response.ok) throw new Error(checkout.error || 'Не удалось открыть тестовую оплату');
       if (checkout.action !== 'https://auth.robokassa.ru/Merchant/Index.aspx' || checkout.method !== 'POST' || checkout.fields?.IsTest !== '1') throw new Error('Некорректный ответ оплаты');
       const form = document.createElement('form');
@@ -261,19 +274,23 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
       try { form.submit(); } finally { form.remove(); }
     } catch (payError: any) {
       setError(payError?.message || 'Не удалось открыть тестовую оплату');
-    } finally { setPayingId(null); }
+    } finally { actionPending.current = false; setPayingId(null); }
   };
 
   const useFreeEvening = async (participantId: string) => {
-    if (applyingId) return;
+    if (actionPending.current) return;
+    actionPending.current = true;
     setApplyingId(participantId);
     setError(null);
     try {
       await sendJson(`/api/player/payments/${encodeURIComponent(participantId)}/use-free-evening`, 'POST', undefined, 'Не удалось применить бесплатный вечер');
+      if (!mounted.current) return;
+      onChanged?.();
       await load();
     } catch (applyError: any) {
       setError(applyError?.message || 'Не удалось применить бесплатный вечер');
     } finally {
+      actionPending.current = false;
       setApplyingId(null);
     }
   };
@@ -283,9 +300,10 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
       {onBack && <button type="button" onClick={onBack} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← На главную</button>}
       {!embedded && <div className="px-1 pb-1 pt-2"><div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-1 text-2xl font-semibold text-white">Оплата</h1><p className="mt-1 text-sm text-white/45">Вечера, жетоны, поддержка клуба и целевые сборы</p></div>}
 
-      {error && <p className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100/70">{error}</p>}
+      {error && <div role="alert" data-testid="player-payments-error" className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100/70"><p>{error}</p><button type="button" disabled={loading || applyingId !== null || payingId !== null} onClick={() => void load()} className="mt-2 min-h-11 w-full rounded-xl bg-white/10 px-3 font-semibold disabled:opacity-40">Повторить</button></div>}
       {testMessage && <p role="status" className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] px-3 py-3 text-sm leading-5 text-amber-100/80">{testMessage}</p>}
-      {!data ? <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/45">Загрузка оплаты…</div> : (
+      {loading && data && <p role="status" className="px-1 text-xs text-white/50">Обновляем оплату…</p>}
+      {!data ? loading ? <div role="status" className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/45">Загрузка оплаты…</div> : null : (
         <>
           {!historyOnly && <section className={embedded ? "rounded-2xl border border-white/10 bg-white/[0.03] p-3" : "rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.035] p-4"}>
             {!embedded && <><div className="text-xs uppercase tracking-[0.18em] text-white/35">По игровым вечерам</div>
@@ -298,7 +316,7 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
 
           {!historyOnly && data.robokassa_test_available && <p className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] px-3 py-3 text-xs leading-5 text-amber-100/70">Тест Robokassa: выбери вечер ниже. Деньги не списываются, настоящий долг и жетоны не меняются.</p>}
 
-          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId === item.participant_id || payingId !== null} onUseFree={useFreeEvening} testAvailable={data.robokassa_test_available} paying={payingId !== null} onTestPay={testPay} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
+          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId !== null || payingId !== null} onUseFree={useFreeEvening} testAvailable={data.robokassa_test_available} paying={payingId !== null} onTestPay={testPay} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
 
           {view !== 'current' && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">История вечеров</h2>{data.history.length ? <div className="space-y-2">{data.history.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={0} applying={false} onUseFree={() => {}} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">История оплат пока пустая.</p>}</section>}
         </>

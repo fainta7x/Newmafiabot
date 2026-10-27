@@ -1,5 +1,19 @@
 # Audit log
 
+## 2026-10-27 — current single-table booking and error recovery
+
+Owner explicitly defers multiple-table/load work and requests improvements to existing flows. Source baseline: main 35ced0f. No production write. Ratings and live-voting work in #1054 are outside this batch.
+
+- FIXED IN CODE, `PlayerEventSlotDetail.tsx`: assembly counter/text hard-code four games and per-slot ready status hard-codes eleven people, despite API `required_slots`, `required_players_per_slot` and `target_players`. Repro: a novice plan with two ready games / nine people displays 2/4 and never labels its slots ready. Acceptance: show server thresholds and retain custom values.
+- FIXED IN CODE, `PlayerEventSlotDetail.tsx`: draft total adds slot prices and caption says per game for RATING, while canonical `eveningSelectionPrice` charges one configured entry fee. Repro: two slots at 100 with rating_entry 500 display 200 while the server quotes 500. Acceptance: same calculator and current server policy for zero/one/many slots, caps and custom fees.
+- FIXED IN CODE, `PlayerEventSlotDetail.tsx`: slot controls stay editable during a pending save; its response replaces the later draft. Loads/saves also have no event/request identity guard. Acceptance: pending submission cannot lose a subsequent choice; an old evening response cannot replace another evening; failed save keeps the selection and allows retry.
+- FIXED IN CODE, `PlayerPayments.tsx`: failed initial load renders both error and endless «Загрузка оплаты…», without a retry. `PlayerEveningWorkspace.tsx` similarly has no manual retry and overlapping polls can apply older participation data. Acceptance: explicit failure + retry, confirmed data retained on refresh failure, stale replies ignored.
+
+
+- FIXED IN CODE, `PlayerPayments.tsx` → `PlayerWalletHub.tsx`: applying an earned/gifted free evening refreshed only payment details, leaving the wallet summary stale. The acknowledged action now refreshes both surfaces; a focused rendered-wallet regression proves the debt changes from 400 to 0 without a tab switch. Payment action guards also avoid duplicate pending submissions.
+
+Verification: on original main the seven booking regressions produce six failures and one pass; the current candidate passes all seven. Current focused run: 40 tests in seven files; six mobile flows (new booking/error recovery plus existing cabinet continuity) at 360/390 px pass. Typecheck, full lint, web build, release safety and dependency guard pass locally. Screenshots of the actual before/after components were inspected and retained in `docs/reviews/2026-10-27-current-usability/`. Local SQLite integration could not run because the native dependency's header extraction is blocked by filesystem fchown; the required GitHub CI is the authoritative integration gate. No dependency/lockfile or production-data change. Exact-head CI/merge pending at candidate authoring.
+
 ## 2026-10-26 — approved application continuity fixes
 
 Follow-up 2026-10-27: **FIXED, MERGED AND CI-VERIFIED**. #1049 final head `346064eb` passed CI 4502, UI preview 2218, CodeQL and Gitleaks and merged as `e9828408`; #1051 is closed as duplicate. Current main `70c3494` retains the personal participation projection, persistent targets, shared debt errors/retry and close-time flush. Claude's final update aligned the legacy mini-game tests with the new route target; no product change was reverted. Fresh exact-head mobile screenshots were inspected on follow-up. Read-only `/api/health` and runtime checks return healthy. A changed mirror SHA alone does not establish deployment of #1049; signed-in runtime and real two-table load remain unverified. No code/formula/production-data change in this follow-up.

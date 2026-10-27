@@ -21,11 +21,11 @@ const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девя
 
 /**
  * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
- * «Нулевой день», «Девятка», «Восьмёрка после промаха», «Семёрка после попила с подъёмом» … Without a chronology the
+ * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после попила посидеть и промаха» … Without a chronology the
  * number of players is unknown, so an old game keeps «Круг N».
  */
 export const circleTitle = (index: number, protocol?: Pick<TournamentGameProtocolData, 'events'> | null, tableSize = CLASSIC_TABLE_SIZE) => {
-  if (index === 0) return 'Нулевой день';
+  if (index === 0) return 'Нулевой круг';
   const events = Array.isArray(protocol?.events) ? protocol!.events : [];
   if (!events.some((event) => event.kind === 'exit')) return `Круг ${index}`;
   const round = index + 1;
@@ -41,11 +41,12 @@ export const circleTitle = (index: number, protocol?: Pick<TournamentGameProtoco
   const dayOut = previous.filter((event) => event.value !== 'killed').length;
   const killed = previous.some((event) => event.value === 'killed');
   const notes: string[] = [];
-  // The zero day with everybody staying is the standard course of the game (owner): no qualifier after it.
-  if (dayOut >= 2) notes.push('после попила с подъёмом');
-  else if (dayOut === 0 && round - 1 > 1) notes.push('после попила посидеть');
-  if (!killed) notes.push('после промаха');
-  return notes.length ? `${name} ${notes.join(', ')}` : name;
+  // The zero round with everybody staying is the standard course of the game (owner): no qualifier after it.
+  if (dayOut >= 2) notes.push('попила с подъёмом');
+  else if (dayOut === 0 && round - 1 > 1) notes.push('попила посидеть');
+  if (!killed) notes.push('промаха');
+  // «Восьмёрка после попила посидеть и промаха» (owner, 2026-10-27).
+  return notes.length ? `${name} после ${notes.join(' и ')}` : name;
 };
 
 export const EXIT_LABEL: Record<string, string> = {

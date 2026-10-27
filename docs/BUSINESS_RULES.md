@@ -6,7 +6,7 @@ If implementation/tests conflict with this document, stop and investigate the co
 
 ### Показатели нулевого круга (владелец, 16.10.2026)
 
-- **«Заголосован в нуле»** — игрок, окончательно выведенный голосованием в нулевой день.
+- **«Заголосован в нуле»** — игрок, окончательно выведенный голосованием в нулевом круге.
 - **«Сломал в нуле»** — виновник сломанного попила, явно отмеченный ведущим. По итоговым суммам голосов не вычислять; не угадывать участников старых игр.
 - **«Подняли в нуле»** — игрок, которого после двойного переголосования в нулевом круге вывели из игры вместе с ещё одним игроком. Это НЕ значит, что игрока оставили за столом. Считать только подтверждённое двойное выбытие.
 - Это отдельные факты, не замены «Первым убит» или «Лучший ход».
@@ -298,11 +298,11 @@ A player voted out on the zero day is «Заголосован в нулевом
 
 Circles are named by how many players sit at the table, not by day numbers. Use these words in the app, the game blank, reports and chats.
 
-- **Нулевой день (0)** — the first day, all ten at the table.
+- **Нулевой круг (0)** — the first circle, all ten at the table. Never «нулевой день» (owner, 2026-10-27).
 - **Девятка** — the circle after the first kill (nine at the table).
 - **Восьмёрка, семёрка, шестёрка, пятёрка** — by the number at the table; e.g. «семёрка» is the circle after a voting and the second kill.
 - **Угадайка при 4** — four at the table; **угадайка** — three at the table.
-- Qualifiers when the usual path changed: **«после промаха»** (nobody was killed at night), **«после попила посидеть»** (the split ended with everybody staying), **«после попила с подъёмом»** (the split ended with the split players raised and leaving).
+- Qualifiers when the usual path changed: **«после промаха»** (nobody was killed at night), **«после попила посидеть»** (the split ended with everybody staying), **«после попила с подъёмом»** (the split ended with the split players raised and leaving). Two qualifiers join with «и»: «восьмёрка после попила посидеть и промаха» (owner, 2026-10-27).
 
 The protocol window names its circles this way (`circleTitle` in `protocolReview.ts`; an old game without a chronology keeps «Круг N»). Protocol corrections, owner 2026-10-26: a check's answer is not chosen — it follows the checked player's real role; a missing don check is not an error; a black killed by his own team needs no death protocol; once the sheriff or the don has left (by day or killed that night) the night shows «Шерифа нет за столом» / «Дона нет за столом», and after the don found the sheriff «Шериф уже найден»; exits read as plain lines «⚖️ Ушёл №4 Перец», «💀 Ночью убили №9 Дина», «💀 Ночью промах». A split in the zero day that ends with everybody staying is the standard course of the game, so the next circle is simply «девятка» (owner). Examples: «восьмёрка после промаха», «семёрка после попила с подъёмом».
 

@@ -25,7 +25,7 @@ const protocol = (extra: Record<string, unknown> = {}) => ({
 describe('game protocol review model', () => {
   it('puts the voting of day k and the night after it into circle k', () => {
     const circles = buildCircles(protocol());
-    expect(circles.map((circle) => circle.title)).toEqual(['Нулевой день', 'Девятка']);
+    expect(circles.map((circle) => circle.title)).toEqual(['Нулевой круг', 'Девятка']);
     expect(circles[1].rootRounds).toEqual([0]);
     expect(circles[0].shotIndex).toBe(0);
     expect(circles[1].shotIndex).toBe(1);
@@ -109,8 +109,11 @@ describe('protocol window: owner corrections 2026-10-26', () => {
   const exit = (round: number, seat: number, value: string) => ({ seq: ++seq, at: '', round, phase: '', kind: 'exit', seat, value });
   it('names the circles by the players at the table, with «после промаха» / «после попила»', () => {
     const events = [exit(1, 5, 'killed'), exit(2, 7, 'voted_day'), exit(2, 3, 'killed'), exit(3, 8, 'voted_day'), exit(4, 1, 'voted_day'), exit(4, 2, 'voted_day'), exit(4, 9, 'killed')];
-    expect([0, 1, 2, 3, 4].map((index) => circleTitle(index, { events } as any))).toEqual(['Нулевой день', 'Девятка', 'Семёрка', 'Шестёрка после промаха', 'Угадайка после попила с подъёмом']);
+    expect([0, 1, 2, 3, 4].map((index) => circleTitle(index, { events } as any))).toEqual(['Нулевой круг', 'Девятка', 'Семёрка', 'Шестёрка после промаха', 'Угадайка после попила с подъёмом']);
     expect(circleTitle(2, { events: [exit(1, 5, 'killed'), exit(2, 3, 'killed')] } as any)).toBe('Восьмёрка после попила посидеть');
+    // Game №20 of 2026-10-23: №9 killed, №4 voted out, a miss, a split with everybody staying, another miss (owner, 2026-10-27).
+    const game20 = { events: [exit(1, 9, 'killed'), exit(2, 4, 'voted_day')] } as any;
+    expect([2, 3].map((index) => circleTitle(index, game20))).toEqual(['Восьмёрка после промаха', 'Восьмёрка после попила посидеть и промаха']);
     expect(circleTitle(2, { events: [] } as any)).toBe('Круг 2');
   });
   it('the check answer follows the real role', () => {

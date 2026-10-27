@@ -17,7 +17,7 @@ const EXIT_TEXT: Record<string, string> = {
 };
 const CHECK_TEXT: Record<string, string> = { sheriff: 'Шериф', not_sheriff: 'не Шериф', red: 'красный', black: 'чёрный', Красный: 'красный', Чёрный: 'чёрный' };
 
-// The same circle names as the protocol window (owner, 2026-10-26: «Нулевой день», «Девятка», …).
+// The same circle names as the protocol window (owner, 2026-10-26: «Нулевой круг», «Девятка», …).
 const roundTitle = (round: number, events: LiveGameEvent[]) => circleTitle(Math.max(0, round - 1), { events } as any);
 
 /**

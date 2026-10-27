@@ -6,14 +6,16 @@ import { auditScreen } from './support/layoutAudit.mjs';
 // LIVE_TEXT_AUDIT_REPORT=1 prints every finding instead of failing on the first screen.
 
 const ROLE_SEQUENCE = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'];
-const VIEWPORTS = [[360, 640], [390, 844], [1366, 768], [1440, 900]];
+// Phones run twice: in the app's font and in a wider one (DejaVu Sans with a little letter spacing), so a label that only
+// just fits does not pass — fonts differ between phones, and CI's Chrome renders wider than a local Chromium.
+const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [360, 640, true], [390, 844, true]];
 
 const tableGrid = (page) => page.locator('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]').first();
 const seatCard = (page, slot) => tableGrid(page).locator(':scope > div').nth(slot - 1);
 const clickOptional = async (locator) => { if (await locator.isVisible().catch(() => false)) await locator.click(); };
 
-for (const [width, height] of VIEWPORTS) {
-  test(`live game text audit at ${width}x${height}`, async ({ page }, info) => {
+for (const [width, height, wideFont] of VIEWPORTS) {
+  test(`live game text audit at ${width}x${height}${wideFont ? ' in a wide font' : ''}`, async ({ page }, info) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width, height });
     const report = [];
@@ -35,6 +37,7 @@ for (const [width, height] of VIEWPORTS) {
     };
 
     try {
+      if (wideFont) await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => { const style = document.createElement('style'); style.textContent = ':root{--font-sans:"DejaVu Sans",sans-serif}html,body{font-family:"DejaVu Sans",sans-serif}*{letter-spacing:.04em!important}'; document.head.appendChild(style); }));
       await page.goto('/e2e/live-game.html');
       await check('roster');
       await page.getByRole('button', { name: 'Подтвердить состав' }).click();
@@ -113,7 +116,7 @@ for (const [width, height] of VIEWPORTS) {
       await check('day-1-speech');
     } finally {
       await info.attach('report.txt', { body: report.join('\n') || 'clean', contentType: 'text/plain' });
-      if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height} ===\n${report.join('\n') || 'clean'}`);
+      if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height}${wideFont ? '-wide' : ''} ===\n${report.join('\n') || 'clean'}`);
     }
     expect(report).toEqual([]);
   });

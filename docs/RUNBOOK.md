@@ -537,7 +537,7 @@ npx vite --port 5199 &
 cd e2e && LIVE_TEXT_AUDIT_REPORT=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5199 npx playwright test tests/live-game-text-audit.spec.mjs
 ```
 
-`LIVE_TEXT_AUDIT_REPORT=1` prints every finding per screen and viewport; each screen's screenshot is in the test output folder. After changing the detector run its self-test first, `e2e/tests/layout-audit-detector.spec.mjs` (small pages with one known defect each, plus clean ones); add a case for every defect class it learns. The self-test runs in the UI preview CI too.
+Phones run twice, the second time in a wider font (DejaVu Sans with a little letter spacing): CI's Chrome on Ubuntu renders wider than a local Chromium with Inter, and real phones differ too, so a label that only just fits fails. A one-line label that may meet a long nickname or a wide font uses `FitText` (`src/components/LiveGameEngine/FitText.tsx`), which shrinks its font until it fits. `LIVE_TEXT_AUDIT_REPORT=1` prints every finding per screen and viewport; each screen's screenshot is in the test output folder. After changing the detector run its self-test first, `e2e/tests/layout-audit-detector.spec.mjs` (small pages with one known defect each, plus clean ones); add a case for every defect class it learns. The self-test runs in the UI preview CI too.
 
 ## Automatic UI preview
 

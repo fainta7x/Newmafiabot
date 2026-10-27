@@ -91,11 +91,14 @@ describe('vote count shortcuts', () => {
     await play(dayVote([5, 3]));
     await press('Цифрами');
     const sheet = await screen.findByTestId('live-vote-numbers-sheet');
-    expect(sheet.textContent).toContain('За #5 Игрок 5 проголосовали');
+    expect(sheet.querySelector('h2')?.textContent).toBe('За 5 Игрок 5 проголосовали');
+    expect(sheet.querySelector('h2 [data-seat-badge="5"]')).toBeTruthy();
     for (const slot of [1, 3, 7]) fireEvent.click(within(sheet).getByRole('button', { name: `Голос #${slot}` }));
     expect((within(sheet).getByRole('button', { name: 'Голос #9' }) as HTMLButtonElement).disabled).toBe(true); // out of the game
     fireEvent.click(within(sheet).getByRole('button', { name: 'Далее →' }));
-    expect(sheet.textContent).toContain('За #3 Игрок 3 проголосовали');
+    expect(sheet.querySelector('h2')?.textContent).toBe('За 3 Игрок 3 проголосовали');
+    // the history lists who voted for #5 so far
+    expect(within(screen.getByTestId('live-vote-numbers-history')).getAllByRole('button')[0].textContent).toBe('5Игрок 51373');
     expect((within(sheet).getByRole('button', { name: 'Голос #1' }) as HTMLButtonElement).disabled).toBe(true);
     expect(within(sheet).getByRole('button', { name: 'Голос #1' }).textContent).toContain('→#5');
     // the rest goes to the last candidate when the count is closed, as with the seat cards

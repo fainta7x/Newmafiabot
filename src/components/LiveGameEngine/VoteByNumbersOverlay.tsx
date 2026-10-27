@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { SEAT_COLORS } from "./seatColors.ts";
+import { SeatBadge } from "./SeatBadge.tsx";
 
 interface VoteByNumbersOverlayProps {
   /** The candidates of this voting, in the order they are counted. */
@@ -39,7 +40,7 @@ export function VoteByNumbersOverlay({
       <div data-testid="live-vote-numbers-sheet" role="dialog" aria-label="Голоса цифрами" className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-[#121318] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
         <div className="space-y-1.5 text-center">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">Кандидат {nomineeIndex + 1} из {nominees.length}</div>
-          <h2 className="text-lg font-semibold text-white">За #{nominee}{nickname ? ` ${nickname}` : ''} проголосовали</h2>
+          <h2 className="text-lg font-semibold text-white">За <SeatBadge seat={nominee} />{nickname ? ` ${nickname}` : ''} проголосовали</h2>
           <p className="text-xs text-white/45">Голосов: <b className="text-white/80">{forThis}</b> · осталось: <b className="text-white/80">{remaining}</b></p>
           {isLast && <p className="text-xs text-white/30">Остаток уйдёт к #{nominee} при подведении итога.</p>}
         </div>
@@ -71,6 +72,32 @@ export function VoteByNumbersOverlay({
               >
                 {seat}
                 {elsewhere && <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-semibold">→#{votesFor}</span>}
+              </button>
+            );
+          })}
+        </div>
+        {/* The history of this voting (owner, 2026-10-27): every candidate with who voted for them so far, in their colours. */}
+        <div data-testid="live-vote-numbers-history" className="space-y-1.5 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
+          {nominees.map((candidate, index) => {
+            const voted = voterSeats.filter((seat) => votesByPlayer[seat] === candidate);
+            const current = index === nomineeIndex;
+            return (
+              <button
+                key={`${candidate}-${index}`}
+                type="button"
+                disabled={busy}
+                onClick={() => onSelectNominee(index)}
+                aria-current={current ? 'step' : undefined}
+                className={`flex w-full items-center gap-2 rounded-xl px-2 py-1 text-left ${current ? 'bg-white/[0.07] ring-1 ring-white/25' : ''}`}
+              >
+                <SeatBadge seat={candidate} />
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white/70">{nicknameOf(candidate) || `Игрок ${candidate}`}</span>
+                <span className="flex flex-wrap justify-end gap-1">
+                  {voted.length
+                    ? voted.map((seat) => <span key={seat} className="inline-flex h-6 min-w-6 items-center justify-center rounded-lg border px-1 font-mono text-xs font-black" style={{ background: SEAT_COLORS[candidate]?.fill, borderColor: SEAT_COLORS[candidate]?.line, color: candidate === 3 ? '#111827' : '#fff' }}>{seat}</span>)
+                    : <span className="text-xs text-white/30">—</span>}
+                </span>
+                <b className="w-6 text-right font-mono text-sm text-white">{voted.length}</b>
               </button>
             );
           })}

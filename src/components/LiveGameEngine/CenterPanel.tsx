@@ -10,6 +10,7 @@ const JUDGE_MUSIC_MENU_ENABLED = false;
 import type { ZeroNightMusicState } from "./engineStateModel.js";
 import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
 import { seatColorVars } from "./seatColors.ts";
+import { SeatBadge } from "./SeatBadge.tsx";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
 import {
@@ -652,7 +653,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             ))}
           </div>
           <div className="live-judge-vote-summary live-judge-vote-summary--with-undo" title={isLast ? `Остаток уйдёт к #${nominee} при подведении итога` : undefined}>
-            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <strong>#{nominee}</strong>{nomineeNickname ? '' : '?'}</span>{nomineeNickname ? <span className="live-judge-vote-focus__name">{nomineeNickname}?</span> : null}</div>
+            <div className="live-judge-hud__title live-judge-vote-focus"><span>Кто против <SeatBadge seat={nominee} size="sm" />{nomineeNickname ? '' : '?'}</span>{nomineeNickname ? <span className="live-judge-vote-focus__name">{nomineeNickname}?</span> : null}</div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"

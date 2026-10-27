@@ -961,7 +961,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.
 - В живой игре после слома попила можно отметить, кто его сломал, или выбрать «Не знаю».
 - Судье: голосование в центре стола стало проще — одна строка кандидатов с их голосами, крупнее, без красного; карточка каждого проголосовавшего окрашена в цвет номера того, за кого он голосует (за №1 — синим, за №5 — зелёным), голос за текущего кандидата выделен рамкой.
-- Судье: на переголосовании кнопка «Поделилось также» повторяет голоса прошлого круга одним нажатием; кнопка «Цифрами» открывает окно, где голоса вводятся по каждому кандидату цифрами, как лучший ход.
+- Судье: на переголосовании кнопка «Поделилось также» повторяет голоса прошлого круга одним нажатием; кнопка «Цифрами» открывает окно, где голоса вводятся по каждому кандидату цифрами, как лучший ход, и сразу видно, кто за кого уже проголосовал.
 - Названия кругов в протоколе: «Нулевой круг», «Восьмёрка после оставления при 8 и двух промахов»; после правки протокола названия следующих кругов пересчитываются.
 
 - Живая игра: перед стартом выбирается «Настройка игры» — клубная или турнирная (подставляется по типу вечера). В клубной игрок, в которого сломали попил в нулевом круге, остаётся за столом и получает 30 секунд дополнительной речи, без ЛХ.
@@ -1116,8 +1116,6 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 
 ### Waiting on the owner
-
-- **«Цифрами» window: show the history of the current voting (owner idea 2026-10-27, not built, meaning to confirm):** in the free space of the window, the candidates already counted with who voted for them (e.g. «№5 Алоэ — 1, 3, 7, 8 · 4 гол.»). The owner offered to draw an example.
 
 - **Engine voting ideas (owner, 2026-10-27; APPROVED «да», built in PR #1054 — `handleSameSplit` in `LiveGameEngine.tsx`, `VoteByNumbersOverlay.tsx`):** (1) on the revote after a split, a one-tap option «Поделилось также» that copies the previous round's votes when nobody changed a vote and the split held, instead of entering every vote again; (2) as a second way to enter votes (the seat cards stay), a window like the best-move («ЛХ») entry: for each candidate in turn a window with seat numbers where the judge taps who voted for that candidate; players who already voted are dimmed and cannot be chosen in the next windows.
 

@@ -212,42 +212,58 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
   } catch (err: any) { return res.status(400).json({ error: err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось создать игру') }); }
 });
 
+/** A refusal of a protocol save, with the HTTP status the route answers. */
+export class ProtocolSaveError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+}
+
+/**
+ * One save of a club game's protocol (the protocol window, the end of a live game, a guarded data correction): the same
+ * checks, settlement and follow-up tasks whoever saves. Returns the saved row.
+ */
+export async function saveClubEveningProtocol(db: DatabaseWrapper, gameId: number, body: any) {
+  if (!Number.isInteger(gameId) || gameId <= 0) throw new ProtocolSaveError(400, 'Игра не найдена');
+  const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
+  if (!existing) throw new ProtocolSaveError(404, 'Игра не найдена');
+  if (!existing.evening_id) throw new ProtocolSaveError(400, 'Это не игра обычного вечера');
+  if (existing.archived_at) throw new ProtocolSaveError(409, 'Игра находится в архиве. Сначала восстановите её.');
+  const incomingProtocol = body?.protocol; const rawResults = body?.player_results;
+  if (!incomingProtocol || !Array.isArray(rawResults) || !isSupportedTableSize(rawResults.length)) throw new ProtocolSaveError(400, 'В протоколе нет результатов всех игроков стола');
+  const previous = safeJsonParse<any>(existing.protocol_text, null);
+  if (!previous || previous.kind !== 'club_evening_protocol' || previous.version !== 1) throw new ProtocolSaveError(400, 'У игры отсутствует структурированный клубный протокол');
+  const previousStatus: 'draft' | 'completed' = previous.protocol?.status === 'completed' ? 'completed' : 'draft';
+  const status: 'draft' | 'completed' = incomingProtocol.status === 'completed' ? 'completed' : 'draft';
+  const canonical = canonicalizeClubGameSave(previous, incomingProtocol, rawResults, status);
+  const winner = canonical.protocol.winner_team === 'red' ? 'Красные' : canonical.protocol.winner_team === 'black' ? 'Чёрные' : null;
+  const hasJudgePatch = Object.prototype.hasOwnProperty.call(body || {}, 'judge_player_id') || Object.prototype.hasOwnProperty.call(body || {}, 'judge_name');
+  const judge = hasJudgePatch ? await resolveJudgeAssignment(db, { judge_player_id: body?.judge_player_id ?? null, judge_name: body?.judge_name ?? null }) : { judge_player_id: existing.judge_player_id || null, judge_name: existing.judge_name || null };
+  if (judge.judge_player_id && canonical.playerResults.some((item: any) => item.player_id && String(item.player_id) === String(judge.judge_player_id))) throw new ProtocolSaveError(400, 'Судья этой игры не может одновременно быть игроком');
+  const now = new Date().toISOString();
+  const completedAt = status === 'completed' ? (previousStatus === 'completed' ? previous.protocol?.completed_at || now : now) : null;
+  const nextProtocol = { version: 1, kind: 'club_evening_protocol', protocol: { ...canonical.protocol, game_id: String(gameId), status, updated_at: now, completed_at: completedAt }, player_results: canonical.playerResults };
+  const settlementContext = status === 'completed' ? (previousStatus === 'completed' ? 'correction' : 'completion') : (previousStatus === 'completed' ? 'reopen' : 'correction');
+  await db.transaction(async (tx: any) => {
+    await tx.run(`UPDATE games SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ? WHERE id = ?`, [winner || 'draft', winner ? `Победа ${winner}` : 'Черновик', judge.judge_name, judge.judge_player_id, JSON.stringify(nextProtocol), JSON.stringify(clubSlotsFromResults(canonical.playerResults)), gameId]);
+    if (canonical.replayFrames !== undefined) await saveGameReplayFrames(tx, gameId, canonical.replayFrames);
+    await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: previousStatus !== 'completed' && status === 'completed', context: settlementContext });
+  });
+  const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameId]);
+  if (!row) throw new Error('Сохранённая игра не найдена после фиксации протокола');
+  await runClubGamePostSaveTasks(db, { gameId, previousStatus, status, playerIds: canonical.playerResults.map((item: any) => String(item.player_id || '')).filter(Boolean), judgePlayerId: judge.judge_player_id || null });
+  return row;
+}
+
 router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db || (await getDb());
-    const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
-    if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
-    if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
-    if (existing.archived_at) return res.status(409).json({ error: 'Игра находится в архиве. Сначала восстановите её.' });
-    const incomingProtocol = req.body?.protocol; const rawResults = req.body?.player_results;
-    if (!incomingProtocol || !Array.isArray(rawResults) || !isSupportedTableSize(rawResults.length)) return res.status(400).json({ error: 'В протоколе нет результатов всех игроков стола' });
-    const previous = safeJsonParse<any>(existing.protocol_text, null);
-    if (!previous || previous.kind !== 'club_evening_protocol' || previous.version !== 1) return res.status(400).json({ error: 'У игры отсутствует структурированный клубный протокол' });
-    const previousStatus: 'draft' | 'completed' = previous.protocol?.status === 'completed' ? 'completed' : 'draft';
-    const status: 'draft' | 'completed' = incomingProtocol.status === 'completed' ? 'completed' : 'draft';
-    const canonical = canonicalizeClubGameSave(previous, incomingProtocol, rawResults, status);
-    const winner = canonical.protocol.winner_team === 'red' ? 'Красные' : canonical.protocol.winner_team === 'black' ? 'Чёрные' : null;
-    const hasJudgePatch = Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_player_id') || Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_name');
-    const judge = hasJudgePatch ? await resolveJudgeAssignment(db, { judge_player_id: req.body?.judge_player_id ?? null, judge_name: req.body?.judge_name ?? null }) : { judge_player_id: existing.judge_player_id || null, judge_name: existing.judge_name || null };
-    if (judge.judge_player_id && canonical.playerResults.some((item: any) => item.player_id && String(item.player_id) === String(judge.judge_player_id))) return res.status(400).json({ error: 'Судья этой игры не может одновременно быть игроком' });
-    const now = new Date().toISOString();
-    const completedAt = status === 'completed' ? (previousStatus === 'completed' ? previous.protocol?.completed_at || now : now) : null;
-    const nextProtocol = { version: 1, kind: 'club_evening_protocol', protocol: { ...canonical.protocol, game_id: String(gameId), status, updated_at: now, completed_at: completedAt }, player_results: canonical.playerResults };
-    const settlementContext = status === 'completed' ? (previousStatus === 'completed' ? 'correction' : 'completion') : (previousStatus === 'completed' ? 'reopen' : 'correction');
-    await db.transaction(async (tx: any) => {
-      await tx.run(`UPDATE games SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ? WHERE id = ?`, [winner || 'draft', winner ? `Победа ${winner}` : 'Черновик', judge.judge_name, judge.judge_player_id, JSON.stringify(nextProtocol), JSON.stringify(clubSlotsFromResults(canonical.playerResults)), gameId]);
-      if (canonical.replayFrames !== undefined) await saveGameReplayFrames(tx, gameId, canonical.replayFrames);
-      await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: previousStatus !== 'completed' && status === 'completed', context: settlementContext });
-    });
-    const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameId]);
-    if (!row) throw new Error('Сохранённая игра не найдена после фиксации протокола');
-    await runClubGamePostSaveTasks(db, { gameId, previousStatus, status, playerIds: canonical.playerResults.map((item: any) => String(item.player_id || '')).filter(Boolean), judgePlayerId: judge.judge_player_id || null });
+    const row = await saveClubEveningProtocol(db, Number(req.params.gameId), req.body);
     return res.json(normalizeGame(row));
   } catch (err: any) {
     const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');
-    return res.status(400).json({ error: message });
+    // A refused save is how a finished live game loses data (game #20, 2026-10-23: the reason was nowhere to be found);
+    // the reason goes to the log with the game and the kind of save.
+    console.warn(`[PROTOCOL] save of game ${req.params.gameId} refused (${req.body?.protocol?.status === 'completed' ? 'completion' : 'draft'}): ${message}`);
+    return res.status(err instanceof ProtocolSaveError ? err.status : 400).json({ error: message });
   }
 });
 

@@ -97,6 +97,7 @@ The owner expects the assistant to **implement and finish the requested work**, 
 - **Progress messages are for substantive findings**, not repetitive “проверяю/жду”. Prefer one coherent, larger delivery per requested block rather than one trivial PR or one status message per changed file.
 - **For UI changes:** distinguish code implementation, automated preview, inspection of actual before/after screenshots, merge, and live verification. Report which happened and which did not; don't invent a screenshot or visual approval.
 - **When asked “всё готово?”**, verify current GitHub state first, and answer **yes or no in the first sentence**. Name unfinished items precisely and, if authorized, complete them rather than merely proposing the next action.
+- **Seats with nicknames (owner, 2026-10-27).** When describing a real game to the owner, write every seat number together with the player's nickname (and the role when it matters): «#3 Богданчик», not «#3». Read the roster from the game's protocol; never guess a name.
 - **When changing these instructions**, record the change in this canonical `AGENTS.md`. Avoid scattering competing behavior rules into separate docs; reference the existing §4a anti-stall and §6 CI rules rather than weakening them.
 
 **Compact completion template (Russian):** “**Статус: …**. Сделано: … . Проверки: … . GitHub: PR #… — открыт/смёржен (SHA …). Деплой: выполнен/не выполнен/не требуется. Осталось: … . Следующее действие — я/владелец: … .” Skip fields only if they genuinely do not apply.

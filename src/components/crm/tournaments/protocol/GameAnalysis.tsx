@@ -1,7 +1,7 @@
 import { circleTitle } from '../../gameProtocol/protocolReview';
 import { revealVersions } from '../../../../lib/revealStats';
 import React, { useMemo, useState } from 'react';
-import type { PlayerResultData } from '../../../../lib/api';
+import type { PlayerResultData, TournamentGameProtocolData } from '../../../../lib/api';
 import type { LiveGameEvent } from '../../../../shared/liveGameEvents';
 import { buildGameAnalysis, type AnalysisCircle } from '../../../../lib/liveGameAnalysis';
 import { ROLE_LABELS } from '../../../../lib/tournamentRoleValidation';
@@ -17,14 +17,15 @@ const EXIT_TEXT: Record<string, string> = {
 };
 const CHECK_TEXT: Record<string, string> = { sheriff: 'Шериф', not_sheriff: 'не Шериф', red: 'красный', black: 'чёрный', Красный: 'красный', Чёрный: 'чёрный' };
 
-// The same circle names as the protocol window (owner, 2026-10-26: «Нулевой день», «Девятка», …).
-const roundTitle = (round: number, events: LiveGameEvent[]) => circleTitle(Math.max(0, round - 1), { events } as any);
+// The same circle names as the protocol window (owner, 2026-10-26: «Нулевой круг», «Девятка», …).
+const roundTitle = (round: number, events: LiveGameEvent[], protocol?: Pick<TournamentGameProtocolData, 'votes' | 'shots'>) => circleTitle(Math.max(0, round - 1), { events, votes: protocol?.votes, shots: protocol?.shots });
 
 /**
  * «Разбор партии» (owner, 2026-10-04): the whole live game circle by circle — who nominated whom, every voting with the
- * voters, the shots and checks of the night, who left the game and how. Read-only; built from the engine chronology.
+ * voters, the shots and checks of the night, who left the game and how. Read-only; built from the engine chronology. An exit
+ * the corrected protocol does not have (game №20: a stray vote put №3 out, the protocol says he stayed) is marked as such.
  */
-export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: PlayerResultData[] }> = ({ events, playerResults }) => {
+export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: PlayerResultData[]; protocol?: Pick<TournamentGameProtocolData, 'votes' | 'shots'> }> = ({ events, playerResults, protocol }) => {
   const analysis = useMemo(() => buildGameAnalysis(events || []), [events]);
   const [openRound, setOpenRound] = useState<number | null>(null);
   const people = useMemo(() => new Map(playerResults.map((player) => [player.seat_number, player])), [playerResults]);
@@ -106,7 +107,7 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
         <div>
           <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Выбыли</div>
           <ul className="mt-1 space-y-0.5">
-            {circle.exits.map((item) => <li key={`${item.seat}-${item.reason}`}><b className="text-slate-100">{who(item.seat)}</b> — {EXIT_TEXT[item.reason] || item.reason}{roleOf(item.seat) ? ` (${roleOf(item.seat)})` : ''}</li>)}
+            {circle.exits.map((item) => <li key={`${item.seat}-${item.reason}`}><b className="text-slate-100">{who(item.seat)}</b> — {EXIT_TEXT[item.reason] || item.reason}{roleOf(item.seat) ? ` (${roleOf(item.seat)})` : ''}{people.get(item.seat)?.exit_type === 'alive' ? <span className="text-amber-300"> — по протоколу остался в игре</span> : null}</li>)}
             {circle.ppk.map((seat) => <li key={`ppk-${seat}`}><b className="text-slate-100">{who(seat)}</b> — ППК</li>)}
           </ul>
         </div>
@@ -135,7 +136,7 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
           <div key={circle.round} data-testid={`game-analysis-circle-${circle.round}`}>
             <button type="button" onClick={() => setOpenRound(open ? null : circle.round)} aria-expanded={open}
               className="flex w-full min-h-[44px] items-center justify-between gap-2 border-t border-slate-800 px-3 py-2 text-left text-xs font-bold text-slate-200">
-              <span>{roundTitle(circle.round, events || [])}</span>
+              <span>{roundTitle(circle.round, events || [], protocol)}</span>
               <span className="text-slate-400">{open ? 'Скрыть' : 'Открыть'}</span>
             </button>
             {open ? renderCircle(circle) : null}

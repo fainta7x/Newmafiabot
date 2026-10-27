@@ -173,6 +173,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [nominationsMap, setNominationsMap] = useState<Record<number, number>>({});
   const [votes, setVotes] = useState<Record<number, number>>({});
   const [votesByPlayer, setVotesByPlayer] = useState<Record<number, number>>({});
+  const [previousRoundVotes, setPreviousRoundVotes] = useState<LiveSnapshot['previousRoundVotes']>(null);
   const [currentVotingNomineeIndex, setCurrentVotingNomineeIndex] = useState(0);
   const [votingRounds, setVotingRounds] = useState<VotingRound[]>([]);
   const [activeVotingRoundIndex, setActiveVotingRoundIndex] = useState(0);
@@ -253,6 +254,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       votingFarewellIndex,
       zeroRoundRule,
       breakSpeechSlot,
+      previousRoundVotes,
       discipline,
     });
   };
@@ -308,6 +310,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     // A game saved before the setting existed ran the tournament rule; it goes on under it.
     setZeroRoundRule(isZeroRoundRule(restored.zeroRoundRule) ? restored.zeroRoundRule : 'tournament');
     setBreakSpeechSlot(restored.breakSpeechSlot ?? null);
+    setPreviousRoundVotes(restored.previousRoundVotes ?? null);
     setDiscipline(restored.discipline);
   };
 
@@ -419,7 +422,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, speechExtendedSlot, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
-    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, historyStack,
+    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, previousRoundVotes, historyStack,
     rosterJournalRevision,
   ]);
 
@@ -1012,6 +1015,30 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     showToast(`Попил #${low} и #${high}: голоса расставлены`, 'info');
   };
 
+  /**
+   * «Поделилось также» (owner, 2026-10-27): on a revote where nobody changed a vote, one tap repeats the previous round. Only
+   * offered when every player at the table voted for one of the revote's candidates, so the same hands give the same split.
+   */
+  const sameSplitAvailable = (() => {
+    const current = votingRounds[activeVotingRoundIndex];
+    if (phase !== 'day_voting' || votingStage !== 'collecting' || !current?.is_revote) return false;
+    if (!previousRoundVotes || previousRoundVotes.roundIndex !== activeVotingRoundIndex) return false;
+    const voters = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
+    return voters.length > 0 && voters.every((slot) => current.nominated_seats.includes(Number(previousRoundVotes.votes[slot])));
+  })();
+
+  const handleSameSplit = () => {
+    const current = votingRounds[activeVotingRoundIndex];
+    if (!current || !sameSplitAvailable || !previousRoundVotes) return;
+    const assignments = Object.fromEntries(activePlayers.filter((p) => p.alive)
+      .map((p) => [p.slot_num, Number(previousRoundVotes.votes[p.slot_num])])) as Record<number, number>;
+    saveSnapshot();
+    setVotesByPlayer(assignments);
+    updateCurrentRoundVotes(assignments);
+    setCurrentVotingNomineeIndex(current.nominated_seats.length - 1);
+    showToast('Поделилось также: голоса как в прошлом круге', 'info');
+  };
+
   const handleAllocateVotes = (nominee: number, desiredCount: number) => {
     const current = votingRounds[activeVotingRoundIndex];
     if (!current || !current.nominated_seats.includes(nominee)) return;
@@ -1230,6 +1257,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     child.round_number = votingRounds.length + 1;
     const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
     child.vote_counts = getExplicitVoteCounts(child.nominated_seats, {}, eligibleSeats);
+    setPreviousRoundVotes({ roundIndex: votingRounds.length, votes: { ...votesByPlayer } });
     setVotingRounds((previous) => [...previous, child]);
     setActiveVotingRoundIndex(votingRounds.length);
     setVotes(child.vote_counts);
@@ -1787,6 +1815,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleAllocateVotes,
       quickSplitAvailable,
       handleQuickSplit,
+      sameSplitAvailable,
+      handleSameSplit,
+      handleVoteToggle: handleInteractiveVoteToggle,
       handleResolveVoting,
       nightSubPhase,
       shotPlayerSlot,

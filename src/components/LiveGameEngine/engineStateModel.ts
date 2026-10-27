@@ -71,6 +71,8 @@ export type LiveSnapshot = {
   /** Optional for snapshots saved before the rule existed (they ran the tournament rule). */
   zeroRoundRule?: ZeroRoundRule;
   breakSpeechSlot?: number | null;
+  /** Who voted for whom in the round a revote follows («Поделилось также», owner 2026-10-27); absent in older sessions. */
+  previousRoundVotes?: { roundIndex: number; votes: Record<number, number> } | null;
   discipline: GameDiscipline;
 };
 
@@ -164,6 +166,7 @@ export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => {
     votingFarewellQueue: [...snapshot.votingFarewellQueue],
     discipline: jsonClone(snapshot.discipline),
   };
+  if (snapshot.previousRoundVotes !== undefined) cloned.previousRoundVotes = snapshot.previousRoundVotes ? jsonClone(snapshot.previousRoundVotes) : null;
 
   if (snapshot.reveals !== undefined) cloned.reveals = jsonClone(snapshot.reveals);
 

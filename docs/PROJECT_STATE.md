@@ -960,6 +960,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 - Новичкам больше не назначаются бесплатные посещения автоматически: подарок целого вечера отмечает организатор. Тариф указан в карточке вечера; запись и приглашения доступны, пока вечер открыт, в том числе после начала.
 - В живой игре после слома попила можно отметить, кто его сломал, или выбрать «Не знаю».
+- Судье: на переголосовании кнопка «Поделилось также» повторяет голоса прошлого круга одним нажатием; кнопка «Цифрами» открывает окно, где голоса вводятся по каждому кандидату цифрами, как лучший ход.
+- Названия кругов в протоколе: «Нулевой круг», «Восьмёрка после оставления при 8 и двух промахов»; после правки протокола названия следующих кругов пересчитываются.
 
 - Живая игра: перед стартом выбирается «Настройка игры» — клубная или турнирная (подставляется по типу вечера). В клубной игрок, в которого сломали попил в нулевом круге, остаётся за столом и получает 30 секунд дополнительной речи, без ЛХ.
 - «Сообщество» → «Мини-игры»: сюда переехал покер, а рядом появилась шуточная «Кровь на часовой башне» — комнаты, приглашения друзей и правила (самой игры в приложении нет).
@@ -1114,7 +1116,7 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
-- **Engine voting ideas (owner, 2026-10-27; APPROVED «да», Claude building):** (1) on the revote after a split, a one-tap option «Поделилось также» that copies the previous round's votes when nobody changed a vote and the split held, instead of entering every vote again; (2) as a second way to enter votes (the seat cards stay), a window like the best-move («ЛХ») entry: for each candidate in turn a window with seat numbers where the judge taps who voted for that candidate; players who already voted are dimmed and cannot be chosen in the next windows.
+- **Engine voting ideas (owner, 2026-10-27; APPROVED «да», built in PR #1054 — `handleSameSplit` in `LiveGameEngine.tsx`, `VoteByNumbersOverlay.tsx`):** (1) on the revote after a split, a one-tap option «Поделилось также» that copies the previous round's votes when nobody changed a vote and the split held, instead of entering every vote again; (2) as a second way to enter votes (the seat cards stay), a window like the best-move («ЛХ») entry: for each candidate in turn a window with seat numbers where the judge taps who voted for that candidate; players who already voted are dimmed and cannot be chosen in the next windows.
 
 - **Game №20 (2026-10-23) record:** the owner added the split by hand; the rest (misses, №3's stale note, completion) is a one-time correction in PR #1053 that runs on the first start after the deploy — to verify on production then. «Разбор партии» marks the stray exit of №3 Богданчик «по протоколу остался в игре»; the replay still shows the journal.
 

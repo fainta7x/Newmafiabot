@@ -8,6 +8,7 @@ import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../Judge
 
 const JUDGE_MUSIC_MENU_ENABLED = false;
 import type { ZeroNightMusicState } from "./engineStateModel.js";
+import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
 import {
@@ -65,6 +66,10 @@ interface CenterPanelProps {
   handleAllocateVotes: (nominee: number, count: number) => void;
   quickSplitAvailable?: boolean;
   handleQuickSplit?: (pair: [number, number]) => void;
+  sameSplitAvailable?: boolean;
+  handleSameSplit?: () => void;
+  /** The vote of one player for the candidate being counted (the seat cards and the numbers window). */
+  handleVoteToggle?: (voterSlot: number) => void;
   handleResolveVoting: () => void;
   nightSubPhase: NightSubPhase;
   shotPlayerSlot: number | null;
@@ -173,6 +178,9 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleUndoLastVote,
     quickSplitAvailable = false,
     handleQuickSplit,
+    sameSplitAvailable = false,
+    handleSameSplit,
+    handleVoteToggle,
     speechExtensionAvailability,
     onSpeechExtension,
     speechExtended = false,
@@ -214,6 +222,9 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
+  const [numbersOpen, setNumbersOpen] = React.useState(false);
+  // The numbers window belongs to one vote count: it closes when the count ends.
+  React.useEffect(() => { if (votingStage !== 'collecting') setNumbersOpen(false); }, [votingStage]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
@@ -665,6 +676,14 @@ export default function CenterPanel(props: CenterPanelProps) {
                 <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>
               )
             ) : null}
+            {handleVoteToggle ? (
+              <div className="live-judge-vote-shortcuts">
+                {sameSplitAvailable && handleSameSplit ? (
+                  <button type="button" data-testid="live-same-split" disabled={pendingVotingResolution} onClick={handleSameSplit} className="live-judge-action">Поделилось также</button>
+                ) : null}
+                <button type="button" data-testid="live-vote-numbers-open" disabled={pendingVotingResolution} onClick={() => setNumbersOpen(true)} className="live-judge-action">Цифрами</button>
+              </div>
+            ) : null}
             <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action" aria-label="Назад">←</button>
             {isLast ? (
               <button type="button" data-testid="live-voting-finalize" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
@@ -672,6 +691,22 @@ export default function CenterPanel(props: CenterPanelProps) {
               <button type="button" data-testid="live-voting-next" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
             )}
           </div>
+          {numbersOpen && handleVoteToggle ? (
+            <VoteByNumbersOverlay
+              nominees={currentRound.nominated_seats}
+              nomineeIndex={currentVotingNomineeIndex}
+              votesByPlayer={votesByPlayer}
+              voterSeats={eligibleVoterSeats}
+              tableSize={activePlayers.length}
+              nicknameOf={(seat) => activePlayers.find((player) => player.slot_num === seat)?.nickname || ''}
+              remaining={remaining}
+              busy={pendingVotingResolution}
+              onToggle={handleVoteToggle}
+              onSelectNominee={selectVotingNomineeIndex}
+              onFinish={() => { setNumbersOpen(false); finalizeVoting(); }}
+              onClose={() => setNumbersOpen(false)}
+            />
+          ) : null}
         </div>
       );
     }

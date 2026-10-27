@@ -522,3 +522,34 @@ html body .live-judge-breaker__seat[aria-pressed='true'] {
   background: rgba(245, 158, 11, 0.22);
   color: #fff3d6;
 }
+
+/* «Поделилось также» and «Цифрами» (owner, 2026-10-27): their own full-width row above «←» and «Следующий», so the primary
+   step keeps its width on a phone. */
+.evening-live-engine-shell .live-judge-vote-actions > .live-judge-vote-shortcuts {
+  order: 0;
+  display: flex;
+  flex: 1 1 100%;
+  gap: 6px;
+  width: 100%;
+}
+
+.evening-live-engine-shell .live-judge-vote-shortcuts > .live-judge-action {
+  min-width: 0;
+  min-height: 26px !important;
+  height: 26px;
+  flex: 1 1 0;
+  padding-inline: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* With the shortcut row the counters lose their spare height and the hint (covered by the bar anyway) is dropped, so the
+   counters stay fully visible on a phone. */
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(.live-judge-vote-shortcuts) > .live-judge-hud__hint {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(.live-judge-vote-shortcuts) > .live-judge-vote-summary .live-judge-stat {
+  min-height: 0 !important;
+  padding-block: 3px !important;
+}

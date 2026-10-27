@@ -22,13 +22,13 @@ const futureEvening = {
   starts_at: '2027-10-15T18:00:00+03:00', format: 'CASUAL', status: 'published',
 };
 
-function renderHome(eveningsFetch: () => Promise<Response>) {
+function renderHome(eveningsFetch: () => Promise<Response>, paymentsFetch = async () => response({ summary: { historical_debt: 0 } })) {
   vi.stubGlobal('fetch', vi.fn((input: string | URL) => {
     const url = String(input);
     if (url === '/api/player/evenings') return eveningsFetch();
     if (url === '/api/player/news') return Promise.resolve(response({ news: [] }));
     if (url === '/api/player/novice') return Promise.resolve(response({ player: null }));
-    if (url === '/api/player/payments') return Promise.resolve(response({ summary: { historical_debt: 0 } }));
+    if (url === '/api/player/payments') return paymentsFetch();
     if (url === '/api/rating') return Promise.resolve(response({ players: [] }));
     throw new Error(`Unexpected URL: ${url}`);
   }));
@@ -38,6 +38,7 @@ function renderHome(eveningsFetch: () => Promise<Response>) {
     onOpenEvents={onOpenEvents}
     onOpenGames={vi.fn()}
     onOpenRating={vi.fn()}
+    onOpenWallet={vi.fn()}
   />);
   return { onOpenEvents };
 }
@@ -49,6 +50,27 @@ afterEach(() => {
 });
 
 describe('Player Cabinet Главная — ближайший вечер, ошибки запроса', () => {
+  it('makes an unknown debt explicit and restores the confirmed amount through retry', async () => {
+    let tries = 0;
+    renderHome(async () => response({ evenings: [] }), async () => ++tries === 1 ? response({ error: 'Offline' }, 503) : response({ summary: { historical_debt: 350 } }));
+    const error = await screen.findByTestId('player-home-debt-error');
+    expect(error.textContent).toContain('Не удалось проверить долг');
+    expect(screen.queryByTestId('player-home-debt')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await waitFor(() => expect(screen.getByTestId('player-home-debt').textContent).toContain('350 ₽'));
+    expect(screen.queryByTestId('player-home-debt-error')).toBeNull();
+  });
+  it('shows a later personal reservation and exact game choices before the nearest general invitation', async () => {
+    const own = { ...futureEvening, id: 'mine', title: 'Мой вечер', starts_at: '2027-10-17T18:00:00+03:00', participation: { response_status: 'late', registration_status: 'waitlist', attendance_status: 'pending', slot_numbers: [1, 3] } };
+    const { onOpenEvents } = renderHome(async () => response({ evenings: [futureEvening, own] }));
+    await screen.findByText('Мой следующий вечер');
+    expect(screen.getByTestId('player-home-participation').textContent).toContain('Приду позже');
+    expect(screen.getByTestId('player-home-participation').textContent).toContain('В резерве');
+    expect(screen.getByTestId('player-home-participation').textContent).toContain('Выбраны игры: 1, 3');
+    expect(screen.queryByText('Игровая пятница')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Моя запись/ }));
+    expect(onOpenEvents).toHaveBeenCalledExactlyOnceWith('mine');
+  });
   it('replaces endless loading on HTTP failure with actionable retry, then restores the evening link', async () => {
     let count = 0;
     const { onOpenEvents } = renderHome(async () => {

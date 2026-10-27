@@ -130,7 +130,7 @@ const endReasonLabel = (reason: string) => {
 const exitLabel = (exit: string | null) => {
   if (exit === 'alive') return 'дожил до конца';
   if (exit === 'killed') return 'убит ночью';
-  if (exit === 'voted_zero_round') return 'заголосован в 0 круге';
+  if (exit === 'voted_zero_round') return 'заголосован в нулевом круге';
   if (exit === 'voted_day') return 'заголосован днём';
   if (exit === 'removed') return 'удалён';
   return null;

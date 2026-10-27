@@ -2,7 +2,7 @@ import { validateVotes } from '../../lib/protocolVotingValidation.ts';
 import { isZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { validateBestMoves as validateSharedBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../lib/protocolConsistency.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
-import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
+import { sanitizeBroadcastReplayFrames, type LiveBroadcastReplayFrame } from '../../lib/liveBroadcast.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { blackParticipantIds, withoutBlackBestMoves, withoutBlackLegacyBestMove } from './blackBestMoves.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
@@ -58,7 +58,8 @@ const normalizeCi = (value: number, eligible: boolean, ceiling: number): number 
   return Math.round(Math.min(ceiling, Math.max(0, value)) * 100) / 100;
 };
 
-export interface CanonicalClubGameSave { protocol: any; playerResults: any[]; }
+/** `replayFrames`: the live replay to keep in `game_replay_frames` (undefined: the save carried none, keep what is stored). */
+export interface CanonicalClubGameSave { protocol: any; playerResults: any[]; replayFrames?: LiveBroadcastReplayFrame[]; }
 
 export const canonicalizeClubGameSave = (
   previousPayload: any,
@@ -152,7 +153,7 @@ export const canonicalizeClubGameSave = (
   if (status === 'completed') {
     // The same consistency the tournament protocol demands: one player cannot be both, a ЛХ belongs to its source player,
     // and there is at most one ЛХ per source.
-    if (firstKilledId && firstKilledId === zeroRoundId) throw new Error('Первый убитый и заголосованный в нулевой круг не могут быть одним игроком');
+    if (firstKilledId && firstKilledId === zeroRoundId) throw new Error('Первый убитый и заголосованный в нулевом круге не могут быть одним игроком');
     const moves: any[] = Array.isArray(incomingProtocol?.best_moves) ? incomingProtocol.best_moves : [];
     if (moves.length > 2) throw new Error('Лучший ход: в игре не может быть больше двух');
     const sources = new Set<string>();
@@ -161,7 +162,7 @@ export const canonicalizeClubGameSave = (
       if (sources.has(source)) throw new Error('Лучший ход: два хода от одного источника');
       sources.add(source);
       const owner = source === 'first_killed' ? firstKilledId : zeroRoundId;
-      if (!owner || String(move?.participant_id || '') !== owner) throw new Error('Лучший ход: игрок не совпадает с первым убитым / заголосованным в нулевой круг');
+      if (!owner || String(move?.participant_id || '') !== owner) throw new Error('Лучший ход: игрок не совпадает с первым убитым / заголосованным в нулевом круге');
     }
   }
   // The chronology of the live game rides along with the protocol; manual saves that carry none keep the stored one.
@@ -189,9 +190,14 @@ export const canonicalizeClubGameSave = (
     if (voteError) throw new Error(voteError);
   }
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
-  const replay_frames = sanitizeBroadcastReplayFrames(incomingProtocol?.replay_frames ?? previousPayload?.protocol?.replay_frames);
+  // The replay frames are kept in `game_replay_frames`, not in the protocol (owner, 2026-10-27). A save that carries them
+  // (the end of a live game) replaces them; a protocol saved before the move hands its own over; otherwise — and when the list
+  // is empty (a repeated live save after the device forgot its frames) — they stay as stored.
+  const sentFrames = sanitizeBroadcastReplayFrames(incomingProtocol?.replay_frames ?? previousPayload?.protocol?.replay_frames);
+  const replayFrames = sentFrames.length ? sentFrames : undefined;
   const blackIds = blackParticipantIds(playerResults);
-  const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, zero_round_rule: zeroRoundRule, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, replay_frames, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
-  return { protocol, playerResults };
+  const { replay_frames: _sentFrames, ...protocolFields } = incomingProtocol || {};
+  const protocol = withoutBlackLegacyBestMove({ ...protocolFields, zero_round_rule: zeroRoundRule, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
+  return { protocol, playerResults, replayFrames };
 };
 

@@ -1,4 +1,5 @@
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 import bot_menu
@@ -21,6 +22,8 @@ _PLAYER_LEGACY_TEXTS = {
     "⚖ Судейство",
     "/shop",
     "✏️ Редактировать",
+    # 2026-10-26: these read the bot's own legacy file (`mafia_crm.db`, Elo 1500 by default), not the club's data.
+    "🧾 Список игроков в записи",
 }
 
 _ADMIN_LEGACY_TEXTS = {
@@ -81,6 +84,8 @@ _PLAYER_LEGACY_CALLBACK_PREFIXES = (
     "edit_back_to_slots",
     "edit_back_to_menu",
     "edit_close",
+    "search_player",
+    "view_profile:",
 )
 
 _ADMIN_LEGACY_CALLBACK_PREFIXES = (
@@ -170,6 +175,12 @@ async def _send_admin_crm(message: Message) -> None:
         "Эта кнопка устарела. Кабинет организатора — в «📋 Меню» → «🛠 Организатору» или по команде /crm.",
         reply_markup=bot_menu.main_menu_for_user(),
     )
+
+
+@router.message(Command("profile"), F.chat.type == "private")
+async def retire_legacy_profile_command(message: Message):
+    # The old /profile showed Elo and statistics from the bot's legacy file, not the club's real numbers (2026-10-26).
+    await _send_player_app(message)
 
 
 @router.message(F.text.in_(_PLAYER_LEGACY_TEXTS), F.chat.type == "private")

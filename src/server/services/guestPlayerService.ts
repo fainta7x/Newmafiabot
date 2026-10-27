@@ -23,7 +23,7 @@ export const serializeGuestPlaceholder = (row: any) => ({
   id: String(row.id),
   player_id: null,
   guest_placeholder_id: String(row.id),
-  nickname: String(row.display_name || '').trim() || 'Гость',
+  nickname: String(row.display_name || '').trim() || 'Гость без профиля',
   full_name: null,
   phone: row.contact_kind === 'phone' ? (row.contact_value || null) : null,
   telegram_username: null,
@@ -51,7 +51,7 @@ export async function syncGuestCompanions(db: DatabaseWrapper, hostId: string) {
   const want = normalizeGuestPlus(host.plus_count);
   const companions = await db.all<any>('SELECT * FROM guest_player_placeholders WHERE companion_of = ? AND replaced_at IS NULL ORDER BY created_at ASC, id ASC', [hostId]);
   const now = new Date().toISOString();
-  const hostName = String(host.display_name || '').trim() || 'Гость';
+  const hostName = String(host.display_name || '').trim() || 'Гость без профиля';
   const due = Math.max(0, Number(host.amount_due || 0));
   const kept = [...companions];
   while (kept.length < want) {
@@ -126,7 +126,7 @@ export async function createGuestPlaceholder(db: DatabaseWrapper, input: {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const cleanContact = normalizeGuestContact(input.contactKind, input.contactValue);
-  const displayName = String(input.displayName || '').trim() || 'Гость';
+  const displayName = String(input.displayName || '').trim() || 'Гость без профиля';
   const responseStatus = ['going', 'late', 'thinking', 'declined', 'unanswered'].includes(String(input.responseStatus)) ? String(input.responseStatus) : 'unanswered';
   const due = Math.max(0, Number(input.amountDue ?? evening.default_price ?? 0));
   const paid = Math.max(0, Number(input.amountPaid ?? 0));

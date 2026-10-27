@@ -202,16 +202,19 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
 
   let posted = 0;
   await part('game_blanks', async () => { for (const evening of evenings) {
+    // Only the two fields that say «a completed club game» are read: parsing the whole protocol (with its replay frames,
+    // ~1.4 MB a game) every minute was most of this scan's ~1.5 s of synchronous work (2026-10-26).
     const games = await db.all<any>(`
-      SELECT g.id, g.protocol_text FROM games g
+      SELECT g.id,
+             CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.kind') END AS protocol_kind,
+             CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.protocol.status') END AS protocol_status
+        FROM games g
        WHERE g.evening_id = ? AND g.archived_at IS NULL
          AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'game:' || g.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
        ORDER BY g.global_game_number, g.id
     `, [evening.id]);
     for (const game of games) {
-      let envelope: any = null;
-      try { envelope = JSON.parse(String(game.protocol_text || '')); } catch { envelope = null; }
-      if (!isCompletedClubGame(envelope)) continue;
+      if (!isCompletedClubGame({ kind: game.protocol_kind, protocol: { status: game.protocol_status } })) continue;
       if (await postGameBlank(db, String(game.id), evening.format, String(evening.id), fetchImpl)) posted += 1;
     }
   } });

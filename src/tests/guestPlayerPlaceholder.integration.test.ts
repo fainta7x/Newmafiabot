@@ -60,7 +60,7 @@ describe('GUEST-PLAYER-001 placeholder lifecycle', () => {
     });
 
     expect(guest).toMatchObject({
-      nickname: 'Гость',
+      nickname: 'Гость без профиля',
       player_id: null,
       elo: null,
       is_guest: true,

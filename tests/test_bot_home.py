@@ -450,3 +450,12 @@ def test_fallback_faq_defers_tariffs_to_the_evening_and_only_promises_explicit_g
     assert "100 ₽" not in price and "400 ₽" not in price
     assert "бесплатные вечера" not in payment
     assert "организатор не подарил участие" in payment
+
+
+def test_legacy_profile_reads_are_retired():
+    # 2026-10-26: /profile, «Список игроков в записи» and the player search read the bot's legacy file (Elo 1500).
+    from handlers import legacy_retired_actions as retired
+    assert "🧾 Список игроков в записи" in retired._PLAYER_LEGACY_TEXTS
+    assert "search_player" in retired._PLAYER_LEGACY_CALLBACK_PREFIXES
+    assert "view_profile:" in retired._PLAYER_LEGACY_CALLBACK_PREFIXES
+    assert callable(retired.retire_legacy_profile_command)

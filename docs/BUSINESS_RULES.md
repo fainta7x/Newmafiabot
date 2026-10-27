@@ -11,6 +11,16 @@ If implementation/tests conflict with this document, stop and investigate the co
 - **«Подняли в нуле»** — игрок, которого после двойного переголосования в нулевом круге вывели из игры вместе с ещё одним игроком. Это НЕ значит, что игрока оставили за столом. Считать только подтверждённое двойное выбытие.
 - Это отдельные факты, не замены «Первым убит» или «Лучший ход».
 
+
+## Player cabinet continuity (owner, 2026-10-26)
+
+The global review is approved except the proposal to relabel/restructure ratings: existing rating meanings, labels, scoring and grouping stay as they are. Navigation restoration may preserve their selected view without changing those meanings.
+
+Home prioritizes the earliest upcoming evening with the player's going/late response or non-declined waitlist booking; otherwise a thinking response, then the nearest non-declined invitation, then a declined evening whose answer can be changed. Active evenings keep their existing live surface. Show actual RSVP, confirmed/waitlist status and exact selected slot numbers; missing individual choices do not imply fabricated game selections or confirmed admission. The personal evening card precedes general reminders; onboarding remains before it.
+
+An unknown payment summary must be distinguishable from confirmed zero and offer retry. A failed refresh may show only a clearly identified last confirmed amount. Closing a draft protocol requires confirmation that all current edits were saved; failed or superseded saves leave the editor and edits open.
+
+
 ## Authority
 
 ### Seasonal compendium / cosmetics (owner revision, 2026-10-14)
@@ -278,7 +288,13 @@ Do not collapse these into one generic “out” status when the distinction is 
 
 Wording for how a player leaves the game (user-approved 2026-09-24): texts for players and organizers use only **«заголосован»** (voted out in the day) and **«убит»** (killed at night), plus **«удалён»** (removed by the judge) and **ППК**. Vague words that mix these up — «убрали», «выгнали», «покинул стол», «выбыл» — are not used. When the reason is unknown, the neutral label is «Вне игры».
 
+## A player without an account (owner, 2026-10-26)
+
+A person at the table who has no profile in the app is «Гость без профиля» everywhere: the add-person tab, the roster row (was «Гость-лид»), the seat repair, the closeout search, the protocol («Заменить гостя без профиля на игрока клуба») and the name shown when the judge gave none. The seat grid of game creation, where space is tight, marks such a seat «без профиля». Friends a player brings («+1 гость»), the event setting «Разрешить гостя +1» and a judge from outside the club are different things and keep their own words.
+
 ## Names of the circles (owner, 2026-10-26)
+
+A player voted out on the zero day is «Заголосован в нулевом круге» on every screen and in every message (owner, 2026-10-26; replaces «в 0 круге», «в нулевой круг», «(0 круг)», «в нуле»). A player voted out later is just «Заголосован».
 
 Circles are named by how many players sit at the table, not by day numbers. Use these words in the app, the game blank, reports and chats.
 

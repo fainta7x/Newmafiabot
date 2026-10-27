@@ -5,6 +5,8 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import { skipGatheredPost } from '../server/services/eveningGatheredPostService.ts';
+import { loadGameReplayFrames } from '../server/services/gameReplayFramesStore.ts';
+import { moveReplayFramesOutOfProtocols } from '../server/dataMigrations/moveReplayFramesOutOfProtocols.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -34,27 +36,54 @@ async function setup(format: 'NOVICE' | 'CASUAL') {
   return { db, app, create, save };
 }
 
+const frame = (at: string) => ({ at, state: { version: LIVE_BROADCAST_VERSION, players: [], nominations: [] } });
+const storedProtocol = async (db: DatabaseWrapper, id: number) => JSON.parse((await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [id])).protocol_text);
+const putFramesInProtocol = async (db: DatabaseWrapper, id: number, frames: unknown[]) => {
+  const stored = await storedProtocol(db, id);
+  stored.protocol.replay_frames = frames;
+  await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(stored), id]);
+};
+
 // 2026-10-26: the protocol window hung on a phone — every autosave answered ~3 MB and the games list ~23 MB, because the
-// recorded broadcast frames (only the replay needs them, from the database) travelled with every response.
-describe('games API leaves out the replay frames', () => {
-  it('lists and saves without the frames, and a save without frames keeps the stored ones', async () => {
+// recorded broadcast frames (only the replay needs them) travelled with every response. 2026-10-27 (owner «да»): the frames
+// left `protocol_text` for their own table, so no reader of a protocol carries them any more.
+describe('replay frames live outside the protocol', () => {
+  it('lists and saves without the frames; a save with frames keeps them in the table, a save without keeps the stored ones', async () => {
     const { db, app, create, save } = await setup('CASUAL');
     const created = await create(10);
-    const frame = { at: '2026-10-26T12:00:00Z', state: { version: LIVE_BROADCAST_VERSION, players: [], nominations: [] } };
-    const stored = JSON.parse((await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [created.body.id])).protocol_text);
-    stored.protocol.replay_frames = [frame, frame];
-    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(stored), created.body.id]);
-
     const list = await request(app).get('/api/games?archived=0').set('Cookie', cookie());
     const listed = list.body.find((game: any) => game.id === created.body.id);
     expect(listed.club_protocol.protocol.replay_frames).toBeUndefined();
     expect(listed.protocol_text).toBeUndefined();
 
+    const withFrames = await save(listed, { ...listed.club_protocol.protocol, replay_frames: [frame('2026-10-26T12:00:00Z'), { junk: true }] });
+    expect(withFrames.status).toBe(200);
+    expect(withFrames.body.club_protocol.protocol.replay_frames).toBeUndefined();
+    expect((await storedProtocol(db, created.body.id)).protocol.replay_frames).toBeUndefined();
+    expect(await loadGameReplayFrames(db, created.body.id)).toHaveLength(1);
+
     const saved = await save(listed, { ...listed.club_protocol.protocol, judge_notes: 'заметка' });
     expect(saved.status).toBe(200);
-    expect(saved.body.club_protocol.protocol.replay_frames).toBeUndefined();
-    const after = JSON.parse((await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [created.body.id])).protocol_text);
-    expect(after.protocol.judge_notes).toBe('заметка');
-    expect(after.protocol.replay_frames).toHaveLength(2);
+    expect((await storedProtocol(db, created.body.id)).protocol.judge_notes).toBe('заметка');
+    expect(await loadGameReplayFrames(db, created.body.id)).toHaveLength(1);
+    // a repeated live save from a device that already forgot its frames does not erase the recorded replay
+    expect((await save(listed, { ...listed.club_protocol.protocol, replay_frames: [] })).status).toBe(200);
+    expect(await loadGameReplayFrames(db, created.body.id)).toHaveLength(1);
+  });
+
+  it('a game saved before the move is read from its protocol, and the startup move takes the frames out once', async () => {
+    const { db, create } = await setup('CASUAL');
+    const created = await create(10);
+    await putFramesInProtocol(db, created.body.id, [frame('2026-10-26T12:00:00Z'), frame('2026-10-26T12:00:10Z')]);
+    const before = await storedProtocol(db, created.body.id);
+    expect(await loadGameReplayFrames(db, created.body.id, before.protocol.replay_frames)).toHaveLength(2);
+
+    expect(await moveReplayFramesOutOfProtocols(db)).toEqual({ applied: true, moved: 1 });
+    const after = await storedProtocol(db, created.body.id);
+    expect(after.protocol.replay_frames).toBeUndefined();
+    expect({ ...after.protocol }).toEqual(Object.fromEntries(Object.entries(before.protocol).filter(([key]) => key !== 'replay_frames')));
+    expect(after.player_results).toEqual(before.player_results);
+    expect(await loadGameReplayFrames(db, created.body.id, after.protocol.replay_frames)).toHaveLength(2);
+    expect(await moveReplayFramesOutOfProtocols(db)).toEqual({ applied: false, moved: 0 });
   });
 });

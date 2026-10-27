@@ -23,7 +23,7 @@ describe('«Сообщество»: the «Мини-игры» tab', () => {
     // Nothing is buried under the lists any more.
     expect(screen.queryByTestId('player-club-poker')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Мини-игры' }));
-    expect(onOpen).toHaveBeenCalledWith('club');
+    expect(onOpen).toHaveBeenCalledWith('club', 'games');
     expect(screen.getByTestId('player-minigames').textContent).toContain('Покер');
     fireEvent.click(screen.getByTestId('player-club-clocktower'));
     expect(tower).toHaveBeenCalledTimes(1);
@@ -31,8 +31,8 @@ describe('«Сообщество»: the «Мини-игры» tab', () => {
     expect(poker).toHaveBeenCalledTimes(1);
     unmount();
 
-    // Leaving the game goes to /player/club: the tab the person came from is open again, not «Игроки».
-    render(<PlayerCommunityHub data={data} section="club" onOpen={onOpen} onOpenPoker={poker} onOpenClocktower={tower} />);
+    // Leaving the game opens /player/club with the «games» target (the cabinet's exit), so the tab is open again, not «Игроки».
+    render(<PlayerCommunityHub data={data} section="club" target="games" onOpen={onOpen} onOpenPoker={poker} onOpenClocktower={tower} />);
     expect(screen.getByTestId('player-minigames')).toBeTruthy();
     cleanup();
     render(<PlayerCommunityHub data={data} section="club" onOpen={onOpen} />);

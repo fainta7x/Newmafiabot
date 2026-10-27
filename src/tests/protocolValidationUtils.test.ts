@@ -101,7 +101,7 @@ describe('protocol voting completion validation', () => {
       votes,
       [player('p-3', 3, 'voted_zero_round')],
       'other-player',
-    ).errorMsg).toBe('Игрок в поле "Заголосованный в нулевой круг" должен совпадать с выбывшим игроком #3.');
+    ).errorMsg).toBe('Игрок в поле "Заголосованный в нулевом круге" должен совпадать с выбывшим игроком #3.');
   });
 });
 

@@ -4,14 +4,16 @@
 
 Owner asks to continue page analysis in parallel with pending settings checks. Baseline main de7e99f; source and runtime-mount review only, no new phone walkthrough, tests or production reads/writes. Full examples, evidence and acceptance proposals: `UX_RESULT_FLOW_REVIEW_2026-10-27.md`.
 
-- [open, F01] `PlayerGameDetail.tsx` / `PlayerEveningsHub.tsx`: fixed «К играм» label contradicts the preserved recap return destination.
-- [open, F02] `PlayerGameDetail.tsx` / `PlayerHistoryStatsView.tsx`: detail GET error has no retry action.
-- [open, F03] `PlayerReplayScreen.tsx`: Replay and speech GET failures have no independent retry.
-- [open, F04] `App.tsx` / `PlayerGameDetail.tsx`: opening Replay unmounts the protocol's uncontrolled details; return recreates closed disclosures. Scroll restoration remains unverified.
-- [open, F05] `PlayerReplayScreen.tsx`: continuous-listening wording exceeds independent audio controls; no sequential playback handler.
+- [fixed in code, F01] `PlayerGameDetail.tsx` / `PlayerEveningsHub.tsx`: fixed «К играм» label contradicts the preserved recap return destination.
+- [fixed in code, F02] `PlayerGameDetail.tsx` / `PlayerHistoryStatsView.tsx`: detail GET error has no retry action.
+- [fixed in code, F03] `PlayerReplayScreen.tsx`: Replay and speech GET failures have no independent retry.
+- [fixed in code, F04] `App.tsx` / `PlayerGameDetail.tsx`: opening Replay unmounts the protocol's uncontrolled details; return recreates closed disclosures. Scroll restoration remains unverified.
+- [fixed in code, F05] `PlayerReplayScreen.tsx`: continuous-listening wording exceeds independent audio controls; no sequential playback handler.
 - [open, F06] `PlayerRatingHub.tsx`: sole mounted PlayerRatingPeriods omits onOpenGame, so its implemented protocol link never renders. Preserve period/player context when wiring it.
 - [open, F07] `playerReplayRoutes.ts`: no recognized analysis facts yields a statement about absent turning points, instead of explaining the limited record.
 - [open, F08] `PlayerStoriesPanel.tsx`: match summary knows gameKey but has no canonical protocol action.
+
+Implementation F01–F05: same-game/result/replay/speech GET retry, accurate Back/audio labels, and protocol disclosure/scroll restoration through the original history entry. Window-only scroll was insufficient: the phone fixture scrolls #root, so the snapshot also restores ancestor scroll positions.22 distinct focused tests in four files pass; the affected13 were rerun after this correction. Browser checks at360/390 use a genuinely nonzero scroll offset and native Back; same protocol/player disclosures and scroll positions return, and clips retry retains the selected replay step. Three390px before/after pairs plus two restored-view screenshots inspected. Evidence: `reviews/2026-10-27-result-replay-flow/README.md`. Exact-head CI pending at authoring; F06–F08 remain open.
 
 Existing #1060 actual recap numbers, archive search and #1059 replay chapters are confirmed present; do not propose them again. No domain/scoring defect is established by this navigation review.
 

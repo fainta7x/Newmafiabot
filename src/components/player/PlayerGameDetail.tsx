@@ -1,9 +1,10 @@
+import { restoreGameProtocolView } from '../../lib/gameProtocolView.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
 import { playerActionMetrics } from '../../lib/gameActionFacts.ts';
 import type { LiveGameEvent } from '../../shared/liveGameEvents.ts';
 import { getGameRoleDefinition, UNKNOWN_GAME_ROLE_LABEL } from '../../shared/gameRoles.ts';
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
@@ -198,13 +199,19 @@ export default function PlayerGameDetail({
   error,
   selfId,
   onBack,
+  onRetry,
 }: {
   detail: PlayerGameDetailData | null;
   loading: boolean;
   error: string | null;
   selfId: string;
   onBack: () => void;
+  onRetry?: () => void;
 }) {
+  const sheet = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (detail) return restoreGameProtocolView(detail.game.id, sheet.current);
+  }, [detail?.game.id]);
   const seatPlayer = (seat: number) => detail?.players.find((player) => player.seat_number === seat) || null;
   const seatLabel = (seat: number) => { const player = seatPlayer(seat); return player ? `#${seat} ${player.nickname}` : `#${seat}`; };
   const me = detail ? detail.players.find((player) => player.player_id && player.player_id === selfId) || null : null;
@@ -313,13 +320,13 @@ export default function PlayerGameDetail({
 
   return (
     <>
-      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-lg bg-white/[0.05] px-3 text-xs text-white/65">← К играм</button>
+      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-lg bg-white/[0.05] px-3 text-xs text-white/65">← Назад</button>
 
       {loading && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игры…</p>}
-      {error && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/55">{error}</p>}
+      {error && <div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/65"><p>{error}</p>{onRetry && <button type="button" onClick={onRetry} className="ds-focus-ring min-h-11 w-full rounded-xl border border-white/15 bg-white/[.06] px-3 font-semibold">Повторить</button>}</div>}
 
       {detail && (
-        <article data-testid="game-score-sheet" className="min-w-0 overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(145deg,rgba(244,63,94,.09),transparent_38%,rgba(139,92,246,.08))]">
+        <article ref={sheet} data-testid="game-score-sheet" className="min-w-0 overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(145deg,rgba(244,63,94,.09),transparent_38%,rgba(139,92,246,.08))]">
           <section className="border-b border-white/10 px-3 py-3" data-testid="game-hero">
             <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[.18em] text-white/40"><span>2LA NOIRE</span><span>Итоговый бланк · №{detail.game.game_number}</span></div>
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

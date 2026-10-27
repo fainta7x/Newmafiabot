@@ -1,3 +1,4 @@
+import { rememberGameProtocolView } from '../../lib/gameProtocolView.ts';
 import { formatMoscowDate } from '../../lib/moscowDate.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -123,14 +124,15 @@ export default function PlayerGamesArchive({
               loading={gameDetailLoading}
               error={gameDetailError}
               selfId={data.player.id}
+              onRetry={() => void openGame(selectedGameKey)}
               onBack={() => {
                 // A detail opened inside the app has its own history entry: step back instead of pushing a list entry on top.
                 if (openedInApp.current || window.history.state?.gameReturn) { window.history.back(); return; }
                 closeGame(); onGameChange?.(null);
               }}
             />
-            {selectedGameKey.startsWith('club:') ? (
-              <button type="button" onClick={() => { window.history.pushState({ replayFromProtocol: true }, '', `/player/replay/${encodeURIComponent(selectedGameKey)}`); window.dispatchEvent(new PopStateEvent('popstate')); }} data-track="game-open-replay" className="flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-semibold text-sky-200/80">Replay игры ›</button>
+            {selectedGameDetail && !gameDetailLoading && !gameDetailError && selectedGameKey.startsWith('club:') ? (
+              <button type="button" onClick={() => { rememberGameProtocolView(selectedGameKey); window.history.pushState({ replayFromProtocol: true }, '', `/player/replay/${encodeURIComponent(selectedGameKey)}`); window.dispatchEvent(new PopStateEvent('popstate')); }} data-track="game-open-replay" className="flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-semibold text-sky-200/80">Replay игры ›</button>
             ) : null}
           </>
         ) : (

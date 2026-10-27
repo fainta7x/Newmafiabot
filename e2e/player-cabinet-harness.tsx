@@ -1,19 +1,3 @@
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/styles/telegram-viewport.css';
-import '../src/releasePolish.css';
-import '../src/components/crm/liveGameJudge.css';
-import '../src/components/crm/liveGameDesktopParity.css';
-import '../src/components/crm/liveGameCabinetShell.css';
-import '../src/components/crm/liveGameSeatCabinet.css';
-import '../src/components/crm/liveGameActionPriority.css';
-import '../src/components/crm/liveGameNightReadability.css';
-import '../src/components/crm/liveGameRecoveryPolish.css';
-import '../src/components/crm/liveGameDeathProtocolCabinet.css';
-import '../src/components/crm/liveGameTelegram.css';
-import '../src/components/crm/liveGameMobileCenterPriority.css';
-import '../src/components/crm/liveGameUrgentResume.css';
-import '../src/components/public/liveBroadcastCompact.css';
 import App from '../src/App.tsx';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice } from '../src/lib/eveningPrices.ts';
 import { clubStoriesFixture } from './club-connection-stories.fixture.ts';
@@ -23,6 +7,7 @@ import { parsePlayerRoute, playerPathForSection } from '../src/lib/appNavigation
 import PlayerCabinetShell from '../src/components/player/PlayerCabinetShell.tsx';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import type { PlayerMeResponse } from '../src/types/player.ts';
+import './appStyles.ts';
 
 const data: PlayerMeResponse = {
  player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: 100, game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },

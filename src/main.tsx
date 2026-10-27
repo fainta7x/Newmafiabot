@@ -25,7 +25,6 @@ import "./components/crm/liveGameDeathProtocolCabinet.css";
 import "./components/crm/liveGameTelegram.css";
 // Final mobile seat/HUD geometry owner: match the judge trainer in the actual game.
 import "./components/crm/liveGameMobileCenterPriority.css";
-import "./components/crm/liveGameUrgentResume.css";
 import "./components/public/liveBroadcastCompact.css";
 
 initializeTelegramWebAppViewport();

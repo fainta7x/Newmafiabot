@@ -4,9 +4,7 @@ import BeforeWeek from './fixtures/WeekEventsPanel.before.tsx';
 import Answers from '../src/components/crm/EveningGameRegistrationDashboard.tsx';
 import BeforeAnswers from './fixtures/EveningGameRegistrationDashboard.before.tsx';
 import { api } from '../src/lib/api.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 // Same isolated fixture and component props for before/after. No network or real response writes.
 const now = Date.parse('2026-10-16T12:00:00Z');

@@ -6,9 +6,7 @@ import PlayerGameDetail, { type PlayerGameDetailData } from '../src/components/p
 import PlayerEveningSummaries from '../src/components/player/PlayerEveningSummaries.tsx';
 import BeforeEveningSummaries from './fixtures/PlayerEveningSummaries.before.tsx';
 import BeforeGameDetail from './fixtures/PlayerGameDetail.before.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const score = (total: number, extra: Record<string, number> = {}) => ({ win_point: 0, judge_bonus: 0, protocol_bonus: 0, ci_points: 0, best_move_points: 0, disciplinary_penalty_points: 0, total_points: total, ...extra });
 const names = ['Богданчик', 'Алоэ', 'Дина', 'Знак с очень длинным ником игрока', 'Дон Эль', 'Тень', 'Маша', 'Игорь', 'Вера', 'Чагин'];

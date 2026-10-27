@@ -1,10 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import CenterPanel from '../src/components/LiveGameEngine/CenterPanel.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/components/crm/liveGameJudge.css';
-import '../src/components/crm/liveGameCabinetShell.css';
-import '../src/components/crm/liveGameTelegram.css';
+import './appStyles.ts';
 
 const players = Array.from({ length: 10 }, (_, index) => ({
   slot_num: index + 1,

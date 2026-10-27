@@ -1,8 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import PlayerGoMafiaLink from '../src/components/player/PlayerGoMafiaLink.tsx';
 import career from '../src/tests/fixtures/gomafia/chagin-career.json';
-import '../src/index.css';
-import '../src/styles/design-system.css';
+import './appStyles.ts';
 const link = { external_player_id:'1202',profile_url:'https://gomafia.pro/stats/1202',status:'verified',updated_at:career.retrievedAt };
 globalThis.fetch = async input => {
   const path=String(input);

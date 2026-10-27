@@ -1900,7 +1900,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     ? ''
     : activePlayers.find((player) => player.slot_num === activeBestMoveSlot)?.nickname || 'Игрок';
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
+    <div data-phase={phase} className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
       <LiveGameHotkeyLayer
         cursor={hotkeys.cursor}
         cursorName={hotkeys.cursor === null ? '' : activePlayers.find((player) => player.slot_num === hotkeys.cursor)?.nickname || ''}

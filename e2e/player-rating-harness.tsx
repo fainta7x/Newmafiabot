@@ -1,8 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import PlayerRatingTable from '../src/components/player/PlayerRatingTable.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const PLAYERS = [
   { place: 1, player_id: 'p3', nickname: 'Матроскина', elo: 1724, avatar_url: null },

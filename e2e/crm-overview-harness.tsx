@@ -1,8 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import OrganizerCommandCenter from '../src/components/crm/OrganizerCommandCenter.tsx';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 import '../src/components/crm/crmOverviewCanonical.css';
 
 const startsAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();

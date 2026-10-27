@@ -180,7 +180,8 @@ describe('owner score-sheet detail', () => {
     expect(screen.getByTestId('game-personal-stats').textContent).toContain('100%');
     expect(screen.getByTestId('game-personal-stats').textContent).toContain('1 из 1 в чёрных');
     expect(screen.getByLabelText('Кто в кого голосовал').textContent).toContain('#2 Алоэ');
-    const don=screen.getByTestId('game-player-5').querySelector('summary [style]');
+    // the role chip's colour (the nickname before it carries FitText's own inline size)
+    const don=[...screen.getByTestId('game-player-5').querySelectorAll('summary [style]')].find((node)=>/rgb\(/.test(node.getAttribute('style')||''));
     expect(don?.getAttribute('style')).toContain('rgb(167, 139, 250)');
   });
   it('keeps accuracy unavailable for historical aggregate-only protocols', () => {

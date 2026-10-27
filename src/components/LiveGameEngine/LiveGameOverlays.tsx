@@ -313,7 +313,12 @@ export function LiveGameToast({ toast }: { toast: { message: string; type: "erro
       return;
     }
 
-    const findTarget = () => document.querySelector<HTMLElement>('[data-testid="live-events-feedback"]');
+    // On a short phone the events panel stays in place but is not drawn (its tools are in the top bar): a message written
+    // into it would be invisible, so it then shows as the floating toast instead (2026-10-27).
+    const findTarget = () => {
+      const target = document.querySelector<HTMLElement>('[data-testid="live-events-feedback"]');
+      return target && window.getComputedStyle(target).visibility === 'visible' ? target : null;
+    };
     const immediateTarget = findTarget();
     if (immediateTarget) {
       setFeedbackTarget(immediateTarget);
@@ -357,7 +362,7 @@ export function LiveGameToast({ toast }: { toast: { message: string; type: "erro
       : toast.type === 'success'
         ? 'border-emerald-200/14 bg-emerald-300/[0.10] text-emerald-50/82'
         : 'border-white/10 bg-[#15161a] text-white/68';
-  return <div className={`fixed bottom-4 right-4 z-[130] rounded-2xl border px-4 py-2.5 text-xs font-semibold shadow-[0_16px_48px_rgba(0,0,0,0.42)] ${tone}`}>{toast.message}</div>;
+  return <div role="status" aria-live="polite" data-testid="live-game-floating-toast" className={`fixed bottom-4 right-4 z-[130] max-w-[calc(100vw-2rem)] rounded-2xl border px-4 py-2.5 text-xs font-semibold shadow-[0_16px_48px_rgba(0,0,0,0.42)] ${tone}`}>{toast.message}</div>;
 }
 
 interface RestorableSessionBannerProps {

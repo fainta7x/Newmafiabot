@@ -408,7 +408,7 @@ export default function PlayerEventsCalendar({
 
         {/* The public rules page (/guide) — also the link organizers send to a novice before the first evening. */}
         <a data-testid="player-guide-link" href="/guide" className="mb-2 flex min-h-11 items-center justify-between gap-3 px-1 text-[13px] text-white/55">
-          <span className="min-w-0 truncate"><span className="font-semibold text-white/80">Правила и словарь</span> · памятка перед первым вечером</span>
+          <span className="min-w-0 leading-snug"><span className="font-semibold text-white/80">Правила и словарь</span> · памятка перед первым вечером</span>
           <span aria-hidden="true" className="text-white/35">›</span>
         </a>
 

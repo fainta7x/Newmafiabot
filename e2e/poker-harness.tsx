@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import PlayerPoker from '../src/components/player/PlayerPoker.tsx';
-import '../src/index.css';
+import './appStyles.ts';
 import { DEFAULT_TURBO_SETTINGS, TURBO_BLIND_LEVELS, pokerTournamentSchedule } from '../src/shared/pokerTournament.ts';
 
 // ?players=6&board=3 shows a fuller table for visual checks; the default stays the CI scene.

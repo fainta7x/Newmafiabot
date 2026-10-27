@@ -2,9 +2,7 @@ import ReactDOM from 'react-dom/client';
 import OrganizerCRM from '../src/components/OrganizerCRM.tsx';
 import { parseAnalyticsPeriod } from '../src/lib/analyticsPeriod.ts';
 import { buildClubGameStatistics } from '../src/lib/gameStatistics.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const json=(body:unknown)=>new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
 globalThis.fetch=async(input:RequestInfo | URL)=>{

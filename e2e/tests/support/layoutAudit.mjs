@@ -36,6 +36,32 @@ export const auditScreen = () => {
     }
     return null;
   };
+  // Window chrome: a fixed or sticky bar along the top or bottom edge (the bottom menu, a top bar). Content of a page that
+  // can still scroll passes under it — that is scrolling, not a defect; content it covers for good is.
+  const chromeOf = (el) => {
+    for (let node = el; node && node !== document.body; node = node.parentElement) {
+      const position = getComputedStyle(node).position;
+      if (position !== 'fixed' && position !== 'sticky') continue;
+      const r = node.getBoundingClientRect();
+      if (r.width >= 0.5 * vw && r.height <= 0.4 * vh && (r.top <= 2 || r.bottom >= vh - 2)) return node;
+    }
+    return null;
+  };
+  const canScrollPast = (el, chrome) => {
+    const down = chrome.getBoundingClientRect().top > vh / 2;
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      const scrolls = node === document.scrollingElement || ['auto', 'scroll'].includes(style.overflowY);
+      if (!scrolls || node.scrollHeight <= node.clientHeight + 1) continue;
+      if (down ? node.scrollTop + node.clientHeight < node.scrollHeight - 1 : node.scrollTop > 0) return true;
+    }
+    return false;
+  };
+  // Covers that only mean «scrolled under the menu» are left out; the rest are defects.
+  const realCover = (cover, el) => {
+    const chrome = chromeOf(cover);
+    return !(chrome && !chrome.contains(el) && canScrollPast(el, chrome));
+  };
   const shown = (el) => {
     for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
       const style = getComputedStyle(node);
@@ -65,8 +91,12 @@ export const auditScreen = () => {
     if (!rects.length || !shown(el)) continue;
     // Text scrolled out of a scroll box, or outside the window, is not on screen.
     let hiddenByScroll = false;
+    let inScroller = false;
     // The part of the first line the reader can see: inside every box that clips it and inside the window.
     const seen = { left: Math.max(rects[0].left, 0), top: Math.max(rects[0].top, 0), right: Math.min(rects[0].right, vw), bottom: Math.min(rects[0].bottom, vh) };
+    // Every box that clips the text (all its lines), for comparing it with other text: a label cut to «…» still reports
+    // its whole width, but only the part inside these boxes is drawn.
+    const clip = { left: 0, top: 0, right: vw, bottom: vh };
     // The text's own element counts too: a label that hides its own overflow clips its text.
     for (let p = el; p; p = p.parentElement) {
       const style = getComputedStyle(p);
@@ -74,9 +104,15 @@ export const auditScreen = () => {
       if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
         seen.left = Math.max(seen.left, box.left); seen.top = Math.max(seen.top, box.top);
         seen.right = Math.min(seen.right, box.right); seen.bottom = Math.min(seen.bottom, box.bottom);
+        clip.left = Math.max(clip.left, box.left); clip.top = Math.max(clip.top, box.top);
+        clip.right = Math.min(clip.right, box.right); clip.bottom = Math.min(clip.bottom, box.bottom);
       }
       const out = rects.every((r) => r.bottom <= box.top + 1 || r.top >= box.bottom - 1 || r.right <= box.left + 1 || r.left >= box.right - 1);
-      if (['auto', 'scroll'].includes(style.overflowY) || ['auto', 'scroll'].includes(style.overflowX)) { if (out) { hiddenByScroll = true; break; } }
+      if (['auto', 'scroll'].includes(style.overflowY) || ['auto', 'scroll'].includes(style.overflowX)) {
+        if (out) { hiddenByScroll = true; break; }
+        // Inside a strip that scrolls, a half-shown item is scrolling, not a cut: the boxes around the strip do not count.
+        if (p.scrollWidth > p.clientWidth + 1 || p.scrollHeight > p.clientHeight + 1) { inScroller = true; break; }
+      }
       else if (['hidden', 'clip'].includes(style.overflowY) || ['hidden', 'clip'].includes(style.overflowX)) {
         if (out) { hiddenByScroll = true; break; }
         // Text that sticks out of a box which hides overflow is cut.
@@ -104,14 +140,19 @@ export const auditScreen = () => {
       // Under an open window (a large fixed layer) text is meant to be out of sight.
       if (layers.some((e) => modalOf(e) && !modalOf(e).contains(el))) { underWindow = true; break; }
       // Anything else drawn over the text — a button, a badge, an icon, a card — hides part of it.
-      coverOver = coverOver || layers.find((e) => coverAlpha(e) >= 0.3 || ['svg', 'IMG', 'BUTTON'].includes(e.tagName)) || null;
+      // An svg shape (a ring around a percentage) is drawn around the text, not over it; an image or a button is over it.
+      // A layer marked data-layout-cover="intended" covers by an approved design (the OBS «Убит» ribbon over a portrait).
+      coverOver = coverOver || layers.find((e) => (coverAlpha(e) >= 0.3 || ['IMG', 'BUTTON'].includes(e.tagName)) && realCover(e, el) && !e.closest('[data-layout-cover="intended"]')) || null;
     }
     if (underWindow || offText === 3) { pendingCuts.length = 0; continue; }
     if (coverOver) { issues.add(`text «${text.slice(0, 30)}» covered by ${name(coverOver)}`); pendingCuts.length = 0; continue; }
     for (const cut of pendingCuts) issues.add(cut);
-    if (rects.some((r) => r.right > vw + 1 || r.left < -1)) issues.add(`off screen «${text.slice(0, 30)}»`);
+    if (!inScroller && rects.some((r) => r.right > vw + 1 || r.left < -1)) issues.add(`off screen «${text.slice(0, 30)}»`);
     pendingCuts.length = 0;
-    items.push({ el, text, rects });
+    const drawn = rects
+      .map((r) => ({ left: Math.max(r.left, clip.left), top: Math.max(r.top, clip.top), right: Math.min(r.right, clip.right), bottom: Math.min(r.bottom, clip.bottom) }))
+      .filter((r) => r.right - r.left > 1 && r.bottom - r.top > 1);
+    items.push({ el, text, rects: drawn });
   }
 
   // «…»: a label shortened by text-overflow or a line clamp.
@@ -140,6 +181,15 @@ export const auditScreen = () => {
       for (const ra of a.rects) for (const rb of b.rects) {
         const o = inter(ra, rb);
         if (o.x <= 2 || o.y <= 2) continue;
+        if (a.el.closest('[data-layout-cover="intended"]') || b.el.closest('[data-layout-cover="intended"]')) continue;
+        // One text in the window chrome, the other in the page under it that can still scroll out: scrolling.
+        const ca = chromeOf(a.el);
+        const cb = chromeOf(b.el);
+        if (ca !== cb && (ca || cb)) {
+          const chrome = ca || cb;
+          const below = ca ? b.el : a.el;
+          if (!chrome.contains(below) && canScrollPast(below, chrome)) continue;
+        }
         const ma = modalOf(a.el);
         const mb = modalOf(b.el);
         if (ma !== mb && (ma || mb) && coverAlpha(ma || mb) >= 0.5) continue;
@@ -194,7 +244,7 @@ export const auditScreen = () => {
       if (own < 0) continue;
       const over = above.slice(0, own).filter((e) => !e.contains(button) && !e.closest('[role="status"]'));
       if (over.some((e) => { const m = modalOf(e); return m && !m.contains(button); })) break;
-      const cover = over.find((e) => drawnAt(e, x, y));
+      const cover = over.find((e) => drawnAt(e, x, y) && realCover(e, button));
       if (cover) {
         const label = (button.getAttribute('aria-label') || button.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
         if (label) issues.add(`covered button «${label}» under ${name(cover)}`);

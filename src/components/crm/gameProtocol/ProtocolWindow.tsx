@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { History, LayoutDashboard, Scale, X } from 'lucide-react';
 import { Chip, cx, type Tone } from './ui';
+import { FitText } from '../../ui/FitText.tsx';
 
 export type ProtocolTab = 'overview' | 'game' | 'players' | 'result' | 'points';
 
@@ -45,11 +46,12 @@ export const ProtocolWindow: React.FC<Props> = ({ tab, onTab, title, subtitle, c
       <div className="mx-auto flex w-full max-w-[1120px] items-center gap-3 px-4 py-2.5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-xl font-semibold leading-7">{title}</h1>
+            <FitText as="div" minPx={15} role="heading" aria-level={1} className="min-w-0 text-xl font-semibold leading-7">{title}</FitText>
             <Chip tone={confirmed ? 'good' : 'warn'}>{confirmed ? 'Подтверждена' : 'Черновик'}</Chip>
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-[13px] text-white/50">
-            <span className="min-w-0 truncate">{subtitle}</span>
+          {/* The table and the judge take a second line on a phone rather than «…» under the save status (2026-10-27). */}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-white/50">
+            <span className="min-w-0 break-words">{subtitle}</span>
             <span className="shrink-0 text-white/25" aria-hidden="true">·</span>
             <span className={cx('flex shrink-0 items-center gap-1.5 font-medium', SAVE_TEXT[save.tone])} role="status"><span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />{save.label}</span>
           </div>

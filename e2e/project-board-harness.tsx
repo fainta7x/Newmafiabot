@@ -2,9 +2,7 @@ import ReactDOM from 'react-dom/client';
 import ProjectBoardCRM from '../src/components/crm/ProjectBoardCRM.tsx';
 import { parseProjectState } from '../src/lib/projectBoard.ts';
 import projectState from '../docs/PROJECT_STATE.md?raw';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 // The real docs/PROJECT_STATE.md parsed in the browser; the pull requests are a fixed sample.
 const cards = parseProjectState(projectState);

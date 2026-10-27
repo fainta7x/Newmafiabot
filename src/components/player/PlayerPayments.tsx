@@ -102,9 +102,9 @@ function PaymentCard({ item, freeCredits, applying, onUseFree, testAvailable = f
     <article className="rounded-2xl bg-black/20 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-white">{item.title}</div>
+          <div className="break-words font-medium leading-snug text-white">{item.title}</div>
           <div className="mt-1 text-xs text-white/40">{dateLabel(item.starts_at)}</div>
-          {item.venue && <div className="mt-1 truncate text-xs text-white/30">📍 {item.venue}</div>}
+          {item.venue && <div className="mt-1 break-words text-xs text-white/30">📍 {item.venue}</div>}
         </div>
         <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${statusClass(item.payment_status)}`}>{statusLabel(item.payment_status)}</span>
       </div>

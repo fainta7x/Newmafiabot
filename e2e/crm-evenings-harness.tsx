@@ -1,9 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import { EveningsList } from '../src/components/crm/EveningsList.tsx';
 import type { GameEvening } from '../src/lib/api.ts';
-import '../src/index.css';
-import '../src/styles/design-system.css';
-import '../src/releasePolish.css';
+import './appStyles.ts';
 
 const atOffset = (days: number, hour = 20) => {
   const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);

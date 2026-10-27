@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-27 — step 2: the layout and text audit covers the whole app (PR from `claude/eager-newton-mov0k7`)
+
+All 29 harnesses load the app's stylesheets (`e2e/appStyles.ts`); `e2e/tests/app-text-audit.spec.mjs` checks 55 pages × 4 sizes + a wide font on phones (UI preview CI job «Layout and text audit»); findings fixed (see AUDIT_LOG). Owner decisions: long nicknames shrink their font, then wrap (DESIGN_SYSTEM); the inactive Telegram layout rules of the Live Engine are deleted (same PR, computed styles unchanged) with the stale Telegram and music-player browser tests (the music menu is off since 2026-10-24); next, the architecture programme («Да можешь в принципе начать по архитектуре задачи делать», 2026-10-27). Deployed and checked in production 2026-10-27: #1061, #1058 (game №17 completed and in all ten players' profiles), #1054.
+
 ## 2026-10-27 — next Community/Progress menu context stage implemented
 
 Owner asks to continue the next improvement stage. Previous #1067 is merged as5420b3e; exact b027692 passed CI4558, UI2252, CodeQL3865 and Gitleaks3862. The actual UI2252 pair/statistics screenshots were inspected after CI; no deployment/runtime claim.
@@ -19,11 +23,12 @@ Verification:20 focused tests and a final15-case profile run pass;13 affected pr
 Owner: «Отлично, можешь приступать к реализации». This approves the full CP01–CP15 plan after the complete review; the wait-for-agreement is satisfied. Review #1066 merged asfd01527 after head d7b4587 passed CI4553, CodeQL3860 and Gitleaks3857. One connected implementation candidate covers all fifteen items; implementation evidence and per-item limits: [review README](reviews/2026-10-27-community-progress-implementation/README.md). Local final checks:30 affected component tests,4 API integration tests and4 preview specs pass; TypeScript/lint, release audit and project context pass, dependency guard clean. Required exact-head CI/merge remain pending at candidate authoring. No Amvera synchronization, production writes or real invitations/messages; Claude #1061 subsequently merged as1cd10bd and is preserved by the follow-up.
 
 The candidate preserves rating meanings/formulas, privacy gates, earned awards, the three-award pin limit and detailed statistics open by default. View preferences are session-local per viewer/player where identity matters; guide continuation uses the existing device-local progress, not invented account progress. Timeline links require a canonical known source and are self-only. F06/F08 source-link gaps from the earlier result-flow review are addressed by CP09; the separate F07 wording review is not included in this plan.
+
 ## 2026-10-27 — owner: layout and text checked on every change, everywhere
 
 Owner: «мог бы ты все тексты в Live engine проверить и все элементы… на мобильном разрешении и для десктопа», then «всегда при внесении изменений… всё это проверялось и фиксилось… не только Live Engine, а вообще везде». Step 1 (Live Engine) is coded in PR `claude/eager-newton-mov0k7`: an automatic layout audit on every Live Engine screen at 360/390/1366/1440 (`e2e/tests/live-game-text-audit.spec.mjs`, in the UI preview CI), its findings fixed, the rule in `AGENTS.md` («Layout and text gate»). **Next, step 2 (already asked for by the owner): the same audit for every other app page** (player cabinet, CRM, evenings, profiles, trainers, protocol window, broadcast) — one shared detector module, every `e2e/*.html` harness on the route, every harness loading the app's stylesheets, findings fixed.
 
-Open question for the owner (2026-10-27, see AUDIT_LOG): the Telegram layout rules of the live game (44 px header, board from Telegram's stable height, whole-window guard) have been inactive since #745 kept a wrapper div; revive them or delete them.
+Owner decision (2026-10-27): the inactive Telegram layout rules of the live game (dead since #745 kept a wrapper div) are deleted.
 
 ## 2026-10-27 — Community and Progress: full analysis before changes
 
@@ -1207,6 +1212,8 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 
 ### Waiting on the owner
+
+- **Game protocol in the style of the Elo result blanks (owner, 2026-10-27; proposed, waiting for «да»):** «Я бы хотел чтобы в таком формате… всё расписывалось в протоколах игры… супер наглядно… а не то что сейчас… непонятно что за что куда кому». The format is the result blank drawn on 2026-10-26 for the evening of 23.10 (games №1–№5): header with game number, evening, result and team strength («Красные 1057 · Чёрные 1067 · шанс красных 30%»); one card per seat — number, avatar, nickname, role, fouls, «ПОБЕДА», «Эло ±N · after», «За действия в игре: ±N Эло» and each line of the breakdown («Голосовал в чёрных №10, №1: +16», «Верно подряд: …»). The lines already exist on the server (`src/lib/playerContribution.ts`, `clubResultData.ts`, used for the result images); the in-app protocols do not show them.
 
 - **Engine voting ideas (owner, 2026-10-27; APPROVED «да», built in PR #1054 — `handleSameSplit` in `LiveGameEngine.tsx`, `VoteByNumbersOverlay.tsx`):** (1) on the revote after a split, a one-tap option «Поделилось также» that copies the previous round's votes when nobody changed a vote and the split held, instead of entering every vote again; (2) as a second way to enter votes (the seat cards stay), a window like the best-move («ЛХ») entry: for each candidate in turn a window with seat numbers where the judge taps who voted for that candidate; players who already voted are dimmed and cannot be chosen in the next windows.
 

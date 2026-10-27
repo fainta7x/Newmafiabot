@@ -33,6 +33,8 @@ interface EveningLiveGameModalProps {
   obsRemote?: boolean;
   /** Only synthetic local games enable the guided training layout and task panel. */
   trainingMode?: boolean;
+  /** A mark in the window's top bar (the judge trainer's free test game: «Тест · не сохраняется»). */
+  titleBadge?: React.ReactNode;
 }
 
 /**
@@ -169,7 +171,7 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false }) => {
+export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false, titleBadge }) => {
   // A reload returns to this window: the record says it is open until the judge closes it or the game ends.
   const resumable = !trainingMode && Number(game.id) > 0;
   useEffect(() => { if (resumable) rememberOpenLiveGame('club', game.id); }, [resumable, game.id]);
@@ -420,13 +422,16 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <div className="text-[11px] md:text-xs font-black text-white truncate">{trainingMode ? 'Учебная партия' : `Игра #${game.global_game_number}`}</div>
+          {titleBadge ? <span className="hidden md:inline-flex">{titleBadge}</span> : null}
           <div className="evening-live-mobile-title-secondary text-[10px] text-slate-500 truncate">
             {game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          {/* The live engine puts «Авто» here on a phone, where the centre cell has no room for it. */}
-          <div id="live-topbar-slot" className="evening-live-topbar-slot flex items-center empty:hidden" />
+        <div className="flex shrink-0 items-center gap-1 md:gap-1.5">
+          {/* A badge follows the title on a wide screen and leads the right group on a phone, where the bar is narrow. */}
+          {titleBadge ? <span className="md:hidden">{titleBadge}</span> : null}
+          {/* The live engine puts «Авто» here on a phone, and on a short phone also «↩» and «Журнал» of the events panel. */}
+          <div id="live-topbar-slot" className="evening-live-topbar-slot flex items-center gap-1 md:gap-1.5 empty:hidden" />
           {!trainingMode && <button
             type="button"
             disabled={trainingMode}

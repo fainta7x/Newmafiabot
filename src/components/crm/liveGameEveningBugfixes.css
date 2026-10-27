@@ -926,9 +926,9 @@ html body .evening-live-topbar-slot .live-judge-hud__auto {
   border: 1px solid rgb(30 41 59);
   border-radius: 8px;
   background: rgb(15 23 42);
-  padding: 0 9px;
+  padding: 0 7px;
   color: rgb(148 163 184);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -981,5 +981,29 @@ html body .evening-live-topbar-slot .live-judge-hud__auto {
 
   html body .evening-live-engine-shell .live-judge-hud__stack--vote-count .live-judge-vote-focus__name {
     font-size: 12px;
+  }
+}
+
+/* «↩» from the events panel in the phone top bar: the bar's own 28 px button size. */
+html body .evening-live-topbar-slot .evening-live-topbar-tool > button {
+  min-height: 28px !important;
+  min-width: 28px !important;
+  height: 28px;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+/* «Состояние» on a phone (2026-10-27): liveGameTelegram.css places it after the game number with
+   `top: var(--live-safe-top)`, but that variable is defined only by the 44 px Telegram header rule, which the game window's
+   wrapper keeps inactive (#745). Without it the button fell into the page flow — over «События» at 390 px, under the
+   screen edge at 360 px. It now sits in the 34 px top bar at the bar's 28 px size. */
+@media (max-width: 767px) {
+  html body:has(.fixed.inset-0.z-\[95\] > .sticky button[title="Закрыть движок"]) [data-testid="live-state-button"] {
+    top: calc(3px + var(--live-safe-top, 0px)) !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    border-radius: 8px !important;
   }
 }

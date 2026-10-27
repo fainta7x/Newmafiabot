@@ -554,13 +554,13 @@ html body .live-judge-breaker__seat[aria-pressed='true'] {
 
 .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat {
   display: flex;
-  min-height: 30px !important;
+  min-height: 28px !important;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   gap: 2px;
   overflow: hidden;
-  padding: 3px 6px !important;
+  padding: 2px 6px !important;
 }
 
 .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary .live-judge-stat__label {
@@ -600,5 +600,33 @@ html body .live-judge-breaker__seat[aria-pressed='true'] {
 @media (max-width: 380px) {
   .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__label {
     display: none;
+  }
+}
+
+/* A laptop's centre cell is wide but low: the shortcuts share the row of «←» and «Следующий» instead of taking a line. */
+@media (min-width: 700px) {
+  .evening-live-engine-shell .live-judge-vote-actions > .live-judge-vote-shortcuts {
+    order: 2;
+    flex: 0 1 auto;
+    width: auto;
+  }
+
+  .evening-live-engine-shell .live-judge-vote-shortcuts > .live-judge-action {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 32px !important;
+    padding-inline: 12px;
+  }
+}
+
+/* Short phones (360×640): 6 px less so the vote count still fits its cell without scrolling. */
+@media (max-height: 680px) and (max-width: 699px) {
+  .evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__seat {
+    height: 16px !important;
+  }
+
+  .evening-live-engine-shell .live-judge-vote-shortcuts > .live-judge-action {
+    min-height: 23px !important;
+    height: 23px;
   }
 }

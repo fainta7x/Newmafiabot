@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-28 — CI4589 award icon expectations
+
+- [fixed, CF-CI] `premiumProfileShowcaseAwards.test.tsx`: two tests still expect a tournament winner as a gold medal, an ordinary nomination as a ribbon and an eleventh place as a cup. CI shard5 fails only these two cases (130 other files/669 cases pass); Web/build/container/Python and shards1–4 pass. Update the existing assertions to the requested cup eligibility: winner cup, second/third-place medals, nomination/eleventh-place medals. Both affected award owners pass locally:2 files/13 cases. UI2271 passes both mobile previews and all-page layout/text audit. No runtime, screenshot, detector or rule change.
+
 ## 2026-10-28 — four owner-requested club follow-ups
 
 - [fixed, CF01] `eveningPaymentReminderService.ts`, `organizerReminderService.ts`, `clubOrderService.ts`: debts/messages group by evening; repeat debtors are counted several times and no per-player total is visible. Aggregate outstanding closed-evening balances per person with breakdown, preserve ledger and auto-trigger windows, deduplicate reminders across evenings.

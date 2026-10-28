@@ -24,8 +24,8 @@ it('shows one plain personal list with Напарники / Соперники f
   render(<PremiumProfileConnections playerId="me" selfPlayerId="me" />);
   expect(await screen.findByText('С кем я играю')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Моя команда' }));
-  expect(screen.getByText('Лучший напарник')).toBeTruthy();
-  expect(screen.getByText('Вместе выиграли 2 из 5 игр (40%)')).toBeTruthy();
+  expect(screen.getByText('Победы с напарником')).toBeTruthy();
+  expect(screen.getByText('Вместе: 2 победы из 5 игр (40%)')).toBeTruthy();
   expect(document.body.textContent).not.toMatch(/Только факты|скрытого рейтинга|выборк/);
 
   fireEvent.click(screen.getByRole('button', { name: 'Игроки' }));

@@ -1,5 +1,13 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — content details continued while the previous PR was checked
+
+Owner explicitly requests continued analysis/improvements during checks. Complete [CD01–CD06 review](UX_COMMUNITY_CONTENT_DETAIL_2026-10-28.md) covered all six action panels, own/public/restricted connections and their modes, and all16 stories/six paths before edits. Implemented as a separate candidate: action totals/distribution with sheriff as a subset and unknown preserved; existing shared-game history in own connections; known small-sample results without fake0; current list scope metadata from unchanged constants; goal context and selected-path completion. [Evidence and limits](reviews/2026-10-28-community-content-detail/README.md). No new rating, eligibility, game/award rule, query aggregate or public history disclosure.
+
+#1072 is now merged as2bae527a989086ab24361fe9b14831127009d8ec. Exact52ba25d passed CI4570, UI2258, CodeQL3877 and Gitleaks3874 after the three outdated caption expectations were corrected and their focused preview cases passed. Its old pending paragraphs below are authoring history. This continuation is based on that same merged tree, preserving #1071/#1072 completely.
+
+Local verification:16 focused component/analytics/API cases, final six display cases, TypeScript/lint, dependency guard and four browser cases (32 audits) pass; six audited before/after captures inspected. Required exact-head CI/merge for the next candidate pending at authoring. No Amvera synchronization, production action or live runtime verification. Next action — assistant: publish and complete the required candidate checks/merge within the bounded workflow; no further owner decision is needed for this connected content scope.
+
 ## 2026-10-28 — use checking time for the next content analysis
 
 Owner: «параллельно можешь дальше делать анализ и улучшения». Explicitly continue the already authorized Community/Progress content scope during #1072 CI; canonical §4e records this preference. Complete the next connected review of indicator detail, shared-game context and goals before its application changes. Keep #1072 stable except for concrete CI findings. No unrelated queue work or production actions.
@@ -1061,7 +1069,9 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
-- Сообщество и Прогресс: понятные периоды и выборки, победы/игры и недавние исходы по ролям, фактическая аналитика, контекст связей, цели перед полученным и обучение по задачам (текущий кандидат; после слияния, без изменения рейтингов).
+- Кандидат: подробное распределение голосов/проверок, последние общие партии в своих связях и понятный контекст целей/прогресс выбранного пути.
+
+- Сообщество и Прогресс: понятные периоды и выборки, победы/игры и недавние исходы по ролям, фактическая аналитика, контекст связей, цели перед полученным и обучение по задачам (без изменения рейтингов).
 
 - Протокол игры в кабинете — как картинка итогов в чате: у каждого игрока карточка с ролью, победой, «Эло +N · рейтинг после» и разбором, за что начислено; сверху сила команд и шанс красных. Баллы на карточке — только на рейтинговых и турнирных вечерах.
 

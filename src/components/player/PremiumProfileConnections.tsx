@@ -6,15 +6,8 @@ import PersonalRecentEvening from './PersonalRecentEvening.tsx';
 import PersonalTeamwork from './PersonalTeamwork.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
-
-type SharedGame = {
-  id: string;
-  title: string;
-  game_number: number;
-  played_at: string;
-  same_team: boolean;
-  won_together: boolean;
-};
+import { gameResultText } from '../../lib/playerResultObservations.ts';
+import PlayerConnectionHistory, {type SharedConnectionGame} from './PlayerConnectionHistory.tsx';
 
 type Connection = {
   player_id: string;
@@ -26,7 +19,7 @@ type Connection = {
   opponent_games: number;
   same_team_wins?: number;
   same_team_win_rate?: number;
-  recent_shared_games?: SharedGame[];
+  recent_shared_games?: SharedConnectionGame[];
   last_played_at: string | null;
   last_shared_game_date?: string | null;
 };
@@ -98,6 +91,12 @@ const unavailableReasonHint = (context: InvitationContext) => {
 
 const openPlayerProfile = openCanonicalPlayerProfile;
 
+function TeamResult({connection}:{connection:Connection}) {
+  const wins=connection.same_team_wins;
+  if(connection.same_team_games<=0||typeof wins!=='number'||!Number.isFinite(wins))return null;
+  return <span>Вместе: {gameResultText({wins,games:connection.same_team_games})}{typeof connection.same_team_win_rate==='number'&&Number.isFinite(connection.same_team_win_rate)?` (${Math.round(connection.same_team_win_rate)}%)`:''}</span>;
+}
+
 function openEvening(eveningId: string) {
   const path = `/player/events/${encodeURIComponent(eveningId)}`;
   window.history.pushState({}, '', path);
@@ -120,6 +119,7 @@ function ReferralLink({ label, player }: { label: string; player: ReferralPlayer
 export default function PremiumProfileConnections({ playerId, selfPlayerId }: { playerId: string; selfPlayerId: string }) {
   const isSelf = playerId === selfPlayerId;
   const [connections, setConnections] = useState<Connection[] | null>(null);
+  const [connectionsMeta,setConnectionsMeta]=useState<{minimum_shared_games?:number;maximum_connections?:number}|null>(null);
   const [mostSuccessful, setMostSuccessful] = useState<Connection | null>(null);
   const [invitedBy, setInvitedBy] = useState<ReferralPlayer | null>(null);
   const [invitedPlayers, setInvitedPlayers] = useState<ReferralPlayer[]>([]);
@@ -142,11 +142,13 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
     try {
       const body = await getJson<any>(`/api/player/profiles/${encodeURIComponent(playerId)}/connections`, 'Не удалось загрузить связи');
       setConnections(Array.isArray(body.connections) ? body.connections : []);
+      setConnectionsMeta(body.meta||null);
       setMostSuccessful(body.most_successful_partnership || null);
       setInvitedBy(body.invited_by || null);
       setInvitedPlayers(Array.isArray(body.invited_players) ? body.invited_players : []);
     } catch (error: any) {
       setConnections(null);
+      setConnectionsMeta(null);
       setMostSuccessful(null);
       setInvitedBy(null);
       setInvitedPlayers([]);
@@ -303,8 +305,8 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       </div> : null}
 
       {(!isSelf||selfSection==='team')&&mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Лучший напарник</div>
-        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">Вместе выиграли {mostSuccessful.same_team_wins || 0} из {mostSuccessful.same_team_games} игр ({Math.round(Number(mostSuccessful.same_team_win_rate || 0))}%)</div></div><span className="text-white/25">→</span></div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Победы с напарником</div>
+        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="break-words text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs leading-5 text-white/60"><TeamResult connection={mostSuccessful}/></div></div><span className="text-white/25">→</span></div>
       </button> : null}
 
       {isSelf&&selfSection==='team' ? <PersonalTeamwork /> : null}
@@ -314,6 +316,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
           <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи</div><h2 className="mt-1 text-base font-semibold">{isSelf ? 'С кем я играю' : 'С кем играет игрок'}</h2></div>
           {connections ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-white/40">{connections.length}</span> : null}
         </div>
+        {connections&&<p className="mt-2 text-xs leading-5 text-white/55">За всю историю{connectionsMeta?.minimum_shared_games&&connectionsMeta?.maximum_connections?` · от ${connectionsMeta.minimum_shared_games} общих игр · до ${connectionsMeta.maximum_connections} игроков`:''}</p>}
         {!!connections?.length&&<div className="mt-3 flex items-center gap-2"><label className="min-w-0 flex-1 text-xs text-white/60">Найти игрока<Input type="search" aria-label="Найти среди связей" value={search} onChange={event=>setSearch(event.target.value)} className="mt-1" /></label>{search&&<button type="button" onClick={()=>setSearch('')} className="mt-4 min-h-11 rounded-lg px-3 text-xs text-white/70">Очистить</button>}</div>}
         {connections && connections.length > 0 ? (
           <div role="group" aria-label="Кого показать" className="mt-3 grid grid-cols-3 gap-1.5">
@@ -325,16 +328,20 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         {connectionsError ? <div className="mt-3 rounded-2xl bg-rose-300/[0.06] p-3 text-xs text-rose-100/70">{connectionsError}{!connectionsHidden&&<button type="button" onClick={()=>void loadConnections()} className="mt-2 block min-h-11 px-3">Повторить загрузку связей</button>}</div> : connections === null ? <div className="mt-3 py-8 text-center text-xs text-white/30">Загружаем…</div> : connections.length ? (
           <div className="mt-3 space-y-2"><p role="status" className="text-xs text-white/50">Показано {shown.length} из {connections.length}</p>
             {shown.map((item) => (
-              <button key={item.player_id} type="button" onClick={() => openPlayerProfile(item.player_id)} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/20 p-2.5 text-left active:bg-white/[0.05]">
+              <article key={item.player_id} className="overflow-hidden rounded-2xl bg-black/20">
+              <button type="button" onClick={() => openPlayerProfile(item.player_id)} className="flex min-h-14 w-full items-center gap-3 p-2.5 text-left active:bg-white/[0.05]">
                 <Avatar src={item.avatar_url} name={item.nickname} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{item.nickname}</div>
+                  <div className="break-words text-sm font-semibold">{item.nickname}</div>
                   <div className="mt-0.5 text-xs text-white/45">{item.relationship}</div>
-                  <div className="mt-1 text-[11px] text-white/40">{item.same_team_games} в одной команде · {item.opponent_games} друг против друга{item.same_team_games >= 3 ? ` · вместе выиграли ${item.same_team_wins || 0} из ${item.same_team_games} (${Math.round(Number(item.same_team_win_rate || 0))}%)` : ''}</div>
+                  <div className="mt-1 text-xs leading-5 text-white/60">{item.same_team_games} в одной команде · {item.opponent_games} друг против друга</div>
+                  <div className="mt-1 text-xs leading-5 text-white/60"><TeamResult connection={item}/></div>
                   {item.last_shared_game_date ? <div className="mt-1 text-[11px] text-white/30">Последний раз играли: {fmtDate(item.last_shared_game_date)}</div> : null}
                 </div>
                 <span className="text-white/25">→</span>
               </button>
+              {isSelf&&<PlayerConnectionHistory games={item.recent_shared_games}/>}
+              </article>
             ))}
             {!shown.length ? <div className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">{search.trim()?'Никого не нашли. Измените запрос или очистите поиск.':filter === 'mates' ? 'Пока нет игроков, с кем получилось сыграть в одной команде.' : 'Пока нет игроков, с кем получилось сыграть друг против друга.'}</div> : null}
           </div>

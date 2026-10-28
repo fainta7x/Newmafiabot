@@ -1,5 +1,6 @@
 import type { TargetCounts } from '../../lib/gameActionFacts';
 import type { PlayerGameStatistics, Share } from '../../lib/gameStatistics';
+import PlayerActionDistribution from './PlayerActionDistribution.tsx';
 
 /**
  * «Точность решений» in the player's career: how accurate his votes, nominations and best moves are, how often he was the
@@ -41,7 +42,7 @@ export default function PlayerGameNumbers({ stats, totalGames }: { stats: Player
         ['Голосования · играл красным',stats.actions.votes.red], ['Голосования · играл чёрным',stats.actions.votes.black],
         ['Критический круг · играл красным',stats.actions.criticalVotes.red], ['Критический круг · играл чёрным',stats.actions.criticalVotes.black],
         ['Проверки шерифом',stats.actions.checks.sheriff], ['Проверки доном',stats.actions.checks.don],
-      ].map(([title,raw]) => { const counts = raw as TargetCounts;return <div key={String(title)} className="border-t border-white/[.07] pt-3"><h3 className="text-sm font-semibold">{String(title)}</h3><dl className="mt-2 space-y-1 text-sm text-white/65"><div className="flex justify-between gap-2"><dt>В красных</dt><dd>{counts.red}</dd></div><div className="flex justify-between gap-2"><dt>В чёрных</dt><dd>{counts.black}</dd></div><div className="flex justify-between gap-2"><dt>В том числе в шерифа</dt><dd>{counts.sheriff}</dd></div>{counts.unknown > 0 && <div className="flex justify-between gap-2"><dt>Роль неизвестна</dt><dd>{counts.unknown}</dd></div>}</dl></div>;})}</div>
+      ].map(([title,raw]) => <PlayerActionDistribution key={String(title)} title={String(title)} counts={raw as TargetCounts}/>)}</div>
       <p className="mt-3 text-xs leading-relaxed text-white/50">Критический круг — когда ошибка в красного ведёт к паритету сразу или после следующего отстрела. Это только факты действий, а не оценка речей: красная проверка шерифа бывает полезной.</p>
       {(stats.actions.votes.red.unknown + stats.actions.checks.sheriff.unknown + stats.actions.checks.don.unknown) > 0 && <p className="mt-2 text-xs text-white/50">Голоса и проверки с неизвестной ролью цели показаны отдельно и не включены в процент точности.</p>}
       {stats.actions.unknownCriticalDays > 0 && <p className="mt-2 text-xs text-white/50">Ещё {stats.actions.unknownCriticalDays} голосований без достаточных данных о живых: в критические не включены.</p>}

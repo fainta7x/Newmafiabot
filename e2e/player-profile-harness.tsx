@@ -42,6 +42,12 @@ if (params.get('trophies') === '2') {
 }
 
 const connection = { player_id: externalProfile ? 'preview-player' : 'friend-1', nickname: externalProfile ? 'Чагин' : 'Дэнди', avatar_url: '', relationship: 'Часто за одним столом', shared_games: 18, same_team_games: 9, opponent_games: 9, same_team_wins: 6, same_team_win_rate: 66.7, last_played_at: iso(2), last_shared_game_date: iso(2) };
+if(params.has('detail')) Object.assign(connection,{recent_shared_games:[
+ {id:'club:g4',title:'Пятничный вечер',game_number:4,played_at:iso(2),same_team:true,won_together:true},
+ {id:'club:g3',title:'Пятничный вечер',game_number:3,played_at:iso(2),same_team:false,won_together:false},
+ {id:'tournament:demo-2',title:'Клубный турнир',game_number:2,played_at:iso(10),same_team:true,won_together:false}
+]});
+
 const startsAt = (days: number) => new Date(now.getTime() + days * 86400000).toISOString();
 const invitationEvening = { id: 'evening-1', title: 'Пятничный вечер', starts_at: startsAt(3), venue: 'Суп с котом', format: 'CASUAL', state: 'eligible' };
 const invitationStates = [
@@ -88,7 +94,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname.endsWith('/roles')) return json({ roles: [{ role: 'sheriff', label: 'Шериф', games: 12, wins: 8, win_rate: 66.7, recent_form: ['W','L','W','W','L'] }, { role: 'citizen', label: 'Мирный', games: 20, wins: 12, win_rate: 60 }, { role: 'mafia', label: 'Мафия', games: 10, wins: 6, win_rate: 60 }, { role: 'don', label: 'Дон', games: 6, wins: 3, win_rate: 50 }] });
   if (url.pathname.endsWith('/elo')) return json({ points: [{ id: 'club:g4', title: 'Пятничный вечер', game_number: 4, date: iso(2), role: 'sheriff', elo_before: 1527, elo_after: 1542, elo_delta: 15 }] });
   if (url.pathname.endsWith('/showcase')) return json(showcase);
-  if (url.pathname.endsWith('/connections')) return json({ connections: [connection], most_successful_partnership: connection, invited_by: null, invited_players: [] });
+  if (url.pathname.endsWith('/connections')) return json({ connections: [connection], most_successful_partnership: connection, invited_by: null, invited_players: [], meta:{minimum_shared_games:2,maximum_connections:24} });
   if (url.pathname.endsWith('/invitation-context')) return unavailableProfile
     ? json({ can_invite: false, reason: 'recipient_blocked', recipient_state: 'unavailable', evenings: [] })
     : json({ can_invite: true, reason: null, recipient_state: 'available', evenings: invitationStates });

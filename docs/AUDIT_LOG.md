@@ -1,5 +1,19 @@
 # Audit log
 
+## 2026-10-28 — next connected content pass, complete findings before edits
+
+Owner explicitly authorizes continued content analysis/improvements during #1072 checks. All six findings recorded before application edits; [complete CD01–CD06 review](UX_COMMUNITY_CONTENT_DETAIL_2026-10-28.md).
+
+- [fixed, CD01] `PlayerGameNumbers.tsx`: independent target counters lack total/visual distribution; sheriff must stay a subset of red, unknown targets separate.
+- [fixed, CD02] `PremiumProfileConnections.tsx`: existing recent_shared_games is not displayed; own context can show actual shared parties without inferring an opponent result or expanding public history.
+- [fixed, CD03] same owner: known same-team wins hidden below3 games and absent fields default to0; “best partner” suggests skill from raw outcomes.
+- [fixed, CD04] `playerConnectionAnalyticsService.ts`/`premiumPlayerConnectionProfileService.ts`: current top24/min2 scope is not exposed as consistent presentation metadata.
+- [fixed, CD05–CD06] `PlayerAchievementPaths.tsx`/`achievementStories.ts`: game/evening/career context and selected-path completion are hard to read from paragraphs/global totals.
+
+Preserve all eligibility/ranking/award/privacy rules. No new result aggregate or production action. #1072 remains separate except its proven exact-caption test fix.
+
+Implemented CD01–CD06 after the complete review:16 focused cases pass, four browser cases/32 clean audits plus six audited captures; TypeScript/lint/dependency guard pass. [Evidence](reviews/2026-10-28-community-content-detail/README.md). #1072 separately merged as2bae527 after exact52ba25d passed all four checks. No production actions.
+
 ## 2026-10-28 — exact #1072 UI2257 finding
 
 - [fixed, CD00] `e2e/tests/achievement-paths-preview.spec.mjs`: three widths expect the exact old progress caption without the approved remaining-count suffix. UI2257 job122467425398 reports only these three failures (152 passed). Keep the numeric progress checks and require the remaining count in both known cases; no application change or weakened layout assertion. Focused verification recorded in the next content continuation.

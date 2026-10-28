@@ -1,3 +1,4 @@
+import { resultsContextSeason } from './results-context.fixture.ts';
 import App from '../src/App.tsx';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice } from '../src/lib/eveningPrices.ts';
 import { clubStoriesFixture } from './club-connection-stories.fixture.ts';
@@ -144,7 +145,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/games/elo': return json({ games: [] });
   case '/api/player/players': return json({ players: NAMES.map((nickname,index) => ({ id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, game_level: 'club', avatar_url: null })) });
   case '/api/player/pulse': return json(pulse);
-  case '/api/player/club-world': return json(clubWorld);
+  case '/api/player/club-world': return json(new URLSearchParams(location.search).has('results-context') ? {...clubWorld,season_history:[resultsContextSeason('2026-summer','Лето 2026'),resultsContextSeason('2026-spring','Весна 2026',true)]} : clubWorld);
   case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });
   default: return json({ error: 'Этот сценарий пока не подготовлен в предпросмотре' }, 404);
  }

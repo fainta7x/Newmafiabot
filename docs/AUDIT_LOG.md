@@ -1,5 +1,25 @@
 # Audit log
 
+## 2026-10-28 — UI2260 exact failure: optional capture destination depends on cwd
+
+- [fixed, CI-CAPTURE] `e2e/tests/community-results-context.spec.mjs`: CI runs from e2e/, so copying its390px screenshot into relative docs/reviews fails ENOENT. All-app audit passes;162 other preview cases pass. Optional local evidence export must be explicit and resolve its destination relative to the spec, while ordinary CI keeps screenshots in outputPath. No app/layout assertions or detector changes. Same inherited failure in stacked #1075/UI2261. Fixed by explicit local-export guard and module-relative destination; the exact390px case passes in7s from e2e/ (the CI working directory). No repeated full local suite.
+
+## 2026-10-28 — results context, complete RC01–RC04 before application edits
+
+Owner again requests analysis/improvements during tests. [Full review](UX_COMMUNITY_RESULTS_CONTEXT_2026-10-28.md) covers own/public/hidden Elo, scoped/empty/full history, game pages/filters and current/past season states.
+
+- [fixed, RC01] `PlayerEloJourney.tsx`: graph endpoints lack dates/values; absolute filtered points can be mistaken for the selected deltas' sum.
+- [fixed, RC02] same owner: first8/all history has no displayed count/order; outcome is only an icon beside signed Elo.
+- [fixed, RC03] `CanonicalPremiumPlayerProfile.tsx`: existing game total/offset are not presented as the current range.
+- [fixed, RC04] `PlayerSeasonsPanel.tsx`: existing archive viewer result and top-list extent are hidden; null place must not erase known games.
+
+#1073 merged as cb8959c after exact73b723f passed CI4572/UI2259/CodeQL3879/Gitleaks3876. No new aggregate/rule/query/production action. All findings registered before application changes.
+
+
+Implemented RC01–RC04.25 distinct focused component cases, TypeScript/lint/dependency guard pass;40 unchanged-detector audits across four sizes pass. Six actual before/after images inspected: [evidence](reviews/2026-10-28-results-context/README.md). Baseline archive long-name truncation fixed; no audit relaxation. Existing exact show-more caption updated before publishing.
+
+- [open, NEXT-SCOPE] `playerExperienceRoutes.ts`: the own Elo journey resolves only explicit season keys; `period=season/recent10` from the existing menu falls back to all history. Register the next complete scope review before fixes; current RC changes do not claim to solve it.
+
 ## 2026-10-28 — next connected content pass, complete findings before edits
 
 Owner explicitly authorizes continued content analysis/improvements during #1072 checks. All six findings recorded before application edits; [complete CD01–CD06 review](UX_COMMUNITY_CONTENT_DETAIL_2026-10-28.md).

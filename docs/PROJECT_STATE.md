@@ -1,5 +1,13 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — virtual role deck; separate PR, clarification stage
+
+Owner requests a shuffled virtual deck with all required roles in one row of 10 cards. The judge selects a card for each player in turn, assigning its role for this game. Owner explicitly requests clarification before implementing ambiguous behavior and a separate PR.
+
+Current PhysicalRoleDeal records physical roles manually; club/general setup and synthetic judge training consume it. tableComposition owns existing 10/9/8-player counts. No application behavior changes in this draft.
+
+Waiting on owner: remaining-card positions/renumbering, reveal/hide/next-player action, seat order, undo/redeal, phone row layout, retaining manual physical dealing and scope for novice tables. Next action — owner answers; assistant implements and verifies in this same PR.
+
 ## 2026-10-28 — current technical debt and next architecture slice
 
 Owner asks to continue work and identify remaining debts/architecture tasks. Reconciled against current remote main after #1078; older authoring-time pending paragraphs below do not override this queue. #1078 merged as `0b740d9a91346952a4283bc0cdc15f4c5836f462`; exact `f3c585b` passed CI4590/UI2272/CodeQL3894/Gitleaks3891. Its full tree matches the local verified tree. All four requested club follow-ups are in main; deployment/runtime of this revision is not verified.

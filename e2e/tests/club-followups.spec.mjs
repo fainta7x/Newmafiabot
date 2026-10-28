@@ -1,0 +1,14 @@
+import {test,expect} from '@playwright/test';
+import {copyFileSync} from 'node:fs';
+import {auditScreen} from './support/layoutAudit.mjs';
+for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Club followups at ${width}`,async({page},info)=>{
+ test.setTimeout(60000);await page.setViewportSize({width,height});
+ const check=async(name,save=false)=>{await page.evaluate(()=>document.fonts.ready);await expect.poll(()=>page.evaluate(auditScreen),{message:name}).toEqual([]);const path=info.outputPath(name+'-'+width+'.png');await page.screenshot({path,animations:'disabled'});if(save&&width===390)copyFileSync(path,new URL('../../docs/reviews/2026-10-28-club-followups/after-'+name+'.png',import.meta.url));};
+ await page.goto('/e2e/player-profile.html');await page.getByRole('button',{name:'Награды',exact:true}).click();await page.getByTestId('trophy-cabinet').scrollIntoViewIfNeeded();await expect(page.getByTestId('cabinet-filter-medals')).toHaveAttribute('aria-pressed','true');await expect(page.locator('.trophy-cabinet__object--medal')).toHaveCount(1);await check('medal',true);
+ await page.getByTestId('cabinet-exhibit').click();await page.getByTestId('cabinet-details').scrollIntoViewIfNeeded();await check('medal-details');
+ await page.goto('/e2e/player-cabinet.html?runoff=1');await page.getByTestId('vote-prompt-card').scrollIntoViewIfNeeded();await expect(page.getByTestId('vote-prompt-card')).toContainText('Дополнительный тур MVP');await check('runoff-prompt');await page.getByTestId('vote-prompt-toggle').click();await page.getByText('Дополнительный тур: только лидеры',{exact:true}).scrollIntoViewIfNeeded();await check('runoff',true);await page.getByRole('button',{name:/Богданчик/}).click();await expect(page.getByText('Голос сохранён',{exact:true})).toBeVisible();await check('voted');
+ await page.goto('/e2e/organizer-crm.html?followups=1&route=/admin/tasks');await page.getByTestId('agenda').waitFor();await expect(page.getByTestId('agenda')).toContainText('Всего 800 ₽');await expect(page.getByTestId('agenda')).toContainText('через 2 дня');await page.getByTestId('agenda').scrollIntoViewIfNeeded();await check('agenda',true);
+});
+test('before medal capture',async({page},info)=>{
+ test.skip(process.env.FOLLOWUP_BEFORE!=='1','baseline capture only');await page.setViewportSize({width:390,height:844});await page.goto('http://127.0.0.1:4174/e2e/player-profile.html');await page.getByRole('button',{name:'Награды',exact:true}).click();await page.getByTestId('trophy-cabinet').scrollIntoViewIfNeeded();await expect(page.getByTestId('cabinet-filter-cups')).toHaveAttribute('aria-pressed','true');await page.evaluate(()=>document.fonts.ready);expect(await page.evaluate(auditScreen)).toEqual([]);const path=info.outputPath('before-medal.png');await page.screenshot({path,animations:'disabled'});copyFileSync(path,new URL('../../docs/reviews/2026-10-28-club-followups/before-medal.png',import.meta.url));
+});

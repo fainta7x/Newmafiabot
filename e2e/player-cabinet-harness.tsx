@@ -87,6 +87,7 @@ const pulse = {
  players_with_form: 10,
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+let followupVote:string|null=null;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
  if(new URLSearchParams(location.search).has('community')){
@@ -112,6 +113,8 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  if (url.pathname.endsWith('/summary') && url.pathname.startsWith('/api/player/profiles/')) return json(profileSummary);
  if (url.pathname.endsWith('/birthday')) return json({});
  if (url.pathname.endsWith('/showcase')) return json({ awards: [], pinned_awards: [], history: [] });
+ if(url.pathname==='/api/player/stories/past-1/vote'){followupVote=JSON.parse(String(init?.body||'{}')).nominee_player_id;return json({success:true});}
+ if(url.pathname==='/api/player/stories/past-1/voting')return json({evening:{id:'past-1',title:'Вечер клуба'},round:new URLSearchParams(location.search).has('runoff')?1:0,voting_open:true,deadline:new Date(Date.now()+86400000).toISOString(),categories:['best_player'],nominees:[{player_id:'p1',nickname:'Александра с длинным никнеймом',avatar_url:'',categories:['best_player']},{player_id:'p2',nickname:'Богданчик',avatar_url:'',categories:['best_player']}],my_votes:followupVote?{best_player:followupVote}:{},results:followupVote?[{category:'best_player',nominee_player_id:followupVote,votes:1}]:[]});
  switch (url.pathname) {
   case '/api/auth/me': return json({ role: 'ORGANIZER', isOrganizer: true, linked: true });
   case '/api/player/me': return json(data);
@@ -130,7 +133,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/profile-settings': return json({ player: data.player });
   case '/api/player/notification-preferences': return json({ preferred_channel: 'auto', personal_enabled: true, available_channels: ['telegram'], effective_channel: 'telegram', channel_status: { telegram: { linked: true, available: true }, vk: { linked: false, available: false } } });
   case '/api/player/invite-preferences': return json({ blocked_kinds: ['POKER'], allow_direct_contact: false, kinds: [{ kind: 'NOVICE', label: 'Вечера для новичков' }, { kind: 'CASUAL', label: 'Клубные вечера' }, { kind: 'RATING', label: 'Рейтинговые вечера' }, { kind: 'TOURNAMENT', label: 'Турниры' }, { kind: 'POKER', label: 'Покер за столом' }] });
-  case '/api/player/voting/pending': return json({ pending: { evening_id: 'past-1', title: 'Вечер клуба', deadline: new Date(Date.now() + 2 * 86400000).toISOString(), voted: false, my_vote_nickname: null, voters: 3, attendees: 10 } });
+  case '/api/player/voting/pending': return json({ pending: { round:new URLSearchParams(location.search).has('runoff')?1:0,evening_id: 'past-1', title: 'Вечер клуба', deadline: new Date(Date.now() + (new URLSearchParams(location.search).has('runoff')?1:2) * 86400000).toISOString(), voted: false, my_vote_nickname: null, voters: new URLSearchParams(location.search).has('runoff')?0:3, attendees: 10 } });
   case '/api/player/privacy-settings': return json({ visibility: { real_name: false, birthday_day_month: true, birth_year: false, telegram_username: false, phone: false, game_statistics: true, connections: true } });
   case '/api/player/rating-periods': return json({ active_periods: [], completed_periods: [] });
   case '/api/player/tournaments': return json({ tournaments: [] });

@@ -1,3 +1,4 @@
+import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import { Router } from 'express';
 import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
@@ -75,7 +76,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       }
       return true;
     });
-    res.json(filtered);
+    res.json(filtered.map((task:any)=>({...task,title:birthdayTaskTitle(task,nowMs)})));
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }

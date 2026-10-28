@@ -33,19 +33,19 @@ router.get('/stories/:eveningId/voting', async (req, res) => {
       db.all(`
         SELECT category, nominee_player_id
           FROM evening_player_votes
-         WHERE evening_id = ? AND voter_player_id = ? AND category = 'best_player'
-      `, [req.params.eveningId, viewerId]),
+         WHERE evening_id = ? AND voter_player_id = ? AND category = ?
+      `, [req.params.eveningId, viewerId,context.voteCategory]),
       db.all(`
         SELECT category, nominee_player_id, COUNT(*) AS votes
           FROM evening_player_votes
-         WHERE evening_id = ? AND category = 'best_player'
+         WHERE evening_id = ? AND category = ?
          GROUP BY category, nominee_player_id
-      `, [req.params.eveningId]),
+      `, [req.params.eveningId,context.voteCategory]),
     ]);
 
-    const myVoteMap = Object.fromEntries(myVotes.map((row: any) => [String(row.category), String(row.nominee_player_id)]));
+    const myVoteMap = Object.fromEntries(myVotes.map((row: any) => [EVENING_VOTE_CATEGORY, String(row.nominee_player_id)]));
     const results = resultRows.map((row: any) => ({
-      category: String(row.category),
+      category: EVENING_VOTE_CATEGORY,
       nominee_player_id: String(row.nominee_player_id),
       votes: Number(row.votes || 0),
     }));
@@ -53,6 +53,7 @@ router.get('/stories/:eveningId/voting', async (req, res) => {
     return res.json({
       evening: { id: String(context.evening.id), title: String(context.evening.title || 'Игровой вечер') },
       voting_open: context.votingOpen,
+      round:context.round,
       deadline: context.deadlineMs ? new Date(context.deadlineMs).toISOString() : null,
       categories: [EVENING_VOTE_CATEGORY],
       nominees: context.nominees,
@@ -83,10 +84,11 @@ router.post('/stories/:eveningId/vote', async (req, res) => {
   if (!CATEGORIES.has(category) || !nomineePlayerId) return res.status(400).json({ error: 'Некорректная категория или кандидат' });
 
   try {
-    const result = await castEveningVote(req.db, req.params.eveningId, viewerId, nomineePlayerId);
+    const result = await castEveningVote(req.db, req.params.eveningId, viewerId, nomineePlayerId,{round:Number(req.body?.round||0)});
     if (!result.ok) {
       if (result.code === 'not_completed') return res.status(409).json({ error: 'Вечер ещё не завершён' });
       if (result.code === 'not_attended') return res.status(403).json({ error: 'Голосовать могут только участники вечера' });
+      if(result.code==='round_changed')return res.status(409).json({error:'Открыт новый тур. Обновите голосование.',code:'round_changed'});
       if (result.code === 'closed') return res.status(409).json({ error: 'Голосование по этому вечеру уже закрыто' });
       return res.status(400).json({ error: 'Этот игрок не подходит для выбранной номинации' });
     }

@@ -23,9 +23,9 @@ for (const width of [360, 390, 960]) {
     await page.screenshot({ path: info.outputPath('trophy-cabinet-selected-' + width + '.png'), fullPage: true });
 
     await cabinet.getByRole('button', { name: 'Закрыть сведения' }).click();
-    await cabinet.getByTestId('cabinet-filter-medals').click();
-    await expect(cabinet.getByTestId('cabinet-empty')).toBeVisible();
     await cabinet.getByTestId('cabinet-filter-cups').click();
+    await expect(cabinet.getByTestId('cabinet-empty')).toBeVisible();
+    await cabinet.getByTestId('cabinet-filter-medals').click();
     await expect(cabinet.getByTestId('cabinet-exhibit')).toHaveCount(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });

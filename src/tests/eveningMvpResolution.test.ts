@@ -1,3 +1,4 @@
+import {startMvpRunoff} from '../server/services/eveningVoteRounds.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
@@ -43,9 +44,14 @@ describe('one «MVP вечера» per evening', () => {
     expect((await resolveEveningMvp(db, 'ev', [])).status).toBe('none');
   });
 
-  it('breaks a tie by wins of the evening, then by wins as Дон/Шериф, then asks the owner', async () => {
+  it('keeps already finalized historical tie rules while new ties require a runoff', async () => {
     const db = await setup();
     await vote(db, 'v1', PLAYERS[0]); await vote(db, 'v2', PLAYERS[1]);
+    // The new rule never picks a tied nominee by game wins.
+    expect((await resolveEveningMvp(db,'ev',[game([[PLAYERS[0],'citizen',true],[PLAYERS[1],'citizen',false]])])).status).toBe('tie');
+    // Already-issued history retains the previous result when rendered/reconciled.
+    const stamp=new Date().toISOString();
+    await db.run("INSERT INTO player_verified_awards(id,player_id,kind,title,source_type,source_key,verification_status,created_by,created_at,updated_at) VALUES('historic',?,'medal','MVP вечера','automatic',?,'verified','system',?,?)",[PLAYERS[0],`club-evening-mvp:ev:${PLAYERS[0]}`,stamp,stamp]);
     // More wins decide.
     const byWins = await resolveEveningMvp(db, 'ev', [game([[PLAYERS[0], 'citizen', true], [PLAYERS[1], 'citizen', false]])]);
     expect(byWins.status === 'winner' && byWins.source === 'wins' && byWins.winner.player_id).toBe(PLAYERS[0]);
@@ -61,6 +67,7 @@ describe('one «MVP вечера» per evening', () => {
   it('lets only the owner decide a tie, by the start of the player id', async () => {
     const db = await setup();
     await vote(db, 'v1', PLAYERS[0]); await vote(db, 'v2', PLAYERS[1]);
+    await startMvpRunoff(db,'ev',[PLAYERS[0],PLAYERS[1]],Date.now()-25*3_600_000);
     expect(await decideEveningMvp(db, 'ev', PLAYERS[2], PLAYERS[0])).toEqual({ ok: false, code: 'forbidden' });
     expect(await decideEveningMvp(db, 'ev', PRIMARY_ORGANIZER_PLAYER_ID, PLAYERS[3])).toEqual({ ok: false, code: 'bad_nominee' });
     const done = await decideEveningMvp(db, 'ev', PRIMARY_ORGANIZER_PLAYER_ID, PLAYERS[1].slice(0, 6));

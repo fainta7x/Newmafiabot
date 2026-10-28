@@ -1,3 +1,4 @@
+import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
@@ -185,7 +186,10 @@ const taskOpen = async (db: DatabaseWrapper, automationKey: string) => db.get<an
 );
 
 async function ensureTask(db: DatabaseWrapper, input: { automationKey: string; playerId: string; title: string; description: string; dueAt?: string | null; priority?: string }) {
-  if (await taskOpen(db, input.automationKey)) return false;
+  if (await taskOpen(db, input.automationKey)) {
+    if(input.automationKey.startsWith('birthday:'))await db.run("UPDATE organizer_tasks SET title=?,description=?,due_at=COALESCE(due_at,?),updated_at=? WHERE automation_key=? AND status NOT IN ('done','cancelled') AND (title<>? OR COALESCE(description,'')<>?)",[input.title,input.description,input.dueAt||null,new Date().toISOString(),input.automationKey,input.title,input.description]);
+    return false;
+  }
   const now = new Date().toISOString();
   await db.run(
     `INSERT OR IGNORE INTO organizer_tasks
@@ -227,7 +231,7 @@ export async function reconcileProfileIntegrityTasks(db: DatabaseWrapper, now = 
         if (await ensureTask(db, {
           automationKey: `birthday:${player.id}:${birthday.date}`,
           playerId: String(player.id),
-          title: `День рождения через ${birthday.days_until} дн. — ${player.nickname}`,
+          title: birthdayTaskTitle({automation_key:`birthday:${player.id}:${birthday.date}`,player_nickname:player.nickname},now.getTime()),
           description: `Подготовить поздравление. Дата: ${String(player.birth_day).padStart(2, '0')}.${String(player.birth_month).padStart(2, '0')}.`,
           dueAt: `${birthday.date}T09:00:00.000Z`,
           priority: 'medium',

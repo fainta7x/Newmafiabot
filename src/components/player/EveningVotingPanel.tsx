@@ -5,6 +5,7 @@ type Category = 'best_player';
 type VotingData = {
   evening: { id: string; title: string };
   voting_open: boolean;
+  round?:number;
   deadline: string | null;
   categories: Category[];
   nominees: Array<{
@@ -18,7 +19,7 @@ type VotingData = {
 };
 
 const CATEGORY_META: Record<Category, { label: string; icon: string; hint: string }> = {
-  best_player: { label: 'MVP вечера', icon: '🏆', hint: 'Кто сыграл лучше всех на этом вечере' },
+  best_player: { label: 'MVP вечера', icon: '🏅', hint: 'Кто сыграл лучше всех на этом вечере' },
 };
 
 const deadlineText = (value: string | null) => {
@@ -72,7 +73,7 @@ export default function EveningVotingPanel({ eveningId }: { eveningId: string })
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: activeCategory, nominee_player_id: nomineePlayerId }),
+        body: JSON.stringify({ category: activeCategory, nominee_player_id: nomineePlayerId,round:data.round||0 }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить голос');
@@ -90,7 +91,7 @@ export default function EveningVotingPanel({ eveningId }: { eveningId: string })
   return (
     <div className="mt-4 rounded-[22px] border border-fuchsia-300/10 bg-fuchsia-300/[0.035] p-3">
       <div className="flex items-start justify-between gap-3">
-        <div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fuchsia-100/50">🗳️ Голосование игроков</div><div className="mt-1 text-xs font-semibold">Выбери героев этого вечера</div></div>
+        <div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fuchsia-100/50">🗳️ Голосование игроков</div><div className="mt-1 text-xs font-semibold">{data.round?'Дополнительный тур: только лидеры':'Выбери MVP этого вечера'}</div></div>
         <div className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${data.voting_open ? 'bg-emerald-300/10 text-emerald-200/70' : 'bg-white/[0.06] text-white/35'}`}>{data.voting_open ? 'открыто' : 'закрыто'}</div>
       </div>
 
@@ -103,7 +104,7 @@ export default function EveningVotingPanel({ eveningId }: { eveningId: string })
         const showResult = Boolean(myVote) || !data.voting_open;
         return <button key={nominee.player_id} type="button" disabled={!data.voting_open || Boolean(savingPlayerId)} onClick={() => void vote(nominee.player_id)} className={`relative overflow-hidden rounded-2xl border p-2.5 text-left transition ${selected ? 'border-fuchsia-200/35 bg-fuchsia-200/[0.10]' : 'border-white/[0.05] bg-black/20'} disabled:cursor-default`}>
           {showResult && <span className="absolute bottom-0 left-0 h-0.5 bg-fuchsia-300/45" style={{ width: `${Math.round((votes / maxVotes) * 100)}%` }} />}
-          <div className="flex items-center gap-2"><img src={nominee.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" /><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{nominee.nickname}</div><div className="mt-0.5 text-[11px] text-white/30">{selected ? 'Выбор' : showResult ? `${votes} голос.` : 'Выбрать'}</div></div>{selected && <span className="text-sm">✓</span>}</div>
+          <div className="flex items-center gap-2">{nominee.avatar_url&&<img src={nominee.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />}<div className="min-w-0 flex-1"><div className="break-words text-[11px] font-semibold">{nominee.nickname}</div><div className="mt-0.5 text-[11px] text-white/30">{selected ? 'Выбор' : showResult ? `${votes} голос.` : 'Выбрать'}</div></div>{selected && <span className="text-sm">✓</span>}</div>
         </button>;
       })}</div> : <div className="mt-3 rounded-xl bg-black/20 px-3 py-4 text-center text-[11px] text-white/30">В этой номинации пока нет подходящих кандидатов.</div>}
 

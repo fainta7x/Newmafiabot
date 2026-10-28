@@ -316,6 +316,7 @@ async def handle_evening_followup(callback: CallbackQuery):
 
 _VOTE_MARK = "✅ "
 _VOTE_ERRORS = {
+    "round_changed": "Открыт новый тур. Используй новую карточку голосования.",
     "closed": "Голосование по этому вечеру уже закрыто.",
     "not_attended": "Голосовать могут только игроки, которые были на этом вечере.",
     "not_completed": "Вечер ещё не завершён.",
@@ -341,7 +342,7 @@ def _mark_vote_choice(markup: InlineKeyboardMarkup | None, chosen_data: str) -> 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-@router.callback_query(F.data.startswith("evv:"))
+@router.callback_query(F.data.startswith("evv:") | F.data.startswith("evr:"))
 async def handle_evening_vote(callback: CallbackQuery):
     """A tap on a player under «Кто сыграл лучше всех?» is the vote for «MVP вечера»; another tap changes it."""
     try:
@@ -352,7 +353,7 @@ async def handle_evening_vote(callback: CallbackQuery):
     if not evening_id or not nominee:
         await callback.answer("Некорректная кнопка", show_alert=True)
         return
-    result = await cast_evening_vote(evening_id, callback.from_user.id, nominee)
+    result = await cast_evening_vote(evening_id, callback.from_user.id, nominee, round=1) if callback.data.startswith("evr:") else await cast_evening_vote(evening_id, callback.from_user.id, nominee)
     if result.get("success"):
         chosen = (result.get("data") or {}).get("nominee") or "игрок"
         await callback.answer(f"✅ Твой голос: {chosen}", show_alert=False)

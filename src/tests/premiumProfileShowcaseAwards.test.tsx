@@ -11,23 +11,23 @@ const mockShowcase = (body: unknown) => vi.stubGlobal('fetch', vi.fn(async () =>
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('player award showcase', () => {
-  it('uses a medal for the first three places and a ribbon for a nomination', async () => {
+  it('uses a cup for a tournament winner and medals for other awards', async () => {
     mockShowcase(showcase([award('a', 'Победитель', '1 место'), award('b', 'Второе', '2 место'), award('c', 'Лучший Дон', null, 'nomination')]));
     render(<PremiumProfileShowcase playerId="p1" isSelf={false} section="awards" />);
     await waitFor(() => expect(screen.getByText(/Победитель/)).toBeTruthy());
-    expect(screen.getByText(/🥇 Победитель/)).toBeTruthy();
+    expect(screen.getByText(/🏆 Победитель/)).toBeTruthy();
     expect(screen.getByText(/🥈 Второе/)).toBeTruthy();
-    expect(screen.getByText(/🎖️ Лучший Дон/)).toBeTruthy();
+    expect(screen.getByText(/🏅 Лучший Дон/)).toBeTruthy();
   });
 
   it('recognizes ordinal spellings of a place', async () => {
     mockShowcase(showcase([award('a', 'Победитель', '1-е место'), award('b', 'Второе', '2-е место'), award('c', 'Третье', '3 место'), award('d', 'Одиннадцатое', '11 место')]));
     render(<PremiumProfileShowcase playerId="p1" isSelf={false} section="awards" />);
     await waitFor(() => expect(screen.getByText(/Победитель/)).toBeTruthy());
-    expect(screen.getByText(/🥇 Победитель/)).toBeTruthy();
+    expect(screen.getByText(/🏆 Победитель/)).toBeTruthy();
     expect(screen.getByText(/🥈 Второе/)).toBeTruthy();
     expect(screen.getByText(/🥉 Третье/)).toBeTruthy();
-    expect(screen.getByText(/🏆 Одиннадцатое/)).toBeTruthy();
+    expect(screen.getByText(/🏅 Одиннадцатое/)).toBeTruthy();
   });
 
   it('asks the cheap endpoint for the overview strip', async () => {

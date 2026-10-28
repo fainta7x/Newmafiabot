@@ -1,3 +1,4 @@
+import {loadMvpRunoff,MVP_RUNOFF_CATEGORY} from './eveningVoteRounds.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { dateLabel, loadAvatars } from './clubResultData.ts';
 import { mvpResultSvg, mvpVoteSvg, renderPng } from './clubResultImages.ts';
@@ -42,12 +43,13 @@ export async function buildMvpResultCard(
   try {
     const evening = await db.get<any>('SELECT title, starts_at FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) return null;
+    const round=await loadMvpRunoff(db,eveningId);
     const others = await db.all<any>(
       `SELECT v.nominee_player_id AS player_id, p.nickname, COUNT(*) AS votes
          FROM evening_player_votes v JOIN players p ON p.id = v.nominee_player_id
-        WHERE v.evening_id = ? AND v.category = 'best_player' AND v.nominee_player_id <> ?
+        WHERE v.evening_id = ? AND v.category = ? AND v.nominee_player_id <> ?
         GROUP BY v.nominee_player_id, p.nickname ORDER BY votes DESC, p.nickname COLLATE NOCASE LIMIT 4`,
-      [eveningId, winner.player_id],
+      [eveningId,round?MVP_RUNOFF_CATEGORY:'best_player', winner.player_id],
     );
     const avatars = await loadAvatars(db, [winner.player_id, ...others.map((row: any) => String(row.player_id))]);
     return renderPng(mvpResultSvg({

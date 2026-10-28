@@ -284,7 +284,7 @@ async def schedule_evening_followup(evening_id: str, telegram_user_id: int, when
         return {"success": False, "error": "unavailable"}
 
 
-async def cast_evening_vote(evening_id: str, telegram_user_id: int, nominee: str) -> dict[str, Any]:
+async def cast_evening_vote(evening_id: str, telegram_user_id: int, nominee: str, round: int = 0) -> dict[str, Any]:
     """«MVP вечера» from the buttons under the bot's voting message. `nominee` is the start of a player id."""
     if not BOT_API_BASE_URL or not BOT_API_SECRET:
         return {"success": False, "error": "configuration"}
@@ -292,7 +292,7 @@ async def cast_evening_vote(evening_id: str, telegram_user_id: int, nominee: str
     try:
         timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, headers=_base_headers(), json={"telegram_user_id": int(telegram_user_id), "nominee": nominee}) as response:
+            async with session.post(url, headers=_base_headers(), json={"telegram_user_id": int(telegram_user_id), "nominee": nominee, "round": round}) as response:
                 try:
                     data = await response.json()
                 except Exception:

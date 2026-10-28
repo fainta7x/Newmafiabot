@@ -211,6 +211,10 @@ Before changing voting/fouls/removals/PPK/speech timing/zero round/game completi
 
 Current canonical launcher passes controlled hidden-role state. A bare direct `LiveGameEngine` fallback still starts internal role visibility as visible; treat this as low-priority cleanup, not evidence that the real club launcher exposes roles.
 
+### Daily word persistence
+
+`dailyWordRoutes.ts` → `dailyWordService.ts` → `daily_word_puzzles` / `daily_word_sessions`. Server-only dictionaries choose and validate words; `shared/dailyWord.ts` owns public marks/contracts only. The session row, request id and canonical token-ledger reward commit atomically through the DB transaction queue. Shell routing owns `/player/daily-word`; the existing Home/Community surfaces link to it. Future answer assignment uses existing club-owner authorization.
+
 ### Online Poker persistence
 
 Poker UI and rules live in `PlayerPoker.tsx`, `pokerEngine.ts` and `pokerLobbyService.ts`; `/api/player/poker/*` is owned by `pokerRoutes.ts`. `pokerPersistenceService.ts` scopes the in-memory runtime to the request database and atomically snapshots changed state to `poker_runtime_state` after a successful action, before the API response. The snapshot contains tables, active hands/history and human bankrolls; public responses still redact the deck and opponents' hidden cards. Production and the signed in-app sandbox therefore cannot share poker state. Ordinary polling compares snapshots and does not create a continuous SQLite write loop.

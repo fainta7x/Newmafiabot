@@ -11,6 +11,7 @@ import PlayerCabinetShell from '../src/components/player/PlayerCabinetShell.tsx'
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import type { PlayerMeResponse } from '../src/types/player.ts';
 import './appStyles.ts';
+import {wordFixture} from './daily-word-fixture.ts';
 
 const data: PlayerMeResponse = {
  player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: 100, game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },
@@ -90,6 +91,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 let followupVote:string|null=null;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
+ if(url.pathname==='/api/player/daily-word')return json(wordFixture());
  if(new URLSearchParams(location.search).has('community')){
   if(url.pathname==='/api/player/rating-periods')return json(structurePeriods);
   if(url.pathname.startsWith('/api/player/rating-periods/'))return json(structurePeriodDetail(decodeURIComponent(url.pathname.split('/').pop()!)));

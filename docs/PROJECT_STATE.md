@@ -1,5 +1,16 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — daily word: owner-approved implementation, separate PR
+
+Owner wants a daily free Wordle-like mini-game to encourage app interest and return visits, explicitly requests variable word length and a **200-token** reward per win, and asks for a separate PR. Implemented in one focused branch `feat/daily-word-20261028`: common random word,4–8 letters,6 free tries, server progress across devices, Moscow midnight, one canonical ledger reward, repeat-letter feedback, optional spoiler-free sharing, post-finish comparison, informational streaks and owner-only future word assignment. Entries on Home and Community → Mini-games; no unrelated architecture/Community work, production data writes, messages or deployment.
+
+Local verification:11 daily-word API/service scenarios plus navigation/harness checks (4 files/28 cases) pass; focused5 browser flows pass on360/390/1366/1440, including invalid input, win/loss/reveal, management and shell links. Typecheck/lint/build, dependency guard and release audit checked; all60 four-size/wide-font audits pass; exact-head GitHub CI remains to be recorded in the PR. Baseline main7ee72738; source/mount state is newer than old release paragraphs below. No production or deployment claim. [Evidence and limits](reviews/2026-10-28-daily-word/README.md).
+
+Owner explicitly confirmed publication to fainta7x/Newmafiabot («Подтверждаю, доделывай»). The earlier automatic permission blocker is resolved. Publish through the connected GitHub tool because plain git has no push credentials. Local implementation checks remain valid; no main/runtime change yet. Next action — assistant: publish the separate PR and inspect exact-head required checks under AGENTS bounded CI protocol.
+
+Player-facing change, not yet announced: «Слово дня» — одна бесплатная партия каждый день,200 жетонов за победу, вход с главной и из мини-игр. Publication not authorized.
+
+
 ## 2026-10-28 — current technical debt and next architecture slice
 
 Owner asks to continue work and identify remaining debts/architecture tasks. Reconciled against current remote main after #1078; older authoring-time pending paragraphs below do not override this queue. #1078 merged as `0b740d9a91346952a4283bc0cdc15f4c5836f462`; exact `f3c585b` passed CI4590/UI2272/CodeQL3894/Gitleaks3891. Its full tree matches the local verified tree. All four requested club follow-ups are in main; deployment/runtime of this revision is not verified.

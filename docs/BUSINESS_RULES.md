@@ -1074,3 +1074,12 @@ These are the owner's answers to the questions where copies in the code disagree
 9. **Achievements.** There is **one** set of achievements; the separate list in «Прогресс» is merged into it. There are **no minimum-game cut-offs**: «strongest role» and similar indicators have no 5- or 10-game minimum (owner: «без отсечек и ограничений»).
 10. **Open evening** (owner, 2026-10-23). An evening is open when it is **published or in progress and not yet closed**. Players see only open evenings in «Актуальное» and in the bot; drafts are never shown to players. Players can be invited and can sign up **until the evening is closed**, including during it (someone may come later).
 
+
+## Daily word (owner-approved, 2026-10-28)
+
+- Purpose: a fun daily reason to open the app, independent of Mafia performance. One common Russian noun per Moscow day; the owner explicitly requested variable length. Initial supported range4–8 letters and6 guesses are implementation defaults stated in the conversation. Е and Ё are equivalent.
+- Participation is free, including all6 guesses. A win awards **200 club tokens**, once per player/day, regardless of speed or attempts (owner correction supersedes the initially proposed10). No paid extra tries, entry fee, streak multiplier or loss penalty.
+- Auto selection uses a curated common-word pool, excluding the previous90 assigned days when available. A broader server noun dictionary validates guesses. The owner can assign/replace a dictionary word for a future day. Today's puzzle cannot be changed. The assigning account earns no reward and is excluded from comparison for that puzzle.
+- Attempts and results persist on the server across devices; a retry never consumes another attempt or awards twice. Win persistence and token settlement are one transaction. The canonical token ledger owns the balance. A reward can reduce an existing negative balance.
+- New day at00:00 Europe/Moscow. Unfinished yesterday games expire; yesterday attempts cannot be applied to today. Skipping does not remove tokens; streaks are informational.
+- Answers stay server-only. A losing player can reveal the answer after finishing. Other players' finished results open only after one's own completion; shared text contains colour squares and attempt counts, never letters. No automatic messages or publication.

@@ -1,5 +1,17 @@
 # Audit log
 
+## 2026-10-28 — current architecture backlog reconciliation
+
+Source: merged #1078, current remote main; read-only source review, no production diagnosis. The owner asks to continue tasks and identify remaining technical debt. The current prioritized queue is maintained only in PROJECT_STATE.
+
+- [fixed, AR01] `requestJson.ts`, `PlayerAccessSettings.tsx`, `PlayerTokenLedgerCard.tsx`: repeated response parsing has the same success/non-JSON behavior but different error compatibility (`error` only versus `error || message`). Extract one response parser and migrate these two local adapters without changing fetch options, write order, validation, body data or visible copy. Acceptance: helper compatibility plus existing access-settings scenarios, type/lint and dependency guards; markup/CSS unchanged. Implemented;23 targeted helper/access cases pass, including both legacy error fields and unchanged request/readback assertions.
+- [open, AR02; audit only] `eveningTodayPostService.ts:sendTelegram/publishTodayPost`, `clubResultPostService.ts:claim/finish`: a missing remote acknowledgement may still be retried as failure. `customEventPublishingService.ts` and poker already hold `uncertain`; personal retry timing/classification are already shared. A public-post recovery contract must distinguish accepted/rejected/unknown and define explicit reconciliation before retry. No new delivery state or retry policy is chosen here.
+- [open, AR03; audit only] `playerPaymentRoutes.ts` still computes wallet totals over a capped 200-row list and its own serializer; `playersRoutes.ts` has separate debt SQL. #1078 already shares debt grouping among three reminder/task consumers. Remaining wallet/CRM unification must preserve settled/open distinctions and resolve status/amount contradictions before accounting semantics change. No payment/ledger write is changed here.
+- [open, AR04; audit only] `LiveGameEngine/liveSessionStorage.ts` restores snapshots/history; `liveRosterCorrections.ts` replays identity changes only. Role/seat journal support is implemented, full engine-state replay remains a separate scenario-based workstream. No game-state rewrite here.
+- [open, AR05; evidence pending] query-plan optimization and retirement of one-off startup repairs still need runtime evidence/migration history. No speculative index, repair deletion or production query is run.
+
+Already implemented in current source: zero dependency cycles/layer violations, canonical role/score modules, shared protocol window/editing hook, roster/role journal corrections and personal-message retry timing. Old authoring-time pending paragraphs are not proof of outstanding work.
+
 ## 2026-10-28 — CI4589 award icon expectations
 
 - [fixed, CF-CI] `premiumProfileShowcaseAwards.test.tsx`: two tests still expect a tournament winner as a gold medal, an ordinary nomination as a ribbon and an eleventh place as a cup. CI shard5 fails only these two cases (130 other files/669 cases pass); Web/build/container/Python and shards1–4 pass. Update the existing assertions to the requested cup eligibility: winner cup, second/third-place medals, nomination/eleventh-place medals. Both affected award owners pass locally:2 files/13 cases. UI2271 passes both mobile previews and all-page layout/text audit. No runtime, screenshot, detector or rule change.

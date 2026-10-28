@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarPlus, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import type { PlayerDetails } from '../../lib/api.ts';
+import { readJsonResponse } from '../../lib/requestJson.ts';
 import {
   accessLabel,
   CLUB_MEMBERSHIPS,
@@ -128,11 +129,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
     setOpen(false);
   };
 
-  const readJson = async (response: Response) => {
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || body?.message || 'Не удалось выполнить действие');
-    return body;
-  };
+  const readJson = (response: Response) => readJsonResponse(response, 'Не удалось выполнить действие', { messageFallback: true });
 
   const save = async (openSignup = false) => {
     if (saving) return;

@@ -9,6 +9,23 @@ export class RequestJsonError extends Error {
   }
 }
 
+const readJsonBody = (response: Response): Promise<any> => response.json().catch(() => ({}));
+
+/** Parse an existing response without changing its request or consuming its body twice.
+ * Legacy callers may explicitly retain their `message` fallback; other callers use only `error`.
+ */
+export async function readJsonResponse<T = any>(
+  response: Response,
+  fallbackError: string,
+  options: { messageFallback?: boolean } = {},
+): Promise<T> {
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    throw new RequestJsonError(body?.error || (options.messageFallback ? body?.message : undefined) || fallbackError, response.status, body);
+  }
+  return body as T;
+}
+
 /**
  * Same-origin JSON read with the cookie session. The failure message is the server's `error` text,
  * otherwise the caller's Russian fallback, exactly like the hand-written
@@ -16,9 +33,7 @@ export class RequestJsonError extends Error {
  */
 export async function getJson<T = any>(url: string, fallbackError: string, init: { cache?: RequestCache } = {}): Promise<T> {
   const response = await fetch(url, { credentials: 'include', ...init });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new RequestJsonError(body?.error || fallbackError, response.status, body);
-  return body as T;
+  return readJsonResponse<T>(response, fallbackError);
 }
 
 /**
@@ -27,7 +42,7 @@ export async function getJson<T = any>(url: string, fallbackError: string, init:
  */
 export async function getJsonIfOk<T = any>(url: string, init: { cache?: RequestCache } = {}): Promise<T | null> {
   const response = await fetch(url, { credentials: 'include', ...init });
-  const body = await response.json().catch(() => ({}));
+  const body = await readJsonBody(response);
   return response.ok ? (body as T) : null;
 }
 
@@ -45,9 +60,7 @@ export async function sendJson<T = any>(
   const response = await fetch(url, payload === undefined
     ? { method, credentials: 'include' }
     : { method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new RequestJsonError(body?.error || fallbackError, response.status, body);
-  return body as T;
+  return readJsonResponse<T>(response, fallbackError);
 }
 
 /**
@@ -62,7 +75,5 @@ export async function requestJson<T = any>(
 ): Promise<T> {
   const response = await fetch(url, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
   if (options.nullOn204 && response.status === 204) return null as T;
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new RequestJsonError(body?.error || fallbackError, response.status, body);
-  return body as T;
+  return readJsonResponse<T>(response, fallbackError);
 }

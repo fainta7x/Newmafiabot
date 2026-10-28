@@ -1,5 +1,19 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — current technical debt and next architecture slice
+
+Owner asks to continue work and identify remaining debts/architecture tasks. Reconciled against current remote main after #1078; older authoring-time pending paragraphs below do not override this queue. #1078 merged as `0b740d9a91346952a4283bc0cdc15f4c5836f462`; exact `f3c585b` passed CI4590/UI2272/CodeQL3894/Gitleaks3891. Its full tree matches the local verified tree. All four requested club follow-ups are in main; deployment/runtime of this revision is not verified.
+
+Current queue, in useful implementation order:
+
+1. **AR01, current candidate — common API response parsing.** One existing-response parser in `requestJson.ts`; shared GET/write helpers and the two remaining CRM adapters consume it. Preserve `error` priority, explicitly opt in to the access editor's existing `message` fallback, retain non-JSON/204/probe behavior, fetch options and write/readback order. No markup/CSS, visible copy, access/payment rule or ledger mutation change. Both targeted owners pass23 cases; type/lint/dependency/release gates and exact-head remote CI are recorded in the PR. Next action — assistant: publish and finish this one connected slice, no owner input required.
+2. **AR02, highest remaining delivery risk — uncertain public-post outcome.** Telegram timeout/5xx can happen after acceptance; today/results posting still treats some ambiguous outcomes as retryable failure. Poker/custom posts already have a held `uncertain` state; the shared personal retry timing/classifier are done. Next is a complete recovery/reconciliation design and focused failure scenarios, then a bounded implementation. Do not promise exactly-once delivery or automatically resend an unknown outcome.
+3. **AR03 — one debt read contract for remaining wallet/CRM callers.** #1078 already unifies reminder/task grouping. Wallet totals still derive from a 200-row display list and a separate serializer; CRM has separate SQL. Before unification, characterize settled/open/cancelled, waiver, partial-payment, null and contradictory-status rows; preserve accounting and do not choose a new payment rule silently.
+4. **AR04 — full game-state replay.** Role/roster correction events and journal capture are already implemented. Restoration still uses snapshots/history; complete event-to-state restoration needs scenario coverage for phase, timers, votes, checks, exits and Undo. A separate planned workstream, not a mechanical extraction from LiveGameEngine.
+5. **AR05 — measured query/startup follow-up.** Review slow query plans only with runtime evidence; retire one-off startup repairs only after verifying production migration history. No speculative index, migration deletion or live-data write.
+
+Already done, not backlog: zero import cycles/layer violations; shared roles/teams/scores; shared club/tournament protocol and editing hook; achievements source; personal-message retry timing; role/seat journal corrections; Community/Metrics/Connections scope through #1077. UI primitives and remaining local request shapes may be improved when a concrete matching owner/use case is found; no global cache or broad rewrite is queued merely for uniformity. Audit evidence: `AUDIT_LOG` → current architecture backlog reconciliation. No production data or new product feature was used/created in this review.
+
 ## 2026-10-28 — approved debts, birthday timing, MVP runoff and award shapes
 
 Owner requests implementation: (1) sum a player's unpaid evenings in Telegram reminders and organizer tasks, (2) keep approaching-birthday tasks current instead of frozen «через5дней», (3) an additional MVP vote restricted to equal-vote leaders, (4) cups only for tournaments/season-rating championships; other result awards are medals. One connected implementation; preserve payments/history/award IDs. Runoff timing/repeated-tie questions returned no answers; working defaults stated to owner:24h, then the existing organizer decision if still tied. These are implementation assumptions, not claimed explicit owner answers. No production writes or real messages during verification.
@@ -247,7 +261,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Single planning document:** maintain the current development queue in this file. Other documentation describes rules, architecture, or operating procedures; Git history preserves completed and superseded plans. Before treating a queue item as unfinished, compare it with the latest `main` implementation.
 
-**Status date:** 2026-10-14
+**Status date:** 2026-10-28
 
 ## Open PR reconciliation — owner request, 2026-10-15
 
@@ -408,7 +422,7 @@ Status of each step as of 2026-10-23 (merged in #1002–#1006; details in AUDIT_
 
 **Игровое мышление (PR #774, доработка PR #778):** замена поверхностного теста в «Обучении» на пятимодульную «Школу игрового мышления» (факт/версия → выгода → командный план → чтение действий → построение троек). Старый `/guide?tab=quiz` открывает банк из 22 кейсов (10 в первой главе; за одну попытку показываются 5 кейсов) с индивидуальными разборами, порогом перехода по главам и сохранением только в локальном браузере. Отдельные тренажёры попилов/судьи и боевой движок не изменяются. Состояние merge и deployed/runtime сверять с Git и Amvera — зеленая ветка и merge не означают живой деплой. Серверная синхронизация прогресса, новые кейсы по данным реальных игр и CRM аналитика требуют отдельного согласования.
 
-**Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. VK Player Cabinet access and personal delivery were introduced in PR #285; the operational follow-up for cabinet OAuth routing, restart-active VK outbox delivery, channel-neutral betting notifications, owner-initiated VK linking and trusted public callback URLs is implemented by VK-ACCESS-002 / PR #290 and remains subject to merge, deployment and runtime verification. CRM-PAY-003 / PR #292 implements factual regular-evening pricing at 100 ₽ per actually completed game with a 400 ₽ cap, debt-free RSVP/slot planning and application-level historical reconciliation; it remains subject to review, merge, deployment and runtime/data verification. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** #1078 merged as `0b740d9a91346952a4283bc0cdc15f4c5836f462` after exact-head CI4590/UI2272/CodeQL3894/Gitleaks3891 passed. Includes all four latest club follow-ups and preserves the Community/Progress delivery through #1077. Deployment/runtime verification of this revision is separate and has not been performed in this session.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 

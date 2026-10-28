@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Coins, Plus, RefreshCw } from 'lucide-react';
+import { readJsonResponse } from '../../lib/requestJson.ts';
 
 type TokenEntry = {
   id: string;
@@ -27,11 +28,7 @@ const fmtDate = (value: string) => {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' });
 };
 
-const readJson = async (response: Response) => {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || 'Не удалось выполнить операцию с жетонами');
-  return data;
-};
+const readJson = (response: Response) => readJsonResponse(response, 'Не удалось выполнить операцию с жетонами');
 
 export const PlayerTokenLedgerCard: React.FC<PlayerTokenLedgerCardProps> = ({ playerId, initialBalance = 0 }) => {
   const [data, setData] = useState<TokenPage | null>(null);

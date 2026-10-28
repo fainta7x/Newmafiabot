@@ -21,6 +21,8 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 **Already implemented:** Player Cabinet ↔ Organizer CRM bidirectional mode switching. Do not propose “connect the two apps” as new work unless a concrete missing transition is identified.
 
+- Existing-response JSON compatibility: `src/lib/requestJson.ts:readJsonResponse` is shared by standard GET/write helpers and the CRM access/token adapters. `message` fallback is opt-in; request options, probe-null and optional204 behavior stay with their existing request owners. Coverage: `requestJson.test.ts`, `PlayerAccessSettings.test.tsx`.
+
 ## Player settings recovery
 
 - Settings hub: `PlayerSettingsHub.tsx`; notification/invitation/privacy preferences retain their existing endpoint owners. `PlayerSettingsLoadState.tsx` supplies the common initial-load error/retry state. `PlayerProfilePrivacySettings.tsx` serializes visibility saves and accepts the server-confirmed visibility. Focused UI coverage: `src/tests/PlayerSettingsRecovery.test.tsx`.

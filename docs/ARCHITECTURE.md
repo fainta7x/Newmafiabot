@@ -26,6 +26,7 @@ Typical integration flow:
 - `src/App.tsx` — route-level product shell.
 - `src/components/` — Player, Organizer CRM, Live Game and shared UI.
 - `src/lib/api.ts` — main client API facade/shared client types.
+- `src/lib/requestJson.ts` — shared transport helpers and existing-response parsing (`readJsonResponse`); compatibility for a server `message` field is explicit per caller. Request shapes and post-write refresh order remain caller-owned; there is no global response cache.
 - `src/types/` — shared data shapes.
 
 ## 3. Unified Player / Organizer product shell

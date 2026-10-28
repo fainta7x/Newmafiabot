@@ -25,8 +25,8 @@ afterEach(() => {
 });
 
 describe('PlayerAccessSettings', () => {
-  it('keeps the editor and chosen values visible after a server validation failure', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => response({ error: 'Validation error' }, 400)));
+  it.each(['error', 'message'])('keeps the editor and chosen values visible after a server %s failure', async (field) => {
+    vi.stubGlobal('fetch', vi.fn(() => response({ [field]: 'Validation error' }, 400)));
     render(<PlayerAccessSettings player={player} />);
 
     fireEvent.click(screen.getByTestId('crm-player-access-edit'));
@@ -34,7 +34,7 @@ describe('PlayerAccessSettings', () => {
     fireEvent.change(selects[0], { target: { value: 'tournament' } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
 
-    expect(await screen.findByTestId('crm-player-access-error')).toBeDefined();
+    expect((await screen.findByTestId('crm-player-access-error')).textContent).toContain('Validation error');
     expect(screen.getByTestId('crm-player-access-sheet')).toBeDefined();
     expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
   });

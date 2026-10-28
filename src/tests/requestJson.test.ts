@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getJson, getJsonIfOk, RequestJsonError, requestJson, sendJson } from '../lib/requestJson.ts';
+import { getJson, getJsonIfOk, readJsonResponse, RequestJsonError, requestJson, sendJson } from '../lib/requestJson.ts';
 
 const mockFetch = (status: number, body: unknown, jsonThrows = false) => {
   const fetchMock = vi.fn(async () => ({
@@ -12,6 +12,21 @@ const mockFetch = (status: number, body: unknown, jsonThrows = false) => {
 };
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('existing response compatibility', () => {
+  it('keeps message-only failures opt-in and gives error priority', async () => {
+    const response = (body: unknown) => new Response(JSON.stringify(body), { status: 409 });
+    await expect(readJsonResponse(response({ message: 'Прежнее сообщение' }), 'fallback')).rejects.toMatchObject({ message: 'fallback', status: 409 });
+    await expect(readJsonResponse(response({ message: 'Прежнее сообщение' }), 'fallback', { messageFallback: true })).rejects.toMatchObject({ message: 'Прежнее сообщение', status: 409, body: { message: 'Прежнее сообщение' } });
+    await expect(readJsonResponse(response({ error: 'Ошибка', message: 'Сообщение' }), 'fallback', { messageFallback: true })).rejects.toThrow('Ошибка');
+  });
+
+  it('preserves successful null and empty/non-JSON body fallbacks', async () => {
+    await expect(readJsonResponse(new Response('null'), 'fallback')).resolves.toBeNull();
+    await expect(readJsonResponse(new Response(null, { status: 204 }), 'fallback')).resolves.toEqual({});
+    await expect(readJsonResponse(new Response('not JSON', { status: 502 }), 'Сеть недоступна')).rejects.toMatchObject({ message: 'Сеть недоступна', status: 502, body: {} });
+  });
+});
 
 describe('getJson', () => {
   it('returns the parsed body and sends the cookie session', async () => {

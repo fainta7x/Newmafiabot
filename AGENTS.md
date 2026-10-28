@@ -141,6 +141,8 @@ The owner considers forty minutes excessive for a small usability batch. Priorit
 
 - **Community structure reconsideration (owner, 2026-10-28):** the owner now explicitly asks to rethink Community tab grouping and purpose, including moving Metrics, consolidating Season/Activity/Hall of Fame and unifying Connections. The earlier grouping-preservation instruction must not freeze the menu for this task; preserve rating meanings/formulas and first present the complete proposed structure for agreement before application edits. The owner subsequently approved the complete structure and explicitly retained Form points with plain explanation; the review gate for IS01–IS12 is satisfied. Keep its formula unchanged.
 
+- **Connections/Metrics content plan approved (owner, 2026-10-28):** «Да, продолжай» approves the full CN01–CN08 plan in `docs/UX_CONNECTIONS_METRICS_CONTENT_REVIEW_2026-10-28.md`: one category table, comparison of two arbitrary visible players, factual connection stories and pair history. The complete-analysis gate is satisfied; implement and finish this connected scope without asking again. Preserve formulas, source/denominator context and privacy.
+
 ## 5. PR budget — hard rule (GPT/Codex only)
 
 **Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.

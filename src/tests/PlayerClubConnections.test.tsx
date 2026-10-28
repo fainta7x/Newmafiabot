@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); open
 it('makes club pairs primary, switches the list and opens canonical profiles', async () => {
   setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] }, club_most_played: { red: [{ ...duo, a_name: 'Вера', a_id: 'v' }], black: [] } });
   const club = await screen.findByTestId('club-duos');
-  expect(club.parentElement?.firstElementChild).toBe(club);
+  expect(screen.getByTestId('connection-controls').nextElementSibling).toBe(club);
   fireEvent.click(within(club).getByRole('button', { name: 'Открыть профиль Анна' })); expect(open).toHaveBeenCalledWith('a');
   fireEvent.click(screen.getByRole('button', { name: 'По числу игр' }));
   expect(within(club).getByRole('button', { name: 'Открыть профиль Вера' })).toBeTruthy();
@@ -28,7 +28,7 @@ it('labels single-game pairs as too early to judge and keeps personal lists out 
 it('shows six distinct club stories and switches accessible tabs without losing profile actions', async () => {
   setup({ rivals: [], teammates: [], club_stories: clubStoriesFixture, club_duos: { red: [], black: [] } });
   const stories = await screen.findByTestId('club-stories');
-  expect(stories.parentElement?.firstElementChild).toBe(stories);
+  expect(screen.getByTestId('connection-controls').nextElementSibling).toBe(stories);
   expect(within(stories).getByText('Чёрные тройки')).toBeTruthy();
   expect(within(stories).getByText('Дон и мафия')).toBeTruthy();
   expect(within(stories).getByText('Шериф и мирный')).toBeTruthy();
@@ -49,7 +49,8 @@ it('shows six distinct club stories and switches accessible tabs without losing 
 it('shows each duo as two usable profile actions and three explicit game statistics', async () => {
   setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] } });
   const card = await screen.findByTestId('club-duo-a-b');
-  const actions = within(card).getAllByRole('button');
+  const actions = within(card).getAllByRole('button').filter(action=>action.getAttribute('aria-label')?.startsWith('Открыть профиль'));
+  expect(within(card).getByRole('button',{name:'История пары ›'})).toBeTruthy();
   expect(actions).toHaveLength(2);
   expect(actions.map((action) => action.getAttribute('aria-label'))).toEqual([
     'Открыть профиль Анна',

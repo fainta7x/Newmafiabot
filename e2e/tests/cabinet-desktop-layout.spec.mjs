@@ -80,11 +80,14 @@ for (const width of [390, 1024, 1366, 1440]) {
         const duos = page.getByTestId('club-duos');
         await duos.evaluate(el => el.scrollIntoView({ block: 'center' }));
         await expect(duos.getByText('Александра с длинным никнеймом', { exact: true })).toBeVisible();
-        await expect(duos.getByText('Вместе сыграли только раз', { exact: false })).toBeVisible();
+        // The first recorded pairing has one home in «Новые связки», without a duplicate in duos.
+        await expect(duos.getByRole('button', { name: 'Открыть профиль Новая пара', exact: true })).toHaveCount(0);
+        await expect(stories.getByText('Новые связки', { exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'По числу игр', exact: true }).click();
         await expect(duos.getByText('Ночной игрок', { exact: true })).toBeVisible();
         await shot('connections-most-played');
-        const firstPair = duos.getByRole('button', { name: 'Открыть профиль Новая пара', exact: true });
+        const firstPair = stories.getByRole('button', { name: 'Открыть профиль Новая пара', exact: true });
+        await expect(firstPair).toHaveCount(1);
         await firstPair.evaluate(button => button.scrollIntoView({ block: 'center' }));
         const firstBox = await firstPair.boundingBox();
         const firstFooter = await nav.boundingBox();

@@ -45,16 +45,14 @@ for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]]) {
       await page.waitForLoadState('networkidle');
       await check(id);
       if(id==='metrics') {
-        await page.getByText('Как считается показатель',{exact:true}).click();
+        await page.getByText('Как читать показатели',{exact:true}).click();
         await check('metric-definition');
-        await page.getByText('Как считается показатель',{exact:true}).click();
-        await page.getByRole('button',{name:'Показатель',exact:true}).click();
-        await page.getByRole('option',{name:'Среднее место на турнирах федерации',exact:true}).click();
-        await expect(page.getByTestId('metric-ratings-scope')).toContainText('Период и формат клуба не применяются');
+        await page.getByLabel('Категория показателей').selectOption('federation');
+        await expect(page.getByTestId('metric-ratings-scope')).toContainText('период и формат клуба не применяются');
         await expect(page.getByTestId('metric-ratings-scope')).not.toContainText('игр в выборе');
         await check('federation');
-        await page.getByRole('button',{name:'По ролям',exact:true}).click();
-        await expect(page.getByTestId('role-tables')).toContainText('Порядок по числу игр');
+        await page.getByLabel('Категория показателей').selectOption('roles');
+        await expect(page.getByLabel('Команда или роль')).toBeVisible();
         await check('role-table');
       }
     }

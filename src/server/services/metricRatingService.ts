@@ -253,7 +253,7 @@ async function loadFederationPlaces(db: DatabaseWrapper): Promise<Map<string, nu
 export interface MetricRatingQuery { metric?: string; period?: string; format?: string }
 
 /** The games of the chosen season and evening format (oldest first) with everything the club tables need around them. */
-async function loadScope(db: DatabaseWrapper, query: { period?: string; format?: string }) {
+export async function loadMetricScope(db: DatabaseWrapper, query: { period?: string; format?: string }) {
   const seasons = await loadRatingSeasons(db);
   let season = seasons.find((item) => item.key === query.period) || null;
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(query.format)) ? query.format as EveningFormat : 'all';
@@ -292,9 +292,9 @@ async function loadScope(db: DatabaseWrapper, query: { period?: string; format?:
   return { seasons, season, availablePeriods: [...availableSeasons, ...availableYears], formatKey, scoped, scopedIds, highlights, timeline, playerRows };
 }
 
-export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, query: MetricRatingQuery) {
+export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, query: MetricRatingQuery, options: { scope?: Awaited<ReturnType<typeof loadMetricScope>>; all?: boolean } = {}) {
   const metric = METRIC_BY_KEY.get(query.metric as MetricKey) || METRICS[0];
-  const { season, availablePeriods, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = await loadScope(db, query);
+  const { season, availablePeriods, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = options.scope ?? await loadMetricScope(db, query);
 
   const aggs = new Map<string, Agg>();
   const aggOf = (id: string) => { let value = aggs.get(id); if (!value) { value = emptyAgg(); aggs.set(id, value); } return value; };
@@ -398,7 +398,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
         seasons: availablePeriods,
         formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key] })),
       },
-      games_in_scope: scoped.length, total: pairRows.length, rows: pairRows.slice(0, TOP_SIZE).map(toPair), me: null,
+      games_in_scope: scoped.length, total: pairRows.length, rows: pairRows.slice(0, options.all ? undefined : TOP_SIZE).map(toPair), me: null,
     };
   }
 
@@ -433,7 +433,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
     value: row.value, value_text: valueText(row.value, metric.unit), games: row.games,
     sample_text: metric.sample ? `${row.games} ${russianPlural(row.games, ...metric.sample.words)}` : null, is_me: viewerIsPlayer && row.id === viewerId,
   });
-  const top = ranked.slice(0, TOP_SIZE).map(toRow);
+  const top = ranked.slice(0, options.all ? undefined : TOP_SIZE).map(toRow);
   const mine = viewerIsPlayer ? ranked.find((row) => row.id === viewerId) : undefined;
 
   return {
@@ -465,9 +465,9 @@ export const ROLE_TABLES: Record<RoleKey, { label: string; hint: string; columns
   citizen: { label: 'Мирный', hint: 'Игроки, игравшие мирным', columns: [] },
 };
 
-export async function loadRoleRating(db: DatabaseWrapper, viewerId: string, query: { role?: string; period?: string; format?: string }) {
+export async function loadRoleRating(db: DatabaseWrapper, viewerId: string, query: { role?: string; period?: string; format?: string }, options: { scope?: Awaited<ReturnType<typeof loadMetricScope>>; all?: boolean } = {}) {
   const role: RoleKey = (['don', 'mafia', 'sheriff', 'citizen'] as const).find((item) => item === query.role) || 'don';
-  const { season, availablePeriods, formatKey, scoped, scopedIds, playerRows } = await loadScope(db, query);
+  const { season, availablePeriods, formatKey, scoped, scopedIds, playerRows } = options.scope ?? await loadMetricScope(db, query);
   const statSource = await loadStatGamesCached(db);
   const reveal = buildRevealStats(statSource.games.filter((game) => scopedIds.has(game.id)), statSource.memo.facts);
 
@@ -507,6 +507,6 @@ export async function loadRoleRating(db: DatabaseWrapper, viewerId: string, quer
     },
     games_in_scope: scoped.length,
     total: rows.length,
-    rows: rows.slice(0, TOP_SIZE),
+    rows: rows.slice(0, options.all ? undefined : TOP_SIZE),
   };
 }

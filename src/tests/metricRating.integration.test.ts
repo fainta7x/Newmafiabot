@@ -232,4 +232,30 @@ describe('rankings by one figure of the statistics', () => {
     // The club season / format filters do not apply to the federation.
     expect((await get('?metric=fed_avg_place&period=period:spring')).rows).toHaveLength(2);
   });
+  it('serves the complete matrix with legacy values, nulls, roles and privacy', async () => {
+    const table=async(q:string,as='p1')=>(await request(app).get('/api/rating/metrics/table'+q).set('Cookie',cookie(as))).body;
+    expect((await request(app).get('/api/rating/metrics/table')).status).toBe(401);
+    const all=await table('?category=results');
+    expect(all.players.map((p:any)=>p.player_id)).toEqual(['p1','p3']);
+    for(const col of all.columns){const old=await get('?metric='+col.key);for(const row of old.rows)expect(all.rows.find((r:any)=>r.player_id===row.player_id).cells[col.key].value).toBe(row.value);}
+    const own=await table('?category=results','p2');expect(own.players.map((p:any)=>p.player_id)).toContain('p2');
+    const accuracy=await table('?category=accuracy');expect(accuracy.rows[0].cells.votes_accuracy).toBeNull();
+    const roles=await table('?category=roles&context=sheriff&period=period:autumn');expect(roles.rows.find((p:any)=>p.player_id==='p3')).toMatchObject({games:1,cells:{games:{value:1},wins:{value:1},win_rate:{value:100}}});
+    const black=await table('?category=roles&context=black','p2');expect(black.rows.find((p:any)=>p.player_id==='p1').cells.win_rate).toBeUndefined();
+  });
+  it('keeps visible players beyond the legacy top and retains zero-game comparison identities', async()=>{
+    for(let n=0;n<35;n++)await db.run("INSERT INTO players(id,nickname,contact_status,lifecycle_status,profile_visibility_json,created_at,updated_at) VALUES(?,?,'normal','normal','{}',?,?)",['extra'+n,'Игрок '+n,stamp,stamp]);
+    const r=await request(app).get('/api/rating/metrics/table?category=results&format=CASUAL').set('Cookie',cookie('p1'));
+    expect(r.status).toBe(200);expect(r.body.players).toHaveLength(37);expect(r.body.rows.find((p:any)=>p.player_id==='extra34')).toMatchObject({games:0,cells:{wins:null,win_rate:null}});
+    expect(r.body.rows.find((p:any)=>p.player_id==='p3').cells.wins).toBeNull();
+  });
+  it('applies the same real period and privacy to pair history',async()=>{
+    const r=await request(app).get('/api/player/relationships?a=p1&b=p3&period=period:autumn').set('Cookie',cookie('p1'));
+    expect(r.status).toBe(200);expect(r.body.content.pair).toMatchObject({games:1,together:1,red:{games:1,wins:1}});
+    expect(r.body.content.new_pairs).toEqual([]);
+    await db.run("UPDATE players SET profile_visibility_json=? WHERE id='p3'",[JSON.stringify({connections:false})]);
+    const hidden=await request(app).get('/api/player/relationships?a=p1&b=p3').set('Cookie',cookie('p1'));
+    expect(hidden.body.content.pair).toBeNull();expect(hidden.body.content.players.map((p:any)=>p.player_id)).not.toContain('p3');
+  });
+
 });

@@ -7,6 +7,10 @@ import { buildClubRelationships } from '../services/clubRelationshipsService.ts'
 import { buildPersonalTeamwork } from '../services/personalTeamworkService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 
+import {EVENING_FORMATS,EVENING_FORMAT_LABELS} from '../../lib/eveningFormat.ts';
+import {loadMetricScope} from '../services/metricRatingService.ts';
+import {buildConnectionContent} from '../services/connectionContentService.ts';
+
 const router = Router();
 
 type Result = { dateMs: number; won: boolean };
@@ -141,13 +145,17 @@ router.get('/relationships', async (req, res) => {
   try {
     const db = req.db;
     await ensurePlayerProfileVisibilitySchema(db);
-    const [snapshots, players] = await Promise.all([
+    const one=(value:unknown)=>typeof value==='string'?value:undefined;
+    const [snapshots, players, scope] = await Promise.all([
       loadCompletedGameSnapshots(db),
-      db.all('SELECT id, profile_visibility_json FROM players'),
+      db.all('SELECT id, nickname, profile_visibility_json FROM players'),
+      loadMetricScope(db,{period:one(req.query.period),format:one(req.query.format)}),
     ]);
     const visibleIds = new Set(players.filter((player: any) => parsePlayerProfileVisibility(player.profile_visibility_json).connections).map((player: any) => String(player.id)));
     const canViewConnections = (id: string) => id === String(viewerId) || visibleIds.has(id);
-    return res.json(buildClubRelationships(snapshots, viewerId, canViewConnections));
+    const selected=[one(req.query.a),one(req.query.b)].filter((id):id is string=>!!id);
+    const content=buildConnectionContent(snapshots,scope.scoped,canViewConnections,selected);
+    return res.json({...buildClubRelationships(scope.scoped,viewerId,canViewConnections),content:{...content,filters:{period:scope.season?.key||'all',format:scope.formatKey,period_label:scope.season?.label||'Всё время',format_label:scope.formatKey==='all'?'Все форматы':EVENING_FORMAT_LABELS[scope.formatKey],seasons:scope.availablePeriods,formats:EVENING_FORMATS.map(key=>({key,label:EVENING_FORMAT_LABELS[key]}))},players:scope.playerRows.filter((p:any)=>canViewConnections(String(p.id))).map((p:any)=>({player_id:String(p.id),nickname:String(p.nickname||'Игрок')}))}});
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось рассчитать связи игроков' });
   }

@@ -85,7 +85,7 @@ localStorage.setItem('mafia_live_session', JSON.stringify({
   activePlayers,
   nominations: deathMode ? [] : [3, 4],
   nominationsMap: deathMode ? {} : { 1: 3, 2: 4 },
-  phase: deathMode ? 'night' : 'day_speeches',
+  phase: mode==='deal' ? 'setup' : deathMode ? 'night' : 'day_speeches',
   roundNumber: 2,
   dayStarterSlot: 1,
   nightSubPhase: 'intro',
@@ -129,6 +129,12 @@ const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const url = new URL(rawUrl, window.location.origin);
+  if(url.pathname==='/api/tournaments/tournament-e2e/games/game-e2e/roles'){
+    const {roles}=JSON.parse(String(init?.body));
+    (window as any).__savedVirtualRoles=roles;
+    roles.forEach((entry:any)=>{const p=playerResults.find(p=>p.seat_number===entry.seat_number);if(p)p.role=entry.role;});
+    return Response.json({success:true});
+  }
   if (url.pathname === '/api/tournaments/tournament-e2e/games/game-e2e/protocol') {
     if (String(init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase() === 'PUT') {
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });

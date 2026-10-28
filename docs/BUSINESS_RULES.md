@@ -1074,3 +1074,10 @@ These are the owner's answers to the questions where copies in the code disagree
 9. **Achievements.** There is **one** set of achievements; the separate list in «Прогресс» is merged into it. There are **no minimum-game cut-offs**: «strongest role» and similar indicators have no 5- or 10-game minimum (owner: «без отсечек и ограничений»).
 10. **Open evening** (owner, 2026-10-23). An evening is open when it is **published or in progress and not yet closed**. Players see only open evenings in «Актуальное» and in the bot; drafts are never shown to players. Players can be invited and can sign up **until the evening is closed**, including during it (someone may come later).
 
+
+
+## Virtual role dealing (owner, 2026-10-28)
+
+The approved fair virtual deck is an alternative to manual physical-role entry in all game formats. It follows the existing10/9/8-player composition in tableComposition; horizontal cards are renumbered after removal, the judge reveals and confirms separately, may choose another unassigned seat, undo the last assignment or explicitly redeal before starting. Synthetic training keeps its fixed task roles. Tournament assignments remain subject to the existing server role permissions and composition checks.
+
+VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_2026-10-28.md). Persistent toggleable personal preferences do not authorize any deployed probabilistic effect. No default global2-swap cap is approved; the personal limit is manually configured. Effects may influence only the owner's own still-closed card and must never alter an already shown role or operate in rating/tournament games. Strength/frequency/conflicts/global caps require modelling and owner agreement before implementation.

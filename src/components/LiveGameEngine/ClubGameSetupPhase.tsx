@@ -128,7 +128,7 @@ export default function ClubGameSetupPhase({
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Подготовка игры</div>
             <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Раздача ролей</h2>
-            <p className="mt-1 text-[11px] leading-4 text-white/42">Сначала подтвердите фактический состав стола, затем раздайте физические карты.</p>
+            <p className="mt-1 text-[11px] leading-4 text-white/42">Сначала подтвердите фактический состав стола, затем выберите физическую или виртуальную раздачу.</p>
           </div>
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-black/20 text-white/45">
             <Layers3 className="h-4 w-4" aria-hidden="true" />
@@ -196,7 +196,7 @@ export default function ClubGameSetupPhase({
         <button type="button" data-testid="club-game-start-virtual-deal" onClick={openVirtualDeal} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
       )}
       {showVirtualDeal && rosterConfirmed && !trainingRoles && (
-        <VirtualRoleDeal seats={dealSeats} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
+        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
       )}
       {showPhysicalDeal && rosterConfirmed && (
         <PhysicalRoleDeal

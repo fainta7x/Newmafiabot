@@ -121,3 +121,41 @@ for (const [width, height, wideFont] of VIEWPORTS) {
     expect(report).toEqual([]);
   });
 }
+
+// The approved alternative deal must pass the same four-size gate as physical dealing.
+for (const [width,height,wideFont] of VIEWPORTS) {
+  test(`virtual role deal text audit at ${width}x${height}${wideFont?' wide':''}`,async({page},info)=>{
+    test.setTimeout(60_000); // Ten reveals/confirmations, manual seat choice, screenshots and the music notice, like the physical audit's bounded budget.
+    await page.setViewportSize({width,height});
+    if(wideFont)await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent='*{font-family:"DejaVu Sans",sans-serif!important;letter-spacing:.04em!important}';document.head.appendChild(style);}));
+    const check=async label=>{await page.waitForTimeout(200);expect(await page.evaluate(auditScreen),label).toEqual([]);};
+    await page.goto('/e2e/live-game.html');await page.getByRole('button',{name:'Подтвердить состав'}).click();
+    await check('choose dealing method');
+    await page.screenshot({path:info.outputPath('setup.png')});
+    await page.getByTestId('club-game-start-virtual-deal').click();const deal=page.getByTestId('virtual-role-deal');
+    await check('virtual music');await deal.getByRole('button',{name:'Включить музыку и начать раздачу'}).click();
+    const musicDecision=page.getByRole('button',{name:'Продолжить без музыки',exact:true});
+    await expect.poll(async()=>await musicDecision.isVisible()||await page.getByTestId('judge-music-player').isVisible()||await page.getByText(/Музыки для вечера нет — продолжаем/).isVisible()).toBe(true);
+    if(await musicDecision.isVisible()){await check('music decision');await musicDecision.click();}
+    await check('horizontal deck');
+    await expect(deal.getByRole('button',{name:/№7 Игрок 7/})).toBeVisible();
+    await deal.getByRole('button',{name:/№7 Игрок 7/}).click();
+    await expect(deal.getByText('Выбирает: №7 Игрок 7',{exact:true})).toBeVisible();
+    const notice=page.getByText(/Музыки для вечера нет — продолжаем/);if(await notice.isVisible())await expect(notice).toBeHidden({timeout:6000});
+    await page.screenshot({path:info.outputPath('virtual-deck.png')});
+    const cards=deal.getByRole('button',{name:/^Карта №/});
+    await cards.nth(4).click();await deal.getByRole('button',{name:'Открыть карту №5'}).click();await check('revealed role');
+    await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
+    await deal.getByRole('button',{name:'Отменить последнюю карту'}).click();await expect(cards).toHaveCount(10);
+    await deal.getByRole('button',{name:'Перераздать всё'}).click();await check('redeal confirmation');
+    await deal.getByRole('button',{name:'Нет',exact:true}).click();
+    for(let remaining=10;remaining>0;remaining--){
+      await deal.getByRole('button',{name:'Карта №1',exact:true}).click();
+      await deal.getByRole('button',{name:'Открыть карту №1',exact:true}).click();
+      await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
+    }
+    await check('complete virtual deal');await page.screenshot({path:info.outputPath('virtual-complete.png')});
+    await deal.getByRole('button',{name:'Все роли выданы — начать игру'}).click();
+    await expect(deal).toHaveCount(0);await expect(page.getByRole('button',{name:/Включите музыку/})).toBeVisible();await check('night after virtual deal');
+  });
+}

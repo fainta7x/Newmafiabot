@@ -471,3 +471,11 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 
 - Aggregated outstanding-evening reminders/tasks: read-only `playerEveningDebts.ts` is shared by `eveningPaymentReminderService.ts`, `organizerReminderService.ts` and `clubOrderService.ts`; ledger writes remain in the payment services.
 - Current birthday task wording: `shared/birthdayTask.ts` reads the dated automation key on the Moscow calendar; task/agenda/bot routes and organizer reminders share it. `playerProfileIntegrityService.ts` refreshes the existing open row, preserving postponed due dates and completed tasks.
+
+### Public-post acknowledgement and recovery
+
+`src/server/services/publicationDeliveryService.ts` owns durable public attempts, frozen request/target, certainty, startup cutover and versioned decisions. `publicationTelegramService.ts` requires valid Telegram message IDs (every album item); `publicationRecoveryService.ts` projects CRM metadata and replays an explicitly released saved request. `/api/crm/publications/held` and `/reconcile` in `crmRoutes.ts` serve full club organizers; `PublicationRecoveryQueue.tsx` lives in OrganizerAgenda («Дела»). Consumers: today, cancellation, reschedule, club/MVP/tournament results and poker/custom announcements. Personal queues and weekly sync/outbox keep their own policies.
+
+### Fair virtual role deck
+
+`src/components/game/VirtualRoleDeal.tsx` owns the shuffled closed deck, horizontal cards, reveal/confirm, seat choice, undo/redeal, music lifecycle and async completion feedback. Club/novice/rating use `LiveGameEngine/ClubGameSetupPhase.tsx`; unmanaged setup uses `GeneralSetupPhase.tsx`; `player/TournamentLiveGameModal.tsx` saves through the existing tournament roles API and reads back before dismissing. `tableComposition.ts` remains the role-count owner. Existing physical dealing and training remain; VIP effects are not included. Current approved/deferred scope: `ROLE_DEAL_SPEC_2026-10-28.md`. Browser path: live-game-text-audit virtual cases and tournament-virtual-deal.spec.mjs.

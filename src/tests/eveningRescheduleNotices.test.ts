@@ -46,7 +46,7 @@ describe('published evening reschedule notices', () => {
       (id, evening_id, player_id, registration_status, response_status, attendance_status, payment_status, created_at, updated_at)
       VALUES ('ep1', 'move-one', 'p1', 'going', 'going', 'pending', 'unpaid', ?, ?)`, [now, now]);
 
-    vi.mocked(sendTelegram).mockResolvedValueOnce({ status: 'failed', error: 'temporary outage' });
+    vi.mocked(sendTelegram).mockResolvedValueOnce({ status: 'failed', certainty:'rejected', error: 'temporary outage' });
     const before = '2026-10-16T21:00:00+03:00';
     const after = '2026-10-17T19:00:00+03:00';
     const first = await notifyEveningRescheduled(db, 'move-one', before, after);

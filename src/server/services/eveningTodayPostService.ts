@@ -1,3 +1,6 @@
+import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
+import { sendPublicTelegram } from './publicationTelegramService.ts';
+import { deliverPublication, type PublicationContext, type PublicationResult } from './publicationDeliveryService.ts';
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
@@ -122,6 +125,7 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
 
 export async function loadTodayPost(db: DatabaseWrapper, eveningId: string) {
   await ensureEveningTodayPostSchema(db);
+  await importLegacyPublicationHolds(db);
   const row = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id = ? LIMIT 1', [eveningId]);
   if (!row) return { evening_id: eveningId, state: 'pending' as const, decision_prompt_at: null, skipped_at: null };
   const legs = [row.telegram_status, row.vk_status];
@@ -129,44 +133,30 @@ export async function loadTodayPost(db: DatabaseWrapper, eveningId: string) {
   return { evening_id: eveningId, state, text: row.text, game_number: row.game_number, telegram_status: row.telegram_status, telegram_error: row.telegram_error, vk_status: row.vk_status, vk_error: row.vk_error, vk_url: row.vk_url, published_at: row.published_at, decision_prompt_at: row.decision_prompt_at || null, skipped_at: row.skipped_at || null };
 }
 
-export async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fetchImpl: typeof fetch) {
+export async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fetchImpl: typeof fetch, context?: PublicationContext) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  if (!token) return { status: 'failed', error: 'Telegram-бот не настроен' };
+  if (!token) return { certainty: 'rejected' as const, status: 'failed', error: 'Telegram-бот не настроен' };
   const format = normalizeEveningFormat(evening.format);
   const destination = await db.get<any>(
     'SELECT chat_id, topic_id FROM telegram_destinations WHERE id = ? LIMIT 1',
     [format === 'NOVICE' ? 'novice' : format === 'CASUAL' ? 'club' : 'rating'],
   ).catch(() => null);
-  if (!destination?.chat_id) return { status: 'failed', error: 'Не настроена Telegram-группа для этого вечера' };
+  if (!destination?.chat_id) return { certainty: 'rejected' as const, status: 'failed', error: 'Не настроена Telegram-группа для этого вечера' };
   const cover = await announcementCoverUrl(db, getPublicAppBaseUrl(), String(evening.id), evening.format).catch(() => null);
-  try {
-    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // The club photo above the text, as in the evening announcement (owner, 2026-10-05: every post comes with a photo).
-      body: JSON.stringify({
-        chat_id: destination.chat_id,
-        ...(destination.topic_id ? { message_thread_id: Number(destination.topic_id) } : {}),
-        text,
-        ...(cover ? { link_preview_options: { url: cover, prefer_large_media: true, show_above_text: true } } : { disable_web_page_preview: true }),
-      }),
-    });
-    const payload: any = await response.json().catch(() => null);
-    if (response.ok && payload?.ok !== false) return { status: 'published', error: null };
-    return { status: 'failed', error: String(payload?.description || `Telegram HTTP ${response.status}`) };
-  } catch (error: any) {
-    // No answer is not «not posted»: the message may have gone out, so the organizer checks before posting again.
-    return { status: 'failed', error: `Telegram не ответил (${error?.message || 'сеть'}) — пост мог выйти, проверьте группу перед повтором` };
-  }
+  const result = await sendPublicTelegram(db, { method:'sendMessage', fields: {
+    chat_id:destination.chat_id, ...(destination.topic_id ? { message_thread_id:Number(destination.topic_id) } : {}), text,
+    ...(cover ? { link_preview_options:{ url:cover, prefer_large_media:true, show_above_text:true } } : { disable_web_page_preview:true }),
+  } }, fetchImpl, context);
+  return { ...result, status: result.ok ? 'published' : result.certainty === 'uncertain' ? 'uncertain' : 'failed', error:result.error || null };
 }
 
-export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string } }) {
+export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string }; context?: PublicationContext; noPhoto?: boolean }) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
-  if (!groupId) return { status: 'failed', error: 'Группа ВК не настроена', url: null };
+  if (!groupId) return { certainty: 'rejected' as const, status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
     // The club photo on the wall post, as in the evening announcement; without the photo the text post still goes out.
     let attachments: string[] | undefined;
-    if (photo && canEditVkWallPosts()) {
+    if (photo && !photo.noPhoto && canEditVkWallPosts()) {
       try {
         // A picture made for this post (the MVP cards) goes instead of the club photo.
         if (photo.image) attachments = [await uploadVkWallPhotoBytes(photo.image.bytes, photo.image.mime, groupId)];
@@ -178,15 +168,21 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
         console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
       }
     }
-    const post = await createVkWallPost({ groupId, message: text, attachments });
-    return { status: 'published', error: null, url: post.externalUrl || null };
+    const send = async (payload: { groupId:string; message:string; attachments?:string[] }): Promise<PublicationResult> => {
+      try { const post = await createVkWallPost(payload); return {ok:true,certainty:'accepted',ids:[String(post.postId)],url:post.externalUrl}; }
+      catch(error:any) { return {ok:false,certainty:error?.vkDefinite === true ? 'rejected' : 'uncertain',temporary:error?.vkDefinite === true,error:error?.message || 'ВК недоступен'}; }
+    };
+    const payload = { groupId, message:text, attachments };
+    const result = photo?.context ? await deliverPublication(photo.db,photo.context,'vk',groupId,payload,send) : await send(payload);
+    return {...result,status:result.ok ? 'published' : result.certainty === 'uncertain' ? 'uncertain' : 'failed',error:result.error || null,url:result.url || null};
   } catch (error: any) {
-    return { status: 'failed', error: `${error?.message || 'ВК недоступен'} — если пост всё же появился на стене, повторять не нужно`, url: null };
+    return { certainty: 'uncertain' as const, temporary:false, status: 'uncertain', error: `${error?.message || 'ВК недоступен'} — если пост всё же появился на стене, повторять не нужно`, url: null };
   }
 }
 
 export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, input: { text?: unknown; game_number?: unknown }, fetchImpl: typeof fetch = fetch) {
   await ensureEveningTodayPostSchema(db);
+  await importLegacyPublicationHolds(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   if (!isOpenEvening(evening)) {
@@ -194,42 +190,26 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
   }
   const now = new Date().toISOString();
   await db.run('INSERT OR IGNORE INTO evening_today_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)', [eveningId, now, now]);
-  const existing = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id = ? LIMIT 1', [eveningId]);
-  const text = String(input.text || '').trim().slice(0, 3500) || String(existing?.text || '') || (await buildTodayPostDraft(db, eveningId, input.game_number)).text;
-
-  // Reserve the attempt so a double tap or a lost response cannot post twice.
-  const reserved = await db.run(
-    `UPDATE evening_today_posts SET sending_until = ?, updated_at = ?
-      WHERE evening_id = ? AND (sending_until IS NULL OR sending_until < ?)`,
-    [new Date(Date.now() + 90_000).toISOString(), now, eveningId, now],
-  );
-  if (!reserved.changes) throw Object.assign(new Error('Пост уже отправляется — подождите минуту'), { statusCode: 409 });
-  try {
-    // Channels that already have the post are never posted to again.
-    const [telegram, vk] = await Promise.all([
-      existing?.telegram_status === 'published' ? { status: 'published', error: null } : sendTelegram(db, evening, text, fetchImpl),
-      existing?.vk_status === 'published' ? { status: 'published', error: null, url: existing.vk_url || null } : sendVk(text, { db, eveningId, format: evening.format }),
-    ]);
-    const done = new Date().toISOString();
-    const reached = telegram.status === 'published' || vk.status === 'published';
-    await db.run(
-      `UPDATE evening_today_posts
-          SET text = ?, game_number = ?, telegram_status = ?, telegram_error = ?, vk_status = ?, vk_error = ?, vk_url = ?,
-              published_at = COALESCE(published_at, ?), sending_until = NULL, updated_at = ?
-        WHERE evening_id = ?`,
-      [text, Number(input.game_number) || existing?.game_number || null, telegram.status, telegram.error, vk.status, vk.error, (vk as any).url || null,
-        reached ? done : null, done, eveningId],
-    );
-  } catch (error) {
-    await db.run('UPDATE evening_today_posts SET sending_until = NULL WHERE evening_id = ?', [eveningId]);
-    throw error;
-  }
+  const existing = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id = ?', [eveningId]);
+  const proposed = String(input.text || '').trim().slice(0,3500) || String(existing?.text || '') || (await buildTodayPostDraft(db,eveningId,input.game_number)).text;
+  // Freeze the payload before either channel starts; a second request reads the winning text.
+  await db.run('UPDATE evening_today_posts SET text=COALESCE(text,?),game_number=COALESCE(game_number,?),updated_at=? WHERE evening_id=?', [proposed,Number(input.game_number)||null,now,eveningId]);
+  const row = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id=?',[eveningId]);
+  await Promise.all((['telegram','vk'] as const).map(async channel => {
+    if (row[channel+'_status'] === 'published') return;
+    const context = {key:`today:${eveningId}:${channel}`,entityId:eveningId,kind:'today'};
+    const result = channel === 'telegram' ? await sendTelegram(db,evening,row.text,fetchImpl,context) : await sendVk(row.text,{db,eveningId,format:evening.format,context});
+    if ('inFlight' in result && result.inFlight) return;
+    await db.run(`UPDATE evening_today_posts SET ${channel}_status=?,${channel}_error=?,${channel === 'vk' ? 'vk_url=?,' : ''}
+      published_at=COALESCE(published_at,?),updated_at=? WHERE evening_id=?`, [result.status,result.error,...(channel === 'vk' ? [(result as any).url || null] : []),result.status === 'published' ? new Date().toISOString() : null,new Date().toISOString(),eveningId]);
+  }));
   return loadTodayPost(db, eveningId);
 }
 
 /** The organizer decided not to publish today (the evening may still be cancelled separately). */
 export async function skipTodayPost(db: DatabaseWrapper, eveningId: string) {
   await ensureEveningTodayPostSchema(db);
+  await importLegacyPublicationHolds(db);
   const now = new Date().toISOString();
   await db.run('INSERT OR IGNORE INTO evening_today_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)', [eveningId, now, now]);
   await db.run('UPDATE evening_today_posts SET skipped_at = ?, updated_at = ? WHERE evening_id = ?', [now, now, eveningId]);
@@ -247,6 +227,7 @@ const moscowParts = (ms: number) => {
 export async function runTodayPostSchedule(db: DatabaseWrapper, now = Date.now(), fetchImpl: typeof fetch = fetch) {
   if (isEveningPublishingPaused()) return 0;
   await ensureEveningTodayPostSchema(db);
+  await importLegacyPublicationHolds(db);
   const clock = moscowParts(now);
   if (clock.hour < TODAY_POST_HOUR_MSK) return 0;
   const evenings = await db.all<any>(

@@ -1,3 +1,4 @@
+import { ensurePublicationDeliverySchema, importLegacyPublicationHolds } from './server/services/publicationDeliveryService.ts';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -216,6 +217,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureClocktowerSchema(db);
   await ensurePokerTournamentSchema(db);
   await ensurePokerChatSchema(db);
+  await ensurePublicationDeliverySchema(db);
+  await importLegacyPublicationHolds(db);
   await ensurePlayerProfileMergeSchema(db);
   // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
   if (db.dbPath !== ':memory:') {

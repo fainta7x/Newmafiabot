@@ -76,6 +76,19 @@ describe('NOVICE gathering rules', () => {
 });
 
 describe('«Сегодня играем» post', () => {
+  it('allows configuration repair without turning a proven unsent request into uncertainty',async()=>{
+    const db=await setup();vi.stubEnv('TELEGRAM_BOT_TOKEN','');
+    const fetchImpl=vi.fn(async()=>new Response(JSON.stringify({ok:true,result:{message_id:11}})));
+    await publishTodayPost(db,'ev',{text:'Original'},fetchImpl);expect(fetchImpl).not.toHaveBeenCalled();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN','test-token');
+    expect((await publishTodayPost(db,'ev',{},fetchImpl)).telegram_status).toBe('published');expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it('two clicks claim one channel with the first saved text',async()=>{
+    const db=await setup();vi.stubEnv('TELEGRAM_BOT_TOKEN','test-token');
+    const fetchImpl=vi.fn(async(_url:RequestInfo|URL,init?:RequestInit)=>{expect(JSON.parse(String(init?.body)).text).toBe('First');return new Response(JSON.stringify({ok:true,result:{message_id:12}}));});
+    await Promise.all([publishTodayPost(db,'ev',{text:'First'},fetchImpl),publishTodayPost(db,'ev',{text:'Second'},fetchImpl)]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);expect((await loadTodayPost(db,'ev')).telegram_status).toBe('published');
+  });
   it('builds a bright text with the chosen game, the roster and a call to join', async () => {
     const db = await setup();
     const draft = await buildTodayPostDraft(db, 'ev', 2);
@@ -98,12 +111,13 @@ describe('«Сегодня играем» post', () => {
     const db = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     await publishTodayPost(db, 'ev', { text: 'Сегодня играем' }, fetchImpl);
     expect(calls[0].disable_web_page_preview).toBe(true);
     expect(calls[0].link_preview_options).toBeUndefined();
 
     await db.run("DELETE FROM evening_today_posts WHERE evening_id = 'ev'");
+    await db.run("DELETE FROM publication_deliveries WHERE delivery_key LIKE 'today:ev:%'");
     const photo = await addAnnouncementPhoto(db, { base64: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]).toString('base64'), audience: 'NOVICE' });
     await publishTodayPost(db, 'ev', { text: 'Сегодня играем' }, fetchImpl);
     expect(calls[1].disable_web_page_preview).toBeUndefined();
@@ -114,7 +128,7 @@ describe('«Сегодня играем» post', () => {
     const db = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     const result = await publishTodayPost(db, 'ev', { text: 'Всем привет! Сегодня играем', game_number: 1 }, fetchImpl);
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toContain('/sendMessage');
@@ -137,7 +151,7 @@ describe('«Сегодня играем» post', () => {
     await fillGames(db, 3);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     // 16:59 MSK: too early.
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T13:59:00Z'), fetchImpl)).toBe(0);
     // 17:00 MSK: the evening is short, so nothing is posted and the organizer is asked.
@@ -170,7 +184,7 @@ describe('«Сегодня играем» post', () => {
         VALUES (?,?,?,'going','going','pending','unpaid',?,?)`, [`ep-x${index}`, 'ev', `x${index}`, now, now]);
     }
     const calls: any[] = [];
-    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:00:00Z'), fetchImpl)).toBe(1);
     expect(calls).toHaveLength(1);
     expect(calls[0].body.text).toContain('Сегодня играем');
@@ -182,7 +196,7 @@ describe('«Сегодня играем» post', () => {
     const db = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:00:00Z'), fetchImpl)).toBe(1);
     expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('cancelled');
     expect(calls).toHaveLength(1);
@@ -194,7 +208,7 @@ describe('«Сегодня играем» post', () => {
     const db = await setup();
     await fillGames(db, 3);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as any;
+    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 })) as any;
     const before = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:05:00Z'));
     expect(before.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'shortfall')!.status).toBe('attention');
     await publishTodayPost(db, 'ev', { text: 'Играем!' }, fetchImpl);

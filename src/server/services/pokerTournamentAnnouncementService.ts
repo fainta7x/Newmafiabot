@@ -1,3 +1,6 @@
+import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
+import { sendPublicTelegram } from './publicationTelegramService.ts';
+import { deliverPublication } from './publicationDeliveryService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
 import { pokerTournamentPrizes, type PokerTournamentConfig } from '../../shared/pokerTournament.ts';
@@ -61,20 +64,26 @@ export function pokerTournamentAnnouncementText(row: Pick<Row, 'id' | 'title' | 
 export const pokerTournamentReminderText = (row: Pick<Row, 'title' | 'start_at'>) =>
   `Покерный турнир «${row.title}» начнётся в ${new Date(row.start_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })} по Москве. Заходить в приложение за пару минут до старта.`;
 
+
+async function publicContext(_db: DatabaseWrapper, id:string, channel:string, targetKey:string) {
+  return {key:`poker:${id}:${channel}:${targetKey}`,entityId:id,kind:'poker'};
+}
+
 async function claim(db: DatabaseWrapper, id: string, channel: Channel, targetKey: string) {
   const existing = await db.get<{ status: string }>('SELECT status FROM poker_tournament_publications WHERE tournament_id = ? AND channel = ? AND target_key = ?', [id, channel, targetKey]);
   if (existing && ['sending', 'sent', 'uncertain'].includes(existing.status)) return false;
   const now = new Date().toISOString();
-  await db.run(
+  const changed = await db.run(
     `INSERT INTO poker_tournament_publications (tournament_id, channel, target_key, status, attempted_at) VALUES (?, ?, ?, 'sending', ?)
-     ON CONFLICT(tournament_id, channel, target_key) DO UPDATE SET status = 'sending', last_error = NULL, attempted_at = excluded.attempted_at`,
+     ON CONFLICT(tournament_id, channel, target_key) DO UPDATE SET status = 'sending', last_error = NULL, attempted_at = excluded.attempted_at WHERE poker_tournament_publications.status NOT IN ('sending','sent','uncertain')`,
     [id, channel, targetKey, now],
   );
-  return true;
+  return Number(changed.changes)>0;
 }
 
 async function finish(db: DatabaseWrapper, id: string, channel: Channel, targetKey: string, status: 'sent' | 'failed' | 'uncertain', externalId?: string | null, error?: string | null) {
   const now = new Date().toISOString();
+  await db.run("INSERT OR IGNORE INTO poker_tournament_publications (tournament_id,channel,target_key,status,attempted_at) VALUES (?,?,?,'sending',?)",[id,channel,targetKey,now]);
   await db.run(
     'UPDATE poker_tournament_publications SET status = ?, external_id = ?, last_error = ?, sent_at = ?, attempted_at = ? WHERE tournament_id = ? AND channel = ? AND target_key = ?',
     [status, externalId || null, error ? String(error).slice(0, 1000) : null, status === 'sent' ? now : null, now, id, channel, targetKey],
@@ -87,18 +96,16 @@ async function postToTelegram(db: DatabaseWrapper, row: Row, destinationId: 'pub
   const destination = await db.get<{ id: string; chat_id: string | null; topic_id: string | number | null; active: number }>('SELECT id, chat_id, topic_id, active FROM telegram_destinations WHERE id = ?', [destinationId]);
   if (!destination?.active || !destination.chat_id) return 'not_configured';
   const key = String(destination.id);
-  if (!(await claim(db, row.id, channel, key))) return 'skipped';
+  if (await db.get("SELECT 1 FROM poker_tournament_publications WHERE tournament_id=? AND channel=? AND target_key=? AND status='sent'",[row.id,channel,key])) return 'skipped';
+  const context = await publicContext(db,row.id,channel,key);
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) { await finish(db, row.id, channel, key, 'failed', null, 'TELEGRAM_BOT_TOKEN is not configured'); return 'failed'; }
   try {
-    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: String(destination.chat_id), message_thread_id: destination.topic_id || undefined, text: pokerTournamentAnnouncementText(row, true), parse_mode: 'HTML', disable_web_page_preview: true }),
-    });
-    const body: any = await response.json().catch(() => ({}));
-    if (!response.ok || body.ok === false) { await finish(db, row.id, channel, key, 'failed', null, body.description || `Telegram HTTP ${response.status}`); return 'failed'; }
-    await finish(db, row.id, channel, key, 'sent', String(body.result?.message_id || ''));
-    return 'sent';
+    const result = await sendPublicTelegram(db,{method:'sendMessage',fields:{chat_id:String(destination.chat_id),message_thread_id:destination.topic_id||undefined,text:pokerTournamentAnnouncementText(row,true),parse_mode:'HTML',disable_web_page_preview:true}},fetchImpl,context);
+    if(result.inFlight)return 'skipped';
+    const state = result.ok ? 'sent' : result.certainty === 'uncertain' ? 'uncertain' : 'failed';
+    await finish(db,row.id,channel,key,state,result.ids?.join(','),result.error);
+    return state;
   } catch (error: any) {
     await finish(db, row.id, channel, key, 'uncertain', null, error?.message || String(error));
     return 'uncertain';
@@ -109,11 +116,16 @@ async function postToVk(db: DatabaseWrapper, row: Row, deps: Dependencies): Prom
   const status = getVkIntegrationStatus();
   const groupId = status.group_id || '';
   if (!status.configured || !groupId) return 'not_configured';
-  if (!(await claim(db, row.id, 'vk', groupId))) return 'skipped';
+  if (await db.get("SELECT 1 FROM poker_tournament_publications WHERE tournament_id=? AND channel='vk' AND target_key=? AND status='sent'",[row.id,groupId])) return 'skipped';
+  const context = await publicContext(db,row.id,'vk',groupId);
   try {
-    const post = await (deps.createVkPost || createVkWallPost)({ groupId, message: pokerTournamentAnnouncementText(row, false) });
-    await finish(db, row.id, 'vk', groupId, 'sent', String(post.postId));
-    return 'sent';
+    const result = await deliverPublication(db,context,'vk',groupId,{groupId,message:pokerTournamentAnnouncementText(row,false)},async payload => {
+      try { const post=await (deps.createVkPost||createVkWallPost)(payload);return {ok:true,certainty:'accepted',ids:[String(post.postId)],url:post.externalUrl}; }
+      catch(error:any) {return {ok:false,certainty:error?.vkDefinite === true ? 'rejected' : 'uncertain',temporary:error?.vkDefinite === true,error:error?.message};}
+    });
+    if(result.inFlight)return 'skipped';
+    const state=result.ok?'sent':result.certainty==='uncertain'?'uncertain':'failed';
+    await finish(db,row.id,'vk',groupId,state,result.ids?.join(','),result.error);return state;
   } catch (error: any) {
     const state = error?.vkDefinite === true ? 'failed' : 'uncertain';
     await finish(db, row.id, 'vk', groupId, state, null, error?.message || String(error));
@@ -149,6 +161,7 @@ async function messagePlayers(db: DatabaseWrapper, row: Row, deps: Dependencies)
 /** Posts the announcement to the chosen channels. Safe to repeat: finished channels are skipped, failed ones are tried again. */
 export async function announcePokerTournament(db: DatabaseWrapper, tournamentId: string, deps: Dependencies = {}) {
   await ensurePokerTournamentSchema(db);
+  await importLegacyPublicationHolds(db);
   const row = await db.get<Row>('SELECT * FROM poker_tournaments WHERE id = ?', [tournamentId]);
   const announce = row ? parsePokerTournamentAnnounce(row.announce_json) : null;
   if (!row || !announce || row.status !== 'registration' || row.announced_at) return null;
@@ -159,7 +172,7 @@ export async function announcePokerTournament(db: DatabaseWrapper, tournamentId:
   if (announce.vk) results.vk = await postToVk(db, row, deps);
   if (announce.bot_dm) results.bot_dm = await messagePlayers(db, row, deps);
   // Done once no channel is waiting for a retry; a channel that is not configured yet is retried too.
-  if (!Object.values(results).some((outcome) => outcome === 'failed' || outcome === 'not_configured')) {
+  if (!Object.values(results).some((outcome) => outcome === 'failed' || outcome === 'not_configured' || outcome === 'uncertain' || outcome === 'skipped')) {
     await db.run('UPDATE poker_tournaments SET announced_at = ? WHERE id = ? AND announced_at IS NULL', [new Date().toISOString(), row.id]);
   }
   return results;
@@ -192,6 +205,7 @@ const lastAnnounceAttempt = new Map<string, number>();
 /** Called by the tournament scheduler: retries announcements that did not get out (not more often than every five minutes) and sends due reminders. */
 export async function runPokerTournamentAnnouncements(db: DatabaseWrapper, nowMs = Date.now(), deps: Dependencies = {}) {
   await ensurePokerTournamentSchema(db);
+  await importLegacyPublicationHolds(db);
   const rows = await db.all<Row>("SELECT * FROM poker_tournaments WHERE status = 'registration'");
   for (const row of rows) {
     if (row.announce_json && !row.announced_at && nowMs - (lastAnnounceAttempt.get(row.id) ?? 0) >= ANNOUNCE_RETRY_MS) {

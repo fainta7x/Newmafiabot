@@ -1,3 +1,4 @@
+import { publicationRecoveryQueue, resolvePublication } from '../services/publicationRecoveryService.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import { Router, Response } from 'express';
@@ -19,6 +20,21 @@ import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { loadAgenda, recordAgendaContact, snoozeAgendaItem } from '../services/organizerAgendaService.ts';
 
 const router = Router();
+
+// Public posting decisions require a full club organizer, never a delegated evening host.
+router.get('/publications/held', requireOrganizerAuth, async (req: AuthenticatedRequest,res:Response) => {
+  if(req.userRole !== 'ORGANIZER' || req.delegatedOrganizerAccess)return res.status(403).json({error:'Нужен доступ организатора клуба'});
+  res.setHeader('Cache-Control',CRM_READ_CACHE_CONTROL);
+  try{return res.json({items:await publicationRecoveryQueue(req.db || await getDb())});}
+  catch(error:any){return res.status(500).json({error:error?.message || 'Не удалось загрузить публикации'});}
+});
+router.post('/publications/reconcile',requireOrganizerAuth,async(req:AuthenticatedRequest,res:Response)=>{
+  if(req.userRole !== 'ORGANIZER' || req.delegatedOrganizerAccess)return res.status(403).json({error:'Нужен доступ организатора клуба'});
+  try{return res.json(await resolvePublication(req.db || await getDb(),{
+    key:String(req.body?.key||''),attemptId:String(req.body?.attempt_id||''),decision:String(req.body?.decision||''),
+    actor:String(req.organizerPlayerId || req.organizerActorId || ''),evidence:String(req.body?.evidence||''),confirmed:req.body?.confirmed===true,
+  }));}catch(error:any){return res.status(error?.statusCode||500).json({error:error?.message || 'Не удалось сохранить сверку'});}
+});
 
 function getMoscowDateStr(value: string | null | undefined): string | null {
   if (!value || value.trim() === '') return null;

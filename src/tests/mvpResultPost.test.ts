@@ -65,18 +65,21 @@ describe('result of the «MVP вечера» vote', () => {
     expect(sent.length).toBe(0);
   });
 
-  it('asks the owner about a tie once, then announces the owner\'s pick', async () => {
+  it('opens one runoff, then asks the owner only if the additional round has no unique winner', async () => {
     await vote('a', 'b'); await vote('c', 'd');
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(true); // the question to the owner
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(false); // asked once
-    expect(sent.some((body) => body.chat_id === '-100500')).toBe(false); // nothing public yet
+    expect(sent.find(body=>body.chat_id==='-100500').text).toContain('дополнительное голосование');
+    expect((await db.all<any>("SELECT notification_key FROM personal_notification_deliveries WHERE event_type='evening_mvp_decision'"))).toHaveLength(0);
+    await db.run("UPDATE evening_mvp_runoffs SET deadline_at=? WHERE evening_id='e1'",[hoursAgo(1)]);
+    expect(await postMvpResult(db,'e1',fetchImpl)).toBe(true);
     const asked = (await db.all<any>("SELECT notification_key FROM personal_notification_deliveries WHERE event_type = 'evening_mvp_decision'"));
     expect(asked.length).toBe(1);
     const decision = await decideEveningMvp(db, 'e1', PRIMARY_ORGANIZER_PLAYER_ID, 'd');
     expect(decision.ok).toBe(true);
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(true);
-    expect(sent.find((body) => body.chat_id === '-100500').text).toContain('MVP вечера «Пятница» — Игрок d!');
-    expect(sent.find((body) => body.chat_id === '-100500').text).toContain('решение организатора');
+    expect(sent.filter((body) => body.chat_id === '-100500').at(-1).text).toContain('MVP вечера «Пятница» — Игрок d!');
+    expect(sent.filter((body) => body.chat_id === '-100500').at(-1).text).toContain('решение организатора');
   });
 });
 

@@ -93,18 +93,28 @@ export const eveningIdFromAward = (sourceKey?: string | null): string | null => 
   return first >= 0 && last > first + 1 ? value.slice(first + 1, last) : null;
 };
 
+/** Cups require an explicit verified tournament/championship context; evening/yearly titles are medals. */
+export const isCupAward=(award:Pick<CabinetVerifiedAward,'kind'|'title'|'tournament_id'|'tournament_name'|'source_key'|'place_result'>)=>{
+  if(/^club-(?:evening-|year:)/.test(String(award.source_key||''))||/^(?:MVP|МВП|(?:Лучший\s+)?Игрок) (?:вечера|года)(?:\s|$)/iu.test(award.title))return false;
+  if(!award.tournament_id&&/^(?:клубный\s+)?вечер(?:\s|$)/iu.test(String(award.tournament_name||'')))return false;
+  const context=!!(award.tournament_id||award.tournament_name);
+  const championship=/(?:чемпион|победитель).*?(?:сезон|рейтинг)|(?:сезон|рейтинг).*?(?:чемпион|победитель)/iu.test(award.title);
+  return award.kind==='placement'?isFirstPlace(award.place_result)&&context:award.kind==='trophy'&&(context||championship);
+};
+
 export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: CabinetAchievement[]): CabinetItem[] => {
   const verified = awards.filter(a => a.verification_status === undefined || a.verification_status === null || a.verification_status === 'verified');
   const items: CabinetItem[] = verified.map(award => {
-    const first = award.kind === 'placement' && isFirstPlace(award.place_result) && Boolean(award.tournament_id || award.tournament_name);
+    const cup=isCupAward(award);
+    const first = cup&&award.kind==='placement'&&isFirstPlace(award.place_result)&&Boolean(award.tournament_id||award.tournament_name);
     const category: CabinetCategory =
-      first || award.kind === 'trophy' ? 'cups'
-        : isMedalPlace(award.place_result) || award.kind === 'medal' || award.kind === 'placement' ? 'medals'
+      cup ? 'cups'
+        : isMedalPlace(award.place_result) || award.kind === 'medal' || award.kind === 'placement' || award.kind === 'trophy' ? 'medals'
           : 'nominations';
     return {
       id: 'award:' + award.id,
       category,
-      shape: category === 'cups' ? 'cup' : category === 'medals' ? 'medal' : 'plaque',
+      shape: category === 'cups' ? 'cup' : 'medal',
       title: String(award.title),
       context: award.tournament_name || null,
       date: award.award_date || (award.award_year ? String(award.award_year) : null),

@@ -1,3 +1,4 @@
+import {isCupAward} from '../../lib/trophyCabinetModel.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
@@ -56,7 +57,7 @@ export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: 
   const timeline: Array<{ id: string; type: string; date: string | null; icon: string; title: string; description: string | null; game_key?: string | null }> = [];
   if (player.created_at) timeline.push({ id: 'joined', type: 'joined', date: String(player.created_at), icon: '◆', title: 'Вступление в клуб', description: 'Начало истории игрока в 2LA Noire.' });
   for (const item of manualMilestones) timeline.push({ id: String(item.id), type: 'milestone', date: item.milestone_date || item.created_at || null, icon: item.icon || '◆', title: String(item.title), description: item.description || null });
-  for (const award of awards) timeline.push({ id: `award:${award.id}`, type: 'award', date: award.award_date || award.created_at || null, icon: '🏆', title: award.title, description: [award.tournament_name, award.place_result].filter(Boolean).join(' · ') || null });
+  for (const award of awards) timeline.push({ id: `award:${award.id}`, type: 'award', date: award.award_date || award.created_at || null, icon: isCupAward(award)?'🏆':'🏅', title: award.title, description: [award.tournament_name, award.place_result].filter(Boolean).join(' · ') || null });
   for (const achievement of earnedAchievements) timeline.push({ id: `achievement:${achievement.id}`, type: 'achievement', date: achievement.earned_at || null, icon: achievement.icon || '🏅', title: achievement.name, description: achievement.category_name || null });
 
   for (const threshold of [1, 10, 25, 50, 100, 250]) {

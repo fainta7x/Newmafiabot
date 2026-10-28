@@ -1,3 +1,4 @@
+import {loadPlayerEveningDebts,playerDebtBreakdown} from './playerEveningDebts.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { ensureEveningTodayPostSchema } from './eveningTodayPostService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -312,26 +313,11 @@ async function moneyItems(db: DatabaseWrapper, now: number): Promise<ClubOrderIt
     });
   }
 
-  const debts = await db.all<any>(`
-    SELECT ep.player_id, p.nickname, e.id AS evening_id, e.title, e.starts_at, ep.amount_due - ep.amount_paid AS debt
-      FROM evening_participants ep
-      JOIN players p ON p.id = ep.player_id
-      JOIN game_evenings e ON e.id = ep.evening_id
-     WHERE ep.attendance_status = 'attended' AND COALESCE(ep.payment_status, '') <> 'waived'
-       AND ep.amount_due > ep.amount_paid
-       AND (e.settled_at IS NOT NULL OR e.status = 'completed')
-       AND datetime(e.starts_at) >= datetime(?)
-     ORDER BY e.starts_at DESC, p.nickname COLLATE NOCASE`, [since]);
-  const byEvening = new Map<string, any[]>();
-  for (const row of debts) byEvening.set(String(row.evening_id), [...(byEvening.get(String(row.evening_id)) || []), row]);
-  for (const [eveningId, rows] of byEvening) {
-    const total = rows.reduce((sum, row) => sum + Number(row.debt || 0), 0);
-    items.push({
-      id: `debts:${eveningId}`, category: 'money', title: 'Долги за вечер',
-      detail: `${eveningName(rows[0])} — ${players(rows.length)} ${rows.length % 10 === 1 && rows.length % 100 !== 11 ? 'должен' : 'должны'} ${money(total)}`,
-      action: { type: 'evening', evening_id: eveningId, section: 'payments' }, action_label: 'К оплатам',
-      people: rows.slice(0, PEOPLE_LIMIT).map((row: any) => person(row, money(Number(row.debt || 0)))), people_total: rows.length,
-    });
+  const debts=await loadPlayerEveningDebts(db);
+  for(const row of debts.filter(p=>p.evenings.some(e=>Date.parse(e.starts_at)>=Date.parse(since)))){
+    items.push({id:`debts:player:${row.player_id}`,category:'money',title:`Долг — ${row.nickname}`,
+      detail:`Всего ${money(row.owed)} · ${row.evenings.length} ${russianPlural(row.evenings.length,'вечер','вечера','вечеров')}: ${playerDebtBreakdown(row)}`,
+      action:{type:'player',player_id:row.player_id},action_label:'Открыть игрока'});
   }
   return items;
 }

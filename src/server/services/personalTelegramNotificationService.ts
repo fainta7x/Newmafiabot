@@ -1,3 +1,4 @@
+import {runEveningMvpRunoffs} from './eveningVoteMessageService.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { runTodayPostSchedule } from './eveningTodayPostService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -31,6 +32,7 @@ const isolated = (name: string, step: Promise<number>) => step.catch((error) => 
 const step = (name: string, run: () => Promise<number>) => timeBackgroundJob(`personal_notifications/${name}`, run, 100);
 const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated('RSVP NUDGES', step('rsvp_nudges', () => queueEveningRsvpNudges(db)))) + (await isolated('TOURNAMENT PAYMENTS', step('tournament_payments', () => enforceTournamentPaymentDeadlines(db))))
   + (await isolated('SHORTFALL', step('shortfall', () => runEveningShortfallChecks(db)))) + (await step('auto_reminders', () => runAutomaticUnansweredReminders(db)).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
+  + (await isolated('MVP RUNOFFS',step('mvp_runoffs',()=>runEveningMvpRunoffs(db))))
   // The game blank and the evening summary for the club chat (clubResultPostService).
   + (await step('club_results', () => runClubResultPosts(db)).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).

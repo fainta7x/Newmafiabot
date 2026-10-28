@@ -294,7 +294,7 @@ router.post('/evenings/:eveningId/vote', async (req, res) => {
     if (!telegramUserId || !nominee) return res.status(400).json({ error: 'Некорректный запрос' });
     const player = await playerIdByTelegramId(db, telegramUserId);
     if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
-    const result = await castEveningVote(db, String(req.params.eveningId), String(player.id), nominee, { allowPrefix: true });
+    const result = await castEveningVote(db, String(req.params.eveningId), String(player.id), nominee, { allowPrefix: true,round:Number(req.body?.round||0) });
     if (!result.ok) {
       const status = result.code === 'not_attended' ? 403 : result.code === 'bad_nominee' || result.code === 'ambiguous_nominee' ? 400 : 409;
       return res.status(status).json({ error: 'Голос не принят', code: result.code });

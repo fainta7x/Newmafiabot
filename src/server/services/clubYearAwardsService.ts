@@ -11,7 +11,8 @@ import { resolveEveningMvp } from './eveningMvpService.ts';
  * года» awards in their profile showcase; past years stay there.
  */
 // Three days after the evening is closed: a Friday evening is voted on until Monday, before the next one is announced.
-export const EVENING_VOTING_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+import {EVENING_VOTING_WINDOW_MS} from './eveningVoteRounds.ts';
+export {EVENING_VOTING_WINDOW_MS};
 const VOTE_CATEGORY = 'best_player';
 const AWARD_KEY_PREFIX = 'club-year:';
 const TROPHY_PREFIX = 'club-evening-';
@@ -235,10 +236,12 @@ export async function syncClubEveningTrophies(db: DatabaseWrapper, playerId: str
       `INSERT OR IGNORE INTO player_verified_awards (
          id, player_id, kind, title, tournament_name, award_date, award_year, place_result, description,
          source, source_type, source_key, verification_status, created_by, verified_by, verified_at, created_at, updated_at
-       ) VALUES (?, ?, 'trophy', ?, ?, ?, ?, NULL, ?, ?, 'automatic', ?, 'verified', 'system:club-evening', 'system:club-evening', ?, ?, ?)`,
+       ) VALUES (?, ?, 'medal', ?, ?, ?, ?, NULL, ?, ?, 'automatic', ?, 'verified', 'system:club-evening', 'system:club-evening', ?, ?, ?)`,
       [`award_${crypto.randomUUID()}`, playerId, trophy.title, String(evening?.title || 'Вечер клуба'), date, Number(date.slice(0, 4)) || null, trophy.note, 'Club evening', sourceKey, stamp, stamp, stamp],
     );
   }
+  // Preserve award IDs, dates and pins while correcting the previous trophy form.
+  await db.run("UPDATE player_verified_awards SET kind='medal',updated_at=? WHERE player_id=? AND source_type='automatic' AND source_key LIKE 'club-evening-%' AND kind<>'medal'",[stamp,playerId]);
   const persisted = await db.all<any>(
     "SELECT id, source_key FROM player_verified_awards WHERE player_id = ? AND source_type = 'automatic' AND source_key LIKE ?",
     [playerId, `${TROPHY_PREFIX}%`],

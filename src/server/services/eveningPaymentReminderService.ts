@@ -1,3 +1,5 @@
+import {russianPlural} from '../../lib/russianPlural.ts';
+import {loadPlayerEveningDebts,debtRubles,debtEveningLabel,type PlayerEveningDebt} from './playerEveningDebts.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 
@@ -55,10 +57,19 @@ export const paymentReminderText = (evening: { title?: string | null; starts_at?
   ].join('\n');
 };
 
-const recentlyReminded = async (db: DatabaseWrapper, eveningId: string, playerId: string, now: number) => {
+export function playerPaymentReminderText(player:PlayerEveningDebt){
+  if(player.evenings.length===1){const e=player.evenings[0];return paymentReminderText(e,{...player,...e});}
+  const shown=player.evenings.slice(0,12);
+  return ['💰 Напоминание об оплате','',`Общий долг: ${debtRubles(player.owed)} за ${player.evenings.length} ${russianPlural(player.evenings.length,'вечер','вечера','вечеров')}.`,
+    ...shown.map(e=>`• ${debtEveningLabel(e)} — осталось ${debtRubles(e.owed)}${e.amount_paid>0?` (оплачено ${debtRubles(e.amount_paid)} из ${debtRubles(e.amount_due)})`:''}${e.extension_due>0?`; в стоимости продление ${debtRubles(e.extension_due)}`:''}.`),
+    ...(player.evenings.length>shown.length?[`Ещё вечеров: ${player.evenings.length-shown.length}; их долг включён в общую сумму.`]:[]),
+    `Оплатить можно ${paymentDetails()}.`,'Если уже заплатил, напиши организатору, и он отметит оплату.'].join('\n');
+}
+
+const recentlyReminded = async (db: DatabaseWrapper, _eveningId: string, playerId: string, now: number) => {
   const row = await db.get<any>(
     `SELECT MAX(created_at) AS last FROM personal_notification_deliveries WHERE notification_key LIKE ? AND player_id = ?`,
-    [`evening-payment:${eveningId}:${playerId}:%`, playerId],
+    ['evening-payment:%', playerId],
   ).catch(() => null);
   const last = row?.last ? new Date(String(row.last)).getTime() : 0;
   return last > 0 && now - last < PAYMENT_REMINDER_MIN_GAP_MS;
@@ -73,7 +84,8 @@ export async function sendEveningPaymentReminders(db: DatabaseWrapper, eveningId
   const evening = await db.get<any>('SELECT id, title, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   const result: PaymentReminderResult = { debtors: 0, queued: 0, skipped_recent: 0, undeliverable: 0 };
   if (!evening) return result;
-  for (const debtor of await loadEveningDebtors(db, eveningId)) {
+  const groups=await loadPlayerEveningDebts(db);
+  for (const debtor of groups.filter(group=>group.evenings.some(e=>e.evening_id===eveningId))) {
     if (onlyPlayerIds && !onlyPlayerIds.has(debtor.player_id)) continue;
     result.debtors += 1;
     if (await recentlyReminded(db, eveningId, debtor.player_id, now)) { result.skipped_recent += 1; continue; }
@@ -82,7 +94,7 @@ export async function sendEveningPaymentReminders(db: DatabaseWrapper, eveningId
       playerId: debtor.player_id,
       eventType: 'evening_payment_reminder',
       entityId: eveningId,
-      text: paymentReminderText(evening, debtor),
+      text: playerPaymentReminderText(debtor),
       actionPath: '/player/wallet',
     });
     const status = String(queued?.delivery?.status || '');

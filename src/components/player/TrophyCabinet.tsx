@@ -23,7 +23,7 @@ export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy
   awards:CabinetVerifiedAward[];earnedAchievements:CabinetAchievement[];
   onPinAward?:(id:string)=>void;busy?:boolean;pinLimitReached?:boolean;
 }) {
-  const [category,setCategory]=useState<CabinetCategory>('cups');
+  const [category,setCategory]=useState<CabinetCategory>(()=>{const available=cabinetItems(awards,earnedAchievements);return CABINET_CATEGORIES.find(c=>available.some(i=>i.category===c.id))?.id||'cups';});
   const [page,setPage]=useState(0);
   const [angle,setAngle]=useState(0);
   const [selectedId,setSelectedId]=useState<string|null>(null);

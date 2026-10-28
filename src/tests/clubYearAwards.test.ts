@@ -124,7 +124,7 @@ describe('«Игрок вечера» by wins and the evening trophies (owner, 2
     expect(pickEveningWinners([{ players: [lost('a'), lost('b')] }])).toEqual([]);
   });
 
-  it('turns both titles into trophies in the showcase and takes them back when the data changes', async () => {
+  it('turns both titles into medals in the showcase and takes them back when the data changes', async () => {
     const db = await setup();
     await evening(db, 'w1', '2026-03-06T17:00:00Z');
     await game(db, 'w1', 1, 'red', [['a', 'citizen'], ['b', 'mafia']]);
@@ -135,10 +135,15 @@ describe('«Игрок вечера» by wins and the evening trophies (owner, 2
 
     await syncClubEveningTrophies(db, 'a', now); await syncClubEveningTrophies(db, 'b', now);
     const trophies = async (playerId: string) => (await db.all<any>("SELECT title, kind, tournament_name FROM player_verified_awards WHERE player_id = ? AND source_key LIKE 'club-evening-%'", [playerId]));
-    expect(await trophies('a')).toEqual([{ title: 'Игрок вечера', kind: 'trophy', tournament_name: 'Вечер' }]);
-    expect(await trophies('b')).toEqual([{ title: 'MVP вечера', kind: 'trophy', tournament_name: 'Вечер' }]);
+    expect(await trophies('a')).toEqual([{ title: 'Игрок вечера', kind: 'medal', tournament_name: 'Вечер' }]);
+    expect(await trophies('b')).toEqual([{ title: 'MVP вечера', kind: 'medal', tournament_name: 'Вечер' }]);
 
-    // synced twice: no duplicates; a recounted vote moves the MVP trophy
+    // Existing awards change form in place, retaining identity and the player's pin.
+    const prior=await db.get<any>("SELECT id FROM player_verified_awards WHERE player_id='b' AND source_key LIKE 'club-evening-mvp:%'");
+    await db.run("UPDATE player_verified_awards SET kind='trophy',pinned_position=2 WHERE id=?",[prior.id]);
+    await syncClubEveningTrophies(db,'b',now);
+    expect(await db.get("SELECT id,kind,pinned_position FROM player_verified_awards WHERE id=?",[prior.id])).toEqual({id:prior.id,kind:'medal',pinned_position:2});
+    // synced twice: no duplicates; a recounted vote moves the MVP medal
     await syncClubEveningTrophies(db, 'a', now);
     expect(await trophies('a')).toHaveLength(1);
     await db.run("DELETE FROM evening_player_votes WHERE evening_id = 'w1'");

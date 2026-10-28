@@ -1,3 +1,4 @@
+import {loadMvpRunoff,hasFinalizedMvp,MVP_RUNOFF_CATEGORY} from './eveningVoteRounds.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
@@ -13,7 +14,8 @@ const MVP_CALLBACK_LIMIT = 64;
 export type MvpCandidate = { player_id: string; nickname: string; votes: number; wins: number; key_role_wins: number };
 export type MvpResolution =
   | { status: 'none'; total_votes: 0; candidates: [] }
-  | { status: 'winner'; source: 'votes' | 'wins' | 'key_roles' | 'owner'; winner: MvpCandidate; total_votes: number; candidates: MvpCandidate[] }
+  | { status: 'winner'; source: 'votes' | 'wins' | 'key_roles' | 'owner' | 'runoff'; winner: MvpCandidate; total_votes: number; candidates: MvpCandidate[] }
+  | { status:'runoff';deadline:string;total_votes:number;candidates:MvpCandidate[] }
   | { status: 'tie'; total_votes: number; candidates: MvpCandidate[] };
 
 export async function ensureMvpDecisionSchema(db: DatabaseWrapper) {
@@ -74,8 +76,20 @@ export async function resolveEveningMvp(db: DatabaseWrapper, eveningId: string, 
 
   await ensureMvpDecisionSchema(db);
   const decision = await db.get<any>('SELECT winner_player_id FROM evening_mvp_decisions WHERE evening_id = ?', [eveningId]);
+  const runoff=await loadMvpRunoff(db,eveningId);
+  if(runoff){
+    const pool=candidates.filter(c=>runoff.nominees.includes(c.player_id));
+    if(Date.now()<Date.parse(runoff.deadline_at))return {status:'runoff',deadline:runoff.deadline_at,total_votes:totalVotes,candidates:pool};
+    const votes=await db.all<any>("SELECT nominee_player_id AS player_id,COUNT(*) AS votes FROM evening_player_votes WHERE evening_id=? AND category=? GROUP BY nominee_player_id",[eveningId,MVP_RUNOFF_CATEGORY]);
+    const tally=pool.map(c=>({...c,votes:Number(votes.find(v=>String(v.player_id)===c.player_id)?.votes||0)}));
+    const total=tally.reduce((sum,c)=>sum+c.votes,0);const max=Math.max(0,...tally.map(c=>c.votes));const top=tally.filter(c=>c.votes===max);
+    if(top.length===1&&max>0)return {status:'winner',source:'runoff',winner:top[0],total_votes:total,candidates:top};
+    const chosen=top.find(c=>c.player_id===String(decision?.winner_player_id||''));
+    return chosen?{status:'winner',source:'owner',winner:chosen,total_votes:total,candidates:top}:{status:'tie',total_votes:total,candidates:top};
+  }
   const decided = decision ? candidates.find((item) => item.player_id === String(decision.winner_player_id)) : null;
   if (decided) return { status: 'winner', source: 'owner', winner: decided, total_votes: totalVotes, candidates };
+  if(!(await hasFinalizedMvp(db,eveningId)))return {status:'tie',total_votes:totalVotes,candidates};
 
   const mostWins = Math.max(...candidates.map((item) => item.wins));
   const byWins = candidates.filter((item) => item.wins === mostWins);
@@ -101,6 +115,8 @@ export async function decideEveningMvp(db: DatabaseWrapper, eveningId: string, d
   if (deciderPlayerId !== PRIMARY_ORGANIZER_PLAYER_ID) return { ok: false, code: 'forbidden' };
   const resolution = await resolveEveningMvp(db, eveningId);
   if (resolution.status === 'none') return { ok: false, code: 'not_found' };
+  const round=await loadMvpRunoff(db,eveningId);
+  if(resolution.status==='runoff'||!round)return {ok:false,code:'not_tie'};
   // Only a tie on votes needs (or allows) a decision; a clear winner by votes is final.
   const pool = resolution.candidates;
   if (pool.length < 2) return { ok: false, code: 'not_tie' };
@@ -121,6 +137,7 @@ export async function decideEveningMvp(db: DatabaseWrapper, eveningId: string, d
 
 /** Why this player won, in plain words for the post. */
 export const mvpReasonText = (resolution: Extract<MvpResolution, { status: 'winner' }>): string => {
+  if(resolution.source==='runoff')return 'Победитель дополнительного голосования между лидерами.';
   if (resolution.source === 'wins') return 'Голоса разделились поровну — решили победы в играх вечера.';
   if (resolution.source === 'key_roles') return 'Голоса разделились поровну, побед поровну — решили победы за Дона и Шерифа.';
   if (resolution.source === 'owner') return 'Голоса разделились поровну — решение организатора.';

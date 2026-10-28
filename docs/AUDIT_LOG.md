@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-28 — four owner-requested club follow-ups
+
+- [fixed, CF01] `eveningPaymentReminderService.ts`, `organizerReminderService.ts`, `clubOrderService.ts`: debts/messages group by evening; repeat debtors are counted several times and no per-player total is visible. Aggregate outstanding closed-evening balances per person with breakdown, preserve ledger and auto-trigger windows, deduplicate reminders across evenings.
+- [fixed, CF02] `playerProfileIntegrityService.ts`: birthday title is inserted once; ensureTask skips the existing row, freezing the day countdown. Compute calendar timing at read/reminder time and refresh the existing open task without reopening completed tasks.
+- [fixed, CF03] `eveningMvpService.ts`, `eveningVotingService.ts`, vote/message routes: equal votes bypass an extra vote via game wins/key roles/owner. Add a durable separate runoff among top-vote candidates, preserve original ballots, reject stale-round buttons, use one state in app/bot/posts/awards, retain already-finalized historical results.
+- [fixed, CF04] `clubYearAwardsService.ts`, `trophyCabinetModel.ts`: evening titles are persisted as trophies; any kind=trophy and club-year first place can be shown as cups. Reclassify ordinary result awards as medals while retaining IDs/pins/source and legitimate tournament/season-rating championship cups.
+
+Implemented CF01–CF04 with focused API/service/component checks and unchanged four-size layout audits. [Evidence and limits](reviews/2026-10-28-club-followups/README.md). Synthetic fixtures only; no production data, real sends or deployment.
+
 ## 2026-10-28 — UI2269 stale Connections expectations
 
 - [fixed, CN-CI] Six failures in two older preview owners on exact1bbe4ba: `cabinet-desktop-layout.spec.mjs` expects the first-game pair inside club-duos although CN08 deliberately deduplicates it into New Pairings; `player-cabinet-visual-audit.spec.mjs` counts all buttons as two profile actions, overlooking the new History action. CI4586/CodeQL3890/Gitleaks3887 and the entire all-page layout/text job passed. Update assertions to verify exactly two profile actions plus one history action, preserve the old content density bound separately from the new action, and verify one new-pair card in its new home. No app or detector change; the original 180px content-density budget is retained before the new history action. Exactly two profile actions plus one touch-sized history action, canonical history opening, unique first-recorded pair and viewport guards all pass:6 targeted browser cases in1.3m.

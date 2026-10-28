@@ -1,7 +1,8 @@
+import {Medal} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import EveningVotingPanel from './EveningVotingPanel.tsx';
 
-type Pending = { evening_id: string; title: string; deadline: string; voted: boolean; my_vote_nickname: string | null; voters: number; attendees: number };
+type Pending = { round?:number;evening_id: string; title: string; deadline: string; voted: boolean; my_vote_nickname: string | null; voters: number; attendees: number };
 
 const untilText = (iso: string) => new Date(iso).toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
@@ -26,9 +27,9 @@ export default function VotePromptCard() {
   return (
     <section data-testid="vote-prompt-card" className={`rounded-[20px] border p-3 ${pending.voted ? 'border-white/10 bg-white/[0.04]' : 'border-amber-300/30 bg-amber-300/[0.08]'}`}>
       <div className="flex items-center gap-3">
-        <span className="text-xl" aria-hidden="true">🏆</span>
+        <span className="text-xl" aria-hidden="true"><Medal size={22}/></span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[14px] font-bold leading-snug">MVP вечера «{pending.title}»</h2>
+          <h2 className="text-[14px] font-bold leading-snug">{pending.round?'Дополнительный тур MVP':'MVP вечера'} «{pending.title}»</h2>
           <p className="mt-0.5 text-[12px] leading-4 text-white/60">
             {pending.voted
               ? `Ты проголосовал за ${pending.my_vote_nickname || 'игрока'} · до ${untilText(pending.deadline)}`

@@ -70,4 +70,15 @@ describe('profile organizer tasks and birthdays', () => {
     expect(birthdays.map((row: any) => row.id)).toEqual(['active']);
     expect(birthdays[0].days_until).toBe(5);
   });
+  it('refreshes one open birthday task without resetting a postponement or reopening a completed task',async()=>{
+    await reconcileProfileIntegrityTasks(db,new Date('2026-09-08T10:00:00Z'));
+    const first=await db.get<any>("SELECT * FROM organizer_tasks WHERE automation_key='birthday:active:2026-09-13'");expect(first.title).toContain('через 5 дней');
+    await db.run('UPDATE organizer_tasks SET due_at=? WHERE id=?',['2026-09-14T12:00:00Z',first.id]);
+    await reconcileProfileIntegrityTasks(db,new Date('2026-09-10T10:00:00Z'));
+    const updated=await db.get<any>('SELECT * FROM organizer_tasks WHERE id=?',[first.id]);expect(updated.title).toContain('через 3 дня');expect(updated.due_at).toBe('2026-09-14T12:00:00Z');
+    await db.run("UPDATE organizer_tasks SET status='done' WHERE id=?",[first.id]);
+    await reconcileProfileIntegrityTasks(db,new Date('2026-09-11T10:00:00Z'));
+    const rows=await db.all<any>("SELECT * FROM organizer_tasks WHERE automation_key='birthday:active:2026-09-13'");expect(rows).toHaveLength(1);expect(rows[0].status).toBe('done');
+  });
+
 });

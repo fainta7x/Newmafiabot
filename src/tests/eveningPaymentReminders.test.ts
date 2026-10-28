@@ -84,4 +84,15 @@ describe('reminders to the players who owe for an evening', () => {
     const old = await setup(now - 20 * DAY);
     expect(await runEveningPaymentReminders(old, now)).toBe(0);
   });
+  it('sums several evenings, keeps partial payments and sends one reminder per person across them',async()=>{
+    const now=Date.now();const db=await setup(now-2*DAY);const stamp=at(now);
+    await db.run("INSERT INTO game_evenings(id,title,starts_at,status,settled_at,created_at,updated_at) VALUES('e2','Второй вечер',?,'completed',?,?,?)",[at(now-DAY),at(now-DAY),stamp,stamp]);
+    await db.run("INSERT INTO evening_participants(id,evening_id,player_id,response_status,registration_status,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES('second-debt','e2','debtor','going','confirmed','attended','partial',400,100,?,?)",[stamp,stamp]);
+    await sendEveningPaymentReminders(db,'e1','manual1',now);
+    const rows=await reminders(db);const mine=rows.find(r=>r.player_id==='debtor');
+    expect(mine.text).toContain('Общий долг: 600 ₽');expect(mine.text).toContain('Второй вечер');expect(mine.text).toContain('оплачено 100 ₽ из 400 ₽');
+    expect((await sendEveningPaymentReminders(db,'e2','manual2',now+60_000))).toMatchObject({queued:0,skipped_recent:1});
+    expect((await reminders(db)).filter(r=>r.player_id==='debtor')).toHaveLength(1);
+  });
+
 });

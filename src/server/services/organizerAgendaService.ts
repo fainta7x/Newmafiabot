@@ -1,3 +1,4 @@
+import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import crypto from 'node:crypto';
@@ -421,7 +422,7 @@ async function taskItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
     const action: AgendaAction | undefined = row.player_id ? { type: 'player', player_id: String(row.player_id) }
         : row.evening_id ? { type: 'evening', evening_id: String(row.evening_id), section: 'overview' } : undefined;
     return {
-      id: `task:${row.id}`, group, rank, kind: key ? key.split(':')[0] : 'manual', title: String(row.title || 'Задача'),
+      id: `task:${row.id}`, group, rank, kind: key ? key.split(':')[0] : 'manual', title: birthdayTaskTitle(row,now),
       why: whyParts.join(' · ') || 'Задача без описания', task_id: String(row.id), due_at: row.due_at || null, can_complete: true,
       action, action_label: action ? (action.type === 'player' ? 'Открыть игрока' : 'Открыть вечер') : undefined,
     };

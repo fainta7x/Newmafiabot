@@ -414,3 +414,11 @@ System tariff settings: eveningPriceSettingsService.ts (settings API: /api/eveni
 ### Observed CRM role commands
 
 `liveRoleCorrections.ts` validates complete CRM role assignments, builds `role_corrected` events and projects those commands onto active players and recovery/Undo snapshots. TournamentLiveGameModal passes complete assignments observed by its serialized 20-second GET; incomplete assignments keep the previous authority. External role corrections are not judge Undo steps. LiveGameEngine records commands before applying them and retains legacy evidence when adopting a native journal. `liveNightChecks.ts` owns current Don/Sheriff answers for both targeting and role correction. Historical night logs stay factual; the completed tournament result still goes to draft review. Seat identity changes and final-fetch concurrency are not handled by this role-only path.
+
+## Club reminders and MVP rounds
+
+`playerEveningDebts.ts` is a read-only per-player projection of existing outstanding evening payments, shared by personal reminders, organizer reminders and the club-order task list. It does not own pricing or ledger mutations.
+
+`shared/birthdayTask.ts` derives task wording from the fixed birthday occurrence in its automation key and the current Moscow calendar date. The integrity service updates the same open task; routes and outgoing reminders also project the current title, so delayed reconciliation cannot freeze the displayed countdown.
+
+`eveningVoteRounds.ts` owns one persisted MVP runoff (`evening_mvp_runoffs`: finalists, start and deadline). Original and runoff ballots use distinct categories in the existing vote store. App/bot routes, the independent personal-notification worker and public result posts use this state; stale callback rounds cannot write into it. `eveningMvpService.ts` owns winner resolution, while `clubYearAwardsService.ts` issues the same result as a medal. Legacy award conversion changes kind in place; `trophyCabinetModel.ts:isCupAward` owns consistent cup eligibility for the cabinet, pins and timeline.

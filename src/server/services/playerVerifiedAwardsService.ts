@@ -1,3 +1,4 @@
+import {isCupAward} from '../../lib/trophyCabinetModel.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerGameProfile } from './playerProfileService.ts';
@@ -56,7 +57,7 @@ export function normalizeVerifiedAwardInput(body: any): VerifiedAwardInput {
     ? String(body?.source_type || 'manual') as VerifiedAwardInput['source_type']
     : 'manual';
   return {
-    kind,
+    kind:kind==='trophy'&&!isCupAward({kind,title,tournament_id:body?.tournament_id,tournament_name:body?.tournament_name,place_result:body?.place_result})?'medal':kind,
     title,
     tournament_id: text(body?.tournament_id, 120),
     tournament_name: text(body?.tournament_name, 180),

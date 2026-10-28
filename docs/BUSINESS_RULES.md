@@ -21,6 +21,14 @@ Home prioritizes the earliest upcoming evening with the player's going/late resp
 An unknown payment summary must be distinguishable from confirmed zero and offer retry. A failed refresh may show only a clearly identified last confirmed amount. Closing a draft protocol requires confirmation that all current edits were saved; failed or superseded saves leave the editor and edits open.
 
 
+## Owner update 2026-10-28 — debt reminders, birthdays, MVP and award form
+
+Outstanding balances for one player are summed across completed/settled evenings; reminder/task text shows the total and each evening's remainder, including partial payments/extensions and excluding waivers. Existing accounting and automatic trigger/lookback windows remain; one reminder must not be sent once per evening to the same player within the current reminder gap. Birthday tasks describe the actual Moscow calendar distance at display/send time.
+
+An equal highest vote count for evening MVP requires an additional vote restricted to those leaders, rather than automatic tie resolution by game wins. Original votes remain separate. Already finalized historical results remain historical. Working defaults announced after unanswered clarification:24h for one runoff; a repeated tie goes to the existing owner decision. These defaults are not recorded as explicit owner answers and may be steered during implementation.
+
+Only tournament awards and season/rating championships can have cups; ordinary result awards, including evening MVP/player-of-evening and annual ordinary titles, have medals. Preserve award identities, earned history and pins. Achievement progress is not a new sporting award.
+
 ## Authority
 
 ### Seasonal compendium / cosmetics (owner revision, 2026-10-14)

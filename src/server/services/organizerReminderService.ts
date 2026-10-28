@@ -1,3 +1,5 @@
+import {loadPlayerEveningDebts} from './playerEveningDebts.ts';
+import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadEveningRoute } from './eveningRouteService.ts';
@@ -76,33 +78,25 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
 
   // Debts of closed evenings, once a day.
   if (hour >= DEBTS_HOUR) {
-    const rows = await db.all<any>(
-      `SELECT e.id, e.title, COUNT(*) AS people, SUM(ep.amount_due - ep.amount_paid) AS owed
-         FROM evening_participants ep JOIN game_evenings e ON e.id = ep.evening_id
-        WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
-          AND ep.attendance_status = 'attended' AND ep.payment_status NOT IN ('waived', 'paid')
-          AND ep.amount_due > ep.amount_paid
-        GROUP BY e.id ORDER BY e.starts_at DESC`,
-      [new Date(now - 60 * 24 * HOUR).toISOString()],
-    ).catch(() => [] as any[]);
-    if (rows.length && !(await queued(db, `organizer-debts:${today}`))) {
-      const people = rows.reduce((sum, row) => sum + Number(row.people || 0), 0);
-      const total = rows.reduce((sum, row) => sum + Number(row.owed || 0), 0);
-      sent += await send(db, `organizer-debts:${today}`, 'debts',
-        `💰 Долги за вечера: ${people} чел., всего ${rubles(total)}\n${lines(rows.map((row) => `${row.title}: ${rubles(Number(row.owed || 0))} (${row.people} чел.)`), 5).join('\n')}\nОплату можно принять в «Оплата вечера».`);
+    const cutoff=now-60*24*HOUR;
+    const rows=(await loadPlayerEveningDebts(db)).filter(p=>p.evenings.some(e=>Date.parse(e.starts_at)>=cutoff));
+    if(rows.length&&!(await queued(db,`organizer-debts:${today}`))){
+      const total=rows.reduce((sum,p)=>sum+p.owed,0);
+      sent+=await send(db,`organizer-debts:${today}`,'debts',`💰 Долги за вечера: ${rows.length} чел., всего ${rubles(total)}\n${lines(rows.map(p=>`${p.nickname}: ${rubles(p.owed)} — ${p.evenings.slice(0,4).map(e=>new Date(e.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',timeZone:'Europe/Moscow'})+': '+rubles(e.owed)).join('; ')}${p.evenings.length>4?'; ещё вечеров: '+(p.evenings.length-4):''}`),5).join('\n')}\nОплату можно принять в «Оплата вечера».`);
     }
   }
 
   // Overdue organizer tasks, once a day.
   if (hour >= DAILY_HOUR) {
     const tasks = await db.all<any>(
-      `SELECT id, title FROM organizer_tasks
-        WHERE status IN ('todo', 'in_progress') AND due_at IS NOT NULL AND datetime(due_at) < datetime(?)
-        ORDER BY due_at ASC`,
+      `SELECT t.id,t.title,t.automation_key,p.nickname AS player_nickname FROM organizer_tasks t LEFT JOIN players p ON p.id=t.player_id
+        WHERE t.status IN ('todo', 'in_progress') AND t.due_at IS NOT NULL AND datetime(t.due_at) < datetime(?)
+        ORDER BY t.due_at ASC`,
       [new Date(now).toISOString()],
     ).catch(() => [] as any[]);
+    for(const task of tasks)task.title=birthdayTaskTitle(task,now);
     if (tasks.length && !(await queued(db, `organizer-tasks:${today}`))) {
-      sent += await send(db, `organizer-tasks:${today}`, 'tasks', `🗒 Просроченные задачи: ${tasks.length}\n${lines(tasks.map((task) => String(task.title || 'Задача'))).join('\n')}`, organizerTaskButtons(tasks));
+      sent += await send(db, `organizer-tasks:${today}`, 'tasks', `🗒 Просроченные задачи: ${tasks.length}\n${lines(tasks.map((task) => birthdayTaskTitle(task,now))).join('\n')}`, organizerTaskButtons(tasks));
     }
   }
   return sent;

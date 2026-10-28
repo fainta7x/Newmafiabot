@@ -42,7 +42,7 @@ describe('«Порядок в клубе»', () => {
 
     const ids = (await loadClubOrder(db, NOW)).items.map((item) => item.id);
     expect(ids).toEqual(expect.arrayContaining([
-      'unclosed:old', 'draft:soon', 'organizer:soon', 'level-missing', 'duplicates:a,b', 'no-contact', 'protocols:paid', 'debts:paid',
+      'unclosed:old', 'draft:soon', 'organizer:soon', 'level-missing', 'duplicates:a,b', 'no-contact', 'protocols:paid', 'debts:player:a',
     ]));
     expect(ids).not.toContain('no-evening');
     expect(ids).not.toContain('inactive');
@@ -55,9 +55,9 @@ describe('«Порядок в клубе»', () => {
     await player('a', 'Аня');
     await attend('paid', 'a', 300, 100);
     const debtItems = (await loadClubOrder(db, NOW)).items;
-    expect(debtItems.map((item) => item.id)).toEqual(['debts:paid']);
-    // «К оплатам» opens that evening's payments, not its roster.
-    expect(debtItems[0].action).toEqual({ type: 'evening', evening_id: 'paid', section: 'payments' });
+    expect(debtItems.map((item) => item.id)).toEqual(['debts:player:a']);
+    // One debt card per player opens their CRM profile with the payment history.
+    expect(debtItems[0].action).toEqual({ type: 'player', player_id: 'a' });
     await db.run("UPDATE evening_participants SET amount_paid = 300, payment_status = 'paid'");
     expect((await loadClubOrder(db, NOW)).items).toEqual([]);
   });

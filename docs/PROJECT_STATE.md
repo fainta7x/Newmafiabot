@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — approved debts, birthday timing, MVP runoff and award shapes
+
+Owner requests implementation: (1) sum a player's unpaid evenings in Telegram reminders and organizer tasks, (2) keep approaching-birthday tasks current instead of frozen «через5дней», (3) an additional MVP vote restricted to equal-vote leaders, (4) cups only for tournaments/season-rating championships; other result awards are medals. One connected implementation; preserve payments/history/award IDs. Runoff timing/repeated-tie questions returned no answers; working defaults stated to owner:24h, then the existing organizer decision if still tied. These are implementation assumptions, not claimed explicit owner answers. No production writes or real messages during verification.
+
+#1077 exact1767dab passed CI4587/UI2270/CodeQL3891/Gitleaks3888 and merged as1dddcbb11680fccad9fbcb08419a38cc1f162978. This is the fresh base; older pending-at-authoring paragraphs are history. All four changes are implemented as one candidate with focused tests, type/lint and four-size browser evidence: [verification and limits](reviews/2026-10-28-club-followups/README.md). Next action — assistant: publish the single PR, inspect exact-head checks and merge when green under the bounded CI protocol. No deployment/runtime claim; no owner input required. The owner may steer the stated runoff defaults.
+
 ## 2026-10-28 — Connections and Metrics content plan approved
 
 Owner: «улучшению самого контента в Связях и Показателях»; more interesting connections, one category-based sortable metrics table and player comparison. Preserve the new Community structure. Complete source/content review before application edits per AGENTS §4e: [full proposed scope CN01–CN08](UX_CONNECTIONS_METRICS_CONTENT_REVIEW_2026-10-28.md). Proposal: one player table with six column categories, common scope and explicit observation sizes; compare two arbitrary visible players; factual pair history/series/new pairings/frequent opposition/table encounters. Owner approves the whole plan: «Да, продолжай». The CN01–CN08 review gate is satisfied, including two-player comparison and definitions/thresholds for new stories. Assistant implements one coherent batch; no further owner input is needed. Preserve formulas and privacy.
@@ -1098,6 +1104,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- Кандидат: напоминание показывает общий долг по вечерам; сроки ДР обновляются; при ничьей за MVP — доптур между лидерами; награда MVP — медаль.
 
 - Кандидат: Показатели объединены в таблицу с категориями и сравнением двух игроков; в Связях — серии, новые пары, частые соперники и история общих игр с протоколами.
 

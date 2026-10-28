@@ -1,3 +1,4 @@
+import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
@@ -23,7 +24,7 @@ router.get('/organizer-operations', async (req, res) => {
     const dueSoon = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
     const tasks = await db.all(
-      `SELECT t.id, t.title, t.type, t.status, t.priority, t.due_at,
+      `SELECT t.id, t.title, t.automation_key, t.type, t.status, t.priority, t.due_at,
               t.player_id, t.evening_id, p.nickname AS player_nickname,
               e.title AS evening_title
          FROM organizer_tasks t
@@ -57,7 +58,7 @@ router.get('/organizer-operations', async (req, res) => {
         global_game_number: row.global_game_number,
       }));
 
-    return res.json({ generated_at: now.toISOString(), tasks, draft_games: draftGames });
+    return res.json({ generated_at: now.toISOString(), tasks:tasks.map((t:any)=>({...t,title:birthdayTaskTitle(t,now.getTime())})), draft_games: draftGames });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось собрать организационные уведомления' });
   }

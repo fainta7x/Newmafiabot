@@ -1,3 +1,4 @@
+import {loadMvpRunoff,startMvpRunoff,ensureRunoffSchema,type MvpRunoff} from './eveningVoteRounds.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
@@ -252,13 +253,14 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   } });
 
   // The result of the vote, when its window is over (and for a few days after: a missed run is caught up, a tie waits for the owner).
+  await ensureRunoffSchema(db);
   const voted = await db.all<any>(`
     SELECT e.id FROM game_evenings e
      WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
-       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND (datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?) OR EXISTS(SELECT 1 FROM evening_mvp_runoffs r WHERE r.evening_id=e.id AND datetime(r.deadline_at)>=datetime(?)))
        AND datetime(COALESCE(e.settled_at, e.updated_at)) <= datetime(?)
        AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS - CLOSED_WINDOW_MS).toISOString(), new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS - CLOSED_WINDOW_MS).toISOString(), new Date(now - CLOSED_WINDOW_MS).toISOString(), new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
   await part('mvp_result', async () => { for (const evening of voted) {
     if (await postMvpResult(db, String(evening.id), fetchImpl).catch((error) => { console.error('[CLUB RESULTS] MVP result failed:', error); return false; })) posted += 1;
   } });
@@ -501,6 +503,20 @@ const votesWord = (count: number) => {
  * wins nor the Дон/Шериф wins separate goes to the owner as a question with a button per player; the result follows his answer.
  * Nothing is posted for an evening nobody voted on.
  */
+async function postMvpRunoff(db:DatabaseWrapper,evening:any,round:MvpRunoff,fetchImpl:typeof fetch){
+  const attendees=await db.all<any>("SELECT p.id,p.nickname FROM evening_participants ep JOIN players p ON p.id=ep.player_id WHERE ep.evening_id=? AND ep.attendance_status='attended'",[evening.id]);
+  const finalists=attendees.filter(p=>round.nominees.includes(String(p.id)));
+  const text=`🏅 «${evening.title}»: дополнительное голосование за MVP.\nВ первом туре несколько игроков набрали одинаковое число голосов. Выбираем только между ними: ${finalists.map(p=>p.nickname).join(', ')}.\nПервый тур не переносится: голосуем заново до ${moscowDayTime(Date.parse(round.deadline_at))}.`;
+  const buttons=finalists.flatMap(p=>{const callback=voteCallbackData(String(evening.id),String(p.id),true);return callback?[[{text:String(p.nickname),callback_data:callback}]]:[];});
+  let posted=false;
+  const key=`mvp-runoff:${evening.id}`;
+  if(await claim(db,key,'mvp-runoff',String(evening.id),null)){const result=await sendText(db,clubResultDestination(evening.format),text,fetchImpl,undefined,{inline_keyboard:buttons});await finish(db,key,result);posted=result.ok;}
+  const vkKey=`mvp-runoff-vk:${evening.id}`;
+  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(text,{db,eveningId:String(evening.id),format:evening.format});await finish(db,vkKey,{ok:result.status==='published',temporary:true,error:result.error||undefined});posted=posted||result.status==='published';}
+  await queueEveningVoteMessages(db,String(evening.id),String(evening.title),{runoff:round});
+  return posted;
+}
+
 export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
   const evening = await db.get<any>('SELECT id, title, format, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
   if (!evening || evening.status !== 'completed') return false;
@@ -508,6 +524,8 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   if (!deadline || deadline > Date.now()) return false;
   const resolution = await resolveEveningMvp(db, eveningId);
   if (resolution.status === 'none') return false;
+  if(resolution.status==='runoff'){const round=await loadMvpRunoff(db,eveningId);return round?postMvpRunoff(db,evening,round,fetchImpl):false;}
+  if(resolution.status==='tie'&&!(await loadMvpRunoff(db,eveningId))){const round=await startMvpRunoff(db,eveningId,resolution.candidates.map(c=>c.player_id));return round?postMvpRunoff(db,evening,round,fetchImpl):false;}
   const title = String(evening.title || 'Игровой вечер');
 
   if (resolution.status === 'tie') {
@@ -523,7 +541,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
         playerId: PRIMARY_ORGANIZER_PLAYER_ID,
         eventType: 'evening_mvp_decision',
         entityId: eveningId,
-        text: `🏆 «${title}»: MVP вечера не определился — голоса разделились поровну (по ${resolution.candidates[0].votes}), и победы тоже. Кого объявить MVP? Нажми на игрока.`,
+        text: `🏅 «${title}»: дополнительное голосование за MVP завершилось без единственного победителя (у лидеров по ${resolution.candidates[0].votes} голосов). Кого объявить MVP? Нажми на игрока.`,
         telegramReplyMarkup: rows.length ? { inline_keyboard: rows } : null,
       });
       await finish(db, askKey, { ok: true });
@@ -536,7 +554,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
 
   const winner = resolution.winner;
   const reason = mvpReasonText(resolution);
-  const headline = `🏆 MVP вечера «${title}» — ${winner.nickname}!`;
+  const headline = `🏅 MVP вечера «${title}» — ${winner.nickname}!`;
   const body = [`Голосов: ${winner.votes} из ${resolution.total_votes}.`, reason, 'Поздравляем! 🖤'].filter(Boolean).join('\n');
   const groupText = `${headline}\n${body}`;
   let posted = false;
@@ -572,7 +590,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
       for (const attendee of attendees) {
         const playerId = String(attendee.player_id);
         const text = playerId === winner.player_id
-          ? `🏆 Ты — MVP вечера «${title}»! Голосов: ${winner.votes} из ${resolution.total_votes}. Поздравляем! 🖤`
+          ? `🏅 Ты — MVP вечера «${title}»! Голосов: ${winner.votes} из ${resolution.total_votes}. Поздравляем! 🖤`
           : groupText;
         await queuePersonalNotification(db, {
           notificationKey: `mvp-result:${eveningId}:${playerId}`,

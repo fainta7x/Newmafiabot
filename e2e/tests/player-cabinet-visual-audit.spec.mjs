@@ -118,10 +118,16 @@ for (const width of [360, 390]) test(`compact cabinet groups retain context at $
   await page.getByLabel('Что показать').getByRole('button', { name: 'Напарники', exact: true }).click();
   const duo = page.getByTestId('club-duo-p1-p2');
   await expect(duo).toContainText('8 побед из 12 игр');
-  await expect(duo.getByRole('button')).toHaveCount(2);
-  expect((await duo.boundingBox()).height).toBeLessThan(180);
+  await expect(duo.getByRole('button', { name: /^Открыть профиль / })).toHaveCount(2);
+  await expect(duo.getByRole('button')).toHaveCount(3);
+  const pairHistory = duo.getByRole('button', { name: 'История пары ›', exact: true });
+  await expect(pairHistory).toBeVisible();
+  // Preserve the original density budget for the card body; the new action has its own touch target.
+  expect((await pairHistory.boundingBox()).y - (await duo.boundingBox()).y).toBeLessThan(180);
   for (const button of await duo.getByRole('button').all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await page.screenshot({ path: info.outputPath(`compact-connections-${width}.png`), fullPage: true });
+  await pairHistory.click();
+  await expect(page.getByTestId('connection-pair-history')).toContainText('18 общих игр');
 
   await nav.getByRole('button', { name: 'Прогресс', exact: true }).click();
   await expect(page.getByTestId('profile-completion-card')).toHaveCount(0);

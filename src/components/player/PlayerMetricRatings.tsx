@@ -15,7 +15,7 @@ type Rating = {
   me: Row | null;
 };
 
-const chip = (rank: number) => rank === 1 ? 'border-amber-200/15 bg-amber-300/[0.12] text-amber-100' : rank === 2 ? 'border-white/12 bg-white/[0.08] text-white/75' : rank === 3 ? 'border-orange-200/10 bg-orange-300/[0.09] text-orange-100/80' : 'border-white/[0.07] bg-black/20 text-white/38';
+const chip = (_rank:number) => 'border-white/[0.07] bg-black/20 text-white/50';
 
 function PlayerLine({ row }: { row: Row }) {
   return <button type="button" onClick={() => openCanonicalPlayerProfile(row.player_id)} data-testid={`metric-row-${row.player_id}`} className={`ds-focus-ring flex min-h-12 w-full items-center gap-3 px-1 py-3 text-left ${row.is_me ? 'border border-sky-200/20 bg-sky-200/[0.07]' : 'hover:bg-white/[.035]'}`}>

@@ -12,7 +12,7 @@ it('retries a failed history request without leaving the profile', async () => {
   render(<PremiumProfileShowcase playerId="p1" isSelf={false} section="history" />);
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
-  await screen.findByText('История клуба');
+  await screen.findByText('История игрока');
   expect(fetcher).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole('alert')).toBeNull();
 });

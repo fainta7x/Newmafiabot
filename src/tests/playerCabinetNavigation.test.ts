@@ -56,6 +56,6 @@ describe('player cabinet navigation model', () => {
 
   it('keeps the menu order and opens each place on its first screen', () => {
     expect(PLAYER_CABINET_NAV.map((item) => item.label)).toEqual(['Главная', 'Вечера', 'Сообщество', 'Прогресс']);
-    expect(PLAYER_NAV_SECTION).toEqual({ home: 'home', evenings: 'events', community: 'rating', progress: 'profile' });
+    expect(PLAYER_NAV_SECTION).toEqual({ home: 'home', evenings: 'events', community: 'club', progress: 'profile' });
   });
 });

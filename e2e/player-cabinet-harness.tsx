@@ -1,3 +1,4 @@
+import {structurePeriods,structurePeriodDetail,structureClubWorld,structurePulse} from './community-structure.fixture.ts';
 import { resultsContextSeason } from './results-context.fixture.ts';
 import App from '../src/App.tsx';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice } from '../src/lib/eveningPrices.ts';
@@ -87,6 +88,12 @@ const pulse = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
+ if(new URLSearchParams(location.search).has('community')){
+  if(url.pathname==='/api/player/rating-periods')return json(structurePeriods);
+  if(url.pathname.startsWith('/api/player/rating-periods/'))return json(structurePeriodDetail(decodeURIComponent(url.pathname.split('/').pop()!)));
+  if(url.pathname==='/api/player/club-world')return json(structureClubWorld(url.searchParams.get('period')));
+  if(url.pathname==='/api/player/pulse')return json(structurePulse);
+ }
  if (url.pathname === '/api/player/evenings/preview-evening/slots') {
   if (init?.method === 'PUT') {
    if (saveFailures-- > 0) return json({ error: 'Не удалось сохранить: нет связи' },503);

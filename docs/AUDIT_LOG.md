@@ -1,5 +1,20 @@
 # Audit log
 
+## 2026-10-28 — implement approved Community architecture IS01–IS12
+
+Complete [source/content review](UX_COMMUNITY_STRUCTURE_REVIEW_2026-10-28.md) preceded edits; owner approves continuation and explicitly retains Form points with clear explanation. All findings are registered here before implementation.
+
+- [fixed, IS01/04/11/12] Move player metrics/form to Players, activity matches to History; keep three competitions and all old deep links/context.
+- [fixed, IS02/03/09] One selected period for official standings and clearly separated club statistics; historical selection keyed by canonical RATING ID, NOVICE never borrows RATING data; one Hall of Fame in History.
+- [fixed, IS05/06] Consolidate teammate groups, move both-colour pairs out of opponents, consistent members/context/results/sample cards.
+- [fixed, IS07/08] Retain Form points, explain recency weights/streak/max115/no calendar decay; show actual recent outcomes/date and compare places with consistent tie rules.
+- [fixed, IS10] Personal timeline labels must identify whose history it is.
+
+No formula/cutoff/award/privacy changes; focused verification and one coherent before/after batch with unchanged audit detector. No production actions.
+
+
+All IS01–IS12 implemented after approval, with Form score unchanged. Exact-key selected historical RATING statistics/records, no NOVICE fallback, calendar archive retained, detailed recent Form sequence hidden from other viewers when statistics are private. UI card density reviewed before publishing; repeated lead text removed so a pair’s actual result is visible on a phone. No detector/threshold/exception changes.92 clean four-size audits; six affected browser flows pass. One old reload assertion expected Pairs after the old four-tab loop; updated to require the actual new last tab/Table Encounters and its selected state, then the one failed case passes. TypeScript initially caught two test-only unsupported `exact` options; corrected. Final code/targeted tests/lint/guard pass; [evidence](reviews/2026-10-28-community-rebuild/README.md). #1075 exactec5dfbe is merged801fdf6 after all four checks green.
+
 ## 2026-10-28 — period consistency SC01–SC04, registered before fixes
 
 [Complete branch/source review](UX_PROFILE_SCOPE_CONSISTENCY_2026-10-28.md) while #1074 checks run; same authorized Community/Progress content scope.

@@ -37,17 +37,11 @@ for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Resu
   await expect(page.locator('.profile-game-list > article')).toHaveCount(0);
   if(!before)await expect(page.getByTestId('profile-game-range')).toHaveText('Найдено игр: 0');
   await check('games-empty');
-  await page.goto('/e2e/player-cabinet.html?results-context=1&route='+encodeURIComponent('/player/seasons/history'));
-  await expect(page.getByText('Прошлые сезоны',{exact:true})).toBeVisible();
-  if(!before)await expect(page.getByRole('region',{name:'Мой результат в сезоне'})).toContainText('8 побед из 12 игр');
-  await check('archive',true);
-  await page.getByRole('button',{name:/Весна 2026/}).click();
-  if(!before){await expect(page.getByRole('region',{name:'Мой результат в сезоне'})).toContainText('Место не указано');await expect(page.getByRole('region',{name:'Мой результат в сезоне'})).toContainText('2 победы из 3 игр');}
-  await check('archive-unranked');
-  await page.getByRole('navigation',{name:'Разделы активности'}).getByRole('button',{name:'Сезон',exact:true}).click();
-  if(!before)await expect(page.getByText('Показаны места 1–5. Участников в сезоне: 21.',{exact:true})).toBeVisible();
-  await check('current-season');
-  await page.getByRole('button',{name:before?'Показать всех · 10':'Показать места 6–10',exact:true}).click();
-  if(!before)await expect(page.getByText('Показаны места 1–10. Участников в сезоне: 21.',{exact:true})).toBeVisible();
-  await check('current-season-more');
+  await page.goto('/e2e/player-cabinet.html?community=1&route='+encodeURIComponent('/player/seasons/history'));
+  await expect(page.getByLabel('Выбрать сезон')).toHaveValue('demo-past');
+  await expect(page.getByRole('region',{name:'Мой результат в сезоне'})).toContainText('2 победы из 4 игр');await check('archive',true);
+  await page.getByLabel('Выбрать сезон').selectOption('demo-season');
+  await expect(page.getByRole('region',{name:'Мой результат в сезоне'})).toContainText('6 побед из 10 игр');await check('current-season');
+  await page.getByRole('button',{name:'Показать места 6–10',exact:true}).click();
+  await expect(page.getByText('Показаны места 1–10. Участников в сезоне: 21.',{exact:true})).toBeVisible();await check('current-season-more');
 });

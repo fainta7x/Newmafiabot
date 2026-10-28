@@ -13,7 +13,7 @@ it('makes club pairs primary, switches the list and opens canonical profiles', a
   const club = await screen.findByTestId('club-duos');
   expect(club.parentElement?.firstElementChild).toBe(club);
   fireEvent.click(within(club).getByRole('button', { name: 'Открыть профиль Анна' })); expect(open).toHaveBeenCalledWith('a');
-  fireEvent.click(screen.getByRole('button', { name: 'Самые сыгранные' }));
+  fireEvent.click(screen.getByRole('button', { name: 'По числу игр' }));
   expect(within(club).getByRole('button', { name: 'Открыть профиль Вера' })).toBeTruthy();
   expect(within(club).queryByRole('button', { name: 'Открыть профиль Анна' })).toBeNull();
 });
@@ -32,15 +32,15 @@ it('shows six distinct club stories and switches accessible tabs without losing 
   expect(within(stories).getByText('Чёрные тройки')).toBeTruthy();
   expect(within(stories).getByText('Дон и мафия')).toBeTruthy();
   expect(within(stories).getByText('Шериф и мирный')).toBeTruthy();
-  expect(within(stories).getAllByRole('button', { name: 'Александра с длинным никнеймом' })).toHaveLength(3);
+  expect(within(stories).getAllByRole('button', { name: 'Открыть профиль Александра с длинным никнеймом' })).toHaveLength(4);
   expect(stories.textContent).toContain('побед');
   fireEvent.click(within(stories).getByRole('button', { name: 'Соперники' }));
   expect(within(stories).getByText('Равные соперники')).toBeTruthy();
-  expect(within(stories).getByText('Играют вместе и за красных, и за чёрных')).toBeTruthy();
+  expect(within(stories).queryByText('Вместе за оба цвета')).toBeNull();
   expect(within(stories).queryByText('Чёрные тройки')).toBeNull();
-  fireEvent.click(within(stories).getByRole('button', { name: 'Знакомства' }));
-  expect(within(stories).getByText('Кто знает всех')).toBeTruthy();
-  fireEvent.click(within(stories).getByRole('button', { name: 'Богданчик' }));
+  fireEvent.click(within(stories).getByRole('button', { name: 'За одним столом' }));
+  expect(within(stories).getByText('Встречались за одним столом')).toBeTruthy();
+  fireEvent.click(within(stories).getByRole('button', { name: 'Открыть профиль Богданчик' }));
   expect(open).toHaveBeenCalledWith('p2');
   expect(within(stories).getByText(/Что здесь считается/)).toBeTruthy();
 });
@@ -55,7 +55,7 @@ it('shows each duo as two usable profile actions and three explicit game statist
     'Открыть профиль Анна',
     'Открыть профиль Борис',
   ]);
-  expect(card.textContent).toContain('4 игр вместе · 3 побед · 75% побед');
+  expect(card.textContent).toContain('3 победы из 4 игр · 75%');
   fireEvent.click(actions[1]);
   expect(open).toHaveBeenCalledWith('b');
 });

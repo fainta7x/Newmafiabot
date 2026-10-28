@@ -40,11 +40,11 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     events: target ? `/player/events/${encodeURIComponent(target)}` : '/player/events',
     games: target ? `/player/games/${encodeURIComponent(target)}` : '/player/games',
     conduct: target === 'music' ? '/player/conduct/music' : '/player/conduct',
-    rating: target === 'metrics' ? '/player/rating/metrics' : '/player/rating',
-    ratingperiods: '/player/rating/periods',
+    rating: target === 'metrics' ? '/player/club/metrics' : '/player/rating',
+    ratingperiods: target === 'archive' ? '/player/rating/periods/archive' : '/player/rating/periods',
     ratingtournaments: '/player/rating/tournaments',
     stats: '/player/stats',
-    club: target === 'connections' || target === 'games' ? `/player/club/${target}` : '/player/club',
+    club: target && ['connections','games','metrics','form','history','hall'].includes(target) ? `/player/club/${target}` : '/player/club',
     payments: '/player/wallet',
     wallet: target && ['payments', 'shop', 'bets', 'history'].includes(target) ? `/player/wallet/${target}` : '/player/wallet',
     profile: target?.startsWith('tab:') ? `/player/profile/${encodeURIComponent(target.slice(4))}` : '/player/profile',
@@ -53,7 +53,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     elo: '/player/profile/elo',
     recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
     career: '/player/career',
-    clubworld: target && ['form', 'matches', 'season', 'history'].includes(target) ? `/player/seasons/${target}` : '/player/seasons',
+    clubworld: target === 'form' ? '/player/club/form' : target === 'matches' ? '/player/club/history' : target === 'history' ? '/player/rating/periods/archive' : '/player/rating/periods',
     poker: target ? `/player/poker/${encodeURIComponent(target)}` : '/player/poker',
     clocktower: target ? `/player/clocktower/${encodeURIComponent(target)}` : '/player/clocktower',
   };
@@ -83,8 +83,15 @@ export const parsePlayerRoute = (pathname: string, search = ''): ParsedPlayerRou
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'events', target, replayGameKey: null, canonicalPath: playerPathForSection('events', target) };
   }
+  if (parts[1] === 'seasons') {
+    const target=parts[2]==='form'?'form':parts[2]==='matches'?'history':null;
+    const section=target?'club':'ratingperiods';
+    const nextTarget=target||(parts[2]==='history'?'archive':null);
+    return {section,target:nextTarget,replayGameKey:null,canonicalPath:playerPathForSection(section,nextTarget)};
+  }
+  if(parts[1]==='rating'&&parts[2]==='metrics')return {section:'club',target:'metrics',replayGameKey:null,canonicalPath:playerPathForSection('club','metrics')};
   const hubTargets: Record<string, { section: PlayerRouteSection; targets: string[] }> = {
-    club: { section: 'club', targets: ['connections', 'games'] },
+    club: { section: 'club', targets: ['connections', 'games','metrics','form','history','hall'] },
     seasons: { section: 'clubworld', targets: ['form', 'matches', 'season', 'history'] },
     wallet: { section: 'wallet', targets: ['payments', 'shop', 'bets', 'history'] },
     rating: { section: 'rating', targets: ['metrics'] },
@@ -120,7 +127,7 @@ export const parsePlayerRoute = (pathname: string, search = ''): ParsedPlayerRou
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'recaps', target, replayGameKey: null, canonicalPath: playerPathForSection('recaps', target) };
   }
-  if (parts[1] === 'rating' && parts[2] === 'periods') return { section: 'ratingperiods', target: null, replayGameKey: null, canonicalPath: playerPathForSection('ratingperiods') };
+  if (parts[1] === 'rating' && parts[2] === 'periods') {const target=parts[3]==='archive'?'archive':null;return {section:'ratingperiods',target,replayGameKey:null,canonicalPath:playerPathForSection('ratingperiods',target)};}
   if (parts[1] === 'rating' && parts[2] === 'tournaments') return { section: 'ratingtournaments', target: null, replayGameKey: null, canonicalPath: playerPathForSection('ratingtournaments') };
   if (parts[1] === 'more') return { section: 'club', target: null, replayGameKey: null, canonicalPath: playerPathForSection('club') };
   if (parts[1] === 'payments') return { section: 'wallet', target: null, replayGameKey: null, canonicalPath: playerPathForSection('wallet') };

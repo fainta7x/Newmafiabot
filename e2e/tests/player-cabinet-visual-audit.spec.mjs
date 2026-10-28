@@ -79,21 +79,11 @@ for (const width of [360, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('community-minigames.png'), fullPage: true });
 
-    // «Активность» shows one part at a time: Форма · Матчи · Сезон · Архив.
-    await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Активность' }).click();
-    const activityNav = page.getByLabel('Разделы активности');
-    await expect(activityNav.getByRole('button')).toHaveCount(4);
-    await expect(page.getByText('Форма игроков')).toBeVisible();
-    await expect(page.getByText('Итоги сезона')).toHaveCount(0);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
-    await activityNav.getByRole('button', { name: 'Сезон' }).click();
-    await expect(page.getByRole('button', { name: 'Показать места 6–10' })).toBeVisible();
-    await expect(page.getByText('Форма игроков')).toHaveCount(0);
-    await page.screenshot({ path: info.outputPath('community-season.png'), fullPage: true });
-    await activityNav.getByRole('button', { name: 'Архив' }).click();
-    await expect(page.getByText('Прошлые сезоны')).toBeVisible();
-    await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
+    await page.getByLabel('Разделы сообщества').getByRole('button',{name:'Игроки',exact:true}).click();
+    await page.getByLabel('Разделы игроков').getByRole('button',{name:'Форма',exact:true}).click();await expect(page.getByText('Форма игроков')).toBeVisible();
+    await page.getByLabel('Разделы сообщества').getByRole('button',{name:'История',exact:true}).click();
+    await page.getByLabel('Разделы истории').getByRole('button',{name:'Зал славы',exact:true}).click();await expect(page.getByTestId('club-hall-of-fame')).toBeVisible();
+    await page.screenshot({path:info.outputPath('community-history.png'),fullPage:true});
   });
 }
 
@@ -125,9 +115,9 @@ for (const width of [360, 390]) test(`compact cabinet groups retain context at $
 
   await nav.getByRole('button', { name: 'Сообщество', exact: true }).click();
   await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Связи', exact: true }).click();
-  await page.getByLabel('Что показать').getByRole('button', { name: 'Пары', exact: true }).click();
+  await page.getByLabel('Что показать').getByRole('button', { name: 'Напарники', exact: true }).click();
   const duo = page.getByTestId('club-duo-p1-p2');
-  await expect(duo).toContainText('12 игр вместе');
+  await expect(duo).toContainText('8 побед из 12 игр');
   await expect(duo.getByRole('button')).toHaveCount(2);
   expect((await duo.boundingBox()).height).toBeLessThan(180);
   for (const button of await duo.getByRole('button').all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);

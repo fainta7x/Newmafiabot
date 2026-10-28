@@ -1,3 +1,4 @@
+import { readCommunityView } from '../../lib/communityViewMemory.ts';
 import { confirmPageLeave } from '../../lib/pageLeave.ts';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
@@ -76,6 +77,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
     setSection(next);
     onSectionChange?.(next, nextTarget);
   };
+  const openBottom=(next:keyof typeof PLAYER_NAV_SECTION)=>{if(next==='community'){const saved=readCommunityView(player.id).last;open(saved.section,saved.target);}else open(PLAYER_NAV_SECTION[next]);};
   const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
   // The button is for everybody who can conduct: a judge with a mark, and an organizer (the screen holds the music too).
@@ -98,7 +100,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : isPlayerEveningSection(section) ? (
         <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={target} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
       ) : isPlayerCommunitySection(section) ? (
-        <PlayerCommunityHub data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
+        <PlayerCommunityHub data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} onOpenMyConnections={() => open('profile','tab:connections')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} target={target} onOpen={(view) => open('wallet', view)} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
@@ -113,13 +115,13 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenGame={(gameKey) => open('games', gameKey)} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
       )}
 
-      <PlayerBottomNavigation section={section} onOpen={(next) => open(PLAYER_NAV_SECTION[next])} />
+      <PlayerBottomNavigation section={section} onOpen={openBottom} />
 
       {profilePlayerId ? (
         <div data-testid="canonical-player-profile-overlay" className="fixed inset-0 z-[90] overflow-hidden bg-[#090a0d]">
           <CanonicalPremiumPlayerProfile playerId={profilePlayerId} mode={profilePlayerId === player.id ? 'self' : 'public'} selfPlayerId={player.id} onClose={() => window.history.back()} />
           {/* The overlay covers the cabinet, so it carries the same menu: a section opens and the profile closes (the target resets). */}
-          <PlayerBottomNavigation section={section} onOpen={(next) => open(PLAYER_NAV_SECTION[next])} />
+          <PlayerBottomNavigation section={section} onOpen={openBottom} />
         </div>
       ) : null}
     </div>

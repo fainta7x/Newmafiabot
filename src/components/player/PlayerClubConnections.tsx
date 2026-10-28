@@ -1,7 +1,8 @@
+import ClubConnectionCard from './ClubConnectionCard.tsx';
+import {gameResultText} from '../../lib/playerResultObservations.ts';
 import ClubConnectionStories from './ClubConnectionStories.tsx';
 import type { ClubConnectionStories as ClubStories } from '../../shared/clubConnectionStories.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { getJson } from '../../lib/requestJson.ts';
 
 type PersonRelationship = {
@@ -36,28 +37,7 @@ type RelationshipData = {
   recent_event?: { title: string; date: string; teammates: PersonRelationship[]; rivals: PersonRelationship[] } | null;
 };
 
-function Avatar({ src, name, size = 36 }: { src?: string | null; name: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  const showImage = Boolean(src) && !failed;
-  return <span style={{ width: size, height: size }} className="relative grid shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.14] to-white/[0.035] text-xs font-semibold text-white/65 ring-1 ring-white/10" aria-hidden="true">
-    {name.trim().slice(0, 1).toUpperCase() || '?'}
-    {showImage && <img src={src!} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
-  </span>;
-}
-
-function DuoRow({ duo }: { duo: ClubDuo }) {
-  const members = [
-    { id: duo.a_id, name: duo.a_name, avatar: duo.a_avatar_url },
-    { id: duo.b_id, name: duo.b_name, avatar: duo.b_avatar_url },
-  ];
-  return <article data-testid={'club-duo-' + duo.a_id + '-' + duo.b_id} className="py-2">
-    <div className="grid grid-cols-2 gap-2">{members.map((member) => <button key={member.id} type="button" aria-label={'Открыть профиль ' + member.name}
-      onClick={() => openCanonicalPlayerProfile(member.id)} className="ds-focus-ring flex min-h-11 min-w-0 items-center gap-2 rounded-lg text-left">
-      <Avatar src={member.avatar} name={member.name} size={32}/><span className="min-w-0 break-words text-sm font-semibold">{member.name}</span>
-    </button>)}</div>
-    <p className="mt-1 text-xs leading-5 text-white/60">{duo.games} игр вместе · {duo.wins} побед · {duo.win_rate}% побед</p>
-  </article>;
-}
+function DuoRow({duo}:{duo:ClubDuo}){return <ClubConnectionCard testId={'club-duo-'+duo.a_id+'-'+duo.b_id} members={[{player_id:duo.a_id,nickname:duo.a_name},{player_id:duo.b_id,nickname:duo.b_name}]} context={'В одной команде · '+(duo.team==='red'?'красные':'чёрные')}><p className="text-sm font-semibold">{gameResultText(duo)} · {duo.win_rate}%</p></ClubConnectionCard>;}
 
 export default function PlayerClubConnections() {
   const [clubView, setClubView] = useState<'best' | 'played'>(()=>{try{return sessionStorage.getItem('club-duos-view')==='played'?'played':'best';}catch{return 'best';}});
@@ -98,24 +78,23 @@ export default function PlayerClubConnections() {
 
   const pairs = (
 <section data-testid="club-duos" className={data.club_stories?'':'rounded-3xl border border-white/10 bg-white/[.035] p-4'}>
-        <h2 className="mt-1 text-lg font-semibold">Лучшие пары</h2>
-        <p className="mt-1 text-xs leading-relaxed text-white/45">Кто чаще всего выигрывает вместе — отдельно за красных и за чёрных.</p>
+        <h2 className="mt-1 text-lg font-semibold">Пары напарников</h2>
         <div aria-label="Показать клубные пары" className="mt-3 flex gap-2">
-          {([['best', 'По результатам'], ['played', 'Самые сыгранные']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={clubView === value} onClick={() => {setClubView(value);try{sessionStorage.setItem('club-duos-view',value);}catch{}}} className={`min-h-11 flex-1 rounded-xl px-2 text-[12px] font-medium ${clubView === value ? 'bg-amber-200/10 text-amber-100' : 'bg-white/[0.035] text-white/55'}`}>{label}</button>)}
+          {([['best', 'По результатам'], ['played', 'По числу игр']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={clubView === value} onClick={() => {setClubView(value);try{sessionStorage.setItem('club-duos-view',value);}catch{}}} className={`min-h-11 flex-1 rounded-xl px-2 text-[12px] font-medium ${clubView === value ? 'bg-amber-200/10 text-amber-100' : 'bg-white/[0.035] text-white/55'}`}>{label}</button>)}
         </div>
-        <p className="mt-2 text-[11px] text-white/40">{clubView === 'best' ? 'В списке пары, которые сыграли вместе хотя бы дважды.' : 'Пары, которые чаще всего играли в одной команде.'}</p>
+        <p className="mt-2 text-[11px] text-white/40">{clubView === 'best' ? 'От двух игр вместе. Порядок учитывает процент побед и число игр.' : 'Пары, которые чаще всего играли в одной команде.'}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           {(['red', 'black'] as const).map(team => {
             const pairs = clubView === 'played' ? (data.club_most_played?.[team] ?? data.club_duos[team]) : data.club_duos[team];
             const first = data.club_first_games?.[team] ?? [];
             return <div key={team}>
-              <h3 className={`mb-2 text-xs font-semibold ${team === 'red' ? 'text-rose-200/80' : 'text-white/65'}`}>{team === 'red' ? '🔴 Красные' : '⚫ Чёрные'}</h3>
-              <div className="divide-y divide-white/[.07]">{pairs.map(duo => <DuoRow key={`${duo.a_id}:${duo.b_id}`} duo={duo} />)}</div>
+              <h3 className={`mb-2 text-xs font-semibold ${team === 'red' ? 'text-rose-200/80' : 'text-white/65'}`}>{team === 'red' ? 'Красные' : 'Чёрные'}</h3>
+              <div className="space-y-3">{pairs.map(duo => <DuoRow key={`${duo.a_id}:${duo.b_id}`} duo={duo} />)}</div>
               {!pairs.length && <p className="rounded-xl bg-black/15 p-3 text-xs leading-relaxed text-white/45">Пока нет пар, которые сыграли вместе дважды.</p>}
               {!!first.length && <details className="mt-3 rounded-xl border border-white/[0.06] p-3" open={!pairs.length}>
                 <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-white/65">Пока по одной игре · {first.length}</summary>
                 <p className="my-2 text-[11px] leading-relaxed text-white/40">Вместе сыграли только раз — рано судить, насколько пара сильна.</p>
-                <div className="divide-y divide-white/[.07]">{first.map(duo => <DuoRow key={`${duo.a_id}:${duo.b_id}`} duo={duo} />)}</div>
+                <div className="space-y-3">{first.map(duo => <DuoRow key={`${duo.a_id}:${duo.b_id}`} duo={duo} />)}</div>
               </details>}
             </div>;
           })}

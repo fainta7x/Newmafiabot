@@ -1,3 +1,5 @@
+import {FORM_MAX,FORM_WINDOW,FORM_STREAK_POINTS,FORM_STREAK_LIMIT} from '../../shared/playerForm.ts';
+import {formatMoscowDate} from '../../lib/moscowDate.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -22,6 +24,8 @@ type PowerEntry = {
   streak: number;
   score: number;
   movement: number | null;
+  last_results?:Array<'W'|'L'>;
+  last_game_at?:string|null;
 };
 
 type ClubFormData = {
@@ -70,6 +74,8 @@ function FormPlayerCard({ row, isSelf, ownContext = false }: { row: PowerEntry; 
           Побед: {row.wins} из {row.games} игр · {row.win_rate}%
           {row.streak >= 2 ? ' · серия ' + row.streak : ''}
         </span>
+        {row.last_results?.length ? <span className="mt-2 flex flex-wrap gap-1" aria-label="Последние результаты: сначала новые">{row.last_results.map((result,index)=><span key={index} title={result==='W'?'Победа':'Поражение'} aria-label={result==='W'?'Победа':'Поражение'} className={'h-2 w-2 rounded-full '+(result==='W'?'bg-emerald-300':'bg-rose-300')}/>)}</span>:null}
+        {row.last_game_at&&<span className="mt-1 block text-[10px] leading-4 text-white/50">Последняя игра: {formatMoscowDate(row.last_game_at)}</span>}
       </span>
       <span className="shrink-0 text-right">
         <span className="block text-[17px] font-semibold tabular-nums text-white/90">{row.score}</span>
@@ -119,12 +125,14 @@ export default function PlayerClubActivity() {
       <section className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <header className="flex items-end justify-between gap-3">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Сейчас в клубе</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Недавние результаты</div>
             <h2 className="mt-1 text-lg font-semibold text-white">Форма игроков</h2>
           </div>
-          {data && <div className="shrink-0 text-[11px] text-white/50">{data.players_with_form} в форме</div>}
+          {data && <div className="shrink-0 text-[11px] text-white/50">{data.players_with_form} игроков</div>}
         </header>
-        <p className="mt-3 text-xs leading-5 text-white/60">Форма по последним 10 играм. Стрелка — изменение места относительно 7 дней назад.</p>
+        <p className="mt-3 text-xs leading-5 text-white/60">Баллы Формы показывают результаты последних 3–10 игр: свежие победы весят больше, серия даёт бонус. Стрелка — изменение места относительно 7 дней назад.</p>
+
+        {data?.power_ranking.some(row=>row.last_results?.length)&&<p className="mt-2 text-[11px] leading-5 text-white/55">Точки слева направо — от новых игр к старым: <span className="text-emerald-300">победа</span> · <span className="text-rose-300">поражение</span>.</p>}
 
         {loading && <div className="mt-4 rounded-2xl bg-black/20 px-3 py-6 text-center text-[13px] text-white/50">Считаем активность…</div>}
         {error && <div role="alert" data-testid="player-form-error" className="mt-4 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] p-4">
@@ -174,16 +182,21 @@ export default function PlayerClubActivity() {
 
             {data.power_ranking.length > 5 && (
               <button type="button" onClick={() => setShowAll((current) => !current)} className="mt-3 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[13px] font-semibold text-white/75">
-                {showAll ? 'Свернуть список' : 'Показать всех · ' + data.power_ranking.length}
+                {showAll ? 'Свернуть список' : 'Показать места 6–' + data.power_ranking.length}
               </button>
             )}
 
-            {data.meta?.formula && (
-              <details open className="mt-3 rounded-xl border border-amber-200/10 bg-amber-200/[0.035] px-3">
-                <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium text-white/60">Как считается форма</summary>
-                <p className="pb-3 text-[11px] leading-5 text-white/55">{data.meta.formula}</p>
-              </details>
-            )}
+            <details open data-testid="form-explanation" className="mt-3 rounded-xl border border-amber-200/10 bg-amber-200/[0.035] px-3">
+              <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium text-white/75">Что значат баллы Формы</summary>
+              <div className="space-y-3 pb-3 text-xs leading-5 text-white/65">
+                <p>Чем больше баллов, тем успешнее закончились недавние игры по командным победам. В таблице игроки с минимум тремя завершёнными играми; берём до {FORM_WINDOW} последних.</p>
+                <p>У самой новой игры вес {FORM_WINDOW}, у следующей — {FORM_WINDOW-1}, и так до 1. Складываем веса побед и делим на сумму весов всех учтённых игр, затем умножаем на 100.</p>
+                <p>За каждую победу текущей серии добавляем ещё {FORM_STREAK_POINTS} балла, максимум за {FORM_STREAK_LIMIT} побед подряд. Итог округляем. Максимум — {FORM_MAX} баллов.</p>
+                <div className="rounded-xl bg-black/20 p-3"><p className="font-semibold text-white/80">Почему 6 побед из 10 дают разные баллы</p><p className="mt-1">Если шесть побед — самые свежие игры, получится 97 баллов. Если после шести побед было четыре поражения — 38 баллов.</p></div>
+                <p>Перерыв сам по себе баллы не уменьшает: выборка меняется после новых игр. Дата последней игры помогает понять, насколько давно получен результат.</p>
+                <p>Форма — дополнительный индекс недавних результатов. Elo и спортивные баллы сезона считаются отдельно. Стрелка показывает движение относительно других игроков, а не прибавку личных баллов.</p>
+              </div>
+            </details>
           </>
         )}
       </section>

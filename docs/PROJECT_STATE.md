@@ -1,5 +1,14 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — owner reopens the structure of Community, analysis before rebuild
+
+Owner explicitly requests a coherent rethink of Community tabs and their purpose: consolidate Season/Activity, remove duplicated Hall of Fame, consider moving Metrics to Players, unify Connections content/card reading, explain Form. This latest request permits menu regrouping; preserve the meaning/formulas of Elo/season/tournament competitions, eligibility/privacy/awards. Complete [IS01–IS12 structure review](UX_COMMUNITY_STRUCTURE_REVIEW_2026-10-28.md) covers every mounted group and its sources, plus eight inspected synthetic390px states in one9s walkthrough. No Community application/menu edits in this review. Proposal: Players (directory/metrics/recent results), Rating (Elo/season/tournaments), Connections (teammates/opponents/table encounters), History (evenings/games/Hall of Fame), Mini-games. One selected period and one Hall of Fame; exact period IDs and different game eligibility preserved. Profile personal timeline should have a personal label.
+
+Waiting on owner: review the complete structure; decide whether Form's weighted points should remain a secondary playful index, or the new community view should focus on wins/results/streaks only. Existing formula weighs results by recency order and adds a streak bonus, ranges up to115 and has no calendar decay; six wins out of10 can score97 or38. No scoring change has been made. The proposed extra latest-game date/results need payload extension, not fabricated values.
+
+Separate existing candidates: #1074 exacte8613ba passed non-browser checks but UI2260 failed only optional screenshot export from the e2e cwd (162 other preview cases and all-app audit passed); #1075 inherited the same failure. Small module-relative explicit-export fix passes390px from the CI cwd in7s, #1074 exact2917bc9 then passed CI4576/UI2262/CodeQL3882/Gitleaks3879 and merged as88639f75b7cc46cc20d32abde2a7b678b28beaa9. #1075 was reconciled with main without changing its checked source tree66dc766; replacement exact-head checks pending. No deployment, production write or messages. Public health200, organizer credential absent; production records not inspected.
+
+
 ## 2026-10-28 — continue results context during checks
 
 Owner: «Окей, продолжай. Ты опять же параллельно пока ждёшь тесты делай следующие задачи по улучшению». Continue the authorized Community/Progress content scope; complete RC01–RC04 review before implementation: [results context](UX_COMMUNITY_RESULTS_CONTEXT_2026-10-28.md). Use existing dates, absolute Elo, selected deltas, game totals and seasonal viewer fields; preserve all ratings/formulas/cutoffs/privacy and detailed statistics open.
@@ -1077,7 +1086,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
-- Кандидат: даты и края графика Elo, исход партии отдельно от начисления, объём/порядок списков игр и личный результат в архиве сезонов.
+- Даты и края графика Elo, исход партии отдельно от начисления, объём/порядок списков игр и личный результат в архиве сезонов.
 
 - Подробное распределение голосов/проверок, последние общие партии в своих связях и понятный контекст целей/прогресс выбранного пути.
 

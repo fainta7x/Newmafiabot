@@ -1,5 +1,17 @@
 # Audit log
 
+## 2026-10-28 — Community information architecture, full IS01–IS12 review
+
+Owner asks to rethink tab purpose/content/structure. [Complete review](UX_COMMUNITY_STRUCTURE_REVIEW_2026-10-28.md), source owners and all old→new content destinations documented before any application restructure. Eight synthetic390px screens inspected in one9s walkthrough; formulas checked from server code, not fixture numbers.
+
+- [open/proposed, IS01–IS04] Activity lacks one task; two Season meanings; Hall of Fame duplicated across season/archive; varied player metrics grouped with official competitions.
+- [open/proposed, IS05–IS06] Teams/Pairs overlap, same-team both-colour pairs appear in Opponents; multiple card anatomies/denominators obscure meaning.
+- [open/owner decision, IS07–IS08] Form points/115 maximum/no calendar decay are not apparent; movement is relative rank and tie rules differ between snapshots.
+- [open/proposed, IS09–IS12] Season source IDs/eligibility differ; personal timeline uses global Club History label; route defaults/old links need migration; existing evening/person entry points must share owners.
+
+No new product code/formula/privacy/eligibility changes. #1074/#1075 exact capture-path CI issue diagnosed and fixed separately; #1074 exact2917bc9 passed all four replacement checks and merged as88639f7; #1075 source tree unchanged, reconciled with main and awaiting exact-head checks. Full app layout passed for their old heads; preview failure was filesystem export, not screen overlap.
+
+
 ## 2026-10-28 — UI2260 exact failure: optional capture destination depends on cwd
 
 - [fixed, CI-CAPTURE] `e2e/tests/community-results-context.spec.mjs`: CI runs from e2e/, so copying its390px screenshot into relative docs/reviews fails ENOENT. All-app audit passes;162 other preview cases pass. Optional local evidence export must be explicit and resolve its destination relative to the spec, while ordinary CI keeps screenshots in outputPath. No app/layout assertions or detector changes. Same inherited failure in stacked #1075/UI2261. Fixed by explicit local-export guard and module-relative destination; the exact390px case passes in7s from e2e/ (the CI working directory). No repeated full local suite.

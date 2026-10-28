@@ -4,6 +4,8 @@ import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.t
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadMetricRating, loadRoleRating } from '../services/metricRatingService.ts';
 
+import { loadMetricTable } from '../services/metricTableService.ts';
+
 const router = Router();
 
 const requireClubUser = (req: AuthenticatedRequest, res: Response): string | null => {
@@ -21,6 +23,14 @@ const playerAvatarUrl = (playerId: string, hasDbAvatar: unknown, suppressed: unk
   Number(hasDbAvatar || 0) || repositoryAvatarAvailable(playerId, suppressed)
     ? `/api/player/players/${encodeURIComponent(playerId)}/avatar`
     : null;
+
+router.get('/metrics/table', async (req: AuthenticatedRequest, res: Response) => {
+  const viewerId = requireClubUser(req, res);
+  if (!viewerId) return;
+  const one = (value: unknown) => typeof value === 'string' ? value : undefined;
+  try { res.json(await loadMetricTable(req.db as DatabaseWrapper, viewerId, {category:one(req.query.category),context:one(req.query.context),period:one(req.query.period),format:one(req.query.format)})); }
+  catch (err: any) { res.status(500).json({error:err.message || 'Не удалось загрузить показатели'}); }
+});
 
 /** Rankings by one figure of the statistics (wins, streak, Elo gain…) over a season or all time and an evening format. */
 router.get('/metrics', async (req: AuthenticatedRequest, res: Response) => {

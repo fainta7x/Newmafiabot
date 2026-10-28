@@ -96,6 +96,7 @@ Bottom menu of four (owner decision 2026-10-06): Главная · Вечера 
 - `PlayerHomeDashboard.tsx` — «Главная»: next evening, debt for past evenings, club news, «Обучение» card;
 - `PlayerEveningsHub.tsx` — «Вечера»: «Скоро» (`PlayerEventsCalendar.tsx`), «Прошедшие» (`PlayerEveningSummaries.tsx`), «Мои игры» (`PlayerHistoryStatsView.tsx`);
 - `PlayerCommunityHub.tsx` — «Сообщество»: «Игроки» (directory/metrics/form), «Рейтинг» (Elo/season/tournaments), «Связи», «История» (evenings/games/Hall of Fame), «Мини-игры». `PlayerSeasonHub.tsx` shares one selected period between sporting standings and separately labelled club statistics; `ClubConnectionCard.tsx` is the common relationship summary. Old Activity/metric URLs resolve through `appNavigation.ts`, viewer-local group preferences through `communityViewMemory.ts`;
+- `PlayerMetricRatings.tsx` — one category matrix and two-player comparison. `metricTableService.ts` reuses existing `metricRatingService` calculations with a shared full scope; `shared/metricTable.ts` carries per-cell units/samples. `connectionContentService.ts` derives factual scoped pair stories/history from canonical snapshots; `ConnectionPairHistory.tsx` links to existing protocols. The hub hands a compared pair/scope to Connections.
 - `PlayerProfileHub.tsx` — «Прогресс»: own profile (`CanonicalPremiumPlayerProfile.tsx`) with the «Обучение» tab (`PlayerLearningBlock.tsx`);
 - `PlayerSettingsHub.tsx` — «Настройки» (gear): my details, notifications, privacy, music;
 - `PlayerWalletHub.tsx` — wallet/tokens/economy;

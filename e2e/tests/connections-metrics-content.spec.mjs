@@ -1,0 +1,23 @@
+import {expect,test} from '@playwright/test';
+import {copyFileSync} from 'node:fs';
+import {auditScreen} from './support/layoutAudit.mjs';
+const capture=process.env.CONTENT_CAPTURE;
+for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Connection stories and metrics at ${width}`,async({page},info)=>{
+ test.setTimeout(90000);await page.setViewportSize({width,height});
+ const check=async(name,save=false)=>{await page.evaluate(()=>document.fonts.ready);await expect.poll(()=>page.evaluate(auditScreen),{message:name}).toEqual([]);const file=info.outputPath(name+'-'+width+'.png');await page.screenshot({path:file,animations:'disabled'});if(save&&width===390)copyFileSync(file,new URL('../../docs/reviews/2026-10-28-connections-metrics/after-'+name+'.png',import.meta.url));};
+ await page.goto('/e2e/player-cabinet.html?route=/player/club/metrics');await page.getByTestId('metrics-table').waitFor();await check('metrics',true);
+ await page.getByTestId('metrics-table').scrollIntoViewIfNeeded();await check('table');
+ await page.getByText('Фильтры и столбцы',{exact:true}).click();await page.getByText('Фильтры и столбцы',{exact:true}).scrollIntoViewIfNeeded();await check('columns');await page.getByLabel('Минимум игр').selectOption('20');await expect(page.getByTestId('metric-row-p1')).toHaveCount(0);await check('minimum-empty');await page.getByLabel('Минимум игр').selectOption('0');
+ for(const category of ['roles','accuracy','events','reveals','federation']){await page.getByLabel('Категория показателей').selectOption(category);await page.getByTestId('metrics-table').waitFor();await page.getByTestId('metrics-table').scrollIntoViewIfNeeded();await check(category);}
+ await page.getByLabel('Категория показателей').selectOption('results');await page.getByTestId('metrics-table').waitFor();
+ await page.getByText('Сравнить игроков',{exact:true}).click();await page.getByLabel('Первый игрок').selectOption('p1');await page.getByLabel('Второй игрок').selectOption('p2');await page.getByRole('button',{name:'Показать сравнение',exact:true}).click();await page.getByTestId('metric-comparison').scrollIntoViewIfNeeded();await expect(page.getByTestId('compare-win_rate')).toContainText('−17 п.п.');await check('comparison',true);
+ await page.getByRole('button',{name:'История этой пары ›'}).click();await page.getByTestId('connection-pair-history').waitFor();await page.getByTestId('connection-pair-history').scrollIntoViewIfNeeded();await check('pair',true);await page.getByText('Последние общие игры',{exact:true}).scrollIntoViewIfNeeded();await check('protocol-links');
+ await page.getByRole('button',{name:'Сбросить пару',exact:true}).click();await page.goto('/e2e/player-cabinet.html?route=/player/club/connections');await page.getByTestId('club-stories').waitFor();await check('connections',true);
+ for(const title of ['Серия связки','Новые связки','Чёрные тройки','Вместе за оба цвета']){await page.getByText(title,{exact:true}).scrollIntoViewIfNeeded();await check(title);}
+ await page.getByLabel('Что показать').getByRole('button',{name:'Соперники',exact:true}).click();await page.getByText('Постоянные соперники',{exact:true}).scrollIntoViewIfNeeded();await check('rivals');await page.getByLabel('Что показать').getByRole('button',{name:'За одним столом',exact:true}).click();await page.getByText('Часто встречаются',{exact:true}).scrollIntoViewIfNeeded();await check('table-pairs');
+ await page.getByText('Найти пару',{exact:true}).click();await page.getByLabel('Первый участник пары').selectOption('p1');await page.getByLabel('Второй участник пары').selectOption('p2');await page.getByTestId('connection-pair-history').waitFor();await page.getByText('Период и формат',{exact:true}).click();await page.getByLabel('Период связей').selectOption('period:autumn');await page.getByTestId('connection-pair-history').waitFor();await page.reload();await expect(page.getByLabel('Период связей')).toHaveValue('period:autumn');await expect(page.getByLabel('Первый участник пары')).toHaveValue('p1');
+});
+test('baseline evidence',async({page},info)=>{
+ test.skip(capture!=='before','baseline-only capture');await page.setViewportSize({width:390,height:844});
+ for(const[name,route]of [['metrics','/player/club/metrics'],['connections','/player/club/connections']]){await page.goto('http://127.0.0.1:4174/e2e/player-cabinet.html?route='+encodeURIComponent(route));await page.waitForLoadState('networkidle');await page.evaluate(()=>document.fonts.ready);expect(await page.evaluate(auditScreen)).toEqual([]);const file=info.outputPath('before-'+name+'.png');await page.screenshot({path:file,animations:'disabled'});copyFileSync(file,new URL('../../docs/reviews/2026-10-28-connections-metrics/before-'+name+'.png',import.meta.url));}
+});

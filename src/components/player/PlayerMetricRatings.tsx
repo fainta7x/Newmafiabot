@@ -1,106 +1,43 @@
-import { useEffect, useRef, useState } from 'react';
-import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
-import { countGames } from '../../lib/russianPlural';
-import { SegmentedControl } from '../ui/SegmentedControl.tsx';
-import PlayerRoleTables from './PlayerRoleTables.tsx';
-
-type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; sample_text?: string | null; partner_nickname?: string | null; is_me: boolean };
-type Rating = {
-  metric: { key: string; label: string; group: string; unit: string; hint: string; lowerIsBetter?: boolean };
-  metrics: Array<{ key: string; label: string; group: string }>;
-  filters: { period: string; format: string; period_label: string; format_label: string; seasons: Array<{ key: string; label: string }>; formats: Array<{ key: string; label: string }> };
-  games_in_scope: number;
-  total: number;
-  rows: Row[];
-  me: Row | null;
-};
-
-const chip = (_rank:number) => 'border-white/[0.07] bg-black/20 text-white/50';
-
-function PlayerLine({ row }: { row: Row }) {
-  return <button type="button" onClick={() => openCanonicalPlayerProfile(row.player_id)} data-testid={`metric-row-${row.player_id}`} className={`ds-focus-ring flex min-h-12 w-full items-center gap-3 px-1 py-3 text-left ${row.is_me ? 'border border-sky-200/20 bg-sky-200/[0.07]' : 'hover:bg-white/[.035]'}`}>
-    <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-xs font-semibold ${chip(row.rank)}`}>{row.rank}</div>
-    {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-xs text-white/45">{row.nickname.slice(0, 1).toUpperCase()}</div>}
-    <div className="min-w-0 flex-1"><div className="break-words text-sm font-medium">{row.nickname}{row.partner_nickname ? <span className="font-normal text-white/50"> · убит, когда в чёрных {row.partner_nickname}</span> : null}{row.is_me ? <span className="ml-2 text-[11px] font-semibold text-sky-100/70">я</span> : null}</div><div className="text-xs leading-5 text-white/55">{row.sample_text || countGames(row.games)}</div></div>
-    <div className="shrink-0 text-right text-base font-semibold tabular-nums">{row.value_text}</div>
-  </button>;
-}
-
-/** Club rankings by one figure of the statistics: who collected the most, over a season or all time and an evening format. */
-export default function PlayerMetricRatings() {
-  const [view, setView] = useState<'metrics' | 'roles'>(()=>{try{return sessionStorage.getItem('community-metric-mode')==='roles'?'roles':'metrics';}catch{return 'metrics';}});
-  const pickerTrigger=useRef<HTMLButtonElement>(null);
-  const pickerSearch=useRef<HTMLInputElement>(null);
-  const closePicker=()=>{setPickerOpen(false);pickerTrigger.current?.focus();};
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('community-metric-view')||'{}');}catch{return {};}})();
-  const [metric, setMetric] = useState(saved.metric||'wins');
-  const [metricSearch,setMetricSearch]=useState('');
-  const [period, setPeriod] = useState(saved.period||'all');
-  const [format, setFormat] = useState(saved.format||'all');
-  const [data, setData] = useState<Rating | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [retry, setRetry] = useState(0);
-  const generation = useRef(0);
-
-  useEffect(() => {
-    const current = ++generation.current;
-    setLoading(true);
-    setError('');
-    const query = new URLSearchParams({ metric });
-    if (period !== 'all') query.set('period', period);
-    if (format !== 'all') query.set('format', format);
-    void fetch(`/api/rating/metrics?${query}`, { credentials: 'include' }).then(async (response) => {
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить рейтинг по показателю');
-      if (current === generation.current) setData(body);
-    }).catch((reason: any) => {
-      if (current === generation.current) setError(reason?.message || 'Не удалось загрузить рейтинг по показателю');
-    }).finally(() => { if (current === generation.current) setLoading(false); });
-    return () => { generation.current += 1; };
-  }, [metric, period, format, retry]);
-
-  useEffect(()=>{try{sessionStorage.setItem('community-metric-view',JSON.stringify({metric,period,format}));}catch{}},[metric,period,format]);
-  const availableMetrics=(data?.metrics||[]).filter(item=>!metricSearch.trim()||`${item.label} ${item.group}`.toLocaleLowerCase('ru-RU').includes(metricSearch.trim().toLocaleLowerCase('ru-RU')));
-  const groups = data ? Array.from(new Set(availableMetrics.map((item) => item.group))) : [];
-  const currentMetricLabel = data?.metrics.find((item) => item.key === metric)?.label || 'Выбрать показатель';
-  return <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white"><div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
-    <SegmentedControl ariaLabel="Вид рейтинга" value={view} items={[{ value: 'metrics', label: 'По показателям' }, { value: 'roles', label: 'По ролям' }]} onValueChange={value=>{setView(value);try{sessionStorage.setItem('community-metric-mode',value);}catch{}}} itemClassName="px-1 text-[12px]" />
-    <section data-testid="metric-ratings-controls" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
-      {view === 'metrics' ? <div className="relative">
-        <span className="block text-[11px] text-white/45">Показатель</span>
-        <button ref={pickerTrigger} type="button" aria-label="Показатель" aria-expanded={pickerOpen} onClick={() => setPickerOpen((value) => !value)} className="mt-1 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/15 bg-black/25 px-3 text-left text-sm font-semibold text-white">
-          {currentMetricLabel}<span aria-hidden="true" className="text-white/50">{pickerOpen ? '⌃' : '⌄'}</span>
-        </button>
-        {pickerOpen ? <div role="listbox" aria-label="Выбрать показатель" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closePicker();}}} className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-white/15 bg-[#17171d] p-2">
-          <div className="flex items-end gap-2 p-1"><label className="min-w-0 flex-1 text-xs text-white/60">Найти показатель<input ref={pickerSearch} type="search" aria-label="Найти показатель" value={metricSearch} onChange={event=>setMetricSearch(event.target.value)} className="mobile-field mt-1 w-full" /></label>{metricSearch&&<button type="button" aria-label="Очистить поиск показателя" onClick={()=>{setMetricSearch('');pickerSearch.current?.focus();}} className="min-h-11 shrink-0 rounded-lg px-2 text-xs text-white/70">Очистить</button>}</div>{!availableMetrics.length&&<p className="p-3 text-sm text-white/60">По этому запросу показателей нет.</p>}
-          {groups.map((group) => <div key={group}><div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/40">{group}</div><div className="grid grid-cols-1 gap-1">{availableMetrics.filter((item) => item.group === group).map((item) => <button role="option" aria-selected={metric === item.key} key={item.key} type="button" onClick={() => { setMetric(item.key); setMetricSearch(''); closePicker(); }} className={`min-h-10 rounded-lg px-3 text-left text-[12px] ${metric === item.key ? 'bg-white text-black' : 'bg-white/5 text-white/80 hover:bg-white/10'}`}>{item.label}</button>)}</div></div>)}
-        </div> : null}
-      </div> : null}
-      <div className={`${view === 'metrics' ? 'mt-2 ' : ''}grid grid-cols-2 gap-2`}>
-        <label className="text-[11px] text-white/45">Период<select aria-label="Период рейтинга" value={period} onChange={(event) => setPeriod(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{data?.filters.seasons.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
-        <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера рейтинга" value={format} onChange={(event) => setFormat(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{data?.filters.formats.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
-      </div>
-
-    {view === 'roles' ? <PlayerRoleTables period={period} format={format} /> : <>
-    <div className="mt-4 border-t border-white/10 pt-3">
-      {data && !error && !loading ? <div className="mb-3 px-1" data-testid="metric-ratings-scope">
-        <div className="text-sm font-semibold">{data.metric.label}</div><p className="mt-1 text-xs text-white/60">Показано {data.rows.length} из {data.total} игроков{data.me?'; ваша строка — отдельно ниже':''}</p>
-        <p className="mt-2 text-xs leading-5 text-white/65">{data.metric.key.startsWith('fed_')?'GoMafia · подтверждённые итоги турниров. Период и формат клуба не применяются.':`${data.filters.period_label} · ${data.filters.format_label}, игр в выборе: ${data.games_in_scope}`}</p>
-        <p className="mt-1 text-xs leading-5 text-white/55">{data.metric.lowerIsBetter || data.metric.key==='fed_avg_place'||data.metric.key==='fed_best_place'?'Меньшее значение — выше':'Большее значение — выше'}</p>
-        {data.metric.unit==='elo'&&<p className="mt-2 text-xs leading-5 text-white/60">Это изменение рейтинга за выбранные игры, а не сам Elo.</p>}
-      </div> : null}
-      {error ? <div role="alert" className="space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
-        : loading || !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
-        : data.rows.length ? <div className="divide-y divide-white/[.07]">
-          {data.rows.map((row) => <PlayerLine key={row.player_id} row={row} />)}
-          {data.me ? <><div className="px-2 pt-1 text-center text-[11px] text-white/30">· · ·</div><PlayerLine row={data.me} /></> : null}
-        </div>
-        : <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">По этому показателю пока нет подтверждённых данных за выбранный период.</div>}
-      {data&&!error&&!loading&&<details className="mt-3 border-t border-white/10 pt-1"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-white/70">Как считается показатель</summary><p className="pb-2 text-xs leading-5 text-white/60">{data.metric.hint}. Под результатом указан объём наблюдений: игры, действия или турниры.</p></details>}
-    </div>
-    </>}
-    </section>
-  </div></main>;
+import {useEffect,useRef,useState} from 'react';
+import {METRIC_CATEGORIES,metricDifference,sortMetricRows,type MetricCategory,type MetricTableData,type MetricCell} from '../../shared/metricTable.ts';
+import {openCanonicalPlayerProfile} from './playerProfileNavigation.ts';
+const field='mobile-field mt-1 w-full text-sm';
+const button='ds-focus-ring min-h-11 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/75';
+function Cell({cell}:{cell:MetricCell|null|undefined}){return <><strong className="block text-sm tabular-nums">{cell?.text??'—'}</strong><span className="mt-1 block text-[10px] leading-4 text-white/55">{cell?.sample_text||'Нет наблюдений'}</span></>;}
+export default function PlayerMetricRatings({selfId,onOpenPair}:{selfId?:string;onOpenPair?:(a:string,b:string,period:string,format:string)=>void}){
+ const storageKey='community-metric-table:'+String(selfId||'viewer');
+ const [saved]=useState(()=>{try{return JSON.parse(sessionStorage.getItem(storageKey)||'{}');}catch{return {};}});
+ const [category,setCategory]=useState<MetricCategory>(METRIC_CATEGORIES.some(c=>c.key===saved.category)?saved.category:'results');
+ const [context,setContext]=useState(saved.context||'red');const [period,setPeriod]=useState(saved.period||'all');const [format,setFormat]=useState(saved.format||'all');
+ const [sort,setSort]=useState(saved.sort||'wins');const [direction,setDirection]=useState<'asc'|'desc'>(saved.direction==='asc'?'asc':'desc');
+ const [visible,setVisible]=useState<string[]>(saved.visible||['games','wins','win_rate']);const [search,setSearch]=useState(saved.search||'');const [minimum,setMinimum]=useState(Number(saved.minimum)||0);
+ const [selected,setSelected]=useState<string[]>(Array.isArray(saved.selected)?saved.selected.slice(0,2):[]);const [compare,setCompare]=useState(!!saved.compare);
+ const [data,setData]=useState<MetricTableData|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [retry,setRetry]=useState(0);const seq=useRef(0);
+ const [wide,setWide]=useState(false);useEffect(()=>{const update=()=>setWide(window.innerWidth>=900);update();window.addEventListener('resize',update);return()=>window.removeEventListener('resize',update);},[]);
+ useEffect(()=>{const id=++seq.current;setLoading(true);setError('');const q=new URLSearchParams({category,context,period,format});void fetch('/api/rating/metrics/table?'+q,{credentials:'include'}).then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||'Не удалось загрузить показатели');if(id===seq.current){setData(b);const keys=b.columns.map((c:{key:string})=>c.key);setSort((s:string)=>keys.includes(s)?s:keys[0]);setVisible((v:string[])=>v.some(k=>keys.includes(k))?v.filter(k=>keys.includes(k)):keys.slice(0,3));}}).catch(e=>{if(id===seq.current)setError(e.message);}).finally(()=>{if(id===seq.current)setLoading(false);});return()=>{seq.current++;};},[category,context,period,format,retry]);
+ useEffect(()=>{try{sessionStorage.setItem(storageKey,JSON.stringify({category,context,period,format,sort,direction,visible,selected,search,minimum,compare}));}catch{}},[storageKey,category,context,period,format,sort,direction,visible,selected,search,minimum,compare]);
+ const columns=(data?.columns||[]).filter(c=>visible.includes(c.key)).slice(0,wide?6:3);
+ const activeColumns=columns.some(c=>c.key===sort)?columns:[...(data?.columns||[]).filter(c=>c.key===sort),...columns].slice(0,wide?6:3);
+ const rows=sortMetricRows((data?.rows||[]).filter(r=>Object.values(r.cells).some(Boolean)&&(category==='federation'||r.games>=minimum)&&r.nickname.toLocaleLowerCase('ru-RU').includes(search.trim().toLocaleLowerCase('ru-RU'))),sort,direction);
+ const ownId=selfId||data?.players.find(p=>p.is_me)?.player_id;
+ const toggle=(id:string)=>setSelected(prev=>prev.includes(id)?prev.filter(p=>p!==id):prev.length<2?[...prev,id]:[prev[0],id]);
+ const changeSort=(key:string)=>{if(key===sort)setDirection(direction==='desc'?'asc':'desc');else{setSort(key);setDirection(data?.columns.find(c=>c.key===key)?.lowerIsBetter?'asc':'desc');}};
+ const goPair=()=>{if(selected.length===2)onOpenPair?.(selected[0],selected[1],period,format);};
+ return <section className="player-workspace mx-auto mt-3 w-full max-w-5xl space-y-3 px-3 pb-24 text-white" data-testid="metric-ratings">
+  <div className="space-y-3 rounded-3xl border border-white/10 bg-white/[.04] p-3" data-testid="metric-ratings-controls">
+   <div className="grid grid-cols-2 gap-2"><label className="block text-xs text-white/60">Категория<select aria-label="Категория показателей" className={field} value={category} onChange={e=>setCategory(e.target.value as MetricCategory)}>{METRIC_CATEGORIES.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></label><label className="text-xs text-white/60">Сортировка<select aria-label="Сортировка показателей" className={field} value={sort} onChange={e=>changeSort(e.target.value)}>{data?.columns.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></label></div>
+   {category==='roles'&&<label className="block text-xs text-white/60">Команда или роль<select aria-label="Команда или роль" className={field} value={context} onChange={e=>setContext(e.target.value)}>{[['red','Красные'],['black','Чёрные'],['don','Дон'],['mafia','Мафия'],['sheriff','Шериф'],['citizen','Мирный']].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>}
+   <label className="block"><span className="sr-only">Найти игрока</span><input type="search" aria-label="Найти игрока в показателях" placeholder="Найти игрока" value={search} onChange={e=>setSearch(e.target.value)} className="mobile-field w-full text-sm"/></label>
+   <div className="grid grid-cols-2 gap-2"><details className="rounded-xl border border-white/10 px-3 open:col-span-2"><summary className="flex min-h-11 cursor-pointer items-center text-xs text-white/75">Фильтры и столбцы</summary>{category!=='federation'&&<div className="grid grid-cols-2 gap-2"><label className="text-xs text-white/60">Период<select aria-label="Период рейтинга" className={field} value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Всё время</option>{data?.filters.seasons.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}</select></label><label className="text-xs text-white/60">Формат<select aria-label="Формат вечера рейтинга" className={field} value={format} onChange={e=>setFormat(e.target.value)}><option value="all">Все форматы</option>{data?.filters.formats.map(f=><option key={f.key} value={f.key}>{f.label}</option>)}</select></label></div>}<p className="mb-2 mt-2 text-xs leading-5 text-white/55">На телефоне до трёх столбцов. Показатель сортировки виден всегда.</p><div className="grid gap-1 sm:grid-cols-2">{data?.columns.map(c=><label key={c.key} className="flex min-h-11 items-center gap-2 text-xs leading-5"><input type="checkbox" checked={visible.includes(c.key)} onChange={()=>setVisible(v=>v.includes(c.key)?v.length>1?v.filter(k=>k!==c.key):v:[...v.slice(-(wide?5:2)),c.key])}/>{c.label}</label>)}</div>{category!=='federation'&&<label className="my-2 block text-xs text-white/60">Минимум игр<select aria-label="Минимум игр" className={field} value={minimum} onChange={e=>setMinimum(Number(e.target.value))}>{[0,5,10,20].map(n=><option key={n} value={n}>{n?`От ${n} игр`:'Любая дистанция'}</option>)}</select></label>}</details><details open={compare||selected.length>0} className="rounded-xl border border-white/10 px-3 open:col-span-2"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Сравнить игроков</summary><div className="grid grid-cols-2 gap-2">{[0,1].map(i=><label key={i} className="min-w-0 text-xs text-white/60">{i===0?'Первый игрок':'Второй игрок'}<select aria-label={i===0?'Первый игрок':'Второй игрок'} className={field} value={selected[i]||''} onChange={e=>setSelected(prev=>{const n=[prev[0]||'',prev[1]||''];n[i]=e.target.value;return n;})}><option value="">Выбрать игрока</option>{data?.players.filter(p=>p.player_id!==selected[1-i]).map(p=><option key={p.player_id} value={p.player_id}>{p.nickname}{p.is_me?' (я)':''}</option>)}</select></label>)}</div><div className="my-3 flex flex-wrap gap-2"><button type="button" disabled={!selected[0]||!selected[1]||selected[0]===selected[1]} onClick={()=>setCompare(true)} className={button+' disabled:opacity-40'}>Показать сравнение</button>{compare&&<button type="button" className={button} onClick={()=>setCompare(false)}>К таблице</button>}{selected.length>0&&<button type="button" className={button} onClick={()=>{setSelected([]);setCompare(false);}}>Сбросить выбор</button>}</div></details></div>
+  </div>
+  {error?<div role="alert" className="rounded-2xl border border-rose-300/20 p-4"><p className="text-sm">{error}</p><button type="button" className={button+' mt-3'} onClick={()=>setRetry(r=>r+1)}>Повторить</button></div>:loading||!data?<p className="p-4 text-sm text-white/50">Загружаю показатели…</p>:<>
+   <p className="px-1 text-xs leading-5 text-white/60" data-testid="metric-ratings-scope">{data.source}{category!=='federation'?` · игр в выборе: ${data.games_in_scope}`:''}{!compare?` · показано игроков: ${rows.length}`:''}</p>
+   {compare?<section data-testid="metric-comparison" className="rounded-3xl border border-white/10 bg-white/[.035] p-3"><h3 className="text-base font-semibold">Сравнение игроков</h3><div className="mt-3 grid grid-cols-2 gap-3">{selected.map((id,i)=><button type="button" key={i} className={button+' min-w-0 break-words text-left'} onClick={()=>data.players.some(p=>p.player_id===id)&&openCanonicalPlayerProfile(id)}>{data.players.find(p=>p.player_id===id)?.nickname||'Данные игрока недоступны'}</button>)}</div>{data.columns.map(c=><div key={c.key} className="mt-3 border-t border-white/10 pt-3" data-testid={'compare-'+c.key}><h4 className="text-xs font-semibold leading-5">{c.label}</h4><div className="mt-2 grid grid-cols-2 gap-3">{selected.map((id,i)=><div key={i}><Cell cell={data.rows.find(r=>r.player_id===id)?.cells[c.key]}/></div>)}</div><p className="mt-2 text-[10px] leading-4 text-white/45">Второй − первый: {metricDifference(data.rows.find(r=>r.player_id===selected[0])?.cells[c.key],data.rows.find(r=>r.player_id===selected[1])?.cells[c.key],c.unit)}</p></div>)}{onOpenPair&&selected.every(id=>data.players.some(p=>p.player_id===id))&&<button type="button" className={button+' mt-4 w-full'} onClick={goPair}>История этой пары ›</button>}</section>:<div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035] p-3" data-testid="metrics-table">
+    <div className="grid gap-2 border-b border-white/10 pb-2" style={{gridTemplateColumns:`minmax(0,1.7fr) repeat(${activeColumns.length},minmax(0,1fr))`}}><span className="flex min-h-11 items-center text-xs text-white/55">Игрок</span>{activeColumns.map(c=><button type="button" key={c.key} onClick={()=>changeSort(c.key)} className="min-h-11 min-w-0 break-words text-left text-[11px] leading-4 text-white/70">{c.label}{sort===c.key?(direction==='desc'?' ↓':' ↑'):''}</button>)}</div>
+    {rows.map(r=><div key={r.player_id} data-testid={'metric-row-'+r.player_id} className={'grid gap-2 border-b border-white/[.07] py-3 '+(r.is_me?'bg-sky-200/[.06]':'')} style={{gridTemplateColumns:`minmax(0,1.7fr) repeat(${activeColumns.length},minmax(0,1fr))`}}><div className="min-w-0"><button type="button" onClick={()=>openCanonicalPlayerProfile(r.player_id)} className="ds-focus-ring min-h-11 w-full break-words text-left text-xs font-semibold leading-5">{r.nickname}{r.is_me?' · я':''}</button><button type="button" aria-pressed={selected.includes(r.player_id)} className="ds-focus-ring mt-1 min-h-11 w-full rounded-lg bg-white/[.05] px-1 text-[10px] leading-4 text-white/60" onClick={()=>toggle(r.player_id)}>{selected.includes(r.player_id)?'В сравнении ✓':'Сравнить'}</button>{ownId&&ownId!==r.player_id&&<button type="button" className="ds-focus-ring min-h-11 w-full text-[10px] text-white/55" onClick={()=>{setSelected([ownId,r.player_id]);setCompare(true);}}>Со мной</button>}</div>{activeColumns.map(c=><div key={c.key} className="min-w-0 pt-2"><Cell cell={r.cells[c.key]}/></div>)}</div>)}{!rows.length&&<p className="py-6 text-sm leading-6 text-white/55">В этом выборе нет игроков с подходящими наблюдениями. Проверьте поиск, период и дистанцию.</p>}
+   </div>}
+   {category==='events'&&!!data.night_pairs.length&&<section className="rounded-2xl border border-white/10 p-3"><h3 className="text-sm font-semibold">Ночные пары</h3><p className="mt-1 text-xs leading-5 text-white/55">Кто был убит, когда другой игрок был в чёрной команде. Это не определяет, кто стрелял.</p>{data.night_pairs.map((p,i)=><p key={i} className="mt-3 text-xs leading-5">{p.nickname} · убит, когда в чёрных {p.partner_nickname}: {p.value_text} · {p.sample_text}</p>)}</section>}
+   <details className="rounded-2xl border border-white/10 px-3"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold">Как читать показатели</summary><div className="space-y-3 pb-3 text-xs leading-5 text-white/60"><p>Процент всегда читайте вместе с дистанцией. «—» означает отсутствие наблюдений; ноль — подтверждённое нулевое значение. Разница процентов показана в процентных пунктах.</p>{data.columns.map(c=><p key={c.key}><b>{c.label}.</b> {c.hint}.</p>)}{category==='results'&&<p>Прирост Elo — изменение за выбранные игры, а не сам рейтинг Elo.</p>}</div></details>
+  </>}
+ </section>;
 }

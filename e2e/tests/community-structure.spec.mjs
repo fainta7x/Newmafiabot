@@ -8,7 +8,7 @@ for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Comm
  const go=async route=>{await page.goto('/e2e/player-cabinet.html?community=1&route='+encodeURIComponent(route));await page.waitForLoadState('networkidle');};
  const group=name=>page.getByLabel('Разделы сообщества').getByRole('button',{name,exact:true});
  await go('/player/club');await expect(page.getByTestId('club-directory')).toBeVisible();await check('players',true);
- if(!before){await page.getByLabel('Разделы игроков').getByRole('button',{name:'Показатели',exact:true}).click();await expect(page.getByRole('button',{name:'Показатель',exact:true})).toBeVisible();await check('metrics');await page.getByRole('button',{name:'По ролям',exact:true}).click();await check('roles');}
+ if(!before){await page.getByLabel('Разделы игроков').getByRole('button',{name:'Показатели',exact:true}).click();await expect(page.getByLabel('Категория показателей')).toBeVisible();await check('metrics');await page.getByLabel('Категория показателей').selectOption('roles');await check('roles');}
  await go('/player/seasons/form');await expect(page.getByText('Форма игроков',{exact:true})).toBeVisible();await check('form-results');
  if(before){await page.getByText('Как считается форма',{exact:true}).scrollIntoViewIfNeeded();await check('form',true);}
  if(!before){await page.getByTestId('form-explanation').scrollIntoViewIfNeeded();await expect(page.getByTestId('form-explanation')).toContainText('115 баллов');await expect(page.getByTestId('form-explanation')).toContainText('97 баллов');await check('form',true);}

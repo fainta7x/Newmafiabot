@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — consistent existing period selections during #1074 CI
+
+Continue the owner's request without waiting on CI. Complete SC01–SC04 review before fixes: [scope consistency](UX_PROFILE_SCOPE_CONSISTENCY_2026-10-28.md). Own Elo ignores season/recent10 aliases; public Elo's recent10 can use club-before-tournament order and its filtered total can include omitted games. Reuse existing profile owners; preserve eligibility, formulas, privacy and historical date semantics. No new UI or production write. #1074 exacte8613ba is a stable separate candidate; CI4574/UI2260/CodeQL3881 running and Gitleaks3878 passed at first observation.
+
+Implemented SC01–SC04 using existing owners; all four semantic mismatches first reproduced on the old source, then15 focused API/service/scope cases pass. Recent10 uses completed games, so a NOVICE game can occupy one of10 without an Elo event. Public mixed history includes the newest tournament; selected-format total sums only selected accruals. No UI markup/CSS, Elo formula, privacy, eligibility or historical date semantics changed. Required exact-head checks/merge pending at authoring; no production/deployment action. Next action — assistant: complete both approved candidate checks and merge in order; no owner input needed. The scope candidate is stacked on #1074 while its required UI2260 remains running; after #1074 merges, retarget/reconcile the scope branch with main and verify the resulting exact head before merge.
+
 ## 2026-10-28 — continue results context during checks
 
 Owner: «Окей, продолжай. Ты опять же параллельно пока ждёшь тесты делай следующие задачи по улучшению». Continue the authorized Community/Progress content scope; complete RC01–RC04 review before implementation: [results context](UX_COMMUNITY_RESULTS_CONTEXT_2026-10-28.md). Use existing dates, absolute Elo, selected deltas, game totals and seasonal viewer fields; preserve all ratings/formulas/cutoffs/privacy and detailed statistics open.
@@ -1076,6 +1082,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- Кандидат: выбор текущего сезона/последних10 игр согласован с историей Elo; свежие турниры учитываются в недавней выборке, сумма выбранного формата не включает другие игры.
 
 - Кандидат: даты и края графика Elo, исход партии отдельно от начисления, объём/порядок списков игр и личный результат в архиве сезонов.
 

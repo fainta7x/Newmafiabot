@@ -10,6 +10,7 @@ import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { calculateCanonicalEloGame, DEFAULT_ELO, type EloTeam } from '../services/eloRatingService.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
 import { loadRatingSeasons } from '../services/clubSeasonService.ts';
+import { currentRatingSeason, loadPremiumProfileGames } from '../services/premiumPlayerProfileService.ts';
 import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 import { eloJourneyChartSummary, filterEloJourneyEvents } from '../../lib/eloJourneyScope.ts';
 
@@ -110,7 +111,7 @@ router.get('/elo-journey', async (req, res) => {
     });
 
     const requestedPeriod = typeof req.query.period === 'string' ? req.query.period : 'all';
-    const season = seasons.find((item) => item.key === requestedPeriod) || null;
+    const season = requestedPeriod === 'season' ? currentRatingSeason(seasons) : seasons.find((item) => item.key === requestedPeriod) || null;
     const requestedFormat = typeof req.query.format === 'string' ? req.query.format : 'all';
     const format: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(requestedFormat)
       ? requestedFormat as EveningFormat : 'all';
@@ -122,14 +123,21 @@ router.get('/elo-journey', async (req, res) => {
         JOIN game_evenings e ON e.id = g.evening_id WHERE g.evening_id IS NOT NULL`);
       for (const row of rows) clubFormats.set(`club:${String(row.id)}`, String(row.format));
     }
-    const selected = filterEloJourneyEvents(events, {
+    const scopedEvents = filterEloJourneyEvents(events, {
       start: season?.start, end: season?.end, format,
     }, clubFormats);
+    // Match the profile's completed-game window, rather than ten Elo events:
+    // a NOVICE game can occupy one of the ten places without earning Elo.
+    const recentGames = requestedPeriod === 'recent10'
+      ? await loadPremiumProfileGames(db, playerId, { period: 'recent10', format, limit: 10 })
+      : null;
+    const recentIds = recentGames ? new Set(recentGames.games.map((game) => game.id)) : null;
+    const selected = recentIds ? scopedEvents.filter((event) => recentIds.has(event.id)) : scopedEvents;
 
     const seed = Number.isFinite(Number(player.elo_seed)) ? Number(player.elo_seed) : DEFAULT_ELO;
     const computedCurrent = events.length ? Number(events[events.length - 1].elo_after) : seed;
     const current = Number.isFinite(Number(player.elo)) ? Number(player.elo) : computedCurrent;
-    const scoped = Boolean(season || format !== 'all');
+    const scoped = Boolean(season || recentIds || format !== 'all');
     const chartSummary = eloJourneyChartSummary(selected, seed, current, scoped);
     const clubElos = ratingRows.map((row: any) => Number(row.elo)).filter(Number.isFinite);
     const clubAverage = clubElos.length ? clubElos.reduce((sum: number, value: number) => sum + value, 0) / clubElos.length : DEFAULT_ELO;
@@ -141,7 +149,7 @@ router.get('/elo-journey', async (req, res) => {
         elo: round(current),
         seed: round(seed),
       },
-      scope: { period: season?.key || 'all', period_label: season?.label || 'Всё время', format, format_label: format === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[format] },
+      scope: { period: recentIds ? 'recent10' : season?.key || 'all', period_label: recentIds ? 'Последние 10 игр' : season?.label || 'Всё время', format, format_label: format === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[format] },
       summary: {
         ...chartSummary,
         current: round(current),

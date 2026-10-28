@@ -1,5 +1,20 @@
 # Audit log
 
+## 2026-10-28 — period consistency SC01–SC04, registered before fixes
+
+[Complete branch/source review](UX_PROFILE_SCOPE_CONSISTENCY_2026-10-28.md) while #1074 checks run; same authorized Community/Progress content scope.
+
+- [fixed, SC01] `playerExperienceRoutes.ts`: period=season only searches explicit season keys and falls back to all.
+- [fixed, SC02] same route: recent10 ignored; must reuse the existing ten-completed-games window, including any non-Elo game within it.
+- [fixed, SC03] `premiumPlayerProfileService.ts`: public Elo applies recent10 to concatenated club/tournament groups before a global date sort.
+- [fixed, SC04] same owner: public period_change includes omitted-format deltas through endpoint subtraction.
+
+Preserve current season selection semantics, actual Elo events/formulas, historical date owners and privacy. No production access or new UI.
+
+
+All four failures reproduced before the production patch: own aliases returned all; mixed recent window omitted the new tournament; selected+20 was reported+60. The initial new SQLite fixture missed required winner_label and was corrected before these reproductions; no app/schema relaxation. Implemented with existing currentRatingSeason/loadPremiumProfileGames owners, global completed-game sorting, and selected-point accrual sum.15 focused tests in four API/service/scope files pass. No markup, CSS, rating formula, award, privacy or historical date rule changed.
+
+
 ## 2026-10-28 — UI2260 exact failure: optional capture destination depends on cwd
 
 - [fixed, CI-CAPTURE] `e2e/tests/community-results-context.spec.mjs`: CI runs from e2e/, so copying its390px screenshot into relative docs/reviews fails ENOENT. All-app audit passes;162 other preview cases pass. Optional local evidence export must be explicit and resolve its destination relative to the spec, while ordinary CI keeps screenshots in outputPath. No app/layout assertions or detector changes. Same inherited failure in stacked #1075/UI2261. Fixed by explicit local-export guard and module-relative destination; the exact390px case passes in7s from e2e/ (the CI working directory). No repeated full local suite.
@@ -18,7 +33,7 @@ Owner again requests analysis/improvements during tests. [Full review](UX_COMMUN
 
 Implemented RC01–RC04.25 distinct focused component cases, TypeScript/lint/dependency guard pass;40 unchanged-detector audits across four sizes pass. Six actual before/after images inspected: [evidence](reviews/2026-10-28-results-context/README.md). Baseline archive long-name truncation fixed; no audit relaxation. Existing exact show-more caption updated before publishing.
 
-- [open, NEXT-SCOPE] `playerExperienceRoutes.ts`: the own Elo journey resolves only explicit season keys; `period=season/recent10` from the existing menu falls back to all history. Register the next complete scope review before fixes; current RC changes do not claim to solve it.
+- [fixed by SC01–SC04, NEXT-SCOPE] `playerExperienceRoutes.ts`: the own Elo journey resolves only explicit season keys; `period=season/recent10` from the existing menu falls back to all history. Register the next complete scope review before fixes; current RC changes do not claim to solve it.
 
 ## 2026-10-28 — next connected content pass, complete findings before edits
 

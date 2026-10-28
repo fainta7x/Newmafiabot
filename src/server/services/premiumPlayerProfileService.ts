@@ -239,7 +239,7 @@ const profileReveals = async (db: DatabaseWrapper, games: StatGame[], playerId: 
 };
 
 /** Choose the active rating season, never an upcoming season merely because it has the latest end date. */
-const currentRatingSeason = <T extends { start: number; end: number }>(seasons: T[], now = Date.now()): T | null =>
+export const currentRatingSeason = <T extends { start: number; end: number }>(seasons: T[], now = Date.now()): T | null =>
   seasons.find((season) => season.start <= now && now < season.end)
   ?? [...seasons].filter((season) => season.start <= now).sort((a, b) => b.start - a.start)[0]
   ?? null;
@@ -355,7 +355,7 @@ const scopeProfileGames = async <T extends PlayerGameHistoryItem>(db: DatabaseWr
     ? currentRatingSeason(seasons)
     : seasons.find((item) => item.key === filter.period) || null;
   const format = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format : null;
-  const scoped = games.filter((game) => {
+  const scoped = games.filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date)).filter((game) => {
     if (season) { const time = dateTime(game.date); if (time < season.start || time >= season.end) return false; }
     return !format || game.evening_format === format;
   });
@@ -469,14 +469,14 @@ export async function loadPremiumProfileElo(db: DatabaseWrapper, playerId: strin
   const inScope = scopeActive ? new Set((await scopeProfileGames(db, games, filter)).map((game) => game.id)) : null;
   const ranged = cutoff ? points.filter((point) => dateTime(point.date) >= cutoff) : points;
   const selected = inScope ? ranged.filter((point) => inScope.has(point.id)) : ranged;
-  const startElo = selected[0]?.elo_before ?? numeric(player.elo);
-  const endElo = selected.at(-1)?.elo_after ?? numeric(player.elo);
+  // Absolute endpoints may span games omitted by a format filter. Count only the selected accruals.
+  const selectedChange = selected.reduce((sum, point) => sum + point.elo_after - point.elo_before, 0);
   return {
     range,
     current_elo: numeric(player.elo),
     personal_max: points.length ? Math.max(numeric(player.elo), ...points.map((point) => point.elo_after)) : numeric(player.elo),
     best_rating_position: points.length ? Math.min(...points.map((point) => point.rating_position)) : null,
-    period_change: round(endElo - startElo, 2),
+    period_change: round(selectedChange, 2),
     points: selected,
     legacy_missing_snapshots: points.length === 0,
   };

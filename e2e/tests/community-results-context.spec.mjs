@@ -10,7 +10,7 @@ for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Resu
     if(!before)expect(findings,name).toEqual([]);
     else writeFileSync(info.outputPath(`${name}-findings.json`),JSON.stringify(findings,null,2));
     const path=info.outputPath(`${name}-${width}.png`);await page.screenshot({path,animations:'disabled'});
-    if(capture&&width===390)copyFileSync(path,`docs/reviews/2026-10-28-results-context/${before?'before':'after'}-${name}.png`);
+    if(capture&&width===390&&process.env.RESULTS_CAPTURE)copyFileSync(path,new URL(`../../docs/reviews/2026-10-28-results-context/${before?'before':'after'}-${name}.png`,import.meta.url));
   };
   await page.goto('/e2e/player-profile.html?results-context=1');
   await page.getByRole('button',{name:'Карьера',exact:true}).click();

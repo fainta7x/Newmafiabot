@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-28 — UI2260 exact failure: optional capture destination depends on cwd
+
+- [fixed, CI-CAPTURE] `e2e/tests/community-results-context.spec.mjs`: CI runs from e2e/, so copying its390px screenshot into relative docs/reviews fails ENOENT. All-app audit passes;162 other preview cases pass. Optional local evidence export must be explicit and resolve its destination relative to the spec, while ordinary CI keeps screenshots in outputPath. No app/layout assertions or detector changes. Same inherited failure in stacked #1075/UI2261. Fixed by explicit local-export guard and module-relative destination; the exact390px case passes in7s from e2e/ (the CI working directory). No repeated full local suite.
+
 ## 2026-10-28 — results context, complete RC01–RC04 before application edits
 
 Owner again requests analysis/improvements during tests. [Full review](UX_COMMUNITY_RESULTS_CONTEXT_2026-10-28.md) covers own/public/hidden Elo, scoped/empty/full history, game pages/filters and current/past season states.

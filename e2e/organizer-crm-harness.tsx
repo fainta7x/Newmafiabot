@@ -27,6 +27,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 globalThis.fetch = async (input: RequestInfo | URL) => {
   const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
   if(url.pathname==='/api/curator-tasks')return json({open:[],closed:[],curators:[]});
+  if (url.pathname === '/api/crm/publications/held') return json({ items: [] });
   if (url.pathname === '/api/auth/me') return json({ role: 'ORGANIZER', isOrganizer: true });
   if (url.pathname === '/api/crm/overview') return json(overview);
   if (url.pathname === '/api/crm/command-center') return json(commandCenter);

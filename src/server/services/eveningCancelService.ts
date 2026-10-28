@@ -1,3 +1,4 @@
+import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
@@ -55,6 +56,7 @@ export async function buildCancelPostDraft(db: DatabaseWrapper, eveningId: strin
 
 export async function loadCancelPost(db: DatabaseWrapper, eveningId: string) {
   await ensureEveningCancelPostSchema(db);
+  await importLegacyPublicationHolds(db);
   const row = await db.get<any>('SELECT * FROM evening_cancel_posts WHERE evening_id = ? LIMIT 1', [eveningId]);
   if (!row) return { evening_id: eveningId, state: 'none' as const };
   const legs = [row.telegram_status, row.vk_status];
@@ -65,22 +67,23 @@ export async function loadCancelPost(db: DatabaseWrapper, eveningId: string) {
 /** Posts the cancellation once per channel; a failed channel is tried again on the next call. */
 export async function publishCancelPost(db: DatabaseWrapper, eveningId: string, input: { text?: unknown; reason?: string | null } = {}, fetchImpl: typeof fetch = fetch) {
   await ensureEveningCancelPostSchema(db);
+  await importLegacyPublicationHolds(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   const now = new Date().toISOString();
   await db.run('INSERT OR IGNORE INTO evening_cancel_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)', [eveningId, now, now]);
   const existing = await db.get<any>('SELECT * FROM evening_cancel_posts WHERE evening_id = ? LIMIT 1', [eveningId]);
-  const text = String(input.text || '').trim().slice(0, 3500) || String(existing?.text || '') || (await buildCancelPostDraft(db, eveningId, input.reason)).text;
-  const [telegram, vk] = await Promise.all([
-    existing?.telegram_status === 'published' ? { status: 'published', error: null } : sendTelegram(db, evening, text, fetchImpl),
-    existing?.vk_status === 'published' ? { status: 'published', error: null } : sendVk(text),
-  ]);
-  const done = new Date().toISOString();
-  await db.run(
-    `UPDATE evening_cancel_posts SET text = ?, telegram_status = ?, telegram_error = ?, vk_status = ?, vk_error = ?,
-            published_at = COALESCE(published_at, ?), updated_at = ? WHERE evening_id = ?`,
-    [text, telegram.status, telegram.error, vk.status, vk.error, telegram.status === 'published' || vk.status === 'published' ? done : null, done, eveningId],
-  );
+  const proposed = String(input.text || '').trim().slice(0,3500) || String(existing?.text || '') || (await buildCancelPostDraft(db,eveningId,input.reason)).text;
+  await db.run('UPDATE evening_cancel_posts SET text=COALESCE(text,?),updated_at=? WHERE evening_id=?',[proposed,now,eveningId]);
+  const row = await db.get<any>('SELECT * FROM evening_cancel_posts WHERE evening_id=?',[eveningId]);
+  await Promise.all((['telegram','vk'] as const).map(async channel => {
+    if (row[channel+'_status'] === 'published') return;
+    const context = {key:`cancel:${eveningId}:${channel}`,entityId:eveningId,kind:'cancel'};
+    const result = channel === 'telegram' ? await sendTelegram(db,evening,row.text,fetchImpl,context) : await sendVk(row.text,{db,eveningId,format:evening.format,context,noPhoto:true});
+    if ('inFlight' in result && result.inFlight) return;
+    await db.run(`UPDATE evening_cancel_posts SET ${channel}_status=?,${channel}_error=?,published_at=COALESCE(published_at,?),updated_at=? WHERE evening_id=?`,
+      [result.status,result.error,result.status === 'published' ? new Date().toISOString() : null,new Date().toISOString(),eveningId]);
+  }));
   return loadCancelPost(db, eveningId);
 }
 

@@ -14,7 +14,7 @@ const asSent = (body: any) => {
   const markup = body.get('reply_markup');
   return { chat_id: String(body.get('chat_id')), text: String(body.get('caption') ?? ''), photo: body.get('photo') instanceof Blob, ...(markup ? { reply_markup: JSON.parse(String(markup)) } : {}) };
 };
-const fetchImpl = (async (_url: string, init: any) => { sent.push(asSent(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
+const fetchImpl = (async (_url: string, init: any) => { sent.push(asSent(init.body)); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as unknown as typeof fetch;
 
 beforeEach(async () => {
   process.env.TELEGRAM_BOT_TOKEN = 'test-token';

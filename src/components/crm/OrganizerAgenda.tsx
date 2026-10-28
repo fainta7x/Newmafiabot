@@ -1,3 +1,4 @@
+import PublicationRecoveryQueue from './PublicationRecoveryQueue.tsx';
 import { useCallback, useEffect, useState } from 'react';
 import CancelEveningSheet from './CancelEveningSheet.tsx';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, RefreshCw, Send } from 'lucide-react';
@@ -172,6 +173,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
         </div>
         <button type="button" onClick={() => void load()} aria-label="Обновить дела" className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-text-muted"><RefreshCw className={`h-4 w-4 ${!data && !error ? 'animate-spin' : ''}`} /></button>
       </div>
+      <PublicationRecoveryQueue refreshKey={refreshKey} onOpenEvening={id=>onOpenEveningSection(id,'overview')} />
       {cancelFor ? <CancelEveningSheet eveningId={cancelFor} open onClose={() => setCancelFor('')} onDone={() => { setCancelFor(''); void load(); }} /> : null}
       {error ? <p className="mt-3 rounded-[10px] bg-danger-soft px-3 py-2 text-[12px] text-danger">{error}</p> : null}
       {data && !visibleItems.length ? (

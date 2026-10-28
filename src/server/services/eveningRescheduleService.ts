@@ -1,3 +1,4 @@
+import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -93,8 +94,8 @@ const queueRecipients = async (db: DatabaseWrapper, notice: Notice, text: string
 /**
  * A manual retry is guarded by a short, persistent lease. The canonical recipient
  * snapshot and notification keys do not change across retries. Successful channel
- * posts are NEVER sent again. Network ambiguity is retried only after the organizer
- * explicitly presses Retry, not by an unbounded background loop.
+ * posts are NEVER sent again. Network ambiguity is held by the durable publication attempt until the organizer
+ * checks the channel in «Дела». A generic Retry never grants another unknown send.
  */
 async function deliverNotice(
   db: DatabaseWrapper,
@@ -104,6 +105,7 @@ async function deliverNotice(
   if (isEveningPublishingPaused()) {
     return { paused: true, ...(await loadLatestEveningRescheduleNotice(db, notice.evening_id)) };
   }
+  await importLegacyPublicationHolds(db);
   const now = new Date();
   const claimed = await db.run(
     `UPDATE evening_reschedule_notices SET sending_until = ?
@@ -116,15 +118,16 @@ async function deliverNotice(
     if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
     const text = buildEveningRescheduleText(String(evening.title || 'Игровой вечер'), notice.old_starts_at, notice.new_starts_at);
     const personalQueued = notice.personal_status === 'queued' ? 0 : await queueRecipients(db, notice, text);
-    const [telegram, vk] = await Promise.all([
-      notice.telegram_status === 'published' ? Promise.resolve({ status: 'published' }) : sendTelegram(db, evening, text, fetchImpl),
-      notice.vk_status === 'published' ? Promise.resolve({ status: 'published' }) : sendVk(text),
-    ]);
-    await db.run(
-      'UPDATE evening_reschedule_notices SET telegram_status = ?, vk_status = ? WHERE id = ?',
-      [telegram.status, vk.status, notice.id],
-    );
-    return { personalQueued, telegram: telegram.status, vk: vk.status };
+    const states:Record<string,string>={};
+    await Promise.all((['telegram','vk'] as const).map(async channel=>{
+      const current=await db.get<any>('SELECT * FROM evening_reschedule_notices WHERE id=?',[notice.id]);
+      if(current[channel+'_status']==='published'){states[channel]='published';return;}
+      const context={key:`reschedule:${notice.id}:${channel}`,entityId:notice.evening_id,kind:'reschedule'};
+      const result=channel==='telegram'?await sendTelegram(db,evening,text,fetchImpl,context):await sendVk(text,{db,eveningId:notice.evening_id,format:evening.format,noPhoto:true,context});
+      states[channel]=result.status;
+      if(!('inFlight' in result && result.inFlight))await db.run(`UPDATE evening_reschedule_notices SET ${channel}_status=? WHERE id=?`,[result.status,notice.id]);
+    }));
+    return { personalQueued, telegram: states.telegram, vk: states.vk };
   } finally {
     await db.run('UPDATE evening_reschedule_notices SET sending_until = NULL WHERE id = ?', [notice.id]);
   }

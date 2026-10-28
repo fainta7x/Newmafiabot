@@ -54,7 +54,7 @@ const telegram = () => {
   const fetchImpl = (async (url: string, init: any) => {
     urls.push(String(url));
     calls.push(init.body as FormData);
-    return new Response(JSON.stringify({ ok: true }));
+    return new Response(JSON.stringify({ ok: true, result: String(url).endsWith('sendMediaGroup') ? JSON.parse((init.body as FormData).get('media') as string).map((_:unknown,index:number)=>({message_id:index+100})) : {message_id:100} }));
   }) as unknown as typeof fetch;
   return { calls, urls, fetchImpl };
 };
@@ -339,17 +339,18 @@ describe('posting to the club chat', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('a Telegram outage is retried, a missing group is not', async () => {
+  it('a confirmed rate limit is retried, a missing group is not', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addGame(1, 'red');
-    const down = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
+    const down = (async () => new Response(JSON.stringify({ok:false,error_code:429,description:'Too many requests'}), { status:429 })) as unknown as typeof fetch;
     expect(await runClubResultPosts(db, down)).toBe(0);
     const { calls, fetchImpl } = telegram();
     // Right after a failure the post waits (a growing pause), it is not hammered every scan.
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
     expect(calls).toHaveLength(0);
     await db.run('UPDATE club_result_posts SET updated_at = ?', [new Date(Date.now() - 60 * 60 * 1000).toISOString()]);
+    await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
     expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
     expect(calls).toHaveLength(1);
 
@@ -362,7 +363,7 @@ describe('posting to the club chat', () => {
 });
 
 describe('result posts survive an outage and a crash', () => {
-  it('takes back a post left «sending» by a crashed process', async () => {
+  it('holds a post left «sending» by a crashed process without resending', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addGame(1, 'red');
@@ -370,8 +371,8 @@ describe('result posts survive an outage and a crash', () => {
     await runClubResultPosts(db, down);
     await db.run("UPDATE club_result_posts SET status = 'sending', updated_at = ?", [new Date(Date.now() - 60 * 60 * 1000).toISOString()]);
     const { calls, fetchImpl } = telegram();
-    expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
-    expect(calls).toHaveLength(1);
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
+    expect(calls).toHaveLength(0);
   });
 
   it('does not touch a post that is being sent right now', async () => {
@@ -386,16 +387,13 @@ describe('result posts survive an outage and a crash', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('gives up for good after the last attempt, so the scan stops picking the post up', async () => {
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    const { db, addGame } = await setup('CASUAL');
-    await addGame(1, 'red');
-    const down = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      await db.run('UPDATE club_result_posts SET updated_at = ?', [new Date(Date.now() - 60 * 60 * 1000).toISOString()]);
-      await runClubResultPosts(db, down);
-    }
-    expect(await db.get<any>("SELECT status, attempts FROM club_result_posts WHERE post_key LIKE 'game:%'")).toMatchObject({ status: 'failed', attempts: 12 });
+  it('holds a 5xx after one attempt, regardless of later scans', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN','test-token');
+    const {db,addGame}=await setup('CASUAL');await addGame(1,'red');
+    const down=vi.fn(async()=>new Response('{}',{status:502}));
+    for(let i=0;i<3;i++)await runClubResultPosts(db,down as typeof fetch);
+    expect(down).toHaveBeenCalledTimes(1);
+    expect(await db.get("SELECT status,attempts FROM club_result_posts WHERE post_key LIKE 'game:%'")).toMatchObject({status:'uncertain',attempts:1});
   });
 });
 

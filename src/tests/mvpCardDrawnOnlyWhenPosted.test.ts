@@ -30,10 +30,21 @@ describe('the «MVP вечера» card is drawn only for a post that goes out (
     await ensureClubResultPostSchema(db);
     await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations (id TEXT PRIMARY KEY, chat_id TEXT, topic_id TEXT, active INTEGER DEFAULT 1, invite_url TEXT)").catch(() => undefined);
     await db.run("INSERT OR REPLACE INTO telegram_destinations (id, chat_id, active) VALUES ('club', '-100', 1)");
-    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch;
+    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 })) as unknown as typeof fetch;
     await postVotePrompt(db, 'e1', fetchImpl);
     expect(drawn.count).toBe(1);
     for (let scan = 0; scan < 3; scan += 1) await postVotePrompt(db, 'e1', fetchImpl);
     expect(drawn.count).toBe(1);
   });
+  it('does not replace a possibly accepted photo with text after a 5xx',async()=>{
+    process.env.TELEGRAM_BOT_TOKEN='test-token';await ensureClubResultPostSchema(db);
+    await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations(id TEXT PRIMARY KEY,chat_id TEXT,topic_id TEXT,active INTEGER)");
+    await db.run("INSERT OR REPLACE INTO telegram_destinations(id,chat_id,active) VALUES('club','-100',1)");
+    const fetchImpl=vi.fn(async(_url:RequestInfo|URL)=>new Response('{}',{status:503}));
+    await postVotePrompt(db,'e1',fetchImpl);await postVotePrompt(db,'e1',fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain('/sendPhoto');
+    expect(await db.get("SELECT status FROM club_result_posts WHERE post_key='vote-prompt:e1'")).toMatchObject({status:'uncertain'});
+  });
+
 });

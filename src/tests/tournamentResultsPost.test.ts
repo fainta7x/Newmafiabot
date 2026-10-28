@@ -26,7 +26,7 @@ async function setup(published: boolean) {
 }
 const recorder = () => {
   const calls: Array<{ chat: string; text: string }> = [];
-  const fetchImpl = (async (_url: string, init: any) => { const body = JSON.parse(String(init.body)); calls.push({ chat: body.chat_id, text: body.text }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+  const fetchImpl = (async (_url: string, init: any) => { const body = JSON.parse(String(init.body)); calls.push({ chat: body.chat_id, text: body.text }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
   return { calls, fetchImpl };
 };
 
@@ -70,12 +70,13 @@ describe('official tournament results in Telegram', () => {
     let failChannel = true;
     const fetchImpl = (async (_url: string, init: any) => {
       const body = JSON.parse(String(init.body));
-      if (body.chat_id === '-100700' && failChannel) return new Response(JSON.stringify({ ok: false, description: 'busy' }), { status: 500 });
-      sent.push(body.chat_id); return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      if (body.chat_id === '-100700' && failChannel) return new Response(JSON.stringify({ ok: false, error_code:429, description: 'busy' }), { status:429 });
+      sent.push(body.chat_id); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 });
     }) as any;
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(true);
     expect(sent).toEqual(['-100600']);
     failChannel = false;
+    await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
     await db.run("UPDATE club_result_posts SET updated_at = '2000-01-01T00:00:00Z' WHERE post_key = 'tournament-results:t1:public'");
     await runClubResultPosts(db, fetchImpl, Date.now() + 3_600_000);
     expect(sent.sort()).toEqual(['-100600', '-100700']);

@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-28 — full Connections/Metrics content review (CN01–CN08)
+
+[Complete findings and proposal](UX_CONNECTIONS_METRICS_CONTENT_REVIEW_2026-10-28.md), recorded before any app fix. Scope: all mounted metrics/role states and all three connection tabs, their sources, samples/privacy and existing limits. CN01–CN04 (`PlayerMetricRatings.tsx`, `PlayerRoleTables.tsx`, `metricRatingService.ts`): isolated single-figure lists, separate role ordering, capped-top API cannot form a complete multi-column table or arbitrary comparison, different sources/denominators need cell context. CN05–CN08 (`ClubConnectionStories.tsx`, `PlayerClubConnections.tsx`, relationship/story services): narrow top stories, no shared scope or pair history, snapshot-supported factual stories available, additional content must not duplicate existing cards. Status: proposed/awaiting complete-plan agreement, not implemented. Analysis uses current source e93959f only; no production data. No app changes/tests or production actions.
+
 ## 2026-10-28 — CI4583 exact legacy-root compatibility failure
 
 - [fixed, C76-COMPAT] `appNavigation.ts`: changing the targetless clubworld generator/root parse from /player/seasons to /player/rating/periods breaks the established shared-root contract used by VK links. Tests src/lib/appNavigation.test.ts:8 and src/tests/vkPlayerCabinetAccess.test.ts:20 fail;623 other shard1 cases and all other test shards pass. Preserve the old targetless root as a compatibility entry rendered by the existing Community destination normalizer into the one Season hub; keep explicit old subview redirects. No new page or UI/formula rollback.

@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — Connections and Metrics content review requested
+
+Owner: «улучшению самого контента в Связях и Показателях»; more interesting connections, one category-based sortable metrics table and player comparison. Preserve the new Community structure. Complete source/content review before application edits per AGENTS §4e: [full proposed scope CN01–CN08](UX_CONNECTIONS_METRICS_CONTENT_REVIEW_2026-10-28.md). Proposal: one player table with six column categories, common scope and explicit observation sizes; compare two arbitrary visible players; factual pair history/series/new pairings/frequent opposition/table encounters. Scope, thresholds for new stories and two-player first release await owner agreement; no app implementation or new scoring/privacy rules yet. Next action — owner: agree/adjust the complete plan; assistant then implements one coherent batch.
+
+#1076 exact7ec2cb0 passed CI4584/UI2268/CodeQL3888/Gitleaks3885 and merged as e93959fe64059d83dab5f5c2a5e01d6875861d53. Latest main verified at this merge; older pending-at-authoring paragraphs are history. No open PRs at review start. This is a docs-only analysis; no new app tests, production writes/messages or deployment.
+
 ## 2026-10-28 — complete Community structure approved; keep and explain Form
 
 Owner: «Окей, продолжай. Про баллы формы просто нужно пояснить понятно как оно считается и что значит». This approves the complete IS01–IS12 structure proposal and resolves the open Form decision: retain its points/formula, add plain explanation/examples. Implement all five groups (Players, Rating, Connections, History, Mini-games), one Season and one Hall of Fame, consistent relationship cards, preserved links/view context and personal timeline labels. Full [review](UX_COMMUNITY_STRUCTURE_REVIEW_2026-10-28.md) was completed before edits; the prior analysis-only gate is satisfied. Preserve rating formulas/meaning, existing cutoffs, privacy and earned awards.

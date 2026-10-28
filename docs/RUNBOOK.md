@@ -580,3 +580,11 @@ Verification: `python -m unittest tests.test_github_pr_notifications` and the re
 ## CRM «Проект» screen (owner request 2026-10-12)
 
 Read-only, organizer only. The cards are parsed at request time from `docs/PROJECT_STATE.md` that ships in the image (so a merge to `main` shows after the next deploy); the direction is a keyword guess and the status comes from the file's own structure («Waiting on the owner», «ACTIVE», the queue), so keep new entries in those sections. The «PR» tab reads the public GitHub API (cached for a minute, same colours and authorship rule as the bot's `/prs`); set `GITHUB_TOKEN` in the environment only if the unauthenticated rate limit is hit. If GitHub is unreachable the tab says so and the cards still work.
+
+## Public post with unknown outcome
+
+Open «Дела → Проверить публикации» and inspect the displayed channel/topic and original text. Check the actual channel. If the post exists, choose «Пост вышел», optionally record its URL/ID, and confirm. If it is absent, choose «Проверил: поста нет» and confirm the second step; this records the actor/current attempt and permits one replay of the saved request to its original target. A stale decision returns409 and requires refreshing. A request still in flight is not manually recoverable until its15-minute lease expires.
+
+Old imported attempts may have no saved request. The UI identifies these; absence releases the original publisher only, rather than inventing an old image/request or reopening completed history. If the original evening/tournament is no longer eligible, leave it closed. Never delete publication rows or clear uncertainty through ad-hoc SQL. Published rows, prior announcements and player records are not deleted.
+
+`publication_delivery_decisions` retains actor, attempt, decision and evidence; `publication_deliveries` retains frozen requests and remote IDs. Normal GETs expose readable metadata, never photo bytes. A crash between absence confirmation and replay leaves a visible ready entry; use its permitted-repeat action. Startup cutover is additive and independently marked in each selected SQLite database; no manual production migration is needed for a normal deployment.

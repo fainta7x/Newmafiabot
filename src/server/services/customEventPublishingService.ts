@@ -1,3 +1,6 @@
+import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
+import { sendPublicTelegram } from './publicationTelegramService.ts';
+import { deliverPublication } from './publicationDeliveryService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { createVkWallPost, getVkIntegrationStatus } from './vkPublishingService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -25,34 +28,44 @@ export function customEventAnnouncementText(event: any, html = false) {
   return lines.join('\n');
 }
 
+
+async function publicContext(_db: DatabaseWrapper, id:string, channel:string, targetKey:string) {
+  return {key:`custom:${id}:${channel}:${targetKey}`,entityId:id,kind:'custom'};
+}
+
 async function claim(db: DatabaseWrapper, eventId: string, channel: string, targetKey: string) {
   const existing = await db.get<any>('SELECT status FROM custom_event_publications WHERE event_id=? AND channel=? AND target_key=?',[eventId,channel,targetKey]);
   if (existing && ['sending','sent','uncertain'].includes(String(existing.status))) return false;
   const now = new Date().toISOString();
-  await db.run(`INSERT INTO custom_event_publications(event_id,channel,target_key,status,attempted_at) VALUES (?,?,?,'sending',?)
-    ON CONFLICT(event_id,channel,target_key) DO UPDATE SET status='sending',last_error=NULL,attempted_at=excluded.attempted_at`,[eventId,channel,targetKey,now]);
-  return true;
+  const changed = await db.run(`INSERT INTO custom_event_publications(event_id,channel,target_key,status,attempted_at) VALUES (?,?,?,'sending',?)
+    ON CONFLICT(event_id,channel,target_key) DO UPDATE SET status='sending',last_error=NULL,attempted_at=excluded.attempted_at WHERE custom_event_publications.status NOT IN ('sending','sent','uncertain')`,[eventId,channel,targetKey,now]);
+  return Number(changed.changes)>0;
 }
 async function finish(db:DatabaseWrapper,eventId:string,channel:string,targetKey:string,status:'sent'|'failed'|'uncertain',externalId?:string|null,error?:string|null){
   const now=new Date().toISOString();
+  await db.run("INSERT OR IGNORE INTO custom_event_publications (event_id,channel,target_key,status,attempted_at) VALUES (?,?,?,'sending',?)",[eventId,channel,targetKey,now]);
   await db.run('UPDATE custom_event_publications SET status=?,external_id=?,last_error=?,sent_at=?,attempted_at=? WHERE event_id=? AND channel=? AND target_key=?',[status,externalId||null,error?String(error).slice(0,1000):null,status==='sent'?now:null,now,eventId,channel,targetKey]);
 }
 
 async function sendTelegram(event:any,destination:any,channel:string,db:DatabaseWrapper,fetchImpl:typeof fetch){
   const target=String(destination.chat_id), key=String(destination.id);
-  if(!(await claim(db,event.id,channel,key)))return {channel,status:'skipped'};
+  if(await db.get("SELECT 1 FROM custom_event_publications WHERE event_id=? AND channel=? AND target_key=? AND status='sent'",[event.id,channel,key]))return {channel,status:'skipped'};
+  const context=await publicContext(db,event.id,channel,key);
   const token=String(process.env.TELEGRAM_BOT_TOKEN||'').trim();
   if(!token){await finish(db,event.id,channel,key,'failed',null,'TELEGRAM_BOT_TOKEN is not configured');return {channel,status:'failed'};}
   try{
-    let response:Response;
+    const fields:Record<string,unknown>={chat_id:target,message_thread_id:destination.topic_id||undefined};
+    let method='sendMessage';
+    let photos;
     if(event.cover_image_data_url){
       const match=String(event.cover_image_data_url).match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/i);
-      if(match){const bytes=Buffer.from(match[2],'base64'),form=new FormData();form.set('chat_id',target);if(destination.topic_id)form.set('message_thread_id',String(destination.topic_id));form.set('caption',customEventAnnouncementText(event,false).slice(0,1024));form.set('photo',new Blob([bytes],{type:match[1]}),'cover.jpg');response=await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`,{method:'POST',body:form});}
-      else throw new Error('Некорректная обложка');
-    }else response=await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:target,message_thread_id:destination.topic_id||undefined,text:customEventAnnouncementText(event,true),parse_mode:'HTML',disable_web_page_preview:true})});
-    const body:any=await response.json().catch(()=>({}));
-    if(!response.ok||body.ok===false){await finish(db,event.id,channel,key,'failed',null,body.description||`Telegram HTTP ${response.status}`);return {channel,status:'failed'};}
-    await finish(db,event.id,channel,key,'sent',String(body.result?.message_id||''));return {channel,status:'sent'};
+      if(!match){await finish(db,event.id,channel,key,'failed',null,'Некорректная обложка');return {channel,status:'failed'};}
+      method='sendPhoto';fields.caption=customEventAnnouncementText(event,false).slice(0,1024);photos=[{field:'photo',data:match[2],mime:match[1],name:'cover.jpg'}];
+    }else {fields.text=customEventAnnouncementText(event,true);fields.parse_mode='HTML';fields.disable_web_page_preview=true;}
+    const result=await sendPublicTelegram(db,{method,fields,photos},fetchImpl,context);
+    if(result.inFlight)return {channel,status:'skipped'};
+    const state=result.ok?'sent':result.certainty==='uncertain'?'uncertain':'failed';
+    await finish(db,event.id,channel,key,state,result.ids?.join(','),result.error);return {channel,status:state};
   }catch(error:any){await finish(db,event.id,channel,key,'uncertain',null,error.message||String(error));return {channel,status:'uncertain'};}
 }
 
@@ -64,6 +77,7 @@ async function audience(db:DatabaseWrapper,event:any){
 }
 
 export async function publishCustomEvent(db:DatabaseWrapper,eventId:string,deps:Dependencies={}){
+  await importLegacyPublicationHolds(db);
   const event=await db.get<any>('SELECT * FROM custom_events WHERE id=?',[eventId]);
   if(!event)throw Object.assign(new Error('Ивент не найден'),{statusCode:404});
   if(event.status!=='published')throw Object.assign(new Error('Сначала опубликуйте ивент в приложении'),{statusCode:409});
@@ -80,9 +94,17 @@ export async function publishCustomEvent(db:DatabaseWrapper,eventId:string,deps:
   if(Number(event.announce_vk)){
     const status=getVkIntegrationStatus(), groupId=status.group_id||'';
     if(!status.configured||!groupId)results.push({channel:'vk',status:'not_configured'});
-    else if(!(await claim(db,event.id,'vk',groupId)))results.push({channel:'vk',status:'skipped'});
-    else try{const post=await (deps.createVkPost||createVkWallPost)({groupId,message:customEventAnnouncementText(event,false)});await finish(db,event.id,'vk',groupId,'sent',String(post.postId));results.push({channel:'vk',status:'sent'});}
-    catch(error:any){const state=error?.vkDefinite===true?'failed':'uncertain';await finish(db,event.id,'vk',groupId,state,null,error.message||String(error));results.push({channel:'vk',status:state});}
+    else if(await db.get("SELECT 1 FROM custom_event_publications WHERE event_id=? AND channel='vk' AND target_key=? AND status='sent'",[event.id,groupId]))results.push({channel:'vk',status:'skipped'});
+    else {
+      const context=await publicContext(db,event.id,'vk',groupId);
+      const result=await deliverPublication(db,context,'vk',groupId,{groupId,message:customEventAnnouncementText(event,false)},async payload=>{
+        try{const post=await(deps.createVkPost||createVkWallPost)(payload);return {ok:true,certainty:'accepted',ids:[String(post.postId)],url:post.externalUrl};}
+        catch(error:any){return {ok:false,certainty:error?.vkDefinite===true?'rejected':'uncertain',temporary:error?.vkDefinite===true,error:error?.message};}
+      });
+      if(result.inFlight)results.push({channel:'vk',status:'skipped'});
+      else {const state=result.ok?'sent':result.certainty==='uncertain'?'uncertain':'failed';
+        await finish(db,event.id,'vk',groupId,state,result.ids?.join(','),result.error);results.push({channel:'vk',status:state});}
+    }
   }
   if(Number(event.announce_bot_dm)){
     const players=await audience(db,event);let queued=0,skipped=0;

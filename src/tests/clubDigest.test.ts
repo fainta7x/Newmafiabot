@@ -19,7 +19,7 @@ const recorder = (failChat?: string) => {
   const fetchImpl = (async (_url: string, init: any) => {
     const body = JSON.parse(String(init.body));
     calls.push({ chat: body.chat_id, text: body.text, parse_mode: body.parse_mode, thread: body.message_thread_id });
-    return failChat === body.chat_id ? new Response(JSON.stringify({ ok: false, description: 'chat not found' }), { status: 400 }) : new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return failChat === body.chat_id ? new Response(JSON.stringify({ ok: false, error_code:400, description: 'chat not found' }), { status: 400 }) : new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 });
   }) as any;
   return { calls, fetchImpl };
 };

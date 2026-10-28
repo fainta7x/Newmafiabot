@@ -54,7 +54,7 @@ describe('custom event manual publishing',()=>{
     await db.run('UPDATE custom_events SET announce_club_group=0,announce_bot_dm=0 WHERE id=\'event\'');
     const fetchImpl=vi.fn(async()=>{throw new Error('connection lost');}) as unknown as typeof fetch;
     expect((await publishCustomEvent(db,'event',{fetchImpl})).results[0]).toMatchObject({status:'uncertain'});
-    expect((await publishCustomEvent(db,'event',{fetchImpl})).results[0]).toMatchObject({status:'skipped'});
+    expect((await publishCustomEvent(db,'event',{fetchImpl})).results[0]).toMatchObject({status:'uncertain'});
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

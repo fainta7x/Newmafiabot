@@ -45,9 +45,10 @@ describe('poker tournament announcements', () => {
 
   it('retries a failed channel later without posting the successful one twice', async () => {
     const row = await make({ club_group: true });
-    const failing = vi.fn(async () => new Response(JSON.stringify({ ok: false, description: 'boom' }), { status: 500 }));
+    const failing = vi.fn(async () => new Response(JSON.stringify({ ok: false, error_code:429, description: 'rate limited' }), { status:429 }));
     await announcePokerTournament(db, row.id, { fetchImpl: failing as any });
     expect((await db.get<any>('SELECT announced_at FROM poker_tournaments WHERE id = ?', [row.id])).announced_at).toBeNull();
+    await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
     const ok = okFetch();
     await announcePokerTournament(db, row.id, { fetchImpl: ok as any });
     expect(ok).toHaveBeenCalledTimes(1);

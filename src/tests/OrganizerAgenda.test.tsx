@@ -19,7 +19,7 @@ describe('«Дела»', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it('preview hides items the home screen already shows elsewhere', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => json(agenda)));
+    vi.stubGlobal('fetch', vi.fn((input:RequestInfo|URL) => json(String(input)==='/api/crm/publications/held' ? {items:[]} : agenda)));
     render(<OrganizerAgenda mode="preview" hideItemIds={['check:unclosed:e1']} onOpenEveningSection={vi.fn()} onOpenPlayer={vi.fn()} onCreateEvening={vi.fn()} />);
     await screen.findByText('Давно не были: постоянные · 1');
     expect(screen.queryByText('Вечер прошёл, но не закрыт')).toBeNull();
@@ -50,7 +50,7 @@ describe('«Дела»', () => {
   });
 
   it('shows the urgent part on the home screen with a way to all items', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => json(agenda)));
+    vi.stubGlobal('fetch', vi.fn((input:RequestInfo|URL) => json(String(input)==='/api/crm/publications/held' ? {items:[]} : agenda)));
     const openAll = vi.fn();
     render(<OrganizerAgenda mode="preview" onOpenEveningSection={vi.fn()} onOpenPlayer={vi.fn()} onCreateEvening={vi.fn()} onOpenAll={openAll} />);
     await screen.findByText('Вечер прошёл, но не закрыт');

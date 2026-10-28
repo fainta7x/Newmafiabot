@@ -88,7 +88,7 @@ for (const width of [360, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
     await activityNav.getByRole('button', { name: 'Сезон' }).click();
-    await expect(page.getByRole('button', { name: 'Показать всех · 10' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Показать места 6–10' })).toBeVisible();
     await expect(page.getByText('Форма игроков')).toHaveCount(0);
     await page.screenshot({ path: info.outputPath('community-season.png'), fullPage: true });
     await activityNav.getByRole('button', { name: 'Архив' }).click();

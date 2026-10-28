@@ -1,5 +1,13 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — continue results context during checks
+
+Owner: «Окей, продолжай. Ты опять же параллельно пока ждёшь тесты делай следующие задачи по улучшению». Continue the authorized Community/Progress content scope; complete RC01–RC04 review before implementation: [results context](UX_COMMUNITY_RESULTS_CONTEXT_2026-10-28.md). Use existing dates, absolute Elo, selected deltas, game totals and seasonal viewer fields; preserve all ratings/formulas/cutoffs/privacy and detailed statistics open.
+
+#1073 is merged as cb8959c157bed37d28c26b2044ea6edbc48317f9. Exact73b723f passed CI4572, UI2259, CodeQL3879 and Gitleaks3876. Its older pending paragraphs below are authoring history. No Amvera synchronization/deployment or live verification is claimed. Access inventory: organizer credential absent, public /api/health returns200; no production records read.
+
+RC01–RC04 implemented as one connected candidate. Graph endpoint dates/real values and selected-format explanation; explicit game outcome/count/order; games page range; archived own result and honest top-list extent/full names.25 distinct focused cases and40 four-size audits pass; six inspected before/after captures, TypeScript/lint/dependency guard pass. [Evidence](reviews/2026-10-28-results-context/README.md). Required exact-head CI/merge pending at authoring. Next connected analysis: reconcile own/public Elo period aliases, recent10 selection and selected-delta summary with the existing canonical profile scope; own journey currently ignores season/recent10. No new owner decision needed for these existing-content fixes.
+
 ## 2026-10-28 — content details continued while the previous PR was checked
 
 Owner explicitly requests continued analysis/improvements during checks. Complete [CD01–CD06 review](UX_COMMUNITY_CONTENT_DETAIL_2026-10-28.md) covered all six action panels, own/public/restricted connections and their modes, and all16 stories/six paths before edits. Implemented as a separate candidate: action totals/distribution with sheriff as a subset and unknown preserved; existing shared-game history in own connections; known small-sample results without fake0; current list scope metadata from unchanged constants; goal context and selected-path completion. [Evidence and limits](reviews/2026-10-28-community-content-detail/README.md). No new rating, eligibility, game/award rule, query aggregate or public history disclosure.
@@ -1069,7 +1077,9 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
-- Кандидат: подробное распределение голосов/проверок, последние общие партии в своих связях и понятный контекст целей/прогресс выбранного пути.
+- Кандидат: даты и края графика Elo, исход партии отдельно от начисления, объём/порядок списков игр и личный результат в архиве сезонов.
+
+- Подробное распределение голосов/проверок, последние общие партии в своих связях и понятный контекст целей/прогресс выбранного пути.
 
 - Сообщество и Прогресс: понятные периоды и выборки, победы/игры и недавние исходы по ролям, фактическая аналитика, контекст связей, цели перед полученным и обучение по задачам (без изменения рейтингов).
 

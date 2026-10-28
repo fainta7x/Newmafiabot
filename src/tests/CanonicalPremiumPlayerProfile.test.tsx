@@ -330,3 +330,29 @@ it('returns each progress group to its last nested view, including after remount
   fireEvent.click(screen.getByRole('button',{name:'Награды'}));
   expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
 });
+
+
+it('shows the actual game range on each page and does not summarize a partial page as the whole sample', async () => {
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>{
+    const url=String(input);
+    if(url.includes('/summary'))return response(summary('self','Игрок'));
+    if(url.includes('/games?')){
+      const offset=Number(new URL(url,'http://localhost').searchParams.get('offset')||0);
+      const games=Array.from({length:18},(_,index)=>({id:`club:range-${index}`,title:`Партия ${index+1}`}));
+      return response({games:games.slice(offset,offset+15),total:18,offset,limit:15});
+    }
+    return response({});
+  }));
+  render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self"/>);
+  await screen.findByText('Игрок');fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  expect((await screen.findByTestId('profile-game-range')).textContent).toBe('Игры 1–15 из 18 · сначала новые');
+  fireEvent.click(screen.getByRole('button',{name:'Дальше'}));
+  await waitFor(()=>expect(screen.getByTestId('profile-game-range').textContent).toBe('Игры 16–18 из 18 · сначала новые'));
+});
+
+it('shows zero matching games without an invented first-to-last range',async()=>{
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).includes('/summary')?response(summary('self','Игрок')):response({games:[],total:0})));
+  render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self"/>);
+  await screen.findByText('Игрок');fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
+  expect((await screen.findByTestId('profile-game-range')).textContent).toBe('Найдено игр: 0');
+});

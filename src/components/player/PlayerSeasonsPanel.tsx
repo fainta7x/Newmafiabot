@@ -61,6 +61,21 @@ function Avatar({ src, name, size = 34 }: { src?: string | null; name: string; s
   </span>;
 }
 
+function SeasonViewer({ season }: { season: SeasonItem }) {
+  return <section aria-label="Мой результат в сезоне" className="mt-3 rounded-2xl border border-sky-200/10 bg-sky-200/[0.04] p-3">
+    <h3 className="text-xs font-semibold text-sky-100/75">Мой результат</h3>
+    {season.viewer ? <>
+      <p className="mt-1 text-sm font-semibold">{gameResultText(season.viewer)} · {season.viewer.win_rate}%</p>
+      <p className="mt-1 text-xs text-white/55">{season.viewer.place != null ? `Место ${season.viewer.place} из ${season.players}` : 'Место не указано'}</p>
+    </> : <p className="mt-1 text-xs leading-5 text-white/55">В этом сезоне нет записанных игр.</p>}
+  </section>;
+}
+
+function RankingExtent({ season, limit }: { season: SeasonItem; limit: number }) {
+  const shown = Math.min(limit, season.ranking.length);
+  return <p className="text-[11px] leading-5 text-white/55">{shown ? `Показаны места 1–${shown}. Участников в сезоне: ${season.players}.` : 'Мест в таблице пока нет.'}</p>;
+}
+
 function RankingRows({ rows, viewerId, limit = 10 }: { rows: RankingEntry[]; viewerId: string; limit?: number }) {
   return (
     <div className="space-y-1.5">
@@ -69,7 +84,7 @@ function RankingRows({ rows, viewerId, limit = 10 }: { rows: RankingEntry[]; vie
           <div className="w-6 shrink-0 text-center text-[11px] font-black text-white/35">{item.place}</div>
           <Avatar src={item.avatar_url} name={item.nickname} size={32} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] font-semibold">{item.nickname}{item.player_id === viewerId ? ' · вы' : ''}</div>
+            <div className="break-words text-[11px] font-semibold leading-4">{item.nickname}{item.player_id === viewerId ? ' · вы' : ''}</div>
             <div className="text-[11px] leading-5 text-white/60">{gameResultText(item)}</div>
           </div>
           <div className="text-[11px] font-black">{item.win_rate}%</div>
@@ -87,7 +102,7 @@ function RecordCard({ record, featured = false }: { record: RecordEntry; feature
     <span className="text-[10px] font-semibold uppercase tracking-[.08em] text-white/55">{record.label}</span>
     <span className="mt-2 text-[28px] font-semibold tabular-nums leading-none text-amber-100">{record.value}{percent ? '%' : ''}</span>
     {percent && Number.isFinite(value) && <span className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full bg-amber-200/80" style={{width: `${Math.max(0, Math.min(100, value))}%`}} /></span>}
-    <span className="mt-3 flex min-w-0 items-center gap-2"><Avatar src={record.avatar_url} name={record.nickname} size={28} /><span className="min-w-0 truncate text-xs font-medium text-white/85">{record.nickname}</span></span>
+    <span className="mt-3 flex min-w-0 items-center gap-2"><Avatar src={record.avatar_url} name={record.nickname} size={28} /><span className="min-w-0 break-words text-xs font-medium text-white/85">{record.nickname}</span></span>
   </button>;
 }
 
@@ -151,7 +166,8 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
               <div className="mt-3">
                 <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[11px] text-white/25">{countPlayers(selectedSeason.players)} · {countGames(selectedSeason.games)}</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[11px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[11px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
                 <SeasonContext season={selectedSeason}/>
-                <div className="mt-3"><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
+                <SeasonViewer season={selectedSeason}/>
+                <div className="mt-3 space-y-2"><h3 className="text-xs font-semibold text-white/75">Топ сезона</h3><RankingExtent season={selectedSeason} limit={5}/><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
               </div>
             )}
           </section>
@@ -185,8 +201,8 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
             <div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.season.viewer.win_rate}%</div><div className="text-[11px] text-white/25">винрейт</div></div>
           </div>
         )}
-        <div className="mt-4"><div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Топ сезона</div><RankingRows rows={data.season.ranking} viewerId={data.viewer_id} limit={topOpen ? data.season.ranking.length : 5} />
-          {!topOpen && data.season.ranking.length > 5 ? <button type="button" onClick={() => setTopOpen(true)} className="mt-1 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать всех · {data.season.ranking.length}</button> : null}</div>
+        <div className="mt-4"><div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Топ сезона</div><RankingExtent season={data.season} limit={topOpen ? data.season.ranking.length : 5}/><RankingRows rows={data.season.ranking} viewerId={data.viewer_id} limit={topOpen ? data.season.ranking.length : 5} />
+          {!topOpen && data.season.ranking.length > 5 ? <button type="button" onClick={() => setTopOpen(true)} className="mt-1 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать места 6–{data.season.ranking.length}</button> : null}</div>
       </section>
 
       {data.hall_of_fame?.length > 0 && <section aria-label="Зал славы клуба" className="overflow-hidden rounded-[24px] border border-amber-200/15 bg-gradient-to-br from-amber-200/[.095] via-[#1b1614] to-[#101216] p-4">

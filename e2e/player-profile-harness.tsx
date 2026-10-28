@@ -1,3 +1,4 @@
+import { resultsContextGames, resultsContextJourney } from './results-context.fixture.ts';
 import { ACHIEVEMENTS } from '../src/lib/achievementCatalog';
 import { STORY_IDS } from '../src/lib/achievementStories';
 import ReactDOM from 'react-dom/client';
@@ -5,6 +6,7 @@ import CanonicalPremiumPlayerProfile from '../src/components/player/CanonicalPre
 import './appStyles.ts';
 
 const params = new URLSearchParams(location.search);
+const resultsContext = params.has('results-context');
 const target = params.get('target');
 const externalProfile = target === 'friend' || target === 'unavailable';
 const unavailableProfile = target === 'unavailable';
@@ -18,6 +20,7 @@ const summaryFor = (id: string) => ({
   ...(params.has("content")?{filters:{period_label:"Вся карьера",format_label:"Все форматы",seasons:[],formats:[]},season:{label:"Осень 2026",games:9,wins:6,win_rate:67,place:3,total_players:21},night_shots:{killed:4,games_as_red:20,black_nights:12,black_misses:2,partners:[{player_id:"mate",nickname:"Напарник",kills:2,together:6}]},reveals:{sheriffGames:12,sheriffReveals:5,sheriffCheckedDon:1,sheriffCheckedMafia:2,sheriffCheckedRed:3,blackGames:16,blackReveals:0,blackCovers:0,townChances:0},circle_exits:{games:48,votedOut:8,byAlive:{"3":2,"5":3,"8":3},critical:2}}:{}),
   game_stats: { games:12, votesAsRed:{count:8,total:12,percent:66.7}, nominationsAsRed:{count:3,total:5,percent:60},bestMove:{count:2,averageBlack:2},firstKilled:{count:2,total:20},sheriffChecks:{count:2,total:4,percent:50},donChecks:{count:1,total:3,percent:33.3},
     actions:{ votes:{red:{red:4,black:8,sheriff:1,unknown:0},black:{red:6,black:1,sheriff:2,unknown:0}},criticalVotes:{red:{red:1,black:3,sheriff:0,unknown:0},black:{red:2,black:0,sheriff:1,unknown:0}},checks:{sheriff:{red:2,black:2,sheriff:0,unknown:0},don:{red:2,black:1,sheriff:1,unknown:0}},excludedVotingDays:5,unknownCriticalDays:2}},
+  ...(resultsContext ? {player:{id,nickname:'Чагин',avatar_url:null,elo:1562},stats:{games:18,wins:12,win_rate:66.7},filters:{period_label:'Вся карьера',format_label:'Все форматы',seasons:[],formats:[{key:'RATING',label:'Рейтинговый',games:9},{key:'CASUAL',label:'Обычный',games:9}]}} : {}),
   recent_games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', won: true }],
 });
 const showcase = {
@@ -65,6 +68,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
   // His own Elo tab is the full journey (the same screen as «Рейтинг → Моя динамика» used to be).
   if (url.pathname === '/api/player/elo-journey') {
+    if (resultsContext) return json(resultsContextJourney(url.searchParams.get('format')));
     const outcome = { expected_percent: 50, elo_delta: 8, team_delta: 8, carry_modifier: 1 };
     return json({
       player: { id: 'preview-player', nickname: 'Чагин', elo: 1542, seed: 1500 },
@@ -87,6 +91,11 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname.endsWith('/summary')) return json(summaryFor(targetPlayerId));
   if (url.pathname.endsWith('/birthday')) return json({ day: 14, month: 8, year: null });
   if (url.pathname.endsWith('/games')) {
+    if (resultsContext) {
+      const offset = Number(url.searchParams.get('offset') || 0);
+      const games = resultsContextGames.filter(game => !url.searchParams.get('role') || game.role === url.searchParams.get('role'));
+      return json({games:games.slice(offset,offset+15),total:games.length,offset,limit:15});
+    }
     const rows = [4, 3, 2].map(number => ({ id: `club:g${number}`, title: 'Пятничный вечер', date: iso(2), game_number: number, role: number === 4 ? 'sheriff' : 'citizen', team: 'red', won: number !== 3, elo_before: 1527, elo_after: 1542, elo_delta: number === 3 ? -15 : 15 }));
     const games = params.has('history') ? rows.filter(game => (!url.searchParams.get('role') || game.role === url.searchParams.get('role')) && (!url.searchParams.get('team') || game.team === url.searchParams.get('team')) && (!url.searchParams.get('result') || game.won === (url.searchParams.get('result') === 'win'))) : rows;
     return json({games,total:games.length,offset:0,limit:15,next_offset:null});

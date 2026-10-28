@@ -1,5 +1,5 @@
 import { countGames, countPlayers,   } from '../../lib/russianPlural';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatMoscowDate } from '../../lib/moscowDate.ts';
 import { gameResultText } from '../../lib/playerResultObservations.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -46,6 +46,8 @@ type ClubWorldData = {
   season_records: RecordEntry[];
   season_history: SeasonItem[];
   hall_of_fame: RecordEntry[];
+  selected_season?:SeasonItem|null;
+  selected_season_records?:RecordEntry[];
 };
 
 const isPercentRecord = (label: string) => {
@@ -63,10 +65,10 @@ function Avatar({ src, name, size = 34 }: { src?: string | null; name: string; s
 
 function SeasonViewer({ season }: { season: SeasonItem }) {
   return <section aria-label="Мой результат в сезоне" className="mt-3 rounded-2xl border border-sky-200/10 bg-sky-200/[0.04] p-3">
-    <h3 className="text-xs font-semibold text-sky-100/75">Мой результат</h3>
+    <h3 className="text-xs font-semibold text-sky-100/75">Мои победы за этот период</h3>
     {season.viewer ? <>
       <p className="mt-1 text-sm font-semibold">{gameResultText(season.viewer)} · {season.viewer.win_rate}%</p>
-      <p className="mt-1 text-xs text-white/55">{season.viewer.place != null ? `Место ${season.viewer.place} из ${season.players}` : 'Место не указано'}</p>
+      <p className="mt-1 text-xs text-white/55">{season.viewer.place != null ? `Место по победам: ${season.viewer.place} из ${season.players}` : 'Место не указано'}</p>
     </> : <p className="mt-1 text-xs leading-5 text-white/55">В этом сезоне нет записанных игр.</p>}
   </section>;
 }
@@ -106,121 +108,22 @@ function RecordCard({ record, featured = false }: { record: RecordEntry; feature
   </button>;
 }
 
-/**
- * «Активность» shows one part at a time (owner, 2026-10-06: no long feed):
- * «Сезон» — the current season and its records; «Архив» — past seasons and the hall of fame.
- */
-export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history' }) {
-  const [data, setData] = useState<ClubWorldData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedSeasonKey, setSelectedSeasonKey] = useState<string | null>(()=>{try{return sessionStorage.getItem('club-archive-season');}catch{return null;}});
-  const [retry,setRetry]=useState(0);
-  useEffect(()=>{try{if(selectedSeasonKey)sessionStorage.setItem('club-archive-season',selectedSeasonKey);}catch{}},[selectedSeasonKey]);
-  // The season top starts with five rows.
-  const [topOpen, setTopOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);setError(null);
-    void fetch('/api/player/club-world', { credentials: 'include' })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить сезоны');
-        if (cancelled) return;
-        const next = body as ClubWorldData;
-        setData(next);
-        setSelectedSeasonKey(current=>next.season_history?.some(item=>item.key===current)?current:next.season_history?.find((item) => item.key !== next.season?.key)?.key || null);
-      })
-      .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить сезоны'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [retry]);
-
-  const selectedSeason = useMemo(
-    () => data?.season_history?.find((item) => item.key === selectedSeasonKey) || null,
-    [data, selectedSeasonKey],
-  );
-
-  if (loading) return <div className="rounded-2xl bg-white/[0.035] px-3 py-8 text-center text-xs text-white/30">Загружаем сезоны…</div>;
-  if (error || !data) return <div className="rounded-2xl bg-rose-400/[0.07] px-3 py-4 text-sm text-rose-200/65">{error || 'Сезоны недоступны'}<button type="button" onClick={()=>setRetry(v=>v+1)} className="mt-2 block min-h-11 px-3">Повторить загрузку сезонов</button></div>;
-
-  const viewerRank = data.season.ranking.find((item) => item.player_id === data.viewer_id) || null;
-
-  if (part === 'history') {
-    // The API also lists the running season; it belongs to «Сезон», not to the past.
-    const pastSeasons = (data.season_history || []).filter((item) => item.key !== data.season.key);
-    return (
-      <div className="space-y-3">
-        {pastSeasons.length > 0 ? (
-          <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Прошлые сезоны</div>
-            <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-              {pastSeasons.map((season) => (
-                <button key={season.key} type="button" onClick={() => setSelectedSeasonKey(season.key)} className={`shrink-0 rounded-xl px-3 py-2 text-left ${selectedSeasonKey === season.key ? 'bg-white text-black' : 'bg-black/20 text-white/45'}`}>
-                  <div className="text-[11px] font-semibold">{season.label}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(season.games)}</div>
-                </button>
-              ))}
-            </div>
-            {selectedSeason && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[11px] text-white/25">{countPlayers(selectedSeason.players)} · {countGames(selectedSeason.games)}</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[11px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[11px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
-                <SeasonContext season={selectedSeason}/>
-                <SeasonViewer season={selectedSeason}/>
-                <div className="mt-3 space-y-2"><h3 className="text-xs font-semibold text-white/75">Топ сезона</h3><RankingExtent season={selectedSeason} limit={5}/><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
-              </div>
-            )}
-          </section>
-        ) : <div className="rounded-2xl bg-white/[0.035] px-3 py-8 text-center text-xs text-white/35">Прошлых сезонов пока нет.</div>}
-        {data.hall_of_fame?.length > 0 ? (
-          <section className="rounded-[24px] border border-amber-200/10 bg-amber-200/[0.03] p-3">
-            <div className="text-[11px] uppercase tracking-[0.13em] text-amber-100/40">🏛 Зал славы · рекорды всей истории клуба</div>
-            <div className="mt-3 grid grid-cols-2 gap-2">{data.hall_of_fame.map((record) => <RecordCard key={record.label} record={record} featured />)}</div>
-          </section>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <section className="rounded-[26px] border border-sky-200/10 bg-gradient-to-br from-sky-300/[0.055] to-white/[0.02] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-100/45">Итоги сезона</div>
-            <div className="mt-1 text-xl font-black">{data.season.label}</div>
-            <div className="mt-1 text-[11px] text-white/30">{countGames(data.season.games)} · {countPlayers(data.season.players)}</div>
-          </div>
-          {viewerRank && <div className="rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-black">#{viewerRank.place}</div><div className="text-[11px] text-white/25">моё место</div></div>}
-        </div>
-        <SeasonContext season={data.season}/>
-        {data.season.viewer && (
-          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-            <div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.season.viewer.games}</div><div className="text-[11px] text-white/25">игр</div></div>
-            <div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.season.viewer.wins}</div><div className="text-[11px] text-white/25">побед</div></div>
-            <div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.season.viewer.win_rate}%</div><div className="text-[11px] text-white/25">винрейт</div></div>
-          </div>
-        )}
-        <div className="mt-4"><div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Топ сезона</div><RankingExtent season={data.season} limit={topOpen ? data.season.ranking.length : 5}/><RankingRows rows={data.season.ranking} viewerId={data.viewer_id} limit={topOpen ? data.season.ranking.length : 5} />
-          {!topOpen && data.season.ranking.length > 5 ? <button type="button" onClick={() => setTopOpen(true)} className="mt-1 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать места 6–{data.season.ranking.length}</button> : null}</div>
-      </section>
-
-      {data.hall_of_fame?.length > 0 && <section aria-label="Зал славы клуба" className="overflow-hidden rounded-[24px] border border-amber-200/15 bg-gradient-to-br from-amber-200/[.095] via-[#1b1614] to-[#101216] p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-amber-100/55">История клуба</div><h2 className="mt-1 text-lg font-semibold">🏛 Зал славы</h2></div>
-          <span className="rounded-full border border-amber-200/20 px-3 py-1 text-[10px] text-amber-100/65">Вся история</span>
-        </div>
-        <p className="mt-1 text-xs leading-5 text-white/50">Абсолютные рекорды клуба. Полный список — во вкладке «Архив».</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">{data.hall_of_fame.slice(0, 2).map((record) => <RecordCard key={record.label} record={record} featured />)}</div>
-      </section>}
-
-      {data.season_records?.length > 0 && (
-        <section className="rounded-[24px] border border-emerald-200/10 bg-emerald-200/[0.025] p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100/40">Рекорды текущего сезона</div>
-          <div className="mt-3 grid grid-cols-2 gap-2">{data.season_records.map((record) => <RecordCard key={record.label} record={record} featured />)}</div>
-        </section>
-      )}
-
-    </div>
-  );
+/** Period statistics share the exact selected RATING key with the sporting table. */
+export default function PlayerSeasonsPanel({part,periodKey}:{part:'period'|'hall'|'season'|'history';periodKey?:string}){
+ const[data,setData]=useState<ClubWorldData|null>(null);const[error,setError]=useState<string|null>(null);const[retry,setRetry]=useState(0);const[topOpen,setTopOpen]=useState(false);
+ const[fallbackKey,setFallbackKey]=useState<string|null>(()=>{try{return part==='history'?sessionStorage.getItem('club-archive-season'):null;}catch{return null;}});
+ useEffect(()=>{let cancelled=false;setData(null);setError(null);setTopOpen(false);const query=periodKey?'?period='+encodeURIComponent(periodKey):'';void fetch('/api/player/club-world'+query,{credentials:'include'}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body?.error||'Не удалось загрузить статистику клуба');if(!cancelled)setData(body);}).catch(err=>{if(!cancelled)setError(err?.message||'Не удалось загрузить статистику клуба');});return()=>{cancelled=true;};},[periodKey,retry]);
+ if(error)return <section role="alert" className="rounded-2xl border border-rose-300/15 p-4 text-sm"><p>{error}</p><button type="button" onClick={()=>setRetry(value=>value+1)} className="mt-2 min-h-11 px-2">Повторить загрузку</button></section>;
+ if(!data)return <p className="rounded-2xl bg-white/[0.035] px-3 py-8 text-center text-xs text-white/50">Загружаем статистику клуба…</p>;
+ if(part==='hall')return <section data-testid="club-hall-of-fame" className="rounded-3xl border border-amber-200/15 bg-amber-200/[0.035] p-4"><h2 className="text-lg font-semibold">Зал славы</h2><p className="mt-2 text-xs leading-5 text-white/60">Рекорды всей истории клуба по завершённым играм. У каждой категории свои условия; сезонные рекорды находятся в выбранном сезоне.</p>{data.hall_of_fame?.length?<div className="mt-4 grid grid-cols-2 gap-2">{data.hall_of_fame.map(record=><RecordCard key={record.label} record={record} featured/>)}</div>:<p className="mt-4 text-sm text-white/55">Подтверждённых рекордов пока нет.</p>}</section>;
+ const fallbackSeasons=[data.season,...(data.season_history||[])].filter((item,index,all)=>all.findIndex(other=>other.key===item.key)===index);
+ const season=periodKey?(data.selected_season?.key===periodKey?data.selected_season:null):fallbackSeasons.find(item=>item.key===fallbackKey)||(part==='history'?fallbackSeasons.find(item=>item.key!==data.season.key):data.season);
+ if(!season)return <section data-testid="club-period-unavailable" className="rounded-2xl border border-white/10 p-4 text-xs leading-5 text-white/60">Для выбранного периода статистика клуба недоступна. Спортивный зачёт показан выше.</section>;
+ const records=periodKey?data.selected_season_records||[]:season.key===data.season.key?data.season_records||[]:[];
+ return <section data-testid="club-period-stats" className="space-y-4 rounded-3xl border border-sky-200/10 bg-sky-200/[0.025] p-4">
+  <header><h2 className="text-lg font-semibold">Клуб за этот период</h2>{!periodKey&&fallbackSeasons.length>1&&<label className="mt-3 block text-xs text-white/65">Период статистики<select aria-label="Период статистики клуба" value={season.key} onChange={event=>{setFallbackKey(event.target.value);setTopOpen(false);try{sessionStorage.setItem('club-archive-season',event.target.value);}catch{}}} className="mobile-field mt-2 w-full text-sm">{fallbackSeasons.map(item=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label>}<p className="mt-1 text-sm font-medium text-white/80">{season.label}</p><p className="mt-2 text-xs leading-5 text-white/60">Все форматы завершённых игр в датах периода. Это статистика побед. {periodKey?'Спортивные баллы и зачётная дистанция показаны выше.':'Спортивный зачёт пока недоступен.'}</p><p className="mt-2 text-xs text-white/65">{countGames(season.games)} · {countPlayers(season.players)}</p><SeasonContext season={season}/></header>
+  <SeasonViewer season={season.viewer&&season.viewer.place==null?{...season,viewer:{...season.viewer,place:season.ranking.find(item=>item.player_id===data.viewer_id)?.place??null}}:season}/>
+  <div className="space-y-2"><h3 className="text-sm font-semibold">По числу побед</h3><RankingExtent season={season} limit={topOpen?season.ranking.length:5}/><RankingRows rows={season.ranking} viewerId={data.viewer_id} limit={topOpen?season.ranking.length:5}/>{!topOpen&&season.ranking.length>5&&<button type="button" onClick={()=>setTopOpen(true)} className="min-h-11 w-full rounded-xl bg-white/5 px-3 text-xs">Показать места 6–{season.ranking.length}</button>}</div>
+  {!!records.length&&<div><h3 className="text-sm font-semibold">Рекорды этого периода</h3><div className="mt-3 grid grid-cols-2 gap-2">{records.map(record=><RecordCard key={record.label} record={record}/>)}</div></div>}
+ </section>;
 }

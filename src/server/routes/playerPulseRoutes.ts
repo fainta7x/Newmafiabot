@@ -1,3 +1,4 @@
+import { playerFormScore, formWinStreak, comparePlayerForm, FORM_WINDOW } from '../../shared/playerForm.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
@@ -23,28 +24,7 @@ const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponen
 const lastResultsAt = (results: Result[], cutoffMs = Number.POSITIVE_INFINITY) => results
   .filter((result) => result.dateMs <= cutoffMs)
   .sort((a, b) => b.dateMs - a.dateMs)
-  .slice(0, 10);
-
-const winStreak = (results: Result[]) => {
-  let streak = 0;
-  for (const result of results) {
-    if (!result.won) break;
-    streak += 1;
-  }
-  return streak;
-};
-
-const powerScore = (results: Result[]) => {
-  if (!results.length) return 0;
-  let weightedWins = 0;
-  let totalWeight = 0;
-  results.forEach((result, index) => {
-    const weight = Math.max(1, 10 - index);
-    totalWeight += weight;
-    if (result.won) weightedWins += weight;
-  });
-  return Math.round((weightedWins / Math.max(1, totalWeight)) * 100 + Math.min(5, winStreak(results)) * 3);
-};
+  .slice(0, FORM_WINDOW);
 
 router.get('/pulse', async (req, res) => {
   const viewerId = requirePlayerId(req, res);
@@ -54,7 +34,7 @@ router.get('/pulse', async (req, res) => {
     const db = req.db;
     const [players, snapshots] = await Promise.all([
       db.all(`
-        SELECT id, nickname, elo
+        SELECT id, nickname, elo, profile_visibility_json
           FROM players
          WHERE TRIM(COALESCE(nickname, '')) <> ''
          ORDER BY nickname COLLATE NOCASE ASC
@@ -87,16 +67,18 @@ router.get('/pulse', async (req, res) => {
         wins,
         win_rate: winRatePercent(wins, results.length),
         last5_wins: recentFive.filter((result) => result.won).length,
-        streak: winStreak(results),
-        score: powerScore(results),
+        streak: formWinStreak(results),
+        score: playerFormScore(results),
+        last_results: String(player.id)===String(viewerId)||parsePlayerProfileVisibility(player.profile_visibility_json).game_statistics?results.map(result=>result.won?'W':'L'):undefined,
+        last_game_at: results.length&&(String(player.id)===String(viewerId)||parsePlayerProfileVisibility(player.profile_visibility_json).game_statistics)?new Date(results[0].dateMs).toISOString():null,
       }];
-    }).sort((a: any, b: any) => b.score - a.score || b.wins - a.wins || b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));
+    }).sort(comparePlayerForm);
 
     const previousEntries = players.flatMap((player: any) => {
       const results = lastResultsAt(byPlayer.get(String(player.id)) || [], previousCutoff);
       if (results.length < 3) return [];
-      return [{ player_id: String(player.id), score: powerScore(results), games: results.length }];
-    }).sort((a: any, b: any) => b.score - a.score || b.games - a.games);
+      return [{ player_id: String(player.id), nickname:String(player.nickname), elo:Number(player.elo||0), wins:results.filter(result=>result.won).length, score: playerFormScore(results), games: results.length }];
+    }).sort(comparePlayerForm);
     const previousRanks = new Map(previousEntries.map((entry: any, index: number) => [entry.player_id, index + 1]));
 
     const ranking = currentEntries.slice(0, 15).map((entry: any, index: number) => {

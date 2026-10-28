@@ -40,7 +40,7 @@ export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; label: 
 export const PLAYER_NAV_SECTION: Record<PlayerCabinetNavId, PlayerCabinetSection> = {
   home: 'home',
   evenings: 'events',
-  community: 'rating',
+  community: 'club',
   progress: 'profile',
 };
 

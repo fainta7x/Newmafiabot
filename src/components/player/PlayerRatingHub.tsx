@@ -1,22 +1,19 @@
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
-import { useEffect, useState } from 'react';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
-import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
-import PlayerMetricRatings from './PlayerMetricRatings.tsx';
+import PlayerSeasonHub from './PlayerSeasonHub.tsx';
 import PlayerRatingTable from './PlayerRatingTable.tsx';
 import PlayerTournamentResults from './PlayerTournamentResults.tsx';
 
 export type PlayerRatingSection = 'rating' | 'ratingperiods' | 'ratingtournaments';
 
-type RatingTab = 'elo' | 'season' | 'tournaments' | 'metrics';
+type RatingTab = 'elo' | 'season' | 'tournaments';
 
 // One tab per competition (see BUSINESS_RULES «Game formats and ratings»):
 // Elo across CASUAL/RATING/TOURNAMENT games, organizer-defined seasons with
 // extra points, and published tournament standings.
 const TABS: Array<{ value: RatingTab; label: string }> = [
   { value: 'elo', label: 'Elo' },
-  { value: 'metrics', label: 'Показатели' },
   { value: 'season', label: 'Сезон' },
   { value: 'tournaments', label: 'Турниры' },
 ];
@@ -46,24 +43,21 @@ export default function PlayerRatingHub({
   /** Inside «Сообщество»: the section already has its title. */
   embedded?: boolean;
 }) {
-  // «Показатели» is a view of its own inside the rating; the other three tabs keep their routes.
-  const [metricsOpen, setMetricsOpen] = useState(target === 'metrics');
-  useEffect(() => { setMetricsOpen(target === 'metrics'); }, [section, target]);
-  const tab: RatingTab = metricsOpen ? 'metrics' : tabFor(section);
+  const tab:RatingTab=tabFor(section);
 
   return (
     <div className="bg-[#090a0d] text-white">
       <div className={`player-workspace mx-auto w-full max-w-[430px] space-y-2 px-3 ${embedded ? 'pt-0' : 'pt-3'}`}>
         <header className={embedded ? 'px-1' : 'px-1 pb-1 pt-1'}>
           <h1 className={embedded ? 'sr-only' : 'text-2xl font-semibold'}>Рейтинг</h1>
-          {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo по всем играм, кроме новичковых · рейтинги по показателям · сезон с доп. баллами · турниры</p>}
+          {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo · спортивные баллы сезона · результаты турниров</p>}
         </header>
         <SegmentedControl
           scrollable
           ariaLabel="Разделы рейтинга"
           value={tab}
           items={TABS}
-          onValueChange={(next) => { setMetricsOpen(next === 'metrics'); onOpen(sectionFor(next), next === 'metrics' ? 'metrics' : null); }}
+          onValueChange={(next) => onOpen(sectionFor(next))}
           itemClassName="px-1 text-[12px]"
         />
         {/* Inside «Сообщество» the list comes first; the own Elo path lives in «Прогресс». */}
@@ -74,12 +68,10 @@ export default function PlayerRatingHub({
 
       {tab === 'elo' ? (
         <PlayerRatingTable playerId={data.player.id} />
-      ) : tab === 'metrics' ? (
-        <PlayerMetricRatings />
       ) : tab === 'season' ? (
         <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
           <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
-            <PlayerRatingPeriods playerId={data.player.id} onOpenGame={openPlayerGame} />
+            <PlayerSeasonHub playerId={data.player.id} onOpenGame={openPlayerGame} initialArchive={target==='archive'}/>
           </div>
         </main>
       ) : (

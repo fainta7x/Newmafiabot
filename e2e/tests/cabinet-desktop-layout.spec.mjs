@@ -50,6 +50,7 @@ for (const width of [390, 1024, 1366, 1440]) {
       await shot(`evenings-${name}`);
     }
     await nav.getByRole('button', { name: 'Сообщество', exact: true }).click();
+    await page.getByLabel('Разделы сообщества').getByRole('button',{name:'Рейтинг',exact:true}).click();
     await expect(page.getByTestId('rating-self-row')).toBeVisible();
     await shot('community-rating');
     for (const name of ['Сезон', 'Турниры']) {
@@ -67,7 +68,7 @@ for (const width of [390, 1024, 1366, 1440]) {
         await shot('stories-teams');
         await stories.getByText('Шериф и мирный', { exact: true }).evaluate(el => el.scrollIntoView({ block: 'center' }));
         await shot('stories-sheriff');
-        for (const [label, view] of [['Соперники', 'opposition'], ['Знакомства', 'circle']]) {
+        for (const [label, view] of [['Соперники', 'opposition'], ['За одним столом', 'circle']]) {
           await page.getByLabel('Что показать').getByRole('button', { name: label, exact: true }).click();
           await page.getByTestId(`club-stories-${view}`).evaluate(el => el.scrollIntoView({ block: 'center' }));
           await shot(`stories-${view}`);
@@ -75,12 +76,12 @@ for (const width of [390, 1024, 1366, 1440]) {
         await stories.getByText('Что здесь считается', { exact: true }).click();
         await stories.locator('details').evaluate(el => el.scrollIntoView({ block: 'center' }));
         await shot('stories-help');
-        await page.getByLabel('Что показать').getByRole('button', { name: 'Пары', exact: true }).click();
+        await page.getByLabel('Что показать').getByRole('button', { name: 'Напарники', exact: true }).click();
         const duos = page.getByTestId('club-duos');
         await duos.evaluate(el => el.scrollIntoView({ block: 'center' }));
         await expect(duos.getByText('Александра с длинным никнеймом', { exact: true })).toBeVisible();
         await expect(duos.getByText('Вместе сыграли только раз', { exact: false })).toBeVisible();
-        await page.getByRole('button', { name: 'Самые сыгранные', exact: true }).click();
+        await page.getByRole('button', { name: 'По числу игр', exact: true }).click();
         await expect(duos.getByText('Ночной игрок', { exact: true })).toBeVisible();
         await shot('connections-most-played');
         const firstPair = duos.getByRole('button', { name: 'Открыть профиль Новая пара', exact: true });
@@ -92,11 +93,10 @@ for (const width of [390, 1024, 1366, 1440]) {
         await shot('connections-first-game');
       }
     }
-    await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Активность', exact: true }).click();
-    for (const name of ['Форма', 'Матчи', 'Сезон', 'Архив']) {
-      await page.getByLabel('Разделы активности').getByRole('button', { name, exact: true }).click();
-      await shot(`activity-${name}`);
-    }
+    await page.getByLabel('Разделы сообщества').getByRole('button',{name:'Игроки',exact:true}).click();
+    await page.getByLabel('Разделы игроков').getByRole('button',{name:'Форма',exact:true}).click();await shot('players-form');
+    await page.getByLabel('Разделы сообщества').getByRole('button',{name:'История',exact:true}).click();
+    for(const name of ['Вечера и игры','Зал славы']){await page.getByLabel('Разделы истории').getByRole('button',{name,exact:true}).click();await shot(`history-${name}`);}
     await page.getByTestId('player-quick-wallet').click();
     await expect(page.getByRole('navigation', { name: 'Разделы кошелька' })).toBeVisible();
     for (const name of ['Оплата', 'Магазин', 'Ставки', 'История']) {

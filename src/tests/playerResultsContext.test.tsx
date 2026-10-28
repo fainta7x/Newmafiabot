@@ -39,7 +39,7 @@ const archive=(unranked=false,absent=false)=>{
 it('shows the archived personal result even outside the five visible leaders',async()=>{
   respond(archive());render(<PlayerSeasonsPanel part="history"/>);
   const result=await screen.findByRole('region',{name:'Мой результат в сезоне'});
-  expect(result.textContent).toContain('8 побед из 12 игр');expect(result.textContent).toContain('Место 8 из 21');
+  expect(result.textContent).toContain('8 побед из 12 игр');expect(result.textContent).toContain('Место по победам: 8 из 21');
   expect(screen.getByText('Показаны места 1–5. Участников в сезоне: 21.')).toBeTruthy();
   expect(screen.getAllByText('Очень длинный игровой псевдоним').at(-1)?.className).not.toContain('truncate');
 });

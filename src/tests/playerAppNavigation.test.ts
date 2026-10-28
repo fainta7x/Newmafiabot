@@ -51,11 +51,11 @@ describe('new player menu addresses (owner, 2026-10-06)', () => {
   it('restores community, activity, wallet and metrics views from their own addresses', () => {
     for (const [section, target, path] of [
       ['club', 'connections', '/player/club/connections'], ['club', 'games', '/player/club/games'],
-      ['clubworld', 'form', '/player/seasons/form'], ['clubworld', 'matches', '/player/seasons/matches'],
-      ['clubworld', 'season', '/player/seasons/season'], ['clubworld', 'history', '/player/seasons/history'],
+      ['club', 'form', '/player/club/form'], ['club', 'history', '/player/club/history'],
+      ['ratingperiods', null, '/player/rating/periods'], ['ratingperiods', 'archive', '/player/rating/periods/archive'],
       ['wallet', 'payments', '/player/wallet/payments'], ['wallet', 'shop', '/player/wallet/shop'],
       ['wallet', 'bets', '/player/wallet/bets'], ['wallet', 'history', '/player/wallet/history'],
-      ['rating', 'metrics', '/player/rating/metrics'],
+      ['club', 'metrics', '/player/club/metrics'],
     ] as const) {
       expect(playerPathForSection(section, target)).toBe(path);
       expect(parsePlayerRoute(path)).toMatchObject({ section, target, canonicalPath: path });

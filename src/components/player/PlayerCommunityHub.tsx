@@ -1,127 +1,43 @@
-import { useEffect, useRef, useState } from 'react';
-import { readCommunityView, writeCommunityView, type CommunityRatingView } from '../../lib/communityViewMemory.ts';
-import type { PlayerMeResponse } from '../../types/player.ts';
-import { SegmentedControl } from '../ui/SegmentedControl.tsx';
+import {useEffect,useState} from 'react';
+import {readCommunityView,writeCommunityView,type CommunityDestination} from '../../lib/communityViewMemory.ts';
+import type {PlayerMeResponse} from '../../types/player.ts';
+import {SegmentedControl} from '../ui/SegmentedControl.tsx';
 import PlayerClubActivity from './PlayerClubActivity.tsx';
 import PlayerClubConnections from './PlayerClubConnections.tsx';
 import PlayerClubDirectory from './PlayerClubDirectory.tsx';
-import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
+import PlayerRatingHub,{type PlayerRatingSection} from './PlayerRatingHub.tsx';
+import PlayerMetricRatings from './PlayerMetricRatings.tsx';
 import PlayerSeasonsPanel from './PlayerSeasonsPanel.tsx';
 import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
-
-/**
- * «Сообщество» (owner decision 2026-10-06): rating, players, connections and activity in one place,
- * with «Мини-игры» (the poker table, «Кровь на часовой башне») as the last tab (owner, 2026-10-18). Old addresses keep working: /player/rating (and its tabs), /player/club,
- * /player/seasons.
- */
-export type CommunitySection = PlayerRatingSection | 'club' | 'clubworld';
-type CommunityView = 'rating' | 'players' | 'connections' | 'activity' | 'games';
-type ActivityView = 'form' | 'matches' | 'season' | 'history';
-
-// «Активность» used to be one long feed; now one part at a time (owner, 2026-10-06).
-const ACTIVITY_NAV: Array<{ value: ActivityView; label: string }> = [
-  { value: 'form', label: 'Форма' },
-  { value: 'matches', label: 'Матчи' },
-  { value: 'season', label: 'Сезон' },
-  { value: 'history', label: 'Архив' },
-];
-
-const NAV: Array<{ value: CommunityView; label: string }> = [
-  { value: 'rating', label: 'Рейтинг' },
-  { value: 'players', label: 'Игроки' },
-  { value: 'connections', label: 'Связи' },
-  { value: 'activity', label: 'Активность' },
-  { value: 'games', label: 'Мини-игры' },
-];
-
-const viewFor = (section: CommunitySection, target?: string | null): CommunityView =>
-  section === 'club' ? target === 'connections' || target === 'games' ? target : 'players' : section === 'clubworld' ? 'activity' : 'rating';
-const activityFor = (section: CommunitySection, target?: string | null): ActivityView =>
-  ACTIVITY_NAV.some((item) => item.value === target) ? target as ActivityView : section === 'clubworld' ? 'season' : 'form';
-
-export default function PlayerCommunityHub({
-  data,
-  section,
-  target = null,
-  onOpen,
-  onOpenPoker,
-  onOpenClocktower,
-  onOpenProfileElo,
-}: {
-  data: PlayerMeResponse;
-  section: CommunitySection;
-  target?: string | null;
-  onOpen: (section: CommunitySection, target?: string | null) => void;
-  onOpenPoker?: () => void;
-  onOpenClocktower?: () => void;
-  onOpenProfileElo?: () => void;
-}) {
-  const remembered=useRef(readCommunityView(data.player.id));
-  const [view, setView] = useState<CommunityView>(() => viewFor(section, target));
-  // Explicit addresses win; leaving a group must not clear its remembered subview.
-  const [activity, setActivity] = useState<ActivityView>(() => section==='clubworld'?activityFor(section,target):remembered.current.activity);
-  useEffect(() => {
-    const next=readCommunityView(data.player.id);
-    if(section==='rating'||section==='ratingperiods'||section==='ratingtournaments')next.rating={section,target:section==='rating'&&target==='metrics'?'metrics':null};
-    if(section==='clubworld')next.activity=activityFor(section,target);
-    remembered.current=next;writeCommunityView(data.player.id,next);
-    setView(viewFor(section,target));setActivity(next.activity);
-  }, [section,target,data.player.id]);
-  const chooseRating=(next:CommunityRatingView['section'],nextTarget:string|null=null)=>{
-    remembered.current.rating={section:next,target:next==='rating'&&nextTarget==='metrics'?'metrics':null};
-    writeCommunityView(data.player.id,remembered.current);onOpen(next,nextTarget);
-  };
-  const chooseActivity=(next:ActivityView)=>{
-    setActivity(next);remembered.current.activity=next;writeCommunityView(data.player.id,remembered.current);onOpen('clubworld',next);
-  };
-  const choose = (next: CommunityView) => {
-    setView(next);
-    if(next==='rating'){onOpen(remembered.current.rating.section,remembered.current.rating.target);return;}
-    onOpen(next==='activity'?'clubworld':'club',next==='connections'||next==='games'?next:next==='activity'?activity:null);
-  };
-
-  return (
-    <main className="player-workspace-page min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-white" data-testid="player-community-hub">
-      <div className={"player-workspace mx-auto w-full space-y-3 px-3 transition-[max-width] " + (view === "connections" ? "max-w-6xl" : "max-w-[430px]")}>
-        <header className="px-1 pt-1">
-          <h1 className="text-2xl font-semibold">Сообщество</h1>
-        </header>
-
-        <SegmentedControl
-          wrapLabels
-          className="player-community-menu max-w-[430px]"
-          ariaLabel="Разделы сообщества"
-          value={view}
-          items={NAV}
-          onValueChange={choose}
-          itemClassName="!text-[12px]"
-        />
-
-        {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}
-        {view === 'activity' && (
-          <>
-            <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={chooseActivity} itemClassName="px-1 text-[12px]" />
-            {activity === 'form' && <PlayerClubActivity />}
-            {activity === 'matches' && <PlayerStoriesPanel viewerId={data.player.id} />}
-            {activity === 'season' && <PlayerSeasonsPanel part="season" />}
-            {activity === 'history' && <PlayerSeasonsPanel part="history" />}
-          </>
-        )}
-        {view === 'connections' && <PlayerClubConnections />}
-        {view === 'games' && (
-          <section className="space-y-2" data-testid="player-minigames" aria-label="Мини-игры">
-            <p className="px-1 text-sm leading-5 text-white/55">Клубный досуг: играем между вечерами и зовём друг друга.</p>
-            <button type="button" data-testid="player-club-poker" onClick={() => { onOpenPoker?.(); }} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left active:bg-white/[.08]"><span><span className="block text-base font-semibold">Покер</span><span className="mt-0.5 block text-xs font-normal text-white/55">Игра на клубные жетоны или с ботами · столы и турниры</span></span><span aria-hidden="true" className="text-white/45">›</span></button>
-            <button type="button" data-testid="player-club-clocktower" onClick={() => { onOpenClocktower?.(); }} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left active:bg-white/[.08]"><span><span className="block text-base font-semibold">Кровь на часовой башне</span><span className="mt-0.5 block text-xs font-normal text-white/55">Настольная игра · комнаты, приглашения, правила</span></span><span aria-hidden="true" className="text-white/45">›</span></button>
-          </section>
-        )}
-      </div>
-      {view === 'rating' ? (
-        <div className="mt-2">
-          <PlayerRatingHub embedded data={data} section={section === 'club' || section === 'clubworld' ? remembered.current.rating.section : section} target={section === 'club' || section === 'clubworld' ? remembered.current.rating.target : target} onOpen={chooseRating} onOpenProfileElo={onOpenProfileElo} />
-        </div>
-      ) : null}
-
-    </main>
-  );
+export type CommunitySection=PlayerRatingSection|'club'|'clubworld';
+type View='players'|'rating'|'connections'|'history'|'games';
+const NAV:Array<{value:View;label:string}>=[{value:'players',label:'Игроки'},{value:'rating',label:'Рейтинг'},{value:'connections',label:'Связи'},{value:'history',label:'История'},{value:'games',label:'Мини-игры'}];
+const PURPOSE:Record<View,string>={players:'Люди клуба, их показатели и недавние результаты.',rating:'Elo, спортивный зачёт сезона и результаты турниров.',connections:'Совместные игры, соперничество и встречи за одним столом.',history:'Итоги прошедших вечеров, игры и рекорды клуба.',games:'Клубный досуг: играем между вечерами и зовём друг друга.'};
+function destination(section:CommunitySection,target:string|null):CommunityDestination{
+ if(section==='clubworld')return target==='form'?{section:'club',target:'form'}:target==='matches'?{section:'club',target:'history'}:{section:'ratingperiods',target:target==='history'?'archive':null};
+ if(section==='rating'&&target==='metrics')return{section:'club',target:'metrics'};
+ return{section,target};
+}
+export default function PlayerCommunityHub({data,section,target=null,onOpen,onOpenPoker,onOpenClocktower,onOpenProfileElo,onOpenMyConnections}:{data:PlayerMeResponse;section:CommunitySection;target?:string|null;onOpen:(section:CommunitySection,target?:string|null)=>void;onOpenPoker?:()=>void;onOpenClocktower?:()=>void;onOpenProfileElo?:()=>void;onOpenMyConnections?:()=>void}){
+ const[route,setRoute]=useState(()=>destination(section,target));
+ useEffect(()=>setRoute(destination(section,target)),[section,target]);
+ const navigate=(next:CommunitySection,nextTarget:string|null=null)=>{setRoute(destination(next,nextTarget));onOpen(next,nextTarget);};
+ const view:View=route.section!=='club'?'rating':route.target==='connections'?'connections':route.target==='games'?'games':route.target==='history'||route.target==='hall'?'history':'players';
+ const players=route.target==='metrics'?'metrics':route.target==='form'?'form':'list';
+ const history=route.target==='hall'?'hall':'matches';
+ useEffect(()=>{const next=readCommunityView(data.player.id);next.last=route;if(view==='rating')next.rating={section:route.section as PlayerRatingSection,target:route.target==='archive'?'archive':null};if(view==='players')next.players=players;if(view==='history')next.history=history;writeCommunityView(data.player.id,next);},[data.player.id,route.section,route.target,view,players,history]);
+ const choose=(next:View)=>{const saved=readCommunityView(data.player.id);if(next==='rating'){navigate(saved.rating.section,saved.rating.target);return;}navigate('club',next==='players'?saved.players==='list'?null:saved.players:next==='history'?saved.history==='hall'?'hall':'history':next==='connections'?'connections':'games');};
+ return <main className="player-workspace-page min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-white" data-testid="player-community-hub">
+  <div className={'player-workspace mx-auto w-full space-y-3 px-3 '+(view==='connections'?'max-w-6xl':'max-w-[430px]')}>
+   <header className="px-1 pt-1"><h1 className="text-2xl font-semibold">Сообщество</h1></header>
+   <SegmentedControl wrapLabels className="player-community-menu max-w-[430px]" ariaLabel="Разделы сообщества" value={view} items={NAV} onValueChange={choose} itemClassName="!text-[12px]"/>
+   {view!=='connections'&&<p className="px-1 text-xs leading-5 text-white/60">{PURPOSE[view]}</p>}
+   {view==='players'&&<><SegmentedControl wrapLabels ariaLabel="Разделы игроков" value={players} items={[{value:'list',label:'Список'},{value:'metrics',label:'Показатели'},{value:'form',label:'Форма'}]} onValueChange={next=>navigate('club',next==='list'?null:next)} itemClassName="text-[12px]"/>{players==='list'?<PlayerClubDirectory selfId={data.player.id}/>:players==='form'?<PlayerClubActivity/>:null}</>}
+   {view==='history'&&<><SegmentedControl wrapLabels ariaLabel="Разделы истории" value={history} items={[{value:'matches',label:'Вечера и игры'},{value:'hall',label:'Зал славы'}]} onValueChange={next=>navigate('club',next==='hall'?'hall':'history')}/>{history==='hall'?<PlayerSeasonsPanel part="hall"/>:<PlayerStoriesPanel viewerId={data.player.id}/>}</>}
+   {view==='connections'&&<><PlayerClubConnections/>{onOpenMyConnections&&<button type="button" onClick={onOpenMyConnections} className="min-h-11 rounded-xl border border-white/10 px-3 text-sm text-white/70">Мои связи и приглашения ›</button>}</>}
+   {view==='games'&&<section className="space-y-2" data-testid="player-minigames" aria-label="Мини-игры">{[['Покер','Игра на клубные жетоны или с ботами · столы и турниры',onOpenPoker,'player-club-poker'],['Кровь на часовой башне','Настольная игра · комнаты, приглашения, правила',onOpenClocktower,'player-club-clocktower']].map(([name,description,action,testid])=><button key={String(testid)} type="button" data-testid={String(testid)} onClick={()=>{if(typeof action==='function')action();}} className="ds-focus-ring flex min-h-[72px] w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3 text-left"><span><span className="block text-base font-semibold">{String(name)}</span><span className="mt-1 block text-xs leading-5 text-white/55">{String(description)}</span></span><span aria-hidden="true">›</span></button>)}</section>}
+  </div>
+  {view==='rating'&&<div className="mt-2"><PlayerRatingHub embedded data={data} section={route.section as PlayerRatingSection} target={route.target} onOpen={navigate} onOpenProfileElo={onOpenProfileElo}/></div>}
+  {view==='players'&&players==='metrics'&&<PlayerMetricRatings/>}
+ </main>;
 }

@@ -95,13 +95,15 @@ Bottom menu of four (owner decision 2026-10-06): Главная · Вечера 
 
 - `PlayerHomeDashboard.tsx` — «Главная»: next evening, debt for past evenings, club news, «Обучение» card;
 - `PlayerEveningsHub.tsx` — «Вечера»: «Скоро» (`PlayerEventsCalendar.tsx`), «Прошедшие» (`PlayerEveningSummaries.tsx`), «Мои игры» (`PlayerHistoryStatsView.tsx`);
-- `PlayerCommunityHub.tsx` — «Сообщество»: poker table, «Рейтинг» (`PlayerRatingHub.tsx`), «Игроки», «Связи», «Активность»;
+- `PlayerCommunityHub.tsx` — «Сообщество»: «Игроки» (directory/metrics/form), «Рейтинг» (Elo/season/tournaments), «Связи», «История» (evenings/games/Hall of Fame), «Мини-игры». `PlayerSeasonHub.tsx` shares one selected period between sporting standings and separately labelled club statistics; `ClubConnectionCard.tsx` is the common relationship summary. Old Activity/metric URLs resolve through `appNavigation.ts`, viewer-local group preferences through `communityViewMemory.ts`;
 - `PlayerProfileHub.tsx` — «Прогресс»: own profile (`CanonicalPremiumPlayerProfile.tsx`) with the «Обучение» tab (`PlayerLearningBlock.tsx`);
 - `PlayerSettingsHub.tsx` — «Настройки» (gear): my details, notifications, privacy, music;
 - `PlayerWalletHub.tsx` — wallet/tokens/economy;
 - `PlayerConductCenter.tsx` — judge/host workspace;
 - `JudgeMusicPlaylist.tsx` — staff/judge music playlist;
 - `PlayerLiveOnlyCenter.tsx` — live-only experience.
+
+Form points have one implementation in `shared/playerForm.ts`, used by `playerPulseRoutes.ts`; UI explanations describe that existing index. The pulse adds recent outcomes/date only when the viewer may see game statistics (or owns them). Seasonal club statistics accept an exact RATING period key, preserving the sporting table’s independent eligibility/distance.
 
 Primary player APIs are under `/api/player/*`; inspect `src/app.ts` and `src/server/routes/player*Routes.ts` for exact ownership.
 

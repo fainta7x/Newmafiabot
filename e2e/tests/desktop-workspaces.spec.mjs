@@ -63,7 +63,7 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
       expect(stats.width).toBeGreaterThan(content.width - 90);
     }
     await page.screenshot({ path: testInfo.outputPath(`profile-expanded-${width}.png`), fullPage: true });
-    for (const label of ['Игры', 'Роли', 'Elo', 'Награды', 'История клуба', 'Связи']) {
+    for (const label of ['Игры', 'Роли', 'Elo', 'Награды', 'Моя история', 'Связи']) {
       // The profile groups related content: Career contains games, roles and Elo;
       // Awards contains both the showcase and club history.
       if (label === 'Игры') await profile.getByRole('button', { name: 'Карьера', exact: true }).click();

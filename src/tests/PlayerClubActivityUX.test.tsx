@@ -27,7 +27,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('ЛК «Сообщество → Активность → Форма»: readable ranking and actions', () => {
+describe('ЛК «Сообщество → Игроки → Форма»: readable ranking and actions', () => {
   it('makes each ranking card a real profile action and always shows own standing outside top five', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => response(form)));
     render(<PlayerClubActivity />);
@@ -44,7 +44,7 @@ describe('ЛК «Сообщество → Активность → Форма»:
     fireEvent.click(own);
     expect(openCanonicalPlayerProfile).toHaveBeenCalledWith('p6');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Показать всех · 6' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Показать места 6–6' }));
     expect(screen.getByTestId('player-form-row-p6')).toBeDefined();
     expect(screen.queryByTestId('player-form-own-position')).toBeNull();
     expect(screen.getAllByTestId(/^player-form-row-/)).toHaveLength(6);
@@ -60,8 +60,10 @@ describe('ЛК «Сообщество → Активность → Форма»:
     const highlight = within(root).getByRole('button', { name: 'Открыть профиль Игрок 2' });
     fireEvent.click(highlight);
     expect(openCanonicalPlayerProfile).toHaveBeenCalledWith('p2');
-    expect(screen.getByText('Как считается форма')).toBeDefined();
-    expect(screen.getByText(form.meta.formula)).toBeDefined();
+    expect(screen.getByText('Что значат баллы Формы')).toBeDefined();
+    expect(screen.getByTestId('form-explanation').textContent).toContain('Максимум — 115 баллов');
+    expect(screen.getByTestId('form-explanation').textContent).toContain('97 баллов');
+    expect(screen.getByTestId('form-explanation').textContent).toContain('38 баллов');
   });
 
   it('distinguishes service errors from no players and recovers in place after retry', async () => {

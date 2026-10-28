@@ -316,11 +316,11 @@ it('returns each progress group to its last nested view, including after remount
   fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
   fireEvent.click(screen.getByRole('button',{name:'Роли'}));
   fireEvent.click(screen.getByRole('button',{name:'Награды'}));
-  fireEvent.click(screen.getByRole('button',{name:'История клуба'}));
+  fireEvent.click(screen.getByRole('button',{name:'Моя история'}));
   fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
   expect(screen.getByRole('button',{name:'Роли'}).getAttribute('aria-current')).toBe('page');
   fireEvent.click(screen.getByRole('button',{name:'Награды'}));
-  expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('button',{name:'Моя история'}).getAttribute('aria-current')).toBe('page');
   fireEvent.click(screen.getByRole('button',{name:'Связи'}));
   first.unmount();
   render(<CanonicalPremiumPlayerProfile playerId="groups" selfPlayerId="groups" mode="self"/>);
@@ -328,7 +328,7 @@ it('returns each progress group to its last nested view, including after remount
   fireEvent.click(screen.getByRole('button',{name:'Карьера'}));
   expect(screen.getByRole('button',{name:'Роли'}).getAttribute('aria-current')).toBe('page');
   fireEvent.click(screen.getByRole('button',{name:'Награды'}));
-  expect(screen.getByRole('button',{name:'История клуба'}).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('button',{name:'Моя история'}).getAttribute('aria-current')).toBe('page');
 });
 
 

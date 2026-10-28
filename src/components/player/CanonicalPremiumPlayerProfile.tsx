@@ -20,7 +20,7 @@ import { FitText } from '../ui/FitText.tsx';
 
 type Tab = 'overview' | 'games' | 'roles' | 'elo' | 'awards' | 'history' | 'connections' | 'learning';
 type Period = { starts_at?: string; ends_at?: string; title?: string };
-const TABS: Array<[Tab,string]> = [['overview','Обзор'],['games','Игры'],['roles','Роли'],['elo','Elo'],['awards','Награды'],['history','История клуба'],['connections','Связи']];
+const TABS: Array<[Tab,string]> = [['overview','Обзор'],['games','Игры'],['roles','Роли'],['elo','Elo'],['awards','Награды'],['history','История игрока'],['connections','Связи']];
 const ROLE_OPTIONS: Array<readonly [string, string]> = [['', 'Все роли'], ...GAME_ROLE_KEYS.map(key => [key, GAME_ROLES[key].label] as const)];
 const TEAM_OPTIONS = [['','Все команды'],['red','Красные'],['black','Чёрные']] as const;
 const RESULT_OPTIONS = [['','Любой результат'],['win','Победа'],['loss','Поражение']] as const;
@@ -284,7 +284,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
           className={`min-h-11 min-w-0 rounded-xl px-0.5 text-center text-[10px] font-semibold sm:text-xs ${activeGroup===key?'bg-white text-black':'bg-white/[.07] text-white/75 hover:bg-white/[.11]'}`}>{label}</button>)}
       </nav>
       {(activeGroup==='games'||activeGroup==='awards')&&<nav className="mt-2 flex gap-1.5" aria-label={activeGroup==='games'?'Разделы карьеры':'Разделы наград'}>
-        {(activeGroup==='games'?[['games','Игры'],['roles','Роли'],['elo','Elo']]:[['awards','Витрина'],['history','История клуба']]).map(([key,label])=>
+        {(activeGroup==='games'?[['games','Игры'],['roles','Роли'],['elo','Elo']]:[['awards','Витрина'],['history',isSelf?'Моя история':'История игрока']]).map(([key,label])=>
           <button key={key} type="button" data-track={`profile-tab-${key}`}
             aria-current={tab===key?'page':undefined} onClick={()=>switchTab(key as Tab)}
             className={`min-h-11 rounded-lg px-3 text-xs font-medium ${tab===key?'bg-amber-200/15 text-amber-100 ring-1 ring-amber-200/25':'bg-white/[.045] text-white/65'}`}>{label}</button>)}

@@ -769,7 +769,11 @@ Registration eligibility (user-approved 2026-09-23):
 - Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
 - Tournament places go to «Играю» answers in answer order; see «Tournament registration».
 
-The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (the club table; the personal Elo dynamics are the «Elo» tab of the profile), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). «Итоги сезона» under «Клуб → Активность» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
+The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (the club table; the personal Elo dynamics are the «Elo» tab of the profile), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). The club statistics alongside the selected «Рейтинг → Сезон» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
+
+Community structure (owner approval, 2026-10-28): Players holds the directory, player metrics and Form; Rating holds the three competitions; Connections holds teammates/opponents/table encounters; History holds shared evening/game results and the single all-time Hall of Fame; Mini-games remains separate. Sporting standings and club win statistics share a selected RATING period ID but retain their own game eligibility/distance. NOVICE never displays another RATING period’s statistics. Existing calendar statistics/archives remain available when no sporting period is opened. Personal profile history is labelled as the player’s own story.
+
+Form points are retained (owner: «просто нужно пояснить понятно как оно считается и что значит»). They describe weighted recent team outcomes plus the existing winning-series bonus; they do not change Elo, sporting points or awards. The single formula is `src/shared/playerForm.ts`; the player UI explains its weights, series, rounding and absence of calendar decay. Existing minimum samples and all other rating rules remain unchanged.
 
 ## Elo / rating principles
 

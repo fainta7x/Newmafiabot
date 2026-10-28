@@ -132,6 +132,19 @@ const seasonPayload = (season: Season, games: CompletedGameSnapshot[], viewerId:
   };
 };
 
+const recordsFor = (stats:Map<string,PlayerAggregate>) => {
+  const current = [...stats.values()];
+    const currentMostWins = current.slice().sort((a, b) => b.wins - a.wins || b.games - a.games)[0] || null;
+    const currentBestRate = current.filter((item) => item.games >= 5).sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games) || b.wins - a.wins)[0] || null;
+    const currentBestStreak = current.slice().sort((a, b) => longestStreak(b.results) - longestStreak(a.results) || b.games - a.games)[0] || null;
+  return [
+      recordPayload(currentMostWins, currentMostWins?.wins || 0, 'Побед в сезоне'),
+      recordPayload(currentBestRate, currentBestRate ? rate(currentBestRate.wins, currentBestRate.games) : 0, 'Винрейт сезона · мин. 5 игр'),
+      recordPayload(currentBestStreak, currentBestStreak ? longestStreak(currentBestStreak.results) : 0, 'Серия сезона'),
+    ].filter(Boolean);
+
+};
+
 router.get('/club-world', async (req, res) => {
   const viewerId = requirePlayerId(req, res);
   if (!viewerId) return;
@@ -187,15 +200,7 @@ router.get('/club-world', async (req, res) => {
       recordPayload(don, don ? rate(don.role_wins.don, don.role_games.don) : 0, 'Лучший Дон · мин. 3 игры'),
     ].filter(Boolean);
 
-    const current = [...currentStats.values()];
-    const currentMostWins = current.slice().sort((a, b) => b.wins - a.wins || b.games - a.games)[0] || null;
-    const currentBestRate = current.filter((item) => item.games >= 5).sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games) || b.wins - a.wins)[0] || null;
-    const currentBestStreak = current.slice().sort((a, b) => longestStreak(b.results) - longestStreak(a.results) || b.games - a.games)[0] || null;
-    const seasonRecords = [
-      recordPayload(currentMostWins, currentMostWins?.wins || 0, 'Побед в сезоне'),
-      recordPayload(currentBestRate, currentBestRate ? rate(currentBestRate.wins, currentBestRate.games) : 0, 'Винрейт сезона · мин. 5 игр'),
-      recordPayload(currentBestStreak, currentBestStreak ? longestStreak(currentBestStreak.results) : 0, 'Серия сезона'),
-    ].filter(Boolean);
+    const seasonRecords = recordsFor(currentStats);
 
     const seasonMap = new Map<string, Season>();
     if (currentSeason.key !== NO_SEASON_KEY) seasonMap.set(currentSeason.key, currentSeason);
@@ -306,6 +311,8 @@ router.get('/club-world', async (req, res) => {
     const viewerSeason = currentStats.get(String(viewerId));
     const viewerPrevious = previousStatMap.get(String(viewerId));
 
+    const selectedSeason = typeof req.query.period==='string'?seasons.find(item=>item.key===req.query.period)||null:null;
+    const selectedGames = selectedSeason?snapshots.filter(game=>inRange(game,selectedSeason)):[];
     return res.json({
       viewer_id: String(viewerId),
       season: {
@@ -317,6 +324,8 @@ router.get('/club-world', async (req, res) => {
         viewer: viewerSeason ? { games: viewerSeason.games, wins: viewerSeason.wins, win_rate: rate(viewerSeason.wins, viewerSeason.games) } : null,
         previous_viewer: viewerPrevious ? { games: viewerPrevious.games, wins: viewerPrevious.wins, win_rate: rate(viewerPrevious.wins, viewerPrevious.games) } : null,
       },
+      selected_season: selectedSeason?seasonPayload(selectedSeason,selectedGames,String(viewerId)):null,
+      selected_season_records: selectedSeason?recordsFor(aggregatePlayers(selectedGames)):[],
       season_history: seasonHistory,
       season_records: seasonRecords,
       hall_of_fame: hallOfFame,

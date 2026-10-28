@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-28 — CI4583 exact legacy-root compatibility failure
+
+- [fixed, C76-COMPAT] `appNavigation.ts`: changing the targetless clubworld generator/root parse from /player/seasons to /player/rating/periods breaks the established shared-root contract used by VK links. Tests src/lib/appNavigation.test.ts:8 and src/tests/vkPlayerCabinetAccess.test.ts:20 fail;623 other shard1 cases and all other test shards pass. Preserve the old targetless root as a compatibility entry rendered by the existing Community destination normalizer into the one Season hub; keep explicit old subview redirects. No new page or UI/formula rollback.
+
+Exact candidatea3a403c passed Web checks/build, UI2267 (both preview and layout jobs), CodeQL and Gitleaks. Preserved targetless /player/seasons identity and generator; the existing Community normalizer still renders the single Season hub. Explicit old subview redirects remain. Both failed owners plus the routing/structure guards pass:4 files,26 cases. No detector/assertion relaxation or UI geometry change.
+
 ## 2026-10-28 — implement approved Community architecture IS01–IS12
 
 Complete [source/content review](UX_COMMUNITY_STRUCTURE_REVIEW_2026-10-28.md) preceded edits; owner approves continuation and explicitly retains Form points with clear explanation. All findings are registered here before implementation.

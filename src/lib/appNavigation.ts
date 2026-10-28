@@ -53,7 +53,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     elo: '/player/profile/elo',
     recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
     career: '/player/career',
-    clubworld: target === 'form' ? '/player/club/form' : target === 'matches' ? '/player/club/history' : target === 'history' ? '/player/rating/periods/archive' : '/player/rating/periods',
+    clubworld: target === 'form' ? '/player/club/form' : target === 'matches' ? '/player/club/history' : target === 'history' ? '/player/rating/periods/archive' : target === 'season' ? '/player/rating/periods' : '/player/seasons',
     poker: target ? `/player/poker/${encodeURIComponent(target)}` : '/player/poker',
     clocktower: target ? `/player/clocktower/${encodeURIComponent(target)}` : '/player/clocktower',
   };
@@ -83,7 +83,7 @@ export const parsePlayerRoute = (pathname: string, search = ''): ParsedPlayerRou
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'events', target, replayGameKey: null, canonicalPath: playerPathForSection('events', target) };
   }
-  if (parts[1] === 'seasons') {
+  if (parts[1] === 'seasons' && parts[2]) {
     const target=parts[2]==='form'?'form':parts[2]==='matches'?'history':null;
     const section=target?'club':'ratingperiods';
     const nextTarget=target||(parts[2]==='history'?'archive':null);

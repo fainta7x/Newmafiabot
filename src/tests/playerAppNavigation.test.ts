@@ -75,7 +75,7 @@ describe('new player menu addresses (owner, 2026-10-06)', () => {
     expect(parsePlayerRoute('/player/progress')).toMatchObject({ section: 'profile', canonicalPath: '/player/profile' });
     expect(playerPathForSection('profile', 'tab:learning')).toBe('/player/profile/learning');
     expect(parsePlayerRoute('/player/profile/learning')).toMatchObject({ section: 'profile', target: 'tab:learning' });
-    for (const path of ['/player/events', '/player/recaps', '/player/games', '/player/rating', '/player/club', '/player/wallet']) {
+    for (const path of ['/player/events', '/player/recaps', '/player/games', '/player/rating', '/player/club', '/player/seasons', '/player/wallet']) {
       expect(parsePlayerRoute(path).canonicalPath).toBe(path);
     }
   });

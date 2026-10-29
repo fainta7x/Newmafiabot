@@ -3,7 +3,6 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
 import { seatingWarnings, type EveningSeat } from '../../lib/eveningSeating.ts';
 
-type Booking = { game: number; tableId: string; seat: number; playerId: string; locked: boolean; started: boolean };
 const fail = (message: string, statusCode = 409): never => { throw Object.assign(new Error(message), { statusCode }); };
 
 export async function ensureEveningSeatingSchema(db: DatabaseWrapper): Promise<void> {
@@ -60,8 +59,9 @@ export async function saveEveningSeatBooking(
     if (evening.status === 'completed' || evening.settled_at) fail('Вечер завершён');
     const slot = await tx.get<any>('SELECT id, slot_number, status FROM evening_game_slots WHERE id = ? AND evening_id = ?', [input.slotId, eveningId]);
     if (!slot || slot.status !== 'open') fail('Игра недоступна', 409);
-    const table = await tx.get<any>('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [input.tableId, eveningId]);
+    const table = await tx.get<any>('SELECT id, capacity FROM evening_tables WHERE id = ? AND evening_id = ?', [input.tableId, eveningId]);
     if (!table) fail('Стол не принадлежит этому вечеру', 400);
+    if (input.seat > Math.min(10, Number(table.capacity || 10))) fail('Место выходит за вместимость стола', 400);
     const participant = await tx.get<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?', [eveningId, playerId]);
     if (!participant) fail('Сначала запишитесь на игру', 409);
     const selected = await tx.get<any>('SELECT 1 AS selected FROM evening_slot_registrations WHERE slot_id = ? AND participant_id = ?', [input.slotId, participant.id]);

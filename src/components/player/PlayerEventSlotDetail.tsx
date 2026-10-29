@@ -99,6 +99,7 @@ export default function PlayerEventSlotDetail({
       setPlan(body);
       setSaveError(body.first_application_required ? { message: '', needsFirstApplication: true } : null);
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
+      void refreshSeats();
     } catch (loadError: any) {
       if (requestId === requestSeq.current && eventId.current === event.id) setError(loadError?.message || 'Не удалось загрузить игры');
     }
@@ -114,7 +115,7 @@ export default function PlayerEventSlotDetail({
       setSeatTables(options.tables || []);
     } catch { setSeatSummary([]); }
   }, [event.id]);
-  useEffect(() => { void refreshSeats(); }, [refreshSeats]);
+
 
   useEffect(() => {
     setOpenedSlotId(null);

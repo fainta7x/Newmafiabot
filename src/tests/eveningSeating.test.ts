@@ -26,6 +26,20 @@ describe('evening seating rotation', () => {
     expect(plan.filter((seat) => seat.playerId === 'q')).toHaveLength(2);
     expect(plan.filter((seat) => seat.game === 2).map((seat) => seat.seat)).toEqual([1, 2]);
   });
+  it('rejects an earlier booking that would repeat a later reserved seat', () => {
+    const future = [{ game: 5, tableId: 'a', seat: 4, playerId: 'p', started: false }];
+    expect(seatingWarnings({ game: 3, tableId: 'a', seat: 4, playerId: 'p' }, future, [3])
+      .some(w => w.code === 'repeat_seat')).toBe(true);
+  });
+  it('preserves independent cycles when one table is exhausted', () => {
+    const history = Array.from({ length: 10 }, (_, i) =>
+      ({ game: i + 1, tableId: 'a', seat: i + 1, playerId: 'p', started: true }));
+    history.push({ game: 4, tableId: 'b', seat: 1, playerId: 'p', started: true });
+    expect(seatingWarnings({ game: 11, tableId: 'a', seat: 1, playerId: 'p' }, history, [11])
+      .some(w => w.code === 'repeat_seat')).toBe(false);
+    expect(seatingWarnings({ game: 11, tableId: 'b', seat: 1, playerId: 'p' }, history, [11])
+      .some(w => w.code === 'repeat_seat')).toBe(true);
+  });
   it('releases a changed future seat instead of retaining phantom history', () => {
     const future = [{ game: 3, tableId: 'a', seat: 10, playerId: 'p', started: false }];
     expect(seatingWarnings({ game: 4, tableId: 'a', seat: 10, playerId: 'p' }, future, [4])

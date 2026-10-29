@@ -32,14 +32,13 @@ export async function loadEveningSeatBookings(db: DatabaseWrapper, eveningId: st
   await ensureEveningSeatingSchema(db);
   return db.all<any>(`
     SELECT b.id, b.slot_id, s.slot_number AS game, b.table_id AS tableId,
-           t.name AS table_name, b.seat_number AS seat, b.player_id AS playerId,
+           b.seat_number AS seat, b.player_id AS playerId,
            p.nickname, b.locked, b.started
       FROM evening_seat_plans b
       JOIN evening_game_slots s ON s.id = b.slot_id
-      JOIN evening_tables t ON t.id = b.table_id
       JOIN players p ON p.id = b.player_id
      WHERE b.evening_id = ? ${playerId ? 'AND b.player_id = ?' : ''}
-     ORDER BY s.slot_number, t.name, b.seat_number
+     ORDER BY s.slot_number, b.table_id, b.seat_number
   `, playerId ? [eveningId, playerId] : [eveningId]);
 }
 

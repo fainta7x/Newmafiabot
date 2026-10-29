@@ -76,12 +76,23 @@ export async function saveEveningSeatBooking(
     const assignments: EveningSeat[] = rows.filter((r: any) => !(r.slot_id === input.slotId && r.playerId === playerId))
       .map((r: any) => ({ game: Number(r.game), tableId: String(r.tableId), seat: Number(r.seat), playerId: String(r.playerId), started: Boolean(r.started) }));
     const candidate = { game: Number(slot.slot_number), tableId: input.tableId, seat: input.seat, playerId };
-    const warnings = seatingWarnings(candidate, assignments, selected || organizer ? [candidate.game] : []);
+    // A player reservation outranks a generated (unlocked, unstarted) seat.
+    // Only a generated placement may be displaced; another reservation or
+    // actual game seat is never silently overwritten.
+    const generatedOccupant = await tx.get<any>(
+      'SELECT id, locked, started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND seat_number=? AND player_id<>? LIMIT 1',
+      [eveningId, input.slotId, input.tableId, input.seat, playerId],
+    );
+    const replaceableGenerated = Boolean(generatedOccupant && !Number(generatedOccupant.locked) && !Number(generatedOccupant.started));
+    const warnings = seatingWarnings(candidate, replaceableGenerated
+      ? assignments.filter(row => !(row.game === candidate.game && row.tableId === candidate.tableId && row.seat === candidate.seat))
+      : assignments, selected || organizer ? [candidate.game] : []);
     // An occupied seat must never be overwritten: organizer must move its occupant first.
     if (warnings.some(w => w.code === 'occupied')) fail('Место уже занято');
     if (warnings.length && !(organizer && input.override)) {
       return { saved: false, warnings, requires_override: organizer };
     }
+    if (replaceableGenerated) await tx.run('DELETE FROM evening_seat_plans WHERE id=? AND locked=0 AND started=0', [generatedOccupant.id]);
     const now = new Date().toISOString();
     if (prior) {
       await tx.run('UPDATE evening_seat_plans SET table_id=?, seat_number=?, locked=1, updated_at=? WHERE id=?',

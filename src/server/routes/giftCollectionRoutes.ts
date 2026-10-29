@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { BirthdayPostError, previewBirthdayPost, publishBirthdayPost } from '../services/birthdayPostService.ts';
 import { appUrl } from '../services/gameResultCardService.ts';
 import {
   GiftCollectionError, closeGiftCollection, listOpenGiftCollections, loadGiftCollectionForOrganizer, loadPlayerGiftContributions,
@@ -8,6 +9,7 @@ import {
 } from '../services/giftCollectionService.ts';
 
 const fail = (res: Response, next: NextFunction, error: unknown) => {
+  if (error instanceof BirthdayPostError) return res.status(error.status).json({ error: error.message });
   if (error instanceof GiftCollectionError) return res.status(error.status).json({ error: error.message, code: error.code });
   return next(error);
 };
@@ -44,3 +46,9 @@ playerGiftRouter.get('/', asPlayer((req, id) => loadPlayerGiftContributions(req.
 playerGiftRouter.put('/:id', asPlayer(async (req, id) => ({
   ...(await setPlayerGiftChoice(req.db!, String(req.params.id), id, { amount: req.body?.amount, decline: req.body?.decline === true })),
 })));
+
+/** Birthday congratulation post: the organizer reads the draft, then publishes it on purpose. Mounted at /api/birthday-posts. */
+export const birthdayPostRouter = Router();
+birthdayPostRouter.use(requireOrganizerAuth);
+birthdayPostRouter.get('/:playerId/preview', wrap((req) => previewBirthdayPost(req.db!, String(req.params.playerId), req.query.evening_id ? String(req.query.evening_id) : null, { genitive: req.query.genitive ? String(req.query.genitive) : null, pronoun: req.query.pronoun ? String(req.query.pronoun) : null })));
+birthdayPostRouter.post('/:playerId/publish', wrap((req) => publishBirthdayPost(req.db!, String(req.params.playerId), req.body?.evening_id ? String(req.body.evening_id) : null, { genitive: req.body?.genitive ? String(req.body.genitive) : null, pronoun: req.body?.pronoun ? String(req.body.pronoun) : null })));

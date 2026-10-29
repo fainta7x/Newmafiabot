@@ -47,7 +47,7 @@ import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
 import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
 import musicLibraryRoutes from './server/routes/musicLibraryRoutes.ts';
 import dailyWordRoutes from './server/routes/dailyWordRoutes.ts';
-import { organizerGiftRouter, playerGiftRouter } from './server/routes/giftCollectionRoutes.ts';
+import { birthdayPostRouter, organizerGiftRouter, playerGiftRouter } from './server/routes/giftCollectionRoutes.ts';
 import pokerRoutes from './server/routes/pokerRoutes.ts';
 import clocktowerRoutes from './server/routes/clocktowerRoutes.ts';
 import { ensureClocktowerSchema } from './db/ensureClocktowerSchema.ts';
@@ -322,6 +322,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', dailyWordRoutes);
   app.use('/api/player/gift-collections', playerGiftRouter);
   app.use('/api/gift-collections', organizerGiftRouter);
+  app.use('/api/birthday-posts', birthdayPostRouter);
   app.use('/api/player', pokerRoutes);
   app.use('/api/player', clocktowerRoutes);
   app.use('/api/player', pokerTournamentRoutes);

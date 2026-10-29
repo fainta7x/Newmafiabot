@@ -36,13 +36,10 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
     games.add(Number(row.slot_number));
     numbersByPlayer.set(id, games);
   }
-  const judges = await db.all<any>(
-    'SELECT judge_player_id FROM evening_staff_assignments WHERE evening_id = ? AND judge_player_id IS NOT NULL',
-    [eveningId],
-  );
-  const judgeIds = new Set(judges.map(j => String(j.judge_player_id)));
+  // Judge assignments are not the same as a permanent evening staff role.
+  // A player may judge one game and play another, so don't exclude them
+  // from the entire evening based on staff assignments.
   const players: EveningPlayer[] = [...numbersByPlayer]
-    .filter(([id]) => !judgeIds.has(id))
     .map(([id, games]) => ({ id, eligibleGames: [...games] }));
   const occupied = await db.all<any>(`
     SELECT b.slot_id, s.slot_number, b.table_id, b.seat_number, b.player_id, b.locked, b.started

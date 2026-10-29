@@ -24,7 +24,8 @@ describe('birthday congratulation post', () => {
   it('uses the first name from the canonical profile instead of a nickname', async () => {
     await db.run("UPDATE players SET nickname='Dissonance', full_name='Дина Иванова' WHERE id='d'");
     const preview = await previewBirthdayPost(db, 'd', null);
-    expect(preview.text).toContain('Дина, поздравляем!');
+    expect(preview.text).toContain('Дина («Dissonance»), поздравляем!');
+    expect(preview.text).toContain('Дина, желаем');
     expect(preview.text).not.toContain('Dissonance,');
   });
 

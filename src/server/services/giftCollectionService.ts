@@ -156,7 +156,7 @@ export async function addGiftCollectionRecipients(db: DatabaseWrapper, collectio
         notificationKey: `gift-collection:${collectionId}:${playerId}`, playerId,
         eventType: 'gift_collection_invite', entityId: collectionId,
         text: giftInviteText(String(collection.honoree_nickname)), actionPath: '/player/wallet',
-        telegramReplyMarkup: giftInviteMarkup(collectionId, appBaseUrl ? `${appBaseUrl.replace(/\\/$/, '')}/player/wallet?gift=${collectionId}` : null),
+        telegramReplyMarkup: giftInviteMarkup(collectionId, appBaseUrl ? `${appBaseUrl.replace(/\/$/, '')}/player/wallet?gift=${collectionId}` : null),
       });
       if (delivery.status !== 'queued') channel = delivery.selected_channel === 'vk' ? 'vk_manual' : 'none';
     }

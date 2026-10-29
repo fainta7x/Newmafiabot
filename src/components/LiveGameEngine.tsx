@@ -1,6 +1,6 @@
 import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
 import { initialLiveRosterEvents, liveRosterCorrectionEvents, restoreJournalRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
-import { liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
+import { applyLiveRoleCorrectionEvents, liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
 import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
 import { GAME_ROLES, ENGINE_TEAM_NAMES } from '../shared/gameRoles.ts';
 import { consumeAutoRestore } from "../lib/liveGameResume.ts";
@@ -429,13 +429,15 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   useEffect(() => {
     const assignments = roleAuthorityRef.current;
     if (!assignments || gameFinishedRef.current) return;
-    const snapshot = takeSnapshot();
     if (phase === 'setup') {
-      // A saved tournament deal is authoritative before start as well. Setup has no journal yet.
-      const changes = liveRoleCorrectionEvents(activePlayers, assignments, { nextSeq: 1, at: '', round: 0, phase });
-      if (changes.length) setActivePlayers(projectLiveRoleSnapshot(snapshot, assignments, changes).activePlayers);
+      // Child setup effects may have queued roster initialization: preserve their latest state.
+      setActivePlayers(previous => {
+        const changes = liveRoleCorrectionEvents(previous, assignments, { nextSeq: 1, at: '', round: 0, phase });
+        return changes.length ? applyLiveRoleCorrectionEvents(previous, changes) : previous;
+      });
       return;
     }
+    const snapshot = takeSnapshot();
     const journal = journalRef.current || {
       snapshot, evidence: readProtocolEvidence?.() || { votes: [], shots: [], events: [] },
     };

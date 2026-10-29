@@ -2,6 +2,8 @@
 
 ## 2026-10-29 — tournament virtual deal review follow-up
 
+- [fixed, VD-INIT] `LiveGameEngine.tsx`: applying setup assignments from a captured snapshot can overwrite roster initialization queued by the child effect. Reproduce a fresh tournament with already saved roles; project onto latest player state with a functional update. New regression fails on captured-snapshot source and passes after the functional update.
+
 - [fixed, VD-START] `LiveGameEngine.tsx`: setup skips authoritative role updates after an already mounted tournament saves its virtual deal. Acceptance: an initially empty tournament deal saves, starts zero night and preserves the exact saved roles in the engine.
 - [fixed, VD-GATE] `e2e/playwright-preview.config.mjs`: the tournament virtual-deal spec was omitted from the explicit automatic preview selection. Add it without changing the detector or UI.
 

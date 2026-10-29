@@ -14,10 +14,18 @@ describe('birthday congratulation post', () => {
 
   it('uses the approved wording and the evening invitation', () => {
     const text = birthdayPostText({ nickname: 'Дина', day: 28, month: 10, eveningStartsAt: '2026-10-30T20:00:00+03:00', venue: 'Суп с Котом', link: 'https://x/e', genitive: 'Дины', pronoun: 'её' });
-    expect(text).toContain('28 октября у Дины был день рождения!');
+    expect(text).toContain('28 октября — день рождения! Дина, поздравляем!');
+    expect(text).toContain('Дина, желаем');
     expect(text).not.toMatch(/мафи/i);
     expect(text).toContain('пятница, 30 октября, в 20:00 («Суп с Котом»)');
     expect(text).toContain('Запись на вечер: https://x/e');
+  });
+
+  it('uses the first name from the canonical profile instead of a nickname', async () => {
+    await db.run("UPDATE players SET nickname='Dissonance', full_name='Дина Иванова' WHERE id='d'");
+    const preview = await previewBirthdayPost(db, 'd', null);
+    expect(preview.text).toContain('Дина, поздравляем!');
+    expect(preview.text).not.toContain('Dissonance,');
   });
 
   it('renders a card without an avatar and refuses a hidden birthday', async () => {
@@ -39,7 +47,7 @@ describe('birthday post publication', () => {
     const calls: any[] = [];
     const fetchImpl = (async (_url: string, init: any) => { calls.push(init.body.get('chat_id')); return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 }); }) as any;
     const { publishBirthdayPost } = await import('../server/services/birthdayPostService.ts');
-    const first = await publishBirthdayPost(db, 'd', null, {}, fetchImpl);
+    const first = await publishBirthdayPost(db, 'd', null, {}, fetchImpl, 'Наш согласованный текст');
     expect(first.telegram.map((t) => [t.destination, t.ok])).toEqual([['club', true], ['public', true]]);
     expect(calls.sort()).toEqual(['-1', '@c']);
     await publishBirthdayPost(db, 'd', null, {}, fetchImpl);

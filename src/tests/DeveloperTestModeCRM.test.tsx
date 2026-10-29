@@ -19,7 +19,7 @@ describe('Тестовый режим: where the owner is now', () => {
     vi.stubGlobal('fetch', vi.fn(() => reply({ enabled: true, active: false })));
     render(<DeveloperTestModeCRM />);
     expect(await screen.findByText('Вы в рабочем режиме')).toBeTruthy();
-    fireEvent.click(screen.getByText('Открыть тестовую среду'));
+    fireEvent.click(await screen.findByText('Открыть тестовую среду'));
     expect(assign).toHaveBeenCalledWith('/test-login');
   });
 
@@ -29,7 +29,7 @@ describe('Тестовый режим: where the owner is now', () => {
     render(<DeveloperTestModeCRM />);
     expect(await screen.findByText('Вы в тестовой среде')).toBeTruthy();
     expect(screen.queryByText('Открыть тестовую среду')).toBeNull();
-    fireEvent.click(screen.getByText('Выйти из тестовой среды'));
+    fireEvent.click(await screen.findByText('Выйти из тестовой среды'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('/test-login'));
   });
 

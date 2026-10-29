@@ -36,9 +36,9 @@ export const DeveloperTestModeCRM: React.FC = () => {
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-amber-200/15 bg-amber-200/10 text-amber-100"><FlaskConical className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/75">{status === null ? 'Проверяем…' : inTest ? 'Сейчас: тестовая среда' : 'Сейчас: рабочий клуб'}</div>
-            <h3 className="mt-1 text-[16px] font-semibold text-white">{inTest ? 'Вы в тестовой среде' : 'Вы в рабочем режиме'}</h3>
+            <h3 className="mt-1 text-[16px] font-semibold text-white">{status === null ? 'Определяем режим…' : inTest ? 'Вы в тестовой среде' : 'Вы в рабочем режиме'}</h3>
             <p className="mt-1 text-[12px] leading-5 text-white/60">
-              {inTest
+              {status === null ? 'Это займёт секунду.' : inTest
                 ? 'Сверху по центру жёлтая плашка «TEST». Здесь отдельная база с тестовыми игроками и вечерами: всё, что вы делаете, не попадёт в рабочие данные клуба.'
                 : 'Тестовая среда — отдельная копия приложения с тестовыми игроками и своей базой, например, чтобы проверить раздачу ролей или игру. Рабочие данные клуба в ней недоступны и не меняются.'}
             </p>

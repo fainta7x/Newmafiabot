@@ -14,14 +14,17 @@ const MONTHS = ['января', 'февраля', 'марта', 'апреля', 
 const moscow = (value: string, options: Intl.DateTimeFormatOptions) => new Date(value).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', ...options });
 
 /** The owner-approved wording (2026-10-29): a plain congratulation, then the invitation to the evening she is signed up for. */
-export function birthdayPostText(input: { nickname: string; day: number; month: number; eveningStartsAt: string | null; venue: string | null; link: string | null; genitive?: string | null; pronoun?: string | null }) {
+export function birthdayPostText(input: { nickname: string; firstName?: string | null; day: number; month: number; eveningStartsAt: string | null; venue: string | null; link: string | null; genitive?: string | null; pronoun?: string | null }) {
   const when = input.eveningStartsAt ? `${moscow(input.eveningStartsAt, { weekday: 'long', day: 'numeric', month: 'long' })}, в ${moscow(input.eveningStartsAt, { hour: '2-digit', minute: '2-digit' })}` : null;
+  // Use nominative first name throughout, avoiding unreliable automatic
+  // Russian case inflection of names, nicknames and foreign names.
+  const name = input.firstName?.trim() || input.nickname;
   const lines = [
-    input.genitive ? `🎂 ${input.day} ${MONTHS[input.month - 1]} у ${input.genitive} был день рождения!` : `🎂 ${input.day} ${MONTHS[input.month - 1]} был день рождения: ${input.nickname}!`,
+    `🎂 ${input.day} ${MONTHS[input.month - 1]} — день рождения! ${name}, поздравляем!`,
     '',
-    `${input.nickname}, с праздником! Желаем, чтобы в жизни было больше поводов для улыбок, тёплых встреч и приятных сюрпризов, а всё задуманное получалось легко 🎉`,
+    `${name}, желаем побольше счастливых моментов, тёплых встреч и ярких побед. Пусть задуманное сбывается! 🎉`,
   ];
-  if (when) lines.push('', `Приходите поздравить ${input.pronoun || 'именинника'} ${when}${input.venue ? ` («${input.venue}»)` : ''}.${input.link ? `\nЗапись на вечер: ${input.link}` : ''}`);
+  if (when) lines.push('', `Приходите поздравить именинника клуба на встрече клуба: ${when}${input.venue ? ` («${input.venue}»)` : ''}.${input.link ? `\nЗапись на вечер: ${input.link}` : ''}`);
   return lines.join('\n');
 }
 
@@ -29,7 +32,9 @@ type Wording = { genitive?: string | null; pronoun?: string | null };
 
 async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: string | null, wording: Wording = {}) {
   await ensurePlayerProfileIntegritySchema(db);
-  const player = await db.get<any>('SELECT id, nickname, birth_day, birth_month, birthday_visibility FROM players WHERE id = ?', [playerId]);
+  const columns = new Set((await db.all<{ name: string }>('PRAGMA table_info(players)')).map(row => row.name));
+  const firstNameColumn = ['first_name', 'real_name', 'name', 'given_name'].find(col => columns.has(col));
+  const player = await db.get<any>(`SELECT id, nickname, birth_day, birth_month, birthday_visibility${firstNameColumn ? `, "${firstNameColumn}" AS profile_first_name` : ''} FROM players WHERE id = ?`, [playerId]);
   if (!player) throw new BirthdayPostError('Игрок не найден', 404);
   if (!player.birth_day || !player.birth_month) throw new BirthdayPostError('У игрока не указана дата рождения', 409);
   if (player.birthday_visibility === 'hidden' || player.birthday_visibility === 'private') throw new BirthdayPostError('Игрок скрыл дату рождения — публиковать нельзя', 409);
@@ -52,7 +57,7 @@ async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: str
     );
   }
   const link = evening ? appUrl(`/player/events/${encodeURIComponent(String(evening.id))}`) : null;
-  const text = birthdayPostText({ nickname: String(player.nickname), day: Number(player.birth_day), month: Number(player.birth_month), eveningStartsAt: evening?.starts_at ?? null, venue: evening?.venue ?? null, link, ...wording });
+  const text = birthdayPostText({ nickname: String(player.nickname), firstName: String(player.profile_first_name || '').trim().split(/\\s+/)[0] || null, day: Number(player.birth_day), month: Number(player.birth_month), eveningStartsAt: evening?.starts_at ?? null, venue: evening?.venue ?? null, link, ...wording });
   const avatar = (await loadAvatars(db, [playerId])).get(playerId) || null;
   const card = renderPng(birthdayCardSvg({ nickname: String(player.nickname), avatar, dateLabel: `${player.birth_day} ${MONTHS[Number(player.birth_month) - 1]}` }));
   return { player, evening, text, card, hasAvatar: Boolean(avatar) };
@@ -64,8 +69,10 @@ export async function previewBirthdayPost(db: DatabaseWrapper, playerId: string,
 }
 
 /** Publishes the approved post to the entry Telegram channel and the VK community. Deliveries are keyed per player and year, so a repeat never double-posts. */
-export async function publishBirthdayPost(db: DatabaseWrapper, playerId: string, eveningId: string | null, wording: Wording = {}, fetchImpl: typeof fetch = fetch) {
-  const { text, card, player, evening } = await loadContext(db, playerId, eveningId, wording);
+export async function publishBirthdayPost(db: DatabaseWrapper, playerId: string, eveningId: string | null, wording: Wording = {}, fetchImpl: typeof fetch = fetch, editedText?: string | null) {
+  const { text: generatedText, card, player, evening } = await loadContext(db, playerId, eveningId, wording);
+  if (editedText !== undefined && (typeof editedText !== 'string' || !editedText.trim() || editedText.length > 3500)) throw new BirthdayPostError('Текст должен содержать от 1 до 3500 символов');
+  const text = editedText?.trim() || generatedText;
   const year = moscow(new Date().toISOString(), { year: 'numeric' });
   const key = `birthday:${playerId}:${year}`;
   // Owner 2026-10-29: «публиковать во всех пабликах и группах» — every active Telegram destination (entry channel, novice group, club group, rating channel).

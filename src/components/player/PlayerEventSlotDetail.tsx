@@ -295,7 +295,11 @@ export default function PlayerEventSlotDetail({
                 const target = slot.target_players ?? plan.event.required_players_per_slot;
                 const ready = typeof target === 'number' && target > 0 && slot.registered_count >= target;
                 return (
-                  <button key={slot.id} disabled={selectionLocked} type="button" onClick={() => { if (!changed) setOpenedSlotId(slot.id); }} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                  <div key={slot.id} className={`w-full rounded-2xl border p-3 transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                    <div className="flex items-center gap-2">
+                      <button disabled={selectionLocked || changed} type="button" onClick={() => setOpenedSlotId(slot.id)} className="min-h-11 flex-1 text-left text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)} · Выбрать место</button>
+                      <button disabled={selectionLocked} type="button" aria-label={`Выбрать игру ${slot.slot_number}`} aria-pressed={selected} onClick={() => { setSaved(false); setDraft(current => current.includes(slot.id) ? current.filter(id => id !== slot.id) : [...current, slot.id]); }} className={`min-h-11 rounded-xl px-3 text-xs font-semibold ${selected ? 'bg-white text-black' : 'bg-white/10 text-white'}`}>{selected ? '✓ Записан' : 'Записаться'}</button>
+                    </div>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>
@@ -309,7 +313,7 @@ export default function PlayerEventSlotDetail({
                         {slot.participants.map((participant) => participant.is_guest ? <span key={participant.id} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45">{participant.nickname}</span> : <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
                       </div>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

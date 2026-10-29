@@ -33,7 +33,7 @@ type Wording = { genitive?: string | null; pronoun?: string | null };
 async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: string | null, wording: Wording = {}) {
   await ensurePlayerProfileIntegritySchema(db);
   const columns = new Set((await db.all<{ name: string }>('PRAGMA table_info(players)')).map(row => row.name));
-  const firstNameColumn = ['first_name', 'real_name', 'name', 'given_name'].find(col => columns.has(col));
+  const firstNameColumn = ['first_name', 'full_name', 'real_name', 'name', 'given_name'].find(col => columns.has(col));
   const player = await db.get<any>(`SELECT id, nickname, birth_day, birth_month, birthday_visibility${firstNameColumn ? `, "${firstNameColumn}" AS profile_first_name` : ''} FROM players WHERE id = ?`, [playerId]);
   if (!player) throw new BirthdayPostError('Игрок не найден', 404);
   if (!player.birth_day || !player.birth_month) throw new BirthdayPostError('У игрока не указана дата рождения', 409);

@@ -80,19 +80,25 @@ export async function saveEveningSeatBooking(
     // Only a generated placement may be displaced; another reservation or
     // actual game seat is never silently overwritten.
     const generatedOccupant = await tx.get<any>(
-      'SELECT id, locked, started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND seat_number=? AND player_id<>? LIMIT 1',
+      'SELECT id, player_id, locked, started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND seat_number=? AND player_id<>? LIMIT 1',
       [eveningId, input.slotId, input.tableId, input.seat, playerId],
     );
     const replaceableGenerated = Boolean(generatedOccupant && !Number(generatedOccupant.locked) && !Number(generatedOccupant.started));
     const warnings = seatingWarnings(candidate, replaceableGenerated
       ? assignments.filter(row => !(row.game === candidate.game && row.tableId === candidate.tableId && row.seat === candidate.seat))
       : assignments, selected || organizer ? [candidate.game] : []);
-    // An occupied seat must never be overwritten: organizer must move its occupant first.
-    if (warnings.some(w => w.code === 'occupied')) fail('Место уже занято');
+    // A player cannot remove someone else's confirmed booking. An organizer
+    // may explicitly override it, but only while the seat is still future.
+    if (generatedOccupant?.started) fail('Фактическое место уже начавшейся игры менять нельзя');
+    if (warnings.some(w => w.code === 'occupied') && !(organizer && input.override)) {
+      return { saved: false, warnings, requires_override: organizer };
+    }
     if (warnings.length && !(organizer && input.override)) {
       return { saved: false, warnings, requires_override: organizer };
     }
-    if (replaceableGenerated) await tx.run('DELETE FROM evening_seat_plans WHERE id=? AND locked=0 AND started=0', [generatedOccupant.id]);
+    if (generatedOccupant && (replaceableGenerated || (organizer && input.override))) {
+      await tx.run('DELETE FROM evening_seat_plans WHERE id=? AND started=0', [generatedOccupant.id]);
+    }
     const now = new Date().toISOString();
     if (prior) {
       await tx.run('UPDATE evening_seat_plans SET table_id=?, seat_number=?, locked=1, updated_at=? WHERE id=?',
@@ -103,7 +109,7 @@ export async function saveEveningSeatBooking(
         VALUES (?,?,?,?,?,?,1,0,?,?)`,
         [randomUUID(),eveningId,input.slotId,input.tableId,input.seat,playerId,now,now]);
     }
-    return { saved: true, warnings };
+    return { saved: true, warnings, displacedPlayerId: generatedOccupant ? String(generatedOccupant.player_id) : null };
     });
   } catch (error: any) {
     // Concurrent bookings must be a normal 409 conflict, not an opaque 500.

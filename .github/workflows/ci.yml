@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       mode: ${{ steps.scope.outputs.mode }}
+      bot_needed: ${{ steps.scope.outputs.bot_needed }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,12 +37,24 @@ jobs:
                 # Fail closed: only individually reviewed presentational files enter fast mode.
                 # All other TS/TSX, game, payments, CRM, bot, API, DB, config require full CI.
                 case "$file" in
-                  docs/*|*.md|*.css|*.scss|src/components/ui/Button.tsx|src/components/ui/Card.tsx|src/components/ui/Input.tsx|src/components/ui/TokenIcon.tsx|src/components/player/PlayerGameGraphics.tsx|src/components/player/PlayerProfileStatsHero.tsx|src/components/player/PlayerBottomNavigation.tsx|src/components/crm/EveningListControls.tsx|src/lib/eventDisplayPriority.ts) ;;
+                  e2e/tests/*.spec.mjs|docs/*|*.md|*.css|*.scss|src/components/ui/Button.tsx|src/components/ui/Card.tsx|src/components/ui/Input.tsx|src/components/ui/TokenIcon.tsx|src/components/player/PlayerGameGraphics.tsx|src/components/player/PlayerProfileStatsHero.tsx|src/components/player/PlayerBottomNavigation.tsx|src/components/crm/EveningListControls.tsx|src/lib/eventDisplayPriority.ts) ;;
                   *) mode=full; break ;;
                 esac
               done <<< "$files"
             fi
           fi
+          # The bot suite is unaffected by isolated visual or test-only edits.
+          bot_needed=true
+          if [[ "$EVENT_NAME" == "pull_request" && -n "$files" ]]; then
+            bot_needed=false
+            while IFS= read -r file; do
+              case "$file" in
+                src/components/*|src/tests/*|e2e/tests/*.spec.mjs|docs/*|*.md|*.css|*.scss) ;;
+                *) bot_needed=true; break ;;
+              esac
+            done <<< "$files"
+          fi
+          echo "bot_needed=$bot_needed" >> "$GITHUB_OUTPUT"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "Selected $mode verification"
 
@@ -161,7 +174,7 @@ jobs:
   bot-syntax:
     name: Python bot syntax
     needs: scope
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.scope.outputs.mode == 'full'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.scope.outputs.mode == 'full' && needs.scope.outputs.bot_needed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -240,6 +253,7 @@ jobs:
           BOT_RESULT: ${{ needs.bot-syntax.result }}
           CONTAINER_RESULT: ${{ needs.combined-container.result }}
           MODE: ${{ needs.scope.outputs.mode }}
+          BOT_NEEDED: ${{ needs.scope.outputs.bot_needed }}
         run: |
           echo "web=$WEB_RESULT"
           echo "tests=$TESTS_RESULT"
@@ -248,7 +262,11 @@ jobs:
           test "$WEB_RESULT" = "success"
           if [[ "$MODE" == "full" ]]; then
             test "$TESTS_RESULT" = "success"
-            test "$BOT_RESULT" = "success"
+            if [[ "$BOT_NEEDED" == "true" ]]; then
+              test "$BOT_RESULT" = "success"
+            else
+              test "$BOT_RESULT" = "skipped"
+            fi
             test "$CONTAINER_RESULT" = "success"
           else
             test "$TESTS_RESULT" = "skipped"

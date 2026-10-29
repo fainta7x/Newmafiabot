@@ -51,4 +51,4 @@ playerGiftRouter.put('/:id', asPlayer(async (req, id) => ({
 export const birthdayPostRouter = Router();
 birthdayPostRouter.use(requireOrganizerAuth);
 birthdayPostRouter.get('/:playerId/preview', wrap((req) => previewBirthdayPost(req.db!, String(req.params.playerId), req.query.evening_id ? String(req.query.evening_id) : null, { genitive: req.query.genitive ? String(req.query.genitive) : null, pronoun: req.query.pronoun ? String(req.query.pronoun) : null })));
-birthdayPostRouter.post('/:playerId/publish', wrap((req) => publishBirthdayPost(req.db!, String(req.params.playerId), req.body?.evening_id ? String(req.body.evening_id) : null, { genitive: req.body?.genitive ? String(req.body.genitive) : null, pronoun: req.body?.pronoun ? String(req.body.pronoun) : null })));
+birthdayPostRouter.post('/:playerId/publish', wrap((req) => publishBirthdayPost(req.db!, String(req.params.playerId), req.body?.evening_id ? String(req.body.evening_id) : null, { genitive: req.body?.genitive ? String(req.body.genitive) : null, pronoun: req.body?.pronoun ? String(req.body.pronoun) : null }, fetch, req.body?.text)));

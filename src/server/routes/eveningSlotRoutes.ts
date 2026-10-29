@@ -198,7 +198,7 @@ eveningSlotRoutes.put('/:eveningId/seating/player/:playerId', requireOrganizerAu
       slotId: String(req.body?.slot_id || ''), tableId: String(req.body?.table_id || ''),
       seat: Number(req.body?.seat_number), override: req.body?.override === true,
     }, true);
-    if (result.saved) await queueEveningSeatingNotifications(req.db, String(req.params.eveningId), [String(req.params.playerId)]);
+    if (result.saved) await queueEveningSeatingNotifications(req.db, String(req.params.eveningId), [String(req.params.playerId), ...(result.displacedPlayerId ? [result.displacedPlayerId] : [])]);
     return res.status(result.saved ? 200 : 409).json(result);
   } catch (error: any) { return sendError(res, error, 'Не удалось изменить рассадку'); }
 });

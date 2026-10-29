@@ -64,17 +64,18 @@ export function seatingWarnings(
   if (others.some((entry) => entry.game === candidate.game && entry.playerId === candidate.playerId))
     warnings.push({ code: 'same_game', text: 'Игрок уже назначен на эту игру' });
 
-  const history = usedSeatsInCurrentCycle(candidate.playerId, candidate.tableId, assignments, capacity);
-  const future = assignments.filter((entry) => !entry.started && entry.playerId === candidate.playerId
-    && entry.tableId === candidate.tableId && entry.game < candidate.game
-    && !(entry.game === candidate.game && entry.seat === candidate.seat)).sort((a, b) => a.game - b.game);
-  for (const entry of future) {
-    if (history.size >= capacity) history.clear();
-    history.add(entry.seat);
-  }
-  if (history.size >= capacity) history.clear();
-  if (history.has(candidate.seat)) {
-    warnings.push({ code: 'repeat_seat', text: `Этот игрок сегодня уже сидел на месте №${candidate.seat} за этим столом. Рекомендуем выбрать другое место.` });
+  // Re-evaluate the full table timeline when inserting or moving an
+  // assignment. Earlier bookings must not invalidate later booked seats.
+  const timeline = [...others.filter(entry => entry.playerId === candidate.playerId && entry.tableId === candidate.tableId), candidate]
+    .sort((a, b) => a.game - b.game || Number(Boolean(b.started)) - Number(Boolean(a.started)));
+  const seen = new Set<number>();
+  for (const entry of timeline) {
+    if (seen.size >= capacity) seen.clear();
+    if (seen.has(entry.seat) && (entry === candidate || entry.game >= candidate.game)) {
+      warnings.push({ code: 'repeat_seat', text: `Этот игрок сегодня уже сидел на месте №${entry.seat} за этим столом. Рекомендуем выбрать другое место.` });
+      break;
+    }
+    seen.add(entry.seat);
   }
   return warnings;
 }

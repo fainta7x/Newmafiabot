@@ -53,7 +53,8 @@ export async function saveEveningSeatBooking(
   if (!Number.isInteger(input.seat) || input.seat < 1 || input.seat > 10) fail('Место должно быть от 1 до 10', 400);
   if (!input.slotId || !input.tableId) fail('Выберите игру и стол', 400);
   if (!organizer && input.override) fail('Обход ограничений доступен только организатору', 403);
-  return db.transaction(async (tx) => {
+  try {
+    return await db.transaction(async (tx) => {
     const evening = await tx.get<any>('SELECT id, status, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) fail('Вечер не найден', 404);
     if (evening.status === 'completed' || evening.settled_at) fail('Вечер завершён');
@@ -92,7 +93,14 @@ export async function saveEveningSeatBooking(
         [randomUUID(),eveningId,input.slotId,input.tableId,input.seat,playerId,now,now]);
     }
     return { saved: true, warnings };
-  });
+    });
+  } catch (error: any) {
+    // Concurrent bookings must be a normal 409 conflict, not an opaque 500.
+    if (/UNIQUE constraint failed|SQLITE_CONSTRAINT_UNIQUE|SQLITE_CONSTRAINT_PRIMARYKEY/i.test(String(error?.message || ''))) {
+      fail('Место уже занято или игрок уже назначен на эту игру');
+    }
+    throw error;
+  }
 }
 
 export async function cancelEveningSeatBooking(db: DatabaseWrapper, eveningId: string, slotId: string, playerId: string) {

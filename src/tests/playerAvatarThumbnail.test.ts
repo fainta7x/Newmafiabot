@@ -32,7 +32,7 @@ describe('avatar display thumbnails', () => {
         draws.push({ width, height, enabled: ctx.imageSmoothingEnabled, quality: ctx.imageSmoothingQuality });
       } };
       return ctx as unknown as CanvasRenderingContext2D;
-    } as typeof HTMLCanvasElement.prototype.getContext);
+    });
     const encode = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;small');
     const source = 'data:image/jpeg;base64,large-portrait';
     const a = prepareAvatarThumbnail(source, 48);

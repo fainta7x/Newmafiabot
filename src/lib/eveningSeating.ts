@@ -24,7 +24,6 @@ export type EveningSeatingWarning = {
   text: string;
 };
 
-const seatKey = (tableId: string, seat: number) => JSON.stringify([tableId, seat]);
 const gameTableKey = (game: number, tableId: string, seat: number) => JSON.stringify([game, tableId, seat]);
 
 /**

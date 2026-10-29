@@ -190,11 +190,32 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       }
     }
 
+    // The chosen future game slot is explicit: a global_game_number is NOT
+    // the same as an evening slot number. Do not guess a mapping.
+    const plannedSlotId = req.body?.planned_slot_id ? String(req.body.planned_slot_id) : null;
+    if (plannedSlotId) {
+      const slot = await db.get<any>('SELECT id FROM evening_game_slots WHERE id=? AND evening_id=?', [plannedSlotId, eveningId]);
+      if (!slot || !tableId) return res.status(400).json({ error: 'Укажите игру из плана и её стол' });
+    }
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
       const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
       if (judge.judge_player_id && seats.some((seat: any) => seat.player_id && String(seat.player_id) === String(judge.judge_player_id))) throw new Error('Судья этой игры не может одновременно быть игроком');
       const now = new Date().toISOString();
+      if (plannedSlotId && tableId) {
+        // The actual judge-approved roster becomes the seated historical fact.
+        // Remove only still-pending positions for this specific game/table;
+        // other tables and other games keep their reservations.
+        await tx.run('DELETE FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND started=0', [eveningId, plannedSlotId, tableId]);
+        for (const seat of seats) {
+          if (!seat.player_id) continue;
+          await tx.run(`INSERT INTO evening_seat_plans
+            (id,evening_id,slot_id,table_id,seat_number,player_id,locked,started,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,1,1,?,?)`, [
+              crypto.randomUUID(), eveningId, plannedSlotId, tableId, seat.seat_number, seat.player_id, now, now,
+            ]);
+        }
+      }
       const next = await tx.get<any>('SELECT COALESCE(MAX(global_game_number), 0) + 1 AS next_number FROM games');
       const protocol = buildInitialClubProtocol(seats);
       const insert = await tx.run(

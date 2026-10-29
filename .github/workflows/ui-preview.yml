@@ -92,6 +92,7 @@ jobs:
       - name: Build isolated preview (no database or secrets)
         run: node scripts/buildUiPreview.mjs
       - name: Check app pages for text on text, truncation and covered buttons
+        if: steps.scope.outputs.audit_skip != 'true'
         run: |
           if [ -n "$UI_AUDIT_GREP" ]; then
             npx playwright test --config playwright-layout-audit.config.mjs --grep "$UI_AUDIT_GREP"

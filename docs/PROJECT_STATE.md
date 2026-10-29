@@ -2,7 +2,7 @@
 
 ## 2026-10-29 — avatar quality across all renderers
 
-Owner correction: #1085 merged as `03283c281b0a7993fe2b5b90d36acc2aa669eac9` and covers the shared PlayerAvatar but not separate player, CRM and broadcast image renderers. Follow-up branch fix/avatar-quality-direct-20261029 routes those through a display-only AvatarImage; same-origin avatar URLs receive size/DPR downsampling, unversioned URLs do not retain stale image cache, and hidden panels prepare after becoming visible. Original source, crop, geometry and error fallbacks stay the same. Local TypeScript, changed-source lint, 4 focused helper tests, 6 original-photo browser cases and 49 impacted page/size layout audits pass. Required exact-head CI/merge pending. No production writes or Amvera deploy.
+Owner correction: #1085 merged as `03283c281b0a7993fe2b5b90d36acc2aa669eac9` and covers the shared PlayerAvatar but not separate player, CRM and broadcast image renderers. Follow-up branch fix/avatar-quality-direct-20261029 routes those through a display-only AvatarImage; same-origin avatar URLs receive size/DPR downsampling, unversioned URLs do not retain stale image cache, and hidden panels prepare after becoming visible. Original source, crop, geometry and error fallbacks stay the same. Local TypeScript, changed-source lint, 4 focused helper tests, 6 original-photo browser cases and 49 impacted page/size layout audits pass. Initial exact-head CI found `ResizeObserver` absent in jsdom, failing the broadcast and voting component tests. The new image effect now guards this API in that environment without changing browser behavior; focused reruns and renewed exact-head CI/merge pending. No production writes or Amvera deploy.
 
 
 ## 2026-10-29 — avatar downsampling quality

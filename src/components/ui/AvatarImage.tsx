@@ -20,11 +20,11 @@ export function AvatarImage({ src, ...props }: React.ImgHTMLAttributes<HTMLImage
         if (!cancelled) setThumbnail({ source: src, url });
       });
     };
-    const observer = new ResizeObserver(prepare);
-    observer.observe(image);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(prepare);
+    observer?.observe(image);
     window.addEventListener('resize', prepare);
     prepare();
-    return () => { cancelled = true; observer.disconnect(); window.removeEventListener('resize', prepare); };
+    return () => { cancelled = true; observer?.disconnect(); window.removeEventListener('resize', prepare); };
   }, [src]);
 
   return <img {...props} ref={imageRef} src={thumbnail && thumbnail.source === src ? thumbnail.url : src} />;

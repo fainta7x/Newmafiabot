@@ -71,7 +71,7 @@ export async function previewBirthdayPost(db: DatabaseWrapper, playerId: string,
 /** Publishes the approved post to the entry Telegram channel and the VK community. Deliveries are keyed per player and year, so a repeat never double-posts. */
 export async function publishBirthdayPost(db: DatabaseWrapper, playerId: string, eveningId: string | null, wording: Wording = {}, fetchImpl: typeof fetch = fetch, editedText?: string | null) {
   const { text: generatedText, card, player, evening } = await loadContext(db, playerId, eveningId, wording);
-  if (editedText !== undefined && (typeof editedText !== 'string' || !editedText.trim() || editedText.length > 3500)) throw new BirthdayPostError('Текст должен содержать от 1 до 3500 символов');
+  if (editedText !== undefined && (typeof editedText !== 'string' || !editedText.trim() || editedText.length > 1024)) throw new BirthdayPostError('Текст должен содержать от 1 до 1024 символов');
   const text = editedText?.trim() || generatedText;
   const year = moscow(new Date().toISOString(), { year: 'numeric' });
   const key = `birthday:${playerId}:${year}`;

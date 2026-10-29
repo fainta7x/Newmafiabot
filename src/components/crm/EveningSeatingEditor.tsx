@@ -30,6 +30,21 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
   useEffect(() => { void reload().catch(() => setMessage('Не удалось загрузить рассадку')); }, [eveningId]);
   useEffect(() => { if (!slots.some(s => s.id === slotId)) setSlotId(slots[0]?.id || ''); }, [slots, slotId]);
   useEffect(() => { if (!tables.some(t => t.id === tableId)) setTableId(tables[0]?.id || ''); }, [tables, tableId]);
+  const generate = async (selected = false) => {
+    if (busy) return;
+    setBusy(true); setMessage('');
+    try {
+      const res = await fetch(`${root}/seating/generate`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selected ? { slot_id: slotId } : {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Не удалось сформировать план');
+      await reload();
+      setMessage(`Рассадка обновлена: добавлено ${Number(data.created || 0)} мест`);
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'Ошибка генерации'); }
+    finally { setBusy(false); }
+  };
   const save = async (override = false) => {
     if (busy || !playerId || !slotId || !tableId) return;
     setBusy(true); setMessage('');
@@ -59,6 +74,10 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
   return <section className="mt-4 rounded-2xl border border-border-soft bg-surface-1 p-4 text-text-primary">
     <h3 className="text-base font-bold">Рассадка на вечер</h3>
     <p className="mt-1 text-xs text-text-secondary">Заранее закреплённые места сохраняются. Организатор может нарушить ротацию с предупреждением.</p>
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button type="button" disabled={busy} onClick={() => void generate(false)} className="min-h-11 flex-1 rounded-xl bg-surface-2 px-3 text-xs font-bold">Сформировать весь вечер</button>
+      <button type="button" disabled={busy || !slotId} onClick={() => void generate(true)} className="min-h-11 flex-1 rounded-xl border border-border-soft px-3 text-xs font-bold">Только выбранную игру</button>
+    </div>
     <div className="mt-3 grid grid-cols-2 gap-2">
       <label className="text-xs">Игра<select value={slotId} onChange={e => { setSlotId(e.target.value); setWarning([]); }} className="mt-1 w-full rounded-lg bg-surface-2 p-2">
         {slots.map(s => <option key={s.id} value={s.id}>Игра №{s.slot_number}</option>)}

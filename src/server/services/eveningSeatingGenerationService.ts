@@ -53,7 +53,17 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   const allSlots: EveningSeatCandidate[] = [];
   for (const slot of plan.slots) {
     if (slot.status !== 'open' || (targetSlotId && String(slot.id) !== targetSlotId)) continue;
+    const eligibleCount = players.filter(player => player.eligibleGames.includes(Number(slot.slot_number))).length;
+    const reservedTables = new Set(existing.filter(seat => seat.game === Number(slot.slot_number)).map(seat => seat.tableId));
+    // Avoid creating a phantom second table with only one player when a
+    // regular game requires a full lineup. Existing reservations stay intact.
+    const tableCount = Math.min(tables.length, Math.floor(eligibleCount / 10));
+    const selectedTables = tables.filter(table => reservedTables.has(String(table.id)));
     for (const table of tables) {
+      if (selectedTables.length >= tableCount) break;
+      if (!reservedTables.has(String(table.id))) selectedTables.push(table);
+    }
+    for (const table of selectedTables) {
       const capacity = Math.max(0, Math.min(10, Number(table.capacity || 10)));
       for (let seat = 1; seat <= capacity; seat += 1) {
         allSlots.push({ game: Number(slot.slot_number), tableId: String(table.id), seat });

@@ -1,3 +1,5 @@
+import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
+import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import React from "react";
 import { Shield, Info } from "lucide-react";
 import { Player } from "../../types.js";
@@ -44,6 +46,7 @@ export default function SetupPhase({
   validateSetupAndStart,
   onRoleDealActiveChange,
 }: SetupPhaseProps) {
+  const [showVirtualDeal,setShowVirtualDeal]=React.useState(false);
   const [showPhysicalDeal, setShowPhysicalDeal] = React.useState(false);
   const [showPassCardModal, setShowPassCardModal] = React.useState(false);
   const [passSlot, setPassSlot] = React.useState(1);
@@ -116,6 +119,8 @@ export default function SetupPhase({
         </button>
       )}
 
+      {!isTournamentEngine && isSupportedTableSize(activePlayers.length) && activePlayers.every(p=>p.user_id>0) && new Set(activePlayers.map(p=>p.user_id)).size===activePlayers.length ? <button type="button" data-testid="general-start-virtual-deal" onClick={()=>{setShowVirtualDeal(true);onRoleDealActiveChange?.(true);}} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>:null}
+      {showVirtualDeal ? <VirtualRoleDeal seats={activePlayers.map(p=>({seat_number:p.slot_num,nickname:p.nickname}))} finishLabel="Применить роли и вернуться к игре" onCancel={()=>{setShowVirtualDeal(false);onRoleDealActiveChange?.(false);}} onComplete={assignments=>{Object.entries(assignments).forEach(([seat,role])=>handleSelectSetupRole(Number(seat),physicalRoleToLive(role)));setShowVirtualDeal(false);onRoleDealActiveChange?.(false);}}/>:null}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/40 border border-slate-850 rounded-lg">
         <div className="space-y-1">
           <label className="text-[10px] text-slate-500 font-bold uppercase block">Судья Вечера / Ведущий</label>

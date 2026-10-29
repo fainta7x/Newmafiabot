@@ -1,3 +1,4 @@
+import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
 import { completeLiveRosterIdentity } from '../../lib/liveRosterCorrections.ts';
 import { completeLiveRoleAssignments } from '../../lib/liveRoleCorrections.ts';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume.ts';
@@ -172,6 +173,7 @@ export default function TournamentLiveGameModal({
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
+  const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
   const [movedSeats, setMovedSeats] = useState<number[]>([]);
@@ -501,6 +503,16 @@ export default function TournamentLiveGameModal({
           В CRM изменены роли: {changedRoleSeats.map((seat) => `№${seat}`).join(', ')}. {roleAssignments ? 'Движок применяет исправления и записывает их в журнал. Прошлые ночные действия проверьте перед подтверждением протокола.' : 'Назначение ролей не заполнено полностью; движок сохраняет последнее полное назначение до завершения правки.'}
         </div>
       ) : null}
+      {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 ? <div className="mx-4 my-2">
+        <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number))} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
+      </div>:null}
+      {virtualSeats ? <VirtualRoleDeal seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
+        const fresh=await loadLivePayload();
+        const identity=(rows:PlayerResultData[])=>JSON.stringify(rows.slice().sort((a,b)=>a.seat_number-b.seat_number).map(p=>[p.seat_number,p.participant_id,p.player_id]));
+        if(identity(fresh.player_results)!==identity(virtualSeats))throw new Error('Состав игры изменился. Закройте раздачу и проверьте игроков.');
+        await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/roles`,'PATCH',{roles:Object.entries(assignments).map(([seat,role])=>({seat_number:Number(seat),role}))},'Не удалось сохранить роли');
+        const saved=await loadLivePayload();setPayload(saved);setLatestRoleResults(saved.player_results);setVirtualSeats(null);
+      }}/>:null}
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (

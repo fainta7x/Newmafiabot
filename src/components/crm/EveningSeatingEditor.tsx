@@ -51,7 +51,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
     setBusy(true); setMessage('');
     try {
       const res = await fetch(`${root}/seating/player/${encodeURIComponent(playerId)}`, {
-        method: 'PUT', credentials: 'include', headers: organizerHeaders(false), headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', credentials: 'include', headers: organizerHeaders(),
         body: JSON.stringify({ slot_id: slotId, table_id: tableId, seat_number: seatNumber, override }),
       });
       const data = await res.json().catch(() => ({}));

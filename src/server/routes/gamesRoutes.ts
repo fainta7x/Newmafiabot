@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
+import { ensureEveningSeatingSchema } from '../services/eveningSeatBookingService.ts';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { allowedTableSizes, isSupportedTableSize } from '../../lib/tableComposition.ts';
@@ -196,6 +198,9 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     if (plannedSlotId) {
       const slot = await db.get<any>('SELECT id FROM evening_game_slots WHERE id=? AND evening_id=?', [plannedSlotId, eveningId]);
       if (!slot || !tableId) return res.status(400).json({ error: 'Укажите игру из плана и её стол' });
+      await ensureEveningSeatingSchema(db);
+      const alreadyStarted = await db.get<any>('SELECT 1 AS started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND started=1 LIMIT 1', [eveningId, plannedSlotId, tableId]);
+      if (alreadyStarted) return res.status(409).json({ error: 'Для выбранной игры и стола уже зафиксирована фактическая рассадка' });
     }
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
@@ -212,7 +217,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
           await tx.run(`INSERT INTO evening_seat_plans
             (id,evening_id,slot_id,table_id,seat_number,player_id,locked,started,created_at,updated_at)
             VALUES (?,?,?,?,?,?,1,1,?,?)`, [
-              crypto.randomUUID(), eveningId, plannedSlotId, tableId, seat.seat_number, seat.player_id, now, now,
+              randomUUID(), eveningId, plannedSlotId, tableId, seat.seat_number, seat.player_id, now, now,
             ]);
         }
       }

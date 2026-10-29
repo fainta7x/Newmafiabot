@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { getPlayerAvatarUrl } from '../../lib/playerAvatars.ts';
 import { api } from '../../lib/api.ts';
+import { avatarPixelSize, prepareAvatarThumbnail } from '../../lib/playerAvatarThumbnail.ts';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+const cssPixels: Record<AvatarSize, number> = { xs: 28, sm: 36, md: 48, lg: 64, xl: 80 };
 
 const sizeClasses: Record<AvatarSize, string> = {
   xs: 'w-7 h-7 text-[10px]',
@@ -51,6 +54,17 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
 }) => {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [thumbnail, setThumbnail] = useState<{ source: string; pixels: number; url: string } | null>(null);
+  const pixels = avatarPixelSize(cssPixels[size], typeof window === 'undefined' ? 1 : window.devicePixelRatio);
+
+  useEffect(() => {
+    if (!dataUrl || failed) return;
+    let cancelled = false;
+    void prepareAvatarThumbnail(dataUrl, pixels).then((url) => {
+      if (!cancelled) setThumbnail({ source: dataUrl, pixels, url });
+    });
+    return () => { cancelled = true; };
+  }, [dataUrl, failed, pixels]);
 
   useEffect(() => {
     if (playerId !== undefined && playerId !== null) {
@@ -147,7 +161,7 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
     >
       {dataUrl && !failed ? (
         <img
-          src={dataUrl}
+          src={thumbnail?.source === dataUrl && thumbnail.pixels === pixels ? thumbnail.url : dataUrl}
           alt=""
           loading="lazy"
           decoding="async"

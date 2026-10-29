@@ -8,6 +8,7 @@ import { auditScreen } from './support/layoutAudit.mjs';
 const cabinet = (route, extra = '') => `/e2e/player-cabinet.html?route=${encodeURIComponent(route)}${extra}`;
 
 export const PAGES = [
+  ['player-avatar', '/e2e/player-avatar.html'],
   ...['new','long','playing','won','lost','admin','card','error'].map(mode=>[`daily-word-${mode}`,`/e2e/daily-word.html?mode=${mode}`]),
   ['cabinet-home', cabinet('/player')],
   ['cabinet-home-live', '/e2e/player-cabinet.html?scenario=live'],

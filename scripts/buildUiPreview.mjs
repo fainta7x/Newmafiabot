@@ -14,6 +14,7 @@ const pages = [
   'e2e/player-shell.html',
   'e2e/split-vote.html',
   'e2e/player-cabinet.html',
+  'e2e/player-avatar.html',
   'e2e/daily-word.html',
   'e2e/player-profile.html',
   'e2e/gomafia-career.html',

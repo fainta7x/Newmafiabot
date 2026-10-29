@@ -1,3 +1,7 @@
+## 2026-10-29 — Evening seating implementation (#1088, WIP)
+
+Owner-approved scope: auto-seat when «Сегодня играем» confirms the evening; player can reserve an exact game, table and seat beforehand; table-specific nonrepeat cycles that reset after all seats are used; organizer may override with a warning; before-start organizer edits notify players, while self-booking uses in-app confirmation. Draft PR #1088 currently includes pure planner/tests, durable booking schema, booking routes and player UI. **Not complete or tested:** automatic generation trigger, judge/actual-game handoff, organizer CRM editor, personal notifications, complete integration tests and exact-head CI. No main merge or deployment. Source-specific requirements: [implementation contract](EVENING_SEATING_IMPLEMENTATION_2026-10-29.md).
+
 # 2LA Noire — Current Project State
 
 ## 2026-10-29 — avatar quality across all renderers

@@ -2,8 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 
 const base = process.env.PR_BASE_SHA;
-if (!base || !/^[a-f0-9]{40}$/.test(base)) throw new Error('Missing PR_BASE_SHA; refusing to silently skip checks');
-const changed = execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+if (base && !/^[a-f0-9]{40}$/.test(base)) throw new Error('Invalid PR_BASE_SHA');
+const changed = base ? execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean) : [];
+// Scheduled/manual runs have no PR base and intentionally run the full audit.
 
 // A mapping is deliberately opt-in. Unknown changes always run the whole suite.
 // Components shared across multiple screens must NEVER be added to a narrow mapping.

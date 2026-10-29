@@ -40,7 +40,6 @@ export function GiftCollectionCRM() {
     try {
       const params = new URLSearchParams(window.location.search);
       const collectionId = params.get('collection');
-      const linkedPlayer = params.get('birthday_post') || params.get('honoree');
       const honoreeId = params.get('honoree');
       const birthdayId = params.get('birthday_post');
       if (birthdayId) { setHonoree(birthdayId); setPostPlayerId(birthdayId); void getJson<any>(`/api/birthday-posts/${encodeURIComponent(birthdayId)}/preview`, 'Не удалось подготовить поздравление').then((draft) => { setBirthdayDraft(draft); setEditedBirthdayText(draft.text); }).catch(e => fail(e, 'Не удалось подготовить поздравление')); }

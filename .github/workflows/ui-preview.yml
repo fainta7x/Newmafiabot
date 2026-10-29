@@ -26,6 +26,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Select affected UI checks
+        id: scope
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/selectUiPreviewScope.mjs
       - uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
@@ -41,6 +48,8 @@ jobs:
       - name: Check mobile screens
         run: npx playwright test --config playwright-preview.config.mjs
         working-directory: e2e
+        env:
+          UI_PREVIEW_SPECS: ${{ steps.scope.outputs.preview_specs }}
       - name: Save web preview
         if: always()
         uses: actions/upload-artifact@v4
@@ -57,7 +66,7 @@ jobs:
           retention-days: 14
 
   layout-audit:
-    name: Layout and text audit (all app pages)
+    name: Layout and text audit (affected pages or full)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -74,9 +83,16 @@ jobs:
         working-directory: e2e
       - name: Build isolated preview (no database or secrets)
         run: node scripts/buildUiPreview.mjs
-      - name: Check every app page for text on text, «…», cut text and covered buttons
-        run: npx playwright test --config playwright-layout-audit.config.mjs
+      - name: Check app pages for text on text, truncation and covered buttons
+        run: |
+          if [ -n "$UI_AUDIT_GREP" ]; then
+            npx playwright test --config playwright-layout-audit.config.mjs --grep "$UI_AUDIT_GREP"
+          else
+            npx playwright test --config playwright-layout-audit.config.mjs
+          fi
         working-directory: e2e
+        env:
+          UI_AUDIT_GREP: ${{ steps.scope.outputs.audit_grep }}
       - name: Save audit screenshots
         if: always()
         uses: actions/upload-artifact@v4

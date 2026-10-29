@@ -5,7 +5,7 @@ import { getJson, sendJson } from '../../lib/requestJson.ts';
 type Recipient = { id: string; nickname: string; channel: 'telegram' | 'vk_manual' | 'none'; attendance_count: number | null; last_visit: string | null };
 type Contribution = { player_id: string; nickname: string; contact_url: string | null; status: 'invited' | 'pledged' | 'declined' | 'paid'; channel: Recipient['channel']; pledged_amount: number; paid_amount: number };
 type CollectionView = { collection: { id: string; honoree_nickname: string; honoree_player_id: string; status: string }; contributions: Contribution[]; totals: { pledged: number; paid: number } };
-type CollectionRow = { id: string; honoree_nickname: string; status: string; created_at: string };
+type CollectionRow = { id: string; honoree_player_id: string; honoree_nickname: string; status: string; created_at: string };
 
 const rub = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`;
 const CHANNEL: Record<Recipient['channel'], string> = { telegram: 'Telegram', vk_manual: 'ВК — написать вручную', none: 'нет канала связи' };
@@ -44,11 +44,12 @@ export function GiftCollectionCRM() {
       const birthdayId = params.get('birthday_post');
       if (birthdayId) { setHonoree(birthdayId); setPostPlayerId(birthdayId); void getJson<any>(`/api/birthday-posts/${encodeURIComponent(birthdayId)}/preview`, 'Не удалось подготовить поздравление').then((draft) => { setBirthdayDraft(draft); setEditedBirthdayText(draft.text); }).catch(e => fail(e, 'Не удалось подготовить поздравление')); }
       if (collectionId) void loadOne(collectionId);
-      else if (birthdayId) { void getJson<CollectionRow[]>('/api/gift-collections', 'Не удалось загрузить сборы').then(list => {
-        const existing = list.find(row => row.status === 'open' && (row as any).honoree_player_id === birthdayId);
-        if (existing) void loadOne(existing.id);
-      }).catch(() => {}); }
-      else if (honoreeId) { setHonoree(honoreeId); void getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponent(honoreeId)}`, 'Не удалось собрать список').then((body) => { setPreview(body.recipients); setExcluded(new Set()); }).catch((e) => fail(e, 'Не удалось собрать список')); }
+
+      else if (honoreeId) { setHonoree(honoreeId); void getJson<CollectionRow[]>('/api/gift-collections', 'Не удалось загрузить сборы').then(list => {
+        const existing = list.find(row => row.status === 'open' && row.honoree_player_id === honoreeId);
+        if (existing) return loadOne(existing.id);
+        return getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponent(honoreeId)}`, 'Не удалось собрать список').then(body => { setPreview(body.recipients); setExcluded(new Set()); });
+      }).catch((e) => fail(e, 'Не удалось открыть сбор')); }
     } catch { /* an unreadable address just opens the empty screen */ }
     void loadList();
     getJson<any[]>('/api/players', 'Не удалось загрузить игроков').then((list) => setPlayers(list.map((p) => ({ id: String(p.id), nickname: String(p.nickname) })).sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')))).catch((e) => fail(e, 'Не удалось загрузить игроков'));

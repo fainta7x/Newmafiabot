@@ -27,3 +27,23 @@ describe('birthday congratulation post', () => {
     await expect(previewBirthdayPost(db, 'h', null)).rejects.toBeInstanceOf(BirthdayPostError);
   });
 });
+
+describe('birthday post publication', () => {
+  it('goes to every active Telegram destination once, keyed per destination', async () => {
+    const db = createDatabaseConnection(':memory:');
+    await ensurePlayerProfileIntegritySchema(db);
+    await db.run("INSERT INTO players(id,nickname,birth_day,birth_month,birthday_visibility,tokens,created_at,updated_at) VALUES ('d','Дина',28,10,'full',0,'2026-10-01','2026-10-01')");
+    await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations (id TEXT PRIMARY KEY, chat_id TEXT, topic_id INTEGER, active INTEGER DEFAULT 1)");
+    await db.run("INSERT INTO telegram_destinations(id,chat_id,topic_id,active) VALUES ('public','@c',NULL,1),('club','-1',5,1),('off','-2',NULL,0)");
+    process.env.TELEGRAM_BOT_TOKEN = 't';
+    const calls: any[] = [];
+    const fetchImpl = (async (_url: string, init: any) => { calls.push(init.body.get('chat_id')); return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 }); }) as any;
+    const { publishBirthdayPost } = await import('../server/services/birthdayPostService.ts');
+    const first = await publishBirthdayPost(db, 'd', null, {}, fetchImpl);
+    expect(first.telegram.map((t) => [t.destination, t.ok])).toEqual([['club', true], ['public', true]]);
+    expect(calls.sort()).toEqual(['-1', '@c']);
+    await publishBirthdayPost(db, 'd', null, {}, fetchImpl);
+    expect(calls).toHaveLength(2);
+    db.sqlite.close();
+  });
+});

@@ -57,7 +57,13 @@ export async function publishBirthdayPost(db: DatabaseWrapper, playerId: string,
   const { text, card, player, evening } = await loadContext(db, playerId, eveningId, wording);
   const year = moscow(new Date().toISOString(), { year: 'numeric' });
   const key = `birthday:${playerId}:${year}`;
-  const telegram = await sendPhotos(db, null, [card], text, fetchImpl, 'public', 'image/png', undefined, { key: `${key}:telegram`, entityId: playerId, kind: 'birthday' });
+  // Owner 2026-10-29: «публиковать во всех пабликах и группах» — every active Telegram destination (entry channel, novice group, club group, rating channel).
+  const destinations = await db.all<{ id: string }>("SELECT id FROM telegram_destinations WHERE active = 1 AND COALESCE(chat_id, '') <> '' ORDER BY id");
+  const telegram: Array<{ destination: string; ok: boolean; error: string | null }> = [];
+  for (const destination of destinations) {
+    const result = await sendPhotos(db, null, [card], text, fetchImpl, destination.id, 'image/png', undefined, { key: `${key}:telegram:${destination.id}`, entityId: playerId, kind: 'birthday' });
+    telegram.push({ destination: destination.id, ok: result.ok, error: result.error || null });
+  }
   const vk = await sendVk(text, { db, eveningId: String(evening?.id || ''), format: null, image: { bytes: card, mime: 'image/png' }, context: { key: `${key}:vk`, entityId: playerId, kind: 'birthday' } });
-  return { nickname: String(player.nickname), telegram: { ok: telegram.ok, error: telegram.error || null }, vk: { ok: Boolean(vk.status === 'published'), status: vk.status, error: vk.error || null } };
+  return { nickname: String(player.nickname), telegram, vk: { ok: Boolean(vk.status === 'published'), status: vk.status, error: vk.error || null } };
 }

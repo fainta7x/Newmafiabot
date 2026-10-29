@@ -1,6 +1,7 @@
 import { loadEveningSeatBookings, saveEveningSeatBooking, cancelEveningSeatBooking } from '../services/eveningSeatBookingService.ts';
 import { Router, type Request, type Response } from 'express';
 import { generateEveningSeatingPlan } from '../services/eveningSeatingGenerationService.ts';
+import { queueEveningSeatingNotifications } from '../services/eveningSeatingNotificationsService.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
@@ -197,13 +198,17 @@ eveningSlotRoutes.put('/:eveningId/seating/player/:playerId', requireOrganizerAu
       slotId: String(req.body?.slot_id || ''), tableId: String(req.body?.table_id || ''),
       seat: Number(req.body?.seat_number), override: req.body?.override === true,
     }, true);
+    if (result.saved) await queueEveningSeatingNotifications(req.db, String(req.params.eveningId), [String(req.params.playerId)]);
     return res.status(result.saved ? 200 : 409).json(result);
   } catch (error: any) { return sendError(res, error, 'Не удалось изменить рассадку'); }
 });
 
 eveningSlotRoutes.delete('/:eveningId/seating/player/:playerId/:slotId', requireOrganizerAuth, async (req, res) => {
-  try { return res.json(await cancelEveningSeatBooking(req.db, String(req.params.eveningId), String(req.params.slotId), String(req.params.playerId))); }
-  catch (error: any) { return sendError(res, error, 'Не удалось отменить назначение'); }
+  try {
+    const result = await cancelEveningSeatBooking(req.db, String(req.params.eveningId), String(req.params.slotId), String(req.params.playerId));
+    if (result.removed) await queueEveningSeatingNotifications(req.db, String(req.params.eveningId), [String(req.params.playerId)]);
+    return res.json(result);
+  } catch (error: any) { return sendError(res, error, 'Не удалось отменить назначение'); }
 });
 
 

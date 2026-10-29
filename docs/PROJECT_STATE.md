@@ -6,8 +6,13 @@ Owner reports pixelated CRM avatars for Насон/Денди. Confirmed on the 
 
 Verification:11 focused tests in3 files,5 actual-browser cases across360/390/1366/1440 plus Retina,12 unchanged-detector layout audits including CRM and wide-font phone variants, TypeScript, changed-source lint, release audit, dependency guard and Vite build pass. Actual before/after screenshots use the same Насон/Денди source files at390px, inspected; not a production session. Access inventory: no organizer credential; public health200 only. [Evidence](reviews/2026-10-29-avatar-quality/README.md). Dedicated fix branch fix/avatar-quality-20261029; exact-head CI/merge pending at authoring. No production writes, messaging or deployment.
 
-Next action — assistant: publish/check the focused PR and merge only after required gates pass.
+PR #1085: the initial Web check caught an overloaded DOM-method cast in a test mock; the unnecessary cast was removed without weakening assertions, and focused TypeScript/lint/tests pass. Latest main #1084 was merged into this candidate, preserving both documentation entries; no application conflict. Renewed exact-head CI is required. Next action — assistant: merge only after required gates pass; no deployment requested.
 
+## 2026-10-29 — virtual deal merged; tournament start review correction
+
+#1081 merged as `7aaa246edcb48dea64fb6b4ff4b93b66d34a6a4f` after exact head2e5895b9 passed CI4606, UI2281, CodeQL3910 and Gitleaks3907. No deployment/runtime claim. Review then identified a setup-only role propagation bug and an omitted tournament spec in the automatic preview selection. Corrective candidate applies authoritative assignments during setup without creating correction journal events, includes the spec in CI, and tests an initially empty tournament all the way through saved-role readback and zero-night start. Before the fix, start remained in setup; after the fix, all four dimensions pass with exact saved/engine assignments. Existing role-correction/restore tests plus a new fresh-roster regression pass7 cases; TypeScript/lint and preview build checked separately. Original exact ec10435a passed CI4610/UI2284/CodeQL3914/Gitleaks3911 and training122. Main then advanced with #1083; this merge preserves both scopes and requires renewed exact-head checks. No markup, game-rule, production or message change.
+
+Next — assistant: complete this corrective PR before VIP implementation. Current VIP code is absent; latest retrieved owner decisions also approve additive wishes and one shared Don/Sheriff switch, persistent until changed, temporarily disable without erasing. Do not invent probability defaults. Continue modelling and reconcile those decisions in the separate VIP scope; no owner re-confirmation of already stated choices is needed.
 
 ## 2026-10-28 — daily word: owner-approved implementation, separate PR
 

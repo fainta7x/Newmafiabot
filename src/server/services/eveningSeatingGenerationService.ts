@@ -70,9 +70,12 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
       if (selectedTables.length >= tableCount) break;
       if (!reservedTables.has(String(table.id))) selectedTables.push(table);
     }
-    for (const table of selectedTables) {
+    for (const [tableIndex, table] of selectedTables.entries()) {
       const capacity = Math.max(0, Math.min(10, Number(table.capacity || 10)));
-      for (let seat = 1; seat <= capacity; seat += 1) {
+      const balancedSize = tableCount
+        ? Math.min(10, Math.floor(eligibleCount / tableCount) + (tableIndex < eligibleCount % tableCount ? 1 : 0))
+        : 0;
+      for (let seat = 1; seat <= Math.min(capacity, balancedSize); seat += 1) {
         allSlots.push({ game: Number(slot.slot_number), tableId: String(table.id), seat });
       }
     }

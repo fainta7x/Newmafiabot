@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import { Input } from '../ui/Input.tsx';
@@ -104,7 +105,7 @@ function openEvening(eveningId: string) {
 }
 
 function Avatar({ src, name }: { src?: string | null; name: string }) {
-  return src ? <img src={src} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />
+  return src ? <AvatarImage src={src} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />
     : <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.07] text-sm font-semibold text-white/55">{name.slice(0, 1).toUpperCase()}</div>;
 }
 

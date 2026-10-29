@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { countGames } from '../../lib/russianPlural';
@@ -53,7 +54,7 @@ const roleLabel = (role: string) => getPlayerGameRoleLabel(role) ?? role;
 
 const Avatar = ({ src, name = '?' }: { src: string; name?: string }) => {
   const [failed, setFailed] = useState(false);
-  return <span aria-hidden="true" className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/[.14] to-white/[.03] text-sm font-semibold text-white/65 ring-1 ring-white/10">{name.slice(0, 1).toUpperCase()}{src && !failed && <img src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}</span>;
+  return <span aria-hidden="true" className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/[.14] to-white/[.03] text-sm font-semibold text-white/65 ring-1 ring-white/10">{name.slice(0, 1).toUpperCase()}{src && !failed && <AvatarImage src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}</span>;
 };
 
 export default function PlayerEveningSummaries({

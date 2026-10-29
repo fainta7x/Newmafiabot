@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import {FORM_MAX,FORM_WINDOW,FORM_STREAK_POINTS,FORM_STREAK_LIMIT} from '../../shared/playerForm.ts';
 import {formatMoscowDate} from '../../lib/moscowDate.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -52,7 +53,7 @@ function Avatar({ src, name, size = 40 }: { src?: string | null; name: string; s
   const [failed, setFailed] = useState(false);
   return <span style={{ width: size, height: size }} className="relative grid shrink-0 place-items-center overflow-hidden rounded-[14px] bg-gradient-to-br from-white/[0.14] to-white/[0.035] text-[13px] font-semibold text-white/70 ring-1 ring-white/10" aria-hidden="true">
     {name.trim().slice(0, 1).toUpperCase() || '?'}
-    {src && !failed && <img src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    {src && !failed && <AvatarImage src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
   </span>;
 }
 

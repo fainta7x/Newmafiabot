@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import './appStyles.ts';
 import { api } from '../src/lib/api.ts';
 import { PlayerAvatar } from '../src/components/ui/PlayerAvatar.tsx';
+import { AvatarImage } from '../src/components/ui/AvatarImage.tsx';
 
 const fallback = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1768"><rect width="2048" height="1768" fill="#202124"/><path d="M0 0L2048 1768M2048 0L0 1768" stroke="#f2ddaf" stroke-width="12"/><circle cx="1024" cy="650" r="350" fill="#b7a07c"/><rect x="500" y="1000" width="1048" height="768" fill="#355777"/></svg>')}`;
 const photos = (window as unknown as { avatarFixtures?: Record<string, string> }).avatarFixtures || {};
@@ -16,5 +17,6 @@ createRoot(document.getElementById('root')!).render(
     <section className="mt-4 flex flex-wrap items-center gap-4" aria-label="Размеры аватарок">
       {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map(size => <PlayerAvatar key={size} playerId="nason" nickname="Насон" avatarVersion="fixture-v1" size={size} />)}
     </section>
+    {photos.http === 'yes' && <section className="mt-4"><AvatarImage src="/api/player/players/nason/avatar" alt="" className="h-12 w-12 rounded-full object-cover" /></section>}
   </main>,
 );

@@ -26,3 +26,15 @@ test('Retina avatars retain physical pixels', async ({browser})=>{
   await expect.poll(()=>page.locator('img').first().evaluate(img=>Math.min(img.naturalWidth,img.naturalHeight))).toBe(96);
   await context.close();
 });
+
+test('same-origin avatar URL receives a sized raster without changing the source', async ({page},info)=>{
+  const source = await readFile(new URL('../../public/player-avatars/nason.jpg', import.meta.url));
+  await page.route('**/api/player/players/nason/avatar', route=>route.fulfill({status:200,contentType:'image/jpeg',body:source}));
+  await page.addInitScript(()=>{ window.avatarFixtures = {http:'yes'}; });
+  await page.goto('/e2e/player-avatar.html');
+  const image = page.locator('section').last().locator('img');
+  await expect.poll(()=>image.getAttribute('src')).toMatch(/^data:image\/png/);
+  expect(await image.evaluate(el=>[el.naturalWidth,el.naturalHeight,el.getBoundingClientRect().width])).toEqual([56,48,48]);
+  expect(await page.evaluate(auditScreen)).toEqual([]);
+  await page.screenshot({path:info.outputPath('direct-avatar-quality.png'),fullPage:true});
+});

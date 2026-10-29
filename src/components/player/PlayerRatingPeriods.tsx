@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { round2 } from '../../shared/numbers.ts';
 import { getGameRoleDefinition, normalizeGameRole } from '../../shared/gameRoles.ts';
 import { countGames, countWins } from '../../lib/russianPlural';
@@ -218,7 +219,7 @@ export default function PlayerRatingPeriods({
             <Section title="Результат игрока">
               <button type="button" onClick={() => setSelectedPlayerId(null)} className="mb-3 rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← Таблица периода</button>
               <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3">
-                {selectedPlayer.avatar_url ? <img src={selectedPlayer.avatar_url} alt={selectedPlayer.nickname} className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/60">{selectedPlayer.nickname.slice(0, 1).toUpperCase()}</div>}
+                {selectedPlayer.avatar_url ? <AvatarImage src={selectedPlayer.avatar_url} alt={selectedPlayer.nickname} className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/60">{selectedPlayer.nickname.slice(0, 1).toUpperCase()}</div>}
                 <div className="min-w-0 flex-1"><div className="truncate font-medium text-white">{selectedPlayer.nickname}{selectedPlayer.player_id === playerId ? ' · вы' : ''}</div><div className="mt-1 text-xs text-white/40">{countGames(selectedPlayer.games_played)} · {countWins(selectedPlayer.wins)}</div></div>
                 <div className="shrink-0 text-right"><div className="text-xl font-semibold text-white">{scoreNumber(selectedPlayer.total_points)}</div><div className="text-[11px] uppercase tracking-[0.12em] text-white/30">баллов</div></div>
               </div>
@@ -277,7 +278,7 @@ export default function PlayerRatingPeriods({
                     return (
                       <button key={item.player_id} type="button" onClick={() => setSelectedPlayerId(item.player_id)} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${isSelf ? 'border-white/20 bg-white/[0.08]' : 'border-transparent bg-black/20'}`}>
                         <div className="w-7 shrink-0 text-center text-sm font-semibold text-white/45">{item.place}</div>
-                        {item.avatar_url ? <img src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/60">{item.nickname.slice(0, 1).toUpperCase()}</div>}
+                        {item.avatar_url ? <AvatarImage src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/60">{item.nickname.slice(0, 1).toUpperCase()}</div>}
                         <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? ' · вы' : ''}</div><div className="mt-1 text-[11px] text-white/35">{countGames(item.games_played)} · {countWins(item.wins)} · доп. {signedScore(item.additional_total)}</div></div>
                         <div className="shrink-0 text-right"><div className="text-base font-semibold text-white">{scoreNumber(item.total_points)}</div><div className="text-[11px] text-white/30">баллов ›</div></div>
                       </button>

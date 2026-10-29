@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 import { formatMoscowDate } from '../../lib/moscowDate.ts';
@@ -59,7 +60,7 @@ function Avatar({ src, name, size = 34 }: { src?: string | null; name: string; s
   const [failed, setFailed] = useState(false);
   return <span aria-hidden="true" style={{ width: size, height: size }} className="relative grid shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-amber-200/20 to-white/[0.04] text-[11px] font-semibold text-white/75 ring-1 ring-white/10">
     {name.trim().slice(0, 1).toUpperCase() || '?'}
-    {src && !failed && <img src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    {src && !failed && <AvatarImage src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
   </span>;
 }
 

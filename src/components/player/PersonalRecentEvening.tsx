@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { useEffect, useState } from 'react';
 import { countGames, countWins } from '../../lib/russianPlural';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -10,7 +11,7 @@ function Row({ item, kind }: { item: Person; kind: 'mate' | 'rival' }) {
   return (
     <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id)} className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left ${tone}`}>
       {item.avatar_url
-        ? <img src={item.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />
+        ? <AvatarImage src={item.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />
         : <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-xs font-semibold text-white/45">{item.nickname.slice(0, 1).toUpperCase()}</div>}
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-semibold">{item.nickname}</div>

@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Search, X } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -19,7 +20,7 @@ const rankAppearance = (place: number) => (
 function RatingAvatar({ player, featured = false }: { player: RatingPlayer; featured?: boolean }) {
   const size = featured ? 'h-12 w-12 rounded-2xl' : 'h-11 w-11 rounded-[14px]';
   return player.avatar_url
-    ? <img src={player.avatar_url} alt="" className={`${size} shrink-0 object-cover ring-1 ring-white/10`} />
+    ? <AvatarImage src={player.avatar_url} alt="" className={`${size} shrink-0 object-cover ring-1 ring-white/10`} />
     : <div aria-hidden="true" className={`${size} grid shrink-0 place-items-center bg-white/[0.08] text-sm font-semibold text-white/75`}>{player.nickname.slice(0, 1).toUpperCase()}</div>;
 }
 

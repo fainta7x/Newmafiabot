@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import './broadcastLobbyScreen.css';
 
@@ -39,7 +40,7 @@ const Avatar = ({ token, player, size = 'regular' }: { token: string; player: Pl
   return (
     <span className={`broadcast-avatar broadcast-avatar--${size}`} aria-hidden="true">
       {!failed && player.player_id ? (
-        <img
+        <AvatarImage
           src={`/api/public/broadcast/${encodeURIComponent(token)}/avatar/${encodeURIComponent(player.player_id)}`}
           alt=""
           onError={() => setFailed(true)}

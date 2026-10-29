@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { ChevronRight, Search, UserRound, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '../ui/Input.tsx';
@@ -9,7 +10,7 @@ type DirectoryPlayer = { id: string; nickname: string; elo: number; game_level: 
 const gameLevelLabel = (level: string) => level === 'novice' ? 'Новичок' : level === 'tournament' ? 'Турнирный игрок' : 'Игрок клуба';
 
 function PlayerAvatar({ player }: { player: DirectoryPlayer }) {
-  if (player.avatar_url) return <img src={player.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />;
+  if (player.avatar_url) return <AvatarImage src={player.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />;
   return <div aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[0.09] text-base font-semibold text-white/75">{player.nickname.slice(0, 1).toUpperCase()}</div>;
 }
 

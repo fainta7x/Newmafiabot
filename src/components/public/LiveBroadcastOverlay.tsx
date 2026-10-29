@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { getGameRoleDefinition, UNKNOWN_GAME_ROLE_LABEL, normalizeGameRole, type GameRole } from '../../shared/gameRoles.ts';
 import { GameRoleIcon, GAME_ROLE_CSS_VARIABLES } from '../ui/GameRole.tsx';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -74,7 +75,7 @@ const BroadcastAvatar = ({ token, player }: { token: string; player: LiveBroadca
   return (
     <span className="live-broadcast-avatar" aria-label={`Аватар: ${player.nickname}`}>
       {!failed && player.playerId ? (
-        <img
+        <AvatarImage
           src={`/api/public/broadcast/${encodeURIComponent(token)}/avatar/${encodeURIComponent(player.playerId)}`}
           alt=""
           onError={() => setFailed(true)}

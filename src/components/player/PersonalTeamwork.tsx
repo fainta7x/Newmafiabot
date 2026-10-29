@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import { useEffect, useState, type ReactNode } from 'react';
 import { countGames } from '../../lib/russianPlural';
@@ -21,7 +22,7 @@ const NEXT_STEP: Record<Stage, string> = { acquaintance: 'напарники', t
 
 function Avatar({ person }: { person: Person }) {
   return person.avatar_url
-    ? <img src={person.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />
+    ? <AvatarImage src={person.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />
     : <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-xs font-semibold text-white/45">{person.nickname.slice(0, 1).toUpperCase()}</div>;
 }
 

@@ -143,6 +143,16 @@ async def apply_organizer_task_action(task_id: str, action: str, telegram_user_i
     )
 
 
+async def mark_organizer_debt_paid(player_id: str, telegram_user_id: int) -> dict[str, Any]:
+    """«Оплатил» under the organizer's debts notification: payment confirmed for every evening the player owes for."""
+    return await _request("POST", f"/api/bot/organizer-debts/{player_id}/paid", {"telegram_user_id": str(telegram_user_id)})
+
+
+async def remind_organizer_debtors(telegram_user_id: int) -> dict[str, Any]:
+    """«Напомнить всем должникам» under the organizer's debts notification."""
+    return await _request("POST", "/api/bot/organizer-debts/remind", {"telegram_user_id": str(telegram_user_id)})
+
+
 async def confirm_evening_first_game_start(evening_id: str, time: str, telegram_user_id: int) -> dict[str, Any]:
     """The organizer's answer to «Во сколько первая игра?» before the weekly announcement (``19:00``/``20:00``/``21:00``)."""
     return await _request(

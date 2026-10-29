@@ -4,6 +4,20 @@ Owner-approved scope: auto-seat when «Сегодня играем» confirms th
 
 # 2LA Noire — Current Project State
 
+## 2026-10-29 — organizer debts, «Дела», club hygiene and actionable notifications (owner answers, in the #1089 branch)
+
+Owner: debts of one player across several evenings must count in the Today panel; «Дела» and «Все дела» duplicated each other; the club hygiene needs its own section with filters; organizer notifications only wrote text. Implemented, not merged/deployed:
+- **Today «Долги игроков»** (`OrganizerDebtsPanel.tsx`, `GET /api/crm/debts`): every debtor once with the total over all evenings and the evenings behind it (not only the last evening); «Оплачено» per evening and «Оплачено всё» (`debtActionsService.markPlayerDebtPaid` → the same closed-evening payment write); «Напомнить всем должникам» (one summed reminder per debtor, 20 h gap kept). The matching «Долг — …» items leave «Дела» while the panel shows.
+- **«Дела»**: the «Все дела» button only appears when more items exist than shown («Ещё N дел»); full mode gets a «Что делают кнопки» legend; person items explain «Написал» with its real quiet days (`contact_quiet_days`).
+- **«Гигиена клуба»** (`ClubHygieneCRM.tsx`, `clubHygieneService.ts`, `GET /api/crm/hygiene`): second tab on the tasks screen («Ещё → Дела»), categories as filters — no avatar, no birthday, birthday hidden, no name, no phone, no Telegram, no Telegram and VK, no preferred format; per person Telegram/VK link, «Написал» (the existing `profile` contact, 14 days, hides the person from every category) and the name opens the player card. Roster = club players except blocked/paused/stopped/guests. Categories are a first set, the owner will prune.
+- **Organizer notifications**: every one gets «📱 Открыть в приложении» (a Mini App button into the matching CRM screen, CRM home by default; `defaultOrganizerOpenPath`). Debts message: «Напомнить всем должникам» and «✅ Оплатил: ник · сумма» per player (Python `odebt:` callbacks, only the notified organizers may press). Whether the Mini App link signs the organizer in could not be tested without Telegram — check the first press after deploy.
+
+## 2026-10-29 — gift collection merged; test-mode screen reworked
+
+#1087 merged as `8b18bb6ad6e7b5fdf16562d49c64a7ba920fd861` after exact head 6cfc69c6 passed CI4638, UI2308 (both jobs), CodeQL3942 and Gitleaks3939 (the first UI run failed on the preview harness not knowing the new wallet request; fixed in the harness, no app change). **Merged, not deployed**: at 09:20 UTC the live build was still the previous revision (`/api/gift-collections` answered 404). The collection, the two-days-before organizer prompt, the Telegram buttons and the birthday post (with avatar, to every active Telegram destination and the VK wall) go live only after the Amvera auto-build of `8b18bb6` finishes; then check `/api/health/runtime` build sha once. Nothing has been sent to players or published; the post for Дина waits for the deploy, and publishing needs the owner's go (wording and channels already approved: «во всех пабликах и группах»).
+
+Owner (2026-10-29): «Ещё → Тестовый режим» was a placeholder in-memory session with no visible state (scenarios never generated data) next to the real sandbox `/test-login` (separate DB, amber «TEST» tab). Merged into one screen (`DeveloperTestModeCRM.tsx`): it states plainly «Вы в рабочем режиме» / «Вы в тестовой среде», links to `/test-login` and offers «Выйти из тестовой среды». Warning kept on the screen: sandbox login replaces the working login. The old `/api/crm/test-mode` routes are untouched.
+
 ## 2026-10-29 — birthday congratulations, gift collection and gift hints: owner rules agreed, code NOT started
 
 Source: the interrupted GPT chat (it hit its usage limit; no branch, PR or code from it exists in the repo). Owner approved implementation; the rules below are the owner's answers, recorded so they are not lost. Nothing is built, merged or deployed.

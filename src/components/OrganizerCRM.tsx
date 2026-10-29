@@ -11,6 +11,7 @@ import { MoreCRM } from './crm/MoreCRM.tsx';
 import { PlayersHubCRM } from './crm/PlayersHubCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
 import OrganizerAgenda from './crm/OrganizerAgenda.tsx';
+import ClubHygieneCRM from './crm/ClubHygieneCRM.tsx';
 import CuratorTasksPanel from './crm/CuratorTasksPanel.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
@@ -257,6 +258,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   // «Дела» shows the grouped list; «Свои задачи и выполненные» opens the old task list.
   const [showTaskList, setShowTaskList] = useState(false);
+  const [tasksView, setTasksView] = useState<'agenda' | 'hygiene'>('agenda');
   const openSecondaryTab = (tab: 'tasks' | 'analytics') => {
     if (activeTab === 'more' && activeMoreScreen === null) rememberMoreMenuScroll();
     setShowTaskList(false);
@@ -451,7 +453,16 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             {activeTab === 'tasks' ? (showTaskList ? <div className="space-y-3">
               <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
               <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
-            </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={handleOpenEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
+            </div> : <div className="space-y-3">
+              <div role="tablist" aria-label="Раздел задач" className="grid grid-cols-2 gap-1 rounded-[14px] bg-surface-2 p-1">
+                {([['agenda', 'Дела'], ['hygiene', 'Гигиена клуба']] as const).map(([id, label]) => (
+                  <button key={id} type="button" role="tab" aria-selected={tasksView === id} onClick={() => setTasksView(id)} className={`min-h-11 rounded-[11px] text-[13px] font-semibold ${tasksView === id ? 'bg-surface-1 text-text-primary shadow-sm' : 'text-text-secondary'}`}>{label}</button>
+                ))}
+              </div>
+              {tasksView === 'agenda'
+                ? <><OrganizerAgenda mode="full" onOpenEveningSection={handleOpenEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></>
+                : <ClubHygieneCRM onOpenPlayer={handleOpenPlayer} />}
+            </div>) : null}
             {activeTab === 'analytics' ? <AnalyticsCRM /> : null}
             {activeTab === 'more' ? (
               <MoreCRM

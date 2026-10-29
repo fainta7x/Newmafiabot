@@ -10,7 +10,7 @@ import logging
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from bot_announcement_api import apply_organizer_task_action, confirm_evening_first_game_start
+from bot_announcement_api import apply_organizer_task_action, confirm_evening_first_game_start, mark_organizer_debt_paid, remind_organizer_debtors
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -112,3 +112,52 @@ async def handle_evening_first_game_start(callback: CallbackQuery) -> None:
             await callback.message.reply(f"✅ Первая игра в {time} — {note}.")
         except Exception as exc:  # an old message may not be editable; the time is already saved
             logger.info("Evening start message not updated: %s", exc)
+
+
+DEBT_PREFIX = "odebt:"
+_DEBT_ERRORS = {
+    "authorization": "Это действие доступно только организаторам.",
+    "not_found": "Долга уже нет — возможно, оплата отмечена.",
+}
+
+
+def _without_button(markup: InlineKeyboardMarkup | None, callback_data: str) -> InlineKeyboardMarkup | None:
+    if markup is None:
+        return None
+    rows = [row for row in markup.inline_keyboard if not any(button.callback_data == callback_data for button in row)]
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+
+
+@router.callback_query(F.data.startswith(DEBT_PREFIX))
+async def handle_organizer_debt_action(callback: CallbackQuery) -> None:
+    """Under the debts notification (owner, 2026-10-29): ``odebt:paid:<player>`` confirms payment, ``odebt:remind`` reminds all debtors."""
+    data = callback.data or ""
+    if not callback.from_user:
+        await callback.answer("Не понял действие.", show_alert=True)
+        return
+    if data == "odebt:remind":
+        result = await remind_organizer_debtors(callback.from_user.id)
+        if not result.get("success"):
+            await callback.answer(_DEBT_ERRORS.get(str(result.get("error")), "Не получилось, попробуйте ещё раз."), show_alert=True)
+            return
+        info = result.get("data") or {}
+        await callback.answer(
+            f"📨 Отправлено: {info.get('queued', 0)}; уже напоминали недавно: {info.get('skipped_recent', 0)}; без канала связи: {info.get('undeliverable', 0)}",
+            show_alert=True,
+        )
+        return
+    parts = data.split(":", 2)
+    if len(parts) != 3 or parts[1] != "paid" or not parts[2]:
+        await callback.answer("Не понял действие.", show_alert=True)
+        return
+    result = await mark_organizer_debt_paid(parts[2], callback.from_user.id)
+    if not result.get("success"):
+        await callback.answer(_DEBT_ERRORS.get(str(result.get("error")), "Не получилось, попробуйте ещё раз."), show_alert=True)
+        return
+    info = result.get("data") or {}
+    await callback.answer(f"✅ Оплата отмечена: {info.get('nickname', 'игрок')} — {info.get('amount', 0)} ₽")
+    if callback.message is not None:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=_without_button(callback.message.reply_markup, data))
+        except Exception as exc:  # an old message may not be editable; the payment is already saved
+            logger.info("Organizer debt buttons not updated: %s", exc)

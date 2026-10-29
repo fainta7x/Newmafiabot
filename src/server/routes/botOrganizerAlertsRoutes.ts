@@ -5,6 +5,7 @@ import { botServiceAuth } from '../botServiceAuth.ts';
 import { applyOrganizerTaskAction } from '../services/organizerTaskQuickActions.ts';
 import { confirmEveningStart } from '../services/eveningStartConfirmationService.ts';
 
+import { DebtActionError, isOrganizerPresser, markPlayerDebtPaid, remindDebtors } from '../services/debtActionsService.ts';
 const router = Router();
 router.use(botServiceAuth);
 
@@ -77,6 +78,27 @@ router.post('/organizer-tasks/:id/action', async (req, res) => {
     return res.status(status).json({ error: result.error });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить задачу' });
+  }
+});
+
+/** «Оплатил» under the debts notification: confirms the player's payment for every evening he owes for. */
+router.post('/organizer-debts/:playerId/paid', async (req, res) => {
+  try {
+    if (!(await isOrganizerPresser(req.db, req.body?.telegram_user_id))) return res.status(403).json({ error: 'forbidden' });
+    return res.json(await markPlayerDebtPaid(req.db, String(req.params.playerId), null));
+  } catch (error: any) {
+    if (error instanceof DebtActionError) return res.status(error.status).json({ error: error.code });
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отметить оплату' });
+  }
+});
+
+/** «Напомнить должникам» under the debts notification. */
+router.post('/organizer-debts/remind', async (req, res) => {
+  try {
+    if (!(await isOrganizerPresser(req.db, req.body?.telegram_user_id))) return res.status(403).json({ error: 'forbidden' });
+    return res.json(await remindDebtors(req.db));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось отправить напоминания' });
   }
 });
 

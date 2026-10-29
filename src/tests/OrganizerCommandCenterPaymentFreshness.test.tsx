@@ -58,6 +58,7 @@ const props = {
 };
 
 beforeEach(() => {
+  debtsBody = { debtors: [] };
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
 });
 
@@ -68,8 +69,12 @@ afterEach(() => {
 
 // The home screen also loads «Порядок в клубе»; these tests only look at the command-center payload.
 const clubOrder = { items: [], count: 0, categories: {} };
+// «Долги игроков» reads its own endpoint (owner, 2026-10-29): one row per player, every evening behind the total.
+let debtsBody: { debtors: unknown[] } = { debtors: [] };
+const debtsFor = (owed: number) => ({ debtors: owed > 0 ? [{ player_id: 'millourt', nickname: 'Millourt', owed, evenings: [{ evening_id: 'previous', title: '4 сентября', starts_at: '2026-09-04T17:00:00.000Z', owed }] }] : [] });
 const withClubOrder = (handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) =>
   vi.fn((input: RequestInfo | URL, init?: RequestInit) => (String(input).includes('/api/crm/club-order') ? jsonResponse(clubOrder)
+    : String(input).includes('/api/crm/debts') ? jsonResponse(debtsBody)
     : String(input).includes('/api/crm/agenda') ? jsonResponse({ items: [], counts: { now: 0, week: 0, later: 0 }, total: 0, snoozed: 0, groups: { now: 'Сейчас', week: 'На этой неделе', later: 'Когда будет время' } })
       : handler(input, init)));
 
@@ -176,6 +181,7 @@ describe('OrganizerCommandCenter payment freshness', () => {
     let resolveResume!: (value: Response) => void;
     const resumeResponse = new Promise<Response>((resolve) => { resolveResume = resolve; });
     let call = 0;
+    debtsBody = debtsFor(600);
     vi.stubGlobal('fetch', withClubOrder(() => {
       call += 1;
       if (call === 1) return jsonResponse(responseBody({ currentDue: 400, previousDue: 600 }));
@@ -184,8 +190,9 @@ describe('OrganizerCommandCenter payment freshness', () => {
 
     render(<OrganizerCommandCenter {...props} />);
     expect(await screen.findByText('400 ₽', { exact: false })).toBeDefined();
-    expect(screen.getByText('Долги с прошлого вечера · не текущая оплата')).toBeDefined();
-    expect(screen.getByText('долг за 4 сентября: 600 ₽')).toBeDefined();
+    expect((await screen.findByTestId('debts-panel')).textContent).toContain('Millourt');
+    expect(screen.getByTestId('debts-panel').textContent).toContain('4 сентября');
+    expect(screen.getByTestId('debts-panel').textContent).toContain('600 ₽');
 
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
     fireEvent(document, new Event('visibilitychange'));
@@ -194,32 +201,35 @@ describe('OrganizerCommandCenter payment freshness', () => {
 
     expect(await screen.findByTestId('crm-payments-refreshing')).toBeDefined();
     expect(screen.queryByText('400 ₽', { exact: false })).toBeNull();
-    expect(screen.queryByText('долг за 4 сентября: 600 ₽')).toBeNull();
+    expect(screen.queryByTestId('debts-panel')).toBeNull();
     // The upcoming evening has no big card any more (owner, 2026-10-01); the refresh note names it.
     expect(screen.getByTestId('crm-payments-refreshing').textContent).toContain('11 сентября');
 
     await new Promise<void>((resolve) => { setTimeout(resolve, 100); });
+    debtsBody = debtsFor(0);
     resolveResume(await jsonResponse(responseBody({ currentDue: 0, previousDue: 0 })));
     await waitFor(() => expect(screen.queryByTestId('crm-payments-refreshing')).toBeNull());
     expect(screen.queryByText('600 ₽', { exact: false })).toBeNull();
   });
 
-  it('labels current payments and previous-evening debts with different evening title/date context', async () => {
+  it('labels current payments and debts of other evenings with different evening title/date context', async () => {
+    debtsBody = debtsFor(300);
     vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 400, previousDue: 300 }))));
     render(<OrganizerCommandCenter {...props} />);
 
     expect(await screen.findByText('Не оплачено · этот вечер')).toBeDefined();
     expect(screen.getByText(/11 сентября.*400 ₽/)).toBeDefined();
-    const previous = screen.getByTestId('previous-evening-debts');
-    expect(previous.textContent).toContain('Долги с прошлого вечера · не текущая оплата');
+    const previous = await screen.findByTestId('debts-panel');
+    expect(previous.textContent).toContain('Долги игроков');
     expect(previous.textContent).toContain('4 сентября');
     expect(previous.textContent).toContain('300 ₽');
   });
 
-  it('puts the previous-evening debts above the current evening actions (owner, 2026-10-12)', async () => {
+  it('puts the debts above the current evening actions (owner, 2026-10-12)', async () => {
+    debtsBody = debtsFor(300);
     vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 400, previousDue: 300 }))));
     render(<OrganizerCommandCenter {...props} />);
-    const previous = await screen.findByTestId('previous-evening-debts');
+    const previous = await screen.findByTestId('debts-panel');
     const actions = screen.getByLabelText('Действия сегодня');
     expect(previous.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

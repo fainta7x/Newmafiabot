@@ -22,6 +22,13 @@ const mskDate = (ms: number) => new Date(ms).toLocaleDateString('sv-SE', { timeZ
 const mskHour = (ms: number) => Number(new Date(ms).toLocaleTimeString('en-GB', { timeZone: 'Europe/Moscow', hour: '2-digit', hour12: false }).slice(0, 2));
 const whenText = (ms: number) => new Date(ms).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 const rubles = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
+/** Under the debts message (owner, 2026-10-29): one button for everybody and «Оплатил» per player (all his evenings). */
+const debtButtons = (rows: Array<{ player_id: string; nickname: string; owed: number }>) => ({
+  inline_keyboard: [
+    [{ text: '📨 Напомнить всем должникам', callback_data: 'odebt:remind' }],
+    ...rows.slice(0, 5).map((row) => [{ text: `✅ Оплатил: ${row.nickname.length > 16 ? `${row.nickname.slice(0, 15)}…` : row.nickname} · ${rubles(row.owed)}`, callback_data: `odebt:paid:${row.player_id}` }]),
+  ],
+});
 const lines = (items: string[], limit = 6) => items.slice(0, limit).map((item) => `• ${escapeTelegramHtml(item)}`).concat(items.length > limit ? [`… и ещё ${items.length - limit}`] : []);
 
 /** True when a message with this key was queued before (the key is stored with a chat id suffix). */
@@ -30,9 +37,9 @@ async function queued(db: DatabaseWrapper, key: string) {
   return Boolean(row);
 }
 
-async function send(db: DatabaseWrapper, key: string, entityId: string, text: string, replyMarkup: Record<string, unknown> | null = null) {
+async function send(db: DatabaseWrapper, key: string, entityId: string, text: string, replyMarkup: Record<string, unknown> | null = null, openPath: string | null = null) {
   if (await queued(db, key)) return 0;
-  const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'organizer_reminder', entityId, text, replyMarkup });
+  const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'organizer_reminder', entityId, text, replyMarkup, openPath });
   return result.queued > 0 ? 1 : 0;
 }
 
@@ -66,14 +73,14 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
         .map((step: any) => `${step.title}${step.detail ? ` — ${step.detail}` : ''}`);
       if (open.length) {
         sent += await send(db, `organizer-route:${id}:${slot}`, id,
-          `📋 <b>${escapeTelegramHtml(title)}</b> — ${slot === '3h' ? 'через ' + Math.max(1, Math.round(untilStart / HOUR)) + ' ч' : 'сегодня'} (${whenText(start)})\nЕщё открыто:\n${lines(open).join('\n')}`);
+          `📋 <b>${escapeTelegramHtml(title)}</b> — ${slot === '3h' ? 'через ' + Math.max(1, Math.round(untilStart / HOUR)) + ' ч' : 'сегодня'} (${whenText(start)})\nЕщё открыто:\n${lines(open).join('\n')}`, null, `/admin/evenings/${encodeURIComponent(id)}`);
       }
     }
 
     // An evening that was not closed: every day until it is closed, so it never hides in the list.
     if (untilStart < -4 * HOUR && hour >= DAILY_HOUR) {
       sent += await send(db, `organizer-unclosed:${id}:${today}`, id,
-        `⚠️ <b>${escapeTelegramHtml(title)}</b> (${whenText(start)}) ещё не закрыт. Отметьте пришедших и закройте вечер — пока он открыт, долги и статистика не посчитаны. Если вечера не было — отмените его.`);
+        `⚠️ <b>${escapeTelegramHtml(title)}</b> (${whenText(start)}) ещё не закрыт. Отметьте пришедших и закройте вечер — пока он открыт, долги и статистика не посчитаны. Если вечера не было — отмените его.`, null, `/admin/evenings/${encodeURIComponent(id)}/closeout`);
     }
   }
 
@@ -83,7 +90,7 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
     const rows=(await loadPlayerEveningDebts(db)).filter(p=>p.evenings.some(e=>Date.parse(e.starts_at)>=cutoff));
     if(rows.length&&!(await queued(db,`organizer-debts:${today}`))){
       const total=rows.reduce((sum,p)=>sum+p.owed,0);
-      sent+=await send(db,`organizer-debts:${today}`,'debts',`💰 Долги за вечера: ${rows.length} чел., всего ${rubles(total)}\n${lines(rows.map(p=>`${p.nickname}: ${rubles(p.owed)} — ${p.evenings.slice(0,4).map(e=>new Date(e.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',timeZone:'Europe/Moscow'})+': '+rubles(e.owed)).join('; ')}${p.evenings.length>4?'; ещё вечеров: '+(p.evenings.length-4):''}`),5).join('\n')}\nОплату можно принять в «Оплата вечера».`);
+      sent+=await send(db,`organizer-debts:${today}`,'debts',`💰 Долги за вечера: ${rows.length} чел., всего ${rubles(total)}\n${lines(rows.map(p=>`${p.nickname}: ${rubles(p.owed)} — ${p.evenings.slice(0,4).map(e=>new Date(e.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',timeZone:'Europe/Moscow'})+': '+rubles(e.owed)).join('; ')}${p.evenings.length>4?'; ещё вечеров: '+(p.evenings.length-4):''}`),5).join('\n')}\nНажмите «Оплатил» у игрока, когда получите перевод, или напомните всем сразу.`,debtButtons(rows),'/admin');
     }
   }
 
@@ -97,7 +104,7 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
     ).catch(() => [] as any[]);
     for(const task of tasks)task.title=birthdayTaskTitle(task,now);
     if (tasks.length && !(await queued(db, `organizer-tasks:${today}`))) {
-      sent += await send(db, `organizer-tasks:${today}`, 'tasks', `🗒 Просроченные задачи: ${tasks.length}\n${lines(tasks.map((task) => birthdayTaskTitle(task,now))).join('\n')}`, organizerTaskButtons(tasks));
+      sent += await send(db, `organizer-tasks:${today}`, 'tasks', `🗒 Просроченные задачи: ${tasks.length}\n${lines(tasks.map((task) => birthdayTaskTitle(task,now))).join('\n')}`, organizerTaskButtons(tasks), '/admin/tasks');
     }
   }
   // Birthday gift collection: start prompt two days before, one reminder about non-responders.

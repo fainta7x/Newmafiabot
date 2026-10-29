@@ -61,6 +61,37 @@ export async function getOrganizerNotificationDiagnostics(db: DatabaseWrapper) {
   };
 }
 
+/** The app address for a CRM path (the same base the player links use); null when no public address is configured. */
+export const organizerAppUrl = (path: string) => {
+  const base = String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').trim().replace(/\/$/, '').replace(/\/player$/, '');
+  return base ? `${base}${path}` : null;
+};
+
+/**
+ * Every message to the organizer gets a way into the right CRM screen (owner, 2026-10-29: the notifications only wrote text):
+ * a «Открыть» button with the screen of this message, or the CRM home when the producer names none. Existing quick-action
+ * buttons stay above it.
+ */
+export function withOrganizerOpenButton(replyMarkup: Record<string, unknown> | null | undefined, openPath: string | null | undefined) {
+  const url = organizerAppUrl(openPath || '/admin');
+  if (!url) return replyMarkup ?? null;
+  const rows = Array.isArray((replyMarkup as any)?.inline_keyboard) ? [...(replyMarkup as any).inline_keyboard] : [];
+  rows.push([{ text: '📱 Открыть в приложении', web_app: { url } }]);
+  return { inline_keyboard: rows };
+}
+
+/** The CRM screen that matches a notification when its producer names none; anything unknown opens the CRM home. */
+export function defaultOrganizerOpenPath(eventType: string, entityId: string) {
+  const id = encodeURIComponent(entityId);
+  switch (eventType) {
+    case 'evening_shortfall': case 'evening_today_post': case 'evening_start_question': case 'evening_cancelled': return `/admin/evenings/${id}`;
+    case 'evening_signed_up': case 'evening_cancelled_by_player': return `/admin/evenings/${id}/participants`;
+    case 'novice_application_created': return '/admin/more/development';
+    case 'new_player_registered': case 'gomafia_link_request': return `/admin/players/${id}`;
+    default: return '/admin';
+  }
+}
+
 export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
   messageKey: string;
   eventType: string;
@@ -68,6 +99,8 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
   text: string;
   /** Inline buttons under the message (quick actions, owner request 2026-10-23). */
   replyMarkup?: Record<string, unknown> | null;
+  /** CRM path the «Открыть в приложении» button leads to (default: the CRM home). */
+  openPath?: string | null;
 }, options: { kick?: boolean } = {}) {
   const config = await resolveOrganizerNotificationRecipientsWithAccess(db);
   for (const chatId of config.recipients) {
@@ -78,7 +111,7 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
       entityId: input.entityId,
       chatId,
       text: input.text,
-      replyMarkup: input.replyMarkup ?? null,
+      replyMarkup: withOrganizerOpenButton(input.replyMarkup, input.openPath || defaultOrganizerOpenPath(input.eventType, input.entityId)),
     });
   }
   // Inside a transaction the outbox worker (every few seconds) sends it instead of an immediate kick.

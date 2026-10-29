@@ -66,7 +66,7 @@ export function playerPaymentReminderText(player:PlayerEveningDebt){
     `Оплатить можно ${paymentDetails()}.`,'Если уже заплатил, напиши организатору, и он отметит оплату.'].join('\n');
 }
 
-const recentlyReminded = async (db: DatabaseWrapper, _eveningId: string, playerId: string, now: number) => {
+export const recentlyReminded = async (db: DatabaseWrapper, _eveningId: string, playerId: string, now: number) => {
   const row = await db.get<any>(
     `SELECT MAX(created_at) AS last FROM personal_notification_deliveries WHERE notification_key LIKE ? AND player_id = ?`,
     ['evening-payment:%', playerId],

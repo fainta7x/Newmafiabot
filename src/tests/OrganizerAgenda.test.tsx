@@ -57,6 +57,6 @@ describe('«Дела»', () => {
     expect(screen.queryByText('Позвонить в кафе')).toBeNull();
     fireEvent.click(screen.getByTestId('agenda-open-all'));
     expect(openAll).toHaveBeenCalled();
-    expect(screen.getByTestId('agenda-open-all').textContent).toContain('Все дела · 3');
+    expect(screen.getByTestId('agenda-open-all').textContent).toContain('Ещё 1 дело');
   });
 });

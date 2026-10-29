@@ -4,6 +4,9 @@ import { ensureJudgeAuthoritySchema } from '../../db/ensureJudgeAuthoritySchema.
 import { ensureGiftCollectionSchema } from '../../db/ensureGiftCollectionSchema.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
+import { nextBirthdayOccurrence } from './playerProfileIntegrityService.ts';
+import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
+import { appUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 
 export const GIFT_AMOUNT_BUTTONS = [100, 200, 300, 400, 500] as const;
@@ -192,8 +195,13 @@ export async function loadGiftCollectionForOrganizer(db: DatabaseWrapper, collec
   const collection = await db.get<any>('SELECT g.*, p.nickname AS honoree_nickname FROM gift_collections g JOIN players p ON p.id = g.honoree_player_id WHERE g.id = ?', [collectionId]);
   if (!collection) throw new GiftCollectionError('Сбор не найден', 404, 'not_found');
   const contributions = await db.all<any>(
-    `SELECT c.player_id, p.nickname, p.telegram_username, c.status, c.channel, c.pledged_amount, c.paid_amount, c.paid_at, c.task_id
-       FROM gift_contributions c JOIN players p ON p.id = c.player_id WHERE c.collection_id = ? ORDER BY p.nickname COLLATE NOCASE`, [collectionId]);
+    `SELECT c.player_id, p.nickname, p.telegram_username, p.telegram_user_id, c.status, c.channel, c.pledged_amount, c.paid_amount, c.paid_at, c.task_id,
+            (SELECT external_user_id FROM player_external_identities x WHERE x.platform = 'vk' AND x.player_id = c.player_id LIMIT 1) AS vk_user_id
+       FROM gift_contributions c JOIN players p ON p.id = c.player_id WHERE c.collection_id = ? ORDER BY p.nickname COLLATE NOCASE`, [collectionId]).catch(() => [] as any[]);
+  for (const c of contributions) {
+    c.contact_url = c.telegram_username ? `https://t.me/${c.telegram_username}` : c.telegram_user_id ? `tg://user?id=${c.telegram_user_id}` : c.vk_user_id ? `https://vk.com/id${c.vk_user_id}` : null;
+    delete c.telegram_user_id; delete c.vk_user_id;
+  }
   const sum = (key: 'pledged_amount' | 'paid_amount', pred: (c: any) => boolean) => contributions.filter(pred).reduce((s, c) => s + (Number(c[key]) || 0), 0);
   return { collection, contributions, totals: { pledged: sum('pledged_amount', (c) => c.status === 'pledged' || c.status === 'paid'), paid: sum('paid_amount', () => true) } };
 }
@@ -216,3 +224,56 @@ export async function loadPlayerGiftContributions(db: DatabaseWrapper, playerId:
 
 export const giftPledgeConfirmation = (amount: number, payee: string | null) =>
   `✅ Записал: ${rub(amount)}. ${payee ? `Переведи на ${payee}. ` : 'Организатор пришлёт реквизиты. '}Сумму можно поменять или отказаться, пока перевод не подтверждён.`;
+
+const GIFT_PROMPT_DAYS = 2;
+const REMINDER_AFTER_MS = 48 * 3_600_000;
+const organizerLink = (query: string) => { const url = appUrl(`/admin/more/gifts${query}`); return url || null; };
+const openButton = (text: string, query: string) => { const url = organizerLink(query); return url ? { inline_keyboard: [[{ text, url }]] } : null; };
+
+/**
+ * Owner chain 2026-10-29: two days before a birthday the organizer gets a task and a Telegram message «начните сбор», and
+ * opens the collection himself. Nobody is invited automatically. Birthday persons with a private date, «Из другого города»
+ * and «перестал ходить» are skipped. Later: ONE reminder to the organizer (not to players) listing who has not answered.
+ */
+export async function runGiftCollectionPrompts(db: DatabaseWrapper, now = Date.now()): Promise<number> {
+  await ensureGiftCollectionSchema(db);
+  let sent = 0;
+  const players = await db.all<any>(
+    `SELECT id, nickname, birth_day, birth_month FROM players
+      WHERE birth_day IS NOT NULL AND birth_month IS NOT NULL AND COALESCE(birthday_visibility, 'private') <> 'private'
+        AND COALESCE(contact_status, 'normal') NOT IN ('blocked', 'paused')
+        AND COALESCE(from_other_city, 0) = 0 AND COALESCE(stopped_attending, 0) = 0 AND COALESCE(source, '') <> 'legacy_guest_migrated'`).catch(() => [] as any[]);
+  for (const player of players) {
+    const occurrence = nextBirthdayOccurrence(Number(player.birth_day), Number(player.birth_month), new Date(now));
+    if (occurrence.days_until > GIFT_PROMPT_DAYS) continue;
+    const key = `gift-start:${player.id}:${occurrence.date}`;
+    if (await db.get('SELECT 1 FROM organizer_tasks WHERE automation_key = ? LIMIT 1', [key])) continue;
+    if (await db.get("SELECT 1 FROM gift_collections WHERE honoree_player_id = ? AND created_at >= ? LIMIT 1", [player.id, new Date(now - 60 * 86_400_000).toISOString()])) continue;
+    const label = `${String(occurrence.effective_day).padStart(2, '0')}.${String(occurrence.effective_month).padStart(2, '0')}`;
+    const created = new Date(now).toISOString();
+    await db.run(
+      `INSERT OR IGNORE INTO organizer_tasks (id, title, description, type, status, priority, due_at, automation_key, player_id, created_at, updated_at)
+       VALUES (?, ?, ?, 'payment', 'todo', 'medium', ?, ?, ?, ?, ?)`,
+      [randomUUID(), `Начать сбор на подарок — ${player.nickname} (ДР ${label})`, 'Откройте «Ещё → Сбор на подарок»: опрос уйдёт игрокам только после вашего нажатия.', `${occurrence.date}T09:00:00.000Z`, key, player.id, created, created]);
+    const text = `🎁 У ${player.nickname} день рождения ${label}. Пора начать сбор на подарок — откройте его в приложении, опрос уйдёт игрокам после вашего нажатия.`;
+    const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'gift_collection_start', entityId: String(player.id), text, replyMarkup: openButton('Открыть сбор', `?honoree=${encodeURIComponent(String(player.id))}`) });
+    if (result.queued > 0) sent += 1;
+  }
+
+  const due = await db.all<any>(
+    `SELECT g.id, p.nickname FROM gift_collections g JOIN players p ON p.id = g.honoree_player_id
+      WHERE g.status = 'open' AND g.reminded_at IS NULL AND g.created_at <= ?`, [new Date(now - REMINDER_AFTER_MS).toISOString()]);
+  for (const collection of due) {
+    const silent = await db.all<any>(
+      `SELECT p.nickname FROM gift_contributions c JOIN players p ON p.id = c.player_id WHERE c.collection_id = ? AND c.status = 'invited' ORDER BY p.nickname COLLATE NOCASE`, [collection.id]);
+    await db.run('UPDATE gift_collections SET reminded_at = ? WHERE id = ? AND reminded_at IS NULL', [new Date(now).toISOString(), collection.id]);
+    if (!silent.length) continue;
+    const names = silent.slice(0, 15).map((row) => row.nickname).join(', ') + (silent.length > 15 ? ` и ещё ${silent.length - 15}` : '');
+    const result = await enqueueOrganizerNotification(db, {
+      messageKey: `gift-silent:${collection.id}`, eventType: 'gift_collection_reminder', entityId: String(collection.id),
+      text: `🎁 Сбор для ${collection.nickname}: не ответили ${silent.length} — ${names}. Игрокам повторно ничего не отправляется; в карточке сбора у каждого есть кнопка «Написать».`,
+      replyMarkup: openButton('Открыть сбор', `?collection=${encodeURIComponent(String(collection.id))}`) });
+    if (result.queued > 0) sent += 1;
+  }
+  return sent;
+}

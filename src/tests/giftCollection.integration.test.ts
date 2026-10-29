@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureVkIntegrationSchema } from '../db/ensureVkIntegrationSchema.ts';
 import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
+import { ensurePlayerProfileIntegritySchema } from '../db/ensurePlayerProfileIntegritySchema.ts';
 import {
-  GiftCollectionError, loadGiftCollectionForOrganizer, loadPlayerGiftContributions, openGiftCollection, organizerSetContribution, previewGiftCollection, setPlayerGiftChoice,
+  GiftCollectionError, runGiftCollectionPrompts, loadGiftCollectionForOrganizer, loadPlayerGiftContributions, openGiftCollection, organizerSetContribution, previewGiftCollection, setPlayerGiftChoice,
 } from '../server/services/giftCollectionService.ts';
 
 describe('birthday gift collection', () => {
@@ -69,4 +70,48 @@ describe('birthday gift collection', () => {
     expect((await db.get<any>("SELECT status FROM organizer_tasks WHERE player_id='vk' AND automation_key LIKE 'gift-collection:%'")).status).toBe('done');
     expect(await tokens('vk')).toBe(400);
   });
+
+  describe('start prompt and reminder for the organizer', () => {
+    const now = Date.parse('2026-11-01T09:30:00+03:00');
+    beforeEach(async () => {
+      process.env.ORGANIZER_NOTIFICATION_IDS = '555';
+      await ensurePlayerProfileIntegritySchema(db);
+      await db.run("UPDATE players SET birth_day=3, birth_month=11, birthday_visibility='full' WHERE id='tg'");
+      await db.run("UPDATE players SET birth_day=3, birth_month=11, birthday_visibility='private' WHERE id='vk'");
+      await db.run("UPDATE players SET birth_day=3, birth_month=11, birthday_visibility='full' WHERE id='far'");
+      await db.run("UPDATE players SET birth_day=20, birth_month=11, birthday_visibility='full' WHERE id='none'");
+    });
+
+    it('two days before a birthday: one task and one Telegram message, only for visible, in-scope players, never twice', async () => {
+      expect(await runGiftCollectionPrompts(db, now)).toBe(1);
+      expect(await runGiftCollectionPrompts(db, now + 3_600_000)).toBe(0);
+      const tasks = await db.all<any>("SELECT title, automation_key FROM organizer_tasks WHERE automation_key LIKE 'gift-start:%'");
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].title).toContain('Аня');
+      expect((await db.get<any>("SELECT COUNT(*) n FROM telegram_message_outbox WHERE event_type='gift_collection_start'")).n).toBe(1);
+    });
+
+    it('does not prompt again when a collection for that player already exists', async () => {
+      await openGiftCollection(db, { honoreeId: 'tg', organizerId: 'org' });
+      await runGiftCollectionPrompts(db, now);
+      expect((await db.get<any>("SELECT COUNT(*) n FROM organizer_tasks WHERE automation_key LIKE 'gift-start:%'")).n).toBe(0);
+    });
+
+    it('sends one reminder listing non-responders 48h after opening, and none to players', async () => {
+      const { id } = await openGiftCollection(db, { honoreeId: 'hon', organizerId: 'org' });
+      await db.run('UPDATE gift_collections SET created_at = ? WHERE id = ?', [new Date(now - 49 * 3_600_000).toISOString(), id]);
+      await setPlayerGiftChoice(db, id, 'tg', { amount: 100 });
+      const playerMessages = async () => (await db.get<any>("SELECT COUNT(*) n FROM telegram_message_outbox WHERE category='personal'")).n;
+      const before = await playerMessages();
+      await runGiftCollectionPrompts(db, now);
+      await runGiftCollectionPrompts(db, now + 86_400_000);
+      const reminders = await db.all<any>("SELECT text FROM telegram_message_outbox WHERE event_type='gift_collection_reminder'");
+      expect(reminders).toHaveLength(1);
+      expect(reminders[0].text).toContain('не ответили 2');
+      expect(await playerMessages()).toBe(before);
+      const view = await loadGiftCollectionForOrganizer(db, id);
+      expect(view.contributions.find((c: any) => c.player_id === 'vk').contact_url).toBe('https://vk.com/id777');
+    });
+  });
 });
+

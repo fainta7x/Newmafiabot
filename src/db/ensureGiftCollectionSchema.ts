@@ -15,6 +15,7 @@ export const ensureGiftCollectionSchema = oncePerDatabase(async (db: DatabaseWra
       created_by TEXT,
       created_at TEXT NOT NULL,
       closed_at TEXT,
+      reminded_at TEXT,
       CHECK (status IN ('open', 'closed'))
     );
     CREATE TABLE IF NOT EXISTS gift_contributions (

@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { canHostEveningFormat } from '../../lib/hostFormats.ts';
@@ -63,8 +64,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   useEffect(() => {
     let current = true;
     Promise.all([
-      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/slots`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/seating`, { credentials: 'include' }).then(r => r.json()),
+      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
+      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
     ]).then(([plan, placement]) => {
       if (!current) return;
       setPlannedSlots(plan.slots || []);

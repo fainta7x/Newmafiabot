@@ -36,7 +36,7 @@ it('keeps an edited selection when the player declines leaving the app page', as
   vi.spyOn(window, 'confirm').mockReturnValue(false);
   const back = vi.fn();
   render(<PlayerEventSlotDetail event={event} onBack={back} onSaved={vi.fn()} onFirstApplication={vi.fn()} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Игра 1/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Выбрать игру 1' }));
   expect(confirmPageLeave(`${window.location.pathname}${window.location.search}#prices`)).toBe(true);
   expect(window.confirm).not.toHaveBeenCalled();
   expect(confirmPageLeave()).toBe(false);

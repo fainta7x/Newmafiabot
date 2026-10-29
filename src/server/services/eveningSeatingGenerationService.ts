@@ -9,7 +9,7 @@ import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
  * (especially self-booked ones) are kept; only free seats are filled.
  * This produces a plan, never actual club-game records or billing events.
  */
-export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId: string) {
+export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId: string, targetSlotId?: string) {
   const plan = await loadEveningSlotPlan(db, eveningId);
   await ensureEveningSeatingSchema(db);
   const tables = await db.all<any>(
@@ -52,7 +52,7 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   }));
   const allSlots: EveningSeatCandidate[] = [];
   for (const slot of plan.slots) {
-    if (slot.status !== 'open') continue;
+    if (slot.status !== 'open' || (targetSlotId && String(slot.id) !== targetSlotId)) continue;
     for (const table of tables) {
       const capacity = Math.max(0, Math.min(10, Number(table.capacity || 10)));
       for (let seat = 1; seat <= capacity; seat += 1) {

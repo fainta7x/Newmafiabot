@@ -1,5 +1,14 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-29 — avatar downsampling quality
+
+Owner reports pixelated CRM avatars for Насон/Денди. Confirmed on the original repository2048px JPEGs: direct CSS reduction to48px aliases thin contrasting details. The common PlayerAvatar now prepares a display-only high-quality thumbnail at its CSS size × device pixel ratio; retains original aspect/object-position, avoids enlarging small sources, shares concurrent work with a bounded cache and falls back to the original on decode/canvas failure. Stored photos, identity, upload logic and database are unchanged.
+
+Verification:11 focused tests in3 files,5 actual-browser cases across360/390/1366/1440 plus Retina,12 unchanged-detector layout audits including CRM and wide-font phone variants, TypeScript, changed-source lint, release audit, dependency guard and Vite build pass. Actual before/after screenshots use the same Насон/Денди source files at390px, inspected; not a production session. Access inventory: no organizer credential; public health200 only. [Evidence](reviews/2026-10-29-avatar-quality/README.md). Dedicated fix branch fix/avatar-quality-20261029; exact-head CI/merge pending at authoring. No production writes, messaging or deployment.
+
+Next action — assistant: publish/check the focused PR and merge only after required gates pass.
+
+
 ## 2026-10-28 — daily word: owner-approved implementation, separate PR
 
 Owner wants a daily free Wordle-like mini-game to encourage app interest and return visits, explicitly requests variable word length and a **200-token** reward per win, and asks for a separate PR. Implemented in one focused branch `feat/daily-word-20261028`: common random word,4–8 letters,6 free tries, server progress across devices, Moscow midnight, one canonical ledger reward, repeat-letter feedback, optional spoiler-free sharing, post-finish comparison, informational streaks and owner-only future word assignment. Entries on Home and Community → Mini-games; no unrelated architecture/Community work, production data writes, messages or deployment.

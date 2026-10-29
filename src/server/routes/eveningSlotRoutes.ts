@@ -204,3 +204,19 @@ eveningSlotRoutes.delete('/:eveningId/seating/player/:playerId/:slotId', require
   try { return res.json(await cancelEveningSeatBooking(req.db, String(req.params.eveningId), String(req.params.slotId), String(req.params.playerId))); }
   catch (error: any) { return sendError(res, error, 'Не удалось отменить назначение'); }
 });
+
+
+eveningSlotRoutes.get('/:eveningId/seating/options', async (req, res) => {
+  try {
+    const player = await requirePlayer(req, res);
+    if (!player) return;
+    const plan = await loadEveningSlotPlan(req.db, String(req.params.eveningId), String(player.id));
+    if (!playerLevelAllowsEveningFormat(player.game_level, plan.event.format)) return res.status(403).json({ error: 'Формат недоступен' });
+    const tables = await req.db.all<any>('SELECT id, name, capacity FROM evening_tables WHERE evening_id = ? ORDER BY sort_order, name', [String(req.params.eveningId)]);
+    const seats = await loadEveningSeatBookings(req.db, String(req.params.eveningId));
+    return res.json({
+      tables: tables.map((t: any) => ({ id: String(t.id), name: String(t.name), capacity: Math.min(10, Number(t.capacity || 10)) })),
+      occupied: seats.map((x: any) => ({ slot_id: x.slot_id, table_id: x.tableId, seat_number: x.seat, own: x.playerId === String(player.id) })),
+    });
+  } catch (error: any) { return sendError(res, error, 'Не удалось загрузить доступные места'); }
+});

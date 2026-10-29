@@ -15,7 +15,7 @@ type Person = { player_id: string; nickname: string; detail?: string; telegram_u
 type Item = {
   id: string; group: Group; kind: string; title: string; why: string;
   action?: Action; action_label?: string; people?: Person[]; people_total?: number;
-  contact_reason?: string; task_id?: string; can_complete?: boolean; dismiss_label?: string;
+  contact_reason?: string; contact_quiet_days?: number; task_id?: string; can_complete?: boolean; dismiss_label?: string;
 };
 type Coverage = { players: number; players_with_visits: number; visit_marks: number; last_visit: string | null; open_tasks: number };
 type Payload = { items: Item[]; counts: Record<Group, number>; total: number; snoozed: number; groups: Record<Group, string>; errors?: string[]; checked?: Coverage | null };
@@ -39,7 +39,7 @@ const post = async (url: string, body: unknown, method = 'POST') => {
  * «Дела» (owner, 2026-09-30): one list instead of «Задачи» and «Порядок в клубе», grouped by when it matters.
  * The home screen shows the «Сейчас» part and counts; the full list lives under «Ещё → Дела».
  */
-export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenEveningSection, onOpenPlayer, onCreateEvening, onOpenAll, onOpenTaskList, hideItemIds = [] }: {
+export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenEveningSection, onOpenPlayer, onCreateEvening, onOpenAll, onOpenTaskList, hideItemIds = [], hideItemPrefixes = [] }: {
   mode?: 'preview' | 'full';
   refreshKey?: number;
   onOpenEveningSection: (id: string, section: EveningSection) => void;
@@ -49,6 +49,8 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   onOpenTaskList?: () => void;
   /** Items already shown by the parent screen (the home screen's debts block). */
   hideItemIds?: string[];
+  /** Items whose id starts with one of these are shown elsewhere on the screen (the Today debts panel). */
+  hideItemPrefixes?: string[];
 }) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState('');
@@ -116,6 +118,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
             </button>
             {peopleOpen ? (
               <div className="mt-1 space-y-1.5">
+                {item.contact_reason ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Написали человеку — нажмите «Написал»: он уйдёт из этого пункта{item.contact_quiet_days ? ` на ${item.contact_quiet_days} дн.` : ' на время'} и вернётся, если ничего не изменится.</p> : null}
                 {item.people.map((person) => (
                   <div key={`${item.id}:${person.player_id}`} data-testid="agenda-person" className="rounded-[11px] bg-surface-1 px-2.5 py-2">
                     <button type="button" onClick={() => onOpenPlayer(person.player_id)} className="block w-full min-w-0 text-left">
@@ -157,7 +160,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
     );
   };
 
-  const visibleItems = data?.items.filter((item) => !hideItemIds.includes(item.id)) || [];
+  const visibleItems = data?.items.filter((item) => !hideItemIds.includes(item.id) && !hideItemPrefixes.some((prefix) => item.id.startsWith(prefix))) || [];
   const nowItems = visibleItems.filter((item) => item.group === 'now');
   // The home screen shows what is urgent and a little of the club upkeep, so both are always in sight.
   const restItems = visibleItems.filter((item) => item.group !== 'now');
@@ -173,6 +176,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
         </div>
         <button type="button" onClick={() => void load()} aria-label="Обновить дела" className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-text-muted"><RefreshCw className={`h-4 w-4 ${!data && !error ? 'animate-spin' : ''}`} /></button>
       </div>
+      {mode === 'full' ? <details data-testid="agenda-legend" className="mt-2 rounded-[10px] bg-surface-2 px-3 py-2 text-[12px] leading-5 text-text-secondary"><summary className="cursor-pointer font-semibold text-text-primary">Что делают кнопки</summary><ul className="mt-1 list-disc space-y-0.5 pl-4"><li><b>Открыть …</b> — переход туда, где дело решается (карточка игрока, вечер, оплата).</li><li><b>Telegram / VK</b> — написать человеку; сама отметка не ставится.</li><li><b>Написал</b> — вы уже связались: человек уходит из пункта на несколько дней и возвращается, если проблема осталась.</li><li><b>Отложить</b> — спрятать весь пункт на выбранный срок.</li><li><b>Сделано</b> (у задач) — закрыть задачу.</li><li>Пункт исчезает сам, как только проблема решена.</li></ul></details> : null}
       <PublicationRecoveryQueue refreshKey={refreshKey} onOpenEvening={id=>onOpenEveningSection(id,'overview')} />
       {cancelFor ? <CancelEveningSheet eveningId={cancelFor} open onClose={() => setCancelFor('')} onDone={() => { setCancelFor(''); void load(); }} /> : null}
       {error ? <p className="mt-3 rounded-[10px] bg-danger-soft px-3 py-2 text-[12px] text-danger">{error}</p> : null}
@@ -183,10 +187,10 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
       {data && visibleItems.length > 0 && mode === 'preview' ? (
         <div className="mt-3 space-y-2">
           {previewItems.map(card)}
-          <button type="button" data-testid="agenda-open-all" onClick={onOpenAll} className="flex min-h-11 w-full items-center justify-between rounded-[12px] border border-border-soft px-3 text-left text-[13px] font-semibold text-text-primary">
-            <span>Все дела · {data.total}<span className="ml-1 font-normal text-text-muted">({GROUPS.filter((group) => data.counts[group]).map((group) => `${data.groups[group].toLowerCase()} ${data.counts[group]}`).join(', ')})</span></span>
+          {visibleItems.length > previewItems.length ? <button type="button" data-testid="agenda-open-all" onClick={onOpenAll} className="flex min-h-11 w-full items-center justify-between rounded-[12px] border border-border-soft px-3 text-left text-[13px] font-semibold text-text-primary">
+            <span>Ещё {visibleItems.length - previewItems.length} {visibleItems.length - previewItems.length === 1 ? 'дело' : 'дел'}<span className="ml-1 font-normal text-text-muted">— откроется полный список</span></span>
             <ArrowRight className="h-4 w-4 text-text-muted" />
-          </button>
+          </button> : null}
         </div>
       ) : null}
 

@@ -3,9 +3,10 @@ import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
   Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
-import { api, type CrmOverview, type GameEvening } from '../../lib/api.ts';
+import { type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import OrganizerAgenda from './OrganizerAgenda.tsx';
+import OrganizerDebtsPanel from './OrganizerDebtsPanel.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
 import { sendJson } from '../../lib/requestJson.ts';
@@ -129,6 +130,7 @@ export default function OrganizerCommandCenter({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [orderRefresh, setOrderRefresh] = useState(0);
+  const [debtorCount, setDebtorCount] = useState(0);
 
   const load = useCallback(async (options: { silent?: boolean; invalidatePayments?: boolean } = {}) => {
     const silent = Boolean(options.silent);
@@ -235,18 +237,6 @@ export default function OrganizerCommandCenter({
     }
   };
 
-  const markPaid = async (participant: { id?: string; participant_id?: string; amount_due: number }) => {
-    const id = String(participant.id || participant.participant_id || '');
-    if (!id || busy) return;
-    setBusy(`payment:${id}`);
-    try {
-      await api.updateParticipant(id, { amount_paid: Number(participant.amount_due || 0), payment_status: 'paid' });
-      await refreshAll();
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось закрыть оплату');
-    } finally { setBusy(null); }
-  };
-
   const actionCards = useMemo(() => {
     if (!snapshot) return [];
     const rows: Array<{ id: string; label: string; value: string; detail: string; tone: string; icon: React.ReactNode; action: () => void }> = [];
@@ -284,10 +274,7 @@ export default function OrganizerCommandCenter({
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
 
     {/* Debts first (owner, 2026-10-12): money owed is the top priority of the day. */}
-    {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
-      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEveningSection(data.wrapup!.evening.id, 'payments')} aria-label="Открыть оплаты прошлого вечера" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
-      <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">долг за {data.wrapup!.evening.title}: {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
-    </section> : null}
+    <OrganizerDebtsPanel enabled={paymentsFresh} refreshKey={orderRefresh} onOpenPlayer={onOpenPlayer} onChanged={() => void refreshAll()} onCount={setDebtorCount} />
 
     {/* A past game left in draft counts nowhere (owner, 2026-10-27, game №17). */}
     {data?.unfinished_games?.length ? <section data-testid="unfinished-games" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
@@ -396,7 +383,7 @@ export default function OrganizerCommandCenter({
     {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
 
     {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}
-    <div className="crm-today-agenda"><OrganizerAgenda mode="preview" hideItemIds={data?.wrapup?.unpaid.length ? [`debts:${data.wrapup.evening.id}`] : []} refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
+    <div className="crm-today-agenda"><OrganizerAgenda mode="preview" hideItemPrefixes={debtorCount > 0 ? ['check:debts:'] : []} refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
     </div>
 
   </div>;

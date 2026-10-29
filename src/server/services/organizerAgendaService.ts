@@ -47,6 +47,8 @@ export type AgendaItem = {
   people_total?: number;
   /** A person item: «Написал» records the contact under this reason. */
   contact_reason?: ContactReason;
+  /** For how many days «Написал» removes a person from this item. */
+  contact_quiet_days?: number;
   task_id?: string;
   due_at?: string | null;
   can_complete?: boolean;
@@ -121,13 +123,13 @@ async function contactLinks(db: DatabaseWrapper, ids: string[]) {
   return links;
 }
 
-async function withLinks(db: DatabaseWrapper, people: AgendaPerson[]) {
+export async function withLinks(db: DatabaseWrapper, people: AgendaPerson[]) {
   const links = await contactLinks(db, people.map((person) => person.player_id));
   return people.map((person) => ({ ...person, ...(links.get(person.player_id) || { telegram_url: null, vk_url: null }) }));
 }
 
 /** Players written to about this reason recently are left out of the list. */
-async function recentlyContacted(db: DatabaseWrapper, reason: ContactReason, now: number) {
+export async function recentlyContacted(db: DatabaseWrapper, reason: ContactReason, now: number) {
   const rows = await db.all<any>(
     `SELECT DISTINCT player_id FROM player_activities WHERE type = 'contact' AND outcome = ? AND datetime(occurred_at) >= datetime(?)`,
     [`agenda:${reason}`, iso(now - CONTACT_QUIET_DAYS[reason] * DAY)],
@@ -461,7 +463,7 @@ export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
   const visible = candidates.filter((item) => !snoozed.has(item.id));
   visible.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) || a.rank - b.rank
     || String(a.due_at || '').localeCompare(String(b.due_at || '')));
-  const items: AgendaItem[] = visible.map(({ rank: _rank, ...item }) => item);
+  const items: AgendaItem[] = visible.map(({ rank: _rank, ...item }) => (item.contact_reason ? { ...item, contact_quiet_days: CONTACT_QUIET_DAYS[item.contact_reason] } : item));
   const counts = Object.fromEntries(GROUP_ORDER.map((group) => [group, items.filter((item) => item.group === group).length])) as Record<AgendaGroup, number>;
   return {
     items, counts, total: items.length, snoozed: snoozed.size, groups: AGENDA_GROUP_LABELS, generated_at: iso(nowMs),

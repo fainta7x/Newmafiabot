@@ -1,6 +1,8 @@
 import { publicationRecoveryQueue, resolvePublication } from '../services/publicationRecoveryService.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 import { noviceLevelSql } from '../../lib/noviceRule.ts';
+import { loadClubHygiene } from '../services/clubHygieneService.ts';
+import { DebtActionError, listDebtors, markPlayerDebtPaid, remindDebtors } from '../services/debtActionsService.ts';
 import { Router, Response } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
@@ -77,6 +79,17 @@ router.get('/agenda', requireOrganizerAuth, async (req: AuthenticatedRequest, re
   }
 });
 
+// «Гигиена клуба»: the roster checked by category (owner, 2026-10-29).
+router.get('/hygiene', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader('Cache-Control', CRM_READ_CACHE_CONTROL);
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await loadClubHygiene(db));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить клуб' });
+  }
+});
+
 router.post('/agenda/snooze', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db: DatabaseWrapper = req.db || (await getDb());
@@ -92,6 +105,37 @@ router.post('/agenda/contacted', requireOrganizerAuth, async (req: Authenticated
     return res.json(await recordAgendaContact(db, { playerId: req.body?.player_id, reason: req.body?.reason }));
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отметить' });
+  }
+});
+
+// Debts of closed evenings, one row per player with every evening behind the total (owner, 2026-10-29).
+router.get('/debts', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader('Cache-Control', CRM_READ_CACHE_CONTROL);
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const debtors = await listDebtors(db);
+    return res.json({ debtors, total: debtors.reduce((sum, debtor) => sum + debtor.owed, 0) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось собрать долги' });
+  }
+});
+
+router.post('/debts/remind', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await remindDebtors(db));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось отправить напоминания' });
+  }
+});
+
+router.post('/debts/:playerId/paid', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await markPlayerDebtPaid(db, String(req.params.playerId), req.body?.evening_id ? String(req.body.evening_id) : null));
+  } catch (error: any) {
+    if (error instanceof DebtActionError) return res.status(error.status).json({ error: error.message, code: error.code });
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отметить оплату' });
   }
 });
 

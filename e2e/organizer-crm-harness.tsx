@@ -32,6 +32,19 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname === '/api/crm/overview') return json(overview);
   if (url.pathname === '/api/crm/command-center') return json(commandCenter);
   if (url.pathname === '/api/crm/agenda') return json({ items: new URLSearchParams(location.search).has('followups')?followupItems:[], counts: new URLSearchParams(location.search).has('followups')?{now:1,week:1,later:0}:{now:0,week:0,later:0}, total: new URLSearchParams(location.search).has('followups')?2:0, snoozed: 0, groups: { now: 'Сейчас', week: 'На неделе', later: 'Позже' } });
+  if (url.pathname === '/api/crm/debts') return json({ debtors: new URLSearchParams(location.search).has('debts') ? [
+    { player_id: 'perets', nickname: 'Перец', owed: 800, evenings: [{ evening_id: 'e2', title: 'Игровой вечер — 23 октября', starts_at: '2026-10-23T17:00:00Z', owed: 400 }, { evening_id: 'e1', title: 'Игровой вечер — 16 октября', starts_at: '2026-10-16T17:00:00Z', owed: 400 }] },
+    { player_id: 'kvant', nickname: 'Квант', owed: 300, evenings: [{ evening_id: 'e2', title: 'Игровой вечер — 23 октября', starts_at: '2026-10-23T17:00:00Z', owed: 300 }] },
+  ] : [], total: 1100 });
+  if (url.pathname === '/api/crm/hygiene') {
+    const person = (id: string, nickname: string) => ({ player_id: id, nickname, telegram_url: `https://t.me/${id}`, vk_url: null });
+    return json({ checked: 31, quiet_days: 14, generated_at: '2026-10-29T10:00:00Z', categories: [
+      { key: 'avatar', label: 'Нет аватарки', hint: 'Без фото человека не видно в карточках, постах и голосовании.', total: 3, hidden: 1, people: [person('a', 'Аня'), person('b', 'Борис'), person('c', 'Очень длинный никнейм игрока')] },
+      { key: 'birthday', label: 'Нет дня рождения', hint: 'Без даты не придёт напоминание о сборе и не будет поздравления.', total: 1, hidden: 0, people: [person('d', 'Дина')] },
+      { key: 'birthday_private', label: 'Дата рождения скрыта', hint: 'Дата есть, но скрыта: сбор на подарок и поздравление не запускаются.', total: 0, hidden: 0, people: [] },
+      { key: 'no_contact', label: 'Нет ни Telegram, ни ВК', hint: 'Игрока не получится позвать автоматически — только лично.', total: 0, hidden: 0, people: [] },
+    ] });
+  }
   if (url.pathname === '/api/evenings') return json([evening]);
   if (url.pathname === '/api/players') return json([]);
   return json({ error: `Preview route not mocked: ${url.pathname}` }, 404);

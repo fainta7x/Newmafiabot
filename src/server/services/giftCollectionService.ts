@@ -6,7 +6,6 @@ import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAcces
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 import { nextBirthdayOccurrence } from './playerProfileIntegrityService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
-import { appUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 
 export const GIFT_AMOUNT_BUTTONS = [100, 200, 300, 400, 500] as const;
@@ -227,8 +226,6 @@ export const giftPledgeConfirmation = (amount: number, payee: string | null) =>
 
 const GIFT_PROMPT_DAYS = 2;
 const REMINDER_AFTER_MS = 48 * 3_600_000;
-const organizerLink = (query: string) => { const url = appUrl(`/admin/more/gifts${query}`); return url || null; };
-const openButton = (text: string, query: string) => { const url = organizerLink(query); return url ? { inline_keyboard: [[{ text, url }]] } : null; };
 
 /**
  * Owner chain 2026-10-29: two days before a birthday the organizer gets a task and a Telegram message «начните сбор», and
@@ -256,7 +253,7 @@ export async function runGiftCollectionPrompts(db: DatabaseWrapper, now = Date.n
        VALUES (?, ?, ?, 'payment', 'todo', 'medium', ?, ?, ?, ?, ?)`,
       [randomUUID(), `Начать сбор на подарок — ${player.nickname} (ДР ${label})`, 'Откройте «Ещё → Сбор на подарок»: опрос уйдёт игрокам только после вашего нажатия.', `${occurrence.date}T09:00:00.000Z`, key, player.id, created, created]);
     const text = `🎁 У ${player.nickname} день рождения ${label}. Пора начать сбор на подарок — откройте его в приложении, опрос уйдёт игрокам после вашего нажатия.`;
-    const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'gift_collection_start', entityId: String(player.id), text, replyMarkup: openButton('Открыть сбор', `?honoree=${encodeURIComponent(String(player.id))}`) });
+    const result = await enqueueOrganizerNotification(db, { messageKey: key, eventType: 'gift_collection_start', entityId: String(player.id), text, openPath: `/admin/more/gifts?honoree=${encodeURIComponent(String(player.id))}` });
     if (result.queued > 0) sent += 1;
   }
 
@@ -272,7 +269,7 @@ export async function runGiftCollectionPrompts(db: DatabaseWrapper, now = Date.n
     const result = await enqueueOrganizerNotification(db, {
       messageKey: `gift-silent:${collection.id}`, eventType: 'gift_collection_reminder', entityId: String(collection.id),
       text: `🎁 Сбор для ${collection.nickname}: не ответили ${silent.length} — ${names}. Игрокам повторно ничего не отправляется; в карточке сбора у каждого есть кнопка «Написать».`,
-      replyMarkup: openButton('Открыть сбор', `?collection=${encodeURIComponent(String(collection.id))}`) });
+      openPath: `/admin/more/gifts?collection=${encodeURIComponent(String(collection.id))}` });
     if (result.queued > 0) sent += 1;
   }
   return sent;

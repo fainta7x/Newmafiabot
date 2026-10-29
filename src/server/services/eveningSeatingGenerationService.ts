@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { planEveningSeats, type EveningSeat, type EveningPlayer, type EveningSeatCandidate } from '../../lib/eveningSeating.ts';
 import { ensureEveningSeatingSchema } from './eveningSeatBookingService.ts';
@@ -57,7 +58,13 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
     const reservedTables = new Set(existing.filter(seat => seat.game === Number(slot.slot_number)).map(seat => seat.tableId));
     // Avoid creating a phantom second table with only one player when a
     // regular game requires a full lineup. Existing reservations stay intact.
-    const tableCount = Math.min(tables.length, Math.floor(eligibleCount / 10));
+    const novice = normalizeEveningFormat(plan.event.format) === 'NOVICE';
+    // Novice games are allowed with 8–9 players. On a crowded evening,
+    // two tables can use balanced 8–10-player lineups instead of placing
+    // everyone into a single ten-seat table and making six people sit out.
+    const tableCount = Math.min(tables.length,
+      eligibleCount >= 16 ? Math.floor(eligibleCount / 8) :
+      eligibleCount >= 10 || (novice && eligibleCount >= 8) ? 1 : 0);
     const selectedTables = tables.filter(table => reservedTables.has(String(table.id)));
     for (const table of tables) {
       if (selectedTables.length >= tableCount) break;

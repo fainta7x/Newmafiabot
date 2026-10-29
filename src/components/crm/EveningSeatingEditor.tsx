@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 
 type Seat = { id: string; slot_id: string; game: number; tableId: string; seat: number; playerId: string; nickname: string; started: number };
@@ -21,8 +22,8 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
   const root = `/api/evenings/${encodeURIComponent(eveningId)}`;
   const reload = async () => {
     const [plan, assigned] = await Promise.all([
-      fetch(`${root}/slots`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`${root}/seating`, { credentials: 'include' }).then(r => r.json()),
+      fetch(`${root}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
+      fetch(`${root}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
     ]);
     setSlots(plan.slots || []);
     setSeats(assigned.seats || []);
@@ -35,7 +36,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
     setBusy(true); setMessage('');
     try {
       const res = await fetch(`${root}/seating/generate`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', credentials: 'include', headers: organizerHeaders(),
         body: JSON.stringify(selected ? { slot_id: slotId } : {}),
       });
       const data = await res.json().catch(() => ({}));
@@ -50,7 +51,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
     setBusy(true); setMessage('');
     try {
       const res = await fetch(`${root}/seating/player/${encodeURIComponent(playerId)}`, {
-        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', credentials: 'include', headers: organizerHeaders(false), headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slot_id: slotId, table_id: tableId, seat_number: seatNumber, override }),
       });
       const data = await res.json().catch(() => ({}));
@@ -64,7 +65,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
     if (busy) return;
     setBusy(true); setMessage('');
     try {
-      const res = await fetch(`${root}/seating/player/${encodeURIComponent(entry.playerId)}/${encodeURIComponent(entry.slot_id)}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`${root}/seating/player/${encodeURIComponent(entry.playerId)}/${encodeURIComponent(entry.slot_id)}`, { method: 'DELETE', credentials: 'include', headers: organizerHeaders(false) });
       if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'Не удалось снять бронь'); }
       await reload(); setMessage('Назначение снято');
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Ошибка'); }

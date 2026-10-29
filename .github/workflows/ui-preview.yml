@@ -1,6 +1,9 @@
 name: UI preview
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '31 3 * * 0'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -17,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui-preview-${{ github.event.pull_request.number }}
+  group: ui-preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

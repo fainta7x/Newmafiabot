@@ -295,7 +295,12 @@ export default function PlayerEventSlotDetail({
                 const target = slot.target_players ?? plan.event.required_players_per_slot;
                 const ready = typeof target === 'number' && target > 0 && slot.registered_count >= target;
                 return (
-                  <button key={slot.id} disabled={selectionLocked} type="button" onClick={() => { if (!changed) setOpenedSlotId(slot.id); }} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                  <button key={slot.id} disabled={selectionLocked} type="button" onClick={() => {
+                      if (selectionLocked) return;
+                      if (!selected) { setSaved(false); setDraft(current => [...current, slot.id]); return; }
+                      if (changed) { setSaved(false); setDraft(current => current.filter(id => id !== slot.id)); return; }
+                      setOpenedSlotId(slot.id);
+                    }} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>

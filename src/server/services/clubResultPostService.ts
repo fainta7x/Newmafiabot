@@ -67,7 +67,7 @@ export const clubResultDestination = (format: unknown) => {
 };
 
 /** One picture, or an album (the evening summary with the season table) in one message. */
-async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown, context?: PublicationContext): Promise<PublicationResult> {
+export async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown, context?: PublicationContext): Promise<PublicationResult> {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, certainty: 'rejected', temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(

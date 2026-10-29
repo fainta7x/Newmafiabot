@@ -328,6 +328,32 @@ async def decide_evening_mvp(evening_id: str, telegram_user_id: int, nominee: st
         return {"success": False, "error": "unavailable"}
 
 
+async def submit_gift_choice(collection_id: str, telegram_user_id: int, amount: int | None = None, decline: bool = False) -> dict[str, Any]:
+    """A player's button in the birthday gift collection invitation: an amount, or «Не участвую»."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/gift-collections/{collection_id}/choice"
+    payload: dict[str, Any] = {"telegram_user_id": int(telegram_user_id), "decline": bool(decline)}
+    if amount is not None:
+        payload["amount"] = int(amount)
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_base_headers(), json=payload) as response:
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if response.status == 200 and isinstance(data, dict) and data.get("success") is True:
+                    return {"success": True, "data": data}
+                code = data.get("code") if isinstance(data, dict) else None
+                message = data.get("error") if isinstance(data, dict) else None
+                return {"success": False, "error": code or ("not_found" if response.status == 404 else "unavailable"), "message": message}
+    except Exception as exc:
+        logger.warning("[Backend API] Gift collection choice failed (%s)", type(exc).__name__)
+        return {"success": False, "error": "unavailable"}
+
+
 async def check_backend_connection() -> dict:
     """
     Checks the connection to the Express Webapp backend.

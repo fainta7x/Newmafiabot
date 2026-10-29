@@ -35,6 +35,7 @@ import PlayerAccessBulkCRM from './PlayerAccessBulkCRM.tsx';
 import ProjectBoardCRM from './ProjectBoardCRM.tsx';
 import WhatsNewCRM from './WhatsNewCRM.tsx';
 import BotFaqCRM from './BotFaqCRM.tsx';
+import GiftCollectionCRM from './GiftCollectionCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -54,7 +55,7 @@ type MenuItem = { id: string; label: string; detail: string; icon: React.Compone
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
-  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота',
+  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок',
 };
 
 const menuTone = (id: string) => {
@@ -101,6 +102,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'project' ? <ProjectBoardCRM /> : null}
       {subscreen === 'whatsnew' ? <WhatsNewCRM /> : null}
       {subscreen === 'botfaq' ? <BotFaqCRM /> : null}
+      {subscreen === 'gifts' ? <GiftCollectionCRM /> : null}
     </div>;
   }
 
@@ -122,6 +124,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'guide', label: 'Памятка для новичка', detail: 'Открыть правила, чтобы отправить ссылку игроку', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },
   ];
   const moneyItems: MenuItem[] = [
+    { id: 'gifts', label: 'Сбор на подарок', detail: 'Опрос игроков ко дню рождения и кто сколько внёс', icon: Coins, onClick: () => setSubscreen('gifts') },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
     { id: 'commerce', label: 'Оплата и поддержка', detail: 'Жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },

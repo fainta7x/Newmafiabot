@@ -6,6 +6,7 @@ import { createTelegramLinkRequest } from '../services/telegramLinkRequestServic
 import { decideEveningMvp } from '../services/eveningMvpService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
+import { GiftCollectionError, giftPledgeConfirmation, setPlayerGiftChoice } from '../services/giftCollectionService.ts';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
@@ -322,6 +323,21 @@ router.post('/evenings/:eveningId/mvp-decision', async (req, res) => {
     return res.json({ success: true, nominee: result.winner.nickname });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить решение' });
+  }
+});
+
+// Birthday gift collection: a button in the invitation message (amount or «Не участвую»).
+router.post('/gift-collections/:id/choice', async (req, res) => {
+  try {
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    if (!telegramUserId) return res.status(400).json({ error: 'Некорректный запрос' });
+    const player = await playerIdByTelegramId(req.db, telegramUserId);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
+    const result = await setPlayerGiftChoice(req.db, String(req.params.id), String(player.id), { amount: req.body?.amount, decline: req.body?.decline === true });
+    return res.json({ success: true, status: result.status, amount: result.amount, text: result.status === 'declined' ? 'Хорошо, не участвуешь в этом сборе.' : giftPledgeConfirmation(result.amount, result.payee) });
+  } catch (error: any) {
+    if (error instanceof GiftCollectionError) return res.status(error.status).json({ error: error.message, code: error.code });
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить выбор' });
   }
 });
 

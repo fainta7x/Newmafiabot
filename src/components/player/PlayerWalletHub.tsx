@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerEconomyPanel, { type WalletEconomyView } from './PlayerEconomyPanel.tsx';
 import PlayerPayments from './PlayerPayments.tsx';
+import PlayerGiftCollectionCard from './PlayerGiftCollectionCard.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
 import { usePlayerDebtSummary } from '../../hooks/usePlayerDebtSummary.ts';
@@ -83,6 +84,8 @@ export default function PlayerWalletHub({
             </button>
           ))}
         </nav>
+
+        {view === 'payments' && <PlayerGiftCollectionCard />}
 
         {view === 'payments' && (
           <PlayerPayments view="current" onChanged={() => void debt.reload()} />

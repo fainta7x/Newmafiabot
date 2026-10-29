@@ -145,6 +145,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/calendar': return json({ events: [calendarEvent] });
   case '/api/player/economy': return json({ balance: 100, shop_items: [{ id: 'item-1', name: 'Игровая привилегия', description: 'Пример доступного клубного предложения', price: 50, icon: '◇', item_type: 'service' }], purchases: [], ledger: { items: [], total: 0 } });
   case '/api/player/bets': return json({ balance: 100, active: null, blocked: null, history: [], club_stats: { games: 0, black_wins: 0, red_wins: 0, black_win_rate: null, red_win_rate: null } });
+  case '/api/player/gift-collections': return json({ items: [{ collection_id: 'gift-1', status: 'invited', pledged_amount: 0, paid_amount: 0, collection_status: 'open', honoree_nickname: 'Дина', owed: 0 }], payee: null, amounts: [100, 200, 300, 400, 500], min_amount: 100 });
   case '/api/player/payments': {
    // After a retry the same fixture is available; this exercises real error recovery.
    if (paymentFailures-- > 0) return json({ error: 'Нет связи' }, 503);

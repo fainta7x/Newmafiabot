@@ -361,6 +361,27 @@ export function mvpVoteSvg(card: { eveningTitle: string; dateLabel: string; dead
 </svg>`;
 }
 
+/** «С днём рождения!» card (owner, 2026-10-29): the birthday person's photo in a gold ring, the name and the date. */
+export function birthdayCardSvg(card: { nickname: string; avatar: string | null; dateLabel: string }) {
+  clipCounter = 0;
+  const height = 1040;
+  const cx = W / 2;
+  const ring = 290;
+  const cy = 500;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  <defs><radialGradient id="bdGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${C.gold}" stop-opacity="0.34"/><stop offset="100%" stop-color="${C.gold}" stop-opacity="0"/></radialGradient></defs>
+  ${renderNoirExportBrandHeader('ПОЗДРАВЛЯЕМ')}
+  <text x="${cx}" y="206" text-anchor="middle" font-size="30" font-weight="800" letter-spacing="9" fill="${C.gold}">С ДНЁМ РОЖДЕНИЯ!</text>
+  <text x="${cx}" y="252" text-anchor="middle" font-size="26" font-weight="500" fill="${C.mutedText}">${esc(card.dateLabel)}</text>
+  <circle cx="${cx}" cy="${cy}" r="${ring + 120}" fill="url(#bdGlow)"/>
+  <circle cx="${cx}" cy="${cy}" r="${ring / 2 + 14}" fill="none" stroke="${C.gold}" stroke-width="8"/>
+  ${avatar(cx - ring / 2, cy - ring / 2, ring, card.nickname, card.avatar)}
+  <text x="${cx}" y="${cy + ring / 2 + 100}" text-anchor="middle" font-size="68" font-weight="800" fill="${C.warmText}">${esc(clip(card.nickname, 18))}</text>
+  ${renderNoirExportFooter(W, height, 'от всего клуба 2LA Noire')}
+</svg>`;
+}
+
 export function renderPng(svg: string): Buffer {
   const resvg = new Resvg(svg, {
     font: { fontFiles: FONT_FILES, loadSystemFonts: FONT_FILES.length === 0, defaultFontFamily: 'Montserrat', sansSerifFamily: 'Montserrat' },

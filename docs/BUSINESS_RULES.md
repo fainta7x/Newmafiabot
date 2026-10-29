@@ -1,3 +1,8 @@
+
+## Evening seating and bookings (owner decisions 2026-10-29)
+
+An evening's player may reserve an exact game, table, and seat as soon as they have selected that game, before the evening is confirmed. Self-booking shows its confirmation in the app and does not send a personal message. At the confirmation event associated with «Сегодня играем» (automatic or manual), a fixed advance seating plan is generated without requiring an organizer click, preserving those reservations and balancing participation; future game results never retroactively reshape it. Each player has an independent visited-seat cycle for each table for the duration of the evening: a position is not repeated until the available positions have all been used, at which point the cycle restarts. Positions in future games are tentative; only actual game starts make them part of historical seating. Organizer may change every future assignment and override any rule after a warning; the organizer can remove self-bookings. Planned seats are visible to players in the cabinet and organizers in CRM. Initial assignments and organizer changes before evening start warrant personal notices; changes after the evening starts require only an in-app update. Existing signup/attendance/payment/protocol semantics are preserved. Implementation is in draft #1088, not yet live.
+
 # 2LA Noire — Canonical Business Rules
 
 This file contains user-approved product and sports-Mafia rules that must not be silently reinterpreted during refactors.

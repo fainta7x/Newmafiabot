@@ -1,5 +1,15 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-28 — daily word: owner-approved implementation, separate PR
+
+Owner wants a daily free Wordle-like mini-game to encourage app interest and return visits, explicitly requests variable word length and a **200-token** reward per win, and asks for a separate PR. Implemented in one focused branch `feat/daily-word-20261028`: common random word,4–8 letters,6 free tries, server progress across devices, Moscow midnight, one canonical ledger reward, repeat-letter feedback, optional spoiler-free sharing, post-finish comparison, informational streaks and owner-only future word assignment. Entries on Home and Community → Mini-games; no unrelated architecture/Community work, production data writes, messages or deployment.
+
+Local verification:11 daily-word API/service scenarios plus navigation/harness checks (4 files/28 cases) pass; focused5 browser flows pass on360/390/1366/1440, including invalid input, win/loss/reveal, management and shell links. Typecheck/lint/build, dependency guard and release audit checked; all60 four-size/wide-font audits pass; exact-head GitHub CI remains to be recorded in the PR. Baseline main7ee72738; source/mount state is newer than old release paragraphs below. No production or deployment claim. [Evidence and limits](reviews/2026-10-28-daily-word/README.md).
+
+Owner explicitly confirmed publication to fainta7x/Newmafiabot («Подтверждаю, доделывай»). The earlier automatic permission blocker is resolved. Publish through the connected GitHub tool because plain git has no push credentials. Local implementation checks remain valid; no main/runtime change yet. Next action — assistant: publish the separate PR and inspect exact-head required checks under AGENTS bounded CI protocol.
+
+Player-facing change, not yet announced: «Слово дня» — одна бесплатная партия каждый день,200 жетонов за победу, вход с главной и из мини-игр. Publication not authorized.
+
 ## 2026-10-28 — finish approved virtual role deck, #1081
 
 Owner explicitly asks to finish #1081. Latest head7ad07485 contains an initial fair-deck UI, despite its stale docs-only description. Full review before edits found: two-row rather than approved horizontal cards, clipped labels, no deal-music lifecycle, missing general/tournament entry and unconfirmed discard on close. Complete these as one connected candidate; keep physical dealing and synthetic training, tableRoleCounts and tournament server permission/composition validation. New tournament roles must save through the existing roles API and be read back before continuing.

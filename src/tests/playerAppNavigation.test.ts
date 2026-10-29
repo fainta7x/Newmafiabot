@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { appBackTarget, parsePlayerRoute, playerPathForSection } from '../lib/appNavigation.ts';
 
 describe('player app navigation', () => {
+  it('opens the daily word by a persistent link and returns to mini-games',()=>{
+    expect(playerPathForSection('dailyword')).toBe('/player/daily-word');
+    expect(parsePlayerRoute('/player/daily-word')).toMatchObject({section:'dailyword',target:null});
+    expect(appBackTarget('/player/daily-word')).toBe('/player/club/games');
+  });
   it('keeps event detail in the player events route', () => {
     expect(playerPathForSection('events', 'evening 1')).toBe('/player/events/evening%201');
     expect(parsePlayerRoute('/player/events/evening%201')).toMatchObject({

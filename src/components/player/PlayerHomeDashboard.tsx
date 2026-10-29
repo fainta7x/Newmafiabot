@@ -1,5 +1,6 @@
 import { getJsonIfOk } from '../../lib/requestJson.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DailyWordCard } from './PlayerDailyWord.tsx';
 import WhatsNewCard from './WhatsNewCard.tsx';
 import VotePromptCard from './VotePromptCard.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -65,6 +66,7 @@ export default function PlayerHomeDashboard({
   onOpenRating,
   onOpenWallet,
   onOpenLearning,
+  onOpenDailyWord,
 }: {
   data: PlayerMeResponse;
   onOpenEvents: (eventId?: string | null) => void;
@@ -78,6 +80,7 @@ export default function PlayerHomeDashboard({
   onOpenWallet?: () => void;
   /** «Прогресс → Обучение». */
   onOpenLearning?: () => void;
+  onOpenDailyWord?: () => void;
 }) {
   const [evenings, setEvenings] = useState<HomeEvening[] | null>(null);
   const [eveningsError, setEveningsError] = useState(false);
@@ -248,6 +251,7 @@ export default function PlayerHomeDashboard({
           )}
         </section>
 
+        {onOpenDailyWord && <DailyWordCard onOpen={onOpenDailyWord} />}
         <VotePromptCard />
         <CuratorTasksCard />
 

@@ -24,7 +24,7 @@ export function birthdayPostText(input: { nickname: string; firstName?: string |
     '',
     `${name}, желаем побольше счастливых моментов, тёплых встреч и ярких побед. Пусть задуманное сбывается! 🎉`,
   ];
-  if (when) lines.push('', `Приходите поздравить именинника клуба на встрече клуба: ${when}${input.venue ? ` («${input.venue}»)` : ''}.${input.link ? `\nЗапись на вечер: ${input.link}` : ''}`);
+  if (when) lines.push('', `Приходите отметить этот день вместе с нами: ${when}${input.venue ? ` («${input.venue}»)` : ''}.${input.link ? `\nЗапись на вечер: ${input.link}` : ''}`);
   return lines.join('\n');
 }
 
@@ -57,7 +57,7 @@ async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: str
     );
   }
   const link = evening ? appUrl(`/player/events/${encodeURIComponent(String(evening.id))}`) : null;
-  const text = birthdayPostText({ nickname: String(player.nickname), firstName: String(player.profile_first_name || '').trim().split(/\\s+/)[0] || null, day: Number(player.birth_day), month: Number(player.birth_month), eveningStartsAt: evening?.starts_at ?? null, venue: evening?.venue ?? null, link, ...wording });
+  const text = birthdayPostText({ nickname: String(player.nickname), firstName: String(player.profile_first_name || '').trim().split(/\s+/)[0] || null, day: Number(player.birth_day), month: Number(player.birth_month), eveningStartsAt: evening?.starts_at ?? null, venue: evening?.venue ?? null, link, ...wording });
   const avatar = (await loadAvatars(db, [playerId])).get(playerId) || null;
   const card = renderPng(birthdayCardSvg({ nickname: String(player.nickname), avatar, dateLabel: `${player.birth_day} ${MONTHS[Number(player.birth_month) - 1]}` }));
   return { player, evening, text, card, hasAvatar: Boolean(avatar) };

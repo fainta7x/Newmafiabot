@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
+import { ensureEveningSeatingSchema } from '../services/eveningSeatBookingService.ts';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { allowedTableSizes, isSupportedTableSize } from '../../lib/tableComposition.ts';
@@ -190,11 +192,35 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       }
     }
 
+    // The chosen future game slot is explicit: a global_game_number is NOT
+    // the same as an evening slot number. Do not guess a mapping.
+    const plannedSlotId = req.body?.planned_slot_id ? String(req.body.planned_slot_id) : null;
+    if (plannedSlotId) {
+      const slot = await db.get<any>('SELECT id FROM evening_game_slots WHERE id=? AND evening_id=?', [plannedSlotId, eveningId]);
+      if (!slot || !tableId) return res.status(400).json({ error: 'Укажите игру из плана и её стол' });
+      await ensureEveningSeatingSchema(db);
+      const alreadyStarted = await db.get<any>('SELECT 1 AS started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND started=1 LIMIT 1', [eveningId, plannedSlotId, tableId]);
+      if (alreadyStarted) return res.status(409).json({ error: 'Для выбранной игры и стола уже зафиксирована фактическая рассадка' });
+    }
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
       const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
       if (judge.judge_player_id && seats.some((seat: any) => seat.player_id && String(seat.player_id) === String(judge.judge_player_id))) throw new Error('Судья этой игры не может одновременно быть игроком');
       const now = new Date().toISOString();
+      if (plannedSlotId && tableId) {
+        // The actual judge-approved roster becomes the seated historical fact.
+        // Remove only still-pending positions for this specific game/table;
+        // other tables and other games keep their reservations.
+        await tx.run('DELETE FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND started=0', [eveningId, plannedSlotId, tableId]);
+        for (const seat of seats) {
+          if (!seat.player_id) continue;
+          await tx.run(`INSERT INTO evening_seat_plans
+            (id,evening_id,slot_id,table_id,seat_number,player_id,locked,started,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,1,1,?,?)`, [
+              randomUUID(), eveningId, plannedSlotId, tableId, seat.seat_number, seat.player_id, now, now,
+            ]);
+        }
+      }
       const next = await tx.get<any>('SELECT COALESCE(MAX(global_game_number), 0) + 1 AS next_number FROM games');
       const protocol = buildInitialClubProtocol(seats);
       const insert = await tx.run(

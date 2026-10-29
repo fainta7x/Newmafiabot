@@ -1,4 +1,5 @@
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
+import { ensureEveningSeatingSchema } from './eveningSeatBookingService.ts';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -127,6 +128,7 @@ export async function replacePlayerSlotSelection(
     policy,
   );
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
+  await ensureEveningSeatingSchema(db);
   const now = new Date().toISOString();
   await db.transaction(async (tx: DatabaseWrapper) => {
     let participant = await tx.get<any>('SELECT id, attendance_status, amount_due, amount_paid, payment_status FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);
@@ -139,6 +141,12 @@ export async function replacePlayerSlotSelection(
     }
     await tx.run('DELETE FROM evening_slot_registrations WHERE participant_id = ? AND slot_id IN (SELECT id FROM evening_game_slots WHERE evening_id = ?)', [participant.id, eveningId]);
     for (const slotId of ids) await tx.run('INSERT INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [randomUUID(), slotId, participant.id, now, now]);
+    // An unselected future game must not keep a phantom seat reservation.
+    // Actual started seating is immutable historical evidence.
+    await tx.run(`DELETE FROM evening_seat_plans
+      WHERE evening_id = ? AND player_id = ? AND started = 0
+        AND slot_id NOT IN (SELECT slot_id FROM evening_slot_registrations WHERE participant_id = ?)`,
+      [eveningId, playerId, participant.id]);
     if (!isCasual) {
       const paid = Number(participant.amount_paid || 0);
       const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';

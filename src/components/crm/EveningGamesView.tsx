@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { EveningGameProtocolModal } from './EveningGameProtocolModal';
 import { EveningLiveGameModal } from './EveningLiveGameModal';
 import { EveningGameCreateSheet } from './EveningGameCreateSheet';
+import { EveningSeatingEditor } from './EveningSeatingEditor';
 import { EveningGameSeatRepairSheet } from './EveningGameSeatRepairSheet';
 
 interface EveningGamesViewProps { eveningId: string; }
@@ -87,6 +88,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId })
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[12px] text-danger"><div className="flex items-start gap-2"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error || 'Не удалось загрузить вечер'}</span></div><button type="button" onClick={() => void load()} className="mt-3 min-h-10 rounded-[11px] bg-surface-1 px-3 font-bold text-text-primary">Повторить</button></div>;
 
   return <div className="space-y-4">
+    <EveningSeatingEditor eveningId={eveningId} tables={tables} participants={participants} />
     <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
       <div><button type="button" onClick={() => setShowCreate(true)} className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-accent px-4 text-[12px] font-black text-white"><Plus className="h-4 w-4" />Новая игра</button></div>
       {error ? <div className="mt-3 flex items-start gap-2 rounded-[12px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[11px] text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}

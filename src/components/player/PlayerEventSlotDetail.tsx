@@ -1,4 +1,5 @@
 import ConfirmDialog from '../ui/ConfirmDialog.tsx';
+import PlayerEveningSeatBooking from './PlayerEveningSeatBooking.tsx';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.ts';
 import { confirmPageLeave } from '../../lib/pageLeave.ts';
 import { countGames, countPlayers } from '../../lib/russianPlural';
@@ -270,6 +271,7 @@ export default function PlayerEventSlotDetail({
 
           </section>
         )}
+        {plan && !changed && <PlayerEveningSeatBooking eveningId={event.id} selectedGames={plan.selection.slot_ids} games={plan.slots} />}
         {!workspaceFirst && workspace}
         <ConfirmDialog open={cancelOpen} title="Отменить запись на игры?" description={saveError ? `Не удалось отменить запись: ${saveError.message}. Можно повторить или закрыть окно — запись пока сохранена.` : 'Выбранные игры будут сняты, организатор увидит отмену записи. Ответ «Не иду» не ставится автоматически. Можно будет записаться заново.'} confirmLabel="Отменить запись" busy={busy} onCancel={() => !busy && setCancelOpen(false)} onConfirm={() => save([])} />
       </div>

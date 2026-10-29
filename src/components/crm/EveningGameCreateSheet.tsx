@@ -1,3 +1,4 @@
+import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { canHostEveningFormat } from '../../lib/hostFormats.ts';
@@ -57,6 +58,21 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [crmPlayers, setCrmPlayers] = useState<Player[]>([]);
   const [roster, setRoster] = useState<EveningParticipant[]>(participants);
   const [seats, setSeats] = useState<string[]>(Array(10).fill(''));
+  const [plannedSlotId, setPlannedSlotId] = useState('');
+  const [plannedSlots, setPlannedSlots] = useState<Array<{ id: string; slot_number: number }>>([]);
+  const [plannedSeats, setPlannedSeats] = useState<Array<{ slot_id: string; tableId: string; seat: number; playerId: string }>>([]);
+  useEffect(() => {
+    let current = true;
+    Promise.all([
+      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
+      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
+    ]).then(([plan, placement]) => {
+      if (!current) return;
+      setPlannedSlots(plan.slots || []);
+      setPlannedSeats(placement.seats || []);
+    }).catch(() => {});
+    return () => { current = false; };
+  }, [evening.id]);
   const [query, setQuery] = useState('');
   const [manualPlayerQuery, setManualPlayerQuery] = useState('');
   const [guestNickname, setGuestNickname] = useState('');
@@ -300,6 +316,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         : null;
       const created = await clubGamesApi.create(evening.id, {
         evening_table_id: selectedTableId || null,
+        planned_slot_id: plannedSlotId || undefined,
         judge_player_id: judgeMode === 'linked' ? judgePlayerId : null,
         judge_name: judgeMode === 'linked' ? (linkedJudge?.nickname || null) : (judgeName.trim() || null),
         judge_guest: judgeMode === 'external',
@@ -365,6 +382,25 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         ) : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
         {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из ${minTable} нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь, кто пришёл, на вкладке «Вечер» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
+
+        {plannedSlots.length > 0 && <div className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
+          <label className="text-[10px] font-black uppercase text-text-muted">Игра из плана вечера
+            <select value={plannedSlotId} onChange={event => setPlannedSlotId(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs text-text-primary">
+              <option value="">Без привязки к плану</option>
+              {plannedSlots.map(slot => <option key={slot.id} value={slot.id}>Игра №{slot.slot_number}</option>)}
+            </select>
+          </label>
+          {plannedSlotId && selectedTableId && <button type="button" className="mt-2 min-h-11 w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs font-bold" onClick={() => {
+            const next = Array(10).fill('');
+            for (const assigned of plannedSeats.filter(item => item.slot_id === plannedSlotId && item.tableId === selectedTableId)) {
+              const participant = byPlayerId.get(String(assigned.playerId));
+              if (participant && eligibleIds.has(participant.id) && assigned.seat >= 1 && assigned.seat <= 10)
+                next[assigned.seat - 1] = participant.id;
+            }
+            setSeats(next);
+          }}>Загрузить рассадку из плана</button>}
+          {plannedSlotId && <p className="mt-1 text-[11px] text-text-secondary">При создании игры фактическая рассадка закрепится в истории. Можно скорректировать состав вручную.</p>}
+        </div>}
 
         <label className="text-[10px] font-black uppercase text-text-muted">Стол · необязательно<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
 

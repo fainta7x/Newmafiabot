@@ -264,6 +264,7 @@ export const clubGamesApi = {
   listArchived: (eveningId: string) => request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}&archived=1`),
   create: (eveningId: string, data: {
     evening_table_id?: string | null;
+    planned_slot_id?: string | null;
     judge_name?: string | null;
     judge_player_id?: string | null;
     /** A named judge from outside the club; such a game counts for nobody's judging stats. */

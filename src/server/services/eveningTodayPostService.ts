@@ -16,6 +16,8 @@ import { enqueueOrganizerNotification } from './organizerNotificationService.ts'
 import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
+import { generateEveningSeatingPlan } from './eveningSeatingGenerationService.ts';
+import { queueEveningSeatingNotifications } from './eveningSeatingNotificationsService.ts';
 
 /**
  * «Сегодня играем» (owner, 2026-10-02): on the evening day the organizer posts a bright invitation
@@ -203,7 +205,14 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
     await db.run(`UPDATE evening_today_posts SET ${channel}_status=?,${channel}_error=?,${channel === 'vk' ? 'vk_url=?,' : ''}
       published_at=COALESCE(published_at,?),updated_at=? WHERE evening_id=?`, [result.status,result.error,...(channel === 'vk' ? [(result as any).url || null] : []),result.status === 'published' ? new Date().toISOString() : null,new Date().toISOString(),eveningId]);
   }));
-  return loadTodayPost(db, eveningId);
+  // Publishing confirms the evening. Preserve early seat reservations and fill remaining seats once.
+  // Do not create a plan when both channels have definitely failed.
+  const publication = await loadTodayPost(db, eveningId);
+  if (publication.state === 'published' || publication.state === 'partial') {
+    await generateEveningSeatingPlan(db, eveningId);
+    await queueEveningSeatingNotifications(db, eveningId);
+  }
+  return publication;
 }
 
 /** The organizer decided not to publish today (the evening may still be cancelled separately). */

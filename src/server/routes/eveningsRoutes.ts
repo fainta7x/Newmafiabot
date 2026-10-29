@@ -29,6 +29,7 @@ import {
 } from '../services/guestPlayerService.ts';
 import { settleEveningFromCloseout } from '../services/eveningCloseoutService.ts';
 import baseRouter from './eveningsRoutesBase.ts';
+import { eveningSlotRoutes } from './eveningSlotRoutes.ts';
 import { assignDefaultEveningStaff, autoAssignEveningOrganizer, eveningOrganizerAssigned, eveningPublishProblem } from '../services/eveningStaffService.ts';
 
 const router = Router();
@@ -461,5 +462,6 @@ router.get('/participants/:participantId/response-history', requireOrganizerAuth
   } catch (err: any) { return res.status(err.status || 500).json({ error: err.message || 'Database error' }); }
 });
 
+router.use(eveningSlotRoutes);
 router.use(baseRouter);
 export default router;

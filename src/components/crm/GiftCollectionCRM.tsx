@@ -24,6 +24,7 @@ export function GiftCollectionCRM() {
   const [notice, setNotice] = useState('');
   const [birthdayDraft, setBirthdayDraft] = useState<{ text: string; card_png_base64: string; has_avatar: boolean; evening_id: string | null } | null>(null);
   const [postPlayerId, setPostPlayerId] = useState('');
+  const [editedBirthdayText, setEditedBirthdayText] = useState('');
 
   const fail = (e: any, fallback: string) => setError(e?.message || fallback);
   const loadList = useCallback(async () => {
@@ -39,7 +40,7 @@ export function GiftCollectionCRM() {
       const collectionId = params.get('collection');
       const honoreeId = params.get('honoree');
       const birthdayId = params.get('birthday_post');
-      if (birthdayId) { setHonoree(birthdayId); setPostPlayerId(birthdayId); void getJson<any>(`/api/birthday-posts/${encodeURIComponent(birthdayId)}/preview`, 'Не удалось подготовить поздравление').then(setBirthdayDraft).catch(e => fail(e, 'Не удалось подготовить поздравление')); }
+      if (birthdayId) { setHonoree(birthdayId); setPostPlayerId(birthdayId); void getJson<any>(`/api/birthday-posts/${encodeURIComponent(birthdayId)}/preview`, 'Не удалось подготовить поздравление').then((draft) => { setBirthdayDraft(draft); setEditedBirthdayText(draft.text); }).catch(e => fail(e, 'Не удалось подготовить поздравление')); }
       if (collectionId) void loadOne(collectionId);
       else if (honoreeId) { setHonoree(honoreeId); void getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponent(honoreeId)}`, 'Не удалось собрать список').then((body) => { setPreview(body.recipients); setExcluded(new Set()); }).catch((e) => fail(e, 'Не удалось собрать список')); }
     } catch { /* an unreadable address just opens the empty screen */ }
@@ -52,15 +53,15 @@ export function GiftCollectionCRM() {
     setError(''); setNotice(''); setBusy(true);
     try {
       const result = await getJson<any>(`/api/birthday-posts/${encodeURIComponent(honoree)}/preview`, 'Не удалось подготовить поздравление');
-      setBirthdayDraft(result); setPostPlayerId(honoree);
+      setBirthdayDraft(result); setEditedBirthdayText(result.text); setPostPlayerId(honoree);
     } catch (e) { fail(e, 'Не удалось подготовить поздравление'); }
     finally { setBusy(false); }
   };
   const publishBirthday = async () => {
-    if (!postPlayerId || !birthdayDraft?.evening_id || !window.confirm('Опубликовать поздравление во всех активных Telegram-каналах и на стене ВК?')) return;
+    if (!postPlayerId || !editedBirthdayText.trim() || !window.confirm('Опубликовать поздравление во всех активных Telegram-каналах и на стене ВК?')) return;
     setBusy(true); setError('');
     try {
-      const result = await sendJson<any>(`/api/birthday-posts/${encodeURIComponent(postPlayerId)}/publish`, 'POST', { evening_id: birthdayDraft.evening_id }, 'Не удалось опубликовать поздравление');
+      const result = await sendJson<any>(`/api/birthday-posts/${encodeURIComponent(postPlayerId)}/publish`, 'POST', { evening_id: birthdayDraft?.evening_id || null, text: editedBirthdayText }, 'Не удалось опубликовать поздравление');
       setNotice(`Публикация обработана. Telegram: ${result.telegram?.filter((item: any) => item.ok).length || 0}, ВК: ${result.vk?.status || 'неизвестно'}.`);
     } catch (e) { fail(e, 'Не удалось опубликовать поздравление'); }
     finally { setBusy(false); }
@@ -117,9 +118,9 @@ export function GiftCollectionCRM() {
           <button type="button" disabled={!honoree || busy} onClick={() => void previewBirthday()} className="mt-2 min-h-11 w-full rounded-xl border border-border-soft px-3 text-[13px] font-semibold">Подготовить поздравление</button>
           {birthdayDraft && postPlayerId === honoree ? <div className="mt-3 space-y-3">
             <img src={`data:image/png;base64,${birthdayDraft.card_png_base64}`} alt="Карточка поздравления" className="w-full rounded-xl" />
-            <p className="whitespace-pre-wrap text-[13px] leading-5">{birthdayDraft.text}</p>
+            <label className="block text-[13px] font-semibold">Текст поздравления — можно изменить перед публикацией<textarea aria-label="Текст поздравления" className="mobile-field mt-2 min-h-48 w-full whitespace-pre-wrap" rows={10} maxLength={3500} value={editedBirthdayText} onChange={(event) => setEditedBirthdayText(event.target.value)} /></label>
             {!birthdayDraft.evening_id ? <p role="status" className="text-[12px] text-text-secondary">Игрок не записан на будущий вечер. Сначала пригласите его лично — публикация с приглашением пока недоступна.</p> : null}
-            <button type="button" disabled={busy || !birthdayDraft.evening_id} onClick={() => void publishBirthday()} className="min-h-12 w-full rounded-xl bg-accent px-3 text-[13px] font-bold text-white disabled:opacity-40">Подтвердить и опубликовать</button>
+            <button type="button" disabled={busy || !editedBirthdayText.trim()} onClick={() => void publishBirthday()} className="min-h-12 w-full rounded-xl bg-accent px-3 text-[13px] font-bold text-white disabled:opacity-40">Подтвердить и опубликовать</button>
           </div> : null}
         </section>
         <button type="button" disabled={!honoree || busy} onClick={() => void showPreview()} className="min-h-12 w-full rounded-[14px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">Показать, кому уйдёт опрос</button>

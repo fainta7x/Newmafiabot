@@ -152,7 +152,7 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
   return { ...result, status: result.ok ? 'published' : result.certainty === 'uncertain' ? 'uncertain' : 'failed', error:result.error || null };
 }
 
-export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string }; context?: PublicationContext; noPhoto?: boolean }) {
+export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string }; context?: PublicationContext; noPhoto?: boolean; requireImage?: boolean }) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { certainty: 'rejected' as const, status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
@@ -167,8 +167,16 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
           if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
         }
       } catch (error) {
+        if (photo.requireImage) {
+          return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const,
+            error: `Не удалось прикрепить фото к публикации: ${error instanceof Error ? error.message : String(error)}`, url: null };
+        }
         console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
       }
+    }
+    if (photo?.requireImage && (!photo.image || !attachments?.length)) {
+      return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const,
+        error: 'Публикация требует карточку MVP с аватаркой; пост без изображения не отправлен', url: null };
     }
     const send = async (payload: { groupId:string; message:string; attachments?:string[] }): Promise<PublicationResult> => {
       try { const post = await createVkWallPost(payload); return {ok:true,certainty:'accepted',ids:[String(post.postId)],url:post.externalUrl}; }

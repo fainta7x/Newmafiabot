@@ -30,8 +30,8 @@ describe('existing booking screen correctness', () => {
   render(<PlayerEventSlotDetail event={{ ...event, format: 'RATING' }} {...props} />);
   await screen.findByText(/750 ₽ за вечер/);
   expect(screen.getByText('750 ₽')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: /Игра 1/ }));
-  fireEvent.click(screen.getByRole('button', { name: /Игра 2/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Выбрать игру 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Выбрать игру 2' }));
   expect(screen.getByText('0 ₽')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Весь вечер' }));
   expect(screen.getByText('750 ₽')).toBeTruthy();
@@ -40,13 +40,13 @@ describe('existing booking screen correctness', () => {
   let finish!: (value: Response) => void;
   vi.stubGlobal('fetch', vi.fn((_url, init) => init?.method === 'PUT' ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve(json(plan('a', 'NOVICE', [])))));
   render(<PlayerEventSlotDetail event={event} {...props} />);
-  const first = await screen.findByRole('button', { name: /Игра 1/ });
+  const first = await screen.findByRole('button', { name: 'Выбрать игру 1' });
   fireEvent.click(first); fireEvent.click(screen.getByRole('button', { name: 'Сохранить мой план' }));
-  expect((screen.getByRole('button', { name: /Игра 2/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole('button', { name: 'Выбрать игру 2' }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button', { name: 'Весь вечер' }) as HTMLButtonElement).disabled).toBe(true);
   finish(json(plan('a','NOVICE',['s1'])));
   await screen.findByText('План сохранён');
-  expect((screen.getByRole('button', { name: /Игра 2/ }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: 'Выбрать игру 2' }) as HTMLButtonElement).disabled).toBe(false);
  });
  it('ignores the old evening response after a newer evening has loaded', async () => {
   let finishOld!: (value: Response) => void;
@@ -54,22 +54,22 @@ describe('existing booking screen correctness', () => {
   vi.stubGlobal('fetch', vi.fn((url: string) => url.includes('/a/') ? new Promise((resolve) => { finishOld = resolve; }) : Promise.resolve(json(newer))));
   const { rerender } = render(<PlayerEventSlotDetail event={event} {...props} />);
   rerender(<PlayerEventSlotDetail event={{ ...event, id: 'b', title: 'Вечер Б' }} {...props} />);
-  await screen.findByRole('button', { name: /Игра 4/ });
+  await screen.findByRole('button', { name: 'Выбрать игру 4' });
   await act(async () => { finishOld(json(plan())); });
-  await waitFor(() => expect(screen.queryByRole('button', { name: /Игра 1/ })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Выбрать игру 1' })).toBeNull());
  });
  it('offers immediate retry after a failed initial load', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({ error: 'Нет связи' },503)).mockResolvedValueOnce(json(plan())));
   render(<PlayerEventSlotDetail event={event} {...props} />);
   await screen.findByText('Нет связи');
   fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
-  await screen.findByRole('button', { name: /Игра 1/ });
+  await screen.findByRole('button', { name: 'Выбрать игру 1' });
  });
  it('keeps the selected plan after a failed save and allows retry', async () => {
   let fail = true;
   vi.stubGlobal('fetch', vi.fn(async (_url, init) => init?.method === 'PUT' ? fail ? (fail = false, json({ error: 'Нет связи' },503)) : json(plan('a','NOVICE',['s1'])) : json(plan('a','NOVICE',[]))));
   render(<PlayerEventSlotDetail event={event} {...props} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Игра 1/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Выбрать игру 1' }));
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить мой план' }));
   await screen.findByText('Нет связи');
   expect(screen.queryByText('План сохранён')).toBeNull();
@@ -82,12 +82,12 @@ describe('existing booking screen correctness', () => {
   const newer = plan('b'); newer.slots = [{ ...newer.slots[0], id: 'b4', slot_number: 4 }]; newer.selection.slot_ids = ['b4'];
   vi.stubGlobal('fetch', vi.fn((url: string, init) => init?.method === 'PUT' ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve(json(url.includes('/a/') ? plan('a','NOVICE',[]) : newer))));
   const { rerender } = render(<PlayerEventSlotDetail event={event} {...props} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Игра 1/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Выбрать игру 1' }));
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить мой план' }));
   rerender(<PlayerEventSlotDetail event={{ ...event, id: 'b', title: 'Вечер Б' }} {...props} />);
-  await screen.findByRole('button', { name: /Игра 4/ });
+  await screen.findByRole('button', { name: 'Выбрать игру 4' });
   await act(async () => { finish(json(plan('a','NOVICE',['s1']))); });
-  expect(screen.queryByRole('button', { name: /Игра 1/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Выбрать игру 1' })).toBeNull();
   expect(props.onSaved).not.toHaveBeenCalled();
  });
 });

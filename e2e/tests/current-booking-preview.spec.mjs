@@ -5,7 +5,7 @@ for (const width of [360,390]) test(`booking uses server facts and survives save
  await expect(page.getByText('2/2',{exact:true})).toBeVisible();
  await expect(page.getByText(/нужно 2 игры/)).toBeVisible();
  await expect(page.getByText('9 игроков · собрано')).toHaveCount(2);
- const first=page.getByRole('button',{name:/Игра 1 ·/});
+ const first=page.getByRole('button',{name:'Выбрать игру 1'});
  await first.click();
  const save=page.getByRole('button',{name:'Сохранить мой план'});
  await save.click();

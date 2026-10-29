@@ -69,6 +69,9 @@ export default function PlayerEventSlotDetail({
   onOpenGame?: (gameKey: string, eveningId: string) => void;
 }) {
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [openedSlotId, setOpenedSlotId] = useState<string | null>(null);
+  const [seatSummary, setSeatSummary] = useState<Array<{ slot_id: string; tableId: string; seat: number }>>([]);
+  const [seatTables, setSeatTables] = useState<Array<{ id: string; name: string }>>([]);
   const [draft, setDraft] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -96,12 +99,26 @@ export default function PlayerEventSlotDetail({
       setPlan(body);
       setSaveError(body.first_application_required ? { message: '', needsFirstApplication: true } : null);
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
+      void refreshSeats();
     } catch (loadError: any) {
       if (requestId === requestSeq.current && eventId.current === event.id) setError(loadError?.message || 'Не удалось загрузить игры');
     }
   }, [event.id, event.event_type]);
 
+  const refreshSeats = useCallback(async () => {
+    try {
+      const [mine, options] = await Promise.all([
+        getJson<any>(`/api/evenings/${encodeURIComponent(event.id)}/seating/me`, 'Не удалось загрузить брони'),
+        getJson<any>(`/api/evenings/${encodeURIComponent(event.id)}/seating/options`, 'Не удалось загрузить столы'),
+      ]);
+      setSeatSummary(mine.seats || []);
+      setSeatTables(options.tables || []);
+    } catch { setSeatSummary([]); }
+  }, [event.id]);
+
+
   useEffect(() => {
+    setOpenedSlotId(null);
     setPlan(null);
     setDraft([]);
     setSaved(false);
@@ -132,12 +149,6 @@ export default function PlayerEventSlotDetail({
   const changed = Boolean(plan && (draft.length !== plan.selection.slot_ids.length || draft.some((id) => !plan.selection.slot_ids.includes(id))));
 
   useUnsavedChanges(changed || busy, busy ? 'Сохранение записи ещё не подтверждено. Выйти со страницы?' : 'Изменения записи не сохранены. Выйти и отбросить их? Чтобы сохранить, нажмите «Отмена» и затем «Сохранить мой план».');
-
-  const toggleSlot = (slotId: string) => {
-    if (registrationLocked || savePending.current) return;
-    setSaved(false);
-    setDraft((current) => current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]);
-  };
 
   const save = async (selection = draft) => {
     if (registrationLocked || savePending.current || !plan || (selection.length === plan.selection.slot_ids.length && selection.every(id => plan.selection.slot_ids.includes(id)))) return;
@@ -186,6 +197,41 @@ export default function PlayerEventSlotDetail({
   const hasBooking = Boolean(plan?.selection.slot_ids.length);
   const workspaceFirst = (plan?.event.status || event.status) === 'active' || (plan?.event.status || event.status) === 'completed';
   const workspace = <PlayerEveningWorkspace eveningId={event.id} onOpenGame={(key, id) => { if (confirmPageLeave()) onOpenGame?.(key, id); }} onCanChangeSelection={(allowed) => setRegistrationLocked(!allowed)} refreshKey={workspaceRefreshKey} />;
+
+  const openedSlot = plan?.slots.find(slot => slot.id === openedSlotId);
+  const enrollOpenedSlot = async (): Promise<boolean> => {
+    if (!openedSlot || !plan || busy || registrationLocked || changed) return false;
+    if (plan.selection.slot_ids.includes(openedSlot.id)) return true;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/player/evenings/${encodeURIComponent(event.id)}/slots`, {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_ids: [...plan.selection.slot_ids, openedSlot.id] }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !isPlanFor(body, event.id)) {
+        setSaveError({ message: body.error || 'Не удалось записаться на игру', needsFirstApplication: body.code === 'first_application_required' });
+        return false;
+      }
+      setPlan(body); setDraft(body.selection.slot_ids); onSaved();
+      return true;
+    } catch { return false; }
+    finally { setBusy(false); }
+  };
+  if (openedSlot && plan) return (
+    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+      <div className="mx-auto max-w-[430px]">
+        <PlayerEveningSeatBooking key={openedSlot.id} eveningId={event.id}
+          slotId={openedSlot.id} gameNumber={openedSlot.slot_number} startsAt={openedSlot.starts_at}
+          registered={plan.selection.slot_ids.includes(openedSlot.id)}
+          onBack={() => { setOpenedSlotId(null); void refreshSeats(); }}
+          onEnroll={enrollOpenedSlot} onChanged={() => void refreshSeats()} />
+        {saveError && <p role="alert" className="mt-3 rounded-xl bg-rose-500/10 p-3 text-sm text-rose-200">
+          {saveError.needsFirstApplication ? 'Сначала подай заявку на участие.' : saveError.message}
+        </p>}
+      </div>
+    </main>
+  );
 
   return (
     <main ref={rootRef} className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -250,11 +296,16 @@ export default function PlayerEventSlotDetail({
                 const target = slot.target_players ?? plan.event.required_players_per_slot;
                 const ready = typeof target === 'number' && target > 0 && slot.registered_count >= target;
                 return (
-                  <button key={slot.id} disabled={selectionLocked} type="button" onClick={() => toggleSlot(slot.id)} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                  <div key={slot.id} className={`w-full rounded-2xl border p-3 transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                    <div className="flex items-center gap-2">
+                      <button disabled={selectionLocked || changed} type="button" onClick={() => setOpenedSlotId(slot.id)} className="min-h-11 flex-1 text-left text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)} · Выбрать место</button>
+                      <button disabled={selectionLocked} type="button" aria-label={`Выбрать игру ${slot.slot_number}`} aria-pressed={selected} onClick={() => { setSaved(false); setDraft(current => current.includes(slot.id) ? current.filter(id => id !== slot.id) : [...current, slot.id]); }} className={`min-h-11 rounded-xl px-3 text-xs font-semibold ${selected ? 'bg-white text-black' : 'bg-white/10 text-white'}`}>{selected ? '✓ Записан' : 'Записаться'}</button>
+                    </div>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>
                         <div className={`mt-1 text-xs ${ready ? 'text-emerald-200/60' : 'text-white/35'}`}>{countPlayers(slot.registered_count)}{ready ? ' · собрано' : ''}</div>
+                        {seatSummary.find(item => item.slot_id === slot.id) && <div className="mt-1 text-xs font-semibold text-emerald-200">{seatTables.find(t => t.id === seatSummary.find(item => item.slot_id === slot.id)?.tableId)?.name || 'Стол'} · место №{seatSummary.find(item => item.slot_id === slot.id)?.seat}</div>}
                       </div>
                       <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${selected ? 'bg-white text-black' : 'bg-white/[0.05] text-white/20'}`}>{selected ? <Check className="h-4 w-4" /> : ''}</span>
                     </div>
@@ -263,7 +314,7 @@ export default function PlayerEventSlotDetail({
                         {slot.participants.map((participant) => participant.is_guest ? <span key={participant.id} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45">{participant.nickname}</span> : <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
                       </div>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -271,7 +322,6 @@ export default function PlayerEventSlotDetail({
 
           </section>
         )}
-        {plan && !changed && <PlayerEveningSeatBooking eveningId={event.id} selectedGames={plan.selection.slot_ids} games={plan.slots} />}
         {!workspaceFirst && workspace}
         <ConfirmDialog open={cancelOpen} title="Отменить запись на игры?" description={saveError ? `Не удалось отменить запись: ${saveError.message}. Можно повторить или закрыть окно — запись пока сохранена.` : 'Выбранные игры будут сняты, организатор увидит отмену записи. Ответ «Не иду» не ставится автоматически. Можно будет записаться заново.'} confirmLabel="Отменить запись" busy={busy} onCancel={() => !busy && setCancelOpen(false)} onConfirm={() => save([])} />
       </div>

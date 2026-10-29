@@ -33,6 +33,7 @@ export function GiftCollectionCRM() {
     try { setRows(await getJson<CollectionRow[]>('/api/gift-collections', 'Не удалось загрузить сборы')); } catch (e) { fail(e, 'Не удалось загрузить сборы'); }
   }, []);
   const loadOne = useCallback(async (id: string) => {
+    setAddable(null); setExtraIds(new Set());
     try { setView(await getJson<CollectionView>(`/api/gift-collections/${encodeURIComponent(id)}`, 'Не удалось открыть сбор')); } catch (e) { fail(e, 'Не удалось открыть сбор'); }
   }, []);
   useEffect(() => {
@@ -160,7 +161,7 @@ export function GiftCollectionCRM() {
 
       {view ? <section className="space-y-3" data-testid="gift-collection-detail">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => { setView(null); setNotice(''); void loadList(); }} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">← Сборы</button>
+          <button type="button" onClick={() => { setView(null); setAddable(null); setExtraIds(new Set()); setNotice(''); void loadList(); }} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">← Сборы</button>
           <button type="button" aria-label="Обновить" onClick={() => void loadOne(view.collection.id)} className="grid h-11 w-11 place-items-center rounded-[12px] border border-border-soft text-text-secondary"><RefreshCw className="h-4 w-4" /></button>
         </div>
         <div className="grid grid-cols-2 gap-2 text-center">

@@ -40,6 +40,17 @@ async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: str
         WHERE e.id = ? AND ep.player_id = ? AND ep.registration_status <> 'declined' AND e.status <> 'cancelled'`, [eveningId, playerId]);
     if (!evening) throw new BirthdayPostError('Игрок не записан на этот вечер', 409);
   }
+  if (!evening && !eveningId) {
+    // Prepare the next real evening the birthday player is attending, rather
+    // than requiring the organizer to guess or manually copy an event URL.
+    evening = await db.get<any>(
+      `SELECT e.id, e.starts_at, e.venue FROM game_evenings e
+       JOIN evening_participants ep ON ep.evening_id=e.id
+       WHERE ep.player_id=? AND ep.registration_status <> 'declined'
+         AND e.status <> 'cancelled' AND datetime(e.starts_at)>=datetime('now')
+       ORDER BY e.starts_at ASC LIMIT 1`, [playerId],
+    );
+  }
   const link = evening ? appUrl(`/player/events/${encodeURIComponent(String(evening.id))}`) : null;
   const text = birthdayPostText({ nickname: String(player.nickname), day: Number(player.birth_day), month: Number(player.birth_month), eveningStartsAt: evening?.starts_at ?? null, venue: evening?.venue ?? null, link, ...wording });
   const avatar = (await loadAvatars(db, [playerId])).get(playerId) || null;
@@ -48,8 +59,8 @@ async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: str
 }
 
 export async function previewBirthdayPost(db: DatabaseWrapper, playerId: string, eveningId: string | null, wording: Wording = {}) {
-  const { text, card, hasAvatar } = await loadContext(db, playerId, eveningId, wording);
-  return { text, has_avatar: hasAvatar, card_png_base64: card.toString('base64') };
+  const { text, card, hasAvatar, evening } = await loadContext(db, playerId, eveningId, wording);
+  return { text, has_avatar: hasAvatar, card_png_base64: card.toString('base64'), evening_id: evening?.id || null };
 }
 
 /** Publishes the approved post to the entry Telegram channel and the VK community. Deliveries are keyed per player and year, so a repeat never double-posts. */

@@ -6,6 +6,7 @@ import { loadEveningRoute } from './eveningRouteService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import { runGiftCollectionPrompts } from './giftCollectionService.ts';
+import { queueBirthdayPostApprovalTasks } from './birthdayPostApprovalService.ts';
 import { organizerTaskButtons } from './organizerTaskQuickActions.ts';
 
 /**
@@ -108,6 +109,9 @@ export async function runOrganizerReminders(db: DatabaseWrapper, now = Date.now(
     }
   }
   // Birthday gift collection: start prompt two days before, one reminder about non-responders.
-  if (hour >= MORNING_HOUR) sent += await runGiftCollectionPrompts(db, now).catch((error) => { console.error('[GIFT COLLECTION] prompts failed:', error); return 0; });
+  if (hour >= MORNING_HOUR) {
+    sent += await runGiftCollectionPrompts(db, now).catch((error) => { console.error('[GIFT COLLECTION] prompts failed:', error); return 0; });
+    sent += await queueBirthdayPostApprovalTasks(db, now).catch((error) => { console.error('[BIRTHDAY POSTS] approval tasks failed:', error); return 0; });
+  }
   return sent;
 }

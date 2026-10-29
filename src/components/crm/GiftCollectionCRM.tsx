@@ -22,6 +22,8 @@ export function GiftCollectionCRM() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [birthdayDraft, setBirthdayDraft] = useState<{ text: string; card_png_base64: string; has_avatar: boolean; evening_id: string | null } | null>(null);
+  const [postPlayerId, setPostPlayerId] = useState('');
 
   const fail = (e: any, fallback: string) => setError(e?.message || fallback);
   const loadList = useCallback(async () => {
@@ -36,6 +38,8 @@ export function GiftCollectionCRM() {
       const params = new URLSearchParams(window.location.search);
       const collectionId = params.get('collection');
       const honoreeId = params.get('honoree');
+      const birthdayId = params.get('birthday_post');
+      if (birthdayId) { setHonoree(birthdayId); setPostPlayerId(birthdayId); void getJson<any>(`/api/birthday-posts/${encodeURIComponent(birthdayId)}/preview`, 'Не удалось подготовить поздравление').then(setBirthdayDraft).catch(e => fail(e, 'Не удалось подготовить поздравление')); }
       if (collectionId) void loadOne(collectionId);
       else if (honoreeId) { setHonoree(honoreeId); void getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponent(honoreeId)}`, 'Не удалось собрать список').then((body) => { setPreview(body.recipients); setExcluded(new Set()); }).catch((e) => fail(e, 'Не удалось собрать список')); }
     } catch { /* an unreadable address just opens the empty screen */ }
@@ -43,6 +47,24 @@ export function GiftCollectionCRM() {
     getJson<any[]>('/api/players', 'Не удалось загрузить игроков').then((list) => setPlayers(list.map((p) => ({ id: String(p.id), nickname: String(p.nickname) })).sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')))).catch((e) => fail(e, 'Не удалось загрузить игроков'));
   }, [loadList, loadOne]);
 
+  const previewBirthday = async () => {
+    if (!honoree) return;
+    setError(''); setNotice(''); setBusy(true);
+    try {
+      const result = await getJson<any>(`/api/birthday-posts/${encodeURIComponent(honoree)}/preview`, 'Не удалось подготовить поздравление');
+      setBirthdayDraft(result); setPostPlayerId(honoree);
+    } catch (e) { fail(e, 'Не удалось подготовить поздравление'); }
+    finally { setBusy(false); }
+  };
+  const publishBirthday = async () => {
+    if (!postPlayerId || !birthdayDraft?.evening_id || !window.confirm('Опубликовать поздравление во всех активных Telegram-каналах и на стене ВК?')) return;
+    setBusy(true); setError('');
+    try {
+      const result = await sendJson<any>(`/api/birthday-posts/${encodeURIComponent(postPlayerId)}/publish`, 'POST', { evening_id: birthdayDraft.evening_id }, 'Не удалось опубликовать поздравление');
+      setNotice(`Публикация обработана. Telegram: ${result.telegram?.filter((item: any) => item.ok).length || 0}, ВК: ${result.vk?.status || 'неизвестно'}.`);
+    } catch (e) { fail(e, 'Не удалось опубликовать поздравление'); }
+    finally { setBusy(false); }
+  };
   const showPreview = async () => {
     if (!honoree) return;
     setError(''); setNotice(''); setBusy(true);
@@ -89,6 +111,17 @@ export function GiftCollectionCRM() {
             <option value="">Выберите игрока</option>
             {players.map((p) => <option key={p.id} value={p.id}>{p.nickname}</option>)}
           </select></label>
+        <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
+          <h2 className="text-[14px] font-bold">Поздравительный пост</h2>
+          <p className="mt-1 text-[12px] text-text-secondary">Сначала проверьте текст и аватарку. Ничего не публикуется автоматически.</p>
+          <button type="button" disabled={!honoree || busy} onClick={() => void previewBirthday()} className="mt-2 min-h-11 w-full rounded-xl border border-border-soft px-3 text-[13px] font-semibold">Подготовить поздравление</button>
+          {birthdayDraft && postPlayerId === honoree ? <div className="mt-3 space-y-3">
+            <img src={`data:image/png;base64,${birthdayDraft.card_png_base64}`} alt="Карточка поздравления" className="w-full rounded-xl" />
+            <p className="whitespace-pre-wrap text-[13px] leading-5">{birthdayDraft.text}</p>
+            {!birthdayDraft.evening_id ? <p role="status" className="text-[12px] text-text-secondary">Игрок не записан на будущий вечер. Сначала пригласите его лично — публикация с приглашением пока недоступна.</p> : null}
+            <button type="button" disabled={busy || !birthdayDraft.evening_id} onClick={() => void publishBirthday()} className="min-h-12 w-full rounded-xl bg-accent px-3 text-[13px] font-bold text-white disabled:opacity-40">Подтвердить и опубликовать</button>
+          </div> : null}
+        </section>
         <button type="button" disabled={!honoree || busy} onClick={() => void showPreview()} className="min-h-12 w-full rounded-[14px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">Показать, кому уйдёт опрос</button>
         {preview ? <div className="space-y-2">
           <p className="text-[13px] text-text-secondary">Без именинника, «Из другого города» и «Перестал ходить». Уберите галочку, чтобы не звать человека.</p>

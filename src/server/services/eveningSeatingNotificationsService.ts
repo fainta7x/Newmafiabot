@@ -42,12 +42,16 @@ export async function queueEveningSeatingNotifications(
     byPlayer.set(String(row.player_id), values);
   }
 
+  // An organizer can cancel the player's last seat; that still needs a notice.
+  if (targetIds) for (const id of targetIds) if (!byPlayer.has(id)) byPlayer.set(id, []);
   let queued = 0;
   for (const [playerId, rows] of byPlayer) {
     const signature = rows.map(row => [row.slot_number, row.table_name, row.seat_number].join(':')).join('|');
     const fingerprint = createHash('sha256').update(signature).digest('hex').slice(0, 24);
     const lines = rows.map(row => `Игра №${row.slot_number} · ${row.table_name} · место №${row.seat_number}`);
-    const text = `🎭 Рассадка на вечер «${evening.title}»\n\n${lines.join('\n')}\n\nАктуальную рассадку можно посмотреть в приложении клуба.`;
+    const text = rows.length
+      ? `🎭 Рассадка на вечер «${evening.title}»\n\n${lines.join('\n')}\n\nАктуальную рассадку можно посмотреть в приложении клуба.`
+      : `🎭 Ваша бронь на вечер «${evening.title}» отменена организатором. Актуальную запись можно посмотреть в приложении клуба.`;
     try {
       const result = await queuePersonalNotification(db, {
         notificationKey: `evening-seating:${eveningId}:${playerId}:${fingerprint}`,

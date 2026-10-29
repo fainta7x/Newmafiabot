@@ -120,7 +120,7 @@ export async function openGiftCollection(db: DatabaseWrapper, input: { honoreeId
 }
 
 /** Invite additional eligible players without touching existing contributions or resending their notifications. */
-export async function addGiftCollectionRecipients(db: DatabaseWrapper, collectionId: string, playerIds: string[], organizerId: string, appBaseUrl?: string | null) {
+export async function addGiftCollectionRecipients(db: DatabaseWrapper, collectionId: string, playerIds: string[], _organizerId: string, appBaseUrl?: string | null) {
   await ensureGiftCollectionSchema(db);
   const collection = await db.get<any>(
     'SELECT g.id, g.status, g.honoree_player_id, p.nickname AS honoree_nickname FROM gift_collections g JOIN players p ON p.id=g.honoree_player_id WHERE g.id=?',

@@ -1,0 +1,46 @@
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { appUrl } from '../services/gameResultCardService.ts';
+import {
+  GiftCollectionError, closeGiftCollection, listOpenGiftCollections, loadGiftCollectionForOrganizer, loadPlayerGiftContributions,
+  openGiftCollection, organizerSetContribution, previewGiftCollection, setPlayerGiftChoice,
+} from '../services/giftCollectionService.ts';
+
+const fail = (res: Response, next: NextFunction, error: unknown) => {
+  if (error instanceof GiftCollectionError) return res.status(error.status).json({ error: error.message, code: error.code });
+  return next(error);
+};
+const wrap = (work: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response, next: NextFunction) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(await work(req, res)); } catch (error) { fail(res, next, error); }
+};
+
+/** Organizer side: mounted at /api/gift-collections. */
+export const organizerGiftRouter = Router();
+organizerGiftRouter.use(requireOrganizerAuth);
+organizerGiftRouter.get('/', wrap((req) => listOpenGiftCollections(req.db!)));
+organizerGiftRouter.get('/preview/:honoreeId', wrap((req) => previewGiftCollection(req.db!, String(req.params.honoreeId))));
+organizerGiftRouter.post('/', wrap((req) => openGiftCollection(req.db!, {
+  honoreeId: String(req.body?.honoree_player_id || ''),
+  organizerId: String((req as AuthenticatedRequest).organizerPlayerId || PRIMARY_ORGANIZER_PLAYER_ID),
+  excludePlayerIds: Array.isArray(req.body?.exclude_player_ids) ? req.body.exclude_player_ids : [],
+  appBaseUrl: appUrl('') || null,
+})));
+organizerGiftRouter.get('/:id', wrap((req) => loadGiftCollectionForOrganizer(req.db!, String(req.params.id))));
+organizerGiftRouter.patch('/:id/contributions/:playerId', wrap((req) => organizerSetContribution(
+  req.db!, String(req.params.id), String(req.params.playerId),
+  String((req as AuthenticatedRequest).organizerPlayerId || PRIMARY_ORGANIZER_PLAYER_ID), req.body || {})));
+organizerGiftRouter.post('/:id/close', wrap(async (req) => { await closeGiftCollection(req.db!, String(req.params.id)); return { ok: true }; }));
+
+/** Player side: mounted at /api/player/gift-collections. A player only ever reads and changes their own row. */
+export const playerGiftRouter = Router();
+const asPlayer = (work: (req: Request, playerId: string) => Promise<unknown>) => wrap(async (req, res) => {
+  const id = getPlayerSessionId(req as AuthenticatedRequest);
+  if (!id) { res.status(401); throw new GiftCollectionError('Нужен профиль игрока', 401, 'unauthorized'); }
+  return work(req, String(id));
+});
+playerGiftRouter.get('/', asPlayer((req, id) => loadPlayerGiftContributions(req.db!, id)));
+playerGiftRouter.put('/:id', asPlayer(async (req, id) => ({
+  ...(await setPlayerGiftChoice(req.db!, String(req.params.id), id, { amount: req.body?.amount, decline: req.body?.decline === true })),
+})));

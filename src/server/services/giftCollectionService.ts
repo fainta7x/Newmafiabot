@@ -1,0 +1,218 @@
+import { randomUUID } from 'node:crypto';
+import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensureJudgeAuthoritySchema } from '../../db/ensureJudgeAuthoritySchema.ts';
+import { ensureGiftCollectionSchema } from '../../db/ensureGiftCollectionSchema.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { mutateTokenBalance } from './tokenLedgerService.ts';
+import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
+
+export const GIFT_AMOUNT_BUTTONS = [100, 200, 300, 400, 500] as const;
+export const GIFT_MIN_AMOUNT = 100;
+export const GIFT_MAX_AMOUNT = 100_000;
+
+export class GiftCollectionError extends Error {
+  constructor(message: string, readonly status = 400, readonly code = 'bad_request') { super(message); }
+}
+
+const nowIso = () => new Date().toISOString();
+const rub = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`;
+
+export const normalizeGiftAmount = (value: unknown): number => {
+  const amount = Number(value);
+  if (!Number.isInteger(amount) || amount < GIFT_MIN_AMOUNT || amount > GIFT_MAX_AMOUNT) {
+    throw new GiftCollectionError(`Сумма — целое число от ${GIFT_MIN_AMOUNT} ₽`, 400, 'bad_amount');
+  }
+  return amount;
+};
+
+type Recipient = { id: string; nickname: string; telegram_user_id: string | null; attendance_count: number | null; last_visit: string | null; channel: 'telegram' | 'vk_manual' | 'none' };
+
+/** Owner rule 2026-10-29: everyone except the birthday person, «Из другого города» and «перестал ходить». Guests are not club players. */
+export async function listGiftRecipients(db: DatabaseWrapper, honoreeId: string): Promise<Recipient[]> {
+  await ensureJudgeAuthoritySchema(db);
+  const rows = await db.all<any>(
+    `SELECT p.id, p.nickname, p.telegram_user_id,
+            (SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id = p.id AND ep.attendance_status = 'attended') AS attendance_count,
+            (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON e.id = ep.evening_id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended') AS last_visit
+       FROM players p
+      WHERE p.id <> ? AND COALESCE(p.from_other_city, 0) = 0 AND COALESCE(p.stopped_attending, 0) = 0
+        AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
+      ORDER BY p.nickname COLLATE NOCASE`, [honoreeId]);
+  const out: Recipient[] = [];
+  for (const row of rows) {
+    const routing = await resolvePersonalNotificationRouting(db, String(row.id));
+    const channel = routing.selected_channel === 'telegram' ? 'telegram' : routing.available_channels.includes('vk') ? 'vk_manual' : 'none';
+    out.push({ id: String(row.id), nickname: String(row.nickname || 'Игрок'), telegram_user_id: row.telegram_user_id ? String(row.telegram_user_id) : null,
+      attendance_count: row.attendance_count ?? null, last_visit: row.last_visit ?? null, channel });
+  }
+  return out;
+}
+
+export async function previewGiftCollection(db: DatabaseWrapper, honoreeId: string) {
+  await ensureGiftCollectionSchema(db);
+  const honoree = await db.get<any>('SELECT id, nickname FROM players WHERE id = ?', [honoreeId]);
+  if (!honoree) throw new GiftCollectionError('Игрок не найден', 404, 'not_found');
+  return { honoree: { id: String(honoree.id), nickname: String(honoree.nickname) }, recipients: await listGiftRecipients(db, honoreeId) };
+}
+
+async function payeeLine(db: DatabaseWrapper) {
+  const owner = await db.get<any>('SELECT phone, nickname FROM players WHERE id = ?', [PRIMARY_ORGANIZER_PLAYER_ID]);
+  return owner?.phone ? `${owner.phone} (Сбер)` : null;
+}
+
+export const giftInviteText = (honoreeNickname: string) =>
+  `🎁 У ${honoreeNickname} день рождения! Скидываемся на подарок — выбери, сколько готов(а) внести (от ${GIFT_MIN_AMOUNT} ₽). Жетоны клуба в подарок: 1 ₽ = 1 жетон после получения перевода. Можно отказаться, пока не перевёл(а).`;
+
+export function giftInviteMarkup(collectionId: string, webAppUrl: string | null) {
+  const rows: Array<Array<Record<string, unknown>>> = [
+    GIFT_AMOUNT_BUTTONS.slice(0, 3).map((a) => ({ text: `${a} ₽`, callback_data: `gc:${collectionId}:${a}` })),
+    [...GIFT_AMOUNT_BUTTONS.slice(3).map((a) => ({ text: `${a} ₽`, callback_data: `gc:${collectionId}:${a}` })),
+      ...(webAppUrl ? [{ text: 'Своя сумма', web_app: { url: webAppUrl } }] : [])],
+    [{ text: 'Не участвую', callback_data: `gc:${collectionId}:no` }],
+  ];
+  return { inline_keyboard: rows };
+}
+
+/**
+ * Opens a collection and invites the chosen players. Idempotent per (collection, player): Telegram players get the
+ * button message through the personal queue; VK-only players, players with notifications off and players without any
+ * channel get an organizer task instead (owner rule: VK-only -> a manual task; no channel -> an explicit mark).
+ */
+export async function openGiftCollection(db: DatabaseWrapper, input: { honoreeId: string; organizerId: string; excludePlayerIds?: string[]; appBaseUrl?: string | null }) {
+  await ensureGiftCollectionSchema(db);
+  const honoree = await db.get<any>('SELECT id, nickname FROM players WHERE id = ?', [input.honoreeId]);
+  if (!honoree) throw new GiftCollectionError('Игрок не найден', 404, 'not_found');
+  const existing = await db.get<any>("SELECT id FROM gift_collections WHERE honoree_player_id = ? AND status = 'open'", [input.honoreeId]);
+  if (existing) throw new GiftCollectionError('Сбор для этого игрока уже открыт', 409, 'already_open');
+  const id = randomUUID();
+  const now = nowIso();
+  const exclude = new Set((input.excludePlayerIds || []).map(String));
+  const recipients = (await listGiftRecipients(db, input.honoreeId)).filter((r) => !exclude.has(r.id));
+  await db.run('INSERT INTO gift_collections (id, honoree_player_id, status, created_by, created_at) VALUES (?, ?, ?, ?, ?)', [id, input.honoreeId, 'open', input.organizerId, now]);
+  const counts = { telegram: 0, vk_manual: 0, none: 0 };
+  for (const r of recipients) {
+    let channel = r.channel;
+    let taskId: string | null = null;
+    if (channel === 'telegram') {
+      const { delivery } = await queuePersonalNotification(db, {
+        notificationKey: `gift-collection:${id}:${r.id}`, playerId: r.id, eventType: 'gift_collection_invite', entityId: id,
+        text: giftInviteText(String(honoree.nickname)), actionPath: '/player/wallet',
+        telegramReplyMarkup: giftInviteMarkup(id, input.appBaseUrl ? `${input.appBaseUrl.replace(/\/$/, '')}/player/wallet?gift=${id}` : null),
+      });
+      if (delivery.status !== 'queued') channel = delivery.selected_channel === 'vk' ? 'vk_manual' : 'none';
+    }
+    if (channel !== 'telegram') {
+      taskId = randomUUID();
+      const title = channel === 'vk_manual' ? `Написать ${r.nickname} в ВК: сбор на подарок ${honoree.nickname}` : `Нет канала связи: ${r.nickname} — сбор на подарок ${honoree.nickname}`;
+      await db.run(
+        `INSERT INTO organizer_tasks (id, title, description, type, status, priority, player_id, automation_key, created_at, updated_at)
+         VALUES (?, ?, ?, 'payment', 'todo', 'medium', ?, ?, ?, ?)`,
+        [taskId, title, channel === 'vk_manual' ? 'Предложить сумму (от 100 ₽) и записать её в карточке сбора.' : 'У игрока нет Telegram/ВК или уведомления выключены — опрос не отправлен.', r.id, `gift-collection:${id}:${r.id}`, now, now]);
+    }
+    counts[channel] += 1;
+    await db.run(
+      `INSERT INTO gift_contributions (collection_id, player_id, status, channel, task_id, created_at, updated_at) VALUES (?, ?, 'invited', ?, ?, ?, ?)`,
+      [id, r.id, channel, taskId, now, now]);
+  }
+  return { id, honoree_id: input.honoreeId, invited: recipients.length, ...counts };
+}
+
+async function loadContribution(db: DatabaseWrapper, collectionId: string, playerId: string) {
+  const row = await db.get<any>(
+    `SELECT c.*, g.status AS collection_status, g.honoree_player_id FROM gift_contributions c JOIN gift_collections g ON g.id = c.collection_id
+      WHERE c.collection_id = ? AND c.player_id = ?`, [collectionId, playerId]);
+  if (!row) throw new GiftCollectionError('Приглашения на этот сбор нет', 404, 'not_found');
+  return row;
+}
+
+async function touchTask(db: DatabaseWrapper, row: any, done: boolean) {
+  if (!row.task_id) return;
+  const now = nowIso();
+  await db.run('UPDATE organizer_tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ? AND status <> ?', [done ? 'done' : 'todo', done ? now : null, now, row.task_id, done ? 'done' : 'cancelled']);
+}
+
+/** A player picks (or changes) the amount, or declines. Allowed until the transfer is confirmed; afterwards only the organizer edits. */
+export async function setPlayerGiftChoice(db: DatabaseWrapper, collectionId: string, playerId: string, choice: { amount?: unknown; decline?: boolean }) {
+  await ensureGiftCollectionSchema(db);
+  const row = await loadContribution(db, collectionId, playerId);
+  if (row.collection_status !== 'open') throw new GiftCollectionError('Сбор закрыт', 409, 'closed');
+  if (row.status === 'paid') throw new GiftCollectionError('Перевод уже подтверждён — изменить сумму может только организатор', 409, 'already_paid');
+  const now = nowIso();
+  if (choice.decline) {
+    await db.run("UPDATE gift_contributions SET status = 'declined', pledged_amount = 0, updated_at = ? WHERE collection_id = ? AND player_id = ?", [now, collectionId, playerId]);
+    await touchTask(db, row, true);
+    return { status: 'declined' as const, amount: 0, payee: null };
+  }
+  const amount = normalizeGiftAmount(choice.amount);
+  await db.run("UPDATE gift_contributions SET status = 'pledged', pledged_amount = ?, updated_at = ? WHERE collection_id = ? AND player_id = ?", [amount, now, collectionId, playerId]);
+  return { status: 'pledged' as const, amount, payee: await payeeLine(db) };
+}
+
+/** Organizer: record a pledge taken by hand (VK), or confirm / withdraw a received transfer. Tokens follow the confirmed amount 1:1, never back to rubles. */
+export async function organizerSetContribution(db: DatabaseWrapper, collectionId: string, playerId: string, organizerId: string, change: { pledged_amount?: unknown; paid_amount?: unknown; status?: unknown }) {
+  await ensureGiftCollectionSchema(db);
+  const row = await loadContribution(db, collectionId, playerId);
+  const now = nowIso();
+  let status = String(row.status);
+  let pledged = Number(row.pledged_amount) || 0;
+  let paid = Number(row.paid_amount) || 0;
+  if (change.pledged_amount !== undefined) { pledged = normalizeGiftAmount(change.pledged_amount); if (status !== 'paid') status = 'pledged'; }
+  if (change.status === 'paid') {
+    paid = change.paid_amount !== undefined ? normalizeGiftAmount(change.paid_amount) : pledged;
+    if (!paid) throw new GiftCollectionError('Сначала укажите сумму', 400, 'bad_amount');
+    status = 'paid';
+  } else if (change.status === 'unpaid') {
+    paid = 0; status = pledged ? 'pledged' : 'invited';
+  } else if (change.status === 'declined') {
+    if (paid) throw new GiftCollectionError('Сначала снимите отметку о переводе', 409, 'already_paid');
+    pledged = 0; status = 'declined';
+  }
+  const credited = Number(row.tokens_credited) || 0;
+  const delta = paid - credited;
+  if (delta !== 0) {
+    await mutateTokenBalance(db, {
+      playerId, delta, reasonType: 'gift_collection', description: delta > 0 ? 'Подарочные жетоны от клуба за взнос в сбор' : 'Корректировка подарочных жетонов за сбор',
+      sourceType: 'gift_collection', sourceId: collectionId, idempotencyKey: `gift-collection:${collectionId}:${playerId}:${credited}->${paid}`,
+      debitPolicy: 'allow_negative', actorType: 'organizer', actorId: organizerId });
+  }
+  await db.run(
+    `UPDATE gift_contributions SET status = ?, pledged_amount = ?, paid_amount = ?, tokens_credited = ?, paid_at = ?, updated_at = ? WHERE collection_id = ? AND player_id = ?`,
+    [status, pledged, paid, paid, paid ? (row.paid_at || now) : null, now, collectionId, playerId]);
+  await touchTask(db, row, status === 'paid' || status === 'declined' || (status === 'pledged' && row.channel === 'vk_manual'));
+  return { status, pledged_amount: pledged, paid_amount: paid };
+}
+
+export async function closeGiftCollection(db: DatabaseWrapper, collectionId: string) {
+  await ensureGiftCollectionSchema(db);
+  await db.run("UPDATE gift_collections SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'", [nowIso(), collectionId]);
+}
+
+export async function loadGiftCollectionForOrganizer(db: DatabaseWrapper, collectionId: string) {
+  await ensureGiftCollectionSchema(db);
+  const collection = await db.get<any>('SELECT g.*, p.nickname AS honoree_nickname FROM gift_collections g JOIN players p ON p.id = g.honoree_player_id WHERE g.id = ?', [collectionId]);
+  if (!collection) throw new GiftCollectionError('Сбор не найден', 404, 'not_found');
+  const contributions = await db.all<any>(
+    `SELECT c.player_id, p.nickname, p.telegram_username, c.status, c.channel, c.pledged_amount, c.paid_amount, c.paid_at, c.task_id
+       FROM gift_contributions c JOIN players p ON p.id = c.player_id WHERE c.collection_id = ? ORDER BY p.nickname COLLATE NOCASE`, [collectionId]);
+  const sum = (key: 'pledged_amount' | 'paid_amount', pred: (c: any) => boolean) => contributions.filter(pred).reduce((s, c) => s + (Number(c[key]) || 0), 0);
+  return { collection, contributions, totals: { pledged: sum('pledged_amount', (c) => c.status === 'pledged' || c.status === 'paid'), paid: sum('paid_amount', () => true) } };
+}
+
+export async function listOpenGiftCollections(db: DatabaseWrapper) {
+  await ensureGiftCollectionSchema(db);
+  return db.all<any>("SELECT g.id, g.honoree_player_id, p.nickname AS honoree_nickname, g.created_at, g.status FROM gift_collections g JOIN players p ON p.id = g.honoree_player_id ORDER BY g.created_at DESC LIMIT 20");
+}
+
+/** What a player sees: only their own contribution and the resulting debt — never the total, the others or the target. */
+export async function loadPlayerGiftContributions(db: DatabaseWrapper, playerId: string) {
+  await ensureGiftCollectionSchema(db);
+  const rows = await db.all<any>(
+    `SELECT c.collection_id, c.status, c.pledged_amount, c.paid_amount, g.status AS collection_status, p.nickname AS honoree_nickname
+       FROM gift_contributions c JOIN gift_collections g ON g.id = c.collection_id JOIN players p ON p.id = g.honoree_player_id
+      WHERE c.player_id = ? AND (g.status = 'open' OR c.status IN ('pledged', 'paid')) ORDER BY g.created_at DESC LIMIT 10`, [playerId]);
+  const payee = rows.some((r) => r.status === 'pledged') ? await payeeLine(db) : null;
+  return { items: rows.map((r) => ({ ...r, owed: r.status === 'pledged' ? Number(r.pledged_amount) : 0 })), payee, amounts: GIFT_AMOUNT_BUTTONS, min_amount: GIFT_MIN_AMOUNT };
+}
+
+export const giftPledgeConfirmation = (amount: number, payee: string | null) =>
+  `✅ Записал: ${rub(amount)}. ${payee ? `Переведи на ${payee}. ` : 'Организатор пришлёт реквизиты. '}Сумму можно поменять или отказаться, пока перевод не подтверждён.`;

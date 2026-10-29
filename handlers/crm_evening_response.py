@@ -10,7 +10,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 import bot_menu
 import config
 import database
-from bot_api import cast_evening_vote, decide_evening_mvp, get_evening_slots, schedule_evening_followup, submit_evening_response
+from bot_api import submit_gift_choice, cast_evening_vote, decide_evening_mvp, get_evening_slots, schedule_evening_followup, submit_evening_response
 from bot_profile_link_api import link_legacy_profile
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_group_stats import refresh_crm_group_stats
@@ -397,3 +397,27 @@ async def handle_evening_mvp_decision(callback: CallbackQuery):
             print(f"[EVENING MVP] Decision saved, but the message was not updated: {exc}")
         return
     await callback.answer(_MVP_DECISION_ERRORS.get(result.get("error"), "Не удалось сохранить выбор. Попробуй позже."), show_alert=True)
+
+
+@router.callback_query(F.data.startswith("gc:"))
+async def handle_gift_collection_choice(callback: CallbackQuery):
+    """A player taps an amount (or «Не участвую») in the birthday gift collection invitation."""
+    try:
+        _, collection_id, choice = callback.data.split(":", 2)
+        decline = choice == "no"
+        amount = None if decline else int(choice)
+    except (AttributeError, ValueError):
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    result = await submit_gift_choice(collection_id, callback.from_user.id, amount=amount, decline=decline)
+    if result.get("success"):
+        text = (result.get("data") or {}).get("text") or "Записал."
+        await callback.answer("✅ Записал", show_alert=False)
+        try:
+            if callback.message:
+                original = (callback.message.text or callback.message.caption or "").split("\n\n✅")[0].split("\n\nХорошо")[0]
+                await callback.message.edit_text(f"{original}\n\n{text}", reply_markup=callback.message.reply_markup)
+        except Exception as exc:
+            print(f"[GIFT COLLECTION] Choice saved, but the message was not updated: {exc}")
+        return
+    await callback.answer(result.get("message") or "Не удалось сохранить выбор. Попробуй позже.", show_alert=True)

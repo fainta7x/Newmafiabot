@@ -23,6 +23,11 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 - Existing-response JSON compatibility: `src/lib/requestJson.ts:readJsonResponse` is shared by standard GET/write helpers and the CRM access/token adapters. `message` fallback is opt-in; request options, probe-null and optional204 behavior stay with their existing request owners. Coverage: `requestJson.test.ts`, `PlayerAccessSettings.test.tsx`.
 
+## Birthday gift collection
+
+- Service/rules: `src/server/services/giftCollectionService.ts`; schema `src/db/ensureGiftCollectionSchema.ts`; routes `src/server/routes/giftCollectionRoutes.ts` (`/api/gift-collections` organizer, `/api/player/gift-collections` player) and `botRoutes.ts` `/gift-collections/:id/choice` ← Python `gc:` callback in `handlers/crm_evening_response.py`.
+- UI: organizer `src/components/crm/GiftCollectionCRM.tsx` (Ещё → Сбор на подарок); player `src/components/player/PlayerGiftCollectionCard.tsx` (wallet, Оплата). Tests: `src/tests/giftCollection.integration.test.ts`.
+
 ## Player settings recovery
 
 - Settings hub: `PlayerSettingsHub.tsx`; notification/invitation/privacy preferences retain their existing endpoint owners. `PlayerSettingsLoadState.tsx` supplies the common initial-load error/retry state. `PlayerProfilePrivacySettings.tsx` serializes visibility saves and accepts the server-confirmed visibility. Focused UI coverage: `src/tests/PlayerSettingsRecovery.test.tsx`.

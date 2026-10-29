@@ -1083,3 +1083,9 @@ These are the owner's answers to the questions where copies in the code disagree
 - Attempts and results persist on the server across devices; a retry never consumes another attempt or awards twice. Win persistence and token settlement are one transaction. The canonical token ledger owns the balance. A reward can reduce an existing negative balance.
 - New day at00:00 Europe/Moscow. Unfinished yesterday games expire; yesterday attempts cannot be applied to today. Skipping does not remove tokens; streaks are informational.
 - Answers stay server-only. A losing player can reveal the answer after finishing. Other players' finished results open only after one's own completion; shared text contains colour squares and attempt counts, never letters. No automatic messages or publication.
+
+## Virtual role dealing (owner, 2026-10-28)
+
+The approved fair virtual deck is an alternative to manual physical-role entry in all game formats. It follows the existing10/9/8-player composition in tableComposition; horizontal cards are renumbered after removal, the judge reveals and confirms separately, may choose another unassigned seat, undo the last assignment or explicitly redeal before starting. Synthetic training keeps its fixed task roles. Tournament assignments remain subject to the existing server role permissions and composition checks.
+
+VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_2026-10-28.md). Persistent toggleable personal preferences do not authorize any deployed probabilistic effect. No default global2-swap cap is approved; the personal limit is manually configured. Effects may influence only the owner's own still-closed card and must never alter an already shown role or operate in rating/tournament games. Strength/frequency/conflicts/global caps require modelling and owner agreement before implementation.

@@ -25,7 +25,7 @@ const resolveTableIds = (): string[] => {
 };
 
 type MusicStartKind = 'manual' | 'night';
-type MusicStartDetail = { trackId?: string; kind?: MusicStartKind };
+type MusicStartDetail = { trackId?: string; kind?: MusicStartKind; modal?:boolean };
 type StoredManualState = { trackId?: string; kind: MusicStartKind };
 
 type PoolEntry = {
@@ -62,8 +62,8 @@ const storeManualState = (detail: MusicStartDetail) => {
 };
 const clearManualState = () => { try { sessionStorage.removeItem(MANUAL_STATE_KEY); } catch {} };
 
-export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchEvent(
-  new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual' } }),
+export const requestJudgeGameMusicStart = (trackId?: string, options?: {modal?:boolean}) => window.dispatchEvent(
+  new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual', ...(options?.modal?{modal:true}:{}) } }),
 );
 export const requestJudgeNightMusicStart = () => {
   // Training runs the real game engine without a player session. The teaching
@@ -111,6 +111,7 @@ export default function JudgeGameMusicController() {
   const wantedRef = useRef(false);
   const wantedTrackRef = useRef<string | undefined>(undefined);
   const [picker, setPicker] = useState<{ kind: MusicStartKind; entries: PoolEntry[]; eveningId: string } | null>(null);
+  const [modalPicker,setModalPicker]=useState(false);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   // Non-blocking note when there is nothing to play: the judge keeps hosting without a modal on top.
@@ -245,6 +246,7 @@ export default function JudgeGameMusicController() {
     const start = (event: Event) => {
       const detail = (event as CustomEvent<MusicStartDetail>).detail || {};
       const kind = detail.kind === 'night' ? 'night' : 'manual';
+      setModalPicker(detail.modal===true);
       // A new deal starts a new game: never carry the previous game's night pick over.
       if (kind === 'manual') gamePickRef.current = {};
       if (detail.trackId) {
@@ -333,6 +335,7 @@ export default function JudgeGameMusicController() {
     <>
       {emptyNotice && !picker ? <div role="status" className="pointer-events-none fixed left-1/2 top-[calc(0.75rem+env(safe-area-inset-top))] z-[196] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#111218]/95 px-3 py-2 text-center text-[11px] leading-4 text-white/70 shadow-lg">{emptyNotice}</div> : null}
       {(picker || pickerLoading) && (
+        <div role={modalPicker?'dialog':undefined} aria-modal={modalPicker||undefined} aria-label={modalPicker?'Музыка раздачи':undefined} className={modalPicker?'fixed inset-0 z-[195] bg-black/60':'contents'}>
         <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-[195] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[24px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -359,6 +362,7 @@ export default function JudgeGameMusicController() {
               <button type="button" onClick={() => { setPicker(null); requestJudgeGameMusicStop(); }} className="mt-2 min-h-10 w-full rounded-xl border border-white/10 text-[10px] font-semibold text-white/40">Продолжить без музыки</button>
             </>
           )}
+        </div>
         </div>
       )}
 

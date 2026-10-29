@@ -36,7 +36,7 @@ describe('tournament announcement', () => {
     const db = await setup('2026-10-03T08:00:00.000Z');
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, form: init.body as FormData }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, form: init.body as FormData }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     expect(await postTournamentAnnouncement(db, 't1', fetchImpl)).toBe(true);
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toContain('/sendPhoto');
@@ -54,7 +54,7 @@ describe('tournament announcement', () => {
     const db = await setup('2026-10-03T08:00:00.000Z');
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     await runClubResultPosts(db, fetchImpl, Date.parse('2026-10-01T19:00:00Z')); // 37 h before
     expect(calls.filter((url) => String(url).includes('/sendPhoto'))).toHaveLength(0);
     await runClubResultPosts(db, fetchImpl, Date.parse('2026-10-01T21:00:00Z')); // 35 h before

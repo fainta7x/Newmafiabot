@@ -43,7 +43,7 @@ async function addGame(db: DatabaseWrapper, game: number, status: 'planned' | 'c
 const seatMessages = async (db: DatabaseWrapper) => { await ensurePersonalNotificationRoutingSchema(db); return db.all<any>("SELECT player_id, text FROM personal_notification_deliveries WHERE event_type = 'tournament_game_seat' ORDER BY player_id"); };
 // In production the switch-on marker of the result posts is long set; a first scan creates it, and older games are never posted.
 const switchOn = (db: DatabaseWrapper) => runClubResultPosts(db, (async () => new Response('{}')) as any, Date.parse(START) - 4 * 3_600_000);
-const okFetch = (calls: any[]) => (async (url: string, init: any) => { calls.push({ url, form: init?.body }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+const okFetch = (calls: any[]) => (async (url: string, init: any) => { calls.push({ url, form: init?.body }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
 
 describe('tournament game results and seat messages', () => {
   it('builds the blank of a completed tournament game with the roles and the winner', async () => {

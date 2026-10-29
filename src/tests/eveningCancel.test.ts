@@ -28,7 +28,7 @@ describe('cancelling an evening from «Закрытие»', () => {
     const db = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
-    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
 
     const route = await loadEveningRoute(db, 'nov');
     const step = route.stages.find((stage) => stage.id === 'closeout')!.steps.find((item) => item.id === 'cancel')!;
@@ -63,7 +63,7 @@ describe('cancelling an evening from «Закрытие»', () => {
 
   it('cancels a running evening without games (owner, 2026-10-24) and refuses a settled one', async () => {
     const db = await setup();
-    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch;
+    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 })) as unknown as typeof fetch;
     await db.run("UPDATE game_evenings SET status = 'active' WHERE id = 'club'");
     await cancelEveningByOrganizer(db, 'club', { text: 'Не собрались' }, fetchImpl);
     expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'club'")).status).toBe('cancelled');
@@ -86,7 +86,7 @@ describe('cancelling an evening from «Закрытие»', () => {
     let fail = true;
     const fetchImpl = (async (_url: string, init: any) => {
       calls.push(JSON.parse(init.body));
-      return fail ? new Response(JSON.stringify({ ok: false, description: 'down' }), { status: 500 }) : new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return fail ? new Response(JSON.stringify({ ok: false, error_code:429, description: 'rate limited' }), { status:429 }) : new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 });
     }) as any;
     await cancelEveningByOrganizer(db, 'nov', { text: 'Отмена' }, fetchImpl);
     expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('failed');
@@ -95,6 +95,7 @@ describe('cancelling an evening from «Закрытие»', () => {
     expect(step.status).toBe('attention');
     expect(step.action).toBe('cancel_evening');
     fail = false;
+    await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
     await cancelEveningByOrganizer(db, 'nov', {}, fetchImpl);
     expect(calls).toHaveLength(2);
     expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('published');

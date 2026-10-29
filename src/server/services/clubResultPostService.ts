@@ -1,3 +1,6 @@
+import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
+import { sendPublicTelegram } from './publicationTelegramService.ts';
+import { type PublicationContext, type PublicationResult, ensurePublicationDeliverySchema } from './publicationDeliveryService.ts';
 import {loadMvpRunoff,startMvpRunoff,ensureRunoffSchema,type MvpRunoff} from './eveningVoteRounds.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
@@ -28,8 +31,8 @@ import { russianPlural } from '../../lib/russianPlural.ts';
  */
 
 // 12 attempts with a growing pause (30 s doubling to 15 min) keep a result post alive for about two hours, so a Telegram
-// outage or a redeploy does not lose the game blank or the evening summary for good. A post stuck «sending» after a
-// crash is taken back after STALE_SENDING_MS.
+// confirmed rejection can recover without losing the game blank or evening summary. Durable network attempts
+// hold an unknown outcome; an expired preparation lease can recover only through that same network guard.
 const MAX_ATTEMPTS = 12;
 const RETRY_BASE_MS = 30_000;
 const RETRY_MAX_MS = 15 * 60_000;
@@ -41,6 +44,7 @@ const ENABLED_KEY = 'enabled';
 const PUBLIC_ENABLED_KEY = 'enabled-public';
 
 export async function ensureClubResultPostSchema(db: DatabaseWrapper) {
+  await ensurePublicationDeliverySchema(db);
   await db.exec(`
     CREATE TABLE IF NOT EXISTS club_result_posts (
       post_key TEXT PRIMARY KEY,
@@ -63,51 +67,41 @@ export const clubResultDestination = (format: unknown) => {
 };
 
 /** One picture, or an album (the evening summary with the season table) in one message. */
-async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown) {
+async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown, context?: PublicationContext): Promise<PublicationResult> {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
+  if (!token) return { ok: false, certainty: 'rejected', temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(
     'SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id = ? LIMIT 1',
     [destinationId],
   ).catch(() => null);
   if (!destination?.chat_id || Number(destination.active ?? 1) === 0) {
-    return { ok: false, temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа для этого вечера' };
+    return { ok: false, certainty: 'rejected', temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа для этого вечера' };
   }
-  const form = new FormData();
-  form.set('chat_id', String(destination.chat_id));
-  if (destination.topic_id) form.set('message_thread_id', String(destination.topic_id));
-  let method = 'sendPhoto';
-  if (photos.length > 1) {
-    method = 'sendMediaGroup';
-    form.set('media', JSON.stringify(photos.map((_, index) => ({ type: 'photo', media: `attach://p${index}`, ...(index === 0 ? { caption } : {}) }))));
-    photos.forEach((photo, index) => form.set(`p${index}`, new Blob([new Uint8Array(photo)], { type: mime }), `result-${index}.png`));
-  } else {
-    form.set('caption', caption);
-    if (replyMarkup) form.set('reply_markup', JSON.stringify(replyMarkup));
-    form.set('photo', new Blob([new Uint8Array(photos[0])], { type: mime }), mime === 'image/png' ? 'result.png' : 'photo.jpg');
-  }
-  try {
-    const response = await fetchImpl(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: form });
-    const payload: any = await response.json().catch(() => null);
-    if (response.ok && payload?.ok !== false) return { ok: true };
-    const temporary = response.status === 429 || response.status >= 500;
-    return { ok: false, temporary, error: String(payload?.description || `Telegram HTTP ${response.status}`) };
-  } catch (error: any) {
-    return { ok: false, temporary: true, error: error?.message || 'Telegram недоступен' };
-  }
+  return sendPublicTelegram(db, {
+    method: photos.length > 1 ? 'sendMediaGroup' : 'sendPhoto',
+    fields: { chat_id: destination.chat_id, ...(destination.topic_id ? { message_thread_id: destination.topic_id } : {}),
+      ...(photos.length > 1 ? { media: photos.map((_, index) => ({ type:'photo', media:`attach://p${index}`, ...(index === 0 ? { caption } : {}) })) }
+        : { caption, ...(replyMarkup ? { reply_markup:replyMarkup } : {}) }) },
+    photos: photos.map((photo,index) => ({ data:photo.toString('base64'), mime, name:mime === 'image/png' ? 'result.png' : 'photo.jpg', field:photos.length > 1 ? `p${index}` : 'photo' })),
+    expectedMessages:photos.length,
+  }, fetchImpl, context);
 }
 
 /** Claims the post before sending, so two scans or a lost reply cannot post it twice. */
 async function claim(db: DatabaseWrapper, key: string, kind: string, eveningId: string, gameId: string | null) {
+  await importLegacyPublicationHolds(db);
   const now = new Date().toISOString();
   await db.run(
     `INSERT OR IGNORE INTO club_result_posts (post_key, kind, evening_id, game_id, status, attempts, created_at, updated_at)
      VALUES (?, ?, ?, ?, 'pending', 0, ?, ?)`,
     [key, kind, eveningId, gameId, now, now],
   );
-  // A process that died while sending leaves the post «sending» for ever: take it back after a while.
+  // Recover preparation leases through the durable HTTP outcome, never by assuming an unacknowledged send failed.
   await db.run(
-    `UPDATE club_result_posts SET status = 'retry'
+    `UPDATE club_result_posts SET status = CASE
+        WHEN EXISTS (SELECT 1 FROM publication_deliveries d WHERE d.delivery_key='club:'||post_key AND d.status='accepted') THEN 'sent'
+        WHEN EXISTS (SELECT 1 FROM publication_deliveries d WHERE d.delivery_key IN ('club:'||post_key,'club:'||post_key||':text') AND d.status IN ('sending','uncertain')) THEN 'uncertain'
+        ELSE 'retry' END
       WHERE post_key = ? AND status = 'sending' AND datetime(updated_at) <= datetime(?)`,
     [key, new Date(Date.now() - STALE_SENDING_MS).toISOString()],
   );
@@ -121,11 +115,16 @@ async function claim(db: DatabaseWrapper, key: string, kind: string, eveningId: 
   return Number(claimed.changes || 0) > 0;
 }
 
-async function finish(db: DatabaseWrapper, key: string, result: { ok: boolean; temporary?: boolean; error?: string }) {
+async function finish(db: DatabaseWrapper, key: string, result: { ok: boolean; certainty?: PublicationResult['certainty']; temporary?: boolean; error?: string }) {
   const now = new Date().toISOString();
+  const held = await db.get<any>("SELECT 1 FROM publication_deliveries WHERE delivery_key IN (?,?) AND status IN ('sending','uncertain')", ['club:'+key, 'club:'+key+':text']);
+  if (held || result.certainty === 'uncertain') {
+    await db.run("UPDATE club_result_posts SET status='uncertain',last_error=?,updated_at=? WHERE post_key=? AND status='sending'", [result.error || 'Пост мог выйти',now,key]);
+    return;
+  }
   await db.run(
     `UPDATE club_result_posts SET status = CASE WHEN ? THEN 'sent' WHEN ? AND attempts < ? THEN 'retry' ELSE 'failed' END,
-            last_error = ?, sent_at = ?, updated_at = ? WHERE post_key = ?`,
+            last_error = ?, sent_at = ?, updated_at = ? WHERE post_key = ? AND status='sending'`,
     [result.ok ? 1 : 0, result.temporary ? 1 : 0, MAX_ATTEMPTS, result.ok ? null : String(result.error || '').slice(0, 500), result.ok ? now : null, now, key],
   );
 }
@@ -137,7 +136,7 @@ export async function postGameBlank(db: DatabaseWrapper, gameId: string, format:
     const blank = await loadGameBlank(db, gameId);
     if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра не завершена' }); return false; }
     const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
-    const result = await sendPhotos(db, format, [renderPng(gameBlankSvg(blank))], `🎭 Игра №${blank.gameNumber} · ${winner}`, fetchImpl);
+    const result = await sendPhotos(db, format, [renderPng(gameBlankSvg(blank))], `🎭 Игра №${blank.gameNumber} · ${winner}`, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -156,7 +155,7 @@ export async function postEveningSummary(db: DatabaseWrapper, eveningId: string,
     const season = await loadSeasonTable(db, eveningId).catch((error) => { console.error('[CLUB RESULTS] season table failed:', error); return null; });
     const photos = [renderPng(eveningSummarySvg(summary)), ...(season ? [renderPng(seasonTableSvg(season))] : [])];
     const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${season ? ` и промежуточная таблица «${season.periodTitle}»` : ''}`;
-    const result = await sendPhotos(db, format, photos, caption, fetchImpl);
+    const result = await sendPhotos(db, format, photos, caption, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -211,7 +210,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
              CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.protocol.status') END AS protocol_status
         FROM games g
        WHERE g.evening_id = ? AND g.archived_at IS NULL
-         AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'game:' || g.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
+         AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'game:' || g.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
        ORDER BY g.global_game_number, g.id
     `, [evening.id]);
     for (const game of games) {
@@ -228,9 +227,9 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(e.starts_at) >= datetime(?)
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
          OR (datetime(e.starts_at) >= datetime(?)
-           AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))))
+           AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))))
   `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString(), publicSince]);
   await part('closed_evenings', async () => { for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
@@ -270,7 +269,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     SELECT gp.evening_id FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
      WHERE gp.telegram_status = 'published' AND gp.image_data IS NOT NULL
        AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
-       AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
+       AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
   `, [publicSince, new Date(now - CLOSED_WINDOW_MS).toISOString()]).catch(() => []);
   await part('public_gathered', async () => { for (const row of gathered) {
     if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
@@ -296,7 +295,7 @@ export async function postPublicEveningSummary(db: DatabaseWrapper, eveningId: s
     const summary = await loadEveningSummary(db, eveningId);
     if (!summary) { await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' }); return false; }
     const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${summary.dateLabel ? `, ${summary.dateLabel}` : ''}${await botLink()}`;
-    const result = await sendPhotos(db, null, [renderPng(eveningSummarySvg(summary))], caption, fetchImpl, 'public');
+    const result = await sendPhotos(db, null, [renderPng(eveningSummarySvg(summary))], caption, fetchImpl, 'public', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -315,7 +314,7 @@ export async function postPublicGathered(db: DatabaseWrapper, eveningId: string,
        WHERE gp.evening_id = ? LIMIT 1`, [eveningId]);
     if (!row?.image_data) { await finish(db, key, { ok: false, temporary: false, error: 'Нет фото' }); return false; }
     const caption = `${String(row.caption || `📸 Мы собрались! ${String(row.title || 'Игровой вечер')} начинается.`)}${await botLink()}`;
-    const result = await sendPhotos(db, null, [Buffer.from(String(row.image_data), 'base64')], caption, fetchImpl, 'public', String(row.mime_type || 'image/jpeg'));
+    const result = await sendPhotos(db, null, [Buffer.from(String(row.image_data), 'base64')], caption, fetchImpl, 'public', String(row.mime_type || 'image/jpeg'), undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -339,7 +338,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   const moscow = moscowParts(now);
   if (moscow.weekday !== 'Mon' || moscow.hour < 12 || moscow.hour >= 21) return false;
   const key = `public-season:${moscow.date}`;
-  if (await db.get("SELECT 1 FROM club_result_posts WHERE post_key = ? AND (status IN ('sent', 'failed') OR (status = 'sending' AND datetime(updated_at) > datetime('now', '-15 minutes')))", [key])) return false;
+  if (await db.get("SELECT 1 FROM club_result_posts WHERE post_key = ? AND (status IN ('sent', 'failed', 'uncertain') OR (status = 'sending' AND datetime(updated_at) > datetime('now', '-15 minutes')))", [key])) return false;
   const stamp = new Date(now).toISOString();
   const periods = await db.all<any>(`
     SELECT * FROM rating_periods
@@ -356,7 +355,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   if (!(await claim(db, key, 'public-season', null as any, null))) return false;
   try {
     const caption = `🏆 Таблица сезона на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
-    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'public');
+    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'public', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -476,17 +475,17 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   const telegramKey = `vote-prompt:${eveningId}`;
   if (await claim(db, telegramKey, 'vote-prompt', eveningId, null)) {
     const card = await voteCard();
-    let result = card ? await sendPhotos(db, evening.format, [card], telegramText, fetchImpl, undefined, 'image/png', voteMarkup) : { ok: false, temporary: false, error: 'no card' } as { ok: boolean; temporary?: boolean; error?: string };
+    let result = card ? await sendPhotos(db, evening.format, [card], telegramText, fetchImpl, undefined, 'image/png', voteMarkup, { key: 'club:' + telegramKey, kind: 'club-result' }) : { ok: false, certainty: 'rejected', temporary: false, error: 'no card' } as PublicationResult;
     // A refused photo falls back to text; a temporary failure is retried by the claim, so the post is not duplicated.
-    if (!result.ok && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl, undefined, voteMarkup);
+    if (!result.ok && result.certainty === 'rejected' && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl, undefined, voteMarkup, { key: 'club:' + telegramKey + ':text', kind: 'club-result' });
     await finish(db, telegramKey, result);
     posted = posted || result.ok;
   }
   const vkKey = `vote-prompt-vk:${eveningId}`;
   if (await claim(db, vkKey, 'vote-prompt', eveningId, null)) {
     const card = await voteCard();
-    const result = await sendVk(vkText, { db, eveningId, format: evening.format, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
-    await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
+    const result = await sendVk(vkText, { db, eveningId, format: evening.format, context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId }, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+    await finish(db, vkKey, { ok: result.status === 'published', certainty: result.certainty, temporary: result.temporary, error: result.error || undefined });
     posted = posted || result.status === 'published';
   }
   return posted;
@@ -510,9 +509,9 @@ async function postMvpRunoff(db:DatabaseWrapper,evening:any,round:MvpRunoff,fetc
   const buttons=finalists.flatMap(p=>{const callback=voteCallbackData(String(evening.id),String(p.id),true);return callback?[[{text:String(p.nickname),callback_data:callback}]]:[];});
   let posted=false;
   const key=`mvp-runoff:${evening.id}`;
-  if(await claim(db,key,'mvp-runoff',String(evening.id),null)){const result=await sendText(db,clubResultDestination(evening.format),text,fetchImpl,undefined,{inline_keyboard:buttons});await finish(db,key,result);posted=result.ok;}
+  if(await claim(db,key,'mvp-runoff',String(evening.id),null)){const result=await sendText(db,clubResultDestination(evening.format),text,fetchImpl,undefined,{inline_keyboard:buttons}, { key: 'club:' + key, kind: 'club-result' });await finish(db,key,result);posted=result.ok;}
   const vkKey=`mvp-runoff-vk:${evening.id}`;
-  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(text,{db,eveningId:String(evening.id),format:evening.format});await finish(db,vkKey,{ok:result.status==='published',temporary:true,error:result.error||undefined});posted=posted||result.status==='published';}
+  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(text,{db,eveningId:String(evening.id),format:evening.format,context:{key:'club:'+vkKey,kind:'club-result',entityId:String(evening.id)}});await finish(db,vkKey,{ok:result.status==='published',certainty:result.certainty,temporary:result.temporary,error:result.error||undefined});posted=posted||result.status==='published';}
   await queueEveningVoteMessages(db,String(evening.id),String(evening.title),{runoff:round});
   return posted;
 }
@@ -567,16 +566,16 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   const telegramKey = `mvp-result:${eveningId}`;
   if (await claim(db, telegramKey, 'mvp-result', eveningId, null)) {
     const card = await resultCard();
-    let result = card ? await sendPhotos(db, evening.format, [card], groupText, fetchImpl) : { ok: false, temporary: false, error: 'no card' } as { ok: boolean; temporary?: boolean; error?: string };
-    if (!result.ok && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), groupText, fetchImpl);
+    let result = card ? await sendPhotos(db, evening.format, [card], groupText, fetchImpl, undefined, undefined, undefined, { key: 'club:' + telegramKey, kind: 'club-result' }) : { ok: false, certainty: 'rejected', temporary: false, error: 'no card' } as PublicationResult;
+    if (!result.ok && result.certainty === 'rejected' && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), groupText, fetchImpl, undefined, undefined, { key: 'club:' + telegramKey + ':text', kind: 'club-result' });
     await finish(db, telegramKey, result);
     posted = posted || result.ok;
   }
   const vkKey = `mvp-result-vk:${eveningId}`;
   if (await claim(db, vkKey, 'mvp-result', eveningId, null)) {
     const card = await resultCard();
-    const result = await sendVk(groupText, { db, eveningId, format: evening.format, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
-    await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
+    const result = await sendVk(groupText, { db, eveningId, format: evening.format, context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId }, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+    await finish(db, vkKey, { ok: result.status === 'published', certainty: result.certainty, temporary: result.temporary, error: result.error || undefined });
     posted = posted || result.status === 'published';
   }
   const dmKey = `mvp-result-dm:${eveningId}`;
@@ -646,7 +645,7 @@ export async function postTournamentAnnouncement(db: DatabaseWrapper, tournament
       '',
       'Приходите болеть за любимчиков и смотрите в эфире! 🖤',
     ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').slice(0, 1020);
-    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба'))], caption, fetchImpl, 'rating');
+    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба'))], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -659,7 +658,7 @@ async function runTournamentAnnouncements(db: DatabaseWrapper, fetchImpl: typeof
   const rows = await db.all<any>(
     `SELECT id FROM tournaments
       WHERE status IN ('draft', 'active') AND datetime(date) > datetime(?) AND datetime(date) <= datetime(?)
-        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'tournament-announce:' || tournaments.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))`,
+        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'tournament-announce:' || tournaments.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))`,
     [new Date(now).toISOString(), new Date(now + TOURNAMENT_ANNOUNCE_HOURS * 3_600_000).toISOString()],
   ).catch(() => []);
   let posted = 0;
@@ -676,7 +675,7 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
     const blank = await loadTournamentGameBlank(db, tournamentGameId);
     if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра турнира не завершена' }); return false; }
     const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
-    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating');
+    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -686,26 +685,19 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
 }
 
 /** A plain text message to a Telegram destination (the rating group, the entry channel), with the same error contract as `sendPhotos`. */
-export async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch, parseMode?: 'HTML', replyMarkup?: unknown) {
+export async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch, parseMode?: 'HTML', replyMarkup?: unknown, context?: PublicationContext): Promise<PublicationResult> {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
+  if (!token) return { ok: false, certainty: 'rejected', temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>('SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id = ? LIMIT 1', [destinationId]).catch(() => null);
   if (!destination?.chat_id || Number(destination.active ?? 1) === 0) {
-    return { ok: false, temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа рейтинга' };
+    return { ok: false, certainty: 'rejected', temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа рейтинга' };
   }
   // Markup is never cut: a slice could break a tag or an entity and Telegram would reject the whole message.
-  if (parseMode && text.length > 4000) return { ok: false, temporary: false, error: 'Сообщение слишком длинное для Telegram' };
+  if (parseMode && text.length > 4000) return { ok: false, certainty: 'rejected', temporary: false, error: 'Сообщение слишком длинное для Telegram' };
   const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: parseMode ? text : text.slice(0, 4000), disable_web_page_preview: true, ...(parseMode ? { parse_mode: parseMode } : {}) };
   if (destination.topic_id) body.message_thread_id = Number(destination.topic_id);
   if (replyMarkup) body.reply_markup = replyMarkup;
-  try {
-    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const payload: any = await response.json().catch(() => null);
-    if (response.ok && payload?.ok !== false) return { ok: true };
-    return { ok: false, temporary: response.status === 429 || response.status >= 500, error: String(payload?.description || `Telegram HTTP ${response.status}`) };
-  } catch (error: any) {
-    return { ok: false, temporary: true, error: error?.message || 'Telegram недоступен' };
-  }
+  return sendPublicTelegram(db, { method:'sendMessage', fields:body }, fetchImpl, context);
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -753,7 +745,7 @@ export async function postTournamentResults(db: DatabaseWrapper, tournamentId: s
     const key = tournamentResultsKey(tournamentId, destination);
     if (!(await claim(db, key, 'tournament-results', '', null))) continue;
     try {
-      const result = await sendText(db, destination, text, fetchImpl);
+      const result = await sendText(db, destination, text, fetchImpl, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
       await finish(db, key, result);
       if (result.ok) posted = true;
     } catch (error: any) {
@@ -772,7 +764,7 @@ async function runTournamentResultPosts(db: DatabaseWrapper, fetchImpl: typeof f
   let posted = 0;
   for (const row of candidates) {
     const done = await db.get<any>(
-      `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (?, ?) AND status IN ('sent', 'failed')`,
+      `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (?, ?) AND status IN ('sent', 'failed', 'uncertain')`,
       TOURNAMENT_RESULTS_DESTINATIONS.map((destination) => tournamentResultsKey(String(row.id), destination)),
     );
     if (Number(done?.c || 0) >= TOURNAMENT_RESULTS_DESTINATIONS.length) continue;
@@ -805,7 +797,7 @@ async function runTournamentGameFollowUps(db: DatabaseWrapper, fetchImpl: typeof
       if (await postTournamentGameBlank(db, String(game.id), fetchImpl)) handled += 1;
       const post = await db.get<any>('SELECT status FROM club_result_posts WHERE post_key = ?', [`tournament-game:${game.id}`]);
       const waited = now - new Date(String(game.completed_at)).getTime();
-      if (!['sent', 'failed'].includes(String(post?.status || '')) && waited < SEAT_MESSAGE_WAIT_MS) continue;
+      if (!['sent', 'failed', 'uncertain'].includes(String(post?.status || '')) && waited < SEAT_MESSAGE_WAIT_MS) continue;
       const next = await db.get<any>(
         "SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = ? AND status != 'completed' LIMIT 1",
         [game.tournament_id, Number(game.game_number) + 1],

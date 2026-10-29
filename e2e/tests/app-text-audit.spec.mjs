@@ -42,6 +42,7 @@ export const PAGES = [
   ['split-vote-three', '/e2e/split-vote.html?tab=split-three'],
   ['split-vote-articles', '/e2e/split-vote.html?tab=articles'],
   ['poker', '/e2e/poker-harness.html'],
+  ['publication-recovery', '/e2e/publication-recovery.html'],
   ['crm-login', '/e2e/crm-login.html'],
   ['organizer-crm', '/e2e/organizer-crm.html'],
   ['organizer-crm-active', '/e2e/organizer-crm.html?scenario=active'],

@@ -118,7 +118,7 @@ export function GiftCollectionCRM() {
           <button type="button" disabled={!honoree || busy} onClick={() => void previewBirthday()} className="mt-2 min-h-11 w-full rounded-xl border border-border-soft px-3 text-[13px] font-semibold">Подготовить поздравление</button>
           {birthdayDraft && postPlayerId === honoree ? <div className="mt-3 space-y-3">
             <img src={`data:image/png;base64,${birthdayDraft.card_png_base64}`} alt="Карточка поздравления" className="w-full rounded-xl" />
-            <label className="block text-[13px] font-semibold">Текст поздравления — можно изменить перед публикацией<textarea aria-label="Текст поздравления" className="mobile-field mt-2 min-h-48 w-full whitespace-pre-wrap" rows={10} maxLength={3500} value={editedBirthdayText} onChange={(event) => setEditedBirthdayText(event.target.value)} /></label>
+            <label className="block text-[13px] font-semibold">Текст поздравления — можно изменить перед публикацией<textarea aria-label="Текст поздравления" className="mobile-field mt-2 min-h-48 w-full whitespace-pre-wrap" rows={10} maxLength={1024} value={editedBirthdayText} onChange={(event) => setEditedBirthdayText(event.target.value)} /></label>
             {!birthdayDraft.evening_id ? <p role="status" className="text-[12px] text-text-secondary">Игрок не записан на будущий вечер. Сначала пригласите его лично — публикация с приглашением пока недоступна.</p> : null}
             <button type="button" disabled={busy || !editedBirthdayText.trim()} onClick={() => void publishBirthday()} className="min-h-12 w-full rounded-xl bg-accent px-3 text-[13px] font-bold text-white disabled:opacity-40">Подтвердить и опубликовать</button>
           </div> : null}

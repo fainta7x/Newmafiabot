@@ -99,7 +99,7 @@ export function GiftCollectionCRM() {
   const showAdditional = async () => {
     if (!view) return;
     try {
-      const all = await getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponentview.collection.honoree_player_id}`, 'Не удалось загрузить игроков');
+      const all = await getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponent(view.collection.honoree_player_id)}`, 'Не удалось загрузить игроков');
       const existing = new Set(view.contributions.map(row => row.player_id));
       setAddable(all.recipients.filter(row => !existing.has(row.id))); setExtraIds(new Set());
     } catch (e) { fail(e, 'Не удалось загрузить игроков'); }

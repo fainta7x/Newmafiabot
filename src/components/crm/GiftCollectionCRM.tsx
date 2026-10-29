@@ -4,7 +4,7 @@ import { getJson, sendJson } from '../../lib/requestJson.ts';
 
 type Recipient = { id: string; nickname: string; channel: 'telegram' | 'vk_manual' | 'none'; attendance_count: number | null; last_visit: string | null };
 type Contribution = { player_id: string; nickname: string; contact_url: string | null; status: 'invited' | 'pledged' | 'declined' | 'paid'; channel: Recipient['channel']; pledged_amount: number; paid_amount: number };
-type CollectionView = { collection: { id: string; honoree_nickname: string; status: string }; contributions: Contribution[]; totals: { pledged: number; paid: number } };
+type CollectionView = { collection: { id: string; honoree_nickname: string; honoree_player_id: string; status: string }; contributions: Contribution[]; totals: { pledged: number; paid: number } };
 type CollectionRow = { id: string; honoree_nickname: string; status: string; created_at: string };
 
 const rub = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`;
@@ -25,6 +25,8 @@ export function GiftCollectionCRM() {
   const [birthdayDraft, setBirthdayDraft] = useState<{ text: string; card_png_base64: string; has_avatar: boolean; evening_id: string | null } | null>(null);
   const [postPlayerId, setPostPlayerId] = useState('');
   const [editedBirthdayText, setEditedBirthdayText] = useState('');
+  const [addable, setAddable] = useState<Recipient[] | null>(null);
+  const [extraIds, setExtraIds] = useState<Set<string>>(new Set());
 
   const fail = (e: any, fallback: string) => setError(e?.message || fallback);
   const loadList = useCallback(async () => {
@@ -38,10 +40,15 @@ export function GiftCollectionCRM() {
     try {
       const params = new URLSearchParams(window.location.search);
       const collectionId = params.get('collection');
+      const linkedPlayer = params.get('birthday_post') || params.get('honoree');
       const honoreeId = params.get('honoree');
       const birthdayId = params.get('birthday_post');
       if (birthdayId) { setHonoree(birthdayId); setPostPlayerId(birthdayId); void getJson<any>(`/api/birthday-posts/${encodeURIComponent(birthdayId)}/preview`, 'Не удалось подготовить поздравление').then((draft) => { setBirthdayDraft(draft); setEditedBirthdayText(draft.text); }).catch(e => fail(e, 'Не удалось подготовить поздравление')); }
       if (collectionId) void loadOne(collectionId);
+      else if (birthdayId) { void getJson<CollectionRow[]>('/api/gift-collections', 'Не удалось загрузить сборы').then(list => {
+        const existing = list.find(row => row.status === 'open' && (row as any).honoree_player_id === birthdayId);
+        if (existing) void loadOne(existing.id);
+      }).catch(() => {}); }
       else if (honoreeId) { setHonoree(honoreeId); void getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponent(honoreeId)}`, 'Не удалось собрать список').then((body) => { setPreview(body.recipients); setExcluded(new Set()); }).catch((e) => fail(e, 'Не удалось собрать список')); }
     } catch { /* an unreadable address just opens the empty screen */ }
     void loadList();
@@ -87,6 +94,23 @@ export function GiftCollectionCRM() {
     setError('');
     try { await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/contributions/${encodeURIComponent(playerId)}`, 'PATCH', body, 'Не удалось сохранить'); await loadOne(view.collection.id); }
     catch (e) { fail(e, 'Не удалось сохранить'); }
+  };
+  const showAdditional = async () => {
+    if (!view) return;
+    try {
+      const all = await getJson<{ recipients: Recipient[] }>(`/api/gift-collections/preview/${encodeURIComponentview.collection.honoree_player_id}`, 'Не удалось загрузить игроков');
+      const existing = new Set(view.contributions.map(row => row.player_id));
+      setAddable(all.recipients.filter(row => !existing.has(row.id))); setExtraIds(new Set());
+    } catch (e) { fail(e, 'Не удалось загрузить игроков'); }
+  };
+  const inviteAdditional = async () => {
+    if (!view || !extraIds.size) return;
+    setBusy(true); setError('');
+    try {
+      const result = await sendJson<{ invited: number }>(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/recipients`, 'POST', { player_ids: [...extraIds] }, 'Не удалось добавить игроков');
+      setNotice(`Добавлено участников: ${result.invited}. Ранее приглашённым уведомления не отправлены повторно.`);
+      setAddable(null); setExtraIds(new Set()); await loadOne(view.collection.id);
+    } catch (e) { fail(e, 'Не удалось добавить игроков'); } finally { setBusy(false); }
   };
   const closeCollection = async () => {
     if (!view || !window.confirm('Закрыть сбор? Игроки больше не смогут менять сумму.')) return;
@@ -156,6 +180,7 @@ export function GiftCollectionCRM() {
             {c.contact_url ? <a href={c.contact_url} target="_blank" rel="noreferrer" className="grid min-h-11 place-items-center rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Написать</a> : null}
           </div>
         </div>)}
+        {view.collection.status === 'open' ? <section className="space-y-2 rounded-xl border border-border-soft p-3"><button type="button" disabled={busy} onClick={() => void showAdditional()} className="min-h-11 w-full rounded-xl border border-border-soft text-sm font-semibold">+ Добавить участников</button>{addable && <div className="space-y-2"><p className="text-xs text-text-secondary">Приглашения получат только выбранные новые участники.</p>{addable.map(player => <label key={player.id} className="flex items-center gap-3 rounded-lg bg-surface-2 p-2"><input type="checkbox" checked={extraIds.has(player.id)} onChange={event => setExtraIds(old => { const next = new Set(old); if(event.target.checked) next.add(player.id); else next.delete(player.id); return next; })}/><span className="text-sm">{player.nickname} · {CHANNEL[player.channel]}</span></label>)}<button type="button" disabled={!extraIds.size || busy} onClick={() => void inviteAdditional()} className="min-h-11 w-full rounded-xl bg-accent text-sm font-semibold text-white disabled:opacity-40">Пригласить выбранных ({extraIds.size})</button></div>}</section> : null}
         {view.collection.status === 'open' ? <button type="button" onClick={() => void closeCollection()} className="min-h-12 w-full rounded-[14px] border border-border-soft text-[14px] font-semibold text-text-secondary">Закрыть сбор</button> : <p className="text-center text-[13px] text-text-secondary">Сбор закрыт</p>}
       </section> : null}
 

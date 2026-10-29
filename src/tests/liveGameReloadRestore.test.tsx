@@ -157,6 +157,24 @@ const baseSnapshot = (patch: Record<string, unknown> = {}) => {
 };
 
 describe('Live Game after a reload', () => {
+  it('starts a fresh tournament with saved roles without erasing the initial roster', async () => {
+    resetLiveGameResumeClaim();
+    const roles = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i + 1,
+      i === 9 ? 'don' : i >= 7 ? 'mafia' : i === 6 ? 'sheriff' : 'citizen'])) as any;
+    const players = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1, user_id: i + 1, nickname: `Игрок ${i + 1}`,
+      notes: `__tournament_role__:${roles[i + 1]}`,
+    }));
+    players.push({ id: 10001, user_id: 10001, nickname: 'Судья', notes: '__tournament_engine_judge__' });
+    render(<LiveGameEngine players={players as any} initialJudgeId={10001} roleAssignments={roles}
+      onGameFinished={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Запустить Игру 🚀' }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('mafia_live_session') || 'null')?.phase).toBe('zero_night'));
+    const saved = JSON.parse(localStorage.getItem('mafia_live_session')!);
+    expect(saved.activePlayers.map((p: any) => p.user_id)).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
+    expect(saved.activePlayers.map((p: any) => p.role)).toEqual(Object.values(roles));
+  });
+
   it('applies observed CRM roles once, preserves legacy evidence and retains corrections through Undo/reload', async () => {
     resetLiveGameResumeClaim();
     const initial = baseSnapshot();

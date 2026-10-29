@@ -2463,6 +2463,15 @@ Scope: 55 harness pages (`e2e/tests/app-text-audit.spec.mjs`: the whole player c
 
 Scope: today/cancellation, all clubResult public legs, poker/custom, shared certainty and VK boundary. Full findings, owners, recovery contract, migration and focused acceptance cases: [review](PUBLICATION_RECOVERY_REVIEW_2026-10-28.md). Open: retry after ambiguity; expired sending reclaimed; combined leg persistence/stale pre-claim snapshot; cancellation without claim; poker/custom non-atomic claims and 5xx/malformed acknowledgement; photo fallback/adapter certainty loss; missing durable IDs and organizer reconciliation. No application fix or production write in this review. #1079 merged418628fc after all four exact-head workflows passed. Public health200; no organizer credential or production records read.
 
+## 2026-10-28 — daily word implementation review
+
+Scope: owner-approved free daily word, variable length and 200-token win. New owners: shared/dailyWord, dailyWordService/routes/schema, PlayerDailyWord. No production data reads or writes; public health200 only, organizer credential absent.
+
+- Repeat-letter feedback: exact positions consume letters before present marks; focused regression.
+- Reward/attempt concurrency: persisted request id and expected attempt count inside one queued DB transaction; canonical token ledger settlement in the same transaction.
+- Spoilers: server-only dictionaries/answers, no answer before completion; comparison after finish; assigned author excluded from reward/comparison.
+- First local suite fixture omitted mandatory player timestamps: test fixture defect, corrected before behavioral verification.
+- Verification and remaining release status are owned by PROJECT_STATE and the PR.
 
 ## 2026-10-28 — AR02 approved publication recovery implementation
 

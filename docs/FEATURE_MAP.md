@@ -62,6 +62,13 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Club game protocol window (check / correct / confirm; two places «Протокол» + «Ход игры», sheets, tags, «Вы изменили»): `src/components/crm/gameProtocol/` — frame `ProtocolWindow.tsx`, views `OverviewView.tsx` / `GameFlowView.tsx` / `PlayersView.tsx` / `ResultView.tsx`, tag language `tags.tsx`, primitives `ui.tsx`, pure model (circles, ballots from the chronology, issues, changes with undo) `protocolReview.ts`; legacy-record repair `src/lib/legacyClubProtocol.ts`. Tests `gameProtocolReview.test.ts`, `EveningGameProtocolModalAutosave.test.tsx`; browser `e2e/tests/protocol-window-preview.spec.mjs` (+ `e2e/protocol-window.html`). One protocol for both kinds of game (owner, 2026-10-24): every edit is `useProtocolEditing.ts`, the autosave `useProtocolAutosave.ts`, the window with its checks is `ProtocolWorkspace.tsx`, reveals `RevealsCard.tsx`; `EveningGameProtocolModal.tsx` (club) and `tournaments/GameProtocolModal.tsx` (tournament) only load, save, confirm and reopen, and the tournament adds the judge's points (`tournaments/protocol/TournamentPointsView.tsx`) and its confirmation dialogs. Tests `tournamentProtocolWindow.test.tsx`, `protocolRevealsCard.test.tsx`.
 - API: `gamesRoutes.ts`, `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 
+### Daily word
+
+- Player game/home card: `PlayerDailyWord.tsx` + `dailyWord.css`, mounted at `/player/daily-word` through `PlayerCabinetShell.tsx`; entry from Home and Community → Mini-games.
+- Public contract/feedback/share: `shared/dailyWord.ts`; answer/accepted word lists stay in `server/data/`, the latter licensed MIT from Harrix/Russian-Nouns.
+- API: `dailyWordRoutes.ts` under `/api/player/daily-word`; service `dailyWordService.ts`, schema `ensureDailyWordSchema.ts`. Future assignments require club-owner authorization. Guess/request/reward state is transactional and uses `tokenLedgerService.ts`.
+- Focused coverage: `dailyWord.integration.test.ts`, `e2e/tests/daily-word.spec.mjs`; all-app audit includes new/long/playing/won/lost/admin/card/error states.
+
 ### Online Poker
 
 - Player table UI: `src/components/player/PlayerPoker.tsx` (card order/identity: `pokerCards.ts`).

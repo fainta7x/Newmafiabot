@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
@@ -73,7 +74,7 @@ const winnerText = (winner: 'red' | 'black' | null) => winner === 'red' ? 'Кр�
 const roleText = (role: PlayerGameDetailData['players'][number]['role']) => getPlayerGameRoleLabel(role) ?? '—';
 
 const Avatar = ({ src, size = 40 }: { src: string | null | undefined; size?: number }) => src ? (
-  <img src={src} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: size, height: size }} className="shrink-0 rounded-xl object-cover" />
+  <AvatarImage src={src} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: size, height: size }} className="shrink-0 rounded-xl object-cover" />
 ) : <div style={{ width: size, height: size }} className="shrink-0 rounded-xl bg-white/[0.06]" />;
 
 function MatchSpotlight({ gameKey, onClose }: { gameKey: string; onClose: () => void }) {

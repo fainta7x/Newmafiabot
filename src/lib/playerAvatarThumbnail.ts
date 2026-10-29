@@ -49,8 +49,10 @@ async function downsample(source: string, edge: number): Promise<string> {
 
 export function prepareAvatarThumbnail(source: string, edge: number): Promise<string> {
   // PlayerAvatar uses API-provided data URLs. Do not load new external URLs here.
-  if (!source.startsWith('data:image/') || !Number.isFinite(edge) || edge < 1) return Promise.resolve(source);
+  if (!(source.startsWith('data:image/') || source.startsWith('/api/player/players/') || source.startsWith('/api/public/broadcast/')) || !Number.isFinite(edge) || edge < 1) return Promise.resolve(source);
   const size = Math.max(1, Math.min(320, Math.ceil(edge)));
+  // An unversioned avatar URL can change after an upload; do not retain its old bitmap.
+  if (!source.startsWith('data:')) return downsample(source, size);
   let sizes = thumbnails.get(source);
   if (!sizes) {
     if (thumbnails.size >= MAX_SOURCES) thumbnails.delete(thumbnails.keys().next().value!);

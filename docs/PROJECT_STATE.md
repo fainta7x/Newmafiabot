@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-29 — avatar quality across all renderers
+
+Owner correction: #1085 merged as `03283c281b0a7993fe2b5b90d36acc2aa669eac9` and covers the shared PlayerAvatar but not separate player, CRM and broadcast image renderers. Follow-up branch fix/avatar-quality-direct-20261029 routes those through a display-only AvatarImage; same-origin avatar URLs receive size/DPR downsampling, unversioned URLs do not retain stale image cache, and hidden panels prepare after becoming visible. Original source, crop, geometry and error fallbacks stay the same. Local TypeScript, changed-source lint, 4 focused helper tests, 6 original-photo browser cases and 49 impacted page/size layout audits pass. Required exact-head CI/merge pending. No production writes or Amvera deploy.
+
+
 ## 2026-10-29 — avatar downsampling quality
 
 Owner reports pixelated CRM avatars for Насон/Денди. Confirmed on the original repository2048px JPEGs: direct CSS reduction to48px aliases thin contrasting details. The common PlayerAvatar now prepares a display-only high-quality thumbnail at its CSS size × device pixel ratio; retains original aspect/object-position, avoids enlarging small sources, shares concurrent work with a bounded cache and falls back to the original on decode/canvas failure. Stored photos, identity, upload logic and database are unchanged.

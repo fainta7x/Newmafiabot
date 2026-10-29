@@ -54,7 +54,10 @@ describe('avatar display thumbnails', () => {
     const source = 'data:image/jpeg;base64,small-portrait';
     expect(await prepareAvatarThumbnail(source, 96)).toBe(source);
     expect(await prepareAvatarThumbnail('https://example.invalid/avatar.jpg', 48)).toBe('https://example.invalid/avatar.jpg');
-    expect(decoded).toHaveBeenCalledTimes(1);
+    const url = '/api/player/players/one/avatar';
+    expect(await prepareAvatarThumbnail(url, 96)).toBe(url);
+    expect(await prepareAvatarThumbnail(url, 96)).toBe(url);
+    expect(decoded).toHaveBeenCalledTimes(3); // An unversioned URL is not cached across uploads.
   });
 
   it('retains the original if decoding or a canvas is unavailable', async () => {

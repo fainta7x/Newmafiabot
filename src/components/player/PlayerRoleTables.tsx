@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { gameResultText } from '../../lib/playerResultObservations.ts';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
@@ -54,7 +55,7 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
           className={`ds-focus-ring min-h-11 w-full px-1 py-3 text-left ${row.is_me ? 'bg-sky-200/[0.08]' : 'hover:bg-white/[.035]'}`}>
           <div className="flex items-center gap-3">
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-xs font-semibold text-white/70">{index + 1}</span>
-            {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : null}
+            {row.avatar_url ? <AvatarImage src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : null}
             <span className="min-w-0 flex-1 break-words text-sm font-medium">{row.nickname}</span>
             <span className="shrink-0 text-right text-[12px] tabular-nums text-white/60"><b className="text-white">{row.win_rate}%</b><span className="block">побед</span></span>
           </div>

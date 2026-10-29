@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.ts';
 import React, { useEffect, useRef, useState } from 'react';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
@@ -131,7 +132,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
       <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Фото профиля</div><p className="mt-1 text-xs text-white/55">Фото сохраняется сразу после загрузки.</p>
         <div className="mt-3 flex items-center gap-4">
-          {player.avatar_url ? <img src={player.avatar_url} alt={player.nickname} className="h-24 w-24 shrink-0 rounded-[24px] object-cover ring-1 ring-white/15" /> : <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[24px] bg-white/10 text-3xl font-semibold text-white/65">{player.nickname.slice(0, 1).toUpperCase()}</div>}
+          {player.avatar_url ? <AvatarImage src={player.avatar_url} alt={player.nickname} className="h-24 w-24 shrink-0 rounded-[24px] object-cover ring-1 ring-white/15" /> : <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[24px] bg-white/10 text-3xl font-semibold text-white/65">{player.nickname.slice(0, 1).toUpperCase()}</div>}
           <div className="min-w-0 flex-1 space-y-2">
             <button type="button" disabled={avatarSaving} onClick={() => fileRef.current?.click()} className="min-h-11 w-full rounded-2xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{avatarSaving ? 'Сохраняем…' : player.avatar_url ? 'Сменить фото' : 'Загрузить фото'}</button>
             {player.avatar_url ? <button type="button" disabled={avatarSaving} onClick={() => setAvatarDeleteOpen(true)} className="min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white/60 disabled:opacity-50">Удалить</button> : null}

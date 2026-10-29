@@ -2505,3 +2505,9 @@ Owner screenshot: CRM player rows show Насон/Денди with jagged edges w
 Avatar quality CI follow-up: exact d35231f7 Web checks fails TS2352 in playerAvatarThumbnail.test.ts: the fake2D getContext implementation was asserted to every overloaded Canvas context (including bitmaprenderer). Remove the unnecessary outer overload assertion; preserve the same fake2D context and all assertions. Local initial typecheck output was inspected before completion; final log confirms the same error. Application code/visual evidence unchanged.
 
 Avatar preview-selection review: the dedicated quality spec was locally green but absent from playwright-preview.config.mjs testMatch. Register it in automatic Mobile preview so exact-head CI also checks real-source thumbnail dimensions and Retina behaviour; do not weaken any assertion or detector.
+
+## 2026-10-29 — remaining direct player-avatar renderers
+
+After #1085, the owner asked whether every analogous renderer was checked. Finding [open at discovery]: the common PlayerAvatar was covered, but player-directory, profile, rating, social, voting, game history, poker and CRM scouting use separate `<img>` elements with avatar URLs. These bypass data-URL-only downsampling; they can still display the same aliasing on high-detail repository JPEGs. Scope: same-origin avatar URLs and data URLs in the display only. Preserve source images, error fallbacks, crop/shape and view geometry. Acceptance: shared display raster at element size × DPR, including hidden-then-visible views and an HTTP route fixture; same four-size layout audit, no external URL processing and no stale cache for mutable unversioned URLs.
+
+Fixed in candidate: 24 direct renderers now use AvatarImage, with same-origin-only conversion and no mutable-URL bitmap cache. Local TypeScript/lint, 4 focused tests, 6 real-source browser cases and 49 layout audits pass; exact-head CI pending.

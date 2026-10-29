@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 import { getJson } from '../../lib/requestJson.ts';
@@ -91,7 +92,7 @@ export default function SmartFriendInviteSuggestions() {
           <article key={`${item.player_id}:${item.evening.id}`} className="rounded-2xl bg-black/20 p-3">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => openPlayerProfile(item.player_id)} className="shrink-0" aria-label={`Открыть профиль ${item.nickname}`}>
-                <img src={item.avatar_url} alt="" className="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/10" />
+                <AvatarImage src={item.avatar_url} alt="" className="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/10" />
               </button>
               <div className="min-w-0 flex-1">
                 <button type="button" onClick={() => openPlayerProfile(item.player_id)} className="block max-w-full truncate text-left text-sm font-semibold">{item.nickname}</button>

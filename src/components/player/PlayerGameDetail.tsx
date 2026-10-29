@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { restoreGameProtocolView } from '../../lib/gameProtocolView.ts';
 import { round2 } from '../../shared/numbers.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
@@ -196,7 +197,7 @@ function Avatar({ player, large = false }: { player: DetailPlayer; large?: boole
   const [failed, setFailed] = useState(false);
   return <span aria-hidden="true" className={`relative grid shrink-0 place-items-center overflow-hidden bg-gradient-to-br from-white/15 to-white/[.035] font-semibold text-white/70 ring-1 ${large ? 'h-10 w-10 rounded-full text-base ring-rose-300/30' : 'h-7 w-7 rounded-lg text-sm ring-white/10'}`}>
     {player.nickname.trim().slice(0, 1).toUpperCase() || '?'}
-    {player.avatar_url && !failed && <img src={player.avatar_url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    {player.avatar_url && !failed && <AvatarImage src={player.avatar_url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
   </span>;
 }
 

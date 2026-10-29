@@ -1,3 +1,4 @@
+import { AvatarImage } from '../ui/AvatarImage.tsx';
 import { useEffect, useMemo, useState } from 'react';
 
 type Category = 'best_player';
@@ -104,7 +105,7 @@ export default function EveningVotingPanel({ eveningId }: { eveningId: string })
         const showResult = Boolean(myVote) || !data.voting_open;
         return <button key={nominee.player_id} type="button" disabled={!data.voting_open || Boolean(savingPlayerId)} onClick={() => void vote(nominee.player_id)} className={`relative overflow-hidden rounded-2xl border p-2.5 text-left transition ${selected ? 'border-fuchsia-200/35 bg-fuchsia-200/[0.10]' : 'border-white/[0.05] bg-black/20'} disabled:cursor-default`}>
           {showResult && <span className="absolute bottom-0 left-0 h-0.5 bg-fuchsia-300/45" style={{ width: `${Math.round((votes / maxVotes) * 100)}%` }} />}
-          <div className="flex items-center gap-2">{nominee.avatar_url&&<img src={nominee.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />}<div className="min-w-0 flex-1"><div className="break-words text-[11px] font-semibold">{nominee.nickname}</div><div className="mt-0.5 text-[11px] text-white/30">{selected ? 'Выбор' : showResult ? `${votes} голос.` : 'Выбрать'}</div></div>{selected && <span className="text-sm">✓</span>}</div>
+          <div className="flex items-center gap-2">{nominee.avatar_url&&<AvatarImage src={nominee.avatar_url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-9 w-9 shrink-0 rounded-xl object-cover" />}<div className="min-w-0 flex-1"><div className="break-words text-[11px] font-semibold">{nominee.nickname}</div><div className="mt-0.5 text-[11px] text-white/30">{selected ? 'Выбор' : showResult ? `${votes} голос.` : 'Выбрать'}</div></div>{selected && <span className="text-sm">✓</span>}</div>
         </button>;
       })}</div> : <div className="mt-3 rounded-xl bg-black/20 px-3 py-4 text-center text-[11px] text-white/30">В этой номинации пока нет подходящих кандидатов.</div>}
 

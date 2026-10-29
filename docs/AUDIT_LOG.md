@@ -1,5 +1,13 @@
 # Audit log
 
+## 2026-10-29 — tournament virtual deal review follow-up
+
+- [fixed, VD-START] `LiveGameEngine.tsx`: setup skips authoritative role updates after an already mounted tournament saves its virtual deal. Acceptance: an initially empty tournament deal saves, starts zero night and preserves the exact saved roles in the engine.
+- [fixed, VD-GATE] `e2e/playwright-preview.config.mjs`: the tournament virtual-deal spec was omitted from the explicit automatic preview selection. Add it without changing the detector or UI.
+
+Reproduced on the original source with an initially empty tournament: role PATCH succeeds but start never reaches zero night. Corrected source passes all four browser dimensions and exact role readback/engine agreement; existing restore/correction tests pass6 cases. Source/synthetic harness only; no production data or deployment. #1081 merged as 7aaa246e with four green required workflows before these review findings were read. Finish both findings in one corrective PR.
+
+
 ## 2026-10-28 — current architecture backlog reconciliation
 
 Source: merged #1078, current remote main; read-only source review, no production diagnosis. The owner asks to continue tasks and identify remaining technical debt. The current prioritized queue is maintained only in PROJECT_STATE.

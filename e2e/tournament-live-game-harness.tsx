@@ -124,6 +124,11 @@ localStorage.setItem('mafia_live_session', JSON.stringify({
   savedAt: '20:00',
 }));
 
+if (mode === 'deal') {
+  localStorage.removeItem('mafia_live_session');
+  playerResults.forEach(row => { (row as {role: string}).role = ''; });
+}
+
 let protocolReads = 0;
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {

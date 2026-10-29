@@ -428,8 +428,14 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   useEffect(() => {
     const assignments = roleAuthorityRef.current;
-    if (!assignments || phase === 'setup' || gameFinishedRef.current) return;
+    if (!assignments || gameFinishedRef.current) return;
     const snapshot = takeSnapshot();
+    if (phase === 'setup') {
+      // A saved tournament deal is authoritative before start as well. Setup has no journal yet.
+      const changes = liveRoleCorrectionEvents(activePlayers, assignments, { nextSeq: 1, at: '', round: 0, phase });
+      if (changes.length) setActivePlayers(projectLiveRoleSnapshot(snapshot, assignments, changes).activePlayers);
+      return;
+    }
     const journal = journalRef.current || {
       snapshot, evidence: readProtocolEvidence?.() || { votes: [], shots: [], events: [] },
     };

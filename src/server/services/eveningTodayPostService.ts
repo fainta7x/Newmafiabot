@@ -17,6 +17,7 @@ import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
 import { generateEveningSeatingPlan } from './eveningSeatingGenerationService.ts';
+import { queueEveningSeatingNotifications } from './eveningSeatingNotificationsService.ts';
 
 /**
  * «Сегодня играем» (owner, 2026-10-02): on the evening day the organizer posts a bright invitation
@@ -209,6 +210,7 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
   const publication = await loadTodayPost(db, eveningId);
   if (publication.state === 'published' || publication.state === 'partial') {
     await generateEveningSeatingPlan(db, eveningId);
+    await queueEveningSeatingNotifications(db, eveningId);
   }
   return publication;
 }

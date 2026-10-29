@@ -34,7 +34,7 @@ export type AgendaPerson = {
   telegram_url?: string | null;
   vk_url?: string | null;
 };
-export type AgendaAction = ClubOrderAction | { type: 'task'; task_id: string };
+export type AgendaAction = ClubOrderAction | { type: 'task'; task_id: string } | { type: 'gift_collection'; player_id: string } | { type: 'birthday_post'; player_id: string };
 export type AgendaItem = {
   id: string;
   group: AgendaGroup;
@@ -421,12 +421,16 @@ async function taskItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
       row.description ? String(row.description) : '',
       row.due_at ? `${overdue ? 'срок прошёл' : 'срок'}: ${dayLabel(row.due_at)}` : '',
     ].filter(Boolean);
-    const action: AgendaAction | undefined = row.player_id ? { type: 'player', player_id: String(row.player_id) }
+    const action: AgendaAction | undefined = row.player_id && key.startsWith('gift-start:')
+      ? { type: 'gift_collection', player_id: String(row.player_id) }
+      : row.player_id && key.startsWith('birthday-post-approval:')
+        ? { type: 'birthday_post', player_id: String(row.player_id) }
+        : row.player_id ? { type: 'player', player_id: String(row.player_id) }
         : row.evening_id ? { type: 'evening', evening_id: String(row.evening_id), section: 'overview' } : undefined;
     return {
       id: `task:${row.id}`, group, rank, kind: key ? key.split(':')[0] : 'manual', title: birthdayTaskTitle(row,now),
       why: whyParts.join(' · ') || 'Задача без описания', task_id: String(row.id), due_at: row.due_at || null, can_complete: true,
-      action, action_label: action ? (action.type === 'player' ? 'Открыть игрока' : 'Открыть вечер') : undefined,
+      action, action_label: action ? (action.type === 'gift_collection' ? 'Открыть сбор' : action.type === 'birthday_post' ? 'Подготовить пост' : action.type === 'player' ? 'Открыть игрока' : 'Открыть вечер') : undefined,
     };
   });
 }

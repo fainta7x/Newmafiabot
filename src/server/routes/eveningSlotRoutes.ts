@@ -1,5 +1,6 @@
 import { loadEveningSeatBookings, saveEveningSeatBooking, cancelEveningSeatBooking } from '../services/eveningSeatBookingService.ts';
 import { Router, type Request, type Response } from 'express';
+import { generateEveningSeatingPlan } from '../services/eveningSeatingGenerationService.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
@@ -219,4 +220,18 @@ eveningSlotRoutes.get('/:eveningId/seating/options', async (req, res) => {
       occupied: seats.map((x: any) => ({ slot_id: x.slot_id, table_id: x.tableId, seat_number: x.seat, own: x.playerId === String(player.id) })),
     });
   } catch (error: any) { return sendError(res, error, 'Не удалось загрузить доступные места'); }
+});
+
+eveningSlotRoutes.post('/:eveningId/seating/generate', requireOrganizerAuth, async (req, res) => {
+  try {
+    const slotId = req.body?.slot_id ? String(req.body.slot_id) : undefined;
+    if (slotId) {
+      const row = await req.db.get<any>(
+        'SELECT id FROM evening_game_slots WHERE id=? AND evening_id=?',
+        [slotId, String(req.params.eveningId)],
+      );
+      if (!row) return res.status(400).json({ error: 'Игра не принадлежит этому вечеру' });
+    }
+    return res.json(await generateEveningSeatingPlan(req.db, String(req.params.eveningId), slotId));
+  } catch (error: any) { return sendError(res, error, 'Не удалось сформировать рассадку'); }
 });

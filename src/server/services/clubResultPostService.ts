@@ -574,7 +574,11 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   const vkKey = `mvp-result-vk:${eveningId}`;
   if (await claim(db, vkKey, 'mvp-result', eveningId, null)) {
     const card = await resultCard();
-    const result = await sendVk(groupText, { db, eveningId, format: evening.format, context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId }, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+    // An MVP announcement is a visual award, not a text-only status.
+    // Keep the VK channel retryable if rendering or photo upload fails.
+    const result = await sendVk(groupText, { db, eveningId, format: evening.format,
+      context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId },
+      requireImage: true, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
     await finish(db, vkKey, { ok: result.status === 'published', certainty: result.certainty, temporary: result.temporary, error: result.error || undefined });
     posted = posted || result.status === 'published';
   }

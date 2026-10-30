@@ -28,7 +28,7 @@ for (const width of [360, 390]) {
     const popupPromise = page.waitForEvent('popup');
     await telegramDialog.getByRole('button', { name: 'Открыть чат' }).click();
     const popup = await popupPromise;
-    expect(popup.url()).toContain('t.me/test?text=');
+    expect(popup.url()).toContain('t.me/testuser?text=');
     expect(new URL(popup.url()).searchParams.get('text')).toBe(message);
     await popup.close();
     const issues = await page.evaluate(auditScreen);

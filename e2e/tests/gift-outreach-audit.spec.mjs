@@ -12,6 +12,10 @@ for (const width of [360, 390]) {
     await expect(page.getByTestId('gift-group-declined')).toBeVisible();
     await expect(page.getByTestId('gift-group-invited').getByRole('button', { name: 'Убрать из сбора' })).toBeVisible();
     await expect(page.getByTestId('gift-group-paid').getByRole('button', { name: 'Убрать из сбора' })).toHaveCount(0);
+    await expect(page.getByTestId('gift-group-invited').getByRole('button', { name: 'Отказался' })).toBeVisible();
+    await expect(page.getByTestId('gift-group-pledged').getByRole('button', { name: 'Отказался' })).toBeVisible();
+    await expect(page.getByTestId('gift-group-declined').getByRole('button', { name: 'Вернуть в ожидание' })).toBeVisible();
+    await expect(page.getByTestId('gift-group-paid').getByRole('button', { name: 'Отказался' })).toHaveCount(0);
     await page.getByTestId('gift-group-invited').getByRole('button', { name: 'Написать' }).click();
     const dialog = page.getByRole('dialog', { name: 'Шаблон сообщения' });
     await expect(dialog).toBeVisible();

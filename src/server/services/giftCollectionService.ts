@@ -119,6 +119,66 @@ export async function openGiftCollection(db: DatabaseWrapper, input: { honoreeId
   return { id, honoree_id: input.honoreeId, invited: recipients.length, ...counts };
 }
 
+/** Invite additional eligible players without touching existing contributions or resending their notifications. */
+export async function addGiftCollectionRecipients(db: DatabaseWrapper, collectionId: string, playerIds: string[], _organizerId: string, appBaseUrl?: string | null) {
+  await ensureGiftCollectionSchema(db);
+  const collection = await db.get<any>(
+    'SELECT g.id, g.status, g.honoree_player_id, p.nickname AS honoree_nickname FROM gift_collections g JOIN players p ON p.id=g.honoree_player_id WHERE g.id=?',
+    [collectionId]);
+  if (!collection) throw new GiftCollectionError('Сбор не найден', 404, 'not_found');
+  if (collection.status !== 'open') throw new GiftCollectionError('Нельзя добавлять участников в закрытый сбор', 409, 'closed');
+  if (!Array.isArray(playerIds) || !playerIds.length || playerIds.length > 100 || playerIds.some(id => typeof id !== 'string')) {
+    throw new GiftCollectionError('Выберите игроков для приглашения', 400, 'bad_players');
+  }
+  const requested = [...new Set(playerIds.map(String))];
+  const eligible = new Map((await listGiftRecipients(db, String(collection.honoree_player_id))).map(player => [player.id, player]));
+  const existing = new Set((await db.all<{ player_id: string }>(
+    'SELECT player_id FROM gift_contributions WHERE collection_id=?', [collectionId])).map(row => String(row.player_id)));
+  if (requested.some(id => !eligible.has(id) || existing.has(id))) {
+    throw new GiftCollectionError('Некоторые игроки уже приглашены или не подходят для сбора. Обновите список.', 409, 'ineligible');
+  }
+  const now = nowIso();
+  const counts = { invited: 0, telegram: 0, vk_manual: 0, none: 0 };
+  for (const playerId of requested) {
+    const recipient = eligible.get(playerId)!;
+    // Claim the row before queueing any message, so concurrent requests cannot
+    // send two invitations to the same person.
+    const inserted = await db.run(
+      `INSERT OR IGNORE INTO gift_contributions
+        (collection_id, player_id, status, channel, created_at, updated_at)
+        VALUES (?, ?, 'invited', ?, ?, ?)`,
+      [collectionId, playerId, recipient.channel, now, now]);
+    if (!inserted.changes) continue;
+    let channel = recipient.channel;
+    let taskId: string | null = null;
+    if (channel === 'telegram') {
+      const { delivery } = await queuePersonalNotification(db, {
+        notificationKey: `gift-collection:${collectionId}:${playerId}`, playerId,
+        eventType: 'gift_collection_invite', entityId: collectionId,
+        text: giftInviteText(String(collection.honoree_nickname)), actionPath: '/player/wallet',
+        telegramReplyMarkup: giftInviteMarkup(collectionId, appBaseUrl ? `${appBaseUrl.replace(/\/$/, '')}/player/wallet?gift=${collectionId}` : null),
+      });
+      if (delivery.status !== 'queued') channel = delivery.selected_channel === 'vk' ? 'vk_manual' : 'none';
+    }
+    if (channel !== 'telegram') {
+      taskId = randomUUID();
+      await db.run(`INSERT OR IGNORE INTO organizer_tasks
+        (id, title, description, type, status, priority, player_id, automation_key, created_at, updated_at)
+        VALUES (?, ?, ?, 'payment', 'todo', 'medium', ?, ?, ?, ?)`,
+        [taskId, channel === 'vk_manual'
+          ? `Написать ${recipient.nickname} в ВК: сбор на подарок ${collection.honoree_nickname}`
+          : `Нет канала связи: ${recipient.nickname} — сбор на подарок ${collection.honoree_nickname}`,
+          channel === 'vk_manual' ? 'Предложить сумму (от 100 ₽) и записать её в карточке сбора.' : 'Опрос не доставлен: нужен ручной контакт.',
+          playerId, `gift-collection:${collectionId}:${playerId}`, now, now]);
+    }
+    await db.run('UPDATE gift_contributions SET channel=?, task_id=?, updated_at=? WHERE collection_id=? AND player_id=?',
+      [channel, taskId, now, collectionId, playerId]);
+    counts.invited += 1;
+    counts[channel] += 1;
+  }
+  return counts;
+}
+
 async function loadContribution(db: DatabaseWrapper, collectionId: string, playerId: string) {
   const row = await db.get<any>(
     `SELECT c.*, g.status AS collection_status, g.honoree_player_id FROM gift_contributions c JOIN gift_collections g ON g.id = c.collection_id

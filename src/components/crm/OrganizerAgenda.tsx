@@ -10,7 +10,9 @@ type Action =
   | { type: 'player'; player_id: string }
   | { type: 'create_evening' }
   | { type: 'cancel_evening'; evening_id: string }
-  | { type: 'task'; task_id: string };
+  | { type: 'task'; task_id: string }
+  | { type: 'gift_collection'; player_id: string }
+  | { type: 'birthday_post'; player_id: string };
 type Person = { player_id: string; nickname: string; detail?: string; telegram_url?: string | null; vk_url?: string | null };
 type Item = {
   id: string; group: Group; kind: string; title: string; why: string;
@@ -89,7 +91,9 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
     const action = item.action;
     if (!action) return;
     // The same flow as «Сбор»: the post text is shown first, then the players and the group are told.
-    if (action.type === 'cancel_evening') setCancelFor(action.evening_id);
+    if (action.type === 'gift_collection') window.location.assign(`/admin/more/gifts?honoree=${encodeURIComponent(action.player_id)}`);
+    else if (action.type === 'birthday_post') window.location.assign(`/admin/more/gifts?birthday_post=${encodeURIComponent(action.player_id)}`);
+    else if (action.type === 'cancel_evening') setCancelFor(action.evening_id);
     else if (action.type === 'evening') onOpenEveningSection(action.evening_id, action.section);
     else if (action.type === 'player') onOpenPlayer(action.player_id);
     else if (action.type === 'create_evening') onCreateEvening();

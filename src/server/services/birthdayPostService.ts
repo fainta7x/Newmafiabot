@@ -18,11 +18,13 @@ export function birthdayPostText(input: { nickname: string; firstName?: string |
   const when = input.eveningStartsAt ? `${moscow(input.eveningStartsAt, { weekday: 'long', day: 'numeric', month: 'long' })}, в ${moscow(input.eveningStartsAt, { hour: '2-digit', minute: '2-digit' })}` : null;
   // Use nominative first name throughout, avoiding unreliable automatic
   // Russian case inflection of names, nicknames and foreign names.
-  const name = input.firstName?.trim() || input.nickname;
+  const first = input.firstName?.trim();
+  const name = first && first.toLocaleLowerCase('ru') !== input.nickname.trim().toLocaleLowerCase('ru')
+    ? `${first} («${input.nickname}»)` : first || input.nickname;
   const lines = [
     `🎂 ${input.day} ${MONTHS[input.month - 1]} — день рождения! ${name}, поздравляем!`,
     '',
-    `${name}, желаем побольше счастливых моментов, тёплых встреч и ярких побед. Пусть задуманное сбывается! 🎉`,
+    `${first || input.nickname}, желаем побольше счастливых моментов, тёплых встреч и ярких побед. Пусть задуманное сбывается! 🎉`,
   ];
   if (when) lines.push('', `Приходите отметить этот день вместе с нами: ${when}${input.venue ? ` («${input.venue}»)` : ''}.${input.link ? `\nЗапись на вечер: ${input.link}` : ''}`);
   return lines.join('\n');

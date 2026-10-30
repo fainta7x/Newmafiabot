@@ -7,6 +7,7 @@ import { type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import OrganizerAgenda from './OrganizerAgenda.tsx';
 import OrganizerDebtsPanel from './OrganizerDebtsPanel.tsx';
+import ActiveGiftCollectionsHome from './ActiveGiftCollectionsHome.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
 import { sendJson } from '../../lib/requestJson.ts';
@@ -380,6 +381,7 @@ export default function OrganizerCommandCenter({
 
     </div>
     <div className="crm-today-planning space-y-3">
+    <ActiveGiftCollectionsHome />
     {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
 
     {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}

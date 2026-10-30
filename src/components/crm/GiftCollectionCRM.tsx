@@ -142,7 +142,7 @@ export function GiftCollectionCRM() {
     const honoree = view.collection.honoree_nickname;
     const text = c.status === 'pledged'
       ? `Привет, ${person}! Спасибо, что участвуешь в подарке для ${honoree} 🎁 Напоминаю про обещанный взнос ${rub(c.pledged_amount)}. Если уже перевёл(а), дай знать, пожалуйста!`
-      : `Привет, ${person}! Мы собираем подарок на день рождения ${honoree} 🎁 Если хочешь присоединиться, можно выбрать любую удобную сумму от 100 ₽. Участие добровольное, пожалуйста, дай ответ, будешь ли участвовать 🙂`;
+      : `Привет, ${person}! Мы собираем подарок на день рождения ${honoree} 🎁 Если хочешь присоединиться, можно выбрать любую удобную сумму от 100 ₽. Напиши, пожалуйста, участвуешь или нет. Участие добровольное 🙂`;
     setOutreach({ playerId: c.player_id, nickname: c.nickname, url: c.contact_url, text });
   };
   const askAmount = (c: Contribution, key: 'pledged_amount' | 'paid_amount') => {

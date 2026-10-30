@@ -83,7 +83,7 @@ describe('owner evening tracker rows 3, 5 and 6', () => {
       await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', [`seat-p${i}`, `Участник ${i}`, now, now]);
       await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,created_at,updated_at)
         VALUES (?,'seat-judge',?,'going','going',?,?)`, [`seat-ep${i}`, `seat-p${i}`, now, now]);
-      await db.run(`INSERT INTO evening_slot_registrations (id,slot_id,participant_id,created_at,updated_at)
+      await db.run(`INSERT OR IGNORE INTO evening_slot_registrations (id,slot_id,participant_id,created_at,updated_at)
         VALUES (?,?,?,?,?)`, [`seat-reg${i}`,slotId,`seat-ep${i}`,now,now]);
     }
     await db.run('INSERT INTO evening_staff_assignments (evening_id,judge_player_id,assigned_at,updated_at) VALUES (?,?,?,?)',

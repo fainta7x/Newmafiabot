@@ -120,13 +120,29 @@ export function GiftCollectionCRM() {
     try { await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/close`, 'POST', {}, 'Не удалось закрыть сбор'); await loadOne(view.collection.id); await loadList(); }
     catch (e) { fail(e, 'Не удалось закрыть сбор'); }
   };
+  const openOutreachChat = (message: { url: string; text: string }) => {
+    // Telegram supports pre-populating a specific username chat. A numeric
+    // tg://user?id link is not a message compose deep link.
+    const tg = /^https:\/\/t\.me\/([a-zA-Z][a-zA-Z0-9_]{4,31})\/?$/.exec(message.url);
+    if (tg) {
+      window.open(`https://t.me/${tg[1]}?text=${encodeURIComponent(message.text)}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // VK and numeric Telegram IDs have no reliable public compose deep link.
+    // Copy synchronously from this click, and keep the explicit copy button.
+    void navigator.clipboard?.writeText(message.text).then(
+      () => setNotice('Текст скопирован. Вставь его в открытом чате.'),
+      () => setNotice('Не удалось автоматически скопировать текст — воспользуйся кнопкой «Копировать текст».'),
+    );
+    window.open(message.url, '_blank', 'noopener,noreferrer');
+  };
   const prepareMessage = (c: Contribution) => {
     if (!view || !c.contact_url) return;
     const person = c.nickname;
     const honoree = view.collection.honoree_nickname;
     const text = c.status === 'pledged'
       ? `Привет, ${person}! Спасибо, что участвуешь в подарке для ${honoree} 🎁 Напоминаю про обещанный взнос ${rub(c.pledged_amount)}. Если уже перевёл(а), дай знать, пожалуйста!`
-      : `Привет, ${person}! Мы собираем подарок на день рождения ${honoree} 🎁 Если хочешь присоединиться, можно выбрать любую удобную сумму от 100 ₽. Напиши, пожалуйста, участвуешь ли ты. Если нет — всё хорошо 😊`;
+      : `Привет, ${person}! Мы собираем подарок на день рождения ${honoree} 🎁 Если хочешь присоединиться, можно выбрать любую удобную сумму от 100 ₽. Напиши, пожалуйста, участвуешь или нет. Участие добровольное 🙂`;
     setOutreach({ playerId: c.player_id, nickname: c.nickname, url: c.contact_url, text });
   };
   const askAmount = (c: Contribution, key: 'pledged_amount' | 'paid_amount') => {
@@ -202,8 +218,8 @@ export function GiftCollectionCRM() {
           <section role="dialog" aria-modal="true" aria-label="Шаблон сообщения" className="max-h-[90dvh] w-full max-w-lg space-y-3 overflow-y-auto rounded-2xl border border-accent/30 bg-surface-1 p-4 shadow-2xl">
           <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Сообщение для {outreach.nickname}</h3><button type="button" className="min-h-10 px-2 text-xs" onClick={() => setOutreach(null)}>Закрыть</button></div>
           <label className="block text-xs text-text-secondary">Можешь изменить текст перед отправкой<textarea aria-label="Текст сообщения" rows={5} className="mobile-field mt-2 w-full" value={outreach.text} onChange={e => setOutreach(prev => prev ? { ...prev, text: e.target.value } : null)} /></label>
-          <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void navigator.clipboard.writeText(outreach.text).then(() => setNotice('Текст скопирован')).catch(() => setError('Не удалось скопировать текст'))} className="min-h-11 rounded-xl border border-border-soft text-sm">Копировать текст</button><a href={outreach.url} target="_blank" rel="noreferrer" className="grid min-h-11 place-items-center rounded-xl bg-accent text-sm font-semibold text-white">Открыть чат</a></div>
-          <p className="text-xs text-text-secondary">Сообщение не отправляется автоматически. Скопируй текст и отправь его в открытом чате.</p>
+          <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void navigator.clipboard.writeText(outreach.text).then(() => setNotice('Текст скопирован')).catch(() => setError('Не удалось скопировать текст'))} className="min-h-11 rounded-xl border border-border-soft text-sm">Копировать текст</button><button type="button" onClick={() => openOutreachChat(outreach)} className="grid min-h-11 place-items-center rounded-xl bg-accent text-sm font-semibold text-white">Открыть чат</button></div>
+          <p className="text-xs text-text-secondary">Telegram с ником открывается с готовым текстом. Для VK и Telegram без ника попробуем скопировать текст перед открытием чата. Отправка всегда вручную.</p>
           </section>
         </div>}
         {view.collection.status === 'open' ? <section className="space-y-2 rounded-xl border border-border-soft p-3"><button type="button" disabled={busy} onClick={() => void showAdditional()} className="min-h-11 w-full rounded-xl border border-border-soft text-sm font-semibold">+ Добавить участников</button>{addable && <div className="space-y-2"><p className="text-xs text-text-secondary">Приглашения получат только выбранные новые участники.</p>{addable.map(player => <label key={player.id} className="flex items-center gap-3 rounded-lg bg-surface-2 p-2"><input type="checkbox" checked={extraIds.has(player.id)} onChange={event => setExtraIds(old => { const next = new Set(old); if(event.target.checked) next.add(player.id); else next.delete(player.id); return next; })}/><span className="text-sm">{player.nickname} · {CHANNEL[player.channel]}</span></label>)}<button type="button" disabled={!extraIds.size || busy} onClick={() => void inviteAdditional()} className="min-h-11 w-full rounded-xl bg-accent text-sm font-semibold text-white disabled:opacity-40">Пригласить выбранных ({extraIds.size})</button></div>}</section> : null}

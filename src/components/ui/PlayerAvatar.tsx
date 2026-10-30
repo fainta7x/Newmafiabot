@@ -151,8 +151,6 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
     };
   }, [playerId, avatarVersion, nickname, forceStoredLookup]);
 
-  const initial = (nickname || '?').trim().charAt(0).toLocaleUpperCase('ru-RU') || '?';
-
   return (
     <span
       className={`${sizeClasses[size]} ${className} relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-soft bg-surface-2 font-black text-accent shadow-sm`}
@@ -169,7 +167,12 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
           className="h-full w-full object-cover object-[center_30%]"
         />
       ) : (
-        <span aria-hidden="true">{initial}</span>
+        <svg aria-hidden="true" viewBox="0 0 64 64" className="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="32" fill="#292733" />
+          <circle cx="32" cy="24" r="11" fill="#AFA9BD" />
+          <path d="M12 59c1-13 9-20 20-20s19 7 20 20" fill="#AFA9BD" />
+          <path d="M12 59c1-13 9-20 20-20s19 7 20 20" stroke="#D0C9DC" strokeWidth="2" />
+        </svg>
       )}
     </span>
   );

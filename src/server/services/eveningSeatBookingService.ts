@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
+import { eveningJudgeId } from './eveningStaffService.ts';
 import { seatingWarnings, type EveningSeat } from '../../lib/eveningSeating.ts';
 
 const fail = (message: string, statusCode = 409): never => { throw Object.assign(new Error(message), { statusCode }); };
@@ -58,6 +59,7 @@ export async function saveEveningSeatBooking(
     const evening = await tx.get<any>('SELECT id, status, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) fail('Вечер не найден', 404);
     if (evening.status === 'completed' || evening.settled_at) fail('Вечер завершён');
+    if ((await eveningJudgeId(tx, eveningId)) === playerId) fail('Судья вечера не занимает место игрока за столом');
     const slot = await tx.get<any>('SELECT id, slot_number, status FROM evening_game_slots WHERE id = ? AND evening_id = ?', [input.slotId, eveningId]);
     if (!slot || slot.status !== 'open') fail('Игра недоступна', 409);
     const table = await tx.get<any>('SELECT id, capacity FROM evening_tables WHERE id = ? AND evening_id = ?', [input.tableId, eveningId]);

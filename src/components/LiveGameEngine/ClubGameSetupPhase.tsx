@@ -3,6 +3,8 @@ import { Check, Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import PhysicalRoleDeal, { type PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
+import { clubGamesApi } from '../../lib/clubGamesApi.ts';
+import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
 import { setJudgeMusicTablePlayers } from '../JudgeGameMusicController.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
 import type { ActivePlayerState } from './types.js';
@@ -33,6 +35,9 @@ export default function ClubGameSetupPhase({
 }: Props) {
   const [showPhysicalDeal, setShowPhysicalDeal] = React.useState(false);
   const [showVirtualDeal, setShowVirtualDeal] = React.useState(false);
+  const [protectedSeat, setProtectedSeat] = React.useState<number | undefined>(undefined);
+  const [virtualDealLoading, setVirtualDealLoading] = React.useState(false);
+  const [virtualDealError, setVirtualDealError] = React.useState('');
   const [awaitingStart, setAwaitingStart] = React.useState(false);
   const [confirmedRosterSignature, setConfirmedRosterSignature] = React.useState<string | null>(null);
   const prefillDone = React.useRef(false);
@@ -84,10 +89,29 @@ export default function ClubGameSetupPhase({
     onRoleDealActiveChange?.(false);
   };
 
-  const openVirtualDeal = () => {
-    if (!rosterConfirmed || trainingRoles) return;
-    onRoleDealActiveChange?.(true);
-    setShowVirtualDeal(true);
+  const openVirtualDeal = async () => {
+    if (!rosterConfirmed || trainingRoles || virtualDealLoading) return;
+    setVirtualDealLoading(true);
+    setVirtualDealError('');
+    try {
+      const gameId = getActiveClubLiveGameId();
+      if (!gameId) throw new Error('No active game');
+      const game = await clubGamesApi.findCurrent(gameId);
+      if (!game) throw new Error('Game not found');
+      const eligible = ['CASUAL', 'NOVICE'].includes(String(game.evening_format || '').toUpperCase());
+      const ownerPlayerId = 'fad23405-9715-566f-acd9-5632c30eb198';
+      const owner = eligible
+        ? game.club_protocol?.player_results?.find((result) => String(result.player_id) === ownerPlayerId)
+        : null;
+      const candidate = owner ? Number(owner.seat_number) : undefined;
+      setProtectedSeat(candidate !== undefined && dealSeats.some((seat) => seat.seat_number === candidate) ? candidate : undefined);
+      onRoleDealActiveChange?.(true);
+      setShowVirtualDeal(true);
+    } catch {
+      setVirtualDealError('Не удалось подготовить раздачу. Повторите попытку.');
+    } finally {
+      setVirtualDealLoading(false);
+    }
   };
 
   const finishRoleDeal = (assignments: Record<number, PhysicalRole>) => {
@@ -193,10 +217,11 @@ export default function ClubGameSetupPhase({
       {speechRecordingControl}
 
       {rosterConfirmed && !trainingRoles && !showPhysicalDeal && !showVirtualDeal && (
-        <button type="button" data-testid="club-game-start-virtual-deal" onClick={openVirtualDeal} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
+        <button type="button" data-testid="club-game-start-virtual-deal" onClick={() => { void openVirtualDeal(); }} disabled={virtualDealLoading} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
       )}
+      {virtualDealError && <p role="alert" className="text-xs text-rose-300">{virtualDealError}</p>}
       {showVirtualDeal && rosterConfirmed && !trainingRoles && (
-        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
+        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} protectedSeat={protectedSeat} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
       )}
       {showPhysicalDeal && rosterConfirmed && (
         <PhysicalRoleDeal

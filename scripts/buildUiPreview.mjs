@@ -32,6 +32,7 @@ const pages = [
   'e2e/owner-evenings.html',
   'e2e/crm-players.html',
   'e2e/crm-more.html',
+  'e2e/crm-gift-outreach.html',
   'e2e/evening-prices.html',
   'e2e/crm-closeout.html',
   'e2e/poker-harness.html',

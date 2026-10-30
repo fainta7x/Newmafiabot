@@ -1,3 +1,4 @@
+import { ensurePrimaryEveningTable } from './primaryEveningTableService.ts';
 import { randomUUID } from 'node:crypto';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -13,6 +14,8 @@ import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId: string, targetSlotId?: string) {
   const plan = await loadEveningSlotPlan(db, eveningId);
   await ensureEveningSeatingSchema(db);
+  // Repair pre-existing evenings created before the primary-table default.
+  await ensurePrimaryEveningTable(db, eveningId);
   const tables = await db.all<any>(
     'SELECT id, capacity FROM evening_tables WHERE evening_id = ? ORDER BY sort_order, created_at',
     [eveningId],

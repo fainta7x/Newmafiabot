@@ -54,6 +54,7 @@ export const PAGES = [
   ['crm-players', '/e2e/crm-players.html'],
   ['crm-analytics', '/e2e/crm-analytics.html'],
   ['crm-more', '/e2e/crm-more.html'],
+  ['crm-gift-outreach', '/e2e/crm-gift-outreach.html'],
   ['evening-prices', '/e2e/evening-prices.html'],
   ['owner-evenings', '/e2e/owner-evenings.html'],
   ['owner-evenings-answers', '/e2e/owner-evenings.html?screen=answers'],

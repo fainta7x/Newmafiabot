@@ -3,8 +3,6 @@ import { Check, Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import PhysicalRoleDeal, { type PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
-import { clubGamesApi } from '../../lib/clubGamesApi.ts';
-import { roleDrawTargetSeat } from '../../lib/roleDrawContext.ts';
 import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
 import { setJudgeMusicTablePlayers } from '../JudgeGameMusicController.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
@@ -36,8 +34,7 @@ export default function ClubGameSetupPhase({
 }: Props) {
   const [showPhysicalDeal, setShowPhysicalDeal] = React.useState(false);
   const [showVirtualDeal, setShowVirtualDeal] = React.useState(false);
-  const [protectedSeat, setProtectedSeat] = React.useState<number | undefined>(undefined);
-  const [virtualDealLoading, setVirtualDealLoading] = React.useState(false);
+  const [virtualDealGameId, setVirtualDealGameId] = React.useState<number | null>(null);
   const [virtualDealError, setVirtualDealError] = React.useState('');
   const [awaitingStart, setAwaitingStart] = React.useState(false);
   const [confirmedRosterSignature, setConfirmedRosterSignature] = React.useState<string | null>(null);
@@ -90,23 +87,17 @@ export default function ClubGameSetupPhase({
     onRoleDealActiveChange?.(false);
   };
 
-  const openVirtualDeal = async () => {
-    if (!rosterConfirmed || trainingRoles || virtualDealLoading) return;
-    setVirtualDealLoading(true);
-    setVirtualDealError('');
-    try {
-      const gameId = getActiveClubLiveGameId();
-      if (!gameId) throw new Error('No active game');
-      const game = await clubGamesApi.findCurrent(gameId);
-      if (!game) throw new Error('Game not found');
-      setProtectedSeat(roleDrawTargetSeat(game, dealSeats.map((seat) => seat.seat_number)));
-      onRoleDealActiveChange?.(true);
-      setShowVirtualDeal(true);
-    } catch {
-      setVirtualDealError('Не удалось подготовить раздачу. Повторите попытку.');
-    } finally {
-      setVirtualDealLoading(false);
+  const openVirtualDeal = () => {
+    if (!rosterConfirmed || trainingRoles) return;
+    const gameId = getActiveClubLiveGameId();
+    if (!gameId) {
+      setVirtualDealError('Не удалось открыть текущую игру.');
+      return;
     }
+    setVirtualDealError('');
+    setVirtualDealGameId(gameId);
+    onRoleDealActiveChange?.(true);
+    setShowVirtualDeal(true);
   };
 
   const finishRoleDeal = (assignments: Record<number, PhysicalRole>) => {
@@ -212,11 +203,11 @@ export default function ClubGameSetupPhase({
       {speechRecordingControl}
 
       {rosterConfirmed && !trainingRoles && !showPhysicalDeal && !showVirtualDeal && (
-        <button type="button" data-testid="club-game-start-virtual-deal" onClick={() => { void openVirtualDeal(); }} disabled={virtualDealLoading} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
+        <button type="button" data-testid="club-game-start-virtual-deal" onClick={openVirtualDeal} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
       )}
       {virtualDealError && <p role="alert" className="text-xs text-rose-300">{virtualDealError}</p>}
       {showVirtualDeal && rosterConfirmed && !trainingRoles && (
-        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} protectedSeat={protectedSeat} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
+        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} serverGameId={virtualDealGameId ?? undefined} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
       )}
       {showPhysicalDeal && rosterConfirmed && (
         <PhysicalRoleDeal

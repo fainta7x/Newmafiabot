@@ -1,6 +1,6 @@
 import type { GameRole } from '../shared/gameRoles.ts';
 
-export type ClosedRoleCard = { id: number; role: GameRole };
+export type ClosedRoleCard = { id: number | string; role: GameRole };
 
 const isRed = (role: GameRole): boolean => role === 'citizen' || role === 'sheriff';
 

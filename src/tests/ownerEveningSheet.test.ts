@@ -40,7 +40,8 @@ describe('owner evening tracker rows 3, 5 and 6', () => {
     await db.run("UPDATE evening_staff_assignments SET judge_player_id='judge' WHERE evening_id='ev'");
     const withJudge = await loadEveningSlotPlan(db, 'ev');
     expect(withJudge.event.assembled).toBe(true);
-    expect(withJudge.slots.every((slot) => slot.registered_count === minimum)).toBe(true);
+    expect(withJudge.slots.every((slot) => slot.registered_count === minimum - 1)).toBe(true);
+    expect(withJudge.event.required_players_per_slot).toBe(minimum - 1);
     expect((await loadEveningRecruitmentState(db, 'ev'))?.all_slots_ready).toBe(true);
     const listedWithJudge = await request(app).get('/api/evenings').set('Cookie', organizerCookie());
     expect(listedWithJudge.body.find((evening: any) => evening.id === 'ev')).toMatchObject({ registered_count: minimum - 1, gathering_count: minimum });

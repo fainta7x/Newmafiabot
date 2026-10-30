@@ -4,6 +4,7 @@ import type { Player } from '../../types.js';
 import PhysicalRoleDeal, { type PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
 import { clubGamesApi } from '../../lib/clubGamesApi.ts';
+import { roleDrawTargetSeat } from '../../lib/roleDrawContext.ts';
 import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
 import { setJudgeMusicTablePlayers } from '../JudgeGameMusicController.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
@@ -98,13 +99,7 @@ export default function ClubGameSetupPhase({
       if (!gameId) throw new Error('No active game');
       const game = await clubGamesApi.findCurrent(gameId);
       if (!game) throw new Error('Game not found');
-      const eligible = ['CASUAL', 'NOVICE'].includes(String(game.evening_format || '').toUpperCase());
-      const ownerPlayerId = 'fad23405-9715-566f-acd9-5632c30eb198';
-      const owner = eligible
-        ? game.club_protocol?.player_results?.find((result) => String(result.player_id) === ownerPlayerId)
-        : null;
-      const candidate = owner ? Number(owner.seat_number) : undefined;
-      setProtectedSeat(candidate !== undefined && dealSeats.some((seat) => seat.seat_number === candidate) ? candidate : undefined);
+      setProtectedSeat(roleDrawTargetSeat(game, dealSeats.map((seat) => seat.seat_number)));
       onRoleDealActiveChange?.(true);
       setShowVirtualDeal(true);
     } catch {

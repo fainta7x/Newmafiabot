@@ -140,6 +140,23 @@ export const addMajorTechFoul = (state: GameDiscipline, playerId: string): GameD
   return { ...state, players: { ...state.players, [playerId]: { ...player, majorTechFouls: player.majorTechFouls + 1 } } };
 };
 
+/** Correct an erroneously assigned tech foul before any confirmed removal. */
+export const removeTechFoul = (
+  state: GameDiscipline, playerId: string, kind: 'minor' | 'major',
+): GameDiscipline => {
+  const player = state.players[playerId];
+  if (!player || player.isRemoved || player.pendingAction) return state;
+  const field = kind === 'minor' ? 'minorTechFouls' : 'majorTechFouls';
+  if (player[field] <= 0) return state;
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: { ...player, [field]: player[field] - 1 },
+    },
+  };
+};
+
 export const requestDirectRemoval = (state: GameDiscipline, playerId: string): GameDiscipline => {
   if (state.isPpk) return state;
   const player = state.players[playerId];

@@ -25,6 +25,7 @@ import {
   PendingActionType,
   addMajorTechFoul,
   addMinorTechFoul,
+  removeTechFoul,
   addRegularFoul,
   confirmAction,
   consumeNextSpeech,
@@ -730,6 +731,15 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     saveSnapshot();
     setDiscipline(next);
     syncDisciplinePlayer(next, slot);
+  };
+
+  const removeTechFoulFromMenu = (slot: number, kind: 'minor' | 'major') => {
+    const next = removeTechFoul(discipline, String(slot), kind);
+    if (next === discipline) return;
+    saveSnapshot();
+    setDiscipline(next);
+    syncDisciplinePlayer(next, slot);
+    showToast(`С игрока #${slot} снят ${kind === 'minor' ? 'малый' : 'большой'} техфол`, 'info');
   };
 
   const directRemoveFromMenu = (slot: number) => {
@@ -1939,6 +1949,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onAddRegularFoul={addRegularFoulFromMenu}
         onRemoveRegularFoul={removeRegularFoul}
         onAddTechFoul={addTechFoulFromMenu}
+        onRemoveTechFoul={removeTechFoulFromMenu}
         onToggleNomination={handleNominateCandidate}
         onDirectRemove={directRemoveFromMenu}
         onPpk={handlePpkFromMenu}

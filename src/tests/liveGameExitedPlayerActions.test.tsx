@@ -60,6 +60,7 @@ const renderActions = ({
     onAddRegularFoul: vi.fn(),
     onRemoveRegularFoul: vi.fn(),
     onAddTechFoul: vi.fn(),
+    onRemoveTechFoul: vi.fn(),
     onToggleNomination: vi.fn(),
     onDirectRemove: vi.fn(),
     onPpk: vi.fn(),

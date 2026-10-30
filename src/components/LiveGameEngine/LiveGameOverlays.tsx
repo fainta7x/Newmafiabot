@@ -102,6 +102,7 @@ interface PlayerActionOverlayProps {
   onAddRegularFoul: (slot: number) => void;
   onRemoveRegularFoul: (slot: number) => void;
   onAddTechFoul: (slot: number, kind: 'minor' | 'major') => void;
+  onRemoveTechFoul: (slot: number, kind: 'minor' | 'major') => void;
   onToggleNomination: (slot: number) => void;
   onDirectRemove: (slot: number) => void;
   onPpk: (slot: number) => void;
@@ -127,6 +128,7 @@ export function PlayerActionOverlay({
   onAddRegularFoul,
   onRemoveRegularFoul,
   onAddTechFoul,
+  onRemoveTechFoul,
   onToggleNomination,
   onDirectRemove,
   onPpk,
@@ -181,6 +183,8 @@ export function PlayerActionOverlay({
               <button type="button" disabled={regularFouls <= 0} onClick={() => { onRemoveRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black disabled:opacity-30">− Снять фол</button>
               <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'minor'); onClose(); }} className="min-h-12 rounded-xl bg-yellow-950/45 border border-yellow-700/60 text-yellow-200 text-xs font-black">Малый тех</button>
               <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'major'); onClose(); }} className="min-h-12 rounded-xl bg-rose-950/55 border border-rose-700/70 text-rose-200 text-xs font-black">Большой тех</button>
+              <button type="button" data-testid="live-player-remove-minor-tech" disabled={minorTech <= 0} onClick={() => { onRemoveTechFoul(player.slot_num, 'minor'); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-yellow-700/45 text-yellow-200 text-xs font-black disabled:opacity-30">− Малый тех</button>
+              <button type="button" data-testid="live-player-remove-major-tech" disabled={majorTech <= 0} onClick={() => { onRemoveTechFoul(player.slot_num, 'major'); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-rose-700/45 text-rose-200 text-xs font-black disabled:opacity-30">− Большой тех</button>
             </>
           )}
           {player.alive && mode === 'standard' && (

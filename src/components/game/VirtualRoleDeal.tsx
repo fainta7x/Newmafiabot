@@ -2,6 +2,7 @@ import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeG
 import { useEffect, useMemo, useState } from 'react';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
+import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
 
 type Seat = { seat_number: number; nickname: string };
 type Drawn = { seat: number; cardId: number; role: GameRole };
@@ -10,6 +11,7 @@ type Props = {
   onCancel: () => void;
   onComplete: (assignments: Record<number, GameRole>) => void | Promise<void>;
   finishLabel?: string;
+  protectedSeat?: number;
 };
 type Card = { id: number; role: GameRole };
 
@@ -38,7 +40,7 @@ function makeDeck(size: number): Card[] {
   return deck;
 }
 
-export default function VirtualRoleDeal({ seats, onCancel, onComplete, finishLabel='Все роли выданы — начать игру' }: Props) {
+export default function VirtualRoleDeal({ seats, onCancel, onComplete, protectedSeat, finishLabel='Все роли выданы — начать игру' }: Props) {
   const orderedSeats = useMemo(() => [...seats].sort((a, b) => a.seat_number - b.seat_number), [seats]);
   const size = orderedSeats.length;
   // The component is only mounted once the confirmed roster has a supported size.
@@ -46,6 +48,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, finishLab
   const [history, setHistory] = useState<(Drawn & { previousDeck: Card[] })[]>([]);
   const [seat, setSeat] = useState<number>(() => orderedSeats[0]?.seat_number ?? 1);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [deckBeforeReveal, setDeckBeforeReveal] = useState<Card[] | null>(null);
   const [showRole, setShowRole] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [closeConfirm,setCloseConfirm]=useState(false);
@@ -62,10 +65,11 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, finishLab
   const complete = history.length === size && deck.length === 0;
   const confirmCard = () => {
     if (!showRole || !selected || active === undefined || assigned.has(active)) return;
-    const nextHistory = [...history, { seat: active, cardId: selected.id, role: selected.role, previousDeck: deck }];
+    const nextHistory = [...history, { seat: active, cardId: selected.id, role: selected.role, previousDeck: deckBeforeReveal ?? deck }];
     setHistory(nextHistory);
     setDeck((old) => old.filter((card) => card.id !== selected.id));
     setSelectedId(null);
+    setDeckBeforeReveal(null);
     setShowRole(false);
     const next = orderedSeats.find((entry) => !nextHistory.some((done) => done.seat === entry.seat_number));
     if (next) setSeat(next.seat_number);
@@ -77,7 +81,14 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, finishLab
     setHistory(history.slice(0, -1));
     setSeat(last.seat);
     setSelectedId(null);
+    setDeckBeforeReveal(null);
     setShowRole(false);
+  };
+  const revealCard = () => {
+    if (!selected || active === undefined) return;
+    setDeckBeforeReveal(deck);
+    setDeck(exchangeClosedRolesForDraw(deck, selected.id, active === protectedSeat, protectedSeat !== undefined && active !== protectedSeat && !assigned.has(protectedSeat)));
+    setShowRole(true);
   };
   const close=()=>{requestJudgeGameMusicStop();onCancel();};
   const finish=async()=>{
@@ -125,7 +136,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, finishLab
               ))}
             </div>
             {selected && showRole && <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-center text-xl font-semibold" role="status">Роль: {GAME_ROLES[selected.role].label}</div>}
-            {selected && !showRole && <button type="button" onClick={() => setShowRole(true)} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
+            {selected && !showRole && <button type="button" onClick={revealCard} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
             {showRole && <button type="button" onClick={confirmCard} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Подтвердить роль и продолжить</button>}
           </>
         )}
@@ -144,7 +155,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, finishLab
           <p className="mb-3 text-sm">Удалить текущую раздачу и заново перемешать колоду?</p>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setResetConfirm(false)} className="min-h-11 rounded-lg border border-white/20">Нет</button>
-            <button type="button" onClick={() => { setDeck(makeDeck(size)); setHistory([]); setSeat(orderedSeats[0].seat_number); setSelectedId(null); setShowRole(false); setResetConfirm(false); }} className="min-h-11 rounded-lg bg-white text-black">Да, перераздать</button>
+            <button type="button" onClick={() => { setDeck(makeDeck(size)); setHistory([]); setSeat(orderedSeats[0].seat_number); setSelectedId(null); setDeckBeforeReveal(null); setShowRole(false); setResetConfirm(false); }} className="min-h-11 rounded-lg bg-white text-black">Да, перераздать</button>
           </div>
         </div>}
       </div>

@@ -3,6 +3,7 @@ import { Check, Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import PhysicalRoleDeal, { type PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
+import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
 import { setJudgeMusicTablePlayers } from '../JudgeGameMusicController.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
 import type { ActivePlayerState } from './types.js';
@@ -33,6 +34,8 @@ export default function ClubGameSetupPhase({
 }: Props) {
   const [showPhysicalDeal, setShowPhysicalDeal] = React.useState(false);
   const [showVirtualDeal, setShowVirtualDeal] = React.useState(false);
+  const [virtualDealGameId, setVirtualDealGameId] = React.useState<number | null>(null);
+  const [virtualDealError, setVirtualDealError] = React.useState('');
   const [awaitingStart, setAwaitingStart] = React.useState(false);
   const [confirmedRosterSignature, setConfirmedRosterSignature] = React.useState<string | null>(null);
   const prefillDone = React.useRef(false);
@@ -86,6 +89,15 @@ export default function ClubGameSetupPhase({
 
   const openVirtualDeal = () => {
     if (!rosterConfirmed || trainingRoles) return;
+    const gameId = getActiveClubLiveGameId();
+    if (!gameId) {
+      setVirtualDealError('Не удалось открыть текущую игру.');
+      return;
+    }
+    setVirtualDealError('');
+    // Synthetic judge/test games use a negative ID and must keep the local deck.
+    // The server API only accepts persisted games with positive IDs.
+    setVirtualDealGameId(gameId > 0 ? gameId : null);
     onRoleDealActiveChange?.(true);
     setShowVirtualDeal(true);
   };
@@ -195,8 +207,9 @@ export default function ClubGameSetupPhase({
       {rosterConfirmed && !trainingRoles && !showPhysicalDeal && !showVirtualDeal && (
         <button type="button" data-testid="club-game-start-virtual-deal" onClick={openVirtualDeal} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
       )}
+      {virtualDealError && <p role="alert" className="text-xs text-rose-300">{virtualDealError}</p>}
       {showVirtualDeal && rosterConfirmed && !trainingRoles && (
-        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
+        <VirtualRoleDeal key={rosterSignature} seats={dealSeats} serverGameId={virtualDealGameId ?? undefined} onCancel={closeRoleDeal} onComplete={finishRoleDeal} />
       )}
       {showPhysicalDeal && rosterConfirmed && (
         <PhysicalRoleDeal

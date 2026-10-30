@@ -215,7 +215,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
               ))}
             </div>
             {selected && showRole && selectedRole && <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-center text-xl font-semibold" role="status">Роль: {GAME_ROLES[selectedRole].label}</div>}
-            {selected && !showRole && <button type="button" onClick={() => setShowRole(true)} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
+            {selected && !showRole && <button type="button" onClick={() => { void revealCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
             {showRole && <button type="button" disabled={busy} onClick={() => { void confirmCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Подтвердить роль и продолжить</button>}
           </>
         )}

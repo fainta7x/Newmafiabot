@@ -27,13 +27,14 @@ export function GiftCollectionCRM() {
   const [editedBirthdayText, setEditedBirthdayText] = useState('');
   const [addable, setAddable] = useState<Recipient[] | null>(null);
   const [extraIds, setExtraIds] = useState<Set<string>>(new Set());
+  const [outreach, setOutreach] = useState<{ playerId: string; nickname: string; url: string; text: string } | null>(null);
 
   const fail = (e: any, fallback: string) => setError(e?.message || fallback);
   const loadList = useCallback(async () => {
     try { setRows(await getJson<CollectionRow[]>('/api/gift-collections', 'Не удалось загрузить сборы')); } catch (e) { fail(e, 'Не удалось загрузить сборы'); }
   }, []);
   const loadOne = useCallback(async (id: string) => {
-    setAddable(null); setExtraIds(new Set());
+    setAddable(null); setExtraIds(new Set()); setOutreach(null);
     try { setView(await getJson<CollectionView>(`/api/gift-collections/${encodeURIComponent(id)}`, 'Не удалось открыть сбор')); } catch (e) { fail(e, 'Не удалось открыть сбор'); }
   }, []);
   useEffect(() => {
@@ -119,6 +120,15 @@ export function GiftCollectionCRM() {
     try { await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/close`, 'POST', {}, 'Не удалось закрыть сбор'); await loadOne(view.collection.id); await loadList(); }
     catch (e) { fail(e, 'Не удалось закрыть сбор'); }
   };
+  const prepareMessage = (c: Contribution) => {
+    if (!view || !c.contact_url) return;
+    const person = c.nickname;
+    const honoree = view.collection.honoree_nickname;
+    const text = c.status === 'pledged'
+      ? `Привет, ${person}! Спасибо, что участвуешь в подарке для ${honoree} 🎁 Напоминаю про обещанный взнос ${rub(c.pledged_amount)}. Если уже перевёл(а), дай знать, пожалуйста!`
+      : `Привет, ${person}! Мы собираем подарок на день рождения ${honoree} 🎁 Если хочешь присоединиться, можно выбрать любую удобную сумму от 100 ₽. Напиши, пожалуйста, участвуешь ли ты. Если нет — всё хорошо 😊`;
+    setOutreach({ playerId: c.player_id, nickname: c.nickname, url: c.contact_url, text });
+  };
   const askAmount = (c: Contribution, key: 'pledged_amount' | 'paid_amount') => {
     const value = window.prompt(key === 'paid_amount' ? 'Сколько получено, ₽ (от 100)?' : 'Сумма, ₽ (от 100)?', String(c.pledged_amount || 100));
     if (value === null) return;
@@ -170,17 +180,30 @@ export function GiftCollectionCRM() {
         </div>
         <h2 className="text-[15px] font-bold">Подарок для {view.collection.honoree_nickname}</h2>
         {view.contributions.some((c) => c.status === 'invited') ? <p className="rounded-[12px] bg-surface-2 px-3 py-2 text-[13px] text-text-primary" data-testid="gift-silent">Не ответили: {view.contributions.filter((c) => c.status === 'invited').map((c) => c.nickname).join(', ')}. Игрокам повторно ничего не отправляется — напишите им кнопкой «Написать».</p> : null}
-        {[...view.contributions].sort((a, b) => Number(b.status === 'invited') - Number(a.status === 'invited')).map((c) => <div key={c.player_id} className="rounded-[16px] border border-border-soft bg-surface-1 p-3" data-testid="gift-contribution-row">
-          <div className="flex items-start justify-between gap-2"><strong className="min-w-0 truncate text-[14px]">{c.nickname}</strong><span className="shrink-0 text-[13px] text-text-secondary">{c.status === 'paid' ? rub(c.paid_amount) : c.pledged_amount ? rub(c.pledged_amount) : ''}</span></div>
-          <p className="text-[12px] text-text-secondary">{STATUS[c.status]} · {CHANNEL[c.channel]}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {c.status === 'paid'
-              ? <button type="button" onClick={() => void patch(c.player_id, { status: 'unpaid' })} className="min-h-11 flex-1 rounded-[12px] border border-border-soft text-[13px] font-semibold">Не получил(а)</button>
-              : <button type="button" disabled={!c.pledged_amount} onClick={() => void patch(c.player_id, { status: 'paid' })} className="min-h-11 flex-1 rounded-[12px] bg-accent text-[13px] font-bold text-white disabled:opacity-30">Перевёл(а) — получено</button>}
-            <button type="button" onClick={() => askAmount(c, c.status === 'paid' ? 'paid_amount' : 'pledged_amount')} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Сумма</button>
-            {c.contact_url ? <a href={c.contact_url} target="_blank" rel="noreferrer" className="grid min-h-11 place-items-center rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Написать</a> : null}
-          </div>
-        </div>)}
+        {([{ key: 'invited', label: 'Ждём ответа' }, { key: 'pledged', label: 'Обещали перевести' }, { key: 'paid', label: 'Перевели' }, { key: 'declined', label: 'Отказались' }] as const).map(group => {
+          const members = view.contributions.filter(c => c.status === group.key);
+          if (!members.length) return null;
+          return <section key={group.key} className="space-y-2" data-testid={`gift-group-${group.key}`}>
+            <h3 className="text-[13px] font-bold text-text-primary">{group.label} · {members.length}</h3>
+            {members.map(c => <div key={c.player_id} className="rounded-[16px] border border-border-soft bg-surface-1 p-3" data-testid="gift-contribution-row">
+              <div className="flex items-start justify-between gap-2"><strong className="min-w-0 truncate text-[14px]">{c.nickname}</strong><span className="shrink-0 text-[13px] text-text-secondary">{c.status === 'paid' ? rub(c.paid_amount) : c.pledged_amount ? rub(c.pledged_amount) : ''}</span></div>
+              <p className="text-[12px] text-text-secondary">{STATUS[c.status]} · {CHANNEL[c.channel]}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {c.status === 'paid'
+                  ? <button type="button" onClick={() => void patch(c.player_id, { status: 'unpaid' })} className="min-h-11 flex-1 rounded-[12px] border border-border-soft text-[13px] font-semibold">Не получил(а)</button>
+                  : c.status !== 'declined' ? <button type="button" disabled={!c.pledged_amount} onClick={() => void patch(c.player_id, { status: 'paid' })} className="min-h-11 flex-1 rounded-[12px] bg-accent text-[13px] font-bold text-white disabled:opacity-30">Перевёл(а) — получено</button> : null}
+                <button type="button" onClick={() => askAmount(c, c.status === 'paid' ? 'paid_amount' : 'pledged_amount')} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Сумма</button>
+                {c.contact_url && c.status !== 'paid' && c.status !== 'declined' ? <button type="button" onClick={() => prepareMessage(c)} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Написать</button> : null}
+              </div>
+            </div>)}
+          </section>;
+        })}
+        {outreach && <section className="space-y-2 rounded-2xl border border-accent/30 bg-surface-2 p-3" aria-label="Шаблон сообщения">
+          <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Сообщение для {outreach.nickname}</h3><button type="button" className="min-h-10 px-2 text-xs" onClick={() => setOutreach(null)}>Закрыть</button></div>
+          <label className="block text-xs text-text-secondary">Можешь изменить текст перед отправкой<textarea aria-label="Текст сообщения" rows={5} className="mobile-field mt-2 w-full" value={outreach.text} onChange={e => setOutreach(prev => prev ? { ...prev, text: e.target.value } : null)} /></label>
+          <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void navigator.clipboard.writeText(outreach.text).then(() => setNotice('Текст скопирован')).catch(() => setError('Не удалось скопировать текст'))} className="min-h-11 rounded-xl border border-border-soft text-sm">Копировать текст</button><a href={outreach.url} target="_blank" rel="noreferrer" className="grid min-h-11 place-items-center rounded-xl bg-accent text-sm font-semibold text-white">Открыть чат</a></div>
+          <p className="text-xs text-text-secondary">Сообщение не отправляется автоматически. Скопируй текст и отправь его в открытом чате.</p>
+        </section>}
         {view.collection.status === 'open' ? <section className="space-y-2 rounded-xl border border-border-soft p-3"><button type="button" disabled={busy} onClick={() => void showAdditional()} className="min-h-11 w-full rounded-xl border border-border-soft text-sm font-semibold">+ Добавить участников</button>{addable && <div className="space-y-2"><p className="text-xs text-text-secondary">Приглашения получат только выбранные новые участники.</p>{addable.map(player => <label key={player.id} className="flex items-center gap-3 rounded-lg bg-surface-2 p-2"><input type="checkbox" checked={extraIds.has(player.id)} onChange={event => setExtraIds(old => { const next = new Set(old); if(event.target.checked) next.add(player.id); else next.delete(player.id); return next; })}/><span className="text-sm">{player.nickname} · {CHANNEL[player.channel]}</span></label>)}<button type="button" disabled={!extraIds.size || busy} onClick={() => void inviteAdditional()} className="min-h-11 w-full rounded-xl bg-accent text-sm font-semibold text-white disabled:opacity-40">Пригласить выбранных ({extraIds.size})</button></div>}</section> : null}
         {view.collection.status === 'open' ? <button type="button" onClick={() => void closeCollection()} className="min-h-12 w-full rounded-[14px] border border-border-soft text-[14px] font-semibold text-text-secondary">Закрыть сбор</button> : <p className="text-center text-[13px] text-text-secondary">Сбор закрыт</p>}
       </section> : null}

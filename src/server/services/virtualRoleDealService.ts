@@ -4,9 +4,9 @@ import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableCompositio
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 
-type Card = { id: number; role: GameRole };
-type Entry = { seat: number; cardId: number; role: GameRole; previousDeck: Card[] };
-type Pending = { seat: number; cardId: number; role: GameRole; previousDeck: Card[] };
+type Card = { id: string; role: GameRole };
+type Entry = { seat: number; cardId: string; role: GameRole; previousDeck: Card[] };
+type Pending = { seat: number; cardId: string; role: GameRole; previousDeck: Card[] };
 type State = { version: number; deck: Card[]; history: Entry[]; pending: Pending | null };
 type SeatIdentity = { seat_number: number; player_id: string | null };
 
@@ -52,7 +52,7 @@ function shuffledDeck(size: number): Card[] {
   const counts = tableRoleCounts(size);
   const roles = (Object.keys(counts) as GameRole[])
     .flatMap((role) => Array.from({ length: counts[role] }, () => role));
-  const deck = roles.map((role, id) => ({ id, role }));
+  const deck = roles.map((role) => ({ id: randomUUID(), role }));
   for (let i = deck.length - 1; i > 0; i -= 1) {
     const j = randomInt(i + 1);
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -93,7 +93,7 @@ export async function openVirtualRoleDeal(db: DatabaseWrapper, gameId: number) {
   });
 }
 
-export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: number, version: number) {
+export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     const context = await gameContext(tx, gameId);
@@ -119,7 +119,7 @@ export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, sea
   });
 }
 
-export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: number, version: number) {
+export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     await gameContext(tx, gameId);

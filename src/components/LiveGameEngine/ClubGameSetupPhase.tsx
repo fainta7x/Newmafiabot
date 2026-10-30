@@ -95,7 +95,9 @@ export default function ClubGameSetupPhase({
       return;
     }
     setVirtualDealError('');
-    setVirtualDealGameId(gameId);
+    // Synthetic judge/test games use a negative ID and must keep the local deck.
+    // The server API only accepts persisted games with positive IDs.
+    setVirtualDealGameId(gameId > 0 ? gameId : null);
     onRoleDealActiveChange?.(true);
     setShowVirtualDeal(true);
   };

@@ -11,7 +11,7 @@ const isRed = (role: GameRole): boolean => role === 'citizen' || role === 'sheri
  */
 export function exchangeClosedRolesForDraw<T extends ClosedRoleCard>(
   deck: readonly T[],
-  selectedCardId: number,
+  selectedCardId: T['id'],
   targetDrawing: boolean,
   targetStillWaiting: boolean,
 ): T[] {

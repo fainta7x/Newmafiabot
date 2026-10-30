@@ -37,7 +37,7 @@ export default function ActiveGiftCollectionsHome() {
     <div className="mt-2 space-y-2">
       {items.map(item => <a key={item.id} href={`/admin/more/gifts?collection=${encodeURIComponent(item.id)}`}
         className="flex min-h-16 items-center gap-3 rounded-xl bg-surface-2 p-3">
-        <div className="min-w-0 flex-1"><strong className="block truncate text-sm text-text-primary">Подарок: {item.honoree_nickname}</strong>
+        <div className="min-w-0 flex-1"><strong className="block break-words text-sm text-text-primary">Подарок: {item.honoree_nickname}</strong>
           <p className="mt-1 text-xs text-text-secondary">Получено {rub(item.paid)} · обещано {rub(item.pledged)} · ждём ответа: {item.pending}</p></div>
         <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
       </a>)}

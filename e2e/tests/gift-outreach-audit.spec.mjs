@@ -11,7 +11,14 @@ for (const width of [360, 390]) {
     await expect(page.getByTestId('gift-group-paid')).toBeVisible();
     await expect(page.getByTestId('gift-group-declined')).toBeVisible();
     await page.getByTestId('gift-group-invited').getByRole('button', { name: 'Написать' }).click();
-    await expect(page.getByRole('textbox', { name: 'Текст сообщения' })).toBeVisible();
+    const dialog = page.getByRole('dialog', { name: 'Шаблон сообщения' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: 'Текст сообщения' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Копировать текст' })).toBeVisible();
+    const bounds = await dialog.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(845);
     const issues = await page.evaluate(auditScreen);
     await page.screenshot({ path: info.outputPath(`gift-outreach-${width}.png`), fullPage: true });
     expect(issues).toEqual([]);

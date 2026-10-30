@@ -1,3 +1,4 @@
+import { ensurePrimaryEveningTable } from '../services/primaryEveningTableService.ts';
 import { loadEveningPrices, loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { loadEveningPeople } from '../services/eveningPeopleService.ts';
@@ -101,10 +102,11 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
         [eveningId, title, startsAtIso, policy.casual_game, nowIso, nowIso],
       );
       await insertRegularSlotSettings(tx, eveningId, nowIso);
+      await ensurePrimaryEveningTable(tx, eveningId);
     });
     await assignDefaultEveningStaff(db, eveningId);
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
-    return res.status(201).json({ ...withCanonicalFormat(evening), price_per_game: policy.casual_game, tables: [] });
+    return res.status(201).json({ ...withCanonicalFormat(evening), price_per_game: policy.casual_game, tables: await db.all<any>('SELECT * FROM evening_tables WHERE evening_id=?', [eveningId]) });
   } catch (err: any) {
     return res.status(500).json({ error: 'Database error', message: err.message });
   }
@@ -130,6 +132,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
         [id, data.title, data.starts_at, data.ends_at || null, data.timezone, data.venue || null, data.format, data.status, data.capacity, defaultPrice, data.notes || null, now, now],
       );
       if (regular) await insertRegularSlotSettings(tx, id, now);
+      await ensurePrimaryEveningTable(tx, id);
       // «Проводит вечера»: the player who creates the evening in his limited cabinet runs it.
       const hostId = (req as AuthenticatedRequest).eventHostPlayerId;
       if (hostId) {
@@ -193,6 +196,10 @@ router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
           [tableId, newEveningId, table.name, table.format, table.capacity, table.host_name, regular ? policy.casual_game : table.default_price, table.notes, table.sort_order, now, now],
         );
         newTables.push({ ...table, id: tableId, evening_id: newEveningId, default_price: regular ? policy.casual_game : table.default_price, created_at: now, updated_at: now });
+      }
+      if (!lastTables.length) {
+        const primary = await ensurePrimaryEveningTable(tx, newEveningId);
+        newTables.push(await tx.get<any>('SELECT * FROM evening_tables WHERE id=?', [primary.id]));
       }
     });
 

@@ -34,4 +34,4 @@ const fileList = full ? '' : specs.join(',');
 const auditSkip = !full && pages.length === 0;
 const previewSkip = !full && specs.length === 0;
 console.log(JSON.stringify({ mode: full ? 'full' : 'targeted', changed, pages, specs, auditSkip, previewSkip }));
-if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${full ? 'full' : 'targeted'}\naudit_grep=${grep}\npreview_specs=${fileList}\naudit_skip=${auditSkip}\n`);
+if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${full ? 'full' : 'targeted'}\naudit_grep=${grep}\npreview_specs=${fileList}\naudit_skip=${auditSkip}\npreview_skip=${previewSkip}\n`);

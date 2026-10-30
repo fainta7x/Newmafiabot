@@ -25,7 +25,7 @@ router.post('/open', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => openVirtualRoleDeal(db, gameId)));
 router.post('/reveal', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => revealVirtualRole(
-    db, gameId, integer(req.body?.seat), integer(req.body?.cardId), integer(req.body?.version),
+    db, gameId, integer(req.body?.seat), String(req.body?.cardId || ''), integer(req.body?.version),
   )));
 router.post('/confirm', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => confirmVirtualRole(

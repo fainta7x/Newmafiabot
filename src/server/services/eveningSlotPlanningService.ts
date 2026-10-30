@@ -371,7 +371,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     participants: peopleBySlot.get(String(row.id)) || [],
   }));
 
-  const requiredPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
+  // Gathering thresholds historically include the judge, but playable slot counts do not.
+  const requiredPlayers = Math.max(1, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS) - (judgeId ? 1 : 0));
   const requiredSlots = Number(settings.ready_slots_required || TABLE_MIN_READY_SLOTS);
   const ready = slots.filter((slot) => slot.registered_count >= requiredPlayers).length;
   const selected = slots.filter((slot) => slot.selected);

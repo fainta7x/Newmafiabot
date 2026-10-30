@@ -262,7 +262,7 @@ export type VirtualDealSnapshot = {
   cards: Array<{ id: string }>;
   history: Array<{ seat: number; cardId: string; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>;
 };
-export type VirtualDealAction = { seat: number; cardId: number; version: number };
+export type VirtualDealAction = { seat: number; cardId: string; version: number };
 
 export const clubGamesApi = {
   roleDealOpen: (gameId: number) => request<VirtualDealSnapshot>(`/api/games/${gameId}/virtual-deal/open`, { method: 'POST' }),

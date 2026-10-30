@@ -52,7 +52,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const [loaded, setLoaded] = useState(!serverGameId);
   const [busy, setBusy] = useState(false);
   const [revealedRole, setRevealedRole] = useState<GameRole | null>(null);
-  const openRequested = useRef(false);
+  const openPromise = useRef<ReturnType<typeof clubGamesApi.roleDealOpen> | null>(null);
   const [showRole, setShowRole] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [closeConfirm,setCloseConfirm]=useState(false);
@@ -61,10 +61,10 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const [error,setError]=useState('');
   useEffect(()=>()=>{requestJudgeGameMusicStop();},[]);
   useEffect(() => {
-    if (!serverGameId || openRequested.current) return;
-    openRequested.current = true;
+    if (!serverGameId) return;
     let active = true;
-    void clubGamesApi.roleDealOpen(serverGameId).then((response) => {
+    const request = openPromise.current ?? (openPromise.current = clubGamesApi.roleDealOpen(serverGameId));
+    void request.then((response) => {
       if (!active) return;
       setDeck(response.cards.map((card) => ({ ...card, role: null })));
       setVersion(response.version);

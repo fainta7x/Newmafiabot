@@ -47,6 +47,12 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
     window.location.assign('/test-login');
   };
 
+  const returnToMainCabinet = async () => {
+    // Clear only the sandbox credentials so /player can use the ordinary login.
+    await fetch('/api/test-environment/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => null);
+    window.location.assign('/player');
+  };
+
   const registerTestPlayer = async (event: FormEvent) => {
     event.preventDefault();
     if (registering || !newNickname.trim()) return;
@@ -112,6 +118,9 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
               {busyRole === 'organizer' ? 'Входим…' : 'Войти как организатор'}
             </button>
           </form>
+          <button type="button" onClick={() => void returnToMainCabinet()} className="mt-4 min-h-11 w-full rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/80">
+            ← Вернуться в основной кабинет
+          </button>
         </div>
       </main>
     );

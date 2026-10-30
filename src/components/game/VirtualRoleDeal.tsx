@@ -5,7 +5,7 @@ import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableCompositio
 import { clubGamesApi, type VirtualDealSnapshot } from '../../lib/clubGamesApi.ts';
 
 type Seat = { seat_number: number; nickname: string };
-type Drawn = { seat: number; cardId: number; role: GameRole };
+type Drawn = { seat: number; cardId: string; role: GameRole };
 type Props = {
   seats: Seat[];
   onCancel: () => void;
@@ -13,7 +13,7 @@ type Props = {
   finishLabel?: string;
   serverGameId?: number;
 };
-type Card = { id: number; role: GameRole | null };
+type Card = { id: string; role: GameRole | null };
 
 function makeDeck(size: number): Card[] {
   if (!isSupportedTableSize(size)) return [];
@@ -21,7 +21,7 @@ function makeDeck(size: number): Card[] {
   const roles = (Object.keys(counts) as GameRole[]).flatMap((role) =>
     Array.from({ length: counts[role] }, () => role),
   );
-  const deck = roles.map((role, id) => ({ id, role }));
+  const deck = roles.map((role, id) => ({ id: String(id), role }));
   // Fisher–Yates with unbiased secure integer sampling, not Math.random.
   const randomInt = (max: number): number => {
     const array = new Uint32Array(1);
@@ -47,7 +47,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const [deck, setDeck] = useState<Card[]>(() => serverGameId ? [] : makeDeck(size));
   const [history, setHistory] = useState<(Drawn & { previousDeck: Card[] })[]>([]);
   const [seat, setSeat] = useState<number>(() => orderedSeats[0]?.seat_number ?? 1);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [loaded, setLoaded] = useState(!serverGameId);
   const [busy, setBusy] = useState(false);

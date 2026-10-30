@@ -258,6 +258,10 @@ export type ClubGameEloBlank = {
 };
 
 export const clubGamesApi = {
+  findCurrent: async (gameId: number): Promise<ClubGameRecord | null> => {
+    const games = await request<ClubGameRecord[]>('/api/games');
+    return Array.isArray(games) ? games.find((game) => Number(game.id) === gameId) || null : null;
+  },
   /** The Elo part of a confirmed game's result blank (team strength, each seat's change and its breakdown). */
   eloBlank: (gameId: number | string) => request<ClubGameEloBlank>(`/api/games/${encodeURIComponent(String(gameId))}/elo-blank`),
   list: (eveningId: string) => request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}`),

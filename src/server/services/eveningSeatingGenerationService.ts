@@ -5,6 +5,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { planEveningSeats, type EveningSeat, type EveningPlayer, type EveningSeatCandidate } from '../../lib/eveningSeating.ts';
 import { ensureEveningSeatingSchema } from './eveningSeatBookingService.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
+import { eveningJudgeId } from './eveningStaffService.ts';
 
 /**
  * Idempotent seat preparation at «Сегодня играем». Existing assignments
@@ -21,6 +22,7 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
     [eveningId],
   );
   if (!tables.length) return { created: 0, reason: 'no_tables' as const };
+  const judgeId = await eveningJudgeId(db, eveningId);
   const registrations = await db.all<any>(`
     SELECT s.id AS slot_id, s.slot_number, ep.player_id
       FROM evening_game_slots s
@@ -36,13 +38,12 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   const numbersByPlayer = new Map<string, Set<number>>();
   for (const row of registrations) {
     const id = String(row.player_id);
+    if (judgeId && id === judgeId) continue;
     const games = numbersByPlayer.get(id) || new Set<number>();
     games.add(Number(row.slot_number));
     numbersByPlayer.set(id, games);
   }
-  // Judge assignments are not the same as a permanent evening staff role.
-  // A player may judge one game and play another, so don't exclude them
-  // from the entire evening based on staff assignments.
+  // The assigned evening judge is staff for every game and cannot take a player seat.
   const players: EveningPlayer[] = [...numbersByPlayer]
     .map(([id, games]) => ({ id, eligibleGames: [...games] }));
   const occupied = await db.all<any>(`

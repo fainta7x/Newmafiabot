@@ -330,14 +330,16 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     }
   }
 
-  const judge = eveningPeople.find((person) => person.is_assigned_judge);
-  if (judge) for (const slot of rows) {
-    const group = peopleBySlot.get(String(slot.id)) || [];
-    const existing = group.find((person) => !person.is_guest && person.id === String(judge.player_id));
-    if (existing) { existing.is_judge = true; continue; }
-    group.push({ id: String(judge.player_id), nickname: String(judge.nickname), whole_evening: true, is_judge: true });
-    peopleBySlot.set(String(slot.id), group);
-    slot.registered_count = Number(slot.registered_count || 0) + 1;
+  // The evening judge is staff, not an extra player. If they also answered
+  // «Иду», keep that RSVP but exclude their identity from playable slots.
+  const judgeId = eveningPeople.find((person) => person.is_assigned_judge)?.player_id;
+  if (judgeId) {
+    for (const slot of rows) {
+      const slotId = String(slot.id);
+      const group = (peopleBySlot.get(slotId) || []).filter((person) => person.id !== String(judgeId));
+      peopleBySlot.set(slotId, group);
+      slot.registered_count = group.length;
+    }
   }
 
   const selectedSlotIds = new Set<string>();
@@ -369,7 +371,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     participants: peopleBySlot.get(String(row.id)) || [],
   }));
 
-  const requiredPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
+  // Gathering thresholds historically include the judge, but playable slot counts do not.
+  const requiredPlayers = Math.max(1, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS) - (judgeId ? 1 : 0));
   const requiredSlots = Number(settings.ready_slots_required || TABLE_MIN_READY_SLOTS);
   const ready = slots.filter((slot) => slot.registered_count >= requiredPlayers).length;
   const selected = slots.filter((slot) => slot.selected);

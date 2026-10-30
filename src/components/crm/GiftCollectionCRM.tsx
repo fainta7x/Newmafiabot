@@ -198,12 +198,14 @@ export function GiftCollectionCRM() {
             </div>)}
           </section>;
         })}
-        {outreach && <section className="space-y-2 rounded-2xl border border-accent/30 bg-surface-2 p-3" aria-label="Шаблон сообщения">
+        {outreach && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-3" role="presentation">
+          <section role="dialog" aria-modal="true" aria-label="Шаблон сообщения" className="max-h-[90dvh] w-full max-w-lg space-y-3 overflow-y-auto rounded-2xl border border-accent/30 bg-surface-1 p-4 shadow-2xl">
           <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Сообщение для {outreach.nickname}</h3><button type="button" className="min-h-10 px-2 text-xs" onClick={() => setOutreach(null)}>Закрыть</button></div>
           <label className="block text-xs text-text-secondary">Можешь изменить текст перед отправкой<textarea aria-label="Текст сообщения" rows={5} className="mobile-field mt-2 w-full" value={outreach.text} onChange={e => setOutreach(prev => prev ? { ...prev, text: e.target.value } : null)} /></label>
           <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void navigator.clipboard.writeText(outreach.text).then(() => setNotice('Текст скопирован')).catch(() => setError('Не удалось скопировать текст'))} className="min-h-11 rounded-xl border border-border-soft text-sm">Копировать текст</button><a href={outreach.url} target="_blank" rel="noreferrer" className="grid min-h-11 place-items-center rounded-xl bg-accent text-sm font-semibold text-white">Открыть чат</a></div>
           <p className="text-xs text-text-secondary">Сообщение не отправляется автоматически. Скопируй текст и отправь его в открытом чате.</p>
-        </section>}
+          </section>
+        </div>}
         {view.collection.status === 'open' ? <section className="space-y-2 rounded-xl border border-border-soft p-3"><button type="button" disabled={busy} onClick={() => void showAdditional()} className="min-h-11 w-full rounded-xl border border-border-soft text-sm font-semibold">+ Добавить участников</button>{addable && <div className="space-y-2"><p className="text-xs text-text-secondary">Приглашения получат только выбранные новые участники.</p>{addable.map(player => <label key={player.id} className="flex items-center gap-3 rounded-lg bg-surface-2 p-2"><input type="checkbox" checked={extraIds.has(player.id)} onChange={event => setExtraIds(old => { const next = new Set(old); if(event.target.checked) next.add(player.id); else next.delete(player.id); return next; })}/><span className="text-sm">{player.nickname} · {CHANNEL[player.channel]}</span></label>)}<button type="button" disabled={!extraIds.size || busy} onClick={() => void inviteAdditional()} className="min-h-11 w-full rounded-xl bg-accent text-sm font-semibold text-white disabled:opacity-40">Пригласить выбранных ({extraIds.size})</button></div>}</section> : null}
         {view.collection.status === 'open' ? <button type="button" onClick={() => void closeCollection()} className="min-h-12 w-full rounded-[14px] border border-border-soft text-[14px] font-semibold text-text-secondary">Закрыть сбор</button> : <p className="text-center text-[13px] text-text-secondary">Сбор закрыт</p>}
       </section> : null}

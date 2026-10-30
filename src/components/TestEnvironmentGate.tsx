@@ -49,7 +49,9 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
 
   const returnToMainCabinet = async () => {
     // Clear only the sandbox credentials so /player can use the ordinary login.
-    await fetch('/api/test-environment/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => null);
+    if (status?.active) {
+      await fetch('/api/test-environment/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => null);
+    }
     window.location.assign('/player');
   };
 

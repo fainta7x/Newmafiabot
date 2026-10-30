@@ -97,6 +97,17 @@ export function GiftCollectionCRM() {
     try { await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/contributions/${encodeURIComponent(playerId)}`, 'PATCH', body, 'Не удалось сохранить'); await loadOne(view.collection.id); }
     catch (e) { fail(e, 'Не удалось сохранить'); }
   };
+  const removeRecipient = async (c: Contribution) => {
+    if (!view || busy) return;
+    if (!window.confirm(`Убрать игрока «${c.nickname}» из сбора? Его ответ и обещанная сумма будут удалены.`)) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/contributions/${encodeURIComponent(c.player_id)}`, 'DELETE', undefined, 'Не удалось убрать участника');
+      await loadOne(view.collection.id);
+      setNotice(`${c.nickname} убран(а) из сбора.`);
+    } catch (e) { fail(e, 'Не удалось убрать участника'); }
+    finally { setBusy(false); }
+  };
   const showAdditional = async () => {
     if (!view) return;
     try {
@@ -210,6 +221,7 @@ export function GiftCollectionCRM() {
                   : c.status !== 'declined' ? <button type="button" disabled={!c.pledged_amount} onClick={() => void patch(c.player_id, { status: 'paid' })} className="min-h-11 flex-1 rounded-[12px] bg-accent text-[13px] font-bold text-white disabled:opacity-30">Перевёл(а) — получено</button> : null}
                 <button type="button" onClick={() => askAmount(c, c.status === 'paid' ? 'paid_amount' : 'pledged_amount')} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Сумма</button>
                 {c.contact_url && c.status !== 'paid' && c.status !== 'declined' ? <button type="button" onClick={() => prepareMessage(c)} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold">Написать</button> : null}
+                {view.collection.status === 'open' && c.status !== 'paid' ? <button type="button" disabled={busy} onClick={() => void removeRecipient(c)} className="min-h-11 rounded-[12px] border border-danger/30 px-3 text-[13px] font-semibold text-danger disabled:opacity-40">Убрать из сбора</button> : null}
               </div>
             </div>)}
           </section>;

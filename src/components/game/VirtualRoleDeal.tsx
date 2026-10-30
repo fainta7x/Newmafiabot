@@ -1,8 +1,8 @@
 import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
-import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
+import { clubGamesApi, type VirtualDealSnapshot } from '../../lib/clubGamesApi.ts';
 
 type Seat = { seat_number: number; nickname: string };
 type Drawn = { seat: number; cardId: number; role: GameRole };
@@ -11,9 +11,9 @@ type Props = {
   onCancel: () => void;
   onComplete: (assignments: Record<number, GameRole>) => void | Promise<void>;
   finishLabel?: string;
-  protectedSeat?: number;
+  serverGameId?: number;
 };
-type Card = { id: number; role: GameRole };
+type Card = { id: number; role: GameRole | null };
 
 function makeDeck(size: number): Card[] {
   if (!isSupportedTableSize(size)) return [];
@@ -40,15 +40,19 @@ function makeDeck(size: number): Card[] {
   return deck;
 }
 
-export default function VirtualRoleDeal({ seats, onCancel, onComplete, protectedSeat, finishLabel='Все роли выданы — начать игру' }: Props) {
+export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, finishLabel='Все роли выданы — начать игру' }: Props) {
   const orderedSeats = useMemo(() => [...seats].sort((a, b) => a.seat_number - b.seat_number), [seats]);
   const size = orderedSeats.length;
   // The component is only mounted once the confirmed roster has a supported size.
-  const [deck, setDeck] = useState<Card[]>(() => makeDeck(size));
+  const [deck, setDeck] = useState<Card[]>(() => serverGameId ? [] : makeDeck(size));
   const [history, setHistory] = useState<(Drawn & { previousDeck: Card[] })[]>([]);
   const [seat, setSeat] = useState<number>(() => orderedSeats[0]?.seat_number ?? 1);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [deckBeforeReveal, setDeckBeforeReveal] = useState<Card[] | null>(null);
+  const [version, setVersion] = useState(0);
+  const [loaded, setLoaded] = useState(!serverGameId);
+  const [busy, setBusy] = useState(false);
+  const [revealedRole, setRevealedRole] = useState<GameRole | null>(null);
+  const openRequested = useRef(false);
   const [showRole, setShowRole] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [closeConfirm,setCloseConfirm]=useState(false);
@@ -56,39 +60,114 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, protected
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   useEffect(()=>()=>{requestJudgeGameMusicStop();},[]);
+  useEffect(() => {
+    if (!serverGameId || openRequested.current) return;
+    openRequested.current = true;
+    let active = true;
+    void clubGamesApi.roleDealOpen(serverGameId).then((response) => {
+      if (!active) return;
+      setDeck(response.cards.map((card) => ({ ...card, role: null })));
+      setVersion(response.version);
+      setLoaded(true);
+    }).catch(() => {
+      if (active) setError('Не удалось подготовить раздачу. Закройте окно и попробуйте снова.');
+    });
+    return () => { active = false; };
+  }, [serverGameId]);
   const assigned = new Set(history.map((entry) => entry.seat));
   const nextSeat = orderedSeats.find((entry) => !assigned.has(entry.seat_number));
   const active = assigned.has(seat) ? nextSeat?.seat_number : seat;
   const current = orderedSeats.find((entry) => entry.seat_number === active);
   const selected = deck.find((entry) => entry.id === selectedId);
+  const selectedRole = serverGameId ? revealedRole : selected?.role;
   const assignments = Object.fromEntries(history.map((entry) => [entry.seat, entry.role])) as Record<number, GameRole>;
   const complete = history.length === size && deck.length === 0;
-  const confirmCard = () => {
-    if (!showRole || !selected || active === undefined || assigned.has(active)) return;
-    const nextHistory = [...history, { seat: active, cardId: selected.id, role: selected.role, previousDeck: deckBeforeReveal ?? deck }];
+  const updateFromServer = (snapshot: VirtualDealSnapshot) => {
+    setDeck(snapshot.cards.map((card) => ({ ...card, role: null })));
+    setHistory(snapshot.history.map((entry) => ({ ...entry, previousDeck: [] })));
+    setVersion(snapshot.version);
+    setSelectedId(null);
+    setRevealedRole(null);
+    setShowRole(false);
+  };
+  const confirmCard = async () => {
+    if (!showRole || !selected || active === undefined || assigned.has(active) || busy) return;
+    if (serverGameId) {
+      setBusy(true);
+      try {
+        const snapshot = await clubGamesApi.roleDealConfirm(serverGameId, { seat: active, cardId: selected.id, version });
+        updateFromServer(snapshot);
+        const next = orderedSeats.find((entry) => !snapshot.history.some((done) => done.seat === entry.seat_number));
+        if (next) setSeat(next.seat_number);
+        setError('');
+      } catch {
+        setError('Не удалось подтвердить карту. Повторите попытку.');
+      } finally { setBusy(false); }
+      return;
+    }
+    if (!selected.role) return;
+    const nextHistory = [...history, { seat: active, cardId: selected.id, role: selected.role, previousDeck: deck }];
     setHistory(nextHistory);
     setDeck((old) => old.filter((card) => card.id !== selected.id));
     setSelectedId(null);
-    setDeckBeforeReveal(null);
     setShowRole(false);
     const next = orderedSeats.find((entry) => !nextHistory.some((done) => done.seat === entry.seat_number));
     if (next) setSeat(next.seat_number);
   };
-  const undo = () => {
+  const undo = async () => {
     const last = history[history.length - 1];
-    if (!last) return;
+    if (!last || busy) return;
+    if (serverGameId) {
+      setBusy(true);
+      try {
+        const snapshot = await clubGamesApi.roleDealUndo(serverGameId, version);
+        updateFromServer(snapshot);
+        setSeat(last.seat);
+        setError('');
+      } catch { setError('Не удалось отменить карту. Повторите попытку.'); }
+      finally { setBusy(false); }
+      return;
+    }
     setDeck(last.previousDeck);
     setHistory(history.slice(0, -1));
     setSeat(last.seat);
     setSelectedId(null);
-    setDeckBeforeReveal(null);
     setShowRole(false);
   };
-  const revealCard = () => {
-    if (!selected || active === undefined) return;
-    setDeckBeforeReveal(deck);
-    setDeck(exchangeClosedRolesForDraw(deck, selected.id, active === protectedSeat, protectedSeat !== undefined && active !== protectedSeat && !assigned.has(protectedSeat)));
+  const revealCard = async () => {
+    if (!selected || active === undefined || busy) return;
+    if (serverGameId) {
+      setBusy(true);
+      try {
+        const result = await clubGamesApi.roleDealReveal(serverGameId, { seat: active, cardId: selected.id, version });
+        setVersion(result.version);
+        setRevealedRole(result.role);
+        setShowRole(true);
+        setError('');
+      } catch { setError('Не удалось открыть карту. Повторите попытку.'); }
+      finally { setBusy(false); }
+      return;
+    }
     setShowRole(true);
+  };
+  const resetDeal = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (serverGameId) {
+        const snapshot = await clubGamesApi.roleDealReset(serverGameId, version);
+        updateFromServer(snapshot);
+      } else {
+        setDeck(makeDeck(size));
+        setHistory([]);
+        setSelectedId(null);
+        setShowRole(false);
+      }
+      setSeat(orderedSeats[0].seat_number);
+      setResetConfirm(false);
+      setError('');
+    } catch { setError('Не удалось перераздать карты. Повторите попытку.'); }
+    finally { setBusy(false); }
   };
   const close=()=>{requestJudgeGameMusicStop();onCancel();};
   const finish=async()=>{
@@ -106,17 +185,17 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, protected
             <h2 className="text-xl font-semibold">Раздача ролей</h2>
             <p className="text-xs text-white/50">Выдано {history.length} из {size}</p>
           </div>
-          <button type="button" disabled={saving} onClick={()=>{if(history.length||showRole)setCloseConfirm(true);else close();}} aria-label="Закрыть раздачу" className="min-h-11 rounded-xl border border-white/20 px-4">Закрыть</button>
+          <button type="button" disabled={saving || busy} onClick={()=>{if(history.length||showRole)setCloseConfirm(true);else close();}} aria-label="Закрыть раздачу" className="min-h-11 rounded-xl border border-white/20 px-4">Закрыть</button>
         </header>
         {!started ? <div className="space-y-3">
           <p className="text-sm leading-6">Карты уже перемешаны. Игрок выбирает карту, ведущий открывает и подтверждает роль.</p>
-          <button type="button" onClick={()=>{requestJudgeGameMusicStart(undefined,{modal:true});setStarted(true);}} className="min-h-12 w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-black">Включить музыку и начать раздачу</button>
+          <button type="button" disabled={!loaded || busy} onClick={()=>{requestJudgeGameMusicStart(undefined,{modal:true});setStarted(true);}} className="min-h-12 w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-black">Включить музыку и начать раздачу</button>
         </div>:null}
         {started && !complete && (
           <>
             <div className="grid grid-cols-5 gap-1.5" aria-label="Очередность игроков">
               {orderedSeats.map((player) => (
-                <button key={player.seat_number} type="button" disabled={assigned.has(player.seat_number) || showRole}
+                <button key={player.seat_number} type="button" disabled={assigned.has(player.seat_number) || showRole || busy}
                   onClick={() => { setSeat(player.seat_number); setSelectedId(null); }}
                   aria-pressed={active === player.seat_number}
                   className={`min-h-12 min-w-0 rounded-lg border p-1 text-center text-xs disabled:opacity-30 ${active === player.seat_number ? 'border-white bg-white/15' : 'border-white/10 bg-black/20'}`}>
@@ -128,23 +207,23 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, protected
             <p className="text-sm font-semibold">Выбирает: №{current?.seat_number} {current?.nickname}</p>
             <div className="flex gap-2 overflow-x-auto py-2" data-testid="virtual-card-grid" aria-label="Закрытые карты — прокрутите ряд">
               {deck.map((card, index) => (
-                <button key={card.id} type="button" disabled={showRole} onClick={() => setSelectedId(card.id)}
+                <button key={card.id} type="button" disabled={showRole || busy} onClick={() => setSelectedId(card.id)}
                   aria-label={`Карта №${index + 1}`} aria-pressed={selectedId === card.id}
                   className={`flex h-24 w-[68px] shrink-0 items-center justify-center rounded-xl border text-lg font-semibold ${selectedId === card.id ? 'border-white bg-white/20' : 'border-white/15 bg-black/30'}`}>
                   {index + 1}
                 </button>
               ))}
             </div>
-            {selected && showRole && <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-center text-xl font-semibold" role="status">Роль: {GAME_ROLES[selected.role].label}</div>}
-            {selected && !showRole && <button type="button" onClick={revealCard} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
-            {showRole && <button type="button" onClick={confirmCard} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Подтвердить роль и продолжить</button>}
+            {selected && showRole && selectedRole && <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-center text-xl font-semibold" role="status">Роль: {GAME_ROLES[selectedRole].label}</div>}
+            {selected && !showRole && <button type="button" onClick={() => setShowRole(true)} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
+            {showRole && <button type="button" disabled={busy} onClick={() => { void confirmCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Подтвердить роль и продолжить</button>}
           </>
         )}
         {complete && <button type="button" disabled={saving} onClick={()=>void finish()} className="min-h-12 w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-black disabled:opacity-50">{saving?'Сохраняем роли…':finishLabel}</button>}
         {error?<p role="alert" className="text-sm text-rose-300">{error}</p>:null}
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" disabled={!history.length || showRole || saving} onClick={undo} className="min-h-11 rounded-xl border border-white/20 text-xs disabled:opacity-30">Отменить последнюю карту</button>
-          <button type="button" disabled={saving||!started} onClick={() => setResetConfirm(true)} className="min-h-11 rounded-xl border border-white/20 text-xs">Перераздать всё</button>
+          <button type="button" disabled={!history.length || showRole || saving || busy} onClick={() => { void undo(); }} className="min-h-11 rounded-xl border border-white/20 text-xs disabled:opacity-30">Отменить последнюю карту</button>
+          <button type="button" disabled={saving||!started||busy} onClick={() => setResetConfirm(true)} className="min-h-11 rounded-xl border border-white/20 text-xs">Перераздать всё</button>
         </div>
         {closeConfirm && <div role="alertdialog" aria-label="Прервать раздачу" className="space-y-3 rounded-xl border border-amber-300/30 p-3">
           <p className="text-sm leading-6">Закрыть раздачу? Открытые и подтверждённые карты будут сброшены. При следующем открытии колода перемешается заново.</p>
@@ -155,7 +234,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, protected
           <p className="mb-3 text-sm">Удалить текущую раздачу и заново перемешать колоду?</p>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setResetConfirm(false)} className="min-h-11 rounded-lg border border-white/20">Нет</button>
-            <button type="button" onClick={() => { setDeck(makeDeck(size)); setHistory([]); setSeat(orderedSeats[0].seat_number); setSelectedId(null); setDeckBeforeReveal(null); setShowRole(false); setResetConfirm(false); }} className="min-h-11 rounded-lg bg-white text-black">Да, перераздать</button>
+            <button type="button" onClick={() => { void resetDeal(); }} disabled={busy} className="min-h-11 rounded-lg bg-white text-black">Да, перераздать</button>
           </div>
         </div>}
       </div>

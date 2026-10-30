@@ -244,6 +244,21 @@ export async function organizerSetContribution(db: DatabaseWrapper, collectionId
   return { status, pledged_amount: pledged, paid_amount: paid };
 }
 
+/** Remove an invited contributor from an open collection. Confirmed transfers are accounting records and cannot be deleted. */
+export async function removeGiftCollectionRecipient(db: DatabaseWrapper, collectionId: string, playerId: string) {
+  await ensureGiftCollectionSchema(db);
+  return db.transaction(async tx => {
+    const row = await loadContribution(tx, collectionId, playerId);
+    if (row.collection_status !== 'open') throw new GiftCollectionError('Сбор уже закрыт', 409, 'closed');
+    if (Number(row.paid_amount || 0) > 0 || Number(row.tokens_credited || 0) > 0 || row.status === 'paid') {
+      throw new GiftCollectionError('Нельзя удалить участника с подтверждённым переводом. Сначала скорректируйте оплату.', 409, 'already_paid');
+    }
+    await tx.run('DELETE FROM gift_contributions WHERE collection_id=? AND player_id=?', [collectionId, playerId]);
+    if (row.task_id) await tx.run("UPDATE organizer_tasks SET status='cancelled', updated_at=? WHERE id=? AND status<>'done'", [nowIso(), row.task_id]);
+    return { removed: true };
+  });
+}
+
 export async function closeGiftCollection(db: DatabaseWrapper, collectionId: string) {
   await ensureGiftCollectionSchema(db);
   await db.run("UPDATE gift_collections SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'", [nowIso(), collectionId]);

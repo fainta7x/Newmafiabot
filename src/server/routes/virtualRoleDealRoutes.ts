@@ -29,7 +29,7 @@ router.post('/reveal', (req: AuthenticatedRequest, res) =>
   )));
 router.post('/confirm', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => confirmVirtualRole(
-    db, gameId, integer(req.body?.seat), integer(req.body?.cardId), integer(req.body?.version),
+    db, gameId, integer(req.body?.seat), String(req.body?.cardId || ''), integer(req.body?.version),
   )));
 router.post('/undo', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => undoVirtualRole(db, gameId, integer(req.body?.version))));

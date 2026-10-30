@@ -15,7 +15,7 @@ const isRed = (role: string) => role === 'citizen' || role === 'sheriff';
 const ownerPlayerId = 'fad23405-9715-566f-acd9-5632c30eb198';
 const gameId = 717;
 
-async function setup(format: 'CASUAL' | 'NOVICE' | 'RATING') {
+async function setup(format: 'CASUAL' | 'NOVICE' | 'RATING' | 'STANDARD') {
   const db = createDatabaseConnection(':memory:'); opened.push(db);
   const app = await createApp(db);
   const now = new Date().toISOString();
@@ -42,7 +42,7 @@ async function storedDeck(db: DatabaseWrapper) {
 }
 
 describe('server virtual role deal', () => {
-  it.each(['CASUAL', 'NOVICE'] as const)('keeps a red for the tenth seat in %s without exposing unopened roles', async (format) => {
+  it.each(['CASUAL', 'NOVICE', 'STANDARD'] as const)('keeps a red for the tenth seat in %s without exposing unopened roles', async (format) => {
     const { db } = await setup(format);
     let view = await openVirtualRoleDeal(db, gameId);
     expect(view.cards).toHaveLength(10);
@@ -68,6 +68,17 @@ describe('server virtual role deal', () => {
       expect(revealed.filter((item) => item === role)).toHaveLength(count);
     }
     expect(new Set(view.history.map((entry) => entry.seat)).size).toBe(10);
+  });
+
+  it('delivers red when the designated player draws first from a black card', async () => {
+    const { db } = await setup('CASUAL');
+    const opening = await openVirtualRoleDeal(db, gameId);
+    const deck = await storedDeck(db);
+    const black = deck.find((card) => !isRed(card.role))!;
+    const revealed = await revealVirtualRole(db, gameId, 10, black.id, opening.version);
+    expect(isRed(revealed.role)).toBe(true);
+    const after = await confirmVirtualRole(db, gameId, 10, black.id, revealed.version);
+    expect(after.history[0]).toMatchObject({ seat: 10, role: revealed.role });
   });
 
   it('does not apply a protected draw in a rating game', async () => {

@@ -8,6 +8,7 @@ import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningSe
 import { autoAssignEveningOrganizer, eveningJudgeId, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
+import virtualRoleDealRouter from './virtualRoleDealRoutes.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from '../services/eveningParticipantState.ts';
@@ -335,5 +336,6 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
   } catch (err: any) { return res.status(400).json({ error: err.message || 'Не удалось заменить гостя' }); }
 });
 
+router.use('/:gameId/virtual-deal', virtualRoleDealRouter);
 router.use(baseRouter);
 export default router;

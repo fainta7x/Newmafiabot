@@ -4,7 +4,7 @@ import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAcces
 import { BirthdayPostError, previewBirthdayPost, publishBirthdayPost } from '../services/birthdayPostService.ts';
 import { appUrl } from '../services/gameResultCardService.ts';
 import {
-  GiftCollectionError, addGiftCollectionRecipients, closeGiftCollection, listOpenGiftCollections, loadGiftCollectionForOrganizer, loadPlayerGiftContributions,
+  GiftCollectionError, removeGiftCollectionRecipient, addGiftCollectionRecipients, closeGiftCollection, listOpenGiftCollections, loadGiftCollectionForOrganizer, loadPlayerGiftContributions,
   openGiftCollection, organizerSetContribution, previewGiftCollection, setPlayerGiftChoice,
 } from '../services/giftCollectionService.ts';
 
@@ -30,6 +30,7 @@ organizerGiftRouter.post('/', wrap((req) => openGiftCollection(req.db!, {
   appBaseUrl: appUrl('') || null,
 })));
 organizerGiftRouter.post('/:id/recipients', wrap((req) => addGiftCollectionRecipients(req.db!, String(req.params.id), req.body?.player_ids, String((req as AuthenticatedRequest).organizerPlayerId || PRIMARY_ORGANIZER_PLAYER_ID), appUrl('') || null)));
+organizerGiftRouter.delete('/:id/contributions/:playerId', wrap((req) => removeGiftCollectionRecipient(req.db!, String(req.params.id), String(req.params.playerId))));
 organizerGiftRouter.get('/:id', wrap((req) => loadGiftCollectionForOrganizer(req.db!, String(req.params.id))));
 organizerGiftRouter.patch('/:id/contributions/:playerId', wrap((req) => organizerSetContribution(
   req.db!, String(req.params.id), String(req.params.playerId),

@@ -162,14 +162,22 @@ export async function addGiftCollectionRecipients(db: DatabaseWrapper, collectio
     }
     if (channel !== 'telegram') {
       taskId = randomUUID();
-      await db.run(`INSERT OR IGNORE INTO organizer_tasks
-        (id, title, description, type, status, priority, player_id, automation_key, created_at, updated_at)
-        VALUES (?, ?, ?, 'payment', 'todo', 'medium', ?, ?, ?, ?)`,
-        [taskId, channel === 'vk_manual'
-          ? `Написать ${recipient.nickname} в ВК: сбор на подарок ${collection.honoree_nickname}`
-          : `Нет канала связи: ${recipient.nickname} — сбор на подарок ${collection.honoree_nickname}`,
-          channel === 'vk_manual' ? 'Предложить сумму (от 100 ₽) и записать её в карточке сбора.' : 'Опрос не доставлен: нужен ручной контакт.',
-          playerId, `gift-collection:${collectionId}:${playerId}`, now, now]);
+      const automationKey = `gift-collection:${collectionId}:${playerId}`;
+      const title = channel === 'vk_manual'
+        ? `Написать ${recipient.nickname} в ВК: сбор на подарок ${collection.honoree_nickname}`
+        : `Нет канала связи: ${recipient.nickname} — сбор на подарок ${collection.honoree_nickname}`;
+      const description = channel === 'vk_manual' ? 'Предложить сумму (от 100 ₽) и записать её в карточке сбора.' : 'Опрос не доставлен: нужен ручной контакт.';
+      const previousTask = await db.get<any>('SELECT id FROM organizer_tasks WHERE automation_key=?', [automationKey]);
+      if (previousTask) {
+        taskId = String(previousTask.id);
+        await db.run("UPDATE organizer_tasks SET title=?, description=?, status='todo', completed_at=NULL, updated_at=? WHERE id=?",
+          [title, description, now, taskId]);
+      } else {
+        await db.run(`INSERT INTO organizer_tasks
+          (id, title, description, type, status, priority, player_id, automation_key, created_at, updated_at)
+          VALUES (?, ?, ?, 'payment', 'todo', 'medium', ?, ?, ?, ?)`,
+          [taskId, title, description, playerId, automationKey, now, now]);
+      }
     }
     await db.run('UPDATE gift_contributions SET channel=?, task_id=?, updated_at=? WHERE collection_id=? AND player_id=?',
       [channel, taskId, now, collectionId, playerId]);
@@ -253,6 +261,12 @@ export async function removeGiftCollectionRecipient(db: DatabaseWrapper, collect
     if (Number(row.paid_amount || 0) > 0 || Number(row.tokens_credited || 0) > 0 || row.status === 'paid') {
       throw new GiftCollectionError('Нельзя удалить участника с подтверждённым переводом. Сначала скорректируйте оплату.', 409, 'already_paid');
     }
+    const key = `gift-collection:${collectionId}:${playerId}`;
+    // An unsent Telegram invitation must not reach a removed participant.
+    // Deleting both the pending outbox item and its delivery record also
+    // allows a new invitation if the organizer explicitly adds them again.
+    await tx.run("DELETE FROM telegram_message_outbox WHERE message_key=? AND status IN ('pending','failed')", [key]);
+    await tx.run("DELETE FROM personal_notification_deliveries WHERE notification_key=? AND status <> 'sent'", [key]);
     await tx.run('DELETE FROM gift_contributions WHERE collection_id=? AND player_id=?', [collectionId, playerId]);
     if (row.task_id) await tx.run("UPDATE organizer_tasks SET status='cancelled', updated_at=? WHERE id=? AND status<>'done'", [nowIso(), row.task_id]);
     return { removed: true };

@@ -257,7 +257,27 @@ export type ClubGameEloBlank = {
   seats: Array<{ seat: number; nickname: string; role: string | null; won: boolean; eloDelta: number | null; eloAfter: number | null; eloContribution: number | null; lines: string[] }>;
 };
 
+export type VirtualDealSnapshot = {
+  version: number;
+  cards: Array<{ id: number }>;
+  history: Array<{ seat: number; cardId: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>;
+};
+export type VirtualDealAction = { seat: number; cardId: number; version: number };
+
 export const clubGamesApi = {
+  roleDealOpen: (gameId: number) => request<VirtualDealSnapshot>(`/api/games/${gameId}/virtual-deal/open`, { method: 'POST' }),
+  roleDealReveal: (gameId: number, payload: VirtualDealAction) => request<{ version: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>(
+    `/api/games/${gameId}/virtual-deal/reveal`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
+  ),
+  roleDealConfirm: (gameId: number, payload: VirtualDealAction) => request<VirtualDealSnapshot>(
+    `/api/games/${gameId}/virtual-deal/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
+  ),
+  roleDealUndo: (gameId: number, version: number) => request<VirtualDealSnapshot>(
+    `/api/games/${gameId}/virtual-deal/undo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version }) },
+  ),
+  roleDealReset: (gameId: number, version: number) => request<VirtualDealSnapshot>(
+    `/api/games/${gameId}/virtual-deal/reset`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version }) },
+  ),
   findCurrent: async (gameId: number): Promise<ClubGameRecord | null> => {
     const games = await request<ClubGameRecord[]>('/api/games');
     return Array.isArray(games) ? games.find((game) => Number(game.id) === gameId) || null : null;

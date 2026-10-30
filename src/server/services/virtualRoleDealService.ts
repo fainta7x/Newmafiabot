@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
+import { isCompletedClubGame } from './completedClubGame.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 
 type Card = { id: string; role: GameRole };
@@ -35,7 +36,7 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   if (!game) reject('Игра не найдена', 404);
   let protocol: any = null;
   try { protocol = JSON.parse(String(game.protocol_text || '')); } catch {}
-  if (protocol?.kind !== 'club_evening_protocol' || protocol?.protocol?.status === 'completed') {
+  if (protocol?.kind !== 'club_evening_protocol' || isCompletedClubGame(protocol)) {
     reject('Раздача недоступна для этой игры');
   }
   const raw: SeatIdentity[] = protocol.player_results || [];
@@ -71,7 +72,7 @@ async function readState(db: DatabaseWrapper, gameId: number): Promise<State> {
   const row = await db.get<{ state_json: string }>(
     'SELECT state_json FROM game_virtual_role_deals WHERE game_id = ? LIMIT 1', [gameId],
   );
-  if (!row) reject('Раздача не началась');
+  if (!row) return reject('Раздача не началась');
   try { return JSON.parse(row.state_json) as State; } catch { return reject('Ошибка сохранённой раздачи'); }
 }
 
@@ -126,7 +127,7 @@ export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, se
     await gameContext(tx, gameId);
     const state = await readState(tx, gameId);
     versionMatches(state, version);
-    if (!state.pending || state.pending.seat !== seat || state.pending.cardId !== cardId) reject('Открытая карта не совпадает');
+    if (!state.pending || state.pending.seat !== seat || state.pending.cardId !== cardId) return reject('Открытая карта не совпадает');
     const pending = state.pending;
     state.history.push({ ...pending });
     state.deck = state.deck.filter((card) => card.id !== cardId);
@@ -145,7 +146,7 @@ export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, versi
     versionMatches(state, version);
     if (state.pending) reject('Сначала подтвердите открытую карту');
     const last = state.history.pop();
-    if (!last) reject('Нет выданных карт');
+    if (!last) return reject('Нет выданных карт');
     state.deck = last.previousDeck;
     state.version += 1;
     await writeState(tx, gameId, state);

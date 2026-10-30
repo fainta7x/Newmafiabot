@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 
@@ -43,7 +44,7 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   if (new Set(seats).size !== raw.length || seats.some((seat) => !Number.isInteger(seat) || seat < 1 || seat > raw.length)) {
     reject('Некорректные места игроков');
   }
-  const eligible = ['CASUAL', 'NOVICE'].includes(String(game.format || '').toUpperCase());
+  const eligible = ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(game.format));
   const target = eligible ? raw.filter((row) => String(row.player_id || '') === TARGET_PLAYER_ID) : [];
   return { seats, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
 }

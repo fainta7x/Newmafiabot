@@ -259,8 +259,8 @@ export type ClubGameEloBlank = {
 
 export type VirtualDealSnapshot = {
   version: number;
-  cards: Array<{ id: number }>;
-  history: Array<{ seat: number; cardId: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>;
+  cards: Array<{ id: string }>;
+  history: Array<{ seat: number; cardId: string; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>;
 };
 export type VirtualDealAction = { seat: number; cardId: number; version: number };
 

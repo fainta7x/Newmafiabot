@@ -1,5 +1,17 @@
 # Audit log
 
+## 2026-10-31 — past games: game flow and logic (owner request; read-only production data)
+
+Scope: all 27 club games from `GET /api/games` (organizer login, GET only; nothing written). Checks: votes vs exits, night shots vs exits, winner vs survivors, circle sequence. Games with few events (2, 3, 4) predate the chronology and were only counted.
+
+- [open, PG11] game 11 (2026-10-09): night shots 1 and 2 both name seat 1 (a dead seat shot twice); seats 6 and 9 are «killed» with no shot; seat 9 is voted out on day 1 but its exit says «killed»; day 3 votes out seat 1 again, who was already dead. The vote and night records contradict the exits.
+- [open, PG14] game 14 (2026-10-16): the last voting (day 2, 8/9/10) stays `pending` with 0 votes, yet seat 9 exits «voted_day»; seat 2 exits «voted_day» though the zero circle ended `no_elimination`.
+- [open, PG24] game 24 (2026-10-30): a five-way tie 2-2-2-2-2 raised and eliminated five players at once with `all_tied_eliminated`; black is recorded as the winner with three reds and two blacks alive and no night shot at all. Needs the owner's reading of what really happened.
+- [open, PG08] game 8: votes eliminate four seats but exits show three `voted_day` plus two `removed`; night 3 is the legacy `agreement_failed` (shown as «Промах», fine).
+- [open, PG15] game 15: four `voted_day` exits with no voting records at all (26 events): a hand-filled protocol.
+- [open, PG18] game 18: no first-killed participant although the game has night kills.
+- Notes: game 16 (`ppk`, all ten alive, no votes) and game 28 (`draft`) look fine. No correction was made; a data fix goes through a tested code path or a guarded runbook command, and the owner decides which games to correct.
+
 ## 2026-10-29 — tournament virtual deal review follow-up
 
 - [fixed, VD-INIT] `LiveGameEngine.tsx`: applying setup assignments from a captured snapshot can overwrite roster initialization queued by the child effect. Reproduce a fresh tournament with already saved roles; project onto latest player state with a functional update. New regression fails on captured-snapshot source and passes after the functional update.

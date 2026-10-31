@@ -1071,12 +1071,9 @@ export default function CenterPanel(props: CenterPanelProps) {
           </div>
         </div>
 
-        {autoCountdown !== null && (
-          <div data-testid="live-auto-notice" className="live-judge-hud__auto-notice" role="status">
-            <span>Авто: переход к следующему шагу через <b>{autoCountdown}</b></span>
-            <button type="button" onClick={stopAutoAdvance}>Остановить</button>
-          </div>
-        )}
+        {/* The countdown and its «Стоп» are the header button; a second in-panel notice pushed the HUD rows over each other on phones
+            (owner, 2026-10-31: «окно авторежима ломает вёрстку»). Screen readers still hear the countdown. */}
+        {autoCountdown !== null && <span className="sr-only" role="status">Авто: переход к следующему шагу через {autoCountdown}</span>}
         <div className="live-judge-hud__body">
           {phase === 'day_voting' && votingStage === 'revote_speeches'
             ? renderVoting()

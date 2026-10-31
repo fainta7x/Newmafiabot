@@ -7,6 +7,7 @@ import { validateBestMoves, validateFirstKilled, validatePlayerResults, validate
 import { validateProtocolVoting } from '../../../lib/protocolVotingValidation';
 import { roleCountsMatchTable, tableRolesLabel, isSupportedTableSize, CLASSIC_TABLE_SIZE } from '../../../lib/tableComposition';
 import { finalRevealsOfEvents } from '../../../lib/revealStats';
+import { teamOfPlayer } from '../../../shared/gameRoles';
 import { getPlayerGameRoleLabel } from '../../../lib/playerGameRoleLabels';
 import { TABLE_NAMES } from '../../../lib/circleNames';
 import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
@@ -241,6 +242,21 @@ export const exitsOf = (events: LiveGameEvent[]): Array<{ seat: number; reason: 
   return [...out.entries()].map(([seatNumber, reason]) => ({ seat: seatNumber, reason }));
 };
 
+/**
+ * Players brought back to the table in this circle (a cancelled exit), in the order it happened, with the reason of the exit
+ * they cancelled when that exit is in the same circle (owner, 2026-10-31: «удалил, потом вернул» must stay on the timeline).
+ */
+export const returnsOf = (events: LiveGameEvent[]): Array<{ seat: number; wasReason: string | null }> => {
+  const lastExit = new Map<number, string>();
+  const out: Array<{ seat: number; wasReason: string | null }> = [];
+  for (const event of events) {
+    if (!event.seat) continue;
+    if (event.kind === 'exit') lastExit.set(event.seat, String(event.value || 'out'));
+    if (event.kind === 'restored') { out.push({ seat: event.seat, wasReason: lastExit.get(event.seat) ?? null }); lastExit.delete(event.seat); }
+  }
+  return out;
+};
+
 /** Fouls and technical fouls of a circle, as «#9 · фол 2». */
 export const foulsOf = (events: LiveGameEvent[]): Array<{ seat: number; text: string }> => {
   const last = new Map<string, { seat: number; text: string }>();
@@ -280,6 +296,25 @@ export const revealIssues = (protocol: TournamentGameProtocolData, results: Play
   return out;
 };
 
+/**
+ * The winner must follow from who is left at the table (owner, 2026-10-31, game 24: «чёрные выиграли при трёх красных и двух
+ * чёрных»): the blacks win with a majority or an equal number, the reds win when no black is left, otherwise the game goes on.
+ * Returns a plain-words message, or null when the record agrees (or cannot be judged: a PPK, missing roles or exits).
+ */
+export const winnerTableMessage = (protocol: Pick<TournamentGameProtocolData, 'winner_team' | 'end_reason'>, results: PlayerResultData[]): string | null => {
+  if (protocol.end_reason === 'ppk' || !results.length) return null;
+  if (results.some((player) => !teamOfPlayer(player as any) || !player.exit_type)) return null;
+  const atTable = results.filter((player) => player.exit_type === 'alive');
+  const blacks = atTable.filter((player) => teamOfPlayer(player as any) === 'black').length;
+  const reds = atTable.length - blacks;
+  const decided: 'red' | 'black' | null = blacks === 0 ? 'red' : blacks >= reds ? 'black' : null;
+  const table = `за столом ${reds} красных и ${blacks} чёрных`;
+  if (protocol.winner_team === decided) return null;
+  if (!decided) return protocol.winner_team ? `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table}. Чёрным нужно большинство или равенство, красным — чтобы чёрных не осталось, поэтому игра продолжается. Проверьте выходы игроков (ушёл, вернулся, заголосован) или добавьте следующий круг.` : null;
+  if (!protocol.winner_team) return `По столу игра закончена: ${table} — побеждают ${decided === 'black' ? 'чёрные' : 'красные'}.`;
+  return `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table} — по правилам побеждают ${decided === 'black' ? 'чёрные' : 'красные'}. Проверьте выходы игроков.`;
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];
@@ -289,6 +324,9 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
     issues.push({ id: 'roles', severity: 'error', title: 'Роли расставлены не полностью', sub: `Нужно: ${isSupportedTableSize(results.length) ? tableRolesLabel(results.length) : '6 мирных, Шериф, 2 мафии и Дон'}`, tab: 'players' });
   }
   if (!protocol.winner_team && protocol.end_reason !== 'ppk') issues.push({ id: 'winner', severity: 'error', title: 'Не указана победившая команда', tab: 'result' });
+
+  const winnerMessage = winnerTableMessage(protocol, results);
+  if (winnerMessage && protocol.winner_team) issues.push({ id: 'winner-table', severity: 'error', title: winnerMessage, tab: 'result' });
 
   const firstKilled = protocol.first_killed_participant_id ?? null;
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);

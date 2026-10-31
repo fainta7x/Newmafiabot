@@ -10,6 +10,8 @@ Scope: all 27 club games from `GET /api/games` (organizer login, GET only; nothi
 - [open, PG08] game 8: votes eliminate four seats but exits show three `voted_day` plus two `removed`; night 3 is the legacy `agreement_failed` (shown as «Промах», fine).
 - [open, PG15] game 15: four `voted_day` exits with no voting records at all (26 events): a hand-filled protocol.
 - [open, PG18] game 18: no first-killed participant although the game has night kills.
+- [fixed in code, PG24-WIN] owner, 2026-10-31: the protocol accepted «победа чёрных» at three reds and two blacks. The winner was a free choice never checked against the table. `winnerTableMessage` (`protocolReview.ts`) now compares the winner with who is left (blacks win with a majority or an equal number, reds when no black is left); it is an error in the issue list and a warning card in the «Победитель» block. A PPK and records without roles or exits are not judged. Only game 24 of the last evening (30.10) had this mismatch; games 22, 23, 25–27, 29 agree.
+- [fixed in code, PG-RETURN] the protocol dropped a «removed → restored» pair from the timeline (the cancelled exit vanished and the return was invisible, a return in a later circle was not shown). `returnsOf` + the card «Вернулись в игру» in the circle now show the return and the reason of the exit it cancelled. Not done: adding a next circle from the protocol to continue a game (needs a design agreed with the owner) and a single editable timeline across circles.
 - Notes: game 16 (`ppk`, all ten alive, no votes) and game 28 (`draft`) look fine. No correction was made; a data fix goes through a tested code path or a guarded runbook command, and the owner decides which games to correct.
 
 ## 2026-10-29 — tournament virtual deal review follow-up

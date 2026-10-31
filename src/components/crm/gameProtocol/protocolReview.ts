@@ -320,6 +320,25 @@ export const winnerTableMessage = (protocol: Pick<TournamentGameProtocolData, 'w
   return `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table} — по правилам побеждают ${decided === 'black' ? 'чёрные' : 'красные'}. Проверьте выходы игроков.`;
 };
 
+/**
+ * Who sits at the table when a night comes: the nights go after the days (day d is followed by night d + 1). A shot at a player who
+ * already left (voted out on an earlier day or shot on an earlier night) cannot be right — the protocol says so with the reason.
+ */
+export const deadTargetShotMessages = (protocol: Pick<TournamentGameProtocolData, 'votes' | 'shots'>): Array<{ night: number; message: string }> => {
+  const votes = (Array.isArray(protocol.votes) ? protocol.votes : []) as unknown as VotingRound[];
+  const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
+  const out: Array<{ night: number; message: string }> = [];
+  shots.forEach((shot, index) => {
+    const night = Number(shot.night_number) || index + 1;
+    const target = Number(shot.target_seat);
+    if (!target) return;
+    const votedOut = votes.some((round) => Number(round.day_number ?? 0) < night && (round.eliminated_seats || []).map(Number).includes(target));
+    const shotBefore = shots.some((earlier, i) => i < index && earlier.result === 'killed' && Number(earlier.target_seat) === target);
+    if (votedOut || shotBefore) out.push({ night, message: `Ночь ${night}: выстрел в №${target}, но он уже ${votedOut ? 'заголосован раньше' : 'убит в одну из прошлых ночей'}. Проверьте цель или выходы игроков.` });
+  });
+  return out;
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];
@@ -336,6 +355,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
   const firstKilled = protocol.first_killed_participant_id ?? null;
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);
   if (playersMessage) issues.push({ id: 'players', severity: 'error', title: playersMessage, tab: 'players' });
+  for (const item of deadTargetShotMessages(protocol)) issues.push({ id: `shot-dead-${item.night}`, severity: 'error', title: item.message, tab: 'game', circle: item.night - 1 });
   const shotsMessage = validateShots(protocol.shots, tableSize, results, true);
   if (shotsMessage) issues.push({ id: 'shots', severity: 'error', title: shotsMessage, tab: 'game', circle: 0 });
   const firstMessage = validateFirstKilled(firstKilled, results as any[], results as any[], protocol.shots as any[]);

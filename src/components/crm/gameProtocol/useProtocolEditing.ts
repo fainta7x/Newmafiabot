@@ -202,7 +202,7 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
 
   const handleAddNight = () => {
     setProtocol((prev) => {
-      const shots = [...(prev.shots || []), { night_number: (prev.shots || []).length + 1, target_seat: 1, result: 'killed' as const }];
+      const shots = [...(prev.shots || []), { night_number: (prev.shots || []).length + 1, target_seat: 0, result: 'miss' as const }];
       const synced = syncAllEventsToResults(prev.votes || [], shots, prev.first_killed_participant_id, playerResults, { ...prev, shots }, evidenceBefore(prev));
       setPlayerResults(synced.player_results);
       return synced.protocol;

@@ -313,7 +313,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         <div className="space-y-5 pb-2 pt-1">
           {api.locked ? <LockedNote /> : null}
           <section className="space-y-2" aria-label="Цель"><Eyebrow>Цель</Eyebrow>
-            <SeatGrid label="Цель выстрела" size={api.tableSize} disabled={api.locked} selected={entry.target_seat ? [entry.target_seat] : []} onToggle={(seat) => api.changeShot(sheet.index, seat, entry.result)} tone="night" />
+            <SeatGrid label="Цель выстрела" size={api.tableSize} disabled={api.locked} selected={entry.target_seat ? [entry.target_seat] : []} onToggle={(seat) => api.changeShot(sheet.index, seat, entry.result !== 'killed' && !entry.target_seat ? 'killed' : entry.result)} tone="night" />
           </section>
           <section className="space-y-2" aria-label="Результат"><Eyebrow>Результат</Eyebrow>
             <Segmented label="Результат выстрела" disabled={api.locked} value={entry.result === 'killed' ? 'killed' : 'miss'} options={SHOT_OPTIONS} cols={2} onChange={(value) => api.changeShot(sheet.index, entry.target_seat, value as 'killed' | 'miss' | 'agreement_failed')} />

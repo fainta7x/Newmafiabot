@@ -151,7 +151,7 @@ describe('a game saved by an older build', () => {
     await settle();
     const saved = save.mock.calls.at(-1)![1];
     expect(saved.player_results[2].exit_type).toBe('voted_day');
-    expect(saved.player_results[0].exit_type).toBe('killed'); // the new night's default target is seat 1
+    expect(saved.player_results[0].exit_type).toBe('alive'); // a new night starts as a miss with no target: nobody is killed until the judge picks the seat (owner, 2026-10-31)
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -186,5 +186,19 @@ describe('a removal taken back leaves no trace (owner, 2026-10-31: №5 and №6
   it('an exit that was never cancelled stays', () => {
     const events = [ev(2, 'exit', { seat: 5, value: 'removed' })] as any[];
     expect(withoutCancelledExits(events)).toBe(events);
+  });
+});
+
+describe('a shot at a player who already left (protocol check)', () => {
+  it('flags a target voted out on an earlier day or shot on an earlier night', () => {
+    const votes = [{ round_number: 1, day_number: 1, is_revote: false, nominated_seats: [7], vote_counts: { 7: 9 }, outcome: 'single_eliminated', eliminated_seats: [7] }] as any[];
+    const shots = [{ night_number: 1, target_seat: 5, result: 'killed' }, { night_number: 2, target_seat: 7, result: 'killed' }, { night_number: 3, target_seat: 5, result: 'killed' }] as any[];
+    const found = deadTargetShotMessages({ votes, shots } as any);
+    expect(found.map((item) => item.night)).toEqual([2, 3]);
+    expect(found[0].message).toMatch(/№7.*заголосован/);
+    expect(found[1].message).toMatch(/№5.*убит/);
+  });
+  it('accepts a fresh miss without a target and a shot at someone still at the table', () => {
+    expect(deadTargetShotMessages({ votes: [], shots: [{ night_number: 1, target_seat: 0, result: 'miss' }, { night_number: 2, target_seat: 3, result: 'killed' }] } as any)).toEqual([]);
   });
 });

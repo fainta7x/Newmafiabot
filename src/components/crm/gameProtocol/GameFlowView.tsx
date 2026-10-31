@@ -53,6 +53,9 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const chains = circle.rootRounds.map((root) => roundChain(protocol, root));
   const shot = circle.shotIndex >= 0 ? protocol.shots?.[circle.shotIndex] : null;
   const canAddNight = circle.shotIndex < 0 && circle.index === (protocol.shots || []).length;
+  // Nights are recorded in order: the night of a later circle opens once every earlier one is written (owner, 2026-10-31: «не мог выбрать убийство»).
+  const firstMissingNight = (protocol.shots || []).length;
+  const earlierNightMissing = circle.shotIndex < 0 && circle.index > firstMissingNight && firstMissingNight < circles.length;
   const close = () => setSheet(null);
   const circleIssues = issues.filter((issue) => issue.circle === circle.index);
 
@@ -430,7 +433,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после: ${circle.title}`}</Eyebrow>
         {shot && shotText
           ? nightRow('Выстрел мафии', shotText, shot.result === 'killed' ? 'ok' : 'quiet', () => setSheet({ type: 'shot', index: circle.shotIndex }))
-          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}
+          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : earlierNightMissing ? <Btn kind="ghost" block data-testid="night-order-hint" onClick={() => onCircle(firstMissingNight)}>Сначала запишите ночь после: {circles[firstMissingNight]?.title || 'предыдущего круга'}</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}
         {true ? (
           <>
             {nightRow('Проверка Дона', checks.don ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.don.target} {nameOf(checks.don.target || 0)}</span><CheckAnswerTag kind="don" result={checkAnswerOf('don', roleOfSeat(checks.don.target)) ?? checks.don.result} />{!donHere ? <span className="text-[12px] text-amber-100">Дона уже нет за столом</span> : null}</span> : !donHere ? 'Дона нет за столом' : sheriffFound ? 'Шериф уже найден' : 'не было', checks.don && !donHere ? 'warn' : checks.don ? 'ok' : 'quiet', () => setSheet({ type: 'check', kind: 'don' }))}

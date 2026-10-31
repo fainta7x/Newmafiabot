@@ -348,8 +348,8 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
     if (voting.errorMsg) {
       const round = voting.roundIndexWithError == null ? null : votesOf(protocol)[voting.roundIndexWithError];
       const day = round ? Number(round.day_number ?? 0) : 0;
-      // The check speaks of «этап #3, день 1»; the window speaks of circles.
-      const title = voting.errorMsg.replace(/^Голосование \(этап #\d+, день \d+\):?\s*/, `${circleTitle(day, protocol)}: `).replace(/^Голосование:\s*/, `${circleTitle(day, protocol)}: `);
+      // The check speaks of «Голосование (№3)»; the window speaks of circles.
+      const title = voting.errorMsg.replace(/^Голосование \(№\d+(?:, нулевой круг)?\):?\s*/, `${circleTitle(day, protocol)}: `).replace(/^Голосование:\s*/, `${circleTitle(day, protocol)}: `);
       issues.push({ id: 'voting', severity: 'error', title, tab: 'game', circle: day });
     }
   }

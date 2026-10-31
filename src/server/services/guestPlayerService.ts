@@ -164,6 +164,7 @@ export async function updateGuestPlaceholder(db: DatabaseWrapper, guestId: strin
   const values: any[] = [];
   if (patch.table_id !== undefined) { fields.push('table_id = ?'); values.push(patch.table_id || null); }
   if (patch.response_status !== undefined) { fields.push('response_status = ?', 'registration_status = ?'); values.push(patch.response_status, patch.response_status); }
+  if (patch.left !== undefined) { fields.push('left_at = ?'); values.push(patch.left ? new Date().toISOString() : null); }
   for (const key of ['payment_status', 'amount_due', 'amount_paid', 'notes'] as const) {
     if (patch[key] !== undefined) { fields.push(`${key} = ?`); values.push(patch[key]); }
   }

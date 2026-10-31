@@ -304,7 +304,7 @@ export default function EveningActiveRosterView({
             <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
           </button>
           {guestContactHref((participant as any).contact_kind, (participant as any).contact_value) ? <a data-testid="guest-contact-link" href={guestContactHref((participant as any).contact_kind, (participant as any).contact_value) || undefined} target="_blank" rel="noreferrer" aria-label={`Написать гостю ${participant.nickname}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-border-soft bg-surface-2 text-text-secondary"><MessageSquare className="h-4 w-4" /></a> : null}
-          {arrived && !(participant as any).is_guest ? <button type="button" data-testid={`evening-left-toggle-${participant.id}`} disabled={rowBusy} onClick={() => void toggleLeft(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-surface-2 px-3 text-[13px] font-bold text-text-secondary disabled:opacity-40">{rowBusy ? '…' : participant.left_at ? 'Вернулся' : 'Ушёл'}</button> : null}
+          {arrived ? <button type="button" data-testid={`evening-left-toggle-${participant.id}`} disabled={rowBusy} onClick={() => void toggleLeft(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-surface-2 px-3 text-[13px] font-bold text-text-secondary disabled:opacity-40">{rowBusy ? '…' : participant.left_at ? 'Вернулся' : 'Ушёл'}</button> : null}
           {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : null}
         </div>;
       })}

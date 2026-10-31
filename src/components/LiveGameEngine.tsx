@@ -1,4 +1,5 @@
 import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
+import { circleNameByTableSize } from '../lib/circleNames.ts';
 import { initialLiveRosterEvents, liveRosterCorrectionEvents, restoreJournalRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
 import { applyLiveRoleCorrectionEvents, liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
 import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
@@ -1218,7 +1219,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (!current) return;
     saveSnapshot();
     const exitReason: NonNullable<ActivePlayerState['exit_reason']> = votedOutExitReason(current.day_number);
-    eliminatePlayer(slot, `Голосование (День ${roundNumber})`, exitReason);
+    eliminatePlayer(slot, `Голосование (${circleNameByTableSize(roundNumber - 1, activePlayers.filter((p) => p.alive).length)})`, exitReason);
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
       ? { ...round, outcome: 'single_eliminated', eliminated_seats: [slot] }
       : round));
@@ -1324,7 +1325,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
     if (result.resolvedOutcome === 'all_tied_eliminated') {
       const exitReason: NonNullable<ActivePlayerState['exit_reason']> = votedOutExitReason(current.day_number);
-      result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (День ${roundNumber})`, exitReason));
+      result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (${circleNameByTableSize(roundNumber - 1, activePlayers.filter((p) => p.alive).length)})`, exitReason));
       const farewellQueue = buildVotingFarewellQueue(result.eliminatedSeats, current.nominated_seats);
       setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; спорные ${winners.map((s) => `#${s}`).join(', ')} заголосованы. Прощальные минуты: ${farewellQueue.map((s) => `#${s}`).join(', ')}.` }]);
       setVotingStage('resolved');

@@ -323,6 +323,10 @@ Circles are named by how many players sit at the table, not by day numbers. Use 
 
 The protocol window names its circles this way (`circleTitle` in `protocolReview.ts`; an old game without a chronology keeps «Круг N»). Protocol corrections, owner 2026-10-26: a check's answer is not chosen — it follows the checked player's real role; a missing don check is not an error; a black killed by his own team needs no death protocol; once the sheriff or the don has left (by day or killed that night) the night shows «Шерифа нет за столом» / «Дона нет за столом», and after the don found the sheriff «Шериф уже найден»; exits read as plain lines «⚖️ Ушёл №4 Перец», «💀 Ночью убили №9 Дина», «💀 Ночью промах». A split in the zero day that ends with everybody staying is the standard course of the game, so the next circle is simply «девятка» (owner). Examples: «восьмёрка после промаха», «семёрка после попила с подъёмом».
 
+## A mistaken fact taken back (owner, 2026-10-31)
+
+A removal, a vote-out or any other manual step made by mistake and then taken back (the player is brought back to the table) is **not an event of the game**: the game has no «left the table and came back». The mistaken fact is erased and the game is counted as if it had never happened; this is a full rollback of everything that followed from it for that player, the move and the stage of the game. A player voted out by mistake and brought back puts the voting back to «идёт голосование» (its result is erased; it can be held or corrected again). Circles are never called «круг 1, 2…»: only the official names (see «Names of the circles»).
+
 ## Night, agreement and the first-day split (user explanation 2026-09-24)
 
 - At night everyone wears a mask. The mafia shoots blind, masks on, each showing the number of the target; one number from all — the player is killed, different numbers — a miss.

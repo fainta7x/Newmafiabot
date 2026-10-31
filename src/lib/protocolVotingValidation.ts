@@ -125,7 +125,7 @@ function validateVotesCore(
     if (isComplete) {
       // 1. Пустой этап
       if (r.nominated_seats.length === 0) {
-        return `Запрещено завершать протокол с пустым кругом голосования (круг #${roundNum}, день ${dayNum}).`;
+        return `Запрещено завершать протокол с пустым голосованием (№${roundNum}).`;
       }
 
       // 2. Не указано количество голосующих

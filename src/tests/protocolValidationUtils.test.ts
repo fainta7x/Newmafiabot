@@ -33,7 +33,7 @@ describe('protocol voting completion validation', () => {
         eliminated_seats: [],
       },
     ], [], null)).toEqual({
-      errorMsg: 'Запрещено завершать протокол с пустым кругом голосования (круг #4, день 2).',
+      errorMsg: 'Запрещено завершать протокол с пустым голосованием (№4).',
       roundIndexWithError: 0,
     });
   });
@@ -185,7 +185,7 @@ describe('protocol completion validation', () => {
     const result = validateProtocolCompletion(protocol, validPlayers(), false);
     expect(result.source).toBe('voting');
     expect(result.roundIndexWithError).toBe(0);
-    expect(result.errorMsg).toContain('пустым кругом голосования');
+    expect(result.errorMsg).toContain('пустым голосованием');
   });
 
   it('returns a clean result when all completion checks pass', () => {

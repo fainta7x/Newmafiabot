@@ -248,6 +248,16 @@ describe('Live Game keyboard control', () => {
     await waitFor(() => expect(screen.getByTestId('live-judge-hud').textContent).toMatch(/Речь #2/));
   });
 
+  it('Enter on a highlighted player opens that player\'s action panel instead of the main step', async () => {
+    await restore(baseSnapshot());
+    press('Digit3');
+    expect(await screen.findByTestId('live-hotkey-menu')).toBeTruthy();
+    press('Enter');
+    await waitFor(() => expect(screen.queryByTestId('live-hotkey-menu')).toBeNull());
+    expect(await screen.findByTestId('live-player-add-regular-foul')).toBeTruthy();
+    expect(screen.getByTestId('live-judge-hud').textContent).toMatch(/Речь #1/);
+  });
+
   it('Ctrl+Z undoes the last action', async () => {
     await restore(baseSnapshot());
     press('Digit3');

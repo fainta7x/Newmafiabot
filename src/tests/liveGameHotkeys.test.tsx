@@ -248,11 +248,11 @@ describe('Live Game keyboard control', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-testid^="seat-vote-target-"]').length).toBe(1));
   });
 
-  it('Space starts the speech timer and Enter presses the main step button', async () => {
+  it('Space starts the speech timer and Tab presses the main step button', async () => {
     await restore(baseSnapshot());
     press('Space');
     await waitFor(() => expect(screen.getByRole('button', { name: /Пауза/ })).toBeTruthy());
-    press('Enter');
+    press('Tab');
     await waitFor(() => expect(screen.getByTestId('live-judge-hud').textContent).toMatch(/Речь #2/));
   });
 

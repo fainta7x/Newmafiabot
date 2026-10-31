@@ -228,13 +228,15 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
           clearAll();
           return handled();
         case 'primary':
-          // A highlighted player: Enter opens that player's full action panel (owner, 2026-10-31).
+          if (click(PRIMARY)) return handled();
+          return;
+        case 'choose':
+          // Enter is for choosing: a highlighted player's full action panel opens (owner, 2026-10-31).
           if (currentCursor !== null) {
             handlersRef.current.openPanel(currentCursor);
             clearAll();
             return handled();
           }
-          if (click(PRIMARY)) return handled();
           return;
         case 'space': {
           if (ctx.tapPhase && currentCursor !== null) {

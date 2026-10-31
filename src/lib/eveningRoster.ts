@@ -2,6 +2,7 @@ import type { EveningParticipant } from './api';
 import { getEveningAttendanceFact } from './eveningResponse';
 
 export const isEveningGameEligible = (participant: EveningParticipant): boolean => {
+  if (participant.left_at) return false;
   const fact = getEveningAttendanceFact(participant);
   return fact === 'attended_on_time' || fact === 'attended_late';
 };

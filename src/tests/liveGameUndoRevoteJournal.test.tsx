@@ -74,6 +74,10 @@ describe('judge engine: an undone elimination and two revoting days reach the sa
     // The judge undoes the elimination back to the vote count; #8 moves its vote from #4 to #5: a 3–3 tie of #2 and #4.
     await press('Назад');
     await press('Назад');
+    // Misclick protection: #8 already voted for #4, so its hand is first taken back at #4, then given to #5.
+    await press('Назад');
+    fireEvent.click(seat(8));
+    await press(/Следующий/);
     fireEvent.click(seat(8));
     await press('Подвести итог');
     await press('Речи по 30 секунд');

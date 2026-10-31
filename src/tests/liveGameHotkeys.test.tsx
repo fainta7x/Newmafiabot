@@ -231,6 +231,14 @@ describe('Live Game keyboard control', () => {
     expect(screen.queryByTestId('seat-vote-target-8')).toBeNull();
   });
 
+  it('Backspace in a voting takes back the last vote', async () => {
+    await restore(votingSnapshot());
+    press('Digit6');
+    await screen.findByTestId('seat-vote-target-6');
+    press('Backspace');
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="seat-vote-target-"]').length).toBe(0));
+  });
+
   it('Space casts the vote for the highlighted seat in a voting', async () => {
     await restore(votingSnapshot());
     press('Digit9', { shiftKey: true });

@@ -315,7 +315,7 @@ export const winnerTableMessage = (protocol: Pick<TournamentGameProtocolData, 'w
   const decided: 'red' | 'black' | null = blacks === 0 ? 'red' : blacks >= reds ? 'black' : null;
   const table = `за столом ${reds} красных и ${blacks} чёрных`;
   if (protocol.winner_team === decided) return null;
-  if (!decided) return protocol.winner_team ? `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table}. Чёрным нужно большинство или равенство, красным — чтобы чёрных не осталось, поэтому игра продолжается. Проверьте выходы игроков (ушёл, вернулся, заголосован) или добавьте следующий круг.` : null;
+  if (!decided) return protocol.winner_team ? `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table}. Чёрным нужно большинство или равенство, красным — чтобы чёрных не осталось, поэтому игра продолжается. Если после этого была ночь, добавьте её выстрел на вкладке «Ход игры» (ночи записываются по порядку, начиная с первой); иначе проверьте выходы игроков.` : null;
   if (!protocol.winner_team) return `По столу игра закончена: ${table} — побеждают ${decided === 'black' ? 'чёрные' : 'красные'}.`;
   return `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table} — по правилам побеждают ${decided === 'black' ? 'чёрные' : 'красные'}. Проверьте выходы игроков.`;
 };

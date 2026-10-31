@@ -1,4 +1,5 @@
 import { buildReplayChapters } from '../../lib/replayChapters.ts';
+import { circleTitle } from '../crm/gameProtocol/protocolReview';
 import type { LiveBroadcastReplayFrame } from '../../lib/liveBroadcast.ts';
 import type { LiveGameEvent } from '../../shared/liveGameEvents.ts';
 import LiveBroadcastOverlay from '../public/LiveBroadcastOverlay.tsx';
@@ -154,9 +155,10 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
     });
     return Array.from(groups.entries()).sort(([left], [right]) => left - right);
   }, [orderedClips]);
+  const roundName = (round: number) => circleTitle(Math.max(0, Math.trunc(Number(round) || 1) - 1), { events: data?.engine_events || [] });
   const goBack = onBack || (() => window.history.back());
   const renderSpeechClip = (clip: SpeechClip) => <div key={clip.id} className="rounded-2xl border border-white/[0.06] bg-black/15 p-3">
-    <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-bold">#{clip.seat_number} · {clip.speaker_nickname}</div><div className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-white/25">Круг {clip.round_number} · {clip.speech_type} · {durationLabel(clip.duration_seconds)}</div></div></div>
+    <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-bold">#{clip.seat_number} · {clip.speaker_nickname}</div><div className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-white/25">{roundName(clip.round_number)} · {clip.speech_type} · {durationLabel(clip.duration_seconds)}</div></div></div>
     <audio className="mt-2 h-9 w-full" controls preload="none" src={clip.audio_url}>Браузер не поддерживает воспроизведение аудио.</audio>
   </div>;
 
@@ -201,7 +203,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
             <button type="button" onClick={() => setSpeechView('chronological')} className={`min-h-9 rounded-xl px-2 text-[11px] font-bold transition ${speechView === 'chronological' ? 'bg-white text-black' : 'text-white/35'}`}>По порядку</button>
             <button type="button" onClick={() => setSpeechView('rounds')} className={`min-h-9 rounded-xl px-2 text-[11px] font-bold transition ${speechView === 'rounds' ? 'bg-white text-black' : 'text-white/35'}`}>По кругам</button>
           </div>
-          {speechView === 'chronological' ? <div className="mt-3 space-y-2">{orderedClips.map(renderSpeechClip)}</div> : <div className="mt-3 space-y-4">{clipsByRound.map(([round, roundClips]) => <div key={round}><div className="mb-2 flex items-center gap-2"><div className="text-[11px] font-black uppercase tracking-[0.12em] text-violet-100/40">Круг {round}</div><div className="h-px flex-1 bg-white/[0.06]" /><div className="text-[11px] text-white/20">{roundClips.length} {roundClips.length === 1 ? 'речь' : roundClips.length < 5 ? 'речи' : 'речей'}</div></div><div className="space-y-2">{roundClips.map(renderSpeechClip)}</div></div>)}</div>}
+          {speechView === 'chronological' ? <div className="mt-3 space-y-2">{orderedClips.map(renderSpeechClip)}</div> : <div className="mt-3 space-y-4">{clipsByRound.map(([round, roundClips]) => <div key={round}><div className="mb-2 flex items-center gap-2"><div className="text-[11px] font-black uppercase tracking-[0.12em] text-violet-100/40">{roundName(round)}</div><div className="h-px flex-1 bg-white/[0.06]" /><div className="text-[11px] text-white/20">{roundClips.length} {roundClips.length === 1 ? 'речь' : roundClips.length < 5 ? 'речи' : 'речей'}</div></div><div className="space-y-2">{roundClips.map(renderSpeechClip)}</div></div>)}</div>}
         </> : <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[11px] leading-4 text-white/25">Для этой игры сохранённых речей нет.</div>}
       </section>
 

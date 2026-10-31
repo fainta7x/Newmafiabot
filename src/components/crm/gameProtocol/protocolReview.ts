@@ -8,6 +8,7 @@ import { validateProtocolVoting } from '../../../lib/protocolVotingValidation';
 import { roleCountsMatchTable, tableRolesLabel, isSupportedTableSize, CLASSIC_TABLE_SIZE } from '../../../lib/tableComposition';
 import { finalRevealsOfEvents } from '../../../lib/revealStats';
 import { getPlayerGameRoleLabel } from '../../../lib/playerGameRoleLabels';
+import { TABLE_NAMES } from '../../../lib/circleNames';
 import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 
 /**
@@ -20,7 +21,6 @@ export type ProtocolState = { protocol: TournamentGameProtocolData; results: Pla
 /** «после двух промахов» (owner, 2026-10-27: numbers in words). */
 const MISSES_IN_WORDS: Record<number, string> = { 2: 'двух', 3: 'трёх', 4: 'четырёх', 5: 'пяти', 6: 'шести', 7: 'семи', 8: 'восьми', 9: 'девяти' };
 
-const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девятка', 8: 'Восьмёрка', 7: 'Семёрка', 6: 'Шестёрка', 5: 'Пятёрка', 4: 'Угадайка при 4', 3: 'Угадайка' };
 
 /**
  * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):

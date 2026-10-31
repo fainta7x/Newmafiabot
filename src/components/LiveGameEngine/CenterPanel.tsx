@@ -1,4 +1,5 @@
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
+import { circleNameByTableSize } from '../../lib/circleNames';
 import React from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
@@ -270,7 +271,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     : resolveTimerDuration(phase, votingStage, timerMax) + revoteExtensionSeconds;
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
-  const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
+  const dayLabel = circleNameByTableSize(roundNumber - 1, activePlayers.filter((player) => player.alive).length);
   const tableDecisionRequired = phase === 'day_voting'
     && votingStage === 'round_result'
     && currentVotingResult?.outcome === 'requires_table_decision';

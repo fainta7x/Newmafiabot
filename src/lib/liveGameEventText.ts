@@ -1,3 +1,4 @@
+import { circleTitle } from '../components/crm/gameProtocol/protocolReview.ts';
 import { GAME_ROLES, normalizeGameRole } from '../shared/gameRoles.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 
@@ -56,7 +57,7 @@ export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: n
       case 'player_reseated': text = `CRM: на место ${event.seat ? `#${event.seat}` : ''} посажен другой игрок`; break;
       case 'role_corrected': { const role = normalizeGameRole(value); text = `CRM: роль ${seat} исправлена — ${role ? GAME_ROLES[role].label : value}`; break; }
       case 'game_start': text = 'Игра началась'; heading = true; break;
-      case 'phase': text = `${PHASES[value] || value}${event.round >= 1 ? ` · круг ${event.round}` : ''}`; heading = true; break;
+      case 'phase': text = `${PHASES[value] || value}${event.round >= 1 ? ` · ${circleTitle(event.round - 1, { events })}` : ''}`; heading = true; break;
       case 'night_step': text = `Ночь: ${NIGHT_STEPS[value] || value}`; break;
       case 'voting_stage': text = `Голосование: ${value}`; break;
       case 'nomination': text = by ? `${by} выставил ${seat}` : `${seat} выставлен`; break;

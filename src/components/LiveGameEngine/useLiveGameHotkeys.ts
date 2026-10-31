@@ -233,16 +233,14 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
         case 'choose':
           // Enter is for choosing: a highlighted player's full action panel opens (owner, 2026-10-31).
           if (currentCursor !== null) {
+            // In a voting / at a night target Enter is the tap itself (the vote, the target), elsewhere the panel (owner, 2026-10-31).
+            if (ctx.tapPhase) { handlersRef.current.tapSeat(currentCursor); return handled(); }
             handlersRef.current.openPanel(currentCursor);
             clearAll();
             return handled();
           }
           return;
         case 'space': {
-          if (ctx.tapPhase && currentCursor !== null) {
-            handlersRef.current.tapSeat(currentCursor);
-            return handled();
-          }
           if (click(TIMER_TOGGLE)) return handled();
           return;
         }

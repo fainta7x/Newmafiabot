@@ -71,7 +71,7 @@ describe('current live game state', () => {
     snapshot.discipline.players['3'].has30SecPenalty = true;
 
     const view = buildLiveGameStateView(snapshot)!;
-    expect(view.phaseTitle).toBe('День 1 · речи');
+    expect(view.phaseTitle).toBe('Десятка · речи');
     expect(view.phaseDetail).toBe('Сейчас говорит #2');
     expect(view.nextStep).toBe('Завершить речь #2');
     expect(view.timerText).toBe('38с · идёт');
@@ -94,7 +94,7 @@ describe('current live game state', () => {
     snapshot.votesByPlayer = { 1: 4, 2: 4, 3: 7 };
 
     const view = buildLiveGameStateView(snapshot)!;
-    expect(view.phaseTitle).toBe('День 1 · голосование');
+    expect(view.phaseTitle).toBe('Десятка · голосование');
     expect(view.votingStage).toBe('Сбор голосов');
     expect(view.votingRound).toBe(2);
     expect(view.nominations).toEqual([4, 7]);

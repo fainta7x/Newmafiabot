@@ -427,7 +427,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
       ) : null}
 
       <Card tone="night" className="space-y-2.5">
-        <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после круга ${circle.index}`}</Eyebrow>
+        <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после: ${circle.title}`}</Eyebrow>
         {shot && shotText
           ? nightRow('Выстрел мафии', shotText, shot.result === 'killed' ? 'ok' : 'quiet', () => setSheet({ type: 'shot', index: circle.shotIndex }))
           : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}

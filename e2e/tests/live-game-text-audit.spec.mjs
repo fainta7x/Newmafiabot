@@ -66,6 +66,16 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('zero-round');
       await page.getByRole('button', { name: /Речь #1(?:\s| ·|$)/ }).last().click();
       await check('speech-active');
+      // Fouls and the auto-mode switch (owner, 2026-10-31: layout broken with fouls and the auto-mode pop-up).
+      await clickOptional(page.getByTestId('live-auto-toggle'));
+      await check('auto-mode-on');
+      for (const [slot, count] of [[1, 2], [3, 3]]) {
+        for (let i = 0; i < count; i += 1) {
+          await seatCard(page, slot).click();
+          await page.getByTestId('live-player-add-regular-foul').click();
+        }
+      }
+      await check('fouls-on-table');
       await seatCard(page, 2).click();
       await check('player-action');
       await page.locator('div[class*="z-[112]"]').getByRole('button', { name: 'Выставить', exact: true }).click();

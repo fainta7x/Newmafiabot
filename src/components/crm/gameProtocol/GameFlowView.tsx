@@ -10,7 +10,7 @@ import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, returnsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -49,7 +49,6 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const nominators = useMemo(() => nominatorsOf(circle.events), [circle]);
   const checks = useMemo(() => checksOf(circle.events), [circle]);
   const exits = useMemo(() => exitsOf(circle.events), [circle]);
-  const returns = useMemo(() => returnsOf(circle.events), [circle]);
   const fouls = useMemo(() => foulsOf(circle.events), [circle]);
   const chains = circle.rootRounds.map((root) => roundChain(protocol, root));
   const shot = circle.shotIndex >= 0 ? protocol.shots?.[circle.shotIndex] : null;
@@ -441,16 +440,11 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         {circle.index === 0 ? nightRow('Первый убитый и лучший ход', firstKilled ? <span className="flex flex-wrap items-center gap-2"><span>#{firstKilled.seat_number} {firstKilled.display_name}</span><FirstKilledTag />{bestMoveOf('first_killed').length ? <BestMoveTag /> : <InfoTag tone="attention">Ход не указан</InfoTag>}{bestMoveOf('first_killed').length ? <span className="text-[13px] text-white/60">{bestMoveOf('first_killed').map((seat) => `#${seat}`).join(' ')}</span> : null}</span> : 'не выбран', firstKilled ? 'ok' : 'quiet', () => setSheet({ type: 'first-killed' })) : null}
       </Card>
 
-      {exits.length || fouls.length || returns.length ? (
+      {exits.length || fouls.length ? (
         <Card className="space-y-3">
           {exits.length ? (
             <div><Eyebrow>Вышли в этом круге</Eyebrow>
               <ul className="mt-2 space-y-1">{exits.map((item) => <li key={item.seat} className="text-[14px] font-semibold leading-6">{exitLine(item.reason, `№${item.seat} ${nameOf(item.seat)}`)}</li>)}</ul>
-            </div>
-          ) : null}
-          {returns.length ? (
-            <div><Eyebrow>Вернулись в игру</Eyebrow>
-              <ul className="mt-2 space-y-1" data-testid="circle-returns">{returns.map((item, index) => <li key={`${item.seat}-${index}`} className="text-[14px] font-semibold leading-6">↩️ Вернулся №{item.seat} {nameOf(item.seat)}{item.wasReason ? ` · до этого: ${exitLabel(item.wasReason)}` : ''}</li>)}</ul>
             </div>
           ) : null}
           {fouls.length ? (

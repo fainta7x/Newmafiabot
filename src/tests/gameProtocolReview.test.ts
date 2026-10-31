@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, returnsOf, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -172,13 +172,19 @@ describe('the winner must follow from the table (game 24, 2026-10-30)', () => {
   });
 });
 
-describe('removed and brought back (owner, 2026-10-31: №5 and №6 were removed by mistake and returned)', () => {
-  it('keeps the return on the timeline and the effective exits clean', () => {
+describe('a removal taken back leaves no trace (owner, 2026-10-31: №5 and №6 were removed by mistake)', () => {
+  it('a cancelled exit is struck out of the circle as if it never happened', () => {
     const events = [ev(2, 'exit', { seat: 5, value: 'removed' }), ev(2, 'exit', { seat: 6, value: 'removed' }), ev(2, 'restored', { seat: 5 }), ev(2, 'restored', { seat: 6 }), ev(2, 'exit', { seat: 7, value: 'voted_day' })] as any[];
-    expect(returnsOf(events)).toEqual([{ seat: 5, wasReason: 'removed' }, { seat: 6, wasReason: 'removed' }]);
     expect(exitsOfCircle(events)).toEqual([{ seat: 7, reason: 'voted_day' }]);
   });
-  it('a return in a later circle has no reason of its own', () => {
-    expect(returnsOf([ev(3, 'restored', { seat: 5 })] as any[])).toEqual([{ seat: 5, wasReason: null }]);
+  it('a removal cancelled in a later circle disappears from the earlier circle too', () => {
+    const events = [ev(2, 'exit', { seat: 5, value: 'removed' }), ev(2, 'exit', { seat: 7, value: 'voted_day' }), ev(3, 'restored', { seat: 5 })] as any[];
+    expect(withoutCancelledExits(events).map((event: any) => `${event.kind}:${event.seat}`)).toEqual(['exit:7']);
+    const circles = buildCircles({ votes: [], shots: [], events } as any);
+    expect(circles.flatMap((circle) => exitsOfCircle(circle.events))).toEqual([{ seat: 7, reason: 'voted_day' }]);
+  });
+  it('an exit that was never cancelled stays', () => {
+    const events = [ev(2, 'exit', { seat: 5, value: 'removed' })] as any[];
+    expect(withoutCancelledExits(events)).toBe(events);
   });
 });

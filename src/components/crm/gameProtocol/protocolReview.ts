@@ -114,10 +114,29 @@ export type CircleModel = {
  * Circle k is the voting of day k and the night after it: «Нулевой круг» is the zero voting with the first night, which is
  * how the live game numbers it (engine round k + 1; night k + 1).
  */
+/**
+ * A removal taken back is a correction of a mistake, not a game action (owner, 2026-10-31: «как будто удаления не было»): the exit
+ * and its «restored» are both struck out of the timeline, wherever in the game each of them was recorded.
+ */
+export const withoutCancelledExits = (events: LiveGameEvent[]): LiveGameEvent[] => {
+  const drop = new Set<number>();
+  const lastExitAt = new Map<number, number>();
+  events.forEach((event, index) => {
+    if (!event.seat) return;
+    if (event.kind === 'exit') lastExitAt.set(event.seat, index);
+    else if (event.kind === 'restored') {
+      const exitIndex = lastExitAt.get(event.seat);
+      if (exitIndex !== undefined) { drop.add(exitIndex); lastExitAt.delete(event.seat); }
+      drop.add(index);
+    }
+  });
+  return drop.size ? events.filter((_, index) => !drop.has(index)) : events;
+};
+
 export const buildCircles = (protocol: TournamentGameProtocolData): CircleModel[] => {
   const votes = votesOf(protocol);
   const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
-  const events = Array.isArray(protocol.events) ? protocol.events : [];
+  const events = withoutCancelledExits(Array.isArray(protocol.events) ? protocol.events : []);
   let count = 1;
   for (const round of votes) count = Math.max(count, Number(round.day_number ?? 0) + 1);
   for (const shot of shots) count = Math.max(count, Number(shot.night_number));
@@ -240,21 +259,6 @@ export const exitsOf = (events: LiveGameEvent[]): Array<{ seat: number; reason: 
     if (event.kind === 'restored' && event.seat) out.delete(event.seat);
   }
   return [...out.entries()].map(([seatNumber, reason]) => ({ seat: seatNumber, reason }));
-};
-
-/**
- * Players brought back to the table in this circle (a cancelled exit), in the order it happened, with the reason of the exit
- * they cancelled when that exit is in the same circle (owner, 2026-10-31: «удалил, потом вернул» must stay on the timeline).
- */
-export const returnsOf = (events: LiveGameEvent[]): Array<{ seat: number; wasReason: string | null }> => {
-  const lastExit = new Map<number, string>();
-  const out: Array<{ seat: number; wasReason: string | null }> = [];
-  for (const event of events) {
-    if (!event.seat) continue;
-    if (event.kind === 'exit') lastExit.set(event.seat, String(event.value || 'out'));
-    if (event.kind === 'restored') { out.push({ seat: event.seat, wasReason: lastExit.get(event.seat) ?? null }); lastExit.delete(event.seat); }
-  }
-  return out;
 };
 
 /** Fouls and technical fouls of a circle, as «#9 · фол 2». */

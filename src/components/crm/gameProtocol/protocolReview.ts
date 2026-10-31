@@ -38,7 +38,8 @@ export const circleTitle = (
 ) => {
   if (index === 0) return 'Нулевой круг';
   const events = Array.isArray(protocol?.events) ? protocol!.events : [];
-  if (!events.some((event) => event.kind === 'exit')) return `Круг ${index}`;
+  // Only a game without any chronology keeps «Круг N»; with one, a circle where nobody has left yet is the «Десятка» (owner: official names everywhere).
+  if (!events.length) return `Круг ${index}`;
   const votes = Array.isArray(protocol?.votes) ? (protocol!.votes as unknown as VotingRound[]) : null;
   const shots = Array.isArray(protocol?.shots) ? protocol!.shots : null;
   // A cancelled exit («restored») gives the seat back.

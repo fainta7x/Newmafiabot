@@ -10,7 +10,7 @@ import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, recordsAfterVoting, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -56,6 +56,13 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   // Nights are recorded in order: the night of a later circle opens once every earlier one is written (owner, 2026-10-31: «не мог выбрать убийство»).
   const firstMissingNight = (protocol.shots || []).length;
   const earlierNightMissing = circle.shotIndex < 0 && circle.index > firstMissingNight && firstMissingNight < circles.length;
+  // A mistaken vote-out taken back: the result is erased and the game counts as if it had not happened; what followed is listed for a re-check.
+  const resetWithNotice = (index: number) => {
+    const { returning, lines } = recordsAfterVoting(protocol, index);
+    const head = returning.length ? `Результат голосования будет стёрт, ${returning.length > 1 ? 'игроки' : 'игрок'} ${returning.map((seat) => `№${seat}`).join(', ')} ${returning.length > 1 ? 'вернутся' : 'вернётся'} за стол.` : 'Результат голосования будет стёрт.';
+    const tail = lines.length ? `\n\nПосле него в протоколе записано (проверьте это после отката):\n${lines.join('\n')}` : '';
+    if (confirm(`${head}${tail}`)) api.resetOutcome(index);
+  };
   const close = () => setSheet(null);
   const circleIssues = issues.filter((issue) => issue.circle === circle.index);
 
@@ -138,7 +145,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
 
             <div className="border-t border-white/8 pt-3">
               {view.confirmed ? (
-                <Btn kind="ghost" block disabled={api.locked} onClick={() => api.resetOutcome(index)}>Сбросить результат</Btn>
+                <Btn kind="ghost" block disabled={api.locked} onClick={() => resetWithNotice(index)}>Сбросить результат</Btn>
               ) : (
                 <Btn kind="primary" block disabled={api.locked || !complete || view.calculated === 'pending'} onClick={() => api.confirmOutcome(index, view.calculated as string, view.result.winners)}>Подтвердить результат</Btn>
               )}

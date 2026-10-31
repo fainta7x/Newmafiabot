@@ -205,7 +205,7 @@ describe('what the judge changed', () => {
 });
 
 describe('taking back a voting change', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
+  beforeEach(() => { vi.useFakeTimers(); vi.spyOn(window, 'confirm').mockReturnValue(true); });
   afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
   it('also takes back who left the game because of it', async () => {

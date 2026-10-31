@@ -339,6 +339,29 @@ export const deadTargetShotMessages = (protocol: Pick<TournamentGameProtocolData
   return out;
 };
 
+/**
+ * What the protocol holds after a voting whose result is about to be erased (the vote-out was a mistake: the player goes back to the
+ * table and the game is counted as if it had not happened). Returns plain lines for the judge to re-check afterwards.
+ */
+export const recordsAfterVoting = (protocol: Pick<TournamentGameProtocolData, 'votes' | 'shots'>, roundIndex: number): { returning: number[]; lines: string[] } => {
+  const votes = (Array.isArray(protocol.votes) ? protocol.votes : []) as unknown as VotingRound[];
+  const round = votes[roundIndex];
+  if (!round) return { returning: [], lines: [] };
+  const day = Number(round.day_number ?? 0);
+  const returning = (round.eliminated_seats || []).map(Number);
+  const lines: string[] = [];
+  (Array.isArray(protocol.shots) ? protocol.shots : []).forEach((shot, i) => {
+    const night = Number(shot.night_number) || i + 1;
+    if (night <= day) return;
+    lines.push(`Ночь ${night}: ${Number(shot.target_seat) ? `выстрел в №${shot.target_seat}` : 'промах'}${returning.includes(Number(shot.target_seat)) ? ' (в вернувшегося игрока)' : ''}`);
+  });
+  votes.forEach((later, i) => {
+    if (i === roundIndex || Number(later.day_number ?? 0) <= day) return;
+    lines.push(`Голосование №${later.round_number} следующего круга: число голосующих и кандидатов нужно проверить`);
+  });
+  return { returning, lines };
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];

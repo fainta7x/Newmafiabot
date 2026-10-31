@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -200,5 +200,19 @@ describe('a shot at a player who already left (protocol check)', () => {
   });
   it('accepts a fresh miss without a target and a shot at someone still at the table', () => {
     expect(deadTargetShotMessages({ votes: [], shots: [{ night_number: 1, target_seat: 0, result: 'miss' }, { night_number: 2, target_seat: 3, result: 'killed' }] } as any)).toEqual([]);
+  });
+});
+
+describe('a mistaken vote-out taken back lists what followed it', () => {
+  it('lists the later nights and votings and marks a shot at the returning player', () => {
+    const votes = [
+      { round_number: 1, day_number: 1, is_revote: false, nominated_seats: [7], vote_counts: { 7: 9 }, outcome: 'single_eliminated', eliminated_seats: [7] },
+      { round_number: 2, day_number: 2, is_revote: false, nominated_seats: [3], vote_counts: { 3: 8 }, outcome: 'single_eliminated', eliminated_seats: [3] },
+    ] as any[];
+    const shots = [{ night_number: 1, target_seat: 0, result: 'miss' }, { night_number: 2, target_seat: 7, result: 'killed' }] as any[];
+    const found = recordsAfterVoting({ votes, shots } as any, 0);
+    expect(found.returning).toEqual([7]);
+    expect(found.lines).toEqual(['Ночь 2: выстрел в №7 (в вернувшегося игрока)', 'Голосование №2 следующего круга: число голосующих и кандидатов нужно проверить']);
+    expect(recordsAfterVoting({ votes, shots } as any, 5)).toEqual({ returning: [], lines: [] });
   });
 });

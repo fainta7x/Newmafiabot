@@ -440,6 +440,3 @@
 }
 
 /* Auto mode: the short pause before the automatic «next» is announced instead of happening silently. */
-.live-judge-hud__auto-notice { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 7px 0; padding:6px 10px; border:1px solid var(--live-line); border-radius:12px; background:rgba(255,255,255,.06); font-size:12px; font-weight:700; }
-.live-judge-hud__auto-notice b { font-size:15px; }
-.live-judge-hud__auto-notice button { min-height:32px; padding:0 10px; border-radius:10px; border:1px solid var(--live-line); background:transparent; color:inherit; font-size:11px; font-weight:800; }

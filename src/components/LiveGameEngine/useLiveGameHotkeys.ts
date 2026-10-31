@@ -24,6 +24,8 @@ export type HotkeyHandlers = {
   reveal: (slot: number) => void;
   openReveals: () => void;
   undo: () => void;
+  /** Backspace in a voting: takes back the last vote; false when nothing to erase. */
+  eraseLastVote: () => boolean;
   quickSplit: (pair: [number, number]) => void;
   toast: (message: string) => void;
 };
@@ -228,15 +230,22 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
         case 'primary':
           if (click(PRIMARY)) return handled();
           return;
-        case 'space': {
-          if (ctx.tapPhase && currentCursor !== null) {
-            handlersRef.current.tapSeat(currentCursor);
+        case 'choose':
+          // Enter is for choosing: a highlighted player's full action panel opens (owner, 2026-10-31).
+          if (currentCursor !== null) {
+            // In a voting / at a night target Enter is the tap itself (the vote, the target), elsewhere the panel (owner, 2026-10-31).
+            if (ctx.tapPhase) { handlersRef.current.tapSeat(currentCursor); return handled(); }
+            handlersRef.current.openPanel(currentCursor);
+            clearAll();
             return handled();
           }
+          return;
+        case 'space': {
           if (click(TIMER_TOGGLE)) return handled();
           return;
         }
         case 'back':
+          if (handlersRef.current.eraseLastVote()) { clearAll(); return handled(); }
           if (click(BACK)) return handled();
           return;
         case 'split':

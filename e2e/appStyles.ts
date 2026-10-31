@@ -15,4 +15,5 @@ import '../src/components/crm/liveGameRecoveryPolish.css';
 import '../src/components/crm/liveGameDeathProtocolCabinet.css';
 import '../src/components/crm/liveGameTelegram.css';
 import '../src/components/crm/liveGameMobileCenterPriority.css';
+import '../src/components/crm/liveGameSeatDisciplineClearance.css';
 import '../src/components/public/liveBroadcastCompact.css';

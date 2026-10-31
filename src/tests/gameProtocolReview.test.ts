@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -58,7 +58,8 @@ describe('game protocol review model', () => {
 
   it('lists what needs the judge: refused checks first, then what the chronology says was left out', () => {
     const issues = computeIssues({ protocol: protocol(), results: results({ 5: { exit_type: 'killed' }, 7: { exit_type: 'voted_day' }, 9: { exit_type: 'killed' } }) });
-    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+    // (this fixture is a mid-game table with a stand-in winner: the «winner-table» check is covered by its own tests below)
+    expect(issues.filter((issue) => issue.severity === 'error' && issue.id !== 'winner-table')).toEqual([]);
     // the sheriff (#5) was killed on the first night, so his missing check is not asked for either
     expect(issues.map((issue) => issue.id)).not.toContain('sheriff-checks');
     // owner, 2026-10-26: a missing don check is not an error
@@ -144,5 +145,74 @@ describe('protocol window: owner corrections 2026-10-26', () => {
     const issues = computeIssues({ protocol: protocol({ events: [...voteEvents(), ev(1, 'death_protocol', { seat: 5 })] }), results: results({ 7: { exit_type: 'killed' }, 5: { exit_type: 'killed' } }) });
     expect(issues.map((issue) => issue.id)).not.toContain('death-7');
     expect(issues.map((issue) => issue.id)).toContain('death-5');
+  });
+});
+
+describe('the winner must follow from the table (game 24, 2026-10-30)', () => {
+  // roles: black = seats 4 (don), 7, 8 (mafia)
+  const gone = (...seats: number[]) => Object.fromEntries(seats.map((seat) => [seat, { exit_type: 'voted_day' }]));
+  it('black «won» with three reds and two blacks left: the game goes on', () => {
+    const message = winnerTableMessage({ winner_team: 'black', end_reason: 'normal' }, results(gone(1, 2, 3, 6, 8)));
+    expect(message).toMatch(/3 красных и 2 чёрных/);
+    expect(message).toMatch(/игра продолжается/);
+  });
+  it('accepts black with an equal count and a majority, and red with no black left', () => {
+    expect(winnerTableMessage({ winner_team: 'black', end_reason: 'normal' }, results(gone(1, 2, 3, 6, 9, 10)))).toBeNull();
+    expect(winnerTableMessage({ winner_team: 'red', end_reason: 'normal' }, results(gone(4, 7, 8)))).toBeNull();
+  });
+  it('flags a red win while blacks are alive, and a missing winner when the table already decided', () => {
+    expect(winnerTableMessage({ winner_team: 'red', end_reason: 'normal' }, results())).toMatch(/не сходится со столом/);
+    expect(winnerTableMessage({ winner_team: null, end_reason: 'normal' }, results(gone(1, 2, 3, 5, 6, 9, 10)))).toMatch(/побеждают чёрные/);
+  });
+  it('leaves a PPK and incomplete records alone, and reaches the issue list', () => {
+    expect(winnerTableMessage({ winner_team: 'black', end_reason: 'ppk' }, results())).toBeNull();
+    expect(winnerTableMessage({ winner_team: 'black', end_reason: 'normal' }, results({ 1: { role: null, exit_type: null } }))).toBeNull();
+    const state = { protocol: { winner_team: 'black', end_reason: 'normal', votes: [], shots: [], events: [] }, results: results(gone(1, 2, 3, 6, 8)) } as any;
+    expect(computeIssues(state).some((issue) => issue.id === 'winner-table')).toBe(true);
+  });
+});
+
+describe('a removal taken back leaves no trace (owner, 2026-10-31: №5 and №6 were removed by mistake)', () => {
+  it('a cancelled exit is struck out of the circle as if it never happened', () => {
+    const events = [ev(2, 'exit', { seat: 5, value: 'removed' }), ev(2, 'exit', { seat: 6, value: 'removed' }), ev(2, 'restored', { seat: 5 }), ev(2, 'restored', { seat: 6 }), ev(2, 'exit', { seat: 7, value: 'voted_day' })] as any[];
+    expect(exitsOfCircle(events)).toEqual([{ seat: 7, reason: 'voted_day' }]);
+  });
+  it('a removal cancelled in a later circle disappears from the earlier circle too', () => {
+    const events = [ev(2, 'exit', { seat: 5, value: 'removed' }), ev(2, 'exit', { seat: 7, value: 'voted_day' }), ev(3, 'restored', { seat: 5 })] as any[];
+    expect(withoutCancelledExits(events).map((event: any) => `${event.kind}:${event.seat}`)).toEqual(['exit:7']);
+    const circles = buildCircles({ votes: [], shots: [], events } as any);
+    expect(circles.flatMap((circle) => exitsOfCircle(circle.events))).toEqual([{ seat: 7, reason: 'voted_day' }]);
+  });
+  it('an exit that was never cancelled stays', () => {
+    const events = [ev(2, 'exit', { seat: 5, value: 'removed' })] as any[];
+    expect(withoutCancelledExits(events)).toBe(events);
+  });
+});
+
+describe('a shot at a player who already left (protocol check)', () => {
+  it('flags a target voted out on an earlier day or shot on an earlier night', () => {
+    const votes = [{ round_number: 1, day_number: 1, is_revote: false, nominated_seats: [7], vote_counts: { 7: 9 }, outcome: 'single_eliminated', eliminated_seats: [7] }] as any[];
+    const shots = [{ night_number: 1, target_seat: 5, result: 'killed' }, { night_number: 2, target_seat: 7, result: 'killed' }, { night_number: 3, target_seat: 5, result: 'killed' }] as any[];
+    const found = deadTargetShotMessages({ votes, shots } as any);
+    expect(found.map((item) => item.night)).toEqual([2, 3]);
+    expect(found[0].message).toMatch(/№7.*заголосован/);
+    expect(found[1].message).toMatch(/№5.*убит/);
+  });
+  it('accepts a fresh miss without a target and a shot at someone still at the table', () => {
+    expect(deadTargetShotMessages({ votes: [], shots: [{ night_number: 1, target_seat: 0, result: 'miss' }, { night_number: 2, target_seat: 3, result: 'killed' }] } as any)).toEqual([]);
+  });
+});
+
+describe('a mistaken vote-out taken back lists what followed it', () => {
+  it('lists the later nights and votings and marks a shot at the returning player', () => {
+    const votes = [
+      { round_number: 1, day_number: 1, is_revote: false, nominated_seats: [7], vote_counts: { 7: 9 }, outcome: 'single_eliminated', eliminated_seats: [7] },
+      { round_number: 2, day_number: 2, is_revote: false, nominated_seats: [3], vote_counts: { 3: 8 }, outcome: 'single_eliminated', eliminated_seats: [3] },
+    ] as any[];
+    const shots = [{ night_number: 1, target_seat: 0, result: 'miss' }, { night_number: 2, target_seat: 7, result: 'killed' }] as any[];
+    const found = recordsAfterVoting({ votes, shots } as any, 0);
+    expect(found.returning).toEqual([7]);
+    expect(found.lines).toEqual(['Ночь 2: выстрел в №7 (в вернувшегося игрока)', 'Голосование №2 следующего круга: число голосующих и кандидатов нужно проверить']);
+    expect(recordsAfterVoting({ votes, shots } as any, 5)).toEqual({ returning: [], lines: [] });
   });
 });

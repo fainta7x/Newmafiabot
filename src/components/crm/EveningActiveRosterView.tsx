@@ -147,6 +147,28 @@ export default function EveningActiveRosterView({
     }
   };
 
+  /** «Ушёл» / «Вернулся»: a player who left drops out of the seating pickers but stays in the evening's history. */
+  const toggleLeft = async (participant: EveningParticipant) => {
+    if (busyIds.has(participant.id)) return;
+    setBusyIds((current) => new Set(current).add(participant.id));
+    setError('');
+    try {
+      const updated = await api.updateParticipant(participant.id, { left: !participant.left_at });
+      setEvening((current) => current ? {
+        ...current,
+        participants: current.participants.map((item) => item.id === updated.id ? updated : item),
+      } : current);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось отметить уход игрока');
+    } finally {
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(participant.id);
+        return next;
+      });
+    }
+  };
+
   const addSelectedPlayers = async () => {
     if (!evening || !selectedPlayerIds.length || adding) return;
     setAdding(true);
@@ -276,12 +298,13 @@ export default function EveningActiveRosterView({
                 {(participant as any).is_guest ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">{(participant as any).companion_of ? `Идёт с гостем: ${hostName(participant) || '—'}` : <>Гость без профиля{Number((participant as any).plus_count) ? ` +${(participant as any).plus_count}` : ''}{(participant as any).contact_value ? ` · ${guestContactLabel((participant as any).contact_kind)}: ${(participant as any).contact_value}` : ''}</>}</span> : null}
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">В составе</span>
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">Ответ: {getEveningRosterResponseLabel(participant)}</span>
-                <span className={`rounded-md px-1.5 py-0.5 ${arrived ? 'bg-success-soft text-success' : 'bg-surface-2 text-text-secondary'}`}>Явка: {arrived ? 'на месте' : 'не отмечена'}</span>
+                <span className={`rounded-md px-1.5 py-0.5 ${arrived ? 'bg-success-soft text-success' : 'bg-surface-2 text-text-secondary'}`}>Явка: {participant.left_at ? 'ушёл' : arrived ? 'на месте' : 'не отмечена'}</span>
               </span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
           </button>
           {guestContactHref((participant as any).contact_kind, (participant as any).contact_value) ? <a data-testid="guest-contact-link" href={guestContactHref((participant as any).contact_kind, (participant as any).contact_value) || undefined} target="_blank" rel="noreferrer" aria-label={`Написать гостю ${participant.nickname}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-border-soft bg-surface-2 text-text-secondary"><MessageSquare className="h-4 w-4" /></a> : null}
+          {arrived ? <button type="button" data-testid={`evening-left-toggle-${participant.id}`} disabled={rowBusy} onClick={() => void toggleLeft(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-surface-2 px-3 text-[13px] font-bold text-text-secondary disabled:opacity-40">{rowBusy ? '…' : participant.left_at ? 'Вернулся' : 'Ушёл'}</button> : null}
           {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : null}
         </div>;
       })}

@@ -1,3 +1,4 @@
+import { circleTitle } from '../components/crm/gameProtocol/protocolReview.ts';
 import type { LiveBroadcastReplayFrame } from './liveBroadcast.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents.ts';
 import { liveGamePhaseLabel } from './liveGameEventText.ts';
@@ -19,7 +20,7 @@ export function buildReplayChapters(data: {
   if (data.replay_frames?.length) {
     data.replay_frames.forEach(({ state }, step) => add(`${state.roundNumber}:${state.phaseKey}`, state.phaseTitle || 'Состояние игры', step));
   } else if (data.engine_events?.length) {
-    [...data.engine_events].sort((a, b) => a.seq - b.seq).forEach((event, step) => add(`${event.round}:${event.phase}`, `${liveGamePhaseLabel(event.phase)} · круг ${Math.max(0, event.round - 1)}`, step));
+    [...data.engine_events].sort((a, b) => a.seq - b.seq).forEach((event, step) => add(`${event.round}:${event.phase}`, `${liveGamePhaseLabel(event.phase)} · ${circleTitle(Math.max(0, event.round - 1), { events: data.engine_events })}`, step));
   } else {
     data.events.forEach((event, step) => add(`${event.round ?? ''}:${event.type}`, event.title, step));
   }

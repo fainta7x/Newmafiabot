@@ -1,4 +1,5 @@
 import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
+import { circleNameByTableSize } from '../lib/circleNames.ts';
 import { initialLiveRosterEvents, liveRosterCorrectionEvents, restoreJournalRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
 import { applyLiveRoleCorrectionEvents, liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
 import { advanceLiveEngineJournal, restoreLiveEngineJournal, type LiveEngineJournal } from '../lib/liveEngineJournal.ts';
@@ -1004,6 +1005,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (!current || !voter?.alive) return;
     const nominee = current.nominated_seats[currentVotingNomineeIndex];
     if (!nominee) return;
+    // Misclick protection (owner, 2026-10-31): a hand already given to another candidate is not silently moved.
+    if (votesByPlayer[voterSlot] !== undefined && votesByPlayer[voterSlot] !== nominee) {
+      showToast(`#${voterSlot} уже проголосовал за #${votesByPlayer[voterSlot]}`, 'info');
+      return;
+    }
     saveSnapshot();
     setVotesByPlayer((previous) => {
       const next = { ...previous };
@@ -1012,6 +1018,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       updateCurrentRoundVotes(next);
       return next;
     });
+  };
+
+  /** Backspace in a voting (owner, 2026-10-31): takes back the last vote. Returns false when there is nothing to erase. */
+  const eraseLastVote = (): boolean => {
+    if (phase !== 'day_voting' || votingStage !== 'collecting' || !Object.keys(votesByPlayer).length || historyStack.length === 0) return false;
+    handleUndoAction();
+    return true;
   };
 
   /** One button for the zero-round «попил»: the judge names the two split players, the hands follow the club scheme. */
@@ -1206,7 +1219,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (!current) return;
     saveSnapshot();
     const exitReason: NonNullable<ActivePlayerState['exit_reason']> = votedOutExitReason(current.day_number);
-    eliminatePlayer(slot, `Голосование (День ${roundNumber})`, exitReason);
+    eliminatePlayer(slot, `Голосование (${circleNameByTableSize(roundNumber - 1, activePlayers.filter((p) => p.alive).length)})`, exitReason);
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
       ? { ...round, outcome: 'single_eliminated', eliminated_seats: [slot] }
       : round));
@@ -1312,7 +1325,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
     if (result.resolvedOutcome === 'all_tied_eliminated') {
       const exitReason: NonNullable<ActivePlayerState['exit_reason']> = votedOutExitReason(current.day_number);
-      result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (День ${roundNumber})`, exitReason));
+      result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (${circleNameByTableSize(roundNumber - 1, activePlayers.filter((p) => p.alive).length)})`, exitReason));
       const farewellQueue = buildVotingFarewellQueue(result.eliminatedSeats, current.nominated_seats);
       setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; спорные ${winners.map((s) => `#${s}`).join(', ')} заголосованы. Прощальные минуты: ${farewellQueue.map((s) => `#${s}`).join(', ')}.` }]);
       setVotingStage('resolved');
@@ -1898,6 +1911,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     reveal: handleRevealFromMenu,
     openReveals: () => setRevealPanelOpen(true),
     undo: handleUndoAction,
+    eraseLastVote,
     quickSplit: handleQuickSplit,
     toast: (message) => showToast(message, 'info'),
   });

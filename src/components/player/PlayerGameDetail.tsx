@@ -256,7 +256,7 @@ export default function PlayerGameDetail({
       item.score.ci_points ? { label: 'CI', value: item.score.ci_points } : null,
       item.score.disciplinary_penalty_points ? { label: 'дисциплина', value: -item.score.disciplinary_penalty_points } : null,
     ].filter(Boolean) as Array<{ label: string; value: number }>;
-    const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
+    const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? 'Нулевой круг' : null].filter(Boolean) as string[];
     // One seat as on the result blank (owner, 2026-10-27: «в таком формате… всё расписывалось в протоколах игры»): who and what
     // role, the result, Elo and every line of its breakdown; the rest of the details open below.
     const events = [

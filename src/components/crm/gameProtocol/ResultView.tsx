@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { winnerTableMessage } from './protocolReview';
 import { AlertTriangle, ChevronDown, UserRoundCog } from 'lucide-react';
 import { api as backend, type Player } from '../../../lib/api';
 import { clubGamesApi } from '../../../lib/clubGamesApi';
@@ -82,6 +83,7 @@ export const WinnerSection: React.FC<Props> = ({ api }) => {
   const { protocol, results, locked } = api;
   const ppk = protocol.end_reason === 'ppk';
   const culprit = results.find((player) => player.participant_id === protocol.ppk_culprit_participant_id);
+  const tableMessage = winnerTableMessage(protocol, results);
   return (
     <div className="space-y-3">
       <section aria-label="Победитель" className="space-y-2">
@@ -95,6 +97,8 @@ export const WinnerSection: React.FC<Props> = ({ api }) => {
           })}
         </div>
       </section>
+
+      {tableMessage ? <Card tone="warn" className="flex items-start gap-3" data-testid="winner-table-warning"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-100" aria-hidden="true" /><div className="min-w-0 flex-1 text-[13px] leading-5 text-amber-50">{tableMessage}</div></Card> : null}
 
       {ppk ? (
         <Card tone="warn" className="flex items-center gap-3"><AlertTriangle className="h-5 w-5 shrink-0 text-amber-100" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="text-sm font-semibold">Игра закончилась ППК</div><div className="text-[12px] text-white/60">Виновник: #{culprit?.seat_number} {culprit?.display_name}. Победитель определён автоматически.</div></div>{!locked ? <Btn kind="ghost" className="px-3 text-[13px]" onClick={() => api.cancelPpk()}>Отменить</Btn> : null}</Card>

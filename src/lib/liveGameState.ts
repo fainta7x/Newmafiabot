@@ -1,4 +1,5 @@
 import { GAME_ROLES, ENGINE_TEAM_NAMES, normalizeGameRole, normalizeWinnerTeam, teamOfPlayer } from '../shared/gameRoles.ts';
+import { circleNameByTableSize } from './circleNames.ts';
 export type LiveGameStatePlayer = {
   seat: number;
   nickname: string;
@@ -52,8 +53,8 @@ const toSeat = (value: unknown): number | null => {
   return Number.isInteger(seat) && seat >= 1 && seat <= 10 ? seat : null;
 };
 
-const phaseTitle = (phase: string, round: number): string => {
-  const dayTitle = round <= 1 ? 'Нулевой круг' : `День ${round - 1}`;
+const phaseTitle = (phase: string, round: number, alive: number): string => {
+  const dayTitle = circleNameByTableSize(round - 1, alive);
   if (phase === 'setup') return 'Подготовка';
   if (phase === 'zero_night') return 'Нулевая ночь';
   if (phase === 'day_speeches') return `${dayTitle} · речи`;
@@ -212,7 +213,7 @@ export const buildLiveGameStateView = (rawSnapshot: unknown): LiveGameStateView 
     ? `${Math.max(0, Math.round(timerValue))}с${snapshot.isTimerRunning ? ' · идёт' : ' · пауза'}`
     : null;
 
-  let phaseDetail = phaseTitle(phase, roundNumber);
+  let phaseDetail = phaseTitle(phase, roundNumber, alivePlayers.length);
   if (phase === 'zero_night') phaseDetail = zeroNightDetail(snapshot.zeroNightSubPhase);
   else if (phase === 'day_speeches') phaseDetail = currentSpeakerSeat ? `Сейчас говорит #${currentSpeakerSeat}` : 'Очередь дневных речей';
   else if (phase === 'day_voting') phaseDetail = votingStageLabel(snapshot.votingStage);
@@ -266,7 +267,7 @@ export const buildLiveGameStateView = (rawSnapshot: unknown): LiveGameStateView 
   const lastLog = asObject(logs[logs.length - 1]);
 
   return {
-    phaseTitle: phaseTitle(phase, roundNumber),
+    phaseTitle: phaseTitle(phase, roundNumber, alivePlayers.length),
     phaseDetail,
     nextStep: deriveNextStep(snapshot, playersRaw, roundNumber),
     roundNumber,

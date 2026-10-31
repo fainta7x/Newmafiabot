@@ -21,6 +21,15 @@ const participant = (id: string, patch: Partial<EveningParticipant> = {}): Eveni
   response_status: patch.response_status ?? 'unanswered',
 });
 
+describe('a player who left the evening', () => {
+  it('is no longer offered for seating but a returning player is', () => {
+    const present = participant('a', { attendance_status: 'attended', arrival_status: 'on_time' });
+    expect(isEveningGameEligible(present)).toBe(true);
+    expect(isEveningGameEligible({ ...present, left_at: '2026-10-31T20:00:00.000Z' })).toBe(false);
+    expect(isEveningGameEligible({ ...present, left_at: null })).toBe(true);
+  });
+});
+
 describe('evening roster without hard table binding', () => {
   it('allows an actually present participant regardless of table_id', () => {
     expect(isEveningGameEligible(participant('A', { table_id: null, attendance_status: 'attended' }))).toBe(true);

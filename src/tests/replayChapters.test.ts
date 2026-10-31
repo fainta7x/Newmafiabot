@@ -12,7 +12,7 @@ it('matches the engine renderer order, including a return to an earlier phase', 
   const event = (seq: number, phase: string) => ({ seq, phase, round: 2 }) as LiveGameEvent;
   const chapters = buildReplayChapters({ engine_events: [event(4, 'day_speeches'), event(1, 'day_speeches'), event(3, 'day_voting'), event(2, 'day_speeches')], events: [] });
   expect(chapters.map(chapter => chapter.step)).toEqual([0, 2, 3]);
-  expect(chapters[1].label).toBe('Голосование · круг 1');
+  expect(chapters[1].label).toBe('Голосование · Десятка после промаха');
 });
 
 it('keeps a legacy-only record on its own saved timeline and does not invent missing chapters', () => {

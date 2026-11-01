@@ -70,7 +70,7 @@ export const PAGES = [
   ['live-broadcast-reveal', '/e2e/live-broadcast-reveal.html', 'broadcast'],
 ];
 
-const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [360, 640, true], [390, 844, true]];
+const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [1920, 1089, false], [360, 640, true], [390, 844, true]];
 const WIDE_FONT = ':root{--font-sans:"DejaVu Sans",sans-serif}html,body{font-family:"DejaVu Sans",sans-serif}*{letter-spacing:.04em!important}';
 
 for (const [width, height, wideFont] of VIEWPORTS) {

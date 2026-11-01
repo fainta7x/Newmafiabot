@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { auditScreen } from './support/layoutAudit.mjs';
 
 // «Рассадка на вечер» (owner, 2026-10-31): a chip per game, a card per table with seat tiles, a sheet to pick a player.
-const VIEWPORTS = [[360, 640], [390, 844], [1366, 768], [1440, 900]];
+const VIEWPORTS = [[360, 640], [390, 844], [1366, 768], [1440, 900], [1920, 1089]];
 
 for (const [width, height] of VIEWPORTS) {
   test(`evening seating at ${width}x${height}`, async ({ page }, info) => {

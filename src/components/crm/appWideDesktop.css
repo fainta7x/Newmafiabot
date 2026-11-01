@@ -1,0 +1,8 @@
+/* A proper desktop for 1920×1089 on EVERY screen (owner, 2026-11-01: «разрешение нужно на всё приложение… тексты, картинки и кнопки
+   нормальными»). The rem unit scales text, buttons, paddings and the rem-based container widths together; phones and ordinary
+   laptops keep 16 px. The live game keeps 16 px: its board has its own pixel geometry (see `liveGameWideDesktop.css`). */
+@media (min-width: 1700px) and (min-height: 980px) {
+  html { font-size: 20px; }
+  html:has(.evening-live-engine-shell),
+  html:has(.tournament-live-shell) { font-size: 16px; }
+}

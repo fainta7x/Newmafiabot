@@ -1,5 +1,16 @@
 # Audit log
 
+## 2026-11-01 — Elo balance simulation, verdict (owner request: «симуляция… нужно ли подбалансировать»)
+
+Script: `src/scripts/eloBalanceSimulation.ts` (real `calculateCanonicalEloGame`; one player at an equal-level table; contribution levels from the real club data, win chances are stated assumptions). Nothing in the formulas was changed.
+
+- Elo per game (win / loss) for an average personal game: red **+35 / −15**, black **+15 / −35**. Break-even win rate: red **30%**, black **70%** (the design: reds are expected to win 30% at an equal level).
+- Good play adds about +16 for both teams; bad play costs red −12 and black only −4 (blacks rarely get negative personal points in the data: p10 −4 against −12).
+- «Good but loses» / «bad but wins» (play level × result): red good+lose **+1**, black good+lose **−19**; red bad+win **+23**, black bad+win **+11**.
+- Profiles over 100 games (a player is red 70% of the time), good play = +8 points to the own team's win chance, reds win 30%: good red + bad black **+1176**, bad red + good black **−517**, good in both **+2016**, bad in both **−1357**, average in both **+12** (balanced at the design win rates).
+- With the CLUB's real win rates (reds 38.5%, blacks 61.8%, 26 games): an average player gains **+4.5 per game as red and −4.2 per game as black**, so a regular red drifts up and a black down although both play averagely. This is the owner's impression, and it comes from one thing: the formula expects blacks to win 70%, the club's blacks win ~62%.
+- Caveat: 26 games is a small sample (blacks won about 16 of them; 70% would be about 18; the difference is not statistically significant). Verdict: **the formulas are internally balanced and play profiles are ranked sensibly; the only measurable imbalance is the calibration of the expected black win rate (70%) against the club's results (62%)**. Recommendation: change nothing now; re-run the script on 60–100 games; if the black win rate stays below ~65%, move `RED_EQUAL_EXPECTATION` from 0.30 to about 0.35 (red +32.5/−17.5, black +17.5/−32.5; break-even black 65%). Separately: raise the visible personal contribution of blacks (their own play) — the owner's decision on which actions count is pending.
+
 ## 2026-11-01 — Elo balance of the black team (owner's question; read-only production data, 26 completed club games, 255 player rows)
 
 Source: `GET /api/games/:id/elo-blank` for every completed game. Nothing was written.

@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-11-01 — Elo balance of the black team (owner's question; read-only production data, 26 completed club games, 255 player rows)
+
+Source: `GET /api/games/:id/elo-blank` for every completed game. Nothing was written.
+
+- Average Elo per game: red win +43.0 (n=69), red loss −16.1 (110), black win +22.3 (47), black loss −37.8 (29). Win rate in the data: red 38.5%, black 61.8%. Average per player per game: red +6.7, black −0.6. So the black team does **not** drift down on the totals here (the club's blacks win more often), but its win bonus is about half of the red one and its loss is more than twice as heavy.
+- Personal contribution (`eloContribution`, the part for the player's own play): zero for 38% of the black players against 28% of the reds. The lines a black player gets are almost only «Записан красным у …» / «Не записан у …» / «Записан чёрным у …» (how OTHER players recorded him), «Ушёл на девятке» and discipline; the reds get lines for their own votes, checks, accuracy streaks and the will. The owner's reading is confirmed: a black player's own play is hardly visible in his personal points. Which black actions should count is the owner's decision (the formulas are not changed before it).
+
 ## 2026-11-01 — protocol window stress test (owner request)
 
 Scope: `src/tests/protocolStress.test.tsx` drives the real editing hook (`useProtocolEditing`) with 200 seeded random sequences of 120 manual edits each (add/delete/change nights, add/delete/edit/confirm/reset votings, exits, judge removal and its cancel, fouls and tech fouls, first killed, winner, PPK and its cancel, free chronology events) and checks after every edit: no exception, ten unique seats, valid exits, consecutive night numbers, the review (`computeIssues`, circles, titles, winner/table, voting checks) never throws, the server's save gate (`canonicalizeClubGameSave`) accepts the draft and saving twice changes nothing; plus 150 random chronologies through the timeline readers, plus owner-rule cases.

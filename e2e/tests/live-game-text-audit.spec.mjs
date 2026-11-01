@@ -144,7 +144,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
 // The approved alternative deal must pass the same four-size gate as physical dealing.
 for (const [width,height,wideFont] of VIEWPORTS) {
   test(`virtual role deal text audit at ${width}x${height}${wideFont?' wide':''}`,async({page},info)=>{
-    test.setTimeout(60_000); // Ten reveals/confirmations, manual seat choice, screenshots and the music notice, like the physical audit's bounded budget.
+    test.setTimeout(120_000); // Ten reveals (each waits the 1 s card timer)/confirmations, manual seat choice, screenshots and the music notice, like the physical audit's bounded budget.
     await page.addInitScript(()=>sessionStorage.setItem('role_deal_card_seconds','1'));
     await page.setViewportSize({width,height});
     if(wideFont)await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent='*{font-family:"DejaVu Sans",sans-serif!important;letter-spacing:.04em!important}';document.head.appendChild(style);}));

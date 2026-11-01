@@ -44,8 +44,8 @@ function makeDeck(size: number): Card[] {
   return deck;
 }
 
-/** Owner, 2026-11-01: «Покупка роли» costs the player this many tokens (server: ROLE_PURCHASE_PRICE). */
-const ROLE_PURCHASE_PRICE = 150;
+/** Owner, 2026-11-01: a bought role (card) costs 150 roubles (server: ROLE_PURCHASE_PRICE_RUB). */
+const ROLE_PURCHASE_PRICE_RUB = 150;
 export const DEFAULT_CARD_SECONDS = 10;
 const configuredCardSeconds = (): number => {
   try {
@@ -126,7 +126,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
       if (serverGameId) {
         const snapshot = await clubGamesApi.roleDealBuy(serverGameId, { seat: active, role, version });
         updateFromServer(snapshot);
-        seatPlayerNote = snapshot.charged ? `Со счёта игрока №${active} списано ${snapshot.charged} жетонов.` : `У игрока №${active} нет профиля — списывать нечего.`;
+        seatPlayerNote = `Покупка ${snapshot.priceRub} ₽ записана за игроком №${active}.`;
         const next = orderedSeats.find((entry) => !snapshot.history.some((done) => done.seat === entry.seat_number));
         if (next) setSeat(next.seat_number);
       } else {
@@ -296,7 +296,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
             )}
             {buying && !showRole && (
               <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
-                <p className="text-xs text-white/70">Игрок №{current?.seat_number} покупает роль{serverGameId ? ` (−${ROLE_PURCHASE_PRICE} жетонов)` : ''}. Карта этой роли уйдёт из колоды.</p>
+                <p className="text-xs text-white/70">Игрок №{current?.seat_number} покупает роль{serverGameId ? ` (${ROLE_PURCHASE_PRICE_RUB} ₽)` : ''}. Карта этой роли уйдёт из колоды.</p>
                 <div className="grid grid-cols-4 gap-2">
                   {BUY_ROLES.map((role) => (
                     <button key={role} type="button" disabled={busy || roleLeft(role) < 1} onClick={() => { void buyRole(role); }} aria-label={`Купить роль ${GAME_ROLES[role].label}`} className="min-w-0 disabled:opacity-30">

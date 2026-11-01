@@ -1,4 +1,4 @@
-import { circleTitle } from '../components/crm/gameProtocol/protocolReview.ts';
+import { circleTitle } from './circleTitle.ts';
 import { GAME_ROLES, normalizeGameRole } from '../shared/gameRoles.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 

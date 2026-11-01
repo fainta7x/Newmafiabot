@@ -1,4 +1,4 @@
-import { circleTitle } from '../components/crm/gameProtocol/protocolReview.ts';
+import { circleTitle } from './circleTitle.ts';
 import type { LiveBroadcastReplayFrame } from './liveBroadcast.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents.ts';
 import { liveGamePhaseLabel } from './liveGameEventText.ts';

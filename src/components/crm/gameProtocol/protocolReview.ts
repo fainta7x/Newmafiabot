@@ -337,6 +337,20 @@ export const voterCountIssues = (protocol: Pick<TournamentGameProtocolData, 'vot
   return out;
 };
 
+/** The kinds of record the judge may move to another circle with a button (owner, 2026-11-01); the many votes and night steps are not listed one by one. */
+export const MOVABLE_EVENT_KINDS = ['exit', 'restored', 'foul', 'tech_minor', 'tech_major', 'nomination', 'reveal', 'announced_check', 'don_check', 'sheriff_check', 'shot_target', 'zero_round_break'] as const;
+
+/**
+ * Moves one record of the chronology to another circle (`circleIndex` 0 = the zero circle = engine round 1). The record goes to the end of
+ * that circle; nothing else is changed or erased — what no longer agrees is highlighted by the review (owner, 2026-11-01).
+ */
+export const moveEventToCircle = (events: LiveGameEvent[], seq: number, circleIndex: number): LiveGameEvent[] => {
+  const target = events.find((event) => event.seq === seq);
+  if (!target || target.round === circleIndex + 1) return events;
+  const nextSeq = events.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+  return [...events.filter((event) => event.seq !== seq), { ...target, round: circleIndex + 1, seq: nextSeq }];
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];

@@ -5,12 +5,13 @@ import type { VotingRound } from '../../../shared/tournamentVoting';
 import { determineVotingResult } from '../../../shared/tournamentVoting';
 import { zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
 import { moveNominatedSeat, setTableLeaveVotes, setVotingSeatCount, toggleNominatedSeat, updateEligibleVoters } from '../tournaments/protocol/protocolVotingEditorUtils';
+import { describeLiveGameEvents } from '../../../lib/liveGameEventText';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
 import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -27,6 +28,7 @@ type Sheets =
   | { type: 'round'; round: number }
   | { type: 'shot'; index: number }
   | { type: 'first-killed' }
+  | { type: 'move'; seq: number }
   | { type: 'check'; kind: 'don' | 'sheriff' }
   | null;
 
@@ -68,6 +70,29 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const lastCircle = circles[circles.length - 1];
   const canContinue = !api.locked && decided === null && protocol.end_reason !== 'ppk' && circle.index === lastCircle.index;
   const nextIsNight = lastCircle.shotIndex < 0 && lastCircle.index === (protocol.shots || []).length;
+  // «Записи круга»: a record made in the wrong circle is moved with a button; nothing else is erased (owner, 2026-11-01).
+  const movable = useMemo(() => {
+    const list = circle.events.filter((event) => (MOVABLE_EVENT_KINDS as readonly string[]).includes(event.kind));
+    const lines = new Map(describeLiveGameEvents(list, (seat) => `№${seat} ${nameOf(seat)}`.trim()).map((line) => [line.seq, line.text]));
+    return list.map((event) => ({ event, text: lines.get(event.seq) || event.kind }));
+  }, [circle, api.results]);
+  const moveSheet = () => {
+    if (!sheet || sheet.type !== 'move') return null;
+    const item = movable.find((entry) => entry.event.seq === sheet.seq);
+    if (!item) return null;
+    return (
+      <Sheet open title="Перенести запись" subtitle={item.text} onClose={close}>
+        <div className="space-y-2 pb-2 pt-1" role="group" aria-label="Круг, в который перенести">
+          {circles.map((target) => (
+            <Btn key={target.index} kind={target.index === circle.index ? 'soft' : 'ghost'} block disabled={api.locked || target.index === circle.index}
+              onClick={() => { api.setEvents((list: LiveGameEvent[]) => moveEventToCircle(list, item.event.seq, target.index)); close(); onCircle(target.index); }}>
+              {target.title}{target.index === circle.index ? ' · сейчас здесь' : ''}
+            </Btn>
+          ))}
+        </div>
+      </Sheet>
+    );
+  };
   const close = () => setSheet(null);
   const circleIssues = issues.filter((issue) => issue.circle === circle.index);
 
@@ -470,6 +495,20 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         </Card>
       ) : null}
 
+      {movable.length ? (
+        <Card className="space-y-2" data-testid="circle-records">
+          <Eyebrow>Записи круга</Eyebrow>
+          <ul className="space-y-1.5">
+            {movable.map(({ event, text }) => (
+              <li key={event.seq} className="flex items-center justify-between gap-3 text-[13px] leading-5">
+                <span className="min-w-0 flex-1 break-words text-white/80">{text}</span>
+                <Btn kind="ghost" disabled={api.locked || circles.length < 2} onClick={() => setSheet({ type: 'move', seq: event.seq })} aria-label={`Перенести запись: ${text}`}>Перенести</Btn>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
       {canContinue ? (
         <Card className="space-y-2" data-testid="continue-game">
           <Eyebrow>Игра по столу не закончена</Eyebrow>
@@ -487,6 +526,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
       {shotSheet()}
       {firstKilledSheet()}
       {checkSheet()}
+      {moveSheet()}
     </div>
   );
 };

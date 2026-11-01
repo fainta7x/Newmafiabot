@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProtocolEditing } from '../components/crm/gameProtocol/useProtocolEditing.ts';
-import { buildCircles, circleTitle, computeIssues, winnerTableMessage } from '../components/crm/gameProtocol/protocolReview.ts';
+import { buildCircles, circleTitle, computeIssues, moveEventToCircle, winnerTableMessage } from '../components/crm/gameProtocol/protocolReview.ts';
 import { deriveExitTypes } from '../components/crm/tournaments/protocol/protocolStateUtils.ts';
 import { determineVotingResult } from '../shared/tournamentVoting.ts';
 import { canonicalizeClubGameSave } from '../server/services/clubGameProtocolService.ts';
@@ -51,6 +51,7 @@ const OPS: Op[] = [
   { name: 'winner', run: (api, _s, r) => api.setWinner(pick(r, ['red', 'black', null])) },
   { name: 'ppk', run: (api, s, r) => api.causePpk(pick(r, s.results)) },
   { name: 'cancelPpk', run: (api) => api.cancelPpk() },
+  { name: 'moveEvent', run: (api, s, r) => { const list = s.protocol.events || []; if (list.length) { const e = pick(r, list) as any; api.setEvents((cur: any[]) => moveEventToCircle(cur, e.seq, Math.floor(r() * 5))); } } },
   { name: 'exitEvent', run: (api, _s, r) => { const sd = seat(r); api.setEvents((list: any[]) => [...list, { seq: list.length + 1, at: '', round: 1 + Math.floor(r() * 4), phase: 'day_voting', kind: pick(r, ['exit', 'restored', 'foul', 'nomination', 'vote']), seat: sd, value: pick(r, ['removed', 'voted_day', 'killed']) }]); } },
 ];
 

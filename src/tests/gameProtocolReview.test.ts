@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, voterCountIssues, tableDecision, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, moveEventToCircle, voterCountIssues, tableDecision, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -235,5 +235,23 @@ describe('voter counts against the table are only highlighted (owner, 2026-11-01
     expect(tableDecision(results({ 4: { exit_type: 'voted_day' }, 7: { exit_type: 'voted_day' }, 8: { exit_type: 'voted_day' } }))).toBe('red');
     expect(tableDecision(results({ 1: { exit_type: 'voted_day' }, 2: { exit_type: 'voted_day' }, 3: { exit_type: 'voted_day' }, 5: { exit_type: 'voted_day' }, 6: { exit_type: 'voted_day' }, 9: { exit_type: 'voted_day' }, 10: { exit_type: 'voted_day' } }))).toBe('black');
     expect(tableDecision(results({ 1: { role: null, exit_type: null } }))).toBeUndefined();
+  });
+});
+
+describe('moving a record to another circle (owner, 2026-11-01: «кнопкой»)', () => {
+  it('moves only that record, to the end of the target circle, and erases nothing', () => {
+    const events = [ev(2, 'exit', { seat: 5, value: 'removed' }), ev(2, 'foul', { seat: 3, value: 1 }), ev(3, 'foul', { seat: 4, value: 1 })] as any[];
+    const moved = moveEventToCircle(events, events[0].seq, 2);
+    expect(moved).toHaveLength(3);
+    expect(moved.filter((event: any) => event.round === 3).map((event: any) => `${event.kind}:${event.seat}`)).toEqual(['foul:4', 'exit:5']);
+    expect(moved.find((event: any) => event.kind === 'foul' && event.seat === 3).round).toBe(2);
+    expect(moveEventToCircle(events, events[0].seq, 1)).toBe(events); // already there
+    expect(moveEventToCircle(events, 9999, 0)).toBe(events); // unknown record
+  });
+  it('the circle titles follow the moved record (a removal in another circle changes the table)', () => {
+    const base = { votes: [], shots: [] } as any;
+    const before = [ev(2, 'exit', { seat: 5, value: 'voted_day' })] as any[];
+    const after = moveEventToCircle(before, before[0].seq, 3);
+    expect(buildCircles({ ...base, events: after } as any).length).toBeGreaterThan(buildCircles({ ...base, events: before } as any).length);
   });
 });

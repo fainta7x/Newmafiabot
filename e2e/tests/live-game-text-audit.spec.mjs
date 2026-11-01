@@ -45,7 +45,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('setup');
       await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
       await check('deal-music');
-      await page.getByRole('button', { name: /Начать раздачу/ }).click();
+      await page.getByTestId('physical-role-deal-start').click();
       await check('role-deal');
       for (const [index, role] of ROLE_SEQUENCE.entries()) {
         await page.getByRole('button', { name: new RegExp(role) }).click();

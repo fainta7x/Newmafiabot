@@ -1,4 +1,6 @@
 import { appendLiveGameEvents } from '../lib/liveGameEventLog.ts';
+import { EveningDeathProtocolOverlay } from './crm/EveningDeathProtocolOverlay';
+import { emptyDeathProtocolSelection, normalizeDeathProtocolSelection, readStoredDeathProtocols, storeDeathProtocol, type DeathProtocolSelection } from '../lib/liveDeathProtocol';
 import { circleNameByTableSize } from '../lib/circleNames.ts';
 import { initialLiveRosterEvents, liveRosterCorrectionEvents, restoreJournalRosterIdentity, type LiveRosterIdentity } from '../lib/liveRosterCorrections.ts';
 import { applyLiveRoleCorrectionEvents, liveRoleCorrectionEvents, projectLiveRoleSnapshot, type LiveRoleAssignments } from '../lib/liveRoleCorrections.ts';
@@ -132,6 +134,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
   const [pendingDisciplineConfirmation, setPendingDisciplineConfirmation] = useState<PendingDisciplineConfirmation | null>(null);
   const [pendingWinner, setPendingWinner] = useState<'Красные' | 'Чёрные' | null>(null);
+  // «Завещание» of a player voted out: the same red / black / sheriff marks as the death protocol, asked after his farewell minute
+  // (owner, 2026-11-01). Club evening games only; the guided training has its own scripted flow.
+  const [votingWill, setVotingWill] = useState<{ slot: number; value: DeathProtocolSelection } | null>(null);
+  const votingWillEnabled = !trainingRoles && Boolean(sessionKey?.startsWith('club:'));
 
   const [protocolMarkers, setProtocolMarkers] = useState<LiveProtocolMarkers>(createEmptyLiveProtocolMarkers());
   // «Вскрытие»: who claimed to be the Sheriff and which checks they announced (the judge's hand record).
@@ -1200,6 +1206,20 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const advanceVotingFarewell = () => {
+    const willSlot = votingFarewellQueue[votingFarewellIndex];
+    if (votingWillEnabled && willSlot !== undefined && votingWill === null) {
+      setVotingWill({ slot: willSlot, value: readStoredDeathProtocols()[willSlot] || emptyDeathProtocolSelection() });
+      return;
+    }
+    proceedVotingFarewell();
+  };
+  const confirmVotingWill = () => {
+    if (!votingWill) return;
+    storeDeathProtocol(votingWill.slot, normalizeDeathProtocolSelection(votingWill.value));
+    setVotingWill(null);
+    proceedVotingFarewell();
+  };
+  const proceedVotingFarewell = () => {
     saveSnapshot();
     const nextIndex = votingFarewellIndex + 1;
     if (nextIndex < votingFarewellQueue.length) {
@@ -1896,7 +1916,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const hotkeys = useLiveGameHotkeys({
     enabled: !trainingRoles && phase !== 'setup',
     blocked: actionPlayerSlot !== null || pendingDisciplineConfirmation !== null || pendingWinner !== null
-      || activeBestMoveSource !== null || postNightStage === 'death_protocol' || revealPanelOpen,
+      || activeBestMoveSource !== null || postNightStage === 'death_protocol' || revealPanelOpen || votingWill !== null,
     seats: activePlayers.map((player) => player.slot_num),
     aliveSeats: activePlayers.filter((player) => player.alive).map((player) => player.slot_num),
     tapPhase: (phase === 'day_voting' && votingStage === 'collecting') || nightTapPhase,
@@ -1940,6 +1960,20 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         helpOpen={hotkeys.helpOpen}
         onCloseHelp={hotkeys.closeHelp}
       />
+      {votingWill ? (
+        <EveningDeathProtocolOverlay
+          killedSlot={votingWill.slot}
+          killedName={activePlayers.find((player) => player.slot_num === votingWill.slot)?.nickname || `Игрок ${votingWill.slot}`}
+          heading="Завещание"
+          value={votingWill.value}
+          onChange={(value) => setVotingWill((current) => (current ? { ...current, value } : current))}
+          onConfirm={confirmVotingWill}
+          onBack={() => setVotingWill(null)}
+          confirmLabel="Сохранить → дальше"
+          backLabel="← Прощальная речь"
+          tableSize={activePlayers.length}
+        />
+      ) : null}
       <WinnerConfirmationOverlay
         winner={pendingWinner}
         canUndo={historyStack.length > 0}

@@ -271,6 +271,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(farewellAction.getByRole('button', { name: 'Выставить', exact: true })).toHaveCount(0);
     await farewellAction.getByRole('button', { name: '×', exact: true }).click();
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
+    await page.getByRole('button', { name: 'Сохранить → дальше', exact: true }).click(); // the will of the player voted out
 
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
     const eliminatedIdentity = page.locator('.evening-live-identity[data-seat="2"][data-alive="false"]');
@@ -320,7 +321,7 @@ test.describe('Live Game browser stabilization', () => {
     await attachViewport(page, testInfo, '07-death-protocol.png');
     await page.getByRole('button', { name: 'Сохранить → день', exact: true }).click();
 
-    await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
+    await expect(centerPanel(page).getByText(/Десятка|Девятка|Восьмёрка/).first()).toBeVisible(); // official circle name (owner, 2026-10-26)
     await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
     await expect(eliminatedAvatar).toBeVisible();
     await expectNoHorizontalOverflow(page, 'day 1');
@@ -375,10 +376,10 @@ test.describe('Live Game browser stabilization', () => {
     await removedOne.getByRole('button', { name: '×', exact: true }).click();
 
     let techAction = await openPlayerAction(page, 2);
-    await techAction.getByRole('button', { name: /Малый тех/ }).click();
+    await techAction.getByRole('button', { name: 'Малый тех', exact: true }).click();
     techAction = await openPlayerAction(page, 2);
     await expect(techAction.getByText(/Малый тех: 1/)).toBeVisible();
-    await techAction.getByRole('button', { name: /Малый тех/ }).click();
+    await techAction.getByRole('button', { name: 'Малый тех', exact: true }).click();
     const techConfirm = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Удаление по второму техфолу' }).first();
     await expect(techConfirm).toBeVisible();
     await techConfirm.getByRole('button', { name: 'Подтвердить техфол', exact: true }).click();
@@ -451,8 +452,10 @@ test.describe('Live Game browser stabilization', () => {
 
     await expect(centerPanel(page).getByText('Последняя речь #2', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Последняя речь #3', exact: true }).click();
+    await page.getByRole('button', { name: 'Сохранить → дальше', exact: true }).click(); // the will of the first player voted out
     await expect(centerPanel(page).getByText('Последняя речь #3', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
+    await page.getByRole('button', { name: 'Сохранить → дальше', exact: true }).click(); // the will of the player voted out
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
   });
 
@@ -463,7 +466,7 @@ test.describe('Live Game browser stabilization', () => {
     await attachViewport(page, testInfo, '15-recovery-banner.png');
 
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
-    await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
+    await expect(centerPanel(page).getByText(/Десятка|Девятка|Восьмёрка/).first()).toBeVisible(); // official circle names
     await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
     await expect(page.getByText('Прерванная игра восстановлена', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'restored Day 1');

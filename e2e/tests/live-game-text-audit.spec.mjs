@@ -102,6 +102,9 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'Подтвердить лучший ход', exact: true }).click();
       await check('last-speech');
       await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
+      // The will of the player voted out (owner, 2026-11-01): the same red / black / sheriff marks as the death protocol.
+      await check('voting-will');
+      await page.getByRole('button', { name: 'Сохранить → дальше', exact: true }).click();
       await check('night');
       await clickOptional(page.getByRole('button', { name: /Включите музыку/ }));
       await page.getByRole('button', { name: 'Отстрел', exact: true }).click();

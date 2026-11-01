@@ -13,7 +13,12 @@ import {
 interface EveningDeathProtocolOverlayProps {
   killedSlot: number;
   killedName: string;
-  timeLeft: number;
+  /** Without it the timer is not shown (the will of a player voted out has no timer). */
+  timeLeft?: number;
+  /** The screen's title: «Протокол убитого» at night, «Завещание» for a player voted out (owner, 2026-11-01). */
+  heading?: string;
+  confirmLabel?: string;
+  backLabel?: string;
   value: DeathProtocolSelection;
   onChange: (value: DeathProtocolSelection) => void;
   onConfirm: () => void;
@@ -34,6 +39,9 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   killedSlot,
   killedName,
   timeLeft,
+  heading = 'Протокол убитого',
+  confirmLabel,
+  backLabel,
   value,
   onChange,
   onConfirm,
@@ -107,13 +115,15 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
       <div className="w-full max-w-2xl rounded-2xl sm:rounded-3xl border-2 border-slate-700 bg-slate-900 shadow-2xl p-3 sm:p-5 space-y-3 sm:space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">Протокол убитого</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">{heading}</div>
             <div className="text-base sm:text-lg font-black text-white truncate">#{killedSlot} · {killedName}</div>
             <div className="text-[10px] text-slate-400 mt-0.5">Красный и чёрный взаимоисключаются. Шериф выбирается отдельно.</div>
           </div>
-          <div className={`shrink-0 min-w-[54px] h-11 px-2 rounded-xl border flex items-center justify-center font-mono font-black text-2xl ${timeLeft <= 5 ? 'bg-rose-950 border-rose-600 text-rose-300' : 'bg-slate-950 border-slate-700 text-emerald-400'}`}>
-            {Math.max(0, timeLeft)}с
-          </div>
+          {timeLeft === undefined ? null : (
+            <div className={`shrink-0 min-w-[54px] h-11 px-2 rounded-xl border flex items-center justify-center font-mono font-black text-2xl ${timeLeft <= 5 ? 'bg-rose-950 border-rose-600 text-rose-300' : 'bg-slate-950 border-slate-700 text-emerald-400'}`}>
+              {Math.max(0, timeLeft)}с
+            </div>
+          )}
         </div>
 
         {training && (
@@ -133,13 +143,13 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
 
         <div className="grid grid-cols-12 gap-2 pt-1">
           <button type="button" disabled={submitting} onClick={onBack} className="col-span-4 min-h-11 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
-            ← Последняя речь
+            {backLabel ?? '← Последняя речь'}
           </button>
           <button type="button" disabled={submitting} onClick={() => onChange(emptyDeathProtocolSelection())} className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
             Сбросить
           </button>
           <button type="button" data-testid="live-death-protocol-save" disabled={submitting || (training && !completedTrainingProtocol)} onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase disabled:opacity-60">
-            {submitting ? 'Сохраняем…' : finishGame ? 'Сохранить → протокол' : 'Сохранить → день'}
+            {submitting ? 'Сохраняем…' : confirmLabel ?? (finishGame ? 'Сохранить → протокол' : 'Сохранить → день')}
           </button>
         </div>
       </div>

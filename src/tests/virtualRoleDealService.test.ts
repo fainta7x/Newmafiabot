@@ -4,7 +4,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import {
-  openVirtualRoleDeal, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal,
+  openVirtualRoleDeal, buyVirtualRole, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal,
 } from '../server/services/virtualRoleDealService.ts';
 import { tableRoleCounts } from '../lib/tableComposition.ts';
 
@@ -42,6 +42,27 @@ async function storedDeck(db: DatabaseWrapper) {
 }
 
 describe('server virtual role deal', () => {
+  it('«Покупка роли» takes that role out of the deck, charges 150 tokens and refunds on undo and redeal', async () => {
+    const { db } = await setup('RATING');
+    const now = new Date().toISOString();
+    await db.run('INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES (?,?,?,?,?)', ['other-0', 'Покупатель', 1000, now, now]);
+    const tokens = async () => (await db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id = ?', ['other-0']))!.tokens;
+    let view = await openVirtualRoleDeal(db, gameId);
+    const bought = await buyVirtualRole(db, gameId, 1, 'don', view.version);
+    expect(bought.charged).toBe(150);
+    expect(bought.cards).toHaveLength(9);
+    expect(bought.history).toEqual([expect.objectContaining({ seat: 1, role: 'don' })]);
+    expect((await storedDeck(db)).filter((card) => card.role === 'don')).toHaveLength(0);
+    expect(await tokens()).toBe(850);
+    await expect(buyVirtualRole(db, gameId, 2, 'don', bought.version)).rejects.toThrow(/нет в колоде/);
+    view = await undoVirtualRole(db, gameId, bought.version);
+    expect(await tokens()).toBe(1000);
+    const again = await buyVirtualRole(db, gameId, 1, 'sheriff', view.version);
+    expect(await tokens()).toBe(850);
+    await resetVirtualRoleDeal(db, gameId, again.version);
+    expect(await tokens()).toBe(1000);
+  });
+
   it.each(['CASUAL', 'NOVICE', 'STANDARD'] as const)('keeps a red for the tenth seat in %s without exposing unopened roles', async (format) => {
     const { db } = await setup(format);
     let view = await openVirtualRoleDeal(db, gameId);

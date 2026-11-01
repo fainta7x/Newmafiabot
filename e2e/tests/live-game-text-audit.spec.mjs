@@ -145,9 +145,11 @@ for (const [width, height, wideFont] of VIEWPORTS) {
 for (const [width,height,wideFont] of VIEWPORTS) {
   test(`virtual role deal text audit at ${width}x${height}${wideFont?' wide':''}`,async({page},info)=>{
     test.setTimeout(60_000); // Ten reveals/confirmations, manual seat choice, screenshots and the music notice, like the physical audit's bounded budget.
+    await page.addInitScript(()=>sessionStorage.setItem('role_deal_card_seconds','1'));
     await page.setViewportSize({width,height});
     if(wideFont)await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent='*{font-family:"DejaVu Sans",sans-serif!important;letter-spacing:.04em!important}';document.head.appendChild(style);}));
     const check=async label=>{await page.waitForTimeout(200);expect(await page.evaluate(auditScreen),label).toEqual([]);};
+    const give=async()=>{const b=deal.getByTestId('virtual-deal-give-card');if(await b.isVisible())await b.click();};
     await page.goto('/e2e/live-game.html');await page.getByRole('button',{name:'Подтвердить состав'}).click();
     await check('choose dealing method');
     await page.screenshot({path:info.outputPath('setup.png')});
@@ -157,20 +159,22 @@ for (const [width,height,wideFont] of VIEWPORTS) {
     await expect(deal.getByRole('button',{name:/№7 Игрок 7/})).toBeVisible();
     await deal.getByRole('button',{name:/№7 Игрок 7/}).click();
     await expect(deal.getByText('Выбирает: №7 Игрок 7',{exact:true})).toBeVisible();
+    await check('give the card');await give();await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
+    await deal.getByTestId('virtual-deal-buy-role').click();await expect(deal.getByTestId('virtual-deal-buy-panel')).toBeVisible();await check('role purchase');await page.screenshot({path:info.outputPath('virtual-buy.png')});await deal.getByTestId('virtual-deal-buy-role').click();
     const notice=page.getByText(/Музыки для вечера нет — продолжаем/);if(await notice.isVisible())await expect(notice).toBeHidden({timeout:6000});
     await page.screenshot({path:info.outputPath('virtual-deck.png')});
     const cards=deal.getByRole('button',{name:/^Карта №/});
     // Owner, 2026-11-01: numbered cards in two rows and no scrolling on any screen.
     expect(await page.evaluate(()=>[...document.querySelectorAll('[data-testid="virtual-role-deal"], [data-testid="virtual-role-deal"] *')].filter(e=>e.scrollHeight>e.clientHeight+1&&['auto','scroll'].includes(getComputedStyle(e).overflowY)).map(e=>String(e.className).slice(0,40))),'virtual deal scrolls').toEqual([]);
     expect(await page.evaluate(()=>{const g=document.querySelector('[data-testid="virtual-card-grid"]');return g?g.scrollWidth<=g.clientWidth+1:false;}),'card row scrolls sideways').toBe(true);
-    await cards.nth(4).click();await deal.getByRole('button',{name:'Открыть карту №5'}).click();await check('revealed role');await page.screenshot({path:info.outputPath('virtual-revealed.png')});
+    await give();await cards.nth(4).click();await deal.getByRole('button',{name:'Открыть карту №5'}).click();await check('revealed role');await page.screenshot({path:info.outputPath('virtual-revealed.png')});
     expect(await page.evaluate(()=>[...document.querySelectorAll('[data-testid="virtual-role-deal"], [data-testid="virtual-role-deal"] *')].filter(e=>e.scrollHeight>e.clientHeight+1&&['auto','scroll'].includes(getComputedStyle(e).overflowY)).map(e=>String(e.className).slice(0,30)+' '+e.scrollHeight+'>'+e.clientHeight)),'virtual deal scrolls after the reveal').toEqual([]);
     await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
     await deal.getByRole('button',{name:'Отменить последнюю карту'}).click();await expect(cards).toHaveCount(10);
     await deal.getByRole('button',{name:'Перераздать всё'}).click();await check('redeal confirmation');
     await deal.getByRole('button',{name:'Нет',exact:true}).click();
     for(let remaining=10;remaining>0;remaining--){
-      await deal.getByRole('button',{name:'Карта №1',exact:true}).click();
+      await give();await deal.getByRole('button',{name:'Карта №1',exact:true}).click();
       await deal.getByRole('button',{name:'Открыть карту №1',exact:true}).click();
       await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
     }

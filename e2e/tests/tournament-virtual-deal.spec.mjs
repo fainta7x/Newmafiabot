@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {auditScreen} from './support/layoutAudit.mjs';
 for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]])test(`tournament virtual roles ${width}x${height}`,async({page})=>{
   test.setTimeout(60_000);
+  await page.addInitScript(()=>sessionStorage.setItem('role_deal_card_seconds','0'));
   await page.setViewportSize({width,height});await page.goto('/e2e/tournament-live-game.html?mode=deal');
   await page.getByTestId('tournament-start-virtual-deal').click();const deal=page.getByTestId('virtual-role-deal');
   await deal.getByRole('button',{name:'Начать раздачу'}).click();

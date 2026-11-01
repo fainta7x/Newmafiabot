@@ -3,7 +3,7 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import {
   openVirtualRoleDeal, revealVirtualRole, confirmVirtualRole,
-  undoVirtualRole, resetVirtualRoleDeal,
+  undoVirtualRole, resetVirtualRoleDeal, buyVirtualRole,
 } from '../services/virtualRoleDealService.ts';
 
 const router = Router({ mergeParams: true });
@@ -30,6 +30,10 @@ router.post('/reveal', (req: AuthenticatedRequest, res) =>
 router.post('/confirm', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => confirmVirtualRole(
     db, gameId, integer(req.body?.seat), String(req.body?.cardId || ''), integer(req.body?.version),
+  )));
+router.post('/buy', (req: AuthenticatedRequest, res) =>
+  void respond(req, res, (db, gameId) => buyVirtualRole(
+    db, gameId, integer(req.body?.seat), String(req.body?.role || '') as any, integer(req.body?.version),
   )));
 router.post('/undo', (req: AuthenticatedRequest, res) =>
   void respond(req, res, (db, gameId) => undoVirtualRole(db, gameId, integer(req.body?.version))));

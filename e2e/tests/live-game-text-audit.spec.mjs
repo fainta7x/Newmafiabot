@@ -8,7 +8,7 @@ import { auditScreen } from './support/layoutAudit.mjs';
 const ROLE_SEQUENCE = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'];
 // Phones run twice: in the app's font and in a wider one (DejaVu Sans with a little letter spacing), so a label that only
 // just fits does not pass — fonts differ between phones, and CI's Chrome renders wider than a local Chromium.
-const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [360, 640, true], [390, 844, true]];
+const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [1920, 1089, false], [360, 640, true], [390, 844, true]];
 
 const tableGrid = (page) => page.locator('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]').first();
 const seatCard = (page, slot) => tableGrid(page).locator(':scope > div').nth(slot - 1);

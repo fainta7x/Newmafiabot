@@ -370,6 +370,8 @@ export interface EveningParticipant {
   registered_at?: string | null;
   confirmed_at?: string | null;
   checked_in_at?: string | null;
+  /** Set when the player left the evening (owner, 2026-10-31); null/absent while at the table. */
+  left_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -817,7 +819,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getParticipants: (eveningId: string) => request<EveningParticipant[]>(`/api/evenings/${eveningId}/participants`),
-  updateParticipant: (participantId: string, data: Partial<EveningParticipant>) =>
+  updateParticipant: (participantId: string, data: Partial<EveningParticipant> & { left?: boolean }) =>
     request<EveningParticipant>(`/api/evening-participants/${participantId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

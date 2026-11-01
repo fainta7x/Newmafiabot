@@ -243,9 +243,9 @@ describe('club live result -> persisted protocol', () => {
 
   it('keeps the previously stored rule for older result payloads and uses tournament for historical games', () => {
     const source = game();
-    expect(mapEngineResultToProtocol(source, {}).protocol.zero_round_rule).toBe('tournament');
+    expect(mapEngineResultToProtocol(source, { winning_team: 'Красные' }).protocol.zero_round_rule).toBe('tournament');
     source.club_protocol!.protocol.zero_round_rule = 'club';
-    expect(mapEngineResultToProtocol(source, {}).protocol.zero_round_rule).toBe('club');
+    expect(mapEngineResultToProtocol(source, { winning_team: 'Красные' }).protocol.zero_round_rule).toBe('club');
   });
 
   it('renumbers day-local live ballots and their parent links before shared protocol validation', () => {
@@ -254,7 +254,7 @@ describe('club live result -> persisted protocol', () => {
       { round_number: 1, day_number: 1, is_revote: false, nominated_seats: [3, 4], vote_counts: { 3: 5, 4: 5 }, eligible_voters: 10, outcome: 'tie_revote', eliminated_seats: [] },
       { round_number: 2, day_number: 1, is_revote: true, parent_round_number: 1, nominated_seats: [3, 4], vote_counts: { 3: 6, 4: 4 }, eligible_voters: 10, outcome: 'single_eliminated', eliminated_seats: [3] },
     ];
-    const result = mapEngineResultToProtocol(game(), { zero_round_rule: 'club', votes });
+    const result = mapEngineResultToProtocol(game(), { winning_team: 'Красные', zero_round_rule: 'club', votes });
     expect(result.protocol.votes.map(round => round.round_number)).toEqual([1, 2, 3]);
     expect(result.protocol.votes[2].parent_round_number).toBe(2);
     expect(votes[2].parent_round_number).toBe(1);

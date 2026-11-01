@@ -1,4 +1,5 @@
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
+import { circleNameByTableSize } from '../../lib/circleNames';
 import React from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
@@ -270,7 +271,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     : resolveTimerDuration(phase, votingStage, timerMax) + revoteExtensionSeconds;
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
-  const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
+  const dayLabel = circleNameByTableSize(roundNumber - 1, activePlayers.filter((player) => player.alive).length);
   const tableDecisionRequired = phase === 'day_voting'
     && votingStage === 'round_result'
     && currentVotingResult?.outcome === 'requires_table_decision';
@@ -1070,12 +1071,9 @@ export default function CenterPanel(props: CenterPanelProps) {
           </div>
         </div>
 
-        {autoCountdown !== null && (
-          <div data-testid="live-auto-notice" className="live-judge-hud__auto-notice" role="status">
-            <span>Авто: переход к следующему шагу через <b>{autoCountdown}</b></span>
-            <button type="button" onClick={stopAutoAdvance}>Остановить</button>
-          </div>
-        )}
+        {/* The countdown and its «Стоп» are the header button; a second in-panel notice pushed the HUD rows over each other on phones
+            (owner, 2026-10-31: «окно авторежима ломает вёрстку»). Screen readers still hear the countdown. */}
+        {autoCountdown !== null && <span className="sr-only" role="status">Авто: переход к следующему шагу через {autoCountdown}</span>}
         <div className="live-judge-hud__body">
           {phase === 'day_voting' && votingStage === 'revote_speeches'
             ? renderVoting()

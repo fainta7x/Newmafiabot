@@ -37,7 +37,7 @@ export const GameStatsPanel: React.FC<{ period: string; active?: boolean }> = ({
           <Tile title="Дней голосования" help="gameDays" value={stats.averageVotingDays === null ? '—' : String(stats.averageVotingDays)} hint="в среднем за игру" />
           <Tile title="Переголосование" help="revotes" value={percentText(stats.revoteDays)} hint={`дней с ничьёй: ${stats.revoteDays.count} из ${stats.revoteDays.total}`} />
           <Tile title="Решение стола" help="tableDecision" value={percentText(stats.tableDecisions)} hint={`голосований: ${stats.tableDecisions.count} из ${stats.tableDecisions.total}`} />
-          <Tile title="Мафия в первом голосовании (круг 0)" help="zeroRound" value={percentText(stats.zeroRound.blackVotedOut)} hint={`заголосованных: ${stats.zeroRound.blackVotedOut.count} из ${stats.zeroRound.games}`} />
+          <Tile title="Мафия в первом голосовании (нулевой круг)" help="zeroRound" value={percentText(stats.zeroRound.blackVotedOut)} hint={`заголосованных: ${stats.zeroRound.blackVotedOut.count} из ${stats.zeroRound.games}`} />
           <Tile title="Шериф находит чёрных" help="sheriff" value={percentText(stats.nights.sheriffChecks)} hint={`проверок: ${stats.nights.sheriffChecks.total}`} />
           <Tile title="Дон находит Шерифа" help="don" value={percentText(stats.nights.donChecks)} hint={`проверок: ${stats.nights.donChecks.total}`} />
           <Tile title="Лучший ход с чёрным" help="bestMove" value={percentText(stats.firstKilled.bestMoveWithBlack)} hint={stats.firstKilled.averageBlackInBestMove === null ? 'ходов нет' : `в среднем ${stats.firstKilled.averageBlackInBestMove} из 3`} />

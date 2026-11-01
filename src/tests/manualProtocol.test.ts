@@ -835,7 +835,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Запрещено завершать протокол с пустым кругом голосования');
+    expect(res.body.error).toContain('Запрещено завершать протокол с пустым голосованием');
   });
 
   // Test 26: Saves decimal bonuses and replacement block

@@ -1,3 +1,4 @@
+import { circleNameByTableSize } from '../../lib/circleNames';
 type StoredSpeechClip = {
   id: string;
   session_id: string;
@@ -161,7 +162,7 @@ export async function openSpeechRecordingReview(sessionId?: string | null) {
       const title = makeElement('div');
       title.append(
         makeTextLine(`${index + 1}. #${clip.slot} · ${clip.nickname || `Игрок ${clip.slot}`}`, { fontSize: '12px', fontWeight: '900', color: '#f8fafc' }),
-        makeTextLine(`${clip.speech_type || `День ${clip.round || 1}`} · круг ${clip.round || 1}`, { fontSize: '10px', color: '#94a3b8', marginTop: '3px' }),
+        makeTextLine(clip.speech_type || circleNameByTableSize((clip.round || 1) - 1, null), { fontSize: '10px', color: '#94a3b8', marginTop: '3px' }),
       );
       const duration = makeElement('div');
       duration.textContent = formatDuration(Number(clip.duration_seconds || 0));

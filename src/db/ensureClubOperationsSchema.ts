@@ -464,6 +464,11 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   if (!participantColumns.some((column) => column.name === 'extension_due')) {
     await db.run('ALTER TABLE evening_participants ADD COLUMN extension_due INTEGER NOT NULL DEFAULT 0');
   }
+  // «Ушёл» (owner, 2026-10-31): a player who came, played and left drops out of the seating pickers but stays in the evening's history.
+  if (!participantColumns.some((column) => column.name === 'left_at')) {
+    try { await db.run('ALTER TABLE evening_participants ADD COLUMN left_at TEXT'); }
+    catch (error: any) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
+  }
   // The extension covers the games played when it was entered (owner, 2026-10-19: «привязка к играм, а не к закрытию»): the number of
   // completed games at that moment. Rows without it (older extensions) keep covering the last games of the evening.
   const extensionColumns = await db.all<{ name: string }>('PRAGMA table_info(evening_extensions)');

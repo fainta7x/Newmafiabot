@@ -1,0 +1,21 @@
+/* On wide screens a seat's state text («Речь 59с», «Убит», «30 секунд») and the row of foul badges shared one band of the card
+   and drew over each other (owner, 2026-10-31: «верстка сломана при фолах»). The badges now sit in the footer, between the
+   seat number (left) and the action slot (right); phones keep their own geometry (`liveGameTelegram.css`). */
+@media (min-width: 768px) {
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline {
+    bottom: 12px !important;
+    left: 52px !important;
+    right: 52px !important;
+    width: auto !important;
+    z-index: 26 !important;
+  }
+}
+
+/* A voting card shows its tally in the band above the footer; the badges sit in the footer on every screen size. */
+.evening-live-engine-shell .live-seat-card--voting > .evening-live-discipline {
+  bottom: 9px !important;
+  left: 44px !important;
+  right: 44px !important;
+  width: auto !important;
+  z-index: 26 !important;
+}

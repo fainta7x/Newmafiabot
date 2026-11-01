@@ -4,6 +4,8 @@ import {
   clubGamePendingProtocolKey,
   clubGamesApi,
   getPendingClubGameProtocolSave,
+  getPendingClubGameProtocolSaveFor,
+  getRecoverablePendingClubGame,
 } from '../lib/clubGamesApi';
 
 const payload = {
@@ -98,5 +100,27 @@ describe('club game final-save reliability', () => {
 
     expect(retryFetch).toHaveBeenCalledTimes(1);
     expect(getPendingClubGameProtocolSave(91)).toBeNull();
+  });
+
+  describe('a leftover outbox item next to a game the server already holds (owner, 2026-11-01: «протокол задвоился»)', () => {
+    const serverGame = (protocol: any) => ({ ...game, club_protocol: { version: 1, kind: 'club_evening_protocol', protocol, player_results: payload.player_results } }) as any;
+
+    it('is dropped when the PUT landed and only its answer was lost: no second «editable» copy appears', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network lost')));
+      await expect(clubGamesApi.saveProtocol(91, payload)).rejects.toBeTruthy();
+      expect(getPendingClubGameProtocolSave(91)).not.toBeNull();
+      // The server meanwhile saved exactly that protocol.
+      const held = serverGame({ ...payload.protocol });
+      expect(getRecoverablePendingClubGame(held)).toBe(held);
+      expect(getPendingClubGameProtocolSave(91)).toBeNull();
+    });
+
+    it('stays (and is offered as the recoverable copy) when the server holds a different record', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network lost')));
+      await expect(clubGamesApi.saveProtocol(91, payload)).rejects.toBeTruthy();
+      const older = serverGame({ status: 'draft', winner_team: null, end_reason: 'normal' });
+      expect(getPendingClubGameProtocolSaveFor(older)).not.toBeNull();
+      expect(getPendingClubGameProtocolSave(91)).not.toBeNull();
+    });
   });
 });

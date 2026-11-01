@@ -11,7 +11,7 @@ import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
-import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
+import { clubGamesApi, getPendingClubGameProtocolSaveFor, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
 import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { evictReplayFrames } from '../../lib/liveStorageBudget';
@@ -134,7 +134,9 @@ export const mapEngineResultToProtocol = (
     } as PlayerResultData;
   }));
 
-  const winnerTeam = (normalizeWinnerTeam(gameData.winning_team) ?? 'black');
+  // Never invent a winner: an unreadable one stops the save (the local copy stays, «Повторить сохранение») instead of writing «чёрные».
+  const winnerTeam = normalizeWinnerTeam(gameData.winning_team);
+  if (!winnerTeam) throw new Error('Не удалось определить победившую команду. Результат сохранён на устройстве: откройте игру и укажите победителя в протоколе.');
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'completed',
@@ -178,7 +180,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const onClose = () => { if (resumable) forgetOpenLiveGame('club', game.id); onCloseProp(); };
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(() =>
-    getPendingClubGameProtocolSave(game.id)
+    getPendingClubGameProtocolSaveFor(game)
       ? 'Предыдущая попытка сохранить завершённую игру не дошла до сервера.'
       : null,
   );

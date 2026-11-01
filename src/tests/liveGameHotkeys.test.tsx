@@ -231,21 +231,39 @@ describe('Live Game keyboard control', () => {
     expect(screen.queryByTestId('seat-vote-target-8')).toBeNull();
   });
 
-  it('Space casts the vote for the highlighted seat in a voting', async () => {
+  it('Backspace in a voting takes back the last vote', async () => {
+    await restore(votingSnapshot());
+    press('Digit6');
+    await screen.findByTestId('seat-vote-target-6');
+    press('Backspace');
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="seat-vote-target-"]').length).toBe(0));
+  });
+
+  it('Enter casts the vote for the highlighted seat in a voting', async () => {
     await restore(votingSnapshot());
     press('Digit9', { shiftKey: true });
     press('Escape');
     press('ArrowRight');
-    press('Space');
+    press('Enter');
     await waitFor(() => expect(document.querySelectorAll('[data-testid^="seat-vote-target-"]').length).toBe(1));
   });
 
-  it('Space starts the speech timer and Enter presses the main step button', async () => {
+  it('Space starts the speech timer and Tab presses the main step button', async () => {
     await restore(baseSnapshot());
     press('Space');
     await waitFor(() => expect(screen.getByRole('button', { name: /Пауза/ })).toBeTruthy());
-    press('Enter');
+    press('Tab');
     await waitFor(() => expect(screen.getByTestId('live-judge-hud').textContent).toMatch(/Речь #2/));
+  });
+
+  it('Enter on a highlighted player opens that player\'s action panel instead of the main step', async () => {
+    await restore(baseSnapshot());
+    press('Digit3');
+    expect(await screen.findByTestId('live-hotkey-menu')).toBeTruthy();
+    press('Enter');
+    await waitFor(() => expect(screen.queryByTestId('live-hotkey-menu')).toBeNull());
+    expect(await screen.findByTestId('live-player-add-regular-foul')).toBeTruthy();
+    expect(screen.getByTestId('live-judge-hud').textContent).toMatch(/Речь #1/);
   });
 
   it('Ctrl+Z undoes the last action', async () => {

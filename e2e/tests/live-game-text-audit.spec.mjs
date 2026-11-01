@@ -8,7 +8,7 @@ import { auditScreen } from './support/layoutAudit.mjs';
 const ROLE_SEQUENCE = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'];
 // Phones run twice: in the app's font and in a wider one (DejaVu Sans with a little letter spacing), so a label that only
 // just fits does not pass — fonts differ between phones, and CI's Chrome renders wider than a local Chromium.
-const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [360, 640, true], [390, 844, true]];
+const VIEWPORTS = [[360, 640, false], [390, 844, false], [1366, 768, false], [1440, 900, false], [1920, 1089, false], [360, 640, true], [390, 844, true]];
 
 const tableGrid = (page) => page.locator('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]').first();
 const seatCard = (page, slot) => tableGrid(page).locator(':scope > div').nth(slot - 1);
@@ -66,6 +66,16 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('zero-round');
       await page.getByRole('button', { name: /Речь #1(?:\s| ·|$)/ }).last().click();
       await check('speech-active');
+      // Fouls and the auto-mode switch (owner, 2026-10-31: layout broken with fouls and the auto-mode pop-up).
+      await clickOptional(page.getByTestId('live-auto-toggle'));
+      await check('auto-mode-on');
+      for (const [slot, count] of [[1, 2], [3, 3]]) {
+        for (let i = 0; i < count; i += 1) {
+          await seatCard(page, slot).click();
+          await page.getByTestId('live-player-add-regular-foul').click();
+        }
+      }
+      await check('fouls-on-table');
       await seatCard(page, 2).click();
       await check('player-action');
       await page.locator('div[class*="z-[112]"]').getByRole('button', { name: 'Выставить', exact: true }).click();
@@ -92,6 +102,9 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'Подтвердить лучший ход', exact: true }).click();
       await check('last-speech');
       await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
+      // The will of the player voted out (owner, 2026-11-01): the same red / black / sheriff marks as the death protocol.
+      await check('voting-will');
+      await page.getByRole('button', { name: 'Сохранить → дальше', exact: true }).click();
       await check('night');
       await clickOptional(page.getByRole('button', { name: /Включите музыку/ }));
       await page.getByRole('button', { name: 'Отстрел', exact: true }).click();

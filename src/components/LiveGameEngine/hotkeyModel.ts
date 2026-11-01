@@ -9,6 +9,7 @@ export type HotkeyCommand =
   | { type: 'seatAction'; action: SeatAction; code: string }
   | { type: 'arrow'; direction: ArrowDirection }
   | { type: 'primary' }
+  | { type: 'choose' }
   | { type: 'space' }
   | { type: 'back' }
   | { type: 'undo' }
@@ -88,9 +89,11 @@ export function parseHotkey(event: HotkeyEventLike): HotkeyCommand | null {
   if (direction) return { type: 'arrow', direction };
 
   switch (event.code) {
+    // Tab = the next step; Enter = choose / enter (owner, 2026-10-31).
+    case 'Tab': return { type: 'primary' };
     case 'Enter':
     case 'NumpadEnter':
-      return { type: 'primary' };
+      return { type: 'choose' };
     case 'Space': return { type: 'space' };
     case 'Backspace': return { type: 'back' };
     case 'Escape': return { type: 'escape' };

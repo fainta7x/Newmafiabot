@@ -1,4 +1,5 @@
 import type { LiveGameEvent } from '../../shared/liveGameEvents.ts';
+import { circleTitle } from '../crm/gameProtocol/protocolReview';
 
 type Person = { seat_number: number; nickname: string; team: 'red' | 'black' | null };
 const labels: Record<string, string> = {
@@ -33,7 +34,7 @@ export default function PlayerGameActionJournal({ events, players }: { events: L
         const team = event.seat == null ? null : known.get(event.seat)?.team ?? null;
         const detail = typeof event.value === 'string' || typeof event.value === 'number' ? String(event.value) : null;
         return <li key={`${event.seq}:${index}`} className="flex flex-wrap items-center gap-1.5 rounded-lg bg-white/[0.035] px-2 py-1.5 text-[11px]">
-          <span className="tabular-nums text-white/40">Круг {event.round === 1 ? '0' : Math.max(0, event.round - 1)}</span>
+          <span className="tabular-nums text-white/40">{circleTitle(Math.max(0, event.round - 1), { events })}</span>
           <strong className="text-white/80">{labels[event.kind] || event.kind.replaceAll('_', ' ')}</strong>
           {who && <span className={`rounded px-1.5 py-0.5 ${color(team)}`}>{who}</span>}
           {target && <span className="text-white/60">→ {target}</span>}

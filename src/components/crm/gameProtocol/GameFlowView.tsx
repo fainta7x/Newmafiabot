@@ -3,14 +3,15 @@ import { Check, ChevronRight, Plus } from 'lucide-react';
 import type { LiveGameEvent } from '../../../shared/liveGameEvents';
 import type { VotingRound } from '../../../shared/tournamentVoting';
 import { determineVotingResult } from '../../../shared/tournamentVoting';
-import { zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
+import { splitBreakMarks, zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
 import { moveNominatedSeat, setTableLeaveVotes, setVotingSeatCount, toggleNominatedSeat, updateEligibleVoters } from '../tournaments/protocol/protocolVotingEditorUtils';
+import { describeLiveGameEvents } from '../../../lib/liveGameEventText';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
 import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, setSplitBreakTag, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -27,6 +28,7 @@ type Sheets =
   | { type: 'round'; round: number }
   | { type: 'shot'; index: number }
   | { type: 'first-killed' }
+  | { type: 'move'; seq: number }
   | { type: 'check'; kind: 'don' | 'sheriff' }
   | null;
 
@@ -53,6 +55,45 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const chains = circle.rootRounds.map((root) => roundChain(protocol, root));
   const shot = circle.shotIndex >= 0 ? protocol.shots?.[circle.shotIndex] : null;
   const canAddNight = circle.shotIndex < 0 && circle.index === (protocol.shots || []).length;
+  // Nights are recorded in order: the night of a later circle opens once every earlier one is written (owner, 2026-10-31: «не мог выбрать убийство»).
+  const firstMissingNight = (protocol.shots || []).length;
+  const earlierNightMissing = circle.shotIndex < 0 && circle.index > firstMissingNight && firstMissingNight < circles.length;
+  // A mistaken vote-out taken back: the result is erased and the game counts as if it had not happened; what followed is listed for a re-check.
+  const resetWithNotice = (index: number) => {
+    const { returning, lines } = recordsAfterVoting(protocol, index);
+    const head = returning.length ? `Результат голосования будет стёрт, ${returning.length > 1 ? 'игроки' : 'игрок'} ${returning.map((seat) => `№${seat}`).join(', ')} ${returning.length > 1 ? 'вернутся' : 'вернётся'} за стол.` : 'Результат голосования будет стёрт.';
+    const tail = lines.length ? `\n\nПосле него в протоколе записано (проверьте это после отката):\n${lines.join('\n')}` : '';
+    if (confirm(`${head}${tail}`)) api.resetOutcome(index);
+  };
+  // «Продолжить игру» (owner, 2026-11-01): only while the table has not decided the game; the next step follows the rules — after a day the night, after a night the next circle's voting.
+  const decided = tableDecision(api.results);
+  const lastCircle = circles[circles.length - 1];
+  const canContinue = !api.locked && decided === null && protocol.end_reason !== 'ppk' && circle.index === lastCircle.index;
+  const nextIsNight = lastCircle.shotIndex < 0 && lastCircle.index === (protocol.shots || []).length;
+  const splitBreakSeat = splitBreakMarks(circle.events).find((mark) => mark.round === circle.index + 1)?.seat ?? null;
+  // «Записи круга»: a record made in the wrong circle is moved with a button; nothing else is erased (owner, 2026-11-01).
+  const movable = useMemo(() => {
+    const list = circle.events.filter((event) => (MOVABLE_EVENT_KINDS as readonly string[]).includes(event.kind));
+    const lines = new Map(describeLiveGameEvents(list, (seat) => `№${seat} ${nameOf(seat)}`.trim()).map((line) => [line.seq, line.text]));
+    return list.map((event) => ({ event, text: lines.get(event.seq) || event.kind }));
+  }, [circle, api.results]);
+  const moveSheet = () => {
+    if (!sheet || sheet.type !== 'move') return null;
+    const item = movable.find((entry) => entry.event.seq === sheet.seq);
+    if (!item) return null;
+    return (
+      <Sheet open title="Перенести запись" subtitle={item.text} onClose={close}>
+        <div className="space-y-2 pb-2 pt-1" role="group" aria-label="Круг, в который перенести">
+          {circles.map((target) => (
+            <Btn key={target.index} kind={target.index === circle.index ? 'soft' : 'ghost'} block disabled={api.locked || target.index === circle.index}
+              onClick={() => { api.setEvents((list: LiveGameEvent[]) => moveEventToCircle(list, item.event.seq, target.index)); close(); onCircle(target.index); }}>
+              {target.title}{target.index === circle.index ? ' · сейчас здесь' : ''}
+            </Btn>
+          ))}
+        </div>
+      </Sheet>
+    );
+  };
   const close = () => setSheet(null);
   const circleIssues = issues.filter((issue) => issue.circle === circle.index);
 
@@ -135,7 +176,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
 
             <div className="border-t border-white/8 pt-3">
               {view.confirmed ? (
-                <Btn kind="ghost" block disabled={api.locked} onClick={() => api.resetOutcome(index)}>Сбросить результат</Btn>
+                <Btn kind="ghost" block disabled={api.locked} onClick={() => resetWithNotice(index)}>Сбросить результат</Btn>
               ) : (
                 <Btn kind="primary" block disabled={api.locked || !complete || view.calculated === 'pending'} onClick={() => api.confirmOutcome(index, view.calculated as string, view.result.winners)}>Подтвердить результат</Btn>
               )}
@@ -310,7 +351,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         <div className="space-y-5 pb-2 pt-1">
           {api.locked ? <LockedNote /> : null}
           <section className="space-y-2" aria-label="Цель"><Eyebrow>Цель</Eyebrow>
-            <SeatGrid label="Цель выстрела" size={api.tableSize} disabled={api.locked} selected={entry.target_seat ? [entry.target_seat] : []} onToggle={(seat) => api.changeShot(sheet.index, seat, entry.result)} tone="night" />
+            <SeatGrid label="Цель выстрела" size={api.tableSize} disabled={api.locked} selected={entry.target_seat ? [entry.target_seat] : []} onToggle={(seat) => api.changeShot(sheet.index, seat, entry.result !== 'killed' && !entry.target_seat ? 'killed' : entry.result)} tone="night" />
           </section>
           <section className="space-y-2" aria-label="Результат"><Eyebrow>Результат</Eyebrow>
             <Segmented label="Результат выстрела" disabled={api.locked} value={entry.result === 'killed' ? 'killed' : 'miss'} options={SHOT_OPTIONS} cols={2} onChange={(value) => api.changeShot(sheet.index, entry.target_seat, value as 'killed' | 'miss' | 'agreement_failed')} />
@@ -427,10 +468,10 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
       ) : null}
 
       <Card tone="night" className="space-y-2.5">
-        <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после круга ${circle.index}`}</Eyebrow>
+        <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после: ${circle.title}`}</Eyebrow>
         {shot && shotText
           ? nightRow('Выстрел мафии', shotText, shot.result === 'killed' ? 'ok' : 'quiet', () => setSheet({ type: 'shot', index: circle.shotIndex }))
-          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}
+          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : earlierNightMissing ? <Btn kind="ghost" block data-testid="night-order-hint" onClick={() => onCircle(firstMissingNight)}>Сначала запишите ночь после: {circles[firstMissingNight]?.title || 'предыдущего круга'}</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}
         {true ? (
           <>
             {nightRow('Проверка Дона', checks.don ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.don.target} {nameOf(checks.don.target || 0)}</span><CheckAnswerTag kind="don" result={checkAnswerOf('don', roleOfSeat(checks.don.target)) ?? checks.don.result} />{!donHere ? <span className="text-[12px] text-amber-100">Дона уже нет за столом</span> : null}</span> : !donHere ? 'Дона нет за столом' : sheriffFound ? 'Шериф уже найден' : 'не было', checks.don && !donHere ? 'warn' : checks.don ? 'ok' : 'quiet', () => setSheet({ type: 'check', kind: 'don' }))}
@@ -455,6 +496,39 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         </Card>
       ) : null}
 
+      <Card className="space-y-2" data-testid="split-break-tag">
+        <Eyebrow>Сломал попил красным</Eyebrow>
+        <p className="text-[12px] leading-4 text-white/55">Красный, который специально сломал попил на этом круге: −20 Elo. Тег ставит судья.</p>
+        <select aria-label="Красный, сломавший попил в этом круге" disabled={api.locked} value={splitBreakSeat ?? ''}
+          onChange={(event) => api.setEvents((list: LiveGameEvent[]) => setSplitBreakTag(list, circle.index, event.target.value ? Number(event.target.value) : null))}
+          className="min-h-11 w-full rounded-xl border border-white/12 bg-[#111216] px-3 text-sm text-white">
+          <option value="">Не отмечен</option>
+          {api.results.slice().sort((a, b) => a.seat_number - b.seat_number).filter((player) => player.role === 'citizen' || player.role === 'sheriff').map((player) => <option key={player.participant_id} value={player.seat_number}>#{player.seat_number} {player.display_name}</option>)}
+        </select>
+      </Card>
+
+      {movable.length ? (
+        <Card className="space-y-2" data-testid="circle-records">
+          <Eyebrow>Записи круга</Eyebrow>
+          <ul className="space-y-1.5">
+            {movable.map(({ event, text }) => (
+              <li key={event.seq} className="flex items-center justify-between gap-3 text-[13px] leading-5">
+                <span className="min-w-0 flex-1 break-words text-white/80">{text}</span>
+                <Btn kind="ghost" disabled={api.locked || circles.length < 2} onClick={() => setSheet({ type: 'move', seq: event.seq })} aria-label={`Перенести запись: ${text}`}>Перенести</Btn>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {canContinue ? (
+        <Card className="space-y-2" data-testid="continue-game">
+          <Eyebrow>Игра по столу не закончена</Eyebrow>
+          <p className="text-[13px] leading-5 text-white/65">За столом ещё есть красные и чёрные, и у чёрных нет большинства. Добавьте то, что было дальше.</p>
+          <Btn kind="ghost" block onClick={() => (nextIsNight ? api.addNight() : api.addVoting(lastCircle.index + 1))}><Plus className="h-4 w-4" aria-hidden="true" />{nextIsNight ? 'Добавить следующую ночь' : 'Добавить голосование следующего круга'}</Btn>
+        </Card>
+      ) : null}
+
       <Btn kind={reviewed[circle.index] ? 'soft' : 'primary'} big block onClick={() => onToggleReviewed(circle.index)}>
         {reviewed[circle.index] ? <><Check className="h-5 w-5" aria-hidden="true" />Круг проверен — снять отметку</> : 'Отметить круг проверенным'}
       </Btn>
@@ -464,6 +538,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
       {shotSheet()}
       {firstKilledSheet()}
       {checkSheet()}
+      {moveSheet()}
     </div>
   );
 };

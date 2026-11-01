@@ -1,4 +1,5 @@
 import type { LiveGameEvent } from '../shared/liveGameEvents.ts';
+import { circleNameByTableSize } from './circleNames.ts';
 import { LIVE_BROADCAST_VERSION, type LiveBroadcastState, type LiveBroadcastPlayer } from './liveBroadcast.ts';
 
 type ReplayPlayer = { seat_number: number; player_id: string | null; nickname: string; role: string | null };
@@ -68,7 +69,7 @@ export const buildReplayBroadcastState = (
   const counts = Object.fromEntries(candidates.map(candidate => [candidate, [...ballot.values()].filter(target => target === candidate).length]));
   return {
     version: LIVE_BROADCAST_VERSION, gameId: 0, globalGameNumber: gameNumber, eveningGameNumber: null, tableName: 'Запись игры',
-    phaseKey: roundNumber === 1 ? 'zero' : 'day', phaseTitle: roundNumber === 1 ? 'Нулевой круг' : `Круг ${roundNumber - 1}`,
+    phaseKey: roundNumber === 1 ? 'zero' : 'day', phaseTitle: roundNumber === 1 ? 'Нулевой круг' : circleNameByTableSize(roundNumber - 1, presentedPlayers.filter((player) => player.alive).length),
     phaseDetail: phase, roundNumber, currentSpeakerSeat,
     timerSeconds: null, timerMaxSeconds: null, timerRunning: false, timerLabel: null,
     players: presentedPlayers,

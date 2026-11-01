@@ -75,6 +75,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 
     const fields: string[] = [];
     const values: any[] = [];
+    if (data.left !== undefined) { fields.push('left_at = ?'); values.push(data.left ? new Date().toISOString() : null); }
     for (const key of ['payment_status', 'amount_due', 'amount_paid', 'notes'] as const) {
       if (data[key] !== undefined) { fields.push(`${key} = ?`); values.push(data[key]); }
     }

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { randomUUID } from 'node:crypto';
 import { ensureEveningSeatingSchema } from '../services/eveningSeatBookingService.ts';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
@@ -207,6 +208,8 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
       const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
       if (judge.judge_player_id && seats.some((seat: any) => seat.player_id && String(seat.player_id) === String(judge.judge_player_id))) throw new Error('Судья этой игры не может одновременно быть игроком');
+      const reusedDraft = await findOpenDraftWithSameSeats(tx, eveningId, tableId, seats);
+      if (reusedDraft) return -reusedDraft;
       const now = new Date().toISOString();
       if (plannedSlotId && tableId) {
         // The actual judge-approved roster becomes the seated historical fact.
@@ -234,10 +237,34 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       if (evening.status === 'published') await tx.run('UPDATE game_evenings SET status = ?, updated_at = ? WHERE id = ? AND status = ?', ['active', now, eveningId, 'published']);
       return id;
     });
-    const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [createdId]);
-    return res.status(201).json(normalizeGame(row));
+    // A negative id is an existing draft reused by `findOpenDraftWithSameSeats`.
+    const reused = createdId < 0;
+    const gameRowId = Math.abs(createdId);
+    const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameRowId]);
+    return res.status(reused ? 200 : 201).json(normalizeGame(row));
   } catch (err: any) { return res.status(400).json({ error: err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось создать игру') }); }
 });
+
+/**
+ * A second «create the game» for the same table and the same ten people while the first is still an unfinished draft returns that
+ * draft instead of a new empty one (owner, 2026-10-31: «протокол задвоился»; game 28 was an empty draft made a minute before game 29).
+ * Seats are compared by participant, the draft must be this evening's, this table's, not archived and not completed.
+ */
+export const findOpenDraftWithSameSeats = async (db: DatabaseWrapper, eveningId: string, tableId: string | null, seats: Array<{ participant_id: string }>): Promise<number | null> => {
+  const wanted = seats.map((seat) => String(seat.participant_id)).sort().join('|');
+  if (!wanted) return null;
+  const drafts = await db.all<any>(
+    `SELECT id, protocol_text FROM games WHERE evening_id = ? AND COALESCE(evening_table_id, '') = COALESCE(?, '') AND archived_at IS NULL AND winner_team = 'draft' ORDER BY id DESC`,
+    [eveningId, tableId],
+  );
+  for (const draft of drafts) {
+    const parsed = safeJsonParse<any>(draft.protocol_text, null);
+    if (!parsed || parsed.kind !== 'club_evening_protocol' || isCompletedClubGame(parsed)) continue;
+    const have = (parsed.player_results || []).map((item: any) => String(item.participant_id || '')).sort().join('|');
+    if (have === wanted) return Number(draft.id);
+  }
+  return null;
+};
 
 /** A refusal of a protocol save, with the HTTP status the route answers. */
 export class ProtocolSaveError extends Error {

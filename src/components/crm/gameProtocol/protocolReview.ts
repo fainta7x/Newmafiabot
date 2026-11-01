@@ -7,6 +7,7 @@ import { validateBestMoves, validateFirstKilled, validatePlayerResults, validate
 import { validateProtocolVoting } from '../../../lib/protocolVotingValidation';
 import { roleCountsMatchTable, tableRolesLabel, isSupportedTableSize, CLASSIC_TABLE_SIZE } from '../../../lib/tableComposition';
 import { finalRevealsOfEvents } from '../../../lib/revealStats';
+import { teamOfPlayer } from '../../../shared/gameRoles';
 import { getPlayerGameRoleLabel } from '../../../lib/playerGameRoleLabels';
 import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 
@@ -18,63 +19,8 @@ import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 export type ProtocolState = { protocol: TournamentGameProtocolData; results: PlayerResultData[] };
 
 /** «после двух промахов» (owner, 2026-10-27: numbers in words). */
-const MISSES_IN_WORDS: Record<number, string> = { 2: 'двух', 3: 'трёх', 4: 'четырёх', 5: 'пяти', 6: 'шести', 7: 'семи', 8: 'восьми', 9: 'девяти' };
-
-const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: 'Девятка', 8: 'Восьмёрка', 7: 'Семёрка', 6: 'Шестёрка', 5: 'Пятёрка', 4: 'Угадайка при 4', 3: 'Угадайка' };
-
-/**
- * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
- * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после оставления при 8 и двух промахов» … Without a chronology the
- * number of players is unknown, so an old game keeps «Круг N».
- * Who left comes from the protocol itself — its votings and shots — so a corrected protocol renames the circles that follow
- * (owner, 2026-10-27: game №20 kept «Семёрка» after the vote that put №3 out was corrected to «everybody stayed»). Only a
- * judge's removal, which the protocol does not place in time, is read from the chronology.
- */
-export const circleTitle = (
-  index: number,
-  protocol?: Partial<Pick<TournamentGameProtocolData, 'events' | 'votes' | 'shots'>> | null,
-  tableSize = CLASSIC_TABLE_SIZE,
-) => {
-  if (index === 0) return 'Нулевой круг';
-  const events = Array.isArray(protocol?.events) ? protocol!.events : [];
-  if (!events.some((event) => event.kind === 'exit')) return `Круг ${index}`;
-  const votes = Array.isArray(protocol?.votes) ? (protocol!.votes as unknown as VotingRound[]) : null;
-  const shots = Array.isArray(protocol?.shots) ? protocol!.shots : null;
-  // A cancelled exit («restored») gives the seat back.
-  const journalOut = new Map<number, LiveGameEvent>();
-  for (const event of events) {
-    if (!event.seat || event.round > index) continue;
-    if (event.kind === 'exit') journalOut.set(event.seat, event); else if (event.kind === 'restored') journalOut.delete(event.seat);
-  }
-  // Day d is voted in engine round d + 1, night n closes engine round n.
-  const votedOutOnDay = (day: number) => (votes
-    ? [...new Set(votes.filter((round) => Number(round.day_number ?? 0) === day && (round.outcome === 'single_eliminated' || round.outcome === 'all_tied_eliminated')).flatMap((round) => round.eliminated_seats || []).map(Number))]
-    : [...journalOut.values()].filter((event) => event.round === day + 1 && event.value !== 'killed' && event.value !== 'removed').map((event) => Number(event.seat)));
-  const killedAtNight = (night: number) => (shots
-    ? shots.filter((shot) => Number(shot.night_number) === night && shot.result === 'killed' && Number(shot.target_seat) > 0).map((shot) => Number(shot.target_seat))
-    : [...journalOut.values()].filter((event) => event.round === night && event.value === 'killed').map((event) => Number(event.seat)));
-  const atTableAt = (circle: number) => {
-    const out = new Set<number>();
-    for (let day = 0; day < circle; day += 1) votedOutOnDay(day).forEach((seat) => out.add(seat));
-    for (let night = 1; night <= circle; night += 1) killedAtNight(night).forEach((seat) => out.add(seat));
-    for (const event of journalOut.values()) if (event.value === 'removed' && event.round <= circle) out.add(Number(event.seat));
-    return tableSize - out.size;
-  };
-  const name = TABLE_NAMES[atTableAt(index)] || `Круг ${index}`;
-  const dayOut = votedOutOnDay(index - 1).length;
-  // Nobody left on the previous day (a split with everybody staying, or nobody nominated): «оставление» (owner, 2026-10-27).
-  const stayed = dayOut === 0 && index > 1;
-  let misses = 0;
-  for (let night = index; night >= 1 && killedAtNight(night).length === 0; night -= 1) misses += 1;
-  const notes: string[] = [];
-  // Owner, 2026-10-27: «Восьмёрка после оставления при 8 и двух промахов»; the zero round with everybody staying is the standard
-  // course of the game, so it gives no qualifier; a raised split stays «попила с подъёмом».
-  if (dayOut >= 2) notes.push('попила с подъёмом');
-  else if (stayed) notes.push(`оставления при ${atTableAt(index - 1)}`);
-  if (misses === 1) notes.push('промаха');
-  else if (misses > 1) notes.push(`${MISSES_IN_WORDS[misses] || misses} промахов`);
-  return notes.length ? `${name} после ${notes.join(' и ')}` : name;
-};
+export { circleTitle } from '../../../lib/circleTitle';
+import { circleTitle } from '../../../lib/circleTitle';
 
 export const EXIT_LABEL: Record<string, string> = {
   alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом круге', voted_day: 'заголосован', removed: 'удалён',
@@ -113,10 +59,29 @@ export type CircleModel = {
  * Circle k is the voting of day k and the night after it: «Нулевой круг» is the zero voting with the first night, which is
  * how the live game numbers it (engine round k + 1; night k + 1).
  */
+/**
+ * A removal taken back is a correction of a mistake, not a game action (owner, 2026-10-31: «как будто удаления не было»): the exit
+ * and its «restored» are both struck out of the timeline, wherever in the game each of them was recorded.
+ */
+export const withoutCancelledExits = (events: LiveGameEvent[]): LiveGameEvent[] => {
+  const drop = new Set<number>();
+  const lastExitAt = new Map<number, number>();
+  events.forEach((event, index) => {
+    if (!event.seat) return;
+    if (event.kind === 'exit') lastExitAt.set(event.seat, index);
+    else if (event.kind === 'restored') {
+      const exitIndex = lastExitAt.get(event.seat);
+      if (exitIndex !== undefined) { drop.add(exitIndex); lastExitAt.delete(event.seat); }
+      drop.add(index);
+    }
+  });
+  return drop.size ? events.filter((_, index) => !drop.has(index)) : events;
+};
+
 export const buildCircles = (protocol: TournamentGameProtocolData): CircleModel[] => {
   const votes = votesOf(protocol);
   const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
-  const events = Array.isArray(protocol.events) ? protocol.events : [];
+  const events = withoutCancelledExits(Array.isArray(protocol.events) ? protocol.events : []);
   let count = 1;
   for (const round of votes) count = Math.max(count, Number(round.day_number ?? 0) + 1);
   for (const shot of shots) count = Math.max(count, Number(shot.night_number));
@@ -280,6 +245,121 @@ export const revealIssues = (protocol: TournamentGameProtocolData, results: Play
   return out;
 };
 
+/**
+ * The winner must follow from who is left at the table (owner, 2026-10-31, game 24: «чёрные выиграли при трёх красных и двух
+ * чёрных»): the blacks win with a majority or an equal number, the reds win when no black is left, otherwise the game goes on.
+ * Returns a plain-words message, or null when the record agrees (or cannot be judged: a PPK, missing roles or exits).
+ */
+export const winnerTableMessage = (protocol: Pick<TournamentGameProtocolData, 'winner_team' | 'end_reason'>, results: PlayerResultData[]): string | null => {
+  if (protocol.end_reason === 'ppk' || !results.length) return null;
+  if (results.some((player) => !teamOfPlayer(player as any) || !player.exit_type)) return null;
+  const atTable = results.filter((player) => player.exit_type === 'alive');
+  const blacks = atTable.filter((player) => teamOfPlayer(player as any) === 'black').length;
+  const reds = atTable.length - blacks;
+  const decided: 'red' | 'black' | null = blacks === 0 ? 'red' : blacks >= reds ? 'black' : null;
+  const table = `за столом ${reds} красных и ${blacks} чёрных`;
+  if (protocol.winner_team === decided) return null;
+  if (!decided) return protocol.winner_team ? `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table}. Чёрным нужно большинство или равенство, красным — чтобы чёрных не осталось, поэтому игра продолжается. Если после этого была ночь, добавьте её выстрел на вкладке «Ход игры» (ночи записываются по порядку, начиная с первой); иначе проверьте выходы игроков.` : null;
+  if (!protocol.winner_team) return `По столу игра закончена: ${table} — побеждают ${decided === 'black' ? 'чёрные' : 'красные'}.`;
+  return `Победа ${protocol.winner_team === 'black' ? 'чёрных' : 'красных'} не сходится со столом: ${table} — по правилам побеждают ${decided === 'black' ? 'чёрные' : 'красные'}. Проверьте выходы игроков.`;
+};
+
+/**
+ * Who sits at the table when a night comes: the nights go after the days (day d is followed by night d + 1). A shot at a player who
+ * already left (voted out on an earlier day or shot on an earlier night) cannot be right — the protocol says so with the reason.
+ */
+export const deadTargetShotMessages = (protocol: Pick<TournamentGameProtocolData, 'votes' | 'shots'>): Array<{ night: number; message: string }> => {
+  const votes = (Array.isArray(protocol.votes) ? protocol.votes : []) as unknown as VotingRound[];
+  const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
+  const out: Array<{ night: number; message: string }> = [];
+  shots.forEach((shot, index) => {
+    const night = Number(shot.night_number) || index + 1;
+    const target = Number(shot.target_seat);
+    if (!target) return;
+    const votedOut = votes.some((round) => Number(round.day_number ?? 0) < night && (round.eliminated_seats || []).map(Number).includes(target));
+    const shotBefore = shots.some((earlier, i) => i < index && earlier.result === 'killed' && Number(earlier.target_seat) === target);
+    if (votedOut || shotBefore) out.push({ night, message: `Ночь ${night}: выстрел в №${target}, но он уже ${votedOut ? 'заголосован раньше' : 'убит в одну из прошлых ночей'}. Проверьте цель или выходы игроков.` });
+  });
+  return out;
+};
+
+/**
+ * What the protocol holds after a voting whose result is about to be erased (the vote-out was a mistake: the player goes back to the
+ * table and the game is counted as if it had not happened). Returns plain lines for the judge to re-check afterwards.
+ */
+export const recordsAfterVoting = (protocol: Pick<TournamentGameProtocolData, 'votes' | 'shots'>, roundIndex: number): { returning: number[]; lines: string[] } => {
+  const votes = (Array.isArray(protocol.votes) ? protocol.votes : []) as unknown as VotingRound[];
+  const round = votes[roundIndex];
+  if (!round) return { returning: [], lines: [] };
+  const day = Number(round.day_number ?? 0);
+  const returning = (round.eliminated_seats || []).map(Number);
+  const lines: string[] = [];
+  (Array.isArray(protocol.shots) ? protocol.shots : []).forEach((shot, i) => {
+    const night = Number(shot.night_number) || i + 1;
+    if (night <= day) return;
+    lines.push(`Ночь ${night}: ${Number(shot.target_seat) ? `выстрел в №${shot.target_seat}` : 'промах'}${returning.includes(Number(shot.target_seat)) ? ' (в вернувшегося игрока)' : ''}`);
+  });
+  votes.forEach((later, i) => {
+    if (i === roundIndex || Number(later.day_number ?? 0) <= day) return;
+    lines.push(`Голосование №${later.round_number} следующего круга: число голосующих и кандидатов нужно проверить`);
+  });
+  return { returning, lines };
+};
+
+/** Who wins by the table now (owner's rule): reds when no black is left, blacks with a majority or equality, else the game goes on (null). */
+export const tableDecision = (results: PlayerResultData[]): 'red' | 'black' | null | undefined => {
+  if (!results.length || results.some((player) => !teamOfPlayer(player as any) || !player.exit_type)) return undefined; // cannot be judged
+  const atTable = results.filter((player) => player.exit_type === 'alive');
+  const blacks = atTable.filter((player) => teamOfPlayer(player as any) === 'black').length;
+  return blacks === 0 ? 'red' : blacks >= atTable.length - blacks ? 'black' : null;
+};
+
+/**
+ * The number of voters of every voting against the table (owner, 2026-11-01: after a mistaken removal taken back the count is only
+ * highlighted, never rewritten). Day d is voted by those not yet voted out on earlier days and not shot on nights 1…d. A game with a
+ * judge's removal is skipped: the protocol does not place a removal in time.
+ */
+export const voterCountIssues = (protocol: Pick<TournamentGameProtocolData, 'votes' | 'shots'>, results: PlayerResultData[]): Array<{ round: number; day: number; message: string }> => {
+  if (results.some((player) => player.exit_type === 'removed')) return [];
+  const votes = (Array.isArray(protocol.votes) ? protocol.votes : []) as unknown as VotingRound[];
+  const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
+  const out: Array<{ round: number; day: number; message: string }> = [];
+  const size = results.length;
+  for (const round of votes) {
+    if (round.eligible_voters == null) continue;
+    const day = Number(round.day_number ?? 0);
+    const votedOut = new Set<number>();
+    votes.forEach((other) => { if (Number(other.day_number ?? 0) < day) (other.eliminated_seats || []).map(Number).forEach((seat) => votedOut.add(seat)); });
+    shots.forEach((shot, i) => { const night = Number(shot.night_number) || i + 1; if (night <= day && shot.result === 'killed' && Number(shot.target_seat) > 0) votedOut.add(Number(shot.target_seat)); });
+    const expected = size - votedOut.size;
+    if (Number(round.eligible_voters) !== expected) out.push({ round: Number(round.round_number), day, message: `Голосование №${round.round_number}: записано ${round.eligible_voters} голосующих, а за столом по записям ${expected}. Проверьте голосование и выходы игроков.` });
+  }
+  return out;
+};
+
+/** Sets (or clears, with `seat` null) the «сломал попил красным» tag of one circle: one tag per circle, the new one replaces the old. */
+export const setSplitBreakTag = (events: LiveGameEvent[], circleIndex: number, seat: number | null): LiveGameEvent[] => {
+  const round = circleIndex + 1;
+  const kept = events.filter((event) => !(event.kind === 'split_break' && event.round === round));
+  if (seat === null) return kept;
+  const nextSeq = events.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+  return [...kept, { seq: nextSeq, at: new Date().toISOString(), round, phase: 'day_voting', kind: 'split_break', seat }];
+};
+
+/** The kinds of record the judge may move to another circle with a button (owner, 2026-11-01); the many votes and night steps are not listed one by one. */
+export const MOVABLE_EVENT_KINDS = ['exit', 'restored', 'foul', 'tech_minor', 'tech_major', 'nomination', 'reveal', 'announced_check', 'don_check', 'sheriff_check', 'shot_target', 'zero_round_break'] as const;
+
+/**
+ * Moves one record of the chronology to another circle (`circleIndex` 0 = the zero circle = engine round 1). The record goes to the end of
+ * that circle; nothing else is changed or erased — what no longer agrees is highlighted by the review (owner, 2026-11-01).
+ */
+export const moveEventToCircle = (events: LiveGameEvent[], seq: number, circleIndex: number): LiveGameEvent[] => {
+  const target = events.find((event) => event.seq === seq);
+  if (!target || target.round === circleIndex + 1) return events;
+  const nextSeq = events.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+  return [...events.filter((event) => event.seq !== seq), { ...target, round: circleIndex + 1, seq: nextSeq }];
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];
@@ -290,9 +370,14 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
   }
   if (!protocol.winner_team && protocol.end_reason !== 'ppk') issues.push({ id: 'winner', severity: 'error', title: 'Не указана победившая команда', tab: 'result' });
 
+  const winnerMessage = winnerTableMessage(protocol, results);
+  if (winnerMessage && protocol.winner_team) issues.push({ id: 'winner-table', severity: 'error', title: winnerMessage, tab: 'result' });
+
   const firstKilled = protocol.first_killed_participant_id ?? null;
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);
   if (playersMessage) issues.push({ id: 'players', severity: 'error', title: playersMessage, tab: 'players' });
+  for (const item of deadTargetShotMessages(protocol)) issues.push({ id: `shot-dead-${item.night}`, severity: 'error', title: item.message, tab: 'game', circle: item.night - 1 });
+  for (const item of voterCountIssues(protocol, results)) issues.push({ id: `voters-${item.round}`, severity: 'check', title: item.message, tab: 'game', circle: item.day });
   const shotsMessage = validateShots(protocol.shots, tableSize, results, true);
   if (shotsMessage) issues.push({ id: 'shots', severity: 'error', title: shotsMessage, tab: 'game', circle: 0 });
   const firstMessage = validateFirstKilled(firstKilled, results as any[], results as any[], protocol.shots as any[]);
@@ -305,8 +390,8 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
     if (voting.errorMsg) {
       const round = voting.roundIndexWithError == null ? null : votesOf(protocol)[voting.roundIndexWithError];
       const day = round ? Number(round.day_number ?? 0) : 0;
-      // The check speaks of «этап #3, день 1»; the window speaks of circles.
-      const title = voting.errorMsg.replace(/^Голосование \(этап #\d+, день \d+\):?\s*/, `${circleTitle(day, protocol)}: `).replace(/^Голосование:\s*/, `${circleTitle(day, protocol)}: `);
+      // The check speaks of «Голосование (№3)»; the window speaks of circles.
+      const title = voting.errorMsg.replace(/^Голосование \(№\d+(?:, нулевой круг)?\):?\s*/, `${circleTitle(day, protocol)}: `).replace(/^Голосование:\s*/, `${circleTitle(day, protocol)}: `);
       issues.push({ id: 'voting', severity: 'error', title, tab: 'game', circle: day });
     }
   }

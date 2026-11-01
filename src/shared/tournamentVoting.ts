@@ -1,3 +1,6 @@
+/** «№2» / «№1, нулевой круг»: a voting in the validation messages (no «этап» and no day numbers, owner 2026-10-31). */
+export const votingLabel = (roundNumber: unknown, dayNumber: unknown): string => `№${roundNumber}${dayNumber !== '' && dayNumber != null && Number(dayNumber) === 0 ? ', нулевой круг' : ''}`;
+
 export interface VotingRound {
   round_number: number;
   is_revote?: boolean;
@@ -328,7 +331,7 @@ export function validateVotingHierarchy(votes: Partial<VotingRound>[]): string |
         return `Голосование: раунд #${parentNum} завершился ничьей, но для него отсутствует связанное переголосование.`;
       }
       if (children.length > 1) {
-        return `Голосование (этап #${parentNum}, день ${dayNum}): обнаружено более одного переголосования для одного этапа.`;
+        return `Голосование (${votingLabel(parentNum, dayNum)}): обнаружено более одного переголосования для одного этапа.`;
       }
 
       const child = children[0];
@@ -337,12 +340,12 @@ export function validateVotingHierarchy(votes: Partial<VotingRound>[]): string |
       const childNominated = child.nominated_seats || [];
 
       if (parentLeaders.length !== childNominated.length) {
-        return `Голосование (этап #${child.round_number}, день ${child.day_number ?? ''}): количество кандидатов (${childNominated.length}) не соответствует спорным игрокам предыдущего раунда (${parentLeaders.length}).`;
+        return `Голосование (${votingLabel(child.round_number, child.day_number ?? '')}): количество кандидатов (${childNominated.length}) не соответствует спорным игрокам предыдущего раунда (${parentLeaders.length}).`;
       }
 
       for (let i = 0; i < parentLeaders.length; i++) {
         if (Number(parentLeaders[i]) !== Number(childNominated[i])) {
-          return `Голосование (этап #${child.round_number}, день ${child.day_number ?? ''}): список кандидатов переголосования (${childNominated.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${parentLeaders.join(', ')}).`;
+          return `Голосование (${votingLabel(child.round_number, child.day_number ?? '')}): список кандидатов переголосования (${childNominated.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${parentLeaders.join(', ')}).`;
         }
       }
     }

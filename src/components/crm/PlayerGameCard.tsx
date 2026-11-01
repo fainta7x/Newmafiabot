@@ -68,11 +68,11 @@ export const PlayerGameCard: React.FC<PlayerGameCardProps> = ({ game }) => {
       <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
         {game.best_move && (
           <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">
-            Лучший ход{game.best_move_source === 'first_killed' ? ' · ПУ' : game.best_move_source === 'zero_round_voted' ? ' · 0 круг' : ''}
+            Лучший ход{game.best_move_source === 'first_killed' ? ' · ПУ' : game.best_move_source === 'zero_round_voted' ? ' · нулевой круг' : ''}
           </span>
         )}
         {game.first_killed && <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">ПУ</span>}
-        {game.zero_round_voted && <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">0 круг</span>}
+        {game.zero_round_voted && <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">Нулевой круг</span>}
         {game.regular_fouls > 0 && <span className="rounded-full bg-surface-1 px-2.5 py-1 text-text-secondary">Фолы: {game.regular_fouls}</span>}
         {technicalFouls > 0 && <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">Тех: {technicalFouls}</span>}
         {game.judge_bonus !== 0 && <span className="rounded-full bg-success-soft px-2.5 py-1 text-success">Судья {signed(game.judge_bonus)}</span>}

@@ -1,3 +1,4 @@
+import { circleTitle } from '../../components/crm/gameProtocol/protocolReview.ts';
 import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
@@ -110,7 +111,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
     const events: Array<any> = [];
     rawRounds.forEach((round: any, index: number) => {
       const number = Number(round.number ?? round.round ?? round.round_number ?? index + 1);
-      events.push({ id: `round:${index}`, type: 'round', round: number, title: `Круг ${number}`, text: 'Дневная фаза' });
+      events.push({ id: `round:${index}`, type: 'round', round: number, title: circleTitle(number, { events: engineEvents }), text: 'Дневная фаза' });
       const nominations = stringArray(round.nominations ?? round.nominated ?? round.candidates).map(nameOf).filter(Boolean);
       if (nominations.length) events.push({ id: `nominations:${index}`, type: 'nominations', round: number, title: 'Выставлены', text: nominations.join(', '), players: nominations });
       const voteRows = normalizeVoteRows(round.votes ?? round.voting ?? round.vote_result ?? round.results).map((vote) => ({ ...vote, candidate_name: nameOf(vote.candidate) }));

@@ -1,0 +1,71 @@
+/* A proper desktop for 1920×1089 (owner, 2026-11-01). `liveGameDesktopParity.css` fixes the board to 960×700 (and its avatar layer to
+   952×700); on a wide, tall screen that left ~480 px of empty space on each side. Here the board, its grid and its avatar layer grow
+   TOGETHER (the layer follows the same box, so avatars cannot drift). `zoom` is not used for the same reason. Phones and ordinary
+   laptops keep the existing geometry. */
+@media (min-width: 1700px) and (min-height: 980px) {
+  html body .evening-live-engine-shell > div {
+    width: min(calc(100% - 16px), 1400px) !important;
+    max-width: 1400px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+    width: 100% !important;
+    max-width: none !important; /* the grid carries Tailwind's max-w-7xl (1280 px) while its avatar layer is as wide as the board */
+    height: min(840px, calc(100dvh - 46px)) !important;
+    min-height: 700px !important;
+    max-height: 840px !important;
+    gap: 10px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer {
+    width: min(calc(100% - 16px), 1392px) !important;
+    height: min(840px, calc(100dvh - 46px)) !important;
+    min-height: 700px !important;
+    max-height: 840px !important;
+    gap: 10px !important;
+  }
+
+  /* Text, buttons and photos of the board: the phone-sized 7–11 px type is enlarged to a comfortable size on a PC (owner: «все
+     тексты и картинки и кнопки сделать нормальными»). */
+  html body .evening-live-engine-shell .live-seat-quick-action {
+    font-size: 12px !important;
+    min-height: 32px !important;
+    height: auto !important;
+    padding: 0 12px !important;
+  }
+  html body .evening-live-engine-shell .live-seat-state__label { font-size: 11px !important; }
+  html body .evening-live-engine-shell .live-seat-state__value { font-size: 16px !important; }
+  html body .evening-live-engine-shell .live-seat-number { font-size: 14px !important; }
+  html body .evening-live-engine-shell .live-seat-footer__name,
+  html body .evening-live-engine-shell .evening-live-identity-name { font-size: 15px !important; }
+  html body .evening-live-engine-shell .evening-live-player-avatar { width: 96px !important; height: 96px !important; }
+  html body .evening-live-engine-shell .live-judge-hud__phase,
+  html body .evening-live-engine-shell .live-judge-hud__header-button { font-size: 13px !important; }
+  html body .evening-live-engine-shell .live-judge-timer__label { font-size: 12px !important; }
+  html body .evening-live-engine-shell .live-judge-timer__name { font-size: 16px !important; }
+  html body .evening-live-engine-shell .live-judge-timer__time { font-size: 40px !important; }
+  html body .evening-live-engine-shell .live-judge-timer__button,
+  html body .evening-live-engine-shell .live-judge-hud__secondary,
+  html body .evening-live-engine-shell .live-judge-hud__primary { font-size: 14px !important; min-height: 44px !important; }
+  html body .evening-live-engine-shell .live-judge-hud__footer span { font-size: 12px !important; }
+
+  /* The same for the voting, the night and the table-decision panels of the judge. */
+  html body .evening-live-engine-shell .live-judge-hud button,
+  html body .evening-live-engine-shell .live-judge-action,
+  html body .evening-live-engine-shell .live-judge-chip,
+  html body .evening-live-engine-shell .live-judge-vote-strip__seat { font-size: 14px !important; }
+  html body .evening-live-engine-shell .live-judge-hud button { min-height: 40px !important; }
+  html body .evening-live-engine-shell .live-judge-hud__title { font-size: 18px !important; }
+  html body .evening-live-engine-shell .live-judge-hud__eyebrow,
+  html body .evening-live-engine-shell .live-judge-stat__label,
+  html body .evening-live-engine-shell .live-judge-voting-order__label { font-size: 12px !important; }
+  html body .evening-live-engine-shell .live-judge-hud__hint,
+  html body .evening-live-engine-shell .live-judge-hud__meta,
+  html body .evening-live-engine-shell .live-judge-hud__summary { font-size: 13px !important; }
+  html body .evening-live-engine-shell .live-judge-stat__value,
+  html body .evening-live-engine-shell .live-judge-vote-focus__name { font-size: 18px !important; }
+
+  /* The journal bar under the board and the foul badges. */
+  html body .evening-live-engine-shell [class*="text-[10px]"] { font-size: 13px !important; }
+  html body .evening-live-engine-shell .evening-live-discipline > span { font-size: 12px !important; min-width: 34px !important; height: 24px !important; }
+}

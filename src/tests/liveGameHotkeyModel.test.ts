@@ -28,7 +28,8 @@ describe('Live Game hotkey model', () => {
   });
 
   it('keeps the step, timer and utility keys', () => {
-    expect(parseHotkey(key('Enter'))).toEqual({ type: 'primary' });
+    expect(parseHotkey(key('Tab'))).toEqual({ type: 'primary' });
+    expect(parseHotkey(key('Enter'))).toEqual({ type: 'choose' });
     expect(parseHotkey(key('Space'))).toEqual({ type: 'space' });
     expect(parseHotkey(key('Backspace'))).toEqual({ type: 'back' });
     expect(parseHotkey(key('Escape'))).toEqual({ type: 'escape' });

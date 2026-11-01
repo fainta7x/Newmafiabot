@@ -1,3 +1,4 @@
+import { circleNameByTableSize } from '../../lib/circleNames';
 import { useEffect, useRef, useState } from 'react';
 import { openSpeechRecordingReview } from './SpeechRecordingReview.ts';
 
@@ -98,7 +99,7 @@ const readLiveSnapshot = (): LiveSnapshot | null => {
 const speechTypeFor = (snapshot: LiveSnapshot) => {
   if (snapshot.phase === 'day_voting' && snapshot.votingStage === 'revote_speeches') return 'Переголосование';
   if (snapshot.postNightStage === 'farewell') return 'Прощальная речь';
-  if (snapshot.phase === 'day_speeches') return `День ${snapshot.roundNumber || 1}`;
+  if (snapshot.phase === 'day_speeches') return circleNameByTableSize((snapshot.roundNumber || 1) - 1, (snapshot.activePlayers || []).filter((player) => (player as { alive?: boolean }).alive !== false).length);
   return 'Речь';
 };
 

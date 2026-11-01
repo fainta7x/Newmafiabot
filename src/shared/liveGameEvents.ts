@@ -30,6 +30,7 @@ export type LiveGameEventKind =
   | 'first_killed'
   | 'zero_round_voted'
   | 'zero_round_break'
+  | 'split_break'
   | 'best_move'
   | 'reveal'
   | 'reveal_removed'
@@ -98,6 +99,18 @@ export const sanitizeLiveGameEvents = (value: unknown): LiveGameEvent[] => {
     result.push(event);
   }
   return result;
+};
+
+/**
+ * The red the judge tagged «сломал попил красным» on a circle — any circle, the zero one included (owner, 2026-11-01).
+ * One mark per circle: the latest event of that circle wins, an event without a seat clears it.
+ */
+export const splitBreakMarks = (events: ReadonlyArray<Pick<LiveGameEvent, 'kind' | 'round' | 'seat'>> | null | undefined): Array<{ round: number; seat: number }> => {
+  const byRound = new Map<number, number | null>();
+  for (const event of events || []) {
+    if (event.kind === 'split_break' && event.round >= 1) byRound.set(event.round, cleanSeat(event.seat));
+  }
+  return [...byRound].filter((entry): entry is [number, number] => entry[1] !== null).map(([round, seat]) => ({ round, seat }));
 };
 
 /**

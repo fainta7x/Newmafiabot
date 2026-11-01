@@ -20,3 +20,5 @@ export function missedShotNights(protocol: any, seat: number): number[] {
 export const SPLIT_BREAK_RED_ELO = 20;
 /** Fixed Elo cut for each red who raised a hand for the LAST raise after which the game was lost (owner, 2026-11-01). */
 export const RAISE_DEFEAT_ELO = 20;
+/** Bonus for each black who was at the table when the reds raised the last, game-losing raise (owner, 2026-11-01). */
+export const RAISE_DEFEAT_BLACK_BONUS_ELO = 10;

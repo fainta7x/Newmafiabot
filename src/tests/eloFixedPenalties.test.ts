@@ -48,3 +48,22 @@ describe('fixed Elo cut for the last raise before a lost game', () => {
     assert.equal(score({ winner_team: 'black', votes: [raised], events: [] }, 2).missPenaltyElo, 0);
   });
 });
+
+describe('bonus for the blacks at the table during the lost raise (owner, 2026-11-01: +10 Elo)', () => {
+  const hands = seq([ev(2, 'table_vote', { seat: 1 }), ev(2, 'table_vote', { seat: 2 })]);
+  const withExit = (seat: number, exit_type: string) => players().map((player) => (player.seat_number === seat ? { ...player, exit_type } : player));
+  const points = (rows: ReturnType<typeof players>, protocol: any, seat: number) => Math.round(gameContribution({ protocol: { winner_team: 'black', zero_round_rule: 'tournament', ...protocol }, player_results: rows }).find((item) => item.seat === seat)!.points * 40);
+  it('pays each black who sat at the table, and nobody else', () => {
+    const protocol = { votes: [raised], events: hands };
+    assert.equal(points(players(), protocol, 8), 10);
+    assert.equal(points(players(), protocol, 10), 10);
+    const earlierExit = { votes: [raised], events: seq([ev(1, 'exit', { seat: 9, value: 'voted_day' }), ev(2, 'table_vote', { seat: 1 }), ev(2, 'table_vote', { seat: 2 })]) };
+    assert.equal(points(withExit(9, 'voted_day'), earlierExit, 9), 0);
+    assert.equal(points(withExit(9, 'voted_day'), earlierExit, 8), 10);
+    assert.equal(points(players(), protocol, 4), 0);
+  });
+  it('is not paid when the reds won, or when no red hand was recorded', () => {
+    assert.equal(points(players(), { winner_team: 'red', votes: [raised], events: hands }, 8), 0);
+    assert.equal(points(players(), { votes: [raised], events: [] }, 8), 0);
+  });
+});

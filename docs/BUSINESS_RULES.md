@@ -332,7 +332,7 @@ A removal, a vote-out or any other manual step made by mistake and then taken ba
 Besides the miss penalty (−10 Elo for each responsible black on a black loss, see above), two fixed cuts of **−20 Elo** each apply to **reds**, outside the personal limits, in club games:
 
 - **«Сломал попил красным»** — a red the judge tagged as having broken a split on purpose, on **any** circle (the zero circle included; a split of three on the «девятка» counts). It is a separate tag, set in the protocol's circle («Сломал попил красным») and, later, in the live game. The plain «кто сломал попил» mark of the zero circle keeps its own points table.
-- **The last raise before a lost game** — when the blacks won and the last daily voting of the game was a raise (`all_tied_eliminated`, two or more players), every red whose hand «поднять» stayed up in that voting gets −20. Blacks are not cut. Only hands that were recorded count (`table_vote` events); a game without them gets no cut — nothing is guessed.
+- **The last raise before a lost game** — when the blacks won and the last daily voting of the game was a raise (`all_tied_eliminated`, two or more players), every red whose hand «поднять» stayed up in that voting gets −20. Blacks are not cut; instead **every black who was at the table during that raise gets +10 Elo** (owner, 2026-11-01; ordinary personal points; paid only when at least one red hand was recorded). Only hands that were recorded count (`table_vote` events); a game without them gets no cut — nothing is guessed.
 
 The global Elo formulas are not changed (owner decision after the balance simulation in AUDIT_LOG).
 

@@ -4,7 +4,7 @@ import { sanitizeLiveGameEvents, splitBreakMarks, zeroRoundBreakerSeat } from '.
 import { normalizeGameRole } from '../shared/gameRoles.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStreak.ts';
-import { missedShotNights, MISSED_SHOT_ELO, SPLIT_BREAK_RED_ELO, RAISE_DEFEAT_ELO } from './eloMissPenalty.ts';
+import { missedShotNights, MISSED_SHOT_ELO, SPLIT_BREAK_RED_ELO, RAISE_DEFEAT_ELO, RAISE_DEFEAT_BLACK_BONUS_ELO } from './eloMissPenalty.ts';
 import { allocateFindCredit, bestMoveBlackCredits, type FindCreditCandidate } from './eloFindCredit.ts';
 
 /**
@@ -67,7 +67,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'raise_defeat' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -235,6 +235,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
   for (const mark of splitBreakMarks(protocol.events)) if (redRole(roleOf.get(mark.seat))) redSplitBreaks.push(mark);
   // The last raise before the end of a game the reds lost: each red who raised a hand for it is cut (only where the hands were recorded).
   const raiseVoters = new Set<number>();
+  let raiseTable: ReadonlySet<number> | undefined;
   if (protocol.winner_team === 'black') {
     const voteRounds = Array.isArray(protocol?.votes) ? protocol.votes : [];
     const raised = voteRounds.filter((round: any) => round?.outcome === 'all_tied_eliminated' && (round?.eliminated_seats || []).length >= 2);
@@ -244,7 +245,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       const handsRound = Number(lastRaise.day_number ?? 0) + 1;
       for (const event of facts.events) {
         if (event.round !== handsRound || !event.seat) continue;
-        if (event.kind === 'table_vote') raiseVoters.add(event.seat);
+        if (event.kind === 'table_vote') { if (!raiseVoters.size && raiseTable === undefined) raiseTable = facts.atSeq.get(event.seq); raiseVoters.add(event.seat); }
         else if (event.kind === 'table_vote_removed') raiseVoters.delete(event.seat);
       }
     }
@@ -427,6 +428,10 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       for (const mark of redSplitBreaks.filter((entry) => entry.seat === me.seat)) items.push({ kind: 'split_break_red', seat: me.seat, night: mark.round, points: -SPLIT_BREAK_RED_ELO / ELO_PERSONAL_POINT_WEIGHT });
       if (raiseVoters.has(me.seat)) items.push({ kind: 'raise_defeat', seat: me.seat, points: -RAISE_DEFEAT_ELO / ELO_PERSONAL_POINT_WEIGHT });
     }
+    // The blacks who sat at the table during that raise are paid +10 Elo (owner, 2026-11-01), only when red hands were really recorded.
+    if (mode === 'club' && blackRole(me.role) && raiseVoters.size && (raiseTable ? raiseTable.has(me.seat) : me.exitType === 'alive')) {
+      items.push({ kind: 'raise_defeat_black', seat: me.seat, points: RAISE_DEFEAT_BLACK_BONUS_ELO / ELO_PERSONAL_POINT_WEIGHT });
+    }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
     if (mode === 'club' && zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);
     const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' ? 0 : Math.max(0, item.points)), 0);
@@ -483,6 +488,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const pool = of('pool_cap');
   if (pool.length) lines.push(`Больше +${elo(CONTRIBUTION_WEIGHTS.positivePool)} за игру не набрать: ${signedElo(elo(pool[0].points))}`);
   for (const item of of('split_break_red')) lines.push(`Сломал попил красным: ${signedElo(elo(item.points))}`);
+  for (const item of of('raise_defeat_black')) lines.push(`Красные подняли руки за подъём, после которого проиграли: ${signedElo(elo(item.points))}`);
   for (const item of of('raise_defeat')) lines.push(`Поднял руку за последний подъём, после которого красные проиграли: ${signedElo(elo(item.points))}`);
   const misses = of('shot_miss');
   if (misses.length) lines.push(`Отдельный штраф за промах: ночи ${misses.map((item) => item.night).join(', ')}: ${signedElo(elo(misses.reduce((sum, item) => sum + item.points, 0)))}`);

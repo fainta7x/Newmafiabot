@@ -5,4 +5,16 @@
   html { font-size: 20px; }
   html:has(.evening-live-engine-shell),
   html:has(.tournament-live-shell) { font-size: 16px; }
+
+  /* Type sized in pixels (`text-[11px]` and the like, and a few stylesheet classes) does not follow the rem scale: it is raised by the
+     same 1.25 so that small captions are no smaller than the rest. The live game has its own sizes. */
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[9px]"] { font-size: 11.5px !important; }
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[10px]"] { font-size: 12.5px !important; }
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[10.5px]"],
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[11px]"],
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[11.5px]"] { font-size: 13.75px !important; }
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[12px]"] { font-size: 15px !important; }
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) [class*="text-[13px]"] { font-size: 16.25px !important; }
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) .product-mode-switch__label,
+  html:not(:has(.evening-live-engine-shell)):not(:has(.tournament-live-shell)) .dw-eyebrow { font-size: 13.5px !important; }
 }

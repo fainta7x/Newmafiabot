@@ -11,7 +11,7 @@ import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
-import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
+import { clubGamesApi, getPendingClubGameProtocolSaveFor, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
 import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { evictReplayFrames } from '../../lib/liveStorageBudget';
@@ -180,7 +180,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const onClose = () => { if (resumable) forgetOpenLiveGame('club', game.id); onCloseProp(); };
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(() =>
-    getPendingClubGameProtocolSave(game.id)
+    getPendingClubGameProtocolSaveFor(game)
       ? 'Предыдущая попытка сохранить завершённую игру не дошла до сервера.'
       : null,
   );

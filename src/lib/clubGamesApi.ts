@@ -115,6 +115,32 @@ export const getPendingClubGameProtocolSave = (gameId: number): PendingProtocolS
   }
 };
 
+/**
+ * The server already holds exactly what the outbox still waits to send (the PUT landed, only its answer was lost): the outbox item is
+ * a leftover. Without this a finished game showed a second, «editable» copy from the device next to the saved one (owner, 2026-11-01:
+ * «протокол задвоился»). Only an equal record counts — an older or newer server record never deletes the only copy of a game.
+ */
+export const serverHoldsPendingClubGameSave = (game: ClubGameRecord, pending: PendingProtocolSave): boolean => {
+  const server = game.club_protocol;
+  const local = pending.payload;
+  if (!server?.protocol || !local?.protocol) return false;
+  const facts = (protocol: any, results: any[]) => JSON.stringify({
+    status: protocol.status ?? null, winner: protocol.winner_team ?? null, end: protocol.end_reason ?? 'normal',
+    votes: protocol.votes ?? [], shots: protocol.shots ?? [], events: (protocol.events ?? []).length,
+    firstKilled: protocol.first_killed_participant_id ?? null, bestMoves: protocol.best_moves ?? [],
+    exits: [...(results ?? [])].sort((a, b) => Number(a.seat_number) - Number(b.seat_number)).map((p) => [p.seat_number, p.role ?? null, p.exit_type ?? null, p.regular_fouls ?? 0]),
+  });
+  return facts(server.protocol, server.player_results) === facts(local.protocol, local.player_results);
+};
+
+/** The outbox item of a game, dropping a leftover the server already holds. */
+export const getPendingClubGameProtocolSaveFor = (game: ClubGameRecord): PendingProtocolSave | null => {
+  const pending = getPendingClubGameProtocolSave(game.id);
+  if (!pending) return null;
+  if (serverHoldsPendingClubGameSave(game, pending)) { clearPendingClubGameProtocolSave(game.id); return null; }
+  return pending;
+};
+
 export const clearPendingClubGameProtocolSave = (gameId: number) => {
   if (typeof window === 'undefined') return;
   try { localStorage.removeItem(clubGamePendingProtocolKey(gameId)); } catch {}
@@ -189,7 +215,7 @@ export const rebasePendingClubGameProtocol = (
 };
 
 export const getRecoverablePendingClubGame = (game: ClubGameRecord): ClubGameRecord => {
-  const pending = getPendingClubGameProtocolSave(game.id);
+  const pending = getPendingClubGameProtocolSaveFor(game);
   if (!pending) return game;
   const payload = rebasePendingClubGameProtocol(game, pending.payload);
   const editableProtocol = {

@@ -1,5 +1,13 @@
 # Audit log
 
+## 2026-11-01 — protocol window stress test (owner request)
+
+Scope: `src/tests/protocolStress.test.tsx` drives the real editing hook (`useProtocolEditing`) with 200 seeded random sequences of 120 manual edits each (add/delete/change nights, add/delete/edit/confirm/reset votings, exits, judge removal and its cancel, fouls and tech fouls, first killed, winner, PPK and its cancel, free chronology events) and checks after every edit: no exception, ten unique seats, valid exits, consecutive night numbers, the review (`computeIssues`, circles, titles, winner/table, voting checks) never throws, the server's save gate (`canonicalizeClubGameSave`) accepts the draft and saving twice changes nothing; plus 150 random chronologies through the timeline readers, plus owner-rule cases.
+
+- [fixed, ST01] «Убит» chosen on a fresh night before a seat was picked wrote a killed shot at seat 0, which the server refuses («Номер цели должен быть…»): the autosave failed and the protocol could not be saved. A killed shot without a seat now stays a miss until the target is picked.
+- [fixed, ST02] bringing back a player removed for the 2nd technical foul (or the 4th foul) left the foul in place, and the server refused the save («Два технических фола требуют статус removed»). The foul that caused the removal is now taken back with it, as in the live game; the same applies to any manual change of the exit away from «removed».
+- Result: 355 stress cases and the protocol-related suites (182 files, 1390 tests) pass. Not covered: the end of a live game mapped into a protocol (`mapEngineResultToProtocol`), the tournament-specific guards, completing a draft (the completion checks are refused by design while the record is incomplete).
+
 ## 2026-10-31 — past games: game flow and logic (owner request; read-only production data)
 
 Scope: all 27 club games from `GET /api/games` (organizer login, GET only; nothing written). Checks: votes vs exits, night shots vs exits, winner vs survivors, circle sequence. Games with few events (2, 3, 4) predate the chronology and were only counted.

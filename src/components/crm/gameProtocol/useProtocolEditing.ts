@@ -25,9 +25,30 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
   // An edit may only change the exits it really changes: a game whose evidence is incomplete keeps the exits it has.
   const evidenceBefore = (before: TournamentGameProtocolData) => ({ votes: before.votes || [], shots: before.shots || [], firstKilledId: before.first_killed_participant_id ?? null });
 
+  /**
+   * A player who leaves the game in any way but «removed» cannot keep the two fouls that removed him: the removal was a mistake taken
+   * back, so the foul that caused it is taken back with it (the same as the live game does) — otherwise the record could not be saved
+   * («Два технических фола требуют статус removed»).
+   */
+  const withoutRemovalFouls = (player: PlayerResultData, updates: Partial<PlayerResultData>): Partial<PlayerResultData> => {
+    if (updates.exit_type === undefined || updates.exit_type === 'removed') return updates;
+    const next = { ...player, ...updates };
+    const fixed: Partial<PlayerResultData> = { ...updates };
+    if ((next.regular_fouls || 0) >= 4) fixed.regular_fouls = 3;
+    let minor = next.minor_technical_fouls || 0;
+    let major = next.major_technical_fouls || 0;
+    if (minor + major >= 2) {
+      if (major > 0) major -= 1; else minor -= 1;
+      fixed.minor_technical_fouls = minor;
+      fixed.major_technical_fouls = major;
+      fixed.technical_fouls = minor + major;
+    }
+    return fixed;
+  };
+
   const updatePlayerResult = (participantId: string, updates: Partial<PlayerResultData>) => {
     if (guards?.updateResult?.(participantId, updates)) return;
-    setPlayerResults((prev) => prev.map((player) => player.participant_id === participantId ? { ...player, ...updates } : player));
+    setPlayerResults((prev) => prev.map((player) => player.participant_id === participantId ? { ...player, ...withoutRemovalFouls(player, updates) } : player));
   };
 
   const changeRegularFoul = (player: PlayerResultData, delta: number) => {
@@ -221,8 +242,10 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
   const handleShotChange = (index: number, targetSeat: number, result: 'killed' | 'miss' | 'agreement_failed') => {
     setProtocol((prev) => {
       const shots = [...(prev.shots || [])];
-      shots[index] = { ...shots[index], target_seat: targetSeat, result,
-        ...(result === 'killed' ? { miss_reason: null, miss_responsible_seats: [] } : {}) };
+      // «Убит» needs a seat: without one the night stays a miss until the judge picks the target (a killed shot at seat 0 cannot be saved).
+      const effective = result === 'killed' && !(Number(targetSeat) >= 1) ? 'miss' : result;
+      shots[index] = { ...shots[index], target_seat: targetSeat, result: effective,
+        ...(effective === 'killed' ? { miss_reason: null, miss_responsible_seats: [] } : {}) };
       // The replay and the analysis read the shot from the chronology: keep its «выстрел» event of that night in step.
       const night = Number(shots[index].night_number) || index + 1;
       const events = Array.isArray(prev.events) && prev.events.length

@@ -13,6 +13,8 @@ export interface LiveProtocolMarkers {
   bestMoves?: Partial<Record<BestMoveSource, { slot: number; seats: number[] }>>;
   /** «Кто сломал попил?» — the seat the judge named when the zero-round split was broken; never derived from votes. */
   zeroRoundBreakerSlot?: number | null;
+  /** «Сломал попил красным»: the red the judge tagged on a circle, by engine round (owner, 2026-11-01; any circle, the zero one included). */
+  splitBreakTags?: Record<string, number>;
 }
 
 export interface ConfirmedBestMove { source: BestMoveSource; slot: number; seats: number[]; }
@@ -78,6 +80,15 @@ export function setZeroRoundBreaker(state: LiveProtocolMarkers, slot: number | n
   if (slot !== null && !isValidSeat(slot)) return state;
   if ((state.zeroRoundBreakerSlot ?? null) === slot) return state;
   return { ...state, zeroRoundBreakerSlot: slot };
+}
+
+/** Tags (or with `null` clears) the red who broke a split on the given engine round. */
+export function setSplitBreakTag(state: LiveProtocolMarkers, round: number, slot: number | null): LiveProtocolMarkers {
+  if (!Number.isInteger(round) || round < 1 || (slot !== null && !isValidSeat(slot))) return state;
+  const tags = { ...(state.splitBreakTags || {}) };
+  if ((tags[String(round)] ?? null) === slot) return state;
+  if (slot === null) delete tags[String(round)]; else tags[String(round)] = slot;
+  return { ...state, splitBreakTags: tags };
 }
 
 export function isBestMoveAvailable(state: LiveProtocolMarkers, source: BestMoveSource): boolean {

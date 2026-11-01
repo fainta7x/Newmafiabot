@@ -96,6 +96,12 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('vote-count-last');
       await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
       await check('voting-result');
+      // «Сломал попил красным» (owner, 2026-11-01): the tag question and its picker of red seats.
+      await check('voting-result-tag-button');
+      await page.getByTestId('live-split-break-tag').click();
+      await check('split-break-tag-picker');
+      await page.getByRole('group', { name: 'Красный, сломавший попил' }).getByRole('button', { name: '#4', exact: true }).click();
+      await check('split-break-tagged');
       await page.getByRole('button', { name: 'Подтвердить', exact: true }).click();
       await check('best-move');
       for (const seat of [1, 4, 8]) await page.locator('div[class*="z-[120]"]').getByRole('button', { name: String(seat), exact: true }).click();

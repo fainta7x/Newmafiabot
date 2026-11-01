@@ -134,7 +134,9 @@ export const mapEngineResultToProtocol = (
     } as PlayerResultData;
   }));
 
-  const winnerTeam = (normalizeWinnerTeam(gameData.winning_team) ?? 'black');
+  // Never invent a winner: an unreadable one stops the save (the local copy stays, «Повторить сохранение») instead of writing «чёрные».
+  const winnerTeam = normalizeWinnerTeam(gameData.winning_team);
+  if (!winnerTeam) throw new Error('Не удалось определить победившую команду. Результат сохранён на устройстве: откройте игру и укажите победителя в протоколе.');
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'completed',

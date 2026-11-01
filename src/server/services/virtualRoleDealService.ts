@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
+import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 
@@ -34,7 +35,7 @@ export async function ensureVirtualRoleDealSchema(db: DatabaseWrapper) {
 async function gameContext(db: DatabaseWrapper, gameId: number) {
   if (!Number.isInteger(gameId) || gameId <= 0) reject('Некорректная игра', 400);
   const game = await db.get<any>(`
-    SELECT g.id, g.protocol_text, e.format
+    SELECT g.id, g.evening_id, g.protocol_text, e.format
       FROM games g JOIN game_evenings e ON e.id = g.evening_id
      WHERE g.id = ? AND g.archived_at IS NULL LIMIT 1`, [gameId]);
   if (!game) reject('Игра не найдена', 404);
@@ -52,7 +53,7 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   const eligible = ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(game.format));
   const target = eligible ? raw.filter((row) => String(row.player_id || '') === TARGET_PLAYER_ID) : [];
   const playerBySeat = new Map<number, string>(raw.filter((row) => row.player_id).map((row) => [Number(row.seat_number), String(row.player_id)]));
-  return { seats, playerBySeat, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
+  return { eveningId: String(game.evening_id), seats, playerBySeat, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
 }
 
 function shuffledDeck(size: number): Card[] {
@@ -144,7 +145,7 @@ export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, se
 }
 
 /** «Покупка роли»: the judge gives the seat a role the player bought; one card of that role leaves the deck for this seat. */
-export async function buyVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, role: GameRole, version: number) {
+async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: number, role: GameRole, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     const context = await gameContext(tx, gameId);
@@ -164,7 +165,7 @@ export async function buyVirtualRole(db: DatabaseWrapper, gameId: number, seat: 
   });
 }
 
-export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, version: number) {
+async function undoVirtualRoleInner(db: DatabaseWrapper, gameId: number, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     await gameContext(tx, gameId);
@@ -180,7 +181,7 @@ export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, versi
   });
 }
 
-export async function resetVirtualRoleDeal(db: DatabaseWrapper, gameId: number, version: number) {
+async function resetVirtualRoleDealInner(db: DatabaseWrapper, gameId: number, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     const { seats } = await gameContext(tx, gameId);
@@ -193,4 +194,27 @@ export async function resetVirtualRoleDeal(db: DatabaseWrapper, gameId: number, 
     await writeState(tx, gameId, state);
     return visible(state);
   });
+}
+
+/** A bought role is part of the evening's debt: after every change of the deal the evening's payments are recomputed. */
+const syncEveningPayments = async (db: DatabaseWrapper, gameId: number) => {
+  try {
+    const game = await db.get<{ evening_id: string }>('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [gameId]);
+    if (game?.evening_id) await reconcileRegularEveningPayments(db, String(game.evening_id));
+  } catch (error) { console.error('role purchase payment sync failed', error); }
+};
+export async function buyVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, role: GameRole, version: number) {
+  const result = await buyVirtualRoleInner(db, gameId, seat, role, version);
+  await syncEveningPayments(db, gameId);
+  return result;
+}
+export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, version: number) {
+  const result = await undoVirtualRoleInner(db, gameId, version);
+  await syncEveningPayments(db, gameId);
+  return result;
+}
+export async function resetVirtualRoleDeal(db: DatabaseWrapper, gameId: number, version: number) {
+  const result = await resetVirtualRoleDealInner(db, gameId, version);
+  await syncEveningPayments(db, gameId);
+  return result;
 }

@@ -56,6 +56,19 @@ describe('server virtual role deal', () => {
     expect(view.history).toHaveLength(0);
   });
 
+  it('adds the 150 ₽ of a bought role to the player debt for the evening and takes it back on undo', async () => {
+    const { db } = await setup('CASUAL');
+    const now = new Date().toISOString();
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['other-0', 'Покупатель', now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+      VALUES ('participant-0','role-ev','other-0','attended','unpaid',0,0,?,?)`, [now, now]);
+    const due = async () => Number((await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'participant-0'"))!.amount_due);
+    const view = await openVirtualRoleDeal(db, gameId);
+    const bought = await buyVirtualRole(db, gameId, 1, 'don', view.version);
+    expect(await due()).toBe(150);
+    await undoVirtualRole(db, gameId, bought.version);
+    expect(await due()).toBe(0);  });
+
   it.each(['CASUAL', 'NOVICE', 'STANDARD'] as const)('keeps a red for the tenth seat in %s without exposing unopened roles', async (format) => {
     const { db } = await setup(format);
     let view = await openVirtualRoleDeal(db, gameId);

@@ -15,12 +15,14 @@ beforeEach(() => {
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 describe('VirtualRoleDeal', () => {
-  it.each([8, 9, 10])('deals correct %i-player composition, any card index and horizontal row', (n) => {
+  it.each([8, 9, 10])('deals correct %i-player composition, any card index and a two-row grid without a scrolling row', (n) => {
     const complete = vi.fn();
     render(<VirtualRoleDeal seats={seats(n)} onCancel={vi.fn()} onComplete={complete} />);
-    fireEvent.click(screen.getByRole('button',{name:'Включить музыку и начать раздачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     const grid = screen.getByTestId('virtual-card-grid');
-    expect(grid.className).toContain('overflow-x-auto');
+    // Owner, 2026-11-01: numbered cards in two rows, never a horizontally scrolling row.
+    expect(grid.className).toContain('grid-cols-5');
+    expect(grid.className).not.toContain('overflow-x-auto');
     for (let remaining = n; remaining > 0; remaining--) {
       const position = remaining === 4 ? 4 : remaining;
       expect(within(grid).getAllByRole('button')).toHaveLength(remaining);
@@ -35,7 +37,7 @@ describe('VirtualRoleDeal', () => {
   });
   it('undo restores the exact previous layout and allows a different choice', () => {
     render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button',{name:'Включить музыку и начать раздачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     choose(7);
     expect(screen.getAllByRole('button', { name: /^Карта №/ })).toHaveLength(9);
     fireEvent.click(screen.getByRole('button', { name: 'Отменить последнюю карту' }));
@@ -46,7 +48,7 @@ describe('VirtualRoleDeal', () => {
   });
   it('asks for confirmation before discarding the deal', () => {
     render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button',{name:'Включить музыку и начать раздачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     choose(2);
     fireEvent.click(screen.getByRole('button', { name: 'Перераздать всё' }));
     fireEvent.click(screen.getByRole('button', { name: 'Нет' }));
@@ -57,7 +59,7 @@ describe('VirtualRoleDeal', () => {
   });
   it('requires a deliberate reset when closing after a reveal',()=>{
     const close=vi.fn();render(<VirtualRoleDeal seats={seats(10)} onCancel={close} onComplete={vi.fn()}/>);
-    fireEvent.click(screen.getByRole('button',{name:'Включить музыку и начать раздачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     fireEvent.click(screen.getByRole('button',{name:'Карта №3'}));fireEvent.click(screen.getByRole('button',{name:'Открыть карту №3'}));
     fireEvent.click(screen.getByRole('button',{name:'Закрыть раздачу'}));expect(close).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button',{name:'Продолжить раздачу'}));expect(screen.getByRole('status')).toBeTruthy();
@@ -65,7 +67,7 @@ describe('VirtualRoleDeal', () => {
   });
   it('allows another seat first and then returns to the first unassigned seat',()=>{
     render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={vi.fn()}/>);
-    fireEvent.click(screen.getByRole('button',{name:'Включить музыку и начать раздачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     fireEvent.click(screen.getByRole('button',{name:/№7 Player 7/}));choose(1);
     expect(screen.getByText('Выбирает: №1 Player 1')).toBeTruthy();
   });
@@ -73,7 +75,7 @@ describe('VirtualRoleDeal', () => {
   it('keeps the same completed assignments after a failed save and allows retry',async()=>{
     const save=vi.fn().mockRejectedValueOnce(new Error('Сервер недоступен')).mockResolvedValue(undefined);
     render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={save}/>);
-    fireEvent.click(screen.getByRole('button',{name:'Включить музыку и начать раздачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     for(let i=0;i<10;i++)choose(1);
     fireEvent.click(screen.getByRole('button',{name:'Все роли выданы — начать игру'}));
     await screen.findByRole('alert');await waitFor(()=>expect((screen.getByRole('button',{name:'Все роли выданы — начать игру'}) as HTMLButtonElement).disabled).toBe(false));

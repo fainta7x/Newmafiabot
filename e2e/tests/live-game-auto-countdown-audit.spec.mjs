@@ -32,7 +32,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
     await page.getByRole('button', { name: 'Подтвердить состав' }).click();
     await page.getByTestId('zero-round-rule').getByRole('radio', { name: 'Турнирная' }).click();
     await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-    await page.getByRole('button', { name: /Включить музыку и начать раздачу/ }).click();
+    await page.getByRole('button', { name: /Начать раздачу/ }).click();
     for (const role of ROLE_SEQUENCE) await page.getByRole('button', { name: new RegExp(role) }).click();
     await page.getByRole('button', { name: /Роли зафиксированы/ }).click();
     await page.getByRole('button', { name: /Включите музыку/ }).click();

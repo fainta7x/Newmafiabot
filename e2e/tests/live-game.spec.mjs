@@ -114,7 +114,7 @@ const prepareGame = async (page, testInfo, { zeroRoundRule } = {}) => {
   await attachViewport(page, testInfo, '01-setup.png');
 
   await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-  await page.getByRole('button', { name: /Включить музыку и начать раздачу/ }).click();
+  await page.getByRole('button', { name: /Начать раздачу/ }).click();
 
   for (const role of ROLE_SEQUENCE) {
     await page.getByRole('button', { name: new RegExp(role) }).click();

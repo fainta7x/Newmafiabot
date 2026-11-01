@@ -62,9 +62,9 @@ const storeManualState = (detail: MusicStartDetail) => {
 };
 const clearManualState = () => { try { sessionStorage.removeItem(MANUAL_STATE_KEY); } catch {} };
 
-export const requestJudgeGameMusicStart = (trackId?: string, options?: {modal?:boolean}) => window.dispatchEvent(
+export const requestJudgeGameMusicStart = (trackId?: string, options?: {modal?:boolean}) => { if (!JUDGE_MUSIC_PLAYER_ENABLED) return; window.dispatchEvent(
   new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual', ...(options?.modal?{modal:true}:{}) } }),
-);
+); };
 export const requestJudgeNightMusicStart = () => {
   // Training runs the real game engine without a player session. The teaching
   // step should advance, but must never trigger the authenticated music API.
@@ -73,7 +73,7 @@ export const requestJudgeNightMusicStart = () => {
       document.querySelector('.evening-live-engine-shell[data-training-input-gate="active"]')) {
     return true;
   }
-  window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { kind: 'night' } }));
+  if (JUDGE_MUSIC_PLAYER_ENABLED) window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { kind: 'night' } }));
   return true;
 };
 export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEvent(STOP_EVENT));
@@ -104,7 +104,14 @@ const resolveEveningId = (): string => {
   }
 };
 
+/** Temporarily off (owner, 2026-11-01): the player, track choice and «музыки нет» notices make only visual noise until music is wired up. Set to true to bring them back. */
+export const JUDGE_MUSIC_PLAYER_ENABLED = false;
+
 export default function JudgeGameMusicController() {
+  return JUDGE_MUSIC_PLAYER_ENABLED ? <JudgeGameMusicControllerView /> : null;
+}
+
+function JudgeGameMusicControllerView() {
   const music = useJudgeGameMusic();
   const manualRef = useRef(false);
   const manualTrackRef = useRef<string | undefined>(undefined);

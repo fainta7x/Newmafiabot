@@ -1,4 +1,6 @@
-import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
+import { JUDGE_MUSIC_PLAYER_ENABLED, requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
+import { FitText } from '../ui/FitText.tsx';
+import { RoleCard } from '../ui/RoleCard.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
@@ -178,18 +180,18 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   return (
     <div role="dialog" aria-modal="true" aria-label="Раздача виртуальных ролей" data-testid="virtual-role-deal" className="fixed inset-0 z-[160] bg-[#090a0d]/95 backdrop-blur-xl">
       <div className={`absolute inset-x-0 top-0 overflow-y-auto p-3 ${started ? 'bottom-[calc(88px+env(safe-area-inset-bottom))]' : 'bottom-0'}`}>
-      <div className="mx-auto w-full max-w-lg space-y-3 rounded-3xl border border-white/10 bg-[#121318] p-4 text-white">
+      <div className="mx-auto w-full max-w-lg space-y-3 rounded-3xl border border-white/10 bg-[#121318] p-4 text-white [@media(max-height:700px)]:space-y-1.5 [@media(max-height:700px)]:p-2.5">
         <header className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-widest text-white/40">Виртуальная колода</div>
-            <h2 className="text-xl font-semibold">Раздача ролей</h2>
+            <h2 className="text-xl font-semibold [@media(max-height:700px)]:text-base">Раздача ролей</h2>
             <p className="text-xs text-white/50">Выдано {history.length} из {size}</p>
           </div>
           <button type="button" disabled={saving || busy} onClick={()=>{if(history.length||showRole)setCloseConfirm(true);else close();}} aria-label="Закрыть раздачу" className="min-h-11 rounded-xl border border-white/20 px-4">Закрыть</button>
         </header>
         {!started ? <div className="space-y-3">
           <p className="text-sm leading-6">Карты уже перемешаны. Игрок выбирает карту, ведущий открывает и подтверждает роль.</p>
-          <button type="button" disabled={!loaded || busy} onClick={()=>{requestJudgeGameMusicStart(undefined,{modal:true});setStarted(true);}} className="min-h-12 w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-black">Включить музыку и начать раздачу</button>
+          <button type="button" disabled={!loaded || busy} onClick={()=>{requestJudgeGameMusicStart(undefined,{modal:true});setStarted(true);}} className="min-h-12 w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-black">{JUDGE_MUSIC_PLAYER_ENABLED?'Включить музыку и начать раздачу':'Начать раздачу'}</button>
         </div>:null}
         {started && !complete && (
           <>
@@ -198,23 +200,29 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
                 <button key={player.seat_number} type="button" disabled={assigned.has(player.seat_number) || showRole || busy}
                   onClick={() => { setSeat(player.seat_number); setSelectedId(null); }}
                   aria-pressed={active === player.seat_number}
-                  className={`min-h-12 min-w-0 rounded-lg border p-1 text-center text-xs disabled:opacity-30 ${active === player.seat_number ? 'border-white bg-white/15' : 'border-white/10 bg-black/20'}`}>
+                  className={`min-h-11 min-w-0 rounded-lg border p-1 text-center text-xs disabled:opacity-30 [@media(max-height:700px)]:min-h-9 ${active === player.seat_number ? 'border-white bg-white/15' : 'border-white/10 bg-black/20'}`}>
                   <div>№{player.seat_number}</div>
-                  <div className="break-words text-[10px]">{player.nickname}</div>
+                  <FitText as="div" minPx={8} className="text-[10px]">{player.nickname}</FitText>
                 </button>
               ))}
             </div>
             <p className="text-sm font-semibold">Выбирает: №{current?.seat_number} {current?.nickname}</p>
-            <div className="flex gap-2 overflow-x-auto py-2" data-testid="virtual-card-grid" aria-label="Закрытые карты — прокрутите ряд">
+            {/* Numbered cards in two rows, no scrolling row (owner, 2026-11-01). */}
+            <div className="grid grid-cols-5 gap-2 py-1" data-testid="virtual-card-grid" role="group" aria-label="Закрытые карты">
               {deck.map((card, index) => (
                 <button key={card.id} type="button" disabled={showRole || busy} onClick={() => setSelectedId(card.id)}
                   aria-label={`Карта №${index + 1}`} aria-pressed={selectedId === card.id}
-                  className={`flex h-24 w-[68px] shrink-0 items-center justify-center rounded-xl border text-lg font-semibold ${selectedId === card.id ? 'border-white bg-white/20' : 'border-white/15 bg-black/30'}`}>
+                  className={`flex aspect-[4/3] max-h-[72px] w-full min-w-0 [@media(max-height:800px)]:max-h-[52px] items-center justify-center rounded-xl border-2 text-xl font-bold transition active:scale-95 ${selectedId === card.id ? 'border-white bg-white/20' : 'border-white/15 bg-black/30'}`}>
                   {index + 1}
                 </button>
               ))}
             </div>
-            {selected && showRole && selectedRole && <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-center text-xl font-semibold" role="status">Роль: {GAME_ROLES[selectedRole].label}</div>}
+            {selected && showRole && selectedRole && (
+              <div className="flex items-center justify-center gap-4 rounded-xl border border-white/20 bg-white/10 p-3 [@media(max-height:800px)]:p-1.5" role="status">
+                <div className="w-16 shrink-0 [@media(max-height:800px)]:w-11"><RoleCard role={selectedRole} /></div>
+                <div className="text-xl font-semibold">Роль: {GAME_ROLES[selectedRole].label}</div>
+              </div>
+            )}
             {selected && !showRole && <button type="button" onClick={() => { void revealCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}</button>}
             {showRole && <button type="button" disabled={busy} onClick={() => { void confirmCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black">Подтвердить роль и продолжить</button>}
           </>

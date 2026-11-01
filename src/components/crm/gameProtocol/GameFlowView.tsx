@@ -10,7 +10,7 @@ import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, recordsAfterVoting, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -63,6 +63,11 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
     const tail = lines.length ? `\n\nПосле него в протоколе записано (проверьте это после отката):\n${lines.join('\n')}` : '';
     if (confirm(`${head}${tail}`)) api.resetOutcome(index);
   };
+  // «Продолжить игру» (owner, 2026-11-01): only while the table has not decided the game; the next step follows the rules — after a day the night, after a night the next circle's voting.
+  const decided = tableDecision(api.results);
+  const lastCircle = circles[circles.length - 1];
+  const canContinue = !api.locked && decided === null && protocol.end_reason !== 'ppk' && circle.index === lastCircle.index;
+  const nextIsNight = lastCircle.shotIndex < 0 && lastCircle.index === (protocol.shots || []).length;
   const close = () => setSheet(null);
   const circleIssues = issues.filter((issue) => issue.circle === circle.index);
 
@@ -462,6 +467,14 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
               <ul className="mt-2 flex flex-wrap gap-1.5">{fouls.map((item) => <li key={`${item.seat}-${item.text}`}><InfoTag tone="attention">#{item.seat} {item.text}</InfoTag></li>)}</ul>
             </div>
           ) : null}
+        </Card>
+      ) : null}
+
+      {canContinue ? (
+        <Card className="space-y-2" data-testid="continue-game">
+          <Eyebrow>Игра по столу не закончена</Eyebrow>
+          <p className="text-[13px] leading-5 text-white/65">За столом ещё есть красные и чёрные, и у чёрных нет большинства. Добавьте то, что было дальше.</p>
+          <Btn kind="ghost" block onClick={() => (nextIsNight ? api.addNight() : api.addVoting(lastCircle.index + 1))}><Plus className="h-4 w-4" aria-hidden="true" />{nextIsNight ? 'Добавить следующую ночь' : 'Добавить голосование следующего круга'}</Btn>
         </Card>
       ) : null}
 

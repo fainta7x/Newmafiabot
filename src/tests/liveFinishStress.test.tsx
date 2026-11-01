@@ -140,6 +140,8 @@ describe('end of a live game → club protocol: random rule-abiding games', () =
     // The protocol review finds nothing wrong with a game played by the rules.
     const errors = computeIssues({ protocol: mapped.protocol, results: mapped.player_results } as any).filter((issue) => issue.severity === 'error');
     expect(errors.map((issue) => `${issue.id}: ${issue.title}`)).toEqual([]);
+    const voterChecks = computeIssues({ protocol: mapped.protocol, results: mapped.player_results } as any).filter((issue) => issue.id.startsWith('voters-'));
+    expect(voterChecks.map((issue) => issue.title)).toEqual([]);
     // The server accepts the completion.
     expect(() => canonicalizeClubGameSave(game.club_protocol, mapped.protocol, mapped.player_results, 'completed')).not.toThrow();
   });

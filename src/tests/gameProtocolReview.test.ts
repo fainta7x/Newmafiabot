@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, voterCountIssues, tableDecision, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -214,5 +214,26 @@ describe('a mistaken vote-out taken back lists what followed it', () => {
     expect(found.returning).toEqual([7]);
     expect(found.lines).toEqual(['Ночь 2: выстрел в №7 (в вернувшегося игрока)', 'Голосование №2 следующего круга: число голосующих и кандидатов нужно проверить']);
     expect(recordsAfterVoting({ votes, shots } as any, 5)).toEqual({ returning: [], lines: [] });
+  });
+});
+
+describe('voter counts against the table are only highlighted (owner, 2026-11-01)', () => {
+  const rounds = (eligible: number[]) => eligible.map((e, i) => ({ round_number: i + 1, day_number: i, is_revote: false, nominated_seats: [3], vote_counts: { 3: e }, eligible_voters: e, outcome: 'single_eliminated', eliminated_seats: [3 + i] })) as any[];
+  it('accepts counts that follow the table and flags one that does not, naming both numbers', () => {
+    const shots = [{ night_number: 1, target_seat: 9, result: 'killed' }] as any[];
+    // day 0: 10; day 1: 10 − voted out on day 0 (seat 3) − killed night 1 (seat 9) = 8
+    expect(voterCountIssues({ votes: rounds([10, 8]), shots } as any, results())).toEqual([]);
+    const found = voterCountIssues({ votes: rounds([10, 9]), shots } as any, results());
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/записано 9 голосующих, а за столом по записям 8/);
+  });
+  it('skips a game with a judge removal (a removal is not placed in time)', () => {
+    expect(voterCountIssues({ votes: rounds([10, 5]), shots: [] } as any, results({ 4: { exit_type: 'removed' } }))).toEqual([]);
+  });
+  it('says whether the table decided the game, or that it cannot be judged', () => {
+    expect(tableDecision(results())).toBeNull();
+    expect(tableDecision(results({ 4: { exit_type: 'voted_day' }, 7: { exit_type: 'voted_day' }, 8: { exit_type: 'voted_day' } }))).toBe('red');
+    expect(tableDecision(results({ 1: { exit_type: 'voted_day' }, 2: { exit_type: 'voted_day' }, 3: { exit_type: 'voted_day' }, 5: { exit_type: 'voted_day' }, 6: { exit_type: 'voted_day' }, 9: { exit_type: 'voted_day' }, 10: { exit_type: 'voted_day' } }))).toBe('black');
+    expect(tableDecision(results({ 1: { role: null, exit_type: null } }))).toBeUndefined();
   });
 });

@@ -306,6 +306,37 @@ export const recordsAfterVoting = (protocol: Pick<TournamentGameProtocolData, 'v
   return { returning, lines };
 };
 
+/** Who wins by the table now (owner's rule): reds when no black is left, blacks with a majority or equality, else the game goes on (null). */
+export const tableDecision = (results: PlayerResultData[]): 'red' | 'black' | null | undefined => {
+  if (!results.length || results.some((player) => !teamOfPlayer(player as any) || !player.exit_type)) return undefined; // cannot be judged
+  const atTable = results.filter((player) => player.exit_type === 'alive');
+  const blacks = atTable.filter((player) => teamOfPlayer(player as any) === 'black').length;
+  return blacks === 0 ? 'red' : blacks >= atTable.length - blacks ? 'black' : null;
+};
+
+/**
+ * The number of voters of every voting against the table (owner, 2026-11-01: after a mistaken removal taken back the count is only
+ * highlighted, never rewritten). Day d is voted by those not yet voted out on earlier days and not shot on nights 1…d. A game with a
+ * judge's removal is skipped: the protocol does not place a removal in time.
+ */
+export const voterCountIssues = (protocol: Pick<TournamentGameProtocolData, 'votes' | 'shots'>, results: PlayerResultData[]): Array<{ round: number; day: number; message: string }> => {
+  if (results.some((player) => player.exit_type === 'removed')) return [];
+  const votes = (Array.isArray(protocol.votes) ? protocol.votes : []) as unknown as VotingRound[];
+  const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
+  const out: Array<{ round: number; day: number; message: string }> = [];
+  const size = results.length;
+  for (const round of votes) {
+    if (round.eligible_voters == null) continue;
+    const day = Number(round.day_number ?? 0);
+    const votedOut = new Set<number>();
+    votes.forEach((other) => { if (Number(other.day_number ?? 0) < day) (other.eliminated_seats || []).map(Number).forEach((seat) => votedOut.add(seat)); });
+    shots.forEach((shot, i) => { const night = Number(shot.night_number) || i + 1; if (night <= day && shot.result === 'killed' && Number(shot.target_seat) > 0) votedOut.add(Number(shot.target_seat)); });
+    const expected = size - votedOut.size;
+    if (Number(round.eligible_voters) !== expected) out.push({ round: Number(round.round_number), day, message: `Голосование №${round.round_number}: записано ${round.eligible_voters} голосующих, а за столом по записям ${expected}. Проверьте голосование и выходы игроков.` });
+  }
+  return out;
+};
+
 export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule = 'tournament'): Issue[] => {
   const { protocol, results } = state;
   const issues: Issue[] = [];
@@ -323,6 +354,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);
   if (playersMessage) issues.push({ id: 'players', severity: 'error', title: playersMessage, tab: 'players' });
   for (const item of deadTargetShotMessages(protocol)) issues.push({ id: `shot-dead-${item.night}`, severity: 'error', title: item.message, tab: 'game', circle: item.night - 1 });
+  for (const item of voterCountIssues(protocol, results)) issues.push({ id: `voters-${item.round}`, severity: 'check', title: item.message, tab: 'game', circle: item.day });
   const shotsMessage = validateShots(protocol.shots, tableSize, results, true);
   if (shotsMessage) issues.push({ id: 'shots', severity: 'error', title: shotsMessage, tab: 'game', circle: 0 });
   const firstMessage = validateFirstKilled(firstKilled, results as any[], results as any[], protocol.shots as any[]);

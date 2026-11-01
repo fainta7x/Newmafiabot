@@ -244,7 +244,7 @@ describe('moving a record to another circle (owner, 2026-11-01: «кнопкой
     const moved = moveEventToCircle(events, events[0].seq, 2);
     expect(moved).toHaveLength(3);
     expect(moved.filter((event: any) => event.round === 3).map((event: any) => `${event.kind}:${event.seat}`)).toEqual(['foul:4', 'exit:5']);
-    expect(moved.find((event: any) => event.kind === 'foul' && event.seat === 3).round).toBe(2);
+    expect(moved.find((event: any) => event.kind === 'foul' && event.seat === 3)?.round).toBe(2);
     expect(moveEventToCircle(events, events[0].seq, 1)).toBe(events); // already there
     expect(moveEventToCircle(events, 9999, 0)).toBe(events); // unknown record
   });

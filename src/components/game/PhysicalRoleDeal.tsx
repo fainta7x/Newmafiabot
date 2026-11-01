@@ -1,4 +1,5 @@
 import { GAME_ROLES, GAME_ROLE_KEYS, type GameRole } from '../../shared/gameRoles.ts';
+import { GameRoleIcon } from '../ui/GameRole.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
@@ -190,8 +191,8 @@ export default function PhysicalRoleDeal({
               return (
                 <div key={role} className={`rounded-[12px] border px-1.5 py-2 text-center ${done ? 'border-emerald-300/15 bg-emerald-300/[0.06]' : 'border-white/[0.055] bg-black/15'}`}>
                   <div className="flex items-center justify-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.foreground }} />
-                    <span className="text-[10px] font-semibold text-white/38">{meta.label}</span>
+                    <GameRoleIcon role={role} className="h-4 w-4" />
+                    <span className="text-[10px] font-semibold text-white/60">{meta.label}</span>
                   </div>
                   <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : ''}`} style={done ? undefined : { color: meta.foreground }}>{counts[role]}/{limits[role]}</div>
                 </div>
@@ -233,14 +234,15 @@ export default function PhysicalRoleDeal({
                     type="button"
                     disabled={unavailable}
                     onClick={() => chooseRole(role)}
-                    style={selected ? { borderColor: meta.foreground + '60', backgroundColor: meta.accent + '18', color: meta.foreground } : undefined}
-                    className={`min-h-[64px] rounded-[16px] border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${selected ? 'border-white/25 bg-white/[.06]' : 'border-white/[0.08] bg-black/20 text-white/62 active:bg-white/[0.055]'}`}
+                    style={{ borderColor: meta.foreground + (selected ? 'cc' : '44'), backgroundColor: meta.accent + (selected ? '40' : '1a'), color: meta.foreground, boxShadow: selected ? `0 0 0 2px ${meta.foreground}55` : undefined }}
+                    data-role-card={role}
+                    className={`min-h-[84px] rounded-[16px] border-2 px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${selected ? '' : 'text-white/62 active:bg-white/[0.055]'}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meta.foreground }} />
-                      <span className="text-[10px] font-semibold text-white/26">{counts[role]}/{limits[role]}</span>
+                      <GameRoleIcon role={role} className="h-8 w-8" />
+                      <span className="text-[11px] font-semibold text-white/55">{counts[role]}/{limits[role]}</span>
                     </div>
-                    <div className="mt-2 text-[13px] font-semibold">{meta.label}</div>
+                    <div className="mt-2 text-[15px] font-bold">{meta.label}</div>
                   </button>
                 );
               })}
@@ -252,7 +254,6 @@ export default function PhysicalRoleDeal({
           <div className="grid grid-cols-5 gap-1.5">
             {sortedSeats.map((seat, index) => {
               const role = assignments[seat.seat_number];
-              const meta = role ? ROLE_META[role] : null;
               return (
                 <button
                   key={seat.seat_number}
@@ -262,7 +263,7 @@ export default function PhysicalRoleDeal({
                   className={`min-h-[52px] min-w-0 rounded-[11px] border px-1 py-1.5 text-center ${index === activeIndex ? 'border-white/22 bg-white/[0.08]' : role ? 'border-emerald-300/10 bg-emerald-300/[0.035]' : 'border-white/[0.055] bg-black/15'}`}
                 >
                   <div className="text-[10px] font-semibold text-white/72">{seat.seat_number}</div>
-                  <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta?.foreground ?? 'rgba(255,255,255,.12)' }} />
+                  <span className="mx-auto mt-1 block h-4 w-4">{role ? <GameRoleIcon role={role} className="h-4 w-4" /> : <span className="mx-auto block h-1.5 w-1.5 translate-y-[5px] rounded-full bg-white/15" />}</span>
                   <div className="mt-1 truncate text-[10px] text-white/24">{seat.nickname}</div>
                 </button>
               );

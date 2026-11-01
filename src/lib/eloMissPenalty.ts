@@ -1,4 +1,5 @@
-export const MISSED_SHOT_ELO = 6;
+/** Fixed Elo cut for the player the judge names as responsible for a miss (owner, 2026-11-01: −10; before it was 6). */
+export const MISSED_SHOT_ELO = 10;
 export type MissReason = 'error' | 'intentional';
 export interface MissAssessment { miss_reason?: MissReason | null; miss_responsible_seats?: number[] }
 

@@ -75,7 +75,7 @@ describe('positive rewards first, actual misses after all personal limits', () =
   it('keeps a miss separate from the automatic contribution and discipline', () => {
     const players = rows();
     const score = seatScore(players, { winner_team: 'red', shots: [{ night_number: 1, result: 'miss', miss_reason: 'error', miss_responsible_seats: [8] }] }, 8);
-    close(score.points, 0); assert.equal(score.missPenaltyElo, 6);
+    close(score.points, 0); assert.equal(score.missPenaltyElo, 10);
   });
 });
 

@@ -1745,10 +1745,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     requestDisciplineConfirmation(slot, 'ppk');
   };
 
-  const handleEditPlayerNote = (player: ActivePlayerState) => {
-    const note = window.prompt(`Заметка ведущего для #${player.slot_num}:`, player.note || '');
-    if (note !== null) setActivePlayers((previous) => previous.map((item) => item.slot_num === player.slot_num ? { ...item, note: note.trim() } : item));
-    setActionPlayerSlot(null);
+  const handleEditPlayerNote = (player: ActivePlayerState, note: string) => {
+    setActivePlayers((previous) => previous.map((item) => item.slot_num === player.slot_num ? { ...item, note: note.trim() } : item));
   };
 
   const handleToggleBestMoveSeat = (slot: number) => {

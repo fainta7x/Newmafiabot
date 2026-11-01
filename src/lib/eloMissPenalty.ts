@@ -15,3 +15,8 @@ export function missedShotNights(protocol: any, seat: number): number[] {
   }
   return [...seen].sort((a, b) => a - b);
 }
+
+/** Fixed Elo cut for a red who broke a split on purpose on any circle (owner, 2026-11-01). */
+export const SPLIT_BREAK_RED_ELO = 20;
+/** Fixed Elo cut for each red who raised a hand for the LAST raise after which the game was lost (owner, 2026-11-01). */
+export const RAISE_DEFEAT_ELO = 20;

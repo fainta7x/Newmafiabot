@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, moveEventToCircle, voterCountIssues, tableDecision, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
+import { tableVotersOf, buildCircles, checksOf, computeChanges, computeIssues, setSplitBreakTag, moveEventToCircle, voterCountIssues, tableDecision, recordsAfterVoting, deadTargetShotMessages, withoutCancelledExits, exitsOf as exitsOfCircle, winnerTableMessage, exitsOf, nominatorsOf, roundBallots, roundChain, withBallots } from '../components/crm/gameProtocol/protocolReview';
 
 const ROLES = ['citizen', 'citizen', 'citizen', 'don', 'sheriff', 'citizen', 'mafia', 'mafia', 'citizen', 'citizen'];
 const player = (i: number, extra: Record<string, unknown> = {}) => ({
@@ -253,5 +253,16 @@ describe('moving a record to another circle (owner, 2026-11-01: «кнопкой
     const before = [ev(2, 'exit', { seat: 5, value: 'voted_day' })] as any[];
     const after = moveEventToCircle(before, before[0].seq, 3);
     expect(buildCircles({ ...base, events: after } as any).length).toBeGreaterThan(buildCircles({ ...base, events: before } as any).length);
+  });
+});
+
+describe('the «сломал попил красным» tag in the protocol', () => {
+  it('sets one tag per circle, replaces it, and clears it', () => {
+    const one = setSplitBreakTag([], 1, 6);
+    expect(one.filter((event) => event.kind === 'split_break')).toMatchObject([{ round: 2, seat: 6 }]);
+    const replaced = setSplitBreakTag(one, 1, 4);
+    expect(replaced.filter((event) => event.kind === 'split_break')).toMatchObject([{ round: 2, seat: 4 }]);
+    expect(setSplitBreakTag(replaced, 1, null).filter((event) => event.kind === 'split_break')).toEqual([]);
+    expect(setSplitBreakTag(replaced, 0, 3).filter((event) => event.kind === 'split_break').map((event: any) => event.round)).toEqual([2, 1]);
   });
 });

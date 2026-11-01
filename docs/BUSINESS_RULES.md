@@ -327,6 +327,15 @@ The protocol window names its circles this way (`circleTitle` in `protocolReview
 
 A removal, a vote-out or any other manual step made by mistake and then taken back (the player is brought back to the table) is **not an event of the game**: the game has no «left the table and came back». The mistaken fact is erased and the game is counted as if it had never happened; this is a full rollback of everything that followed from it for that player, the move and the stage of the game. A player voted out by mistake and brought back puts the voting back to «идёт голосование» (its result is erased; it can be held or corrected again). Circles are never called «круг 1, 2…»: only the official names (see «Names of the circles»).
 
+## Fixed Elo cuts for a red's mistakes (owner, 2026-11-01)
+
+Besides the miss penalty (−10 Elo for each responsible black on a black loss, see above), two fixed cuts of **−20 Elo** each apply to **reds**, outside the personal limits, in club games:
+
+- **«Сломал попил красным»** — a red the judge tagged as having broken a split on purpose, on **any** circle (the zero circle included; a split of three on the «девятка» counts). It is a separate tag, set in the protocol's circle («Сломал попил красным») and, later, in the live game. The plain «кто сломал попил» mark of the zero circle keeps its own points table.
+- **The last raise before a lost game** — when the blacks won and the last daily voting of the game was a raise (`all_tied_eliminated`, two or more players), every red whose hand «поднять» stayed up in that voting gets −20. Blacks are not cut. Only hands that were recorded count (`table_vote` events); a game without them gets no cut — nothing is guessed.
+
+The global Elo formulas are not changed (owner decision after the balance simulation in AUDIT_LOG).
+
 ## Night, agreement and the first-day split (user explanation 2026-09-24)
 
 - At night everyone wears a mask. The mafia shoots blind, masks on, each showing the number of the target; one number from all — the player is killed, different numbers — a miss.

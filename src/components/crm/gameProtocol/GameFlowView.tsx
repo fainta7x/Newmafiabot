@@ -3,7 +3,7 @@ import { Check, ChevronRight, Plus } from 'lucide-react';
 import type { LiveGameEvent } from '../../../shared/liveGameEvents';
 import type { VotingRound } from '../../../shared/tournamentVoting';
 import { determineVotingResult } from '../../../shared/tournamentVoting';
-import { zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
+import { splitBreakMarks, zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
 import { moveNominatedSeat, setTableLeaveVotes, setVotingSeatCount, toggleNominatedSeat, updateEligibleVoters } from '../tournaments/protocol/protocolVotingEditorUtils';
 import { describeLiveGameEvents } from '../../../lib/liveGameEventText';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
@@ -11,7 +11,7 @@ import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, setSplitBreakTag, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -70,6 +70,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const lastCircle = circles[circles.length - 1];
   const canContinue = !api.locked && decided === null && protocol.end_reason !== 'ppk' && circle.index === lastCircle.index;
   const nextIsNight = lastCircle.shotIndex < 0 && lastCircle.index === (protocol.shots || []).length;
+  const splitBreakSeat = splitBreakMarks(circle.events).find((mark) => mark.round === circle.index + 1)?.seat ?? null;
   // «Записи круга»: a record made in the wrong circle is moved with a button; nothing else is erased (owner, 2026-11-01).
   const movable = useMemo(() => {
     const list = circle.events.filter((event) => (MOVABLE_EVENT_KINDS as readonly string[]).includes(event.kind));
@@ -494,6 +495,17 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           ) : null}
         </Card>
       ) : null}
+
+      <Card className="space-y-2" data-testid="split-break-tag">
+        <Eyebrow>Сломал попил красным</Eyebrow>
+        <p className="text-[12px] leading-4 text-white/55">Красный, который специально сломал попил на этом круге: −20 Elo. Тег ставит судья.</p>
+        <select aria-label="Красный, сломавший попил в этом круге" disabled={api.locked} value={splitBreakSeat ?? ''}
+          onChange={(event) => api.setEvents((list: LiveGameEvent[]) => setSplitBreakTag(list, circle.index, event.target.value ? Number(event.target.value) : null))}
+          className="min-h-11 w-full rounded-xl border border-white/12 bg-[#111216] px-3 text-sm text-white">
+          <option value="">Не отмечен</option>
+          {api.results.slice().sort((a, b) => a.seat_number - b.seat_number).filter((player) => player.role === 'citizen' || player.role === 'sheriff').map((player) => <option key={player.participant_id} value={player.seat_number}>#{player.seat_number} {player.display_name}</option>)}
+        </select>
+      </Card>
 
       {movable.length ? (
         <Card className="space-y-2" data-testid="circle-records">

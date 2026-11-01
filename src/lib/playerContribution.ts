@@ -1,10 +1,10 @@
 import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
-import { sanitizeLiveGameEvents, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
+import { sanitizeLiveGameEvents, splitBreakMarks, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../shared/gameRoles.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStreak.ts';
-import { missedShotNights, MISSED_SHOT_ELO } from './eloMissPenalty.ts';
+import { missedShotNights, MISSED_SHOT_ELO, SPLIT_BREAK_RED_ELO, RAISE_DEFEAT_ELO } from './eloMissPenalty.ts';
 import { allocateFindCredit, bestMoveBlackCredits, type FindCreditCandidate } from './eloFindCredit.ts';
 
 /**
@@ -67,7 +67,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'raise_defeat' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -229,6 +229,26 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
   const victim = zeroVotedId ? Number(results.find((row) => String(row?.participant_id || '') === zeroVotedId)?.seat_number) || null
     : facts.events.filter((event) => event.kind === 'zero_round_voted').at(-1)?.seat ?? null;
   const zeroBreak = new Map<number, ContributionItem>();
+  // Reds the judge tagged «сломал попил красным» (a deliberate harmful break) on ANY circle, the zero one included; each costs a fixed Elo
+  // cut on top of the zero-circle table, which keeps paying the plain «who broke it» mark.
+  const redSplitBreaks: Array<{ seat: number; round: number }> = [];
+  for (const mark of splitBreakMarks(protocol.events)) if (redRole(roleOf.get(mark.seat))) redSplitBreaks.push(mark);
+  // The last raise before the end of a game the reds lost: each red who raised a hand for it is cut (only where the hands were recorded).
+  const raiseVoters = new Set<number>();
+  if (protocol.winner_team === 'black') {
+    const voteRounds = Array.isArray(protocol?.votes) ? protocol.votes : [];
+    const raised = voteRounds.filter((round: any) => round?.outcome === 'all_tied_eliminated' && (round?.eliminated_seats || []).length >= 2);
+    const lastRaise = raised.sort((x: any, y: any) => Number(y.day_number ?? 0) - Number(x.day_number ?? 0) || Number(y.round_number) - Number(x.round_number))[0];
+    const lastDay = voteRounds.reduce((max: number, round: any) => Math.max(max, Number(round?.day_number ?? 0)), 0);
+    if (lastRaise && Number(lastRaise.day_number ?? 0) === lastDay) {
+      const handsRound = Number(lastRaise.day_number ?? 0) + 1;
+      for (const event of facts.events) {
+        if (event.round !== handsRound || !event.seat) continue;
+        if (event.kind === 'table_vote') raiseVoters.add(event.seat);
+        else if (event.kind === 'table_vote_removed') raiseVoters.delete(event.seat);
+      }
+    }
+  }
   if (protocol.zero_round_rule !== 'club' && breaker && victim && breaker !== victim && roleOf.get(breaker) && roleOf.get(victim)) {
     const into = roleOf.get(victim) === 'sheriff' ? 'Sheriff' : blackRole(roleOf.get(victim)) ? 'Black' : 'Red';
     const [forBreaker, forVictim] = W.zeroBreak[`${blackRole(roleOf.get(breaker)) ? 'black' : 'red'}Into${into}` as keyof typeof W.zeroBreak];
@@ -403,13 +423,20 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
         else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
       }
     }
+    if (mode === 'club' && redRole(me.role)) {
+      for (const mark of redSplitBreaks.filter((entry) => entry.seat === me.seat)) items.push({ kind: 'split_break_red', seat: me.seat, night: mark.round, points: -SPLIT_BREAK_RED_ELO / ELO_PERSONAL_POINT_WEIGHT });
+      if (raiseVoters.has(me.seat)) items.push({ kind: 'raise_defeat', seat: me.seat, points: -RAISE_DEFEAT_ELO / ELO_PERSONAL_POINT_WEIGHT });
+    }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
     if (mode === 'club' && zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);
     const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' ? 0 : Math.max(0, item.points)), 0);
     if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const positivePoints = Math.min(W.positivePool, pluses) + items.filter((item) => item.kind === 'streak_correct').reduce((sum, item) => sum + item.points, 0);
-    const negativePoints = items.filter((item) => item.points < 0 && item.kind !== 'pool_cap' && item.kind !== 'shot_miss').reduce((sum, item) => sum + item.points, 0);
-    const missPenaltyElo = items.filter((item) => item.kind === 'shot_miss').length * MISSED_SHOT_ELO;
+    const negativePoints = items.filter((item) => item.points < 0 && item.kind !== 'pool_cap' && item.kind !== 'shot_miss' && item.kind !== 'split_break_red' && item.kind !== 'raise_defeat').reduce((sum, item) => sum + item.points, 0);
+    // Fixed cuts after all personal limits: a miss, a red who broke a split, a red who raised for the lost game.
+    const missPenaltyElo = items.filter((item) => item.kind === 'shot_miss').length * MISSED_SHOT_ELO
+      + items.filter((item) => item.kind === 'split_break_red').length * SPLIT_BREAK_RED_ELO
+      + items.filter((item) => item.kind === 'raise_defeat').length * RAISE_DEFEAT_ELO;
     return { seat: me.seat, role: me.role, points: positivePoints + negativePoints, positivePoints, negativePoints, missPenaltyElo, items, streaks };
   });
 }
@@ -455,6 +482,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   }
   const pool = of('pool_cap');
   if (pool.length) lines.push(`Больше +${elo(CONTRIBUTION_WEIGHTS.positivePool)} за игру не набрать: ${signedElo(elo(pool[0].points))}`);
+  for (const item of of('split_break_red')) lines.push(`Сломал попил красным: ${signedElo(elo(item.points))}`);
+  for (const item of of('raise_defeat')) lines.push(`Поднял руку за последний подъём, после которого красные проиграли: ${signedElo(elo(item.points))}`);
   const misses = of('shot_miss');
   if (misses.length) lines.push(`Отдельный штраф за промах: ночи ${misses.map((item) => item.night).join(', ')}: ${signedElo(elo(misses.reduce((sum, item) => sum + item.points, 0)))}`);
   return lines.filter((line): line is string => Boolean(line));

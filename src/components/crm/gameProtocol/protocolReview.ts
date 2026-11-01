@@ -337,6 +337,15 @@ export const voterCountIssues = (protocol: Pick<TournamentGameProtocolData, 'vot
   return out;
 };
 
+/** Sets (or clears, with `seat` null) the «сломал попил красным» tag of one circle: one tag per circle, the new one replaces the old. */
+export const setSplitBreakTag = (events: LiveGameEvent[], circleIndex: number, seat: number | null): LiveGameEvent[] => {
+  const round = circleIndex + 1;
+  const kept = events.filter((event) => !(event.kind === 'split_break' && event.round === round));
+  if (seat === null) return kept;
+  const nextSeq = events.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+  return [...kept, { seq: nextSeq, at: new Date().toISOString(), round, phase: 'day_voting', kind: 'split_break', seat }];
+};
+
 /** The kinds of record the judge may move to another circle with a button (owner, 2026-11-01); the many votes and night steps are not listed one by one. */
 export const MOVABLE_EVENT_KINDS = ['exit', 'restored', 'foul', 'tech_minor', 'tech_major', 'nomination', 'reveal', 'announced_check', 'don_check', 'sheriff_check', 'shot_target', 'zero_round_break'] as const;
 

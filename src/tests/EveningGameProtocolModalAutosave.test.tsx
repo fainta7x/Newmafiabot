@@ -147,7 +147,7 @@ describe('a game saved by an older build', () => {
     const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(game);
     go('Ход игры');
-    fireEvent.click(screen.getByRole('button', { name: 'Добавить ночь' }));
+    fireEvent.click(screen.getByTestId('night-add-miss'));
     await settle();
     const saved = save.mock.calls.at(-1)![1];
     expect(saved.player_results[2].exit_type).toBe('voted_day');

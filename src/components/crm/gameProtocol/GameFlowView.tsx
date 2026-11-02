@@ -474,7 +474,12 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после: ${circle.title}`}</Eyebrow>
         {shot && shotText
           ? nightRow('Выстрел мафии', shotText, shot.result === 'killed' ? 'ok' : 'quiet', () => setSheet({ type: 'shot', index: circle.shotIndex }))
-          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : earlierNightMissing ? (
+          : canAddNight ? (
+            <div className="space-y-2" data-testid="night-add-choice">
+              <Btn kind="ghost" block disabled={api.locked} data-testid="night-add-shot" onClick={() => { api.addNight(); setSheet({ type: 'shot', index: circle.index }); }}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь: мафия стреляла</Btn>
+              <Btn kind="soft" block disabled={api.locked} data-testid="night-add-miss" onClick={() => api.addNight()}>Добавить ночь: был промах (никого не убили)</Btn>
+            </div>
+          ) : earlierNightMissing ? (
             <div className="space-y-2" data-testid="night-order-hint">
               <p className="text-[13px] leading-5 text-white/70">Ночь после «{circles[firstMissingNight]?.title || 'предыдущего круга'}» ещё не записана, а эта ночь идёт по порядку после неё.</p>
               <Btn kind="soft" block disabled={api.locked} data-testid="night-order-miss" onClick={() => { for (let i = 0; i < circle.index - firstMissingNight; i += 1) api.addNight(); }}>Выстрела не было — записать {circle.index - firstMissingNight > 1 ? 'эти ночи' : 'ночь'} как промах</Btn>

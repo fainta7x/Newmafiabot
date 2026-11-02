@@ -55,6 +55,15 @@ Other docs should link to the owner instead of restating mutable facts.
 
 Never invent, infer, or reinterpret sports-Mafia terms, player actions, statistics, or owner wording. If the precise meaning is unclear, ask the owner before writing code. Record the owner's exact definition in docs/BUSINESS_RULES.md. «Подняли в нуле» means a player was eliminated together with one other player after a double revote during the zero round; it does NOT mean players stayed at the table. Never fabricate missing historical events.
 
+## 3b. Never think up things for the owner — agree everything first (owner, 2026-11-02)
+
+Applies to every AI assistant working on this project (Claude, ChatGPT/Codex and any other), until the owner says otherwise.
+
+- Do not invent on the owner's behalf: no extra features, ideas, metrics, rules, screens, names, titles or labels that the owner did not ask for. The owner: «никогда не додумывать за меня».
+- Everything goes through the owner first: what to build, what it is called, how it is counted. Ask a short question instead of proposing a self-made version.
+- Do not name features or sections yourself (owner, 2026-11-02: invented names were «кринжовые»). Use the owner's wording or a plain description and ask the owner for the name.
+- When the owner asks for ideas, stay strictly inside the scope they described and keep them few and plain; do not pad the list.
+
 ## 4. Working style
 
 - Perform one targeted discovery pass, then keep a compact file map.

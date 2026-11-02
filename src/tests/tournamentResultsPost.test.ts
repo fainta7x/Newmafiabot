@@ -40,19 +40,19 @@ describe('official tournament results in Telegram', () => {
     expect(text).toContain('Полные результаты: https://app.test/tournaments/results/tok');
   });
 
-  it('posts once to the rating group and the entry channel, and never twice', async () => {
+  it('posts once to the rating group only (not to the entry channel), and never twice', async () => {
     const db = await setup(true);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { calls, fetchImpl } = recorder();
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(true);
-    expect(calls.map((call) => call.chat).sort()).toEqual(['-100600', '-100700']);
+    expect(calls.map((call) => call.chat).sort()).toEqual(['-100600']);
     expect(calls[0].text).toContain('🥇 Аня — 12.5');
     expect(calls[0].text).toContain('3. Вера — 7.25'.replace('3.', '🥉'));
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(false);
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(1);
     // the scan does not send it again either
     await runClubResultPosts(db, fetchImpl);
-    expect(calls.filter((call) => call.text.includes('Итоги турнира'))).toHaveLength(2);
+    expect(calls.filter((call) => call.text.includes('Итоги турнира'))).toHaveLength(1);
   });
 
   it('does not post results the organizer has not published', async () => {
@@ -63,22 +63,23 @@ describe('official tournament results in Telegram', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('keeps going after a failed destination: the other one is still posted and the failed one is retried by the scan', async () => {
+  it('a failed rating group is retried by the scan', async () => {
     const db = await setup(true);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const sent: string[] = [];
-    let failChannel = true;
+    let fail = true;
     const fetchImpl = (async (_url: string, init: any) => {
       const body = JSON.parse(String(init.body));
-      if (body.chat_id === '-100700' && failChannel) return new Response(JSON.stringify({ ok: false, error_code:429, description: 'busy' }), { status:429 });
+      if (fail) return new Response(JSON.stringify({ ok: false, error_code:429, description: 'busy' }), { status:429 });
       sent.push(body.chat_id); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 });
     }) as any;
-    expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(true);
-    expect(sent).toEqual(['-100600']);
-    failChannel = false;
+    await postTournamentResults(db, 't1', fetchImpl);
+    expect(sent).toEqual([]);
+    fail = false;
     await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
-    await db.run("UPDATE club_result_posts SET updated_at = '2000-01-01T00:00:00Z' WHERE post_key = 'tournament-results:t1:public'");
+    await db.run("UPDATE club_result_posts SET updated_at = '2000-01-01T00:00:00Z' WHERE post_key = 'tournament-results:t1:rating'");
     await runClubResultPosts(db, fetchImpl, Date.now() + 3_600_000);
-    expect(sent.sort()).toEqual(['-100600', '-100700']);
+    expect(sent).toEqual(['-100600']);
+    expect(sent).not.toContain('-100700');
   });
 });

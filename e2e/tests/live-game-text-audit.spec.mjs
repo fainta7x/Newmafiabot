@@ -26,6 +26,17 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       shot += 1;
       await page.screenshot({ path: info.outputPath(`${String(shot).padStart(2, '0')}-${screen}.png`) });
       for (const issue of found) report.push(`${screen}: ${issue}`);
+      // The avatars and nicknames are a separate layer over the board: it must stay on its cards (a banner or panel above the
+      // board once pushed the board down and left the layer behind).
+      const drift = await page.evaluate(() => {
+        const layer = document.querySelector('.evening-live-identity-layer');
+        if (!layer || getComputedStyle(layer).display === 'none') return null;
+        const cards = [...document.querySelectorAll('.live-seat-card')].filter((card) => card.getBoundingClientRect().height > 40);
+        if (!cards.length) return null;
+        const cardsTop = Math.min(...cards.map((card) => card.getBoundingClientRect().top));
+        return Math.round(layer.getBoundingClientRect().top - cardsTop);
+      });
+      if (drift !== null && Math.abs(drift) > 8) report.push(`${screen}: the avatar layer is ${drift}px off the seat cards`);
     };
     const speech = async (slot, nominee) => {
       await page.getByRole('button', { name: new RegExp(`Речь #${slot}(?:\\s| ·|$)`) }).last().click();

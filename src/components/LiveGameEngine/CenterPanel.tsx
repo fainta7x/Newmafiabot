@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
-import { nightStageView } from "./nightStageModel.ts";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
 
 const JUDGE_MUSIC_MENU_ENABLED = false;
@@ -77,6 +76,8 @@ interface CenterPanelProps {
   handleVoteToggle?: (voterSlot: number) => void;
   handleResolveVoting: () => void;
   nightSubPhase: NightSubPhase;
+  /** The stage banner's view (night or day): the panel only needs its tone and step for a short screen. */
+  stageView?: { tone: string; index: number } | null;
   shotPlayerSlot: number | null;
   bestMoveDeadlineMs: number | null;
   setBestMoveDeadlineMs: React.Dispatch<React.SetStateAction<number | null>>;
@@ -195,6 +196,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
+    stageView,
     bestMoveDeadlineMs,
     setBestMoveDeadlineMs,
     getPrevStepAction,
@@ -461,9 +463,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   // On a short screen the banner above the board has no room (see liveGameNightStage.css): the panel itself carries the stage —
   // a ribbon on its top edge and the status line in the stage's colour.
-  const nightStage = phase === 'night' && postNightStage === 'none'
-    ? nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult })
-    : null;
+  const nightStage = stageView ?? null;
 
   const canReturnToSpeeches = phase === 'day_voting' && activeVotingRoundIndex === 0 && (votingStage === 'collecting' || votingStage === 'setup') && Boolean(onBackToDaySpeeches);
   const canUseVotingBack = canReturnToSpeeches || (phase === 'day_voting' && (votingStage === 'round_result' || votingStage === 'revote_speeches'));

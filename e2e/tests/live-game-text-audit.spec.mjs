@@ -122,8 +122,10 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('night-prompt-miss');
       await page.getByTestId('night-miss-error').click();
       await check('night-prompt-miss-who');
-      await page.getByTestId('night-miss-save').isDisabled();
-      await page.getByRole('button', { name: 'Назад', exact: true }).last().click();
+      await expect(page.getByTestId('night-miss-save')).toBeDisabled();
+      await page.getByTestId('night-miss-seat-5').click();
+      await expect(page.getByTestId('night-miss-save')).toBeEnabled();
+      await page.getByTestId('night-prompt').getByRole('button', { name: 'Назад', exact: true }).click();
       await page.getByTestId('night-prompt-choose').click();
       await seatCard(page, 1).click();
       await check('night-shot-chosen');

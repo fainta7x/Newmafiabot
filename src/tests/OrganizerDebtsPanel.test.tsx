@@ -44,6 +44,28 @@ describe('Today debts panel', () => {
     expect((await screen.findByRole('status')).textContent).toContain('отправлены: 2');
   });
 
+  it('takes a part of an evening\'s debt through the «Часть» form', async () => {
+    const onChanged = vi.fn();
+    render(<OrganizerDebtsPanel enabled refreshKey={0} onOpenPlayer={vi.fn()} onChanged={onChanged} />);
+    await screen.findByTestId('debts-panel');
+    fireEvent.click(screen.getAllByText('Часть')[0]);
+    fireEvent.change(screen.getByLabelText('Сумма частичной оплаты, ₽'), { target: { value: '150' } });
+    fireEvent.click(screen.getByText('Внести'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+    const call = calls.find(([url, init]) => url === '/api/crm/debts/p/paid' && init?.body)!;
+    expect(JSON.parse(call[1].body)).toEqual({ evening_id: 'e2', amount: 150 });
+  });
+
+  it('refuses an amount above the debt without sending anything', async () => {
+    render(<OrganizerDebtsPanel enabled refreshKey={0} onOpenPlayer={vi.fn()} onChanged={vi.fn()} />);
+    await screen.findByTestId('debts-panel');
+    fireEvent.click(screen.getAllByText('Часть')[0]);
+    fireEvent.change(screen.getByLabelText('Сумма частичной оплаты, ₽'), { target: { value: '999' } });
+    fireEvent.click(screen.getByText('Внести'));
+    expect((await screen.findByRole('alert')).textContent).toContain('Больше долга');
+    expect(calls.some(([, init]) => init?.body)).toBe(false);
+  });
+
   it('shows nothing while payments are being refreshed', async () => {
     render(<OrganizerDebtsPanel enabled={false} refreshKey={0} onOpenPlayer={vi.fn()} onChanged={vi.fn()} />);
     expect(screen.queryByTestId('debts-panel')).toBeNull();

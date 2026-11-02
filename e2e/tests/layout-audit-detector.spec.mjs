@@ -22,6 +22,7 @@ const CASES = [
   ['a label cut to «…» is not over its neighbour', page('<div style="display:flex;width:200px;gap:8px"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Очень длинный ник игрока клуба</span><span>+1</span></div>'), /^truncated[^\n]*$/],
   ['a sideways scrolling strip of chips is fine', page('<div style="overflow:hidden;width:390px"><nav style="display:flex;gap:8px;overflow-x:auto;padding:8px">' + ['Данные', 'Уведомления', 'Приглашения', 'Приватность', 'Музыка'].map((t) => `<a style="flex:none;border:1px solid #555;padding:10px 12px">${t}</a>`).join('') + '</nav></div>'), null],
   ['an approved cover (data-layout-cover="intended") is fine', page('<div style="position:relative;width:80px;height:80px;background:#333;display:grid;place-items:center">З<div data-layout-cover="intended" style="position:absolute;left:0;right:0;top:30px;background:#a00;text-align:center">Убит</div></div>'), null],
+  ['text over a pointer-events:none layer is still text on text', page('<div style="position:relative;height:60px"><div style="position:absolute;left:10px;top:20px;pointer-events:none"><span>Игрок 3</span></div><div style="position:absolute;left:10px;top:22px"><b>30 секунд</b></div></div>'), /text on text/],
   ['text cut by a box that hides overflow', page('<div style="width:80px;height:20px;overflow:hidden"><span style="white-space:nowrap">Следующий игрок →</span></div>'), /cut «Следующий/],
 ];
 

@@ -416,3 +416,39 @@
   html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='9'] { background: #92400e !important; border-color: #d97706 !important; }
   html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='10'] { background: #4d7c0f !important; border-color: #84cc16 !important; }
 }
+
+@layer seat-grid {
+  /* The final scheme (owner, 2026-11-02, a mix of three drafts): the candidate keeps the gradient fill with the «ПРОТИВ» capsule, every voter is a
+     plain dark card (no glow) in a frame of ITS OWN seat colour, and the big digit is in the colour of the seat it voted for. Colour therefore says
+     «who» (the frame) and «for whom» (the digit). */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='1'] { --own-fill: #2563eb; --own-line: #60a5fa; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='2'] { --own-fill: #ea580c; --own-line: #fb923c; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='3'] { --own-fill: #ca8a04; --own-line: #facc15; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='4'] { --own-fill: #dc2626; --own-line: #f87171; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='5'] { --own-fill: #15803d; --own-line: #4ade80; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='6'] { --own-fill: #0891b2; --own-line: #22d3ee; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='7'] { --own-fill: #db2777; --own-line: #f472b6; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='8'] { --own-fill: #7c3aed; --own-line: #a78bfa; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='9'] { --own-fill: #92400e; --own-line: #d97706; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='10'] { --own-fill: #4d7c0f; --own-line: #84cc16; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='1'] .live-seat-bigvote { --for-fill: #2563eb; --for-line: #60a5fa; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='2'] .live-seat-bigvote { --for-fill: #ea580c; --for-line: #fb923c; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='3'] .live-seat-bigvote { --for-fill: #ca8a04; --for-line: #facc15; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='4'] .live-seat-bigvote { --for-fill: #dc2626; --for-line: #f87171; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='5'] .live-seat-bigvote { --for-fill: #15803d; --for-line: #4ade80; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='6'] .live-seat-bigvote { --for-fill: #0891b2; --for-line: #22d3ee; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='7'] .live-seat-bigvote { --for-fill: #db2777; --for-line: #f472b6; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='8'] .live-seat-bigvote { --for-fill: #7c3aed; --for-line: #a78bfa; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='9'] .live-seat-bigvote { --for-fill: #92400e; --for-line: #d97706; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='10'] .live-seat-bigvote { --for-fill: #4d7c0f; --for-line: #84cc16; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) {
+    background: #0f1116 !important;
+    border: 2px solid var(--own-line) !important;
+    box-shadow: none !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) .live-seat-bigvote {
+    color: var(--for-line) !important;
+    font-size: clamp(46px, 60cqw, 84px) !important;
+    text-shadow: none !important;
+  }
+}

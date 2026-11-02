@@ -371,7 +371,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
   if (!protocol.winner_team && protocol.end_reason !== 'ppk') issues.push({ id: 'winner', severity: 'error', title: 'Не указана победившая команда', tab: 'result' });
 
   const winnerMessage = winnerTableMessage(protocol, results);
-  if (winnerMessage && protocol.winner_team) issues.push({ id: 'winner-table', severity: 'error', title: winnerMessage, tab: 'result' });
+  if (winnerMessage && protocol.winner_team) issues.push({ id: 'winner-table', severity: 'error', title: 'Победитель не сходится со столом', sub: winnerMessage, tab: 'result' });
 
   const firstKilled = protocol.first_killed_participant_id ?? null;
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);

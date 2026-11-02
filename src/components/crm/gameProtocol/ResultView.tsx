@@ -85,7 +85,7 @@ export const WinnerSection: React.FC<Props> = ({ api }) => {
   const culprit = results.find((player) => player.participant_id === protocol.ppk_culprit_participant_id);
   const tableMessage = winnerTableMessage(protocol, results);
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" id="protocol-winner">
       <section aria-label="Победитель" className="space-y-2">
         <Eyebrow className="px-1">Победитель</Eyebrow>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Победившая команда">

@@ -6,6 +6,7 @@ import { OverviewView } from './OverviewView';
 import { GameFlowView } from './GameFlowView';
 import { PlayerSheet, PlayersList } from './PlayersView';
 import { ResultView, WinnerSection } from './ResultView';
+import { revealProtocolSection } from './protocolNavigation';
 import { Card, type Tone } from './ui';
 import { buildCircles, computeChanges, computeIssues, type Change, type ProtocolState } from './protocolReview';
 import type { ProtocolApi } from './types';
@@ -94,6 +95,8 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
     if (tab === 'players' && target?.seat != null) setSelectedSeat(target.seat);
     // «Игроки» and «Итог» live on the protocol page now.
     setActiveTab(tab === 'players' || tab === 'result' ? 'overview' : tab);
+    // The target is on the page that may already be open: take the eye to it.
+    if (tab === 'players' || tab === 'result') window.setTimeout(() => revealProtocolSection(tab), 60);
   };
   const hint = completeHint || saveError || null;
   const toggleReviewed = (index: number) => setReviewed((prev) => ({ ...prev, [index]: !prev[index] }));

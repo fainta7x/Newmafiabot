@@ -61,6 +61,13 @@
     gap: 3px !important;
     position: static !important;
     margin: 0 !important;
+    /* The box is exactly as wide as its buttons: an older rule gave it a fixed width, so one «+Ф» sat left of the axis in a wider box
+       and «−Ф +Ф» spilled to the right of it (owner, 2026-11-02: «плюс-минус фол смещены вправо от аватарки»). */
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+    justify-content: center !important;
   }
   /* The farewell fouls (−Ф/+Ф of a player leaving) take the quick-button row as well. */
   html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-farewell {
@@ -332,3 +339,116 @@
 /* The one-line notice («С игрока #3 снят фол») replaces the latest-event preview under it instead of lying over it: while it
    is shown the preview is hidden, so no two texts share the place (found by the stress walk, 2026-11-02). */
 [data-testid="live-events-feedback"]:has([data-testid="live-game-inline-toast"]) > [data-testid="live-events-latest"] { visibility: hidden; }
+
+@layer seat-grid {
+  /* The candidate being counted (owner, 2026-11-02: the voters look right, the candidate looked cheap): his own seat colour as a rich
+     radial gradient, a gradient rim (white → seat colour → deep), a soft halo, a «ПРОТИВ» glass capsule on top and a glowing
+     portrait ring. His voters keep the same hue as a dark glass card with a coloured hairline. */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] {
+    border: 2px solid transparent !important;
+    padding-top: 26px !important;
+    background:
+      radial-gradient(120% 70% at 50% 25%, color-mix(in srgb, var(--seat-fill) 72%, #ffffff 8%) 0%, color-mix(in srgb, var(--seat-fill) 52%, #0b0c10) 55%, color-mix(in srgb, var(--seat-fill) 22%, #0b0c10) 100%) padding-box,
+      linear-gradient(160deg, #ffffff 0%, color-mix(in srgb, var(--seat-fill) 55%, #ffffff) 30%, var(--seat-fill) 70%, color-mix(in srgb, var(--seat-fill) 60%, #0b0c10) 100%) border-box !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--seat-fill) 18%, transparent), 0 12px 30px -8px color-mix(in srgb, var(--seat-fill) 60%, transparent) !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current']::before {
+    content: 'ПРОТИВ';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font: 800 8.5px/1 system-ui, sans-serif;
+    letter-spacing: 0.16em;
+    color: #ffffff;
+    background: rgba(10, 10, 14, 0.6);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__avatar {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 18px rgba(255, 255, 255, 0.35) !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) {
+    background: radial-gradient(110% 60% at 50% 30%, color-mix(in srgb, var(--seat-fill) 34%, #0d0f14), color-mix(in srgb, var(--seat-fill) 8%, #0a0b0f)) !important;
+    border: 1px solid color-mix(in srgb, var(--seat-line) 55%, transparent) !important;
+    box-shadow: none !important;
+  }
+  /* Readable on the bright fill: the nickname chip, the seat number and the tally are dark glass. */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__name,
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value {
+    background: rgba(10, 10, 14, 0.55) !important;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.26) !important;
+    color: #ffffff !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value { padding: 0 6px !important; border-radius: 6px !important; }
+}
+
+@layer seat-grid {
+  /* The voter shows the number it voted for, big (owner, 2026-11-02): the portrait gives its place to the digit, the nickname stays. */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) .live-seat-id__avatar { display: none !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-bigvote {
+    grid-row: 1 !important;
+    justify-self: center !important;
+    align-self: center !important;
+    font: 900 clamp(40px, 54cqw, 76px) / 1 system-ui, sans-serif !important;
+    letter-spacing: -0.02em !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 20px color-mix(in srgb, var(--seat-fill) 85%, transparent), 0 1px 0 rgba(0, 0, 0, 0.45) !important;
+    pointer-events: none !important;
+  }
+  /* The old «→ N» chip of the state band is replaced by the big digit. */
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__vote-line:has(.live-seat-vote-chip) { display: none !important; }
+  /* A seat number keeps its OWN colour while voting (owner, 2026-11-02; this replaces the 2026-10-27 rule that tinted it with the colour
+     of the seat voted for). */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number { color: #ffffff !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='1'] { background: #3b5bdb !important; border-color: #748ffc !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='2'] { background: #ea580c !important; border-color: #fb923c !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='3'] { background: #ca8a04 !important; border-color: #facc15 !important; color: #111827 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='4'] { background: #dc2626 !important; border-color: #f87171 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='5'] { background: #16a34a !important; border-color: #4ade80 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='6'] { background: #9333ea !important; border-color: #c084fc !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='7'] { background: #db2777 !important; border-color: #f472b6 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='8'] { background: #0891b2 !important; border-color: #22d3ee !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='9'] { background: #94a3b8 !important; border-color: #e2e8f0 !important; color:#111827!important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='10'] { background: #a3e635 !important; border-color: #d9f99d !important; color:#111827!important; }
+}
+
+@layer seat-grid {
+  /* The final scheme (owner, 2026-11-02, a mix of three drafts): the candidate keeps the gradient fill with the «ПРОТИВ» capsule, every voter is a
+     plain dark card (no glow) in a frame of ITS OWN seat colour, and the big digit is in the colour of the seat it voted for. Colour therefore says
+     «who» (the frame) and «for whom» (the digit). */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='1'] { --own-fill: #3b5bdb; --own-line: #748ffc; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='2'] { --own-fill: #ea580c; --own-line: #fb923c; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='3'] { --own-fill: #ca8a04; --own-line: #facc15; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='4'] { --own-fill: #dc2626; --own-line: #f87171; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='5'] { --own-fill: #16a34a; --own-line: #4ade80; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='6'] { --own-fill: #9333ea; --own-line: #c084fc; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='7'] { --own-fill: #db2777; --own-line: #f472b6; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='8'] { --own-fill: #0891b2; --own-line: #22d3ee; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='9'] { --own-fill: #94a3b8; --own-line: #e2e8f0; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-seat='10'] { --own-fill: #a3e635; --own-line: #d9f99d; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='1'] .live-seat-bigvote { --for-fill: #3b5bdb; --for-line: #748ffc; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='2'] .live-seat-bigvote { --for-fill: #ea580c; --for-line: #fb923c; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='3'] .live-seat-bigvote { --for-fill: #ca8a04; --for-line: #facc15; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='4'] .live-seat-bigvote { --for-fill: #dc2626; --for-line: #f87171; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='5'] .live-seat-bigvote { --for-fill: #16a34a; --for-line: #4ade80; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='6'] .live-seat-bigvote { --for-fill: #9333ea; --for-line: #c084fc; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='7'] .live-seat-bigvote { --for-fill: #db2777; --for-line: #f472b6; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='8'] .live-seat-bigvote { --for-fill: #0891b2; --for-line: #22d3ee; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='9'] .live-seat-bigvote { --for-fill: #94a3b8; --for-line: #e2e8f0; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote-for='10'] .live-seat-bigvote { --for-fill: #a3e635; --for-line: #d9f99d; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) {
+    background: linear-gradient(0deg, color-mix(in srgb, var(--own-fill) 26%, #0c0d11) 0%, #0f1116 62%) !important;
+    border: 2px solid var(--own-line) !important;
+    box-shadow: none !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) .live-seat-bigvote {
+    color: var(--for-line) !important;
+    font-size: clamp(46px, 60cqw, 84px) !important;
+    text-shadow: none !important;
+  }
+}

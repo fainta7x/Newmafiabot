@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 const isProductionAudit = Boolean(process.env.PLAYWRIGHT_BASE_URL);
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4173';
+// E2E_PORT lets a second checkout run its own server next to another run (the default stays 4173).
+const port = process.env.E2E_PORT || '4173';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests',
@@ -35,7 +37,7 @@ export default defineConfig({
             PLAYWRIGHT_E2E: '1',
             E2E_TEST_MODE: '1',
             HOST: '127.0.0.1',
-            PORT: '4173',
+            PORT: port,
             DATABASE_PATH: './temp/playwright-e2e.sqlite',
             SEED_DEMO_DATA: 'false',
           },

@@ -401,28 +401,10 @@ describe('the entry channel', () => {
   const addPublic = (db: DatabaseWrapper) => db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)
     VALUES ('public','Вход','@noire_entry',NULL,1,?,?)`, [new Date().toISOString(), new Date().toISOString()]);
 
-  it('gets the evening summary picture after closing, for any format, with a link to the bot', async () => {
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    vi.stubEnv('TELEGRAM_BOT_USERNAME', 'NoireBot');
-    const { db, addGame } = await setup('RATING');
-    await addPublic(db);
-    await addGame(1, 'red');
-    await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'ev'", [new Date().toISOString()]);
-    const { calls, fetchImpl } = telegram();
-    await runClubResultPosts(db, fetchImpl);
-    const entry = calls.filter((form) => form.get('chat_id') === '@noire_entry');
-    expect(entry).toHaveLength(1);
-    expect(String(entry[0].get('caption'))).toMatch(/^🏁 Итоги вечера «Пятничный вечер»/);
-    expect(String(entry[0].get('caption'))).toContain('https://t.me/NoireBot');
-    await runClubResultPosts(db, fetchImpl);
-    expect(calls.filter((form) => form.get('chat_id') === '@noire_entry')).toHaveLength(1);
-  });
-
-  it('an upgrade does not post evenings closed before the entry channel was switched on', async () => {
+  it('does not get the evening summary: the entry channel is for announcements only (owner, 2026-11-02)', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addPublic(db);
-    await db.run("DELETE FROM club_result_posts WHERE post_key = 'enabled-public'");
     await addGame(1, 'red');
     await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'ev'", [new Date().toISOString()]);
     const { calls, fetchImpl } = telegram();
@@ -450,7 +432,7 @@ describe('the entry channel', () => {
     expect((entry[0].get('photo') as Blob).type).toBe('image/jpeg');
   });
 
-  it('gets the running seasons once a week, on Monday afternoon', async () => {
+  it('the running seasons go to the club chat, not to the entry channel, once a week on Monday afternoon', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addPublic(db);
@@ -464,7 +446,7 @@ describe('the entry channel', () => {
     expect(await postWeeklySeasonTables(db, fetchImpl, Date.parse('2026-10-05T10:00:00Z'))).toBe(true);
     expect(await postWeeklySeasonTables(db, fetchImpl, Date.parse('2026-10-05T12:00:00Z'))).toBe(false);
     expect(calls).toHaveLength(1);
-    expect(calls[0].get('chat_id')).toBe('@noire_entry');
+    expect(calls[0].get('chat_id')).toBe('-100500');
     expect(String(calls[0].get('caption'))).toContain('«Осень 2026»');
   });
 });

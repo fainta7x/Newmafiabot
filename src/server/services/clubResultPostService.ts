@@ -227,14 +227,10 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(e.starts_at) >= datetime(?)
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
-         OR (datetime(e.starts_at) >= datetime(?)
-           AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))))
-  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString(), publicSince]);
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes')))))
+  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]);
   await part('closed_evenings', async () => { for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
-    if (new Date(String(evening.starts_at)).getTime() >= new Date(publicSince).getTime()
-      && await postPublicEveningSummary(db, String(evening.id), fetchImpl)) posted += 1;
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   } });
 
@@ -264,7 +260,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     if (await postMvpResult(db, String(evening.id), fetchImpl).catch((error) => { console.error('[CLUB RESULTS] MVP result failed:', error); return false; })) posted += 1;
   } });
 
-  // The entry channel (owner, 2026-10-01): «Мы собрались» photos and a weekly season table.
+  // The entry channel («Анонсы») gets only announcements (owner, 2026-11-02): «Мы собрались» photos (a table exists). The weekly season table goes to the club chat.
   const gathered = await db.all<any>(`
     SELECT gp.evening_id FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
      WHERE gp.telegram_status = 'published' AND gp.image_data IS NOT NULL
@@ -286,23 +282,6 @@ const botLink = async () => {
   const bot = await telegramBotUsername().catch(() => null);
   return bot ? `\n\nХочешь сыграть с нами? Пиши боту: https://t.me/${bot}` : '';
 };
-
-/** The evening summary picture in the entry channel, for evenings of every format. */
-export async function postPublicEveningSummary(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
-  const key = `public-evening:${eveningId}`;
-  if (!(await claim(db, key, 'public-evening', eveningId, null))) return false;
-  try {
-    const summary = await loadEveningSummary(db, eveningId);
-    if (!summary) { await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' }); return false; }
-    const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${summary.dateLabel ? `, ${summary.dateLabel}` : ''}${await botLink()}`;
-    const result = await sendPhotos(db, null, [renderPng(eveningSummarySvg(summary))], caption, fetchImpl, 'public', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
-    await finish(db, key, result);
-    return result.ok;
-  } catch (error: any) {
-    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
-    return false;
-  }
-}
 
 /** The «Мы собрались» photo, once it reached the evening's group, also goes to the entry channel. */
 export async function postPublicGathered(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
@@ -355,7 +334,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   if (!(await claim(db, key, 'public-season', null as any, null))) return false;
   try {
     const caption = `🏆 Таблица сезона на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
-    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'public', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'club', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -720,12 +699,11 @@ export const tournamentResultsText = (title: string, dateLabel: string, rows: Ar
   return lines.join('\n');
 };
 
-const TOURNAMENT_RESULTS_DESTINATIONS = ['rating', 'public'] as const;
+const TOURNAMENT_RESULTS_DESTINATIONS = ['rating'] as const;
 const tournamentResultsKey = (tournamentId: string, destination: string) => `tournament-results:${tournamentId}:${destination}`;
 
 /**
- * The official results of a tournament go to the rating group and the entry channel (owner, 2026-10-05: «В Telegram и в
- * группу») once the organizer has published them. Each destination is claimed on its own, so a retry never posts twice.
+ * The official results of a tournament go to the rating group only (owner, 2026-11-02: the entry channel «Анонсы» is for announcements; before that, 2026-10-05, they also went there) once the organizer has published them. Each destination is claimed on its own, so a retry never posts twice.
  */
 export async function postTournamentResults(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
   await ensureClubResultPostSchema(db);
@@ -768,7 +746,7 @@ async function runTournamentResultPosts(db: DatabaseWrapper, fetchImpl: typeof f
   let posted = 0;
   for (const row of candidates) {
     const done = await db.get<any>(
-      `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (?, ?) AND status IN ('sent', 'failed', 'uncertain')`,
+      `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (${TOURNAMENT_RESULTS_DESTINATIONS.map(() => '?').join(', ')}) AND status IN ('sent', 'failed', 'uncertain')`,
       TOURNAMENT_RESULTS_DESTINATIONS.map((destination) => tournamentResultsKey(String(row.id), destination)),
     );
     if (Number(done?.c || 0) >= TOURNAMENT_RESULTS_DESTINATIONS.length) continue;

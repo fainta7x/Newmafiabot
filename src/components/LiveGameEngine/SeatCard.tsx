@@ -62,11 +62,14 @@ interface SeatCardProps {
   bothLeaveVotes?: number[];
 }
 
-const getExitLabel = (player: ActivePlayerState): string => {
-  if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'Заголосован';
-  if (player.removal_reason || player.kick) return 'Удалён';
-  return 'Убит';
+type ExitKind = 'voted' | 'removed' | 'killed';
+const getExitKind = (player: ActivePlayerState): ExitKind => {
+  if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'voted';
+  if (player.removal_reason || player.kick) return 'removed';
+  return 'killed';
 };
+const EXIT_LABELS: Record<ExitKind, string> = { voted: 'Заголосован', removed: 'Удалён', killed: 'Убит' };
+const getExitLabel = (player: ActivePlayerState): string => EXIT_LABELS[getExitKind(player)];
 
 export default function SeatCard(props: SeatCardProps) {
   const {
@@ -323,6 +326,7 @@ export default function SeatCard(props: SeatCardProps) {
       data-seat={slotNum}
       data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
       // The candidate whose votes are being counted now (owner, 2026-11-02: it looked the same as the voters of that candidate).
+      data-exit={!player.alive ? getExitKind(player) : undefined}
       data-candidate={phase === 'day_voting' && isInteractiveVoting && activeVoteNominee === slotNum ? 'current' : undefined}
       // Who voted for whom at a glance (owner, 2026-10-27): the card takes the colour of the candidate's seat number it voted
       // for; a vote for the candidate being counted is framed more strongly.

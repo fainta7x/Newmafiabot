@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { auditScreen } from './support/layoutAudit.mjs';
 
 const expectNoHorizontalOverflow = async (page, label) => {
   const metrics = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth, body: document.body.scrollWidth }));
@@ -50,6 +51,11 @@ for (const width of [360, 390]) {
       await roster.getByRole('button', { name: 'Добавить игрока на вечер' }).click();
       const sheet = page.getByRole('dialog', { name: 'Добавить в состав вечера' });
       await expect(sheet).toContainText('не ставит ответ «Иду»');
+      // «Судья регистрирует профиль» (owner, 2026-11-02): the third tab must pass the layout and text audit.
+      await sheet.getByTestId('roster-add-mode-new').click();
+      await expect(sheet.getByTestId('roster-new-player-form')).toBeVisible();
+      expect(await page.evaluate(auditScreen), 'new player tab').toEqual([]);
+      await sheet.getByRole('button', { name: 'Игроки', exact: true }).click();
       await sheet.getByRole('button', { name: /Ручной Игрок С Очень Длинным Ником/ }).click();
       await sheet.getByRole('button', { name: 'Добавить в состав · 1', exact: true }).click();
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');

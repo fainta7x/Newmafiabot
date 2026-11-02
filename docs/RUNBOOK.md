@@ -526,6 +526,17 @@ Always distinguish:
 - **deployed main**;
 - **runtime verified**.
 
+## Stress walks (manual)
+
+Random-walk taps over everything tappable, with the layout audit after each tap and a failure on any page error (owner, 2026-11-02). Not in CI (minutes long); run when a screen is rebuilt or before a release:
+
+```bash
+cd e2e && STRESS=1 STRESS_REPORT=1 npx playwright test -c playwright.config.mjs tests/live-game-stress.spec.mjs
+cd e2e && STRESS=1 STRESS_WIDTHS=390 STRESS_STEPS=25 npx playwright test -c playwright.config.mjs tests/app-stress.spec.mjs
+```
+
+`STRESS_SEED`, `STRESS_STEPS`, `STRESS_PAGES` narrow the run. One playwright at a time (port 4173) and no edits of `src/` during a run. A finding is fixed at its cause; the first screenshot of each kind is in the test output folder.
+
 ## Layout and text audit
 
 The gate itself is in `AGENTS.md` (Layout and text gate). The detector (`auditScreen` in `e2e/tests/support/layoutAudit.mjs`, used by `e2e/tests/live-game-text-audit.spec.mjs`) runs in the page on every screen of the route and reports: text runs that share pixels with nothing opaque between them; labels shortened by `text-overflow` or a line clamp; text sticking out of a box that hides overflow or out of the window; text with a button, badge, icon or card drawn over part of it (three points across the visible text); buttons with something drawn (a background, a blur, text — also `pointer-events: none` badges) over their centre or an inner corner; buttons with neither a visible caption nor an icon. What lies under an open window (a large fixed layer), passing notices (`role="status"`), page content scrolled under the bottom menu, items half-shown in a strip that scrolls sideways and a layer marked `data-layout-cover="intended"` (an approved design that covers on purpose, e.g. the OBS «Убит» ribbon; a new one needs the owner's «да») are left alone. The whole-app route is `e2e/tests/app-text-audit.spec.mjs`.

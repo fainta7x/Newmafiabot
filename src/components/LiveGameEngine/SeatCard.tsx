@@ -394,7 +394,7 @@ export default function SeatCard(props: SeatCardProps) {
         {!player.alive ? (
           <div>
             <Skull className="w-4 h-4 mx-auto mb-1 text-rose-400/70" />
-            <div className="live-seat-state__value">{getExitLabel(player)}</div>
+            <div className="live-seat-state__value live-seat-state__value--dead">{getExitLabel(player)}</div>
           </div>
         ) : phase === "day_voting" ? (
           tableDecisionActive ? renderTableDecisionState() : isInteractiveVoting ? renderVoteState() : renderResolvedTally()

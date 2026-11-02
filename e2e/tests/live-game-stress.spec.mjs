@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { auditScreen, auditSeatZones } from './support/layoutAudit.mjs';
 
 // Stress test of the Live game (owner, 2026-11-02: «стресс-тесты всех нажатий, всех окон»): a seeded random walk over every
-// tappable thing — buttons, seat cards (tap and long press), windows and their close buttons — starting from the restored
-// mid-game state of the e2e harness. After every tap the screen goes through the same layout audit as the scripted
+// tappable thing — buttons, seat cards (tap and long press), windows and their close buttons — starting from the first round of
+// the e2e harness game (the real game window). After every tap the screen goes through the same layout audit as the scripted
 // audit (text on text, cut labels, covered buttons, parts of a seat card) and the page must raise no error.
 //
 // It is a manual tool, not part of CI (it takes minutes): STRESS=1 npx playwright test -c e2e/playwright.config.mjs
@@ -18,10 +18,24 @@ const AVOID = /выйти|выход|закрыть игру|завершить 
 
 const random = (seed) => { let state = seed >>> 0; return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 2 ** 32; }; };
 
+const ROLE_SEQUENCE = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'];
+
+// The same start as the scripted audit: the real game window (with the seat cards the app has), up to the first round.
 const restore = async (page) => {
-  await page.goto('/e2e/live-game.html?mode=audit');
-  await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
-  await page.waitForSelector('.evening-live-engine-shell');
+  await page.goto('/e2e/live-game.html');
+  await page.getByRole('button', { name: 'Подтвердить состав' }).click();
+  await page.getByTestId('zero-round-rule').getByRole('radio', { name: 'Турнирная' }).click();
+  await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
+  await page.getByTestId('physical-role-deal-start').click();
+  for (const role of ROLE_SEQUENCE) await page.getByRole('button', { name: new RegExp(role) }).click();
+  await page.getByRole('button', { name: /Роли зафиксированы/ }).click();
+  await page.getByRole('button', { name: /Включите музыку/ }).click();
+  await page.getByRole('button', { name: /Договорка · 75с/ }).click();
+  await page.getByRole('button', { name: /Вызов шерифа · 10с/i }).click();
+  await page.getByRole('button', { name: /Свободная посадка · 40с/ }).click();
+  await page.getByRole('button', { name: /Выключите музыку/ }).click();
+  await page.getByRole('button', { name: /Открыть нулевой круг/ }).click();
+  await page.waitForSelector('.evening-live-engine-shell .live-seat-card');
 };
 
 test.skip(!process.env.STRESS, 'manual stress test: STRESS=1');

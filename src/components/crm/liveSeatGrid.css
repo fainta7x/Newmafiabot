@@ -23,7 +23,7 @@
     container-type: inline-size !important;
     display: grid !important;
     grid-template-columns: var(--tile) minmax(0, 1fr) var(--tile) !important;
-    grid-template-rows: auto minmax(0, 1fr) auto var(--tile) !important;
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(var(--tile), auto) !important;
     row-gap: 3px !important;
     align-items: center !important;
     justify-items: center !important;
@@ -257,7 +257,8 @@
     transform: none !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
+    min-height: var(--tile) !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
@@ -304,23 +305,30 @@
     font: 900 clamp(16px, 20cqw, 22px) / 1 system-ui, sans-serif !important;
     font-variant-numeric: tabular-nums !important;
   }
-  /* Technical fouls: a small tag over the meter. */
+  /* Technical fouls: a small tag («М1», «Б1») over the meter; one letter and the count fit the cell. */
   html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count],
   html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count] {
     position: static !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 2px !important;
+    gap: 1px !important;
     height: 14px !important;
+    width: auto !important;
+    min-width: 0 !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 3px !important;
     font-size: 8px !important;
     white-space: nowrap !important;
+    overflow: hidden !important;
   }
-  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before,
-  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count]::before { font-size: 8px !important; letter-spacing: 0 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before { content: "М" !important; font-size: 8px !important; letter-spacing: 0 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count]::before { content: "Б" !important; font-size: 8px !important; letter-spacing: 0 !important; }
   html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count]::after,
   html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count]::after { font-size: 9px !important; }
 }
+
+/* The one-line notice («С игрока #3 снят фол») replaces the latest-event preview under it instead of lying over it: while it
+   is shown the preview is hidden, so no two texts share the place (found by the stress walk, 2026-11-02). */
+[data-testid="live-events-feedback"]:has([data-testid="live-game-inline-toast"]) > [data-testid="live-events-latest"] { visibility: hidden; }

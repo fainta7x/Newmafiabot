@@ -309,7 +309,10 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     setBroadcastConfigLoading(true);
     setBroadcastConfigError(null);
     try {
-      setBroadcastConfig(await clubGamesApi.getBroadcastConfig(game.id));
+      const config = await clubGamesApi.getBroadcastConfig(game.id);
+      // A reply without the link used to crash the whole game window while the panel rendered (found by the stress walk, 2026-11-02).
+      if (!config?.overlay_url) throw new Error('Сервер не вернул ссылку для OBS');
+      setBroadcastConfig(config);
     } catch (error: any) {
       setBroadcastConfigError(error?.message || 'Не удалось получить ссылку для OBS');
     } finally {

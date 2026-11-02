@@ -17,8 +17,10 @@ type Target = { tableId: string; seat: number };
  * a card per table with one tile per seat (number, avatar, nickname), and a sheet with a searchable list of players to put on
  * a tapped seat. No long list of places and no dropdowns.
  */
-export function EveningSeatingEditor({ eveningId, tables, participants }: {
+export function EveningSeatingEditor({ eveningId, tables, participants, playedGames = 0 }: {
   eveningId: string; tables: Table[]; participants: EveningParticipant[];
+  /** Games already recorded on this evening (owner, 2026-11-02): planned games up to this number are played, so no seating is offered for them. */
+  playedGames?: number;
 }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [seats, setSeats] = useState<Seat[]>([]);
@@ -40,7 +42,11 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
     setSeats(assigned.seats || []);
   };
   useEffect(() => { void reload().catch(() => setMessage('Не удалось загрузить рассадку')); }, [eveningId]);
-  useEffect(() => { if (!slots.some(s => s.id === slotId)) setSlotId(slots[0]?.id || ''); }, [slots, slotId]);
+  // Planned games are numbered in playing order, and recorded games fill them in order: the first `playedGames` slots are already played.
+  const isPlayed = (slot: Slot) => slot.slot_number <= playedGames;
+  useEffect(() => {
+    if (!slots.some(s => s.id === slotId)) setSlotId((slots.find(s => !isPlayed(s)) || slots[0])?.id || '');
+  }, [slots, slotId, playedGames]);
 
   const closeSheet = () => { setTarget(null); setPendingPlayerId(''); setWarning([]); setQuery(''); };
 
@@ -94,6 +100,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
   const targetEntry = target ? seatAt(target.tableId, target.seat) : undefined;
   const targetTable = target ? tables.find(t => t.id === target.tableId) : undefined;
   const slotNumber = slots.find(s => s.id === slotId)?.slot_number;
+  const currentSlotPlayed = slotNumber != null && slotNumber <= playedGames;
 
   // Present players who have not left come first; the rest are still reachable, a judge may seat someone not marked yet.
   const candidates = useMemo(() => {
@@ -132,7 +139,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
 
     <div className="mt-3 flex flex-wrap gap-2">
       <button type="button" disabled={busy} onClick={() => void generate(false)} className="min-h-11 flex-1 rounded-xl bg-accent px-3 text-xs font-bold text-white disabled:opacity-40">Сформировать весь вечер</button>
-      <button type="button" disabled={busy || !slotId} onClick={() => void generate(true)} className="min-h-11 flex-1 rounded-xl border border-border-soft px-3 text-xs font-bold disabled:opacity-40">Только эту игру</button>
+      <button type="button" disabled={busy || !slotId || currentSlotPlayed} onClick={() => void generate(true)} className="min-h-11 flex-1 rounded-xl border border-border-soft px-3 text-xs font-bold disabled:opacity-40">Только эту игру</button>
     </div>
 
     {message && <p role="status" className="mt-2 text-xs text-text-secondary">{message}</p>}
@@ -142,10 +149,13 @@ export function EveningSeatingEditor({ eveningId, tables, participants }: {
       : <>
         <div className="mt-4 flex gap-1.5 overflow-x-auto rounded-2xl border border-border-soft bg-surface-2 p-1.5" role="tablist" aria-label="Игры вечера">
           {slots.map(s => <button key={s.id} type="button" role="tab" aria-selected={s.id === slotId} onClick={() => setSlotId(s.id)}
-            className={`min-h-10 shrink-0 rounded-xl px-3 font-mono text-xs font-bold ${s.id === slotId ? 'bg-accent text-white' : 'text-text-secondary'}`}>Игра {s.slot_number}</button>)}
+            className={`min-h-10 shrink-0 rounded-xl px-3 font-mono text-xs font-bold ${s.id === slotId ? 'bg-accent text-white' : isPlayed(s) ? 'text-text-muted opacity-70' : 'text-text-secondary'}`}>Игра {s.slot_number}{isPlayed(s) ? ' · сыграна' : ''}</button>)}
         </div>
 
-        <div className="mt-3 space-y-4">
+        {currentSlotPlayed
+          ? <p className="mt-3 rounded-xl bg-surface-2 p-3 text-xs text-text-secondary" data-testid="seating-slot-played">Игра {slotNumber} уже сыграна — рассадка для неё не нужна. Выберите одну из следующих игр.</p>
+          : null}
+        <div className={`mt-3 space-y-4 ${currentSlotPlayed ? 'hidden' : ''}`}>
           {tables.map(table => {
             const size = Math.min(10, Number(table.capacity || 10));
             const filled = slotSeats.filter(entry => entry.tableId === table.id).length;

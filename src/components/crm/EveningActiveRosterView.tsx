@@ -170,6 +170,13 @@ export default function EveningActiveRosterView({
     }
   };
 
+  // A player added by hand at the evening is there (owner, 2026-11-02): the attendance is the fact «пришёл», and the answer he gave
+  // earlier (or none) stays as it was — the two do not contradict each other.
+  const markArrived = async (participantIds: string[]) => {
+    if (!participantIds.length) return;
+    await api.bulkUpdateParticipants(eveningId, participantIds.map((id) => ({ id, attendance_fact: 'attended_on_time' } as Partial<EveningParticipant>)));
+  };
+
   const addSelectedPlayers = async () => {
     if (!evening || !selectedPlayerIds.length || adding) return;
     setAdding(true);
@@ -192,18 +199,11 @@ export default function EveningActiveRosterView({
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body?.error || body?.details || 'Не удалось добавить игроков');
+        const added = (Array.isArray(body?.participants) ? body.participants : []) as EveningParticipant[];
+        await markArrived(added.filter((participant) => freshIds.includes(String(participant.player_id))).map((participant) => participant.id));
       }
-      if (revived.length) {
-        // A positive answer survives a mistaken «не пришёл»; only declined/thinking go back to «Нет ответа».
-        await api.bulkUpdateParticipants(eveningId, revived.map((participant) => {
-          const answer = getEveningResponse(participant);
-          return {
-            id: participant.id,
-            response_status: answer === 'going' || answer === 'late' ? answer : 'unanswered',
-            attendance_fact: 'pending',
-          } as Partial<EveningParticipant>;
-        }));
-      }
+      // Those who came back keep their answer: only the attendance is set.
+      await markArrived(revived.map((participant) => participant.id));
       setSelectedPlayerIds([]);
       setAddSearch('');
       setShowAdd(false);
@@ -245,6 +245,8 @@ export default function EveningActiveRosterView({
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || body?.details || 'Профиль создан, но добавить в состав не удалось — найдите его в списке игроков');
+      const added = (Array.isArray(body?.participants) ? body.participants : []) as EveningParticipant[];
+      await markArrived(added.filter((participant) => String(participant.player_id) === String(created.id)).map((participant) => participant.id));
       setNewPlayer({ nickname: '', telegram: '', phone: '' });
       setShowAdd(false);
       await load(true);

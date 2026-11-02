@@ -328,7 +328,8 @@ export default function SeatCard(props: SeatCardProps) {
       // for; a vote for the candidate being counted is framed more strongly.
       data-vote={voteTarget === undefined ? undefined : (voteTarget === activeVoteNominee ? 'current' : 'other')}
       data-vote-for={voteTarget}
-      style={voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
+      // The candidate being counted wears his OWN seat colour (saturated); a voter wears the colour of the candidate he voted for (softer).
+      style={phase === 'day_voting' && isInteractiveVoting && activeVoteNominee === slotNum ? seatColorVars(slotNum) as React.CSSProperties : voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
       className={`live-seat-card ${renderIdentity ? 'live-seat-card--grid' : ''} ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}

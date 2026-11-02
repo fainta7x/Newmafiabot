@@ -341,11 +341,25 @@
 [data-testid="live-events-feedback"]:has([data-testid="live-game-inline-toast"]) > [data-testid="live-events-latest"] { visibility: hidden; }
 
 @layer seat-grid {
-  /* The candidate being counted is not a voter: a plain dark card in a double white ring, while the voters of that candidate are tinted
-     in his colour (owner, 2026-11-02: «он одинаково подсвечен как и те, кто в него голосует»). */
+  /* The candidate being counted is filled with his own seat colour at full strength; the voters of that candidate wear the same hue,
+     softer (owner, 2026-11-02: «кандидат ярким цветом, голосовавшие чуть менее ярким»). */
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] {
-    background: #0b0c10 !important;
-    border-color: #ffffff !important;
-    box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 3px rgba(255, 255, 255, 0.28) !important;
+    background: var(--seat-fill) !important;
+    border: 3px solid color-mix(in srgb, var(--seat-fill) 55%, #ffffff) !important;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--seat-fill) 70%, transparent) !important;
   }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) {
+    background: color-mix(in srgb, var(--seat-fill) 40%, #0b0c10) !important;
+    border: 2px solid color-mix(in srgb, var(--seat-line) 65%, #0b0c10) !important;
+    box-shadow: none !important;
+  }
+  /* Readable on a bright fill: the nickname chip, the seat number and the tally sit on dark plates. */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__name,
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-number,
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value {
+    background: rgba(0, 0, 0, 0.62) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    color: #ffffff !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value { padding: 0 6px !important; border-radius: 6px !important; }
 }

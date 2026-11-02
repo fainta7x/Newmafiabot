@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { listDebtors, markPlayerDebtPaid, remindDebtors, isOrganizerPresser, DebtActionError } from '../server/services/debtActionsService.ts';
+import { listDebtors, markPlayerDebtPaid, markPlayerDebtPartiallyPaid, remindDebtors, isOrganizerPresser, DebtActionError } from '../server/services/debtActionsService.ts';
 import { runOrganizerReminders } from '../server/services/organizerReminderService.ts';
 
 // The accounting write itself (reconcile + ledger) is covered by the closed-evening payment tests; here only the wiring is checked.
@@ -9,6 +9,9 @@ vi.mock('../server/services/closedEveningPaymentService.ts', async (importOrigin
   ...(await importOriginal<typeof import('../server/services/closedEveningPaymentService.ts')>()),
   setClosedEveningParticipantPaid: async (db: DatabaseWrapper, participantId: string, paid: boolean) => {
     await db.run('UPDATE evening_participants SET amount_paid = CASE WHEN ? THEN amount_due ELSE 0 END, payment_status = ? WHERE id = ?', [paid ? 1 : 0, paid ? 'paid' : 'unpaid', participantId]);
+  },
+  setClosedEveningParticipantPaidAmount: async (db: DatabaseWrapper, participantId: string, amount: number) => {
+    await db.run("UPDATE evening_participants SET amount_paid = ?, payment_status = CASE WHEN ? >= amount_due THEN 'paid' ELSE 'partial' END WHERE id = ?", [amount, amount, participantId]);
   },
 }));
 
@@ -48,6 +51,19 @@ describe('debt actions (owner, 2026-10-29)', () => {
     expect(await markPlayerDebtPaid(db, 'p')).toMatchObject({ evenings_paid: 1, amount: 400 });
     expect((await listDebtors(db)).map((d) => d.player_id)).toEqual(['q']);
     await expect(markPlayerDebtPaid(db, 'p')).rejects.toBeInstanceOf(DebtActionError);
+  });
+
+  it('takes a part of one evening\'s debt (owner, 2026-11-02): the rest stays, the status is partial, the full rest closes it', async () => {
+    const db = await seed();
+    expect(await markPlayerDebtPartiallyPaid(db, 'p', 'e1', 150)).toMatchObject({ amount: 150, remaining: 250 });
+    const p = (await listDebtors(db)).find((d) => d.player_id === 'p')!;
+    expect(p.owed).toBe(650);
+    expect(p.evenings.find((e) => e.evening_id === 'e1')?.owed).toBe(250);
+    expect((await db.get<any>("SELECT payment_status, amount_paid FROM evening_participants WHERE id='pt1'"))).toMatchObject({ payment_status: 'partial', amount_paid: 150 });
+    await markPlayerDebtPartiallyPaid(db, 'p', 'e1', 250);
+    expect((await listDebtors(db)).find((d) => d.player_id === 'p')?.evenings.map((e) => e.evening_id)).toEqual(['e2']);
+    await expect(markPlayerDebtPartiallyPaid(db, 'p', 'e2', 0)).rejects.toBeInstanceOf(DebtActionError);
+    await expect(markPlayerDebtPartiallyPaid(db, 'p', 'e1', 10)).rejects.toBeInstanceOf(DebtActionError);
   });
 
   it('reminds each debtor once with one summed message and skips a double press', async () => {

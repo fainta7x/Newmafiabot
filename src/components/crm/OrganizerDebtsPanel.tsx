@@ -23,6 +23,8 @@ export default function OrganizerDebtsPanel({ enabled, refreshKey, onOpenPlayer,
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
+  const [partialKey, setPartialKey] = useState('');
+  const [partialValue, setPartialValue] = useState('');
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -43,6 +45,19 @@ export default function OrganizerDebtsPanel({ enabled, refreshKey, onOpenPlayer,
       await load(); onChanged();
     } catch (e: any) { setError(e?.message || 'Не удалось отметить оплату'); } finally { setBusy(''); }
   };
+  // A part of one evening's debt (owner, 2026-11-02): the amount received is added to what was already paid.
+  const payPart = async (debtor: Debtor, evening: DebtEvening) => {
+    const amount = Number(partialValue.replace(',', '.'));
+    if (busy) return;
+    if (!Number.isFinite(amount) || amount <= 0) { setError('Введите сумму больше нуля'); return; }
+    if (amount > evening.owed) { setError(`Больше долга: осталось ${formatRubles(evening.owed)}`); return; }
+    setBusy(`${debtor.player_id}:${evening.evening_id}`); setError(''); setNotice('');
+    try {
+      await sendJson(`/api/crm/debts/${encodeURIComponent(debtor.player_id)}/paid`, 'POST', { evening_id: evening.evening_id, amount }, 'Не удалось внести оплату');
+      setPartialKey(''); setPartialValue('');
+      await load(); onChanged();
+    } catch (e: any) { setError(e?.message || 'Не удалось внести оплату'); } finally { setBusy(''); }
+  };
   const remind = async () => {
     if (busy) return;
     setBusy('remind'); setError(''); setNotice('');
@@ -58,7 +73,7 @@ export default function OrganizerDebtsPanel({ enabled, refreshKey, onOpenPlayer,
   return (
     <section data-testid="debts-panel" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="text-[12px] font-semibold text-warning">Долги игроков · {debtors.length} чел. · {formatRubles(total)}</div>
-      <p className="mt-0.5 text-[12px] leading-4 text-text-muted">За завершённые вечера. «Оплачено» — когда перевод получен; у кого несколько вечеров, можно отметить каждый или всё сразу.</p>
+      <p className="mt-0.5 text-[12px] leading-4 text-text-muted">За завершённые вечера. «Оплачено» — когда перевод получен целиком, «Часть» — когда получили только часть суммы; у кого несколько вечеров, можно отметить каждый или всё сразу.</p>
       <div className="mt-2 space-y-1.5">
         {shown.map((debtor) => (
           <div key={debtor.player_id} data-testid="debt-row" className="rounded-[10px] bg-surface-1 px-2.5 py-2">
@@ -66,12 +81,24 @@ export default function OrganizerDebtsPanel({ enabled, refreshKey, onOpenPlayer,
               <button type="button" onClick={() => onOpenPlayer(debtor.player_id)} className="min-w-0 flex-1 text-left"><strong className="block truncate text-[13px] text-text-primary">{debtor.nickname}</strong></button>
               <span className="shrink-0 text-[13px] font-bold text-text-primary">{formatRubles(debtor.owed)}</span>
             </div>
-            {debtor.evenings.map((evening) => (
-              <div key={evening.evening_id} className="mt-1 flex min-h-11 items-center gap-2">
-                <span className="min-w-0 flex-1 text-[12px] text-text-muted">{evening.title.includes(date(evening.starts_at)) ? evening.title : `${evening.title} · ${date(evening.starts_at)}`} — {formatRubles(evening.owed)}</span>
-                <button type="button" disabled={Boolean(busy)} onClick={() => void pay(debtor, evening.evening_id)} className="min-h-11 shrink-0 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">{busy === `${debtor.player_id}:${evening.evening_id}` ? '…' : 'Оплачено'}</button>
-              </div>
-            ))}
+            {debtor.evenings.map((evening) => {
+              const key = `${debtor.player_id}:${evening.evening_id}`;
+              return (
+                <div key={evening.evening_id} className="mt-1">
+                  <div className="flex min-h-11 flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 basis-40 text-[12px] text-text-muted">{evening.title.includes(date(evening.starts_at)) ? evening.title : `${evening.title} · ${date(evening.starts_at)}`} — {formatRubles(evening.owed)}</span>
+                    <button type="button" disabled={Boolean(busy)} onClick={() => { setPartialKey(partialKey === key ? '' : key); setPartialValue(''); setError(''); }} className="min-h-11 shrink-0 rounded-[9px] border border-border-soft px-3 text-[13px] font-bold text-text-secondary disabled:opacity-40">Часть</button>
+                    <button type="button" disabled={Boolean(busy)} onClick={() => void pay(debtor, evening.evening_id)} className="min-h-11 shrink-0 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">{busy === key ? '…' : 'Оплачено'}</button>
+                  </div>
+                  {partialKey === key ? (
+                    <div className="mt-1 flex items-center gap-2" data-testid="debt-partial-form">
+                      <input type="text" inputMode="decimal" value={partialValue} onChange={(event) => setPartialValue(event.target.value)} aria-label="Сумма частичной оплаты, ₽" placeholder={`Сколько получили, до ${evening.owed} ₽`} className="min-h-11 min-w-0 flex-1 rounded-[9px] border border-border-soft bg-surface-2 px-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" />
+                      <button type="button" disabled={Boolean(busy)} onClick={() => void payPart(debtor, evening)} className="min-h-11 shrink-0 rounded-[9px] bg-accent px-3 text-[13px] font-bold text-white disabled:opacity-40">Внести</button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
             {debtor.evenings.length > 1 ? <button type="button" disabled={Boolean(busy)} onClick={() => void pay(debtor, null)} className="mt-1 min-h-11 w-full rounded-[9px] border border-success/30 text-[13px] font-bold text-success disabled:opacity-40">{busy === `${debtor.player_id}:all` ? '…' : `Оплачено всё · ${formatRubles(debtor.owed)}`}</button> : null}
           </div>
         ))}

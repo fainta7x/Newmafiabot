@@ -2,7 +2,7 @@ import { publicationRecoveryQueue, resolvePublication } from '../services/public
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import { loadClubHygiene } from '../services/clubHygieneService.ts';
-import { DebtActionError, listDebtors, markPlayerDebtPaid, remindDebtors } from '../services/debtActionsService.ts';
+import { DebtActionError, listDebtors, markPlayerDebtPaid, markPlayerDebtPartiallyPaid, remindDebtors } from '../services/debtActionsService.ts';
 import { Router, Response } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
@@ -132,6 +132,10 @@ router.post('/debts/remind', requireOrganizerAuth, async (req: AuthenticatedRequ
 router.post('/debts/:playerId/paid', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db: DatabaseWrapper = req.db || (await getDb());
+    if (req.body?.amount !== undefined && req.body?.amount !== null) {
+      if (!req.body?.evening_id) return res.status(400).json({ error: 'Частичная оплата отмечается по конкретному вечеру', code: 'bad_request' });
+      return res.json(await markPlayerDebtPartiallyPaid(db, String(req.params.playerId), String(req.body.evening_id), Number(req.body.amount)));
+    }
     return res.json(await markPlayerDebtPaid(db, String(req.params.playerId), req.body?.evening_id ? String(req.body.evening_id) : null));
   } catch (error: any) {
     if (error instanceof DebtActionError) return res.status(error.status).json({ error: error.message, code: error.code });

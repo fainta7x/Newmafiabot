@@ -3,7 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
-import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
+import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 
@@ -53,7 +53,7 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   const eligible = ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(game.format));
   const target = eligible ? raw.filter((row) => String(row.player_id || '') === TARGET_PLAYER_ID) : [];
   const playerBySeat = new Map<number, string>(raw.filter((row) => row.player_id).map((row) => [Number(row.seat_number), String(row.player_id)]));
-  return { eveningId: String(game.evening_id), seats, playerBySeat, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
+  return { eveningId: String(game.evening_id), format: normalizeEveningFormat(game.format), seats, playerBySeat, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
 }
 
 function shuffledDeck(size: number): Card[] {
@@ -151,6 +151,8 @@ async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: nu
     const context = await gameContext(tx, gameId);
     const state = await readState(tx, gameId);
     versionMatches(state, version);
+    // Owner, 2026-11-02: a role can be bought on every evening except rating and tournament ones.
+    if (!['CASUAL', 'NOVICE'].includes(context.format)) reject('Покупка роли недоступна на рейтинговых и турнирных вечерах', 400);
     if (!['citizen', 'sheriff', 'mafia', 'don'].includes(role)) reject('Неизвестная роль', 400);
     if (state.pending) reject('Сначала подтвердите открытую карту');
     if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
@@ -200,7 +202,10 @@ async function resetVirtualRoleDealInner(db: DatabaseWrapper, gameId: number, ve
 const syncEveningPayments = async (db: DatabaseWrapper, gameId: number) => {
   try {
     const game = await db.get<{ evening_id: string }>('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [gameId]);
-    if (game?.evening_id) await reconcileRegularEveningPayments(db, String(game.evening_id));
+    if (game?.evening_id) {
+      await reconcileRegularEveningPayments(db, String(game.evening_id));
+      await reconcileOtherFormatExtensions(db, String(game.evening_id));
+    }
   } catch (error) { console.error('role purchase payment sync failed', error); }
 };
 export async function buyVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, role: GameRole, version: number) {

@@ -317,7 +317,10 @@ export async function loadGameEloBlank(db: DatabaseWrapper, gameId: string): Pro
   };
 }
 
-type Tally = { playerId: string; games: number; wins: number; points: number; byRole: Map<string, { games: number; wins: number; points: number; effect: number }> };
+/** What a player actually did in a role over the evening (owner, 2026-11-02): the best-by-role block says it in words, not as an average. */
+export type RoleFacts = { checks: number; blackChecks: number; streak: number; donFoundAt: number | null; votes: number; votesAgainstBlack: number; markedRed: number };
+const emptyRoleFacts = (): RoleFacts => ({ checks: 0, blackChecks: 0, streak: 0, donFoundAt: null, votes: 0, votesAgainstBlack: 0, markedRed: 0 });
+type Tally = { playerId: string; games: number; wins: number; points: number; byRole: Map<string, { games: number; wins: number; points: number; effect: number; facts: RoleFacts }> };
 
 const isRedRole = (role: string | null | undefined) => role === 'citizen' || role === 'sheriff';
 const isBlackRole = (role: string | null | undefined) => role === 'mafia' || role === 'don';
@@ -366,6 +369,54 @@ export function seatEffectiveness(envelope: any): Map<number, number> {
     scores.set(me.seat, score);
   }
   return scores;
+}
+
+/**
+ * What each seat did in one game, from the same facts as the effectiveness points: the sheriff's checks and the longest run of
+ * blacks found in a row, the number of the don's check that found the sheriff, a red's votes and how many were against blacks,
+ * and how many reds marked a black «red» in the colour protocol.
+ */
+export function seatRoleFacts(envelope: any): Map<number, RoleFacts> {
+  const protocol = envelope?.protocol || {};
+  const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
+  const seats = results
+    .map((result) => ({ seat: Number(result?.seat_number), role: normalizeGameRole(result?.role), playerId: String(result?.player_id || '') || null, colors: Array.isArray(result?.color_protocol) ? result.color_protocol : [] }))
+    .filter((item) => Number.isInteger(item.seat) && item.seat > 0);
+  const roleOf = new Map(seats.map((item) => [item.seat, item.role]));
+  const facts = gameActionFacts({
+    id: '', source: 'club', date: '', winner: protocol.winner_team === 'red' || protocol.winner_team === 'black' ? protocol.winner_team : null,
+    seats: seats.map(({ seat, role, playerId }) => ({ seat, role: role as any, playerId })), events: sanitizeLiveGameEvents(protocol.events),
+  } satisfies StatGame);
+  const out = new Map<number, RoleFacts>();
+  for (const me of seats) {
+    const mine = emptyRoleFacts();
+    if (me.role === 'sheriff') {
+      let run = 0;
+      for (const check of facts.checks.filter((item) => item.kind === 'sheriff')) {
+        mine.checks += 1;
+        if (isBlackRole(roleOf.get(check.target))) { mine.blackChecks += 1; run += 1; mine.streak = Math.max(mine.streak, run); } else run = 0;
+      }
+    }
+    if (me.role === 'don') {
+      const donChecks = facts.checks.filter((item) => item.kind === 'don');
+      const index = donChecks.findIndex((check) => roleOf.get(check.target) === 'sheriff');
+      mine.checks = donChecks.length;
+      mine.donFoundAt = index >= 0 ? index + 1 : null;
+    }
+    if (isRedRole(me.role)) {
+      for (const voting of facts.votings) {
+        const target = voting.votes.get(me.seat);
+        if (!target) continue;
+        mine.votes += 1;
+        if (isBlackRole(roleOf.get(target))) mine.votesAgainstBlack += 1;
+      }
+    }
+    if (isBlackRole(me.role)) {
+      mine.markedRed = seats.filter((other) => isRedRole(other.role) && other.colors.some((entry: any) => entry?.mark === 'red' && seatList(entry?.seat_numbers).includes(me.seat))).length;
+    }
+    out.set(me.seat, mine);
+  }
+  return out;
 }
 
 /**
@@ -455,6 +506,22 @@ export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGam
   };
 }
 
+const timesWord = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? 'раз' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'раза' : 'раз');
+/** The one fact about a player's evening in a role, in plain words; null when there is nothing worth saying (owner, 2026-11-02). */
+export function roleFactLine(role: 'sheriff' | 'don' | 'mafia' | 'citizen', facts: RoleFacts): string | null {
+  if (role === 'sheriff') {
+    if (facts.streak >= 2) return `Проверил ${facts.streak} чёрных подряд`;
+    if (facts.blackChecks >= 1) return `Нашёл ${facts.blackChecks} ${facts.blackChecks % 10 === 1 && facts.blackChecks % 100 !== 11 ? 'чёрного' : 'чёрных'} из ${facts.checks} проверок`;
+    return null;
+  }
+  if (role === 'don') return facts.donFoundAt !== null ? `Нашёл шерифа с ${facts.donFoundAt}-й проверки` : null;
+  if (role === 'citizen') {
+    if (facts.votes < 2 || facts.votesAgainstBlack < 1) return null;
+    return `Голос против чёрных: ${Math.round((facts.votesAgainstBlack / facts.votes) * 100)}%`;
+  }
+  return facts.markedRed >= 1 ? `Красные отметили красным ${facts.markedRed} ${timesWord(facts.markedRed)}` : null;
+}
+
 export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string): Promise<EveningSummary | null> {
   const evening = await db.get<any>('SELECT id, title, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;
@@ -473,6 +540,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     if (envelope.protocol.winner_team === 'black') blackWins += 1;
     for (const [playerId, change] of elo.get(String(row.id)) || []) eloByPlayer.set(playerId, (eloByPlayer.get(playerId) || 0) + change.delta);
     const effects = seatEffectiveness(envelope);
+    const roleFacts = seatRoleFacts(envelope);
     for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
       // A walk-in guest has no profile: count them by the placeholder (or the name on the seat).
       const guestKey = String(result?.guest_placeholder_id || result?.display_name || '').trim();
@@ -484,8 +552,15 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
       const points = scored ? gameResultPoints(envelope, result).total : 0;
       const tally = tallies.get(playerId) || { playerId, games: 0, wins: 0, points: 0, byRole: new Map() };
       tally.games += 1; tally.wins += win; tally.points += points;
-      const byRole = tally.byRole.get(role) || { games: 0, wins: 0, points: 0, effect: 0 };
+      const byRole = tally.byRole.get(role) || { games: 0, wins: 0, points: 0, effect: 0, facts: emptyRoleFacts() };
       byRole.games += 1; byRole.wins += win; byRole.points += points; byRole.effect += effects.get(Number(result?.seat_number)) ?? 0;
+      const seatFacts = roleFacts.get(Number(result?.seat_number));
+      if (seatFacts) {
+        const total = byRole.facts;
+        total.checks += seatFacts.checks; total.blackChecks += seatFacts.blackChecks; total.streak = Math.max(total.streak, seatFacts.streak);
+        total.votes += seatFacts.votes; total.votesAgainstBlack += seatFacts.votesAgainstBlack; total.markedRed += seatFacts.markedRed;
+        if (seatFacts.donFoundAt !== null) total.donFoundAt = total.donFoundAt === null ? seatFacts.donFoundAt : Math.min(total.donFoundAt, seatFacts.donFoundAt);
+      }
       tally.byRole.set(role, byRole);
       tallies.set(playerId, tally);
     }
@@ -526,7 +601,11 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     const stat = (item: Tally) => item.byRole.get(role)!;
     const average = (item: Tally) => stat(item).effect / stat(item).games;
     const best = candidates.sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games)[0];
-    return { role, player: person(best, signed(average(best)), `в среднем за ${stat(best).games} ${gamesWord(stat(best).games)}`) };
+    const fact = roleFactLine(role, stat(best).facts);
+    // A fact says what the player did, so the average beside it would only be noise; without one the plain effect stays, and a single
+    // game is not «averaged» (owner, 2026-11-02: «+2 в среднем за 1 игру» meant nothing).
+    const plain = stat(best).games === 1 ? 'за игру' : `в среднем за ${stat(best).games} ${gamesWord(stat(best).games)}`;
+    return { role, player: person(best, fact ? '' : signed(average(best)), fact || plain) };
   });
 
   return {

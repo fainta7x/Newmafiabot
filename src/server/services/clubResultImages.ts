@@ -137,7 +137,7 @@ function personRow(x: number, y: number, width: number, label: string, person: S
   return `<text x="${x}" y="${y + 30}" font-size="18" font-weight="700" letter-spacing="2" fill="${accent}">${esc(label)}</text>
     ${avatar(x, y + 46, 64, person.nickname, person.avatar)}
     <text x="${x + 80}" y="${y + 74}" font-size="27" font-weight="700" fill="${C.warmText}">${esc(clip(person.nickname, Math.floor((width - 80) / 17)))}</text>
-    <text x="${x + 80}" y="${y + 104}" font-size="20" font-weight="600" fill="${C.mutedText}">${esc(`${person.value} ${person.detail}`)}</text>`;
+    <text x="${x + 80}" y="${y + 104}" font-size="20" font-weight="600" fill="${C.mutedText}">${esc(clip(`${person.value} ${person.detail}`.trim(), Math.floor((width - 80) / 10.5)))}</text>`;
 }
 
 export function eveningSummarySvg(summary: EveningSummary) {

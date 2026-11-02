@@ -139,3 +139,27 @@ describe('events that happen in the very last moment of a game', () => {
     expect(zeroRoundBreakerSeat([...deriveLiveGameEvents(before, named, 1, 'now'), ...cleared])).toBeNull();
   });
 });
+
+describe('«сломал попил красным» tag of the live game (owner, 2026-11-01)', () => {
+  it('sets, replaces and clears the tag per engine round', async () => {
+    const { setSplitBreakTag } = await import('../lib/gameProtocolCore');
+    const empty = { firstKilledSlot: null, zeroRoundVotedSlot: null, bestMoveSeats: [] } as any;
+    const one = setSplitBreakTag(empty, 3, 6);
+    expect(one.splitBreakTags).toEqual({ 3: 6 });
+    expect(setSplitBreakTag(one, 3, 6)).toBe(one);
+    expect(setSplitBreakTag(one, 3, 4).splitBreakTags).toEqual({ 3: 4 });
+    expect(setSplitBreakTag(one, 3, null).splitBreakTags).toEqual({});
+    expect(setSplitBreakTag(one, 0, 4)).toBe(one);
+    expect(setSplitBreakTag(one, 3, 11)).toBe(one);
+  });
+  it('writes a split_break event per circle and a bare event when the tag is removed', () => {
+    const markers = { firstKilledSlot: null, zeroRoundVotedSlot: null, bestMoveSeats: [] };
+    const before = snapshot({ roundNumber: 3, phase: 'day_voting', protocolMarkers: markers });
+    const tagged = snapshot({ roundNumber: 3, phase: 'day_voting', protocolMarkers: { ...markers, splitBreakTags: { 3: 6 } } });
+    expect(deriveLiveGameEvents(before, tagged, 1, 'now')).toEqual([{ seq: 1, at: 'now', round: 3, phase: 'day_voting', kind: 'split_break', seat: 6 }]);
+    const cleared = deriveLiveGameEvents(tagged, before, 2, 'now');
+    expect(cleared).toHaveLength(1);
+    expect(cleared[0]).toMatchObject({ kind: 'split_break', round: 3 });
+    expect(cleared[0].seat).toBeUndefined();
+  });
+});

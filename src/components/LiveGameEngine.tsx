@@ -112,6 +112,7 @@ import {
   registerFirstKilled,
   registerZeroRoundVoted,
   setZeroRoundBreaker,
+  setSplitBreakTag,
   setBestMove,
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
@@ -1285,6 +1286,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setProtocolMarkers((previous) => setZeroRoundBreaker(previous, slot));
   };
 
+  // «Сломал попил красным» (owner, 2026-11-01): a tag for a red who broke a split on this circle; −20 Elo in the club blank.
+  const handleSetSplitBreakTag = (slot: number | null) => {
+    setProtocolMarkers((previous) => setSplitBreakTag(previous, roundNumber, slot));
+  };
+
   const finishBreakSpeech = () => {
     saveSnapshot();
     setBreakSpeechSlot(null);
@@ -1895,6 +1901,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       breakSpeechSlot,
       zeroRoundBreakerSlot: protocolMarkers.zeroRoundBreakerSlot ?? null,
       onSetZeroRoundBreaker: handleSetZeroRoundBreaker,
+      splitBreakTagSlot: protocolMarkers.splitBreakTags?.[String(roundNumber)] ?? null,
+      onSetSplitBreakTag: handleSetSplitBreakTag,
       handleGoToRevoteSpeeches,
       handleAdvanceRevoteSpeaker,
       handleBackWithinRevoteSpeeches,

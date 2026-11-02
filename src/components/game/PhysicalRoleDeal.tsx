@@ -1,6 +1,8 @@
 import { GAME_ROLES, GAME_ROLE_KEYS, type GameRole } from '../../shared/gameRoles.ts';
+import { GameRoleIcon } from '../ui/GameRole.tsx';
+import { RoleCard } from '../ui/RoleCard.tsx';
 import { useEffect, useMemo, useState } from 'react';
-import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
+import { JUDGE_MUSIC_PLAYER_ENABLED, requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { JUDGE_TRAINING_ROLE_LABELS, trainingRolePlacementAllowed } from '../../lib/judgeTrainingSetup.ts';
 
@@ -67,7 +69,7 @@ export default function PhysicalRoleDeal({
   const exactComplete = isSupportedTableSize(tableSize)
     && assignedCount === tableSize
     && ROLES.every((role) => counts[role] === limits[role]);
-  const musicDisabled = musicTrackId === null;
+  const musicDisabled = !JUDGE_MUSIC_PLAYER_ENABLED || musicTrackId === null;
 
   const cancel = () => {
     requestJudgeGameMusicStop();
@@ -166,9 +168,9 @@ export default function PhysicalRoleDeal({
   }
 
   return (
-    <div data-testid="physical-role-deal-active" className="fixed inset-0 z-[150] overflow-y-auto bg-[#090a0d]/95 p-2.5 backdrop-blur-xl sm:p-4">
-      <div className="mx-auto w-full max-w-lg space-y-2.5">
-        <section className="rounded-[24px] border border-white/[0.08] bg-[#121318] p-3.5 shadow-[0_18px_52px_rgba(0,0,0,0.34)]">
+    <div data-testid="physical-role-deal-active" className="fixed inset-0 z-[150] overflow-y-auto bg-[#090a0d]/95 p-2.5 backdrop-blur-xl sm:p-4 [@media(max-height:720px)]:p-1.5">
+      <div className="mx-auto w-full max-w-lg space-y-2.5 [@media(max-height:720px)]:space-y-1.5">
+        <section className="rounded-[24px] border border-white/[0.08] bg-[#121318] p-3.5 shadow-[0_18px_52px_rgba(0,0,0,0.34)] [@media(max-height:720px)]:p-2.5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/28">Раздача ролей</div>
@@ -183,15 +185,15 @@ export default function PhysicalRoleDeal({
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-1.5">
+          <div className="mt-3 grid grid-cols-4 gap-1.5 [@media(max-height:720px)]:mt-2">
             {ROLES.map((role) => {
               const meta = ROLE_META[role];
               const done = counts[role] === limits[role];
               return (
                 <div key={role} className={`rounded-[12px] border px-1.5 py-2 text-center ${done ? 'border-emerald-300/15 bg-emerald-300/[0.06]' : 'border-white/[0.055] bg-black/15'}`}>
                   <div className="flex items-center justify-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.foreground }} />
-                    <span className="text-[10px] font-semibold text-white/38">{meta.label}</span>
+                    <GameRoleIcon role={role} className="h-4 w-4" />
+                    <span className="text-[10px] font-semibold text-white/60">{meta.label}</span>
                   </div>
                   <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : ''}`} style={done ? undefined : { color: meta.foreground }}>{counts[role]}/{limits[role]}</div>
                 </div>
@@ -201,7 +203,7 @@ export default function PhysicalRoleDeal({
         </section>
 
         {activeSeat && (
-          <section className="rounded-[26px] border border-white/[0.09] bg-white/[0.045] p-3.5">
+          <section className="rounded-[26px] border border-white/[0.09] bg-white/[0.045] p-3.5 [@media(max-height:720px)]:p-2.5">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/28">Карту тянет</div>
@@ -221,7 +223,7 @@ export default function PhysicalRoleDeal({
             ) : <div className="mt-2.5 text-[10px] leading-4 text-white/34">Игрок посмотрел карту → нажмите полученную роль.</div>}
             {trainingError && <p className="mt-2 text-xs text-rose-200" role="alert">{trainingError}</p>}
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-4 gap-2">
               {ROLES.map((role) => {
                 const meta = ROLE_META[role];
                 const selected = assignments[activeSeat.seat_number] === role;
@@ -233,14 +235,12 @@ export default function PhysicalRoleDeal({
                     type="button"
                     disabled={unavailable}
                     onClick={() => chooseRole(role)}
-                    style={selected ? { borderColor: meta.foreground + '60', backgroundColor: meta.accent + '18', color: meta.foreground } : undefined}
-                    className={`min-h-[64px] rounded-[16px] border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${selected ? 'border-white/25 bg-white/[.06]' : 'border-white/[0.08] bg-black/20 text-white/62 active:bg-white/[0.055]'}`}
+                    aria-pressed={selected}
+                    aria-label={`${meta.label}, ${counts[role]} из ${limits[role]}`}
+                    data-role-card={role}
+                    className="min-w-0 rounded-2xl p-0 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meta.foreground }} />
-                      <span className="text-[10px] font-semibold text-white/26">{counts[role]}/{limits[role]}</span>
-                    </div>
-                    <div className="mt-2 text-[13px] font-semibold">{meta.label}</div>
+                    <RoleCard role={role} label={meta.label} count={`${counts[role]}/${limits[role]}`} selected={selected} className="[@media(max-height:720px)]:aspect-square" />
                   </button>
                 );
               })}
@@ -252,17 +252,16 @@ export default function PhysicalRoleDeal({
           <div className="grid grid-cols-5 gap-1.5">
             {sortedSeats.map((seat, index) => {
               const role = assignments[seat.seat_number];
-              const meta = role ? ROLE_META[role] : null;
               return (
                 <button
                   key={seat.seat_number}
                   type="button"
                   aria-label={`Место ${seat.seat_number} · ${seat.nickname}`}
                   onClick={() => goToSeat(index)}
-                  className={`min-h-[52px] min-w-0 rounded-[11px] border px-1 py-1.5 text-center ${index === activeIndex ? 'border-white/22 bg-white/[0.08]' : role ? 'border-emerald-300/10 bg-emerald-300/[0.035]' : 'border-white/[0.055] bg-black/15'}`}
+                  className={`min-h-[52px] min-w-0 rounded-[11px] border px-1 py-1.5 text-center [@media(max-height:720px)]:min-h-[44px] [@media(max-height:720px)]:py-1 ${index === activeIndex ? 'border-white/22 bg-white/[0.08]' : role ? 'border-emerald-300/10 bg-emerald-300/[0.035]' : 'border-white/[0.055] bg-black/15'}`}
                 >
                   <div className="text-[10px] font-semibold text-white/72">{seat.seat_number}</div>
-                  <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta?.foreground ?? 'rgba(255,255,255,.12)' }} />
+                  <span className="mx-auto mt-1 block h-4 w-4">{role ? <GameRoleIcon role={role} className="h-4 w-4" /> : <span className="mx-auto block h-1.5 w-1.5 translate-y-[5px] rounded-full bg-white/15" />}</span>
                   <div className="mt-1 truncate text-[10px] text-white/24">{seat.nickname}</div>
                 </button>
               );

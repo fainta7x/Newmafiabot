@@ -298,6 +298,9 @@ export const clubGamesApi = {
   roleDealConfirm: (gameId: number, payload: VirtualDealAction) => request<VirtualDealSnapshot>(
     `/api/games/${gameId}/virtual-deal/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
   ),
+  roleDealBuy: (gameId: number, payload: { seat: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don'; version: number }) => request<VirtualDealSnapshot & { priceRub: number }>(
+    `/api/games/${gameId}/virtual-deal/buy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
+  ),
   roleDealUndo: (gameId: number, version: number) => request<VirtualDealSnapshot>(
     `/api/games/${gameId}/virtual-deal/undo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version }) },
   ),

@@ -30,6 +30,7 @@ export type LiveEventSnapshot = {
     bestMoveSourceSlot?: number | null;
     bestMoveSeats?: number[];
     zeroRoundBreakerSlot?: number | null;
+    splitBreakTags?: Record<string, number>;
   };
   activePlayers?: Array<{
     slot_num?: number;
@@ -163,6 +164,13 @@ export const deriveLiveGameEvents = (
   const breaker = seatOrNull(markers?.zeroRoundBreakerSlot);
   if (breaker !== seatOrNull(previousMarkers?.zeroRoundBreakerSlot)) {
     push(breaker === null ? { kind: 'zero_round_break', round: 1 } : { kind: 'zero_round_break', round: 1, seat: breaker });
+  }
+  // «Сломал попил красным»: one tag per circle; a removed tag is an event without a seat.
+  const tagRounds = new Set([...Object.keys(markers?.splitBreakTags || {}), ...Object.keys(previousMarkers?.splitBreakTags || {})]);
+  for (const key of [...tagRounds].sort((a, b) => Number(a) - Number(b))) {
+    const now = seatOrNull(markers?.splitBreakTags?.[key]);
+    if (now === seatOrNull(previousMarkers?.splitBreakTags?.[key])) continue;
+    push(now === null ? { kind: 'split_break', round: Number(key) } : { kind: 'split_break', round: Number(key), seat: now });
   }
   const bestMoveSeats = markers?.bestMoveSeats || [];
   if (bestMoveSeats.length && bestMoveSeats.join(',') !== (previousMarkers?.bestMoveSeats || []).join(',')) {

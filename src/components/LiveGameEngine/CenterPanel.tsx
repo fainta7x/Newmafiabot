@@ -103,6 +103,9 @@ interface CenterPanelProps {
   /** «Кто сломал попил?»: the seat the judge named for a broken zero-round split (optional, never derived from votes). */
   zeroRoundBreakerSlot?: number | null;
   onSetZeroRoundBreaker?: (slotNum: number | null) => void;
+  /** «Сломал попил красным»: the red tagged on this circle, and the setter (owner, 2026-11-01). */
+  splitBreakTagSlot?: number | null;
+  onSetSplitBreakTag?: (slotNum: number | null) => void;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
   handleAdvanceRevoteSpeaker?: (slot: number, nextIndex: number) => void;
   handleBackWithinRevoteSpeeches?: (previousSlot: number, previousIndex: number) => void;
@@ -211,6 +214,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     breakSpeechSlot = null,
     zeroRoundBreakerSlot = null,
     onSetZeroRoundBreaker,
+    splitBreakTagSlot = null,
+    onSetSplitBreakTag,
     handleGoToRevoteSpeeches,
     handleAdvanceRevoteSpeaker,
     handleBackWithinRevoteSpeeches,
@@ -245,6 +250,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
   const [breakerPicking, setBreakerPicking] = React.useState(false);
+  const [tagPicking, setTagPicking] = React.useState(false);
   React.useEffect(() => { if (votingStage !== 'round_result') setBreakerPicking(false); }, [votingStage]);
   const [autoAdvance, setAutoAdvance] = React.useState<boolean>(() => {
     try { return localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === '1'; } catch { return false; }
@@ -773,6 +779,31 @@ export default function CenterPanel(props: CenterPanelProps) {
         </button>
       ) : null;
 
+      // A split was broken (a revote ended with one player out, or the zero-round split): the judge may tag a RED who did it on purpose.
+      const splitWasBroken = result.outcome === 'single_eliminated' && (currentRound?.day_number === 0 || Boolean(currentRound?.is_revote));
+      const redSeats = activePlayers.filter((player) => player.alive && normalizeGameRole(player.role) !== null && ['citizen', 'sheriff'].includes(normalizeGameRole(player.role) as string)).map((player) => player.slot_num);
+      const tagQuestion = splitWasBroken && onSetSplitBreakTag ? (
+        <button type="button" data-testid="live-split-break-tag" onClick={() => setTagPicking(true)} className="live-judge-action">
+          {splitBreakTagSlot ? `Сломал попил красным: #${splitBreakTagSlot}` : 'Сломал попил красным?'}
+        </button>
+      ) : null;
+      if (tagQuestion && tagPicking) {
+        const chooseTag = (seat: number | null) => { onSetSplitBreakTag?.(seat); setTagPicking(false); };
+        return (
+          <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-breaker">
+            <div className="live-judge-breaker__head">
+              <div className="live-judge-hud__hint">Красный, сломавший попил (−20 Elo)</div>
+              <button type="button" onClick={() => chooseTag(null)} className="live-judge-action">Никто</button>
+            </div>
+            <div className="live-judge-breaker__seats" role="group" aria-label="Красный, сломавший попил">
+              {redSeats.map((seat) => (
+                <button key={seat} type="button" aria-pressed={splitBreakTagSlot === seat} onClick={() => chooseTag(seat)} className="live-judge-breaker__seat">#{seat}</button>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
       if (breakerQuestion && breakerPicking) {
         const choose = (seat: number | null) => { onSetZeroRoundBreaker?.(seat); setBreakerPicking(false); };
         return (
@@ -805,6 +836,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             <div className="live-judge-hud__hint">#{seat} остаётся за столом, без ЛХ: 30 секунд дополнительной речи, затем ночь.</div>
             <button type="button" onClick={() => handleClubZeroRoundBreak?.(seat)} className="live-judge-action live-judge-action--primary">Доп. речь #{seat} · 30 сек</button>
             {breakerQuestion}
+            {tagQuestion}
           </div>
         );
       }
@@ -816,6 +848,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             <div className="live-judge-hud__title">Заголосован <strong>#{result.winners[0]}</strong></div>
             <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="live-judge-action live-judge-action--primary">Подтвердить</button>
             {breakerQuestion}
+            {tagQuestion}
           </div>
         );
       }

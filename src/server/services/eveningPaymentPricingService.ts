@@ -207,6 +207,30 @@ export async function countCompletedEveningGames(db: DatabaseWrapper, eveningId:
   return (await loadCompletedGames(db, eveningId, participants)).completedGameParticipants.length;
 }
 
+/**
+ * «Покупка роли» in the virtual deal (owner, 2026-11-01): roles bought during the evening's deals, in roubles per player.
+ * Read from the stored deal state, so taking a purchase back (undo / redeal) takes the charge back too.
+ */
+export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  let rows: Array<{ state_json: string }> = [];
+  try {
+    rows = await db.all<{ state_json: string }>(
+      `SELECT d.state_json FROM game_virtual_role_deals d JOIN games g ON g.id = d.game_id
+        WHERE g.evening_id = ? AND g.archived_at IS NULL`, [eveningId]);
+  } catch { return totals; } // the deal table does not exist before the first virtual deal
+  for (const row of rows) {
+    let state: any = null;
+    try { state = JSON.parse(row.state_json); } catch { continue; }
+    for (const entry of Array.isArray(state?.history) ? state.history : []) {
+      const playerId = entry?.purchase?.playerId;
+      const amount = Number(entry?.purchase?.amountRub);
+      if (playerId && Number.isFinite(amount) && amount > 0) totals.set(String(playerId), (totals.get(String(playerId)) || 0) + amount);
+    }
+  }
+  return totals;
+}
+
 export async function reconcileRegularEveningPayments(
   db: DatabaseWrapper,
   eveningId: string,
@@ -265,6 +289,7 @@ export async function reconcileRegularEveningPayments(
   // «Продление вечера»: shares of what the club paid for extra time (see eveningExtensionService); charged as soon as it is entered.
   const { shares: extensionShares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedStaffPlayerId, assignedJudgePlayerId);
 
+  const rolePurchases = await loadRolePurchases(db, eveningId);
   const closed = evening.status === 'completed' || Boolean(evening.settled_at);
   const now = new Date().toISOString();
   await db.transaction(async (tx: DatabaseWrapper) => {
@@ -276,7 +301,8 @@ export async function reconcileRegularEveningPayments(
         || isRegularFeeFreeByStaffRule(evening.starts_at, playerId, assignedStaffPlayerId);
       const gamesPlayed = playedCounts.get(participantId) || 0;
       const extensionDue = !feeExempt ? (extensionShares.get(participantId) || 0) : 0;
-      const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed, policy) + extensionDue;
+      // A bought role is a purchase, not a fee: it is charged even to a player who plays free.
+      const canonicalDue = (feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed, policy) + extensionDue) + (rolePurchases.get(playerId) || 0);
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
 
       if (closed) {

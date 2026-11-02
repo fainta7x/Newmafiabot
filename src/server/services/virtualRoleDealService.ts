@@ -3,11 +3,16 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
+import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 
+/** Owner, 2026-11-01: a role (card) bought during the deal costs the player this many ROUBLES. It is only recorded here; charging it to the evening's payment is not wired yet. */
+export const ROLE_PURCHASE_PRICE_RUB = 150;
+
 type Card = { id: string; role: GameRole };
-type Entry = { seat: number; cardId: string; role: GameRole; previousDeck: Card[] };
+type Purchase = { playerId: string | null; amountRub: number };
+type Entry = { seat: number; cardId: string; role: GameRole; previousDeck: Card[]; purchase?: Purchase | null };
 type Pending = { seat: number; cardId: string; role: GameRole; previousDeck: Card[] };
 type State = { version: number; deck: Card[]; history: Entry[]; pending: Pending | null };
 type SeatIdentity = { seat_number: number; player_id: string | null };
@@ -30,7 +35,7 @@ export async function ensureVirtualRoleDealSchema(db: DatabaseWrapper) {
 async function gameContext(db: DatabaseWrapper, gameId: number) {
   if (!Number.isInteger(gameId) || gameId <= 0) reject('Некорректная игра', 400);
   const game = await db.get<any>(`
-    SELECT g.id, g.protocol_text, e.format
+    SELECT g.id, g.evening_id, g.protocol_text, e.format
       FROM games g JOIN game_evenings e ON e.id = g.evening_id
      WHERE g.id = ? AND g.archived_at IS NULL LIMIT 1`, [gameId]);
   if (!game) reject('Игра не найдена', 404);
@@ -47,7 +52,8 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   }
   const eligible = ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(game.format));
   const target = eligible ? raw.filter((row) => String(row.player_id || '') === TARGET_PLAYER_ID) : [];
-  return { seats, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
+  const playerBySeat = new Map<number, string>(raw.filter((row) => row.player_id).map((row) => [Number(row.seat_number), String(row.player_id)]));
+  return { eveningId: String(game.evening_id), seats, playerBySeat, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
 }
 
 function shuffledDeck(size: number): Card[] {
@@ -138,7 +144,28 @@ export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, se
   });
 }
 
-export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, version: number) {
+/** «Покупка роли»: the judge gives the seat a role the player bought; one card of that role leaves the deck for this seat. */
+async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: number, role: GameRole, version: number) {
+  await ensureVirtualRoleDealSchema(db);
+  return db.transaction(async (tx) => {
+    const context = await gameContext(tx, gameId);
+    const state = await readState(tx, gameId);
+    versionMatches(state, version);
+    if (!['citizen', 'sheriff', 'mafia', 'don'].includes(role)) reject('Неизвестная роль', 400);
+    if (state.pending) reject('Сначала подтвердите открытую карту');
+    if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
+    const card = state.deck.find((entry) => entry.role === role);
+    if (!card) return reject('Такой роли уже нет в колоде');
+    const purchase: Purchase = { playerId: context.playerBySeat.get(seat) || null, amountRub: ROLE_PURCHASE_PRICE_RUB };
+    state.history.push({ seat, cardId: card.id, role, previousDeck: state.deck, purchase });
+    state.deck = state.deck.filter((entry) => entry.id !== card.id);
+    state.version += 1;
+    await writeState(tx, gameId, state);
+    return { ...visible(state), priceRub: ROLE_PURCHASE_PRICE_RUB };
+  });
+}
+
+async function undoVirtualRoleInner(db: DatabaseWrapper, gameId: number, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     await gameContext(tx, gameId);
@@ -154,7 +181,7 @@ export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, versi
   });
 }
 
-export async function resetVirtualRoleDeal(db: DatabaseWrapper, gameId: number, version: number) {
+async function resetVirtualRoleDealInner(db: DatabaseWrapper, gameId: number, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     const { seats } = await gameContext(tx, gameId);
@@ -167,4 +194,27 @@ export async function resetVirtualRoleDeal(db: DatabaseWrapper, gameId: number, 
     await writeState(tx, gameId, state);
     return visible(state);
   });
+}
+
+/** A bought role is part of the evening's debt: after every change of the deal the evening's payments are recomputed. */
+const syncEveningPayments = async (db: DatabaseWrapper, gameId: number) => {
+  try {
+    const game = await db.get<{ evening_id: string }>('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [gameId]);
+    if (game?.evening_id) await reconcileRegularEveningPayments(db, String(game.evening_id));
+  } catch (error) { console.error('role purchase payment sync failed', error); }
+};
+export async function buyVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, role: GameRole, version: number) {
+  const result = await buyVirtualRoleInner(db, gameId, seat, role, version);
+  await syncEveningPayments(db, gameId);
+  return result;
+}
+export async function undoVirtualRole(db: DatabaseWrapper, gameId: number, version: number) {
+  const result = await undoVirtualRoleInner(db, gameId, version);
+  await syncEveningPayments(db, gameId);
+  return result;
+}
+export async function resetVirtualRoleDeal(db: DatabaseWrapper, gameId: number, version: number) {
+  const result = await resetVirtualRoleDealInner(db, gameId, version);
+  await syncEveningPayments(db, gameId);
+  return result;
 }

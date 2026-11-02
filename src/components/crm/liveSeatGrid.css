@@ -341,24 +341,29 @@
 [data-testid="live-events-feedback"]:has([data-testid="live-game-inline-toast"]) > [data-testid="live-events-latest"] { visibility: hidden; }
 
 @layer seat-grid {
-  /* The candidate being counted is filled with his own seat colour at full strength; the voters of that candidate wear the same hue,
-     softer (owner, 2026-11-02: «кандидат ярким цветом, голосовавшие чуть менее ярким»). */
+  /* The candidate being counted: his own seat colour as a soft radial glow around the portrait, deepening to the edges, a fine light rim
+     and a halo; his voters wear the same hue much softer, as a dark glass card with a coloured hairline (owner, 2026-11-02: «кандидат
+     ярким цветом, голосовавшие чуть менее ярким», «но постильнее»). */
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] {
-    background: var(--seat-fill) !important;
-    border: 3px solid color-mix(in srgb, var(--seat-fill) 55%, #ffffff) !important;
-    box-shadow: 0 0 22px color-mix(in srgb, var(--seat-fill) 70%, transparent) !important;
+    background: radial-gradient(120% 70% at 50% 28%, color-mix(in srgb, var(--seat-fill) 85%, #ffffff) 0%, var(--seat-fill) 45%, color-mix(in srgb, var(--seat-fill) 45%, #0b0c10) 100%) !important;
+    border: 1px solid color-mix(in srgb, var(--seat-fill) 55%, #ffffff) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 0 4px color-mix(in srgb, var(--seat-fill) 22%, transparent), 0 12px 30px -8px color-mix(in srgb, var(--seat-fill) 60%, transparent) !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__avatar {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--seat-fill) 30%, #ffffff), 0 0 22px rgba(255, 255, 255, 0.35) !important;
   }
   html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) {
-    background: color-mix(in srgb, var(--seat-fill) 40%, #0b0c10) !important;
-    border: 2px solid color-mix(in srgb, var(--seat-line) 65%, #0b0c10) !important;
+    background: radial-gradient(110% 60% at 50% 30%, color-mix(in srgb, var(--seat-fill) 34%, #0d0f14), color-mix(in srgb, var(--seat-fill) 8%, #0a0b0f)) !important;
+    border: 1px solid color-mix(in srgb, var(--seat-line) 55%, transparent) !important;
     box-shadow: none !important;
   }
-  /* Readable on a bright fill: the nickname chip, the seat number and the tally sit on dark plates. */
+  /* Readable on the bright fill: the nickname chip, the seat number and the tally are dark glass. */
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__name,
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-number,
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value {
-    background: rgba(0, 0, 0, 0.62) !important;
-    border-color: rgba(255, 255, 255, 0.35) !important;
+    background: rgba(10, 10, 14, 0.55) !important;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
     color: #ffffff !important;
   }
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value { padding: 0 6px !important; border-radius: 6px !important; }

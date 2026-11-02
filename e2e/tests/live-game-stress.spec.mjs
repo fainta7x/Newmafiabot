@@ -21,6 +21,8 @@ const PROGRESS = /следующ|завершить|к голосованию|н
 // What a random walk must not press: it leaves the game or ends it for good, which only restarts the walk.
 const AVOID = /выйти|выход|закрыть игру|завершить игру|сбросить|удалить игру|ппк|удалить/i;
 
+// A step that does not come back is a finding (the page froze), not a reason to wait for the test timeout.
+const guard = (promise, what) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`hang: ${what}`)), 20_000))]);
 const random = (seed) => { let state = seed >>> 0; return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 2 ** 32; }; };
 
 const ROLE_SEQUENCE = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'];
@@ -104,7 +106,7 @@ for (const [width, height] of VIEWPORTS) {
         if (!(await page.locator('.evening-live-engine-shell').count())) await restore(page, start);
         // Candidates: what a finger could really press now (the topmost thing at the centre of the element is the element itself): when a
         // window is open the buttons under it are not candidates, so the walk goes through the window and out of it like a person.
-        const candidates = await page.evaluate((progressSource) => {
+        const candidates = await guard(page.evaluate((progressSource) => {
           const progress = new RegExp(progressSource, 'i');
           document.querySelectorAll('[data-stress]').forEach((node) => node.removeAttribute('data-stress'));
           const out = [];
@@ -121,7 +123,8 @@ for (const [width, height] of VIEWPORTS) {
             out.push({ id: index, card: node.classList.contains('live-seat-card'), label, progress: /live-judge-action--(primary|success)/.test(node.className) || progress.test(label) });
           });
           return out;
-        }, PROGRESS.source);
+        }, PROGRESS.source), 'listing the tappable things').catch(async (error) => { problems.push(`step ${step}: ${error.message}`); await page.screenshot({ path: info.outputPath(`hang-step-${step}.png`) }).catch(() => {}); return null; });
+        if (candidates === null) break;
         if (!candidates.length) { await page.keyboard.press('Escape'); continue; }
         const forward = candidates.filter((item) => item.progress && !item.card && !AVOID.test(item.label));
         const pool = forward.length > 0 && next() < 0.7 ? forward : candidates;
@@ -150,11 +153,15 @@ for (const [width, height] of VIEWPORTS) {
           continue;
         }
         if (process.env.STRESS_TRACE) console.log(`step ${step}: ${label}`);
-        const phase = await page.locator('.live-judge-hud__phase').first().innerText().catch(() => '');
+        const phase = await guard(page.locator('.live-judge-hud__phase').first().innerText(), 'reading the phase').catch(() => '');
         if (phase.trim()) phases.add(phase.replace(/\s+/g, ' ').trim());
         if (next() < 0.1) await page.keyboard.press('Escape');
         await page.waitForTimeout(120);
-        const found = [...(await page.evaluate(auditScreen)), ...(await page.evaluate(auditSeatZones))];
+        // A tap (the journal opening, a focus) scrolls the page, and text under a sticky header after a scroll is normal: look at the top.
+        await page.evaluate(() => { window.scrollTo(0, 0); document.querySelectorAll('.evening-live-engine-shell, .evening-live-engine-shell *').forEach((node) => { if (node.scrollTop > 0) node.scrollTop = 0; }); document.querySelectorAll('div.fixed, div[class*="overflow-y-auto"]').forEach((node) => { if (node.scrollTop > 0) node.scrollTop = 0; }); }).catch(() => {});
+        await page.waitForTimeout(60);
+        const found = await guard(Promise.all([page.evaluate(auditScreen), page.evaluate(auditSeatZones)]), 'the layout audit').then(([a, b]) => [...a, ...b]).catch(async (error) => { problems.push(`step ${step} after «${label}»: ${error.message}`); await page.screenshot({ path: info.outputPath(`hang-step-${step}.png`) }).catch(() => {}); return null; });
+        if (found === null) break;
         for (const issue of found) {
           // A warning or error notice («Игрок #1 уже выставлял кандидатов») floats over the table for a few seconds by design, where the
           // events panel is not on screen (a short phone); it is reported to the owner as a known item, not a failure of the walk.

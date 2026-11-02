@@ -11,7 +11,7 @@ import { guestContactHref, guestContactLabel, type GuestContactKind } from '../.
 import { EMPTY_GUEST, GuestFields, type GuestDraft } from './GuestFields.tsx';
 
 type EveningData = GameEvening & { participants: EveningParticipant[] };
-type AddMode = 'players' | 'guest';
+type AddMode = 'players' | 'guest' | 'new';
 
 const inactiveLabel = (participant: EveningParticipant) => (
   participant.attendance_status === 'no_show'
@@ -42,6 +42,7 @@ export default function EveningActiveRosterView({
   const [guest, setGuest] = useState<GuestDraft>({ ...EMPTY_GUEST });
   const [editingGuest, setEditingGuest] = useState<{ id: string; draft: GuestDraft; companion?: boolean } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [newPlayer, setNewPlayer] = useState({ nickname: '', telegram: '', phone: '' });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'expected' | 'arrived'>('all');
 
@@ -222,6 +223,38 @@ export default function EveningActiveRosterView({
     response_status: draft.going ? 'going' as const : 'unanswered' as const,
   });
 
+  // «Судья регистрирует профиль игрока» (owner, 2026-11-02): a person without a profile gets a real one right here and is added to the evening.
+  const addNewPlayer = async () => {
+    const nickname = newPlayer.nickname.trim();
+    if (!evening || !nickname || adding) return;
+    setAdding(true);
+    setError('');
+    try {
+      const created = await api.createPlayer({
+        nickname,
+        telegram_username: newPlayer.telegram.trim().replace('@', '') || null,
+        phone: newPlayer.phone.trim() || null,
+        source: 'manual',
+        contact_status: 'normal',
+      } as any);
+      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/participants/bulk`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_ids: [created.id], table_id: null, response_status: 'unanswered', registration_status: 'invited', amount_due: evening.default_price }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || body?.details || 'Профиль создан, но добавить в состав не удалось — найдите его в списке игроков');
+      setNewPlayer({ nickname: '', telegram: '', phone: '' });
+      setShowAdd(false);
+      await load(true);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось создать профиль');
+    } finally {
+      setAdding(false);
+    }
+  };
+
   const addGuest = async () => {
     if (!evening || !guest.name.trim() || adding) return;
     setAdding(true);
@@ -315,15 +348,18 @@ export default function EveningActiveRosterView({
       open={showAdd}
       onClose={() => setShowAdd(false)}
       title="Добавить в состав вечера"
-      subtitle={addMode === 'guest' ? 'Гость записывается без профиля: имя и способ связи с ним сохраняются на этом вечере.' : 'Добавление в состав не ставит ответ «Иду». Ответ игрока останется «Нет ответа», пока он сам не ответит.'}
+      subtitle={addMode === 'guest' ? 'Гость записывается без профиля: имя и способ связи с ним сохраняются на этом вечере.' : addMode === 'new' ? 'Создаётся настоящий профиль игрока (с рейтингом и историей игр) и сразу добавляется в состав. Достаточно никнейма.' : 'Добавление в состав не ставит ответ «Иду». Ответ игрока останется «Нет ответа», пока он сам не ответит.'}
       widthClass="sm:max-w-lg"
-      footer={addMode === 'players'
+      footer={addMode === 'new'
+        ? <button type="button" disabled={!newPlayer.nickname.trim() || adding} onClick={() => void addNewPlayer()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Создаём…' : 'Создать профиль и добавить'}</button>
+        : addMode === 'players'
         ? <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={() => void addSelectedPlayers()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : `Добавить в состав${selectedPlayerIds.length ? ` · ${selectedPlayerIds.length}` : ''}`}</button>
         : <button type="button" disabled={!guest.name.trim() || adding} onClick={() => void addGuest()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : 'Добавить гостя'}</button>}
     >
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-surface-2 p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-[12px] bg-surface-2 p-1">
           <button type="button" onClick={() => setAddMode('players')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'players' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Игроки</button>
+          <button type="button" data-testid="roster-add-mode-new" onClick={() => setAddMode('new')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'new' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Новый игрок</button>
           <button type="button" onClick={() => setAddMode('guest')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'guest' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Гость без профиля</button>
         </div>
         {addMode === 'players' ? <>
@@ -339,7 +375,13 @@ export default function EveningActiveRosterView({
             })}
             {!availablePlayers.length ? <div className="p-5 text-center text-[12px] text-text-muted">Никого не найдено или все уже добавлены в событие.</div> : null}
           </div>
-        </> : <GuestFields draft={guest} onChange={setGuest} />}
+        </> : addMode === 'new' ? (
+          <div className="space-y-3" data-testid="roster-new-player-form">
+            <input value={newPlayer.nickname} onChange={(event) => setNewPlayer((current) => ({ ...current, nickname: event.target.value }))} placeholder="Никнейм *" className="mobile-field" />
+            <input value={newPlayer.telegram} onChange={(event) => setNewPlayer((current) => ({ ...current, telegram: event.target.value }))} placeholder="Telegram — необязательно" className="mobile-field" />
+            <input value={newPlayer.phone} onChange={(event) => setNewPlayer((current) => ({ ...current, phone: event.target.value }))} placeholder="Телефон — необязательно" className="mobile-field" />
+          </div>
+        ) : <GuestFields draft={guest} onChange={setGuest} />}
       </div>
     </MobileSheet>
 

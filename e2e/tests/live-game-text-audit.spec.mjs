@@ -113,6 +113,10 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'Свернуть', exact: true }).click();
       for (const voter of [1, 2, 3, 4, 5, 6]) await seatCard(page, voter).click();
       await check('vote-count');
+      // «Между кем попил?» takes the centre cell alone (stress walk, 2026-11-02).
+      await page.getByTestId('live-quick-split').click();
+      await check('quick-split-picker');
+      await page.getByRole('button', { name: 'Отмена', exact: true }).click();
       await page.getByRole('button', { name: 'Цифрами', exact: true }).click();
       await check('vote-numbers');
       await page.getByRole('button', { name: 'Свернуть', exact: true }).click();

@@ -38,6 +38,8 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+    await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
     await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование');
     await expect(page.getByRole('tab', { selected: true })).toContainText('#3');
     for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();
@@ -67,6 +69,8 @@ for (const width of [360, 390]) {
     await next.click();
     await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+    await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
     await expect(page.getByText('Переголосование 1', { exact: true })).toBeVisible();
   });
 }

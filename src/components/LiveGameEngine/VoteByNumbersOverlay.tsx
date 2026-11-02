@@ -16,17 +16,18 @@ interface VoteByNumbersOverlayProps {
   onToggle: (voterSlot: number) => void;
   onSelectNominee: (index: number) => void;
   onFinish: () => void;
-  onClose: () => void;
+  /** Folds the window away: the table with its seat cards (fouls, actions) is free again; «Цифрами» in the panel opens it back. */
+  onCollapse: () => void;
 }
 
 /**
  * The second way to count a voting (owner, 2026-10-27): like the best-move («ЛХ») window, one candidate at a time with the
  * seat numbers; the judge taps who voted for this candidate. A player who already voted for another candidate is dimmed and
- * cannot be chosen; going back to that candidate frees the vote. The seat cards at the table keep working as before.
+ * cannot be chosen; going back to that candidate frees the vote. It opens by itself when a count starts; «Свернуть» folds it so the seat cards (fouls, actions) can be used, and «Цифрами» in the panel opens it again.
  */
 export function VoteByNumbersOverlay({
   nominees, nomineeIndex, votesByPlayer, voterSeats, tableSize, nicknameOf, remaining, busy = false,
-  onToggle, onSelectNominee, onFinish, onClose,
+  onToggle, onSelectNominee, onFinish, onCollapse,
 }: VoteByNumbersOverlayProps) {
   const nominee = nominees[nomineeIndex];
   if (nominee === undefined || typeof document === 'undefined') return null;
@@ -112,7 +113,7 @@ export function VoteByNumbersOverlay({
           ) : (
             <button type="button" data-testid="live-vote-numbers-next" disabled={busy} onClick={() => onSelectNominee(nomineeIndex + 1)} className="min-h-11 rounded-2xl bg-white px-3 text-xs font-semibold text-[#090a0d] disabled:opacity-35">Далее →</button>
           )}
-          <button type="button" onClick={onClose} className="col-span-2 min-h-10 rounded-2xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/46">Карточками за столом</button>
+          <button type="button" data-testid="live-vote-numbers-collapse" onClick={onCollapse} className="col-span-2 min-h-10 rounded-2xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/60">Свернуть</button>
         </div>
       </div>
     </div>,

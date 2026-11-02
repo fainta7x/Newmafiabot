@@ -195,6 +195,8 @@ const nominateTwoPlayersAndFinishDay = async (page) => {
   }
   await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
   await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+  // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+  await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
 };
 
 const castFiveFiveVote = async (page) => {
@@ -237,6 +239,8 @@ test.describe('Live Game browser stabilization', () => {
     await expect(centerPanel(page).getByText('Все речи завершены', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+    await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
     const votingHud = centerPanel(page);
     await expect(votingHud.getByText(/Кто против/)).toBeVisible();
     await expect(votingHud.getByRole('button', { name: '+1' })).toHaveCount(0);
@@ -424,6 +428,8 @@ test.describe('Live Game browser stabilization', () => {
     await page.getByRole('button', { name: 'Следующий игрок', exact: true }).click();
     await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+    await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
     await expect(centerPanel(page).getByText(/Кто против/)).toBeVisible();
 
     await castFiveFiveVote(page);

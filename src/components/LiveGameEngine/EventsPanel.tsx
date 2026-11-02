@@ -134,9 +134,21 @@ export default function EventsPanel({
       text += `\n📝 *ПРИМЕЧАНИЯ ВЕДУЩЕГО:* ${protocolNotes.trim()}\n`;
     }
 
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    // A denied clipboard (a Telegram WebView, an insecure page) used to raise an unhandled rejection and still say «copied»
+    // (found by the stress walk, 2026-11-02): the old textarea copy is the fallback, and «copied» shows only when something was.
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 3000); };
+    const fallback = () => {
+      try {
+        const area = document.createElement('textarea');
+        area.value = text; area.setAttribute('readonly', ''); area.style.position = 'fixed'; area.style.opacity = '0';
+        document.body.appendChild(area); area.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(area);
+        if (ok) done();
+      } catch { /* nothing could be copied: no false «copied» */ }
+    };
+    if (!navigator.clipboard?.writeText) { fallback(); return; }
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
   };
 
   const journal = (

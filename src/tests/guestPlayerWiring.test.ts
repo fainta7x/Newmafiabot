@@ -67,3 +67,15 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(migration).not.toMatch(/WHERE\s+[^;]*nickname\s*=\s*\?/i);
   });
 });
+
+describe('the judge creates a real profile from the game setup (owner, 2026-11-02)', () => {
+  it('createProfileAndAdd makes the player, puts him on the evening with his player_id and seats him', () => {
+    const start = eveningUi.indexOf('const createProfileAndAdd');
+    const body = eveningUi.slice(start, eveningUi.indexOf('const clearSeat', start));
+    expect(start).toBeGreaterThan(-1);
+    expect(body).toContain("api.createPlayer({ nickname, source: 'manual'");
+    expect(body).toContain('player_id: created.id');
+    expect(body).toContain('selectNewParticipant(added)');
+    expect(eveningUi).toContain('data-testid="create-profile-and-add"');
+  });
+});

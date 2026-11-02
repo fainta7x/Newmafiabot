@@ -266,6 +266,28 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     }
   };
 
+  // «Судья регистрирует профиль игрока» (owner, 2026-11-02): a person without a profile gets a real one right here and sits in the game.
+  const createProfileAndAdd = async () => {
+    const nickname = guestNickname.trim();
+    if (!nickname || addingParticipant) return;
+    setAddingParticipant(true);
+    setError(null);
+    try {
+      const created = await api.createPlayer({ nickname, source: 'manual', contact_status: 'normal' } as any);
+      const added = await api.addParticipant(evening.id, {
+        player_id: created.id,
+        response_status: 'unanswered',
+        amount_due: evening.default_price,
+      });
+      selectNewParticipant(added);
+      setGuestNickname('');
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось создать профиль');
+    } finally {
+      setAddingParticipant(false);
+    }
+  };
+
   const clearSeat = (index: number) => setSeats((previous) => previous.map((value, seatIndex) => seatIndex === index ? '' : value));
   const shuffleSelected = () => {
     const selected = seats.filter(Boolean);
@@ -430,11 +452,12 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             </div>
             <div className="space-y-1.5 rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
               <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Гость без профиля</div>
-              <p className="text-[10px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются.</p>
+              <p className="text-[10px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются. Чтобы игрок остался в клубе с рейтингом, введите ник и создайте профиль.</p>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_auto]">
                 <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник · можно оставить пустым" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
                 <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя в игру</button>
               </div>
+              <button type="button" data-testid="create-profile-and-add" disabled={addingParticipant || !guestNickname.trim()} onClick={createProfileAndAdd} className="min-h-11 w-full rounded-[11px] border border-accent/40 bg-accent-soft px-4 text-[10px] font-black text-text-primary disabled:opacity-35">Создать профиль с этим ником и добавить в игру</button>
             </div>
           </div>
         </details>

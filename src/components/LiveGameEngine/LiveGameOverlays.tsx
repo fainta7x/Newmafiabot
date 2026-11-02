@@ -349,6 +349,10 @@ export function LiveGameToast({ toast }: { toast: { message: string; type: "erro
   if (!toast) return null;
   if (toast.type === 'success' && /^#\d+ выставлен \d+-м на речи #\d+$/.test(toast.message)) return null;
 
+  // A removed foul is already visible on the seat card. Where the events panel is not on screen (a short phone) the notice would float
+  // over the buttons of the top row, so it is not shown there (found by the stress walk, 2026-11-02).
+  if (!feedbackTarget && toast.type === 'info' && /^С игрока #\d+ снят (малый |большой )?(тех)?фол$/.test(toast.message)) return null;
+
   if (feedbackTarget) {
     const inlineTone = toast.type === 'error'
       ? 'text-rose-200/90'

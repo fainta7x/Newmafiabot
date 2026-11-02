@@ -12,7 +12,9 @@ export function NightStageStrip({ view }: { view: NightStageView }) {
     if (!node || !shell) return undefined;
     const sync = () => {
       const style = getComputedStyle(node);
-      shell.style.setProperty('--night-banner-h', `${Math.round(node.getBoundingClientRect().height + parseFloat(style.marginBottom || '0'))}px`);
+      // A banner hidden on a short screen (the stage lives in the central panel there) pushes nothing down.
+      const shown = style.display !== 'none';
+      shell.style.setProperty('--night-banner-h', `${shown ? Math.round(node.getBoundingClientRect().height + parseFloat(style.marginBottom || '0')) : 0}px`);
     };
     sync();
     if (typeof ResizeObserver === 'undefined') return () => shell.style.removeProperty('--night-banner-h');

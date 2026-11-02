@@ -197,6 +197,16 @@
     padding: 0 !important;
     border: 0 !important;
   }
+  /* Fewer words on a voting card (owner, 2026-11-02: «перебор»): the vote is an arrow and the target's badge, the candidate's
+     tally is «N гол.»; the words «Голос за» and «Кандидат» stay in the card's tooltip. */
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__votes .live-seat-state__label { display: none !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-vote-chip::before { content: "→" !important; font: 900 14px/1 system-ui, sans-serif !important; color: rgba(255, 255, 255, 0.75) !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__vote-line--tally { gap: 0 !important; }
+  /* A seat whose role is hidden has no empty role circle: the foul meter takes its room. */
+  html body .evening-live-seatgrid .live-seat-card--grid:has(.live-seat-role:empty) { grid-template-columns: var(--tile) minmax(0, 1fr) !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-role:empty { display: none !important; }
+  /* A long state («Заголосован», «30 секунд») may use two lines instead of leaving the card. */
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__value:not(.live-seat-vote-chip) { white-space: normal !important; overflow-wrap: anywhere !important; max-width: 100% !important; }
   html body .evening-live-seatgrid .live-seat-card--grid .live-seat-vote-chip .live-seat-mini-number {
     width: 20px !important;
     min-width: 20px !important;

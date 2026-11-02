@@ -127,29 +127,26 @@ html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline 
   font: 900 13px/1 system-ui, sans-serif !important;
 }
 
-/* Phones (owner, 2026-11-02: the big glowing digit with a bar looked crude and scary): the seat is narrow, so the fouls are a
-   small quiet capsule in the top-right corner of the card (the gap between the seat number and the role slot is only 26 px) — «Ф» and the count, the danger shown by the colour of the
-   rim and a faint tint, no glow, no bar. */
+/* Phones (owner, 2026-11-02): the digit with its bar stays, but it is measured to the room it has. A seat is 96 px wide at 390 px
+   and 89 px at 360 px; the seat number (left) and the role slot (right) take 36 px each (7.2 margin + 28.8 tile), so the foul
+   element gets exactly what is left between them (24 px / 17 px) and its bar is split from that width, not from a fixed 30 px. */
 @media (max-width: 767px) {
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline { top: 6px !important; bottom: auto !important; left: auto !important; right: 6px !important; width: auto !important; max-width: none !important; margin: 0 !important; flex-direction: column !important; align-items: flex-end !important; gap: 3px !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline {
+    container-type: inline-size;
+    top: auto !important; bottom: 6px !important; left: 36px !important; right: 36px !important;
+    width: auto !important; max-width: none !important; margin: 0 !important;
+    flex-direction: column-reverse !important; align-items: center !important; gap: 3px !important;
+  }
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count] {
-    flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 3px !important;
-    width: 38px !important; min-width: 38px !important; height: 25px !important; padding: 0 !important;
-    border: 1px solid color-mix(in srgb, var(--foul-color) 60%, transparent) !important; border-radius: 999px !important;
-    background: color-mix(in srgb, var(--foul-color) 16%, #0b0c10) !important; background-image: none !important;
-    box-shadow: none !important; filter: none !important; animation: none !important;
+    --seg: calc(100cqw / 4);
+    width: calc(100% - 2px) !important; min-width: 0 !important; padding: 0 0 7px !important; gap: 0 !important;
+    background-image:
+      repeating-linear-gradient(90deg, var(--foul-color) 0, var(--foul-color) calc(var(--seg) - 2px), transparent calc(var(--seg) - 2px), transparent var(--seg)),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0, rgba(255, 255, 255, 0.16) calc(var(--seg) - 2px), transparent calc(var(--seg) - 2px), transparent var(--seg)) !important;
+    background-size: calc(var(--n, 1) * var(--seg)) 3px, 100% 3px !important;
   }
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::before {
-    display: block !important; content: "Ф" !important; width: auto !important; height: auto !important; background: none !important;
-    font: 800 10px/1 system-ui, sans-serif !important; color: var(--foul-color) !important; opacity: 0.95;
-  }
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::after {
-    font: 800 15px/1 system-ui, sans-serif !important; color: #fff !important;
-  }
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="4"] {
-    background: #dc2626 !important; border-color: #fecaca !important;
-  }
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="4"]::before { color: #fff !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::before { display: none !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::after { font-size: 20px !important; }
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count],
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count] { height: 18px !important; padding: 0 6px !important; margin: 0 !important; }
 }

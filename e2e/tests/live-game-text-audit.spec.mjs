@@ -125,7 +125,9 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('night');
       await clickOptional(page.getByRole('button', { name: /Включите музыку/ }));
       await page.getByRole('button', { name: 'Отстрел', exact: true }).click();
-      await expect(page.getByTestId('live-night-stage')).toBeVisible();
+      // Tall screens get the banner above the board; a short one (≤ 700 px) carries the stage in the central panel itself.
+      if (height > 700) await expect(page.getByTestId('live-night-stage')).toBeVisible();
+      else await expect(page.getByTestId('live-judge-hud')).toHaveAttribute('data-night-tone', 'shot');
       await check('night-shooting');
       // «Вы никого не выбрали» (owner, 2026-11-02): the next step with no target asks whether it was a miss and who missed.
       await page.getByRole('button', { name: 'Проверка Дона', exact: true }).click();

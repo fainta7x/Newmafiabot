@@ -662,6 +662,35 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       const quickSplitButton = <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>;
 
+      // «Между кем попил?» has the cell to itself (stress walk, 2026-11-02): next to the counters, «Цифрами» and the step buttons the
+      // hint, the seat buttons and «Отмена» did not fit the centre cell on a phone and everything overlapped and was cut off.
+      if (splitPicking && quickSplitAvailable && handleQuickSplit) {
+        return (
+          <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--vote-count" data-testid="live-quick-split-only">
+            <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
+              <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
+              <div className="live-judge-quick-split__seats">
+                {currentRound.nominated_seats.map((seat) => (
+                  <button
+                    key={seat}
+                    type="button"
+                    aria-pressed={splitPicking.includes(seat)}
+                    disabled={splitPicking.includes(seat)}
+                    onClick={() => {
+                      if (!splitPicking.length) return setSplitPicking([seat]);
+                      handleQuickSplit([splitPicking[0], seat]);
+                      setSplitPicking(null);
+                    }}
+                    className="live-judge-quick-split__seat"
+                  >#{seat}</button>
+                ))}
+              </div>
+              <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--vote-count">
           {/* One strip for the order, the candidate being counted and every candidate's votes (owner, 2026-10-27: too many
@@ -701,30 +730,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             </button>
           </div>
           <div className="live-judge-vote-actions">
-            {quickSplitAvailable && handleQuickSplit ? (
-              splitPicking ? (
-                <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
-                  <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
-                  <div className="live-judge-quick-split__seats">
-                    {currentRound.nominated_seats.map((seat) => (
-                      <button
-                        key={seat}
-                        type="button"
-                        aria-pressed={splitPicking.includes(seat)}
-                        disabled={splitPicking.includes(seat)}
-                        onClick={() => {
-                          if (!splitPicking.length) return setSplitPicking([seat]);
-                          handleQuickSplit([splitPicking[0], seat]);
-                          setSplitPicking(null);
-                        }}
-                        className="live-judge-quick-split__seat"
-                      >#{seat}</button>
-                    ))}
-                  </div>
-                  <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
-                </div>
-              ) : handleVoteToggle ? null : quickSplitButton
-            ) : null}
+            {quickSplitAvailable && handleQuickSplit && !handleVoteToggle ? quickSplitButton : null}
             {handleVoteToggle ? (
               <div className="live-judge-vote-shortcuts">
                 {/* «Попил» shares the shortcut row: next to «←» and «Следующий →» it cut both off on a phone (2026-10-27). */}

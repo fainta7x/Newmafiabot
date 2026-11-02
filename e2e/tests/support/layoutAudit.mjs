@@ -194,8 +194,13 @@ export const auditScreen = () => {
         const mb = modalOf(b.el);
         if (ma !== mb && (ma || mb) && coverAlpha(ma || mb) >= 0.5) continue;
         const stack = document.elementsFromPoint(o.cx, o.cy);
-        const ia = stack.findIndex((e) => e === a.el || a.el.contains(e));
-        const ib = stack.findIndex((e) => e === b.el || b.el.contains(e));
+        let ia = stack.findIndex((e) => e === a.el || a.el.contains(e));
+        let ib = stack.findIndex((e) => e === b.el || b.el.contains(e));
+        // `elementsFromPoint` never lists an element with `pointer-events:none` (the live game's nickname layer is one), yet it is
+        // painted: such a text is taken as lying under everything else at that point (2026-11-02, «30 секунд» drawn over a nickname).
+        const passive = (el) => getComputedStyle(el).pointerEvents === 'none';
+        if (ia < 0 && passive(a.el)) ia = stack.length;
+        if (ib < 0 && passive(b.el)) ib = stack.length;
         // A text run outside an ancestor scroll clip is not painted at this intersection.
         if (ia < 0 || ib < 0) continue;
         const top = ia < 0 ? ib : ib < 0 ? ia : Math.min(ia, ib);

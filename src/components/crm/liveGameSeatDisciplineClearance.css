@@ -19,3 +19,15 @@
   width: auto !important;
   z-index: 26 !important;
 }
+
+/* Phones: the seat state («30 секунд», «Убит», «Заголосован», «Выставлен») was centred in the card and drew over the nickname
+   chip (found 2026-11-02 on «30 секунд» of a player with three fouls). Like on desktop, it now sits on its own line between the
+   nickname and the footer (the footer keeps the seat number, the fouls and the role slot). A dead player's card keeps the centred state: his nickname is in the footer. */
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell:has(.evening-live-identity-layer) .live-seat-card:not(.live-seat-card--voting):not(.live-seat-card--dead) .live-seat-state {
+    top: auto !important;
+    bottom: 46px !important;
+    height: 20px !important;
+    transform: none !important;
+  }
+}

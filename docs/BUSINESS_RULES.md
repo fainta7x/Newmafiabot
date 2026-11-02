@@ -1129,4 +1129,4 @@ Statistics per pair «player → another player» from games played at one table
 
 - **Red player's vote error** = a vote for a red player (a civilian or the sheriff). A vote for **the sheriff** is a much worse error and is shown separately.
 - **Black player**: no «error» metric; show who trusts him least (votes against him most) and who votes together with him most often.
-- **Visibility**: the owner said «видят все» while it was described as a profile; with the move to «Обучение» this is to be confirmed with the owner.
+- **Visibility** (owner, 2026-11-02): only the player himself sees his statistic; the organizer can view the full statistic of every player.

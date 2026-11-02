@@ -1113,3 +1113,9 @@ These are the owner's answers to the questions where copies in the code disagree
 The approved fair virtual deck is an alternative to manual physical-role entry in all game formats. It follows the existing10/9/8-player composition in tableComposition; horizontal cards are renumbered after removal, the judge reveals and confirms separately, may choose another unassigned seat, undo the last assignment or explicitly redeal before starting. Synthetic training keeps its fixed task roles. Tournament assignments remain subject to the existing server role permissions and composition checks.
 
 VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_2026-10-28.md). Persistent toggleable personal preferences do not authorize any deployed probabilistic effect. No default global2-swap cap is approved; the personal limit is manually configured. Effects may influence only the owner's own still-closed card and must never alter an already shown role or operate in rating/tournament games. Strength/frequency/conflicts/global caps require modelling and owner agreement before implementation.
+
+## Owner decisions of 2026-11-02 (live game and Elo)
+
+- **Self-vote is allowed.** A player may vote for himself in a vote count (owner: «конечно»). Nothing in the code blocks it; it is not to be blocked.
+- **Elo is counted only for a registered player, from his first game.** Owner (verbatim): «ЭЛО считаем только у зареганного гостя с 1 игры». A guest without a profile is not converted into a profile inside an already played game (owner: «нет»); Elo is not counted for him retroactively. Wording to be confirmed back to the owner: a guest who registers gets Elo from the first game he plays as a registered player.
+- **No adaptive base win chance in Elo.** The idea of replacing the fixed 30/70 base chance by one built from the club's real win rates is cancelled (owner: «такого не будет»).

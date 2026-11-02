@@ -219,9 +219,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   useEffect(() => { onPhaseChange?.(phase); }, [phase, onPhaseChange]);
 
-  const showToast = (message: string, type: "error" | "warning" | "success" | "info" = "info") => {
+  const showToast = (message: string, type: "error" | "warning" | "success" | "info" = "info", durationMs = 3200) => {
     setToast({ message, type });
-    window.setTimeout(() => setToast((current) => current?.message === message ? null : current), 3200);
+    window.setTimeout(() => setToast((current) => current?.message === message ? null : current), durationMs);
   };
 
   const takeSnapshot = (): LiveSnapshot => {
@@ -721,7 +721,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const nominator = activeSpeakerSlot || 0;
     if (nominator <= 0) return showToast("Выставление возможно только во время речи игрока", "warning");
     if (Object.values(nominationsMap).includes(nominator)) {
-      return showToast(`Игрок #${nominator} уже выставлял кандидата в эту речь`, "warning");
+      // Owner, 2026-11-02: a short hint that is gone after one second, so it never covers the buttons on a short phone.
+      return showToast(`Игрок #${nominator} уже выставлял кандидата в эту речь`, "warning", 1000);
     }
     setNominations((previous) => [...previous, slot]);
     setNominationsMap((previous) => ({ ...previous, [slot]: nominator }));

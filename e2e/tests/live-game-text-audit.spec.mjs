@@ -133,6 +133,18 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('day-1');
       await page.getByRole('button', { name: /Речь #3(?:\s| ·|$)/ }).last().click();
       await check('day-1-speech');
+      // The judge timer with every button it can have at once: −10, +10, pause, reset, mute and «+30 за два фола»
+      // (owner, 2026-11-02: the new «+10» must not break the row when the speech-extension button appears).
+      await page.getByRole('button', { name: /Речь #4(?:\s| ·|$)/ }).last().click();
+      await expect(page.getByTestId('live-hud-speech-extension')).toBeVisible();
+      await check('day-1-speech-extension');
+      await page.screenshot({ path: info.outputPath('day-1-speech-extension.png') });
+      const row = await page.evaluate(() => {
+        const buttons = [...document.querySelectorAll('.live-judge-timer__buttons > *')];
+        const box = document.querySelector('.live-judge-timer__buttons')?.getBoundingClientRect();
+        return { cutOff: buttons.some((node) => { const r = node.getBoundingClientRect(); return r.width < 20 || !box || r.right > box.right + 1 || r.left < box.left - 1; }), count: buttons.length };
+      });
+      expect(row.cutOff, 'timer buttons row').toBe(false);
     } finally {
       await info.attach('report.txt', { body: report.join('\n') || 'clean', contentType: 'text/plain' });
       if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height}${wideFont ? '-wide' : ''} ===\n${report.join('\n') || 'clean'}`);

@@ -333,6 +333,7 @@ Besides the miss penalty (−10 Elo for each responsible black on a black loss, 
 
 - **«Сломал попил красным»** — a red the judge tagged as having broken a split on purpose, on **any** circle (the zero circle included; a split of three on the «девятка» counts). It is a separate tag, set in the protocol's circle («Сломал попил красным») and, later, in the live game. The plain «кто сломал попил» mark of the zero circle keeps its own points table.
 - **The last raise before a lost game** — when the blacks won and the last daily voting of the game was a raise (`all_tied_eliminated`, two or more players), every red whose hand «поднять» stayed up in that voting gets −20. Blacks are not cut; instead **every black who was at the table during that raise gets +10 Elo** (owner, 2026-11-01; ordinary personal points; paid only when at least one red hand was recorded). Only hands that were recorded count (`table_vote` events); a game without them gets no cut — nothing is guessed.
+- **A circle in which nobody voted for a black** — every black who was at the table through a day circle (the circles the personal points count: after the zero circle, one player left that day) and received no ballot in any of its votings gets **+2 Elo** for that circle (owner, 2026-11-02). Inside the usual personal-points limit; a black voted for in any voting of the circle gets nothing for it.
 
 The global Elo formulas are not changed (owner decision after the balance simulation in AUDIT_LOG).
 

@@ -286,7 +286,7 @@
 .live-judge-timer__time--danger { color:var(--live-red); }
 .live-judge-timer__bar { grid-area:bar; height:3px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.06); }
 .live-judge-timer__bar > div { height:100%; background:var(--live-green); transition:width .2s linear; }
-.live-judge-timer__buttons { grid-area:buttons; display:grid; grid-template-columns:36px minmax(0,1fr) 36px 36px; gap:4px; }
+.live-judge-timer__buttons { grid-area:buttons; display:grid; grid-template-columns:36px 36px minmax(0,1fr) 36px 36px; gap:4px; }
 .live-judge-timer__button { height:31px; padding:0; border-radius:8px; border:1px solid var(--live-line); background:rgba(255,255,255,.035); color:var(--live-text-2); font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center; gap:3px; }
 .live-judge-timer__button--primary { color:#a7f3d0; border-color:rgba(89,211,162,.24); background:rgba(89,211,162,.10); }
 .live-judge-timer__button--pause { color:#fde68a; border-color:rgba(232,185,94,.24); background:rgba(232,185,94,.10); }

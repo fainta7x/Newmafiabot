@@ -1121,10 +1121,12 @@ VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_202
 - **No adaptive base win chance in Elo.** The idea of replacing the fixed 30/70 base chance by one built from the club's real win rates is cancelled (owner: «такого не будет»).
 - **Telegram: two kinds of places (owner, 2026-11-02).** The entry channel «Анонсы» (destination `public`) gets only announcements of games and the «there is a table / there is none» announcements (the «Мы собрались» photo, evening and tournament announcements). Every other message that used to go there goes to the regular chats instead: the evening summary picture (already goes to the evening's group), the weekly season table (now to the club chat, destination `club`), tournament results (now to the rating group only). A club digest is posted by the organizer to the destinations he chooses.
 
-## Player profile: errors in specific people (owner, 2026-11-02)
+## «Обучение»: reading colours of specific players (owner, 2026-11-02)
+
+A separate training statistic in the player's **«Обучение»** section — not part of the player's profile. **«Читать цвет»** (owner's term) = to correctly tell a player's colour (red/black). The player sees whose colours he reads correctly and whose completely wrongly, so he understands which players' colours he needs to work on.
 
 Statistics per pair «player → another player» from games played at one table; split votes («попил») are not counted. The six approved blocks are: whom the player misreads, which blacks lead him, who misreads him, his allies in correct/wrong votes, how he plays as a black, and the organizer's table «who errs in whom». Names of the blocks are the owner's to give.
 
 - **Red player's vote error** = a vote for a red player (a civilian or the sheriff). A vote for **the sheriff** is a much worse error and is shown separately.
 - **Black player**: no «error» metric; show who trusts him least (votes against him most) and who votes together with him most often.
-- **Visibility**: everyone — this is part of the player's public profile.
+- **Visibility**: the owner said «видят все» while it was described as a profile; with the move to «Обучение» this is to be confirmed with the owner.

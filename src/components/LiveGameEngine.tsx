@@ -50,6 +50,7 @@ import { useLiveGameHotkeys } from "./LiveGameEngine/useLiveGameHotkeys.ts";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import { NightPrompt } from "./LiveGameEngine/NightPrompt.tsx";
 import { NightStageStrip } from "./LiveGameEngine/NightStageStrip.tsx";
+import { dayStageView, type StageView } from "./LiveGameEngine/dayStageModel.ts";
 import { blacksAtTable, donAtTable, donFoundSheriffEarlier, nightStageView, sheriffAtTable } from "./LiveGameEngine/nightStageModel.ts";
 import {
   BestMoveProtocolOverlay,
@@ -635,6 +636,33 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const nextSpeaker = getNextDaySpeaker(activePlayers, dayStarterSlot);
+
+  // What the judge is told at the top (owner, 2026-11-02): the stage and what to do now, at night and by day (speeches, voting, revote, raise).
+  const stageView: StageView | null = (() => {
+    if (phase === 'night' && postNightStage === 'none') {
+      return { ...nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult }) } as unknown as StageView;
+    }
+    if (phase !== 'day_speeches' && phase !== 'day_voting') return null;
+    const round = votingRounds[activeVotingRoundIndex];
+    const aliveSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
+    const nominatedSeats = (round?.nominated_seats ?? nominations).filter((slot) => aliveSeats.includes(slot));
+    const revoteWinners = round && votingStage === 'revote_speeches' ? determineVotingResult(round).winners : [];
+    return dayStageView({
+      phase,
+      votingStage,
+      isRevote: Boolean(round?.is_revote),
+      speakerSlot: activeSpeakerSlot,
+      nextSpeakerSlot: nextSpeaker?.slot_num ?? null,
+      nominated: nominatedSeats,
+      candidateSlot: round?.nominated_seats?.[currentVotingNomineeIndex] ?? null,
+      candidateIndex: currentVotingNomineeIndex,
+      candidateCount: round?.nominated_seats?.length ?? nominatedSeats.length,
+      counted: aliveSeats.filter((seat) => votesByPlayer[seat]).length,
+      eligible: aliveSeats.length,
+      revoteSpeakerSlot: revoteWinners[revoteSpeakerIndex] ?? activeSpeakerSlot,
+      farewellSlot: breakSpeechSlot ?? (votingFarewellQueue.length ? activeSpeakerSlot : null),
+    });
+  })();
 
   const markPlayerSpoken = (slot: number) => {
     saveSnapshot();
@@ -1889,6 +1917,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleVoteToggle: handleInteractiveVoteToggle,
       handleResolveVoting,
       nightSubPhase,
+      stageView,
       shotPlayerSlot,
       bestMoveDeadlineMs,
       setBestMoveDeadlineMs,
@@ -2096,9 +2125,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             />
           ) : null}
 
-          {phase === 'night' && postNightStage === 'none' ? (
-            <NightStageStrip view={nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult })} />
-          ) : null}
+          {stageView ? <NightStageStrip view={stageView} /> : null}
 
           {renderTable()}
 

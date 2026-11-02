@@ -1,0 +1,95 @@
+/* Fouls at a glance (owner, 2026-11-02): players keep asking the judge how many fouls they have, so the count is a big
+   pill in the top-right corner of the seat card instead of the small «Ф 2» chip. Colour grows with the danger:
+   1 amber, 2 orange, 3 red and pulsing (one more is the removal), 4 solid red. The markup, classes and `data-count`
+   stay as they were; this sheet loads after every other discipline sheet and wins on every screen size. */
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline {
+  position: absolute !important;
+  top: 6px !important;
+  right: 6px !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 3px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  translate: none !important;
+  background: none !important;
+  border: 0 !important;
+  z-index: 30 !important;
+  pointer-events: none !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count] {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  width: auto !important;
+  min-width: 40px !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  border: 2px solid currentColor !important;
+  border-radius: 10px !important;
+  background: rgba(8, 9, 12, 0.88) !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+  transform: none !important;
+  translate: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
+}
+
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count]::before {
+  content: "Ф";
+  width: auto !important;
+  height: auto !important;
+  flex: none !important;
+  background: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  align-self: center;
+  color: currentColor;
+  font: 800 11px/1 system-ui, sans-serif !important;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count]::after {
+  content: attr(data-count) !important;
+  min-width: 0 !important;
+  color: currentColor;
+  font: 900 20px/1 system-ui, sans-serif !important;
+  font-variant-numeric: tabular-nums;
+}
+
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before { content: "МТ"; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count]::before { content: "БТ"; }
+
+/* Regular fouls by danger. */
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="1"] { color: #fcd34d !important; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="2"] { color: #fb923c !important; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] {
+  color: #fb7185 !important;
+  animation: live-foul-meter-pulse 1.6s ease-in-out infinite;
+}
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="4"] {
+  color: #fff !important;
+  background: #dc2626 !important;
+  border-color: #fecaca !important;
+}
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count] { color: #fde047 !important; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count] { color: #fca5a5 !important; }
+
+@keyframes live-foul-meter-pulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
+  50% { box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.35), 0 2px 8px rgba(0, 0, 0, 0.45); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] { animation: none; }
+}

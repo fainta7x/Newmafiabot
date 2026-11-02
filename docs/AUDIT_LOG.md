@@ -2560,3 +2560,6 @@ After #1085, the owner asked whether every analogous renderer was checked. Findi
 Fixed in candidate: 24 direct renderers now use AvatarImage, with same-origin-only conversion and no mutable-URL bitmap cache. Local TypeScript/lint, 4 focused tests, 6 real-source browser cases and 49 layout audits pass; exact-head CI pending.
 
 Exact-head #1086 CI follow-up: shards 1/5 and 5/5 failed in `liveBroadcastReveals.test.tsx` and `eveningVotingPanel.test.tsx` because jsdom has no ResizeObserver. This is a test-environment API availability defect in the new AvatarImage effect, not a layout failure. Guard the observer when unavailable; retain the same browser behavior, component markup, detector, and assertions. Focused reruns and renewed exact-head CI required.
+
+## 2026-11-02 — live-game seat check while adding the foul pill (owner's «Ф1/Ф2 слишком мелкие»)
+- Finding [open]: on the 390×844 audit route the state text «30 секунд» of a player with three fouls (seat 3 in the middle row) is drawn over his nickname «Игрок 3» (`14-fouls-on-table.png`). It was already so before the foul pill (the «before» screenshot shows it too) and the layout detector does not report it. Owner: not yet reported; to check on the real phone and fix, and to teach the detector this case.

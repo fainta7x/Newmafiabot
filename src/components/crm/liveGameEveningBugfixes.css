@@ -338,7 +338,7 @@
 
 /* «+30» — the speech extension (two fouls for 30 seconds) next to the timer controls. */
 .live-judge-timer__buttons--with-extension {
-  grid-template-columns: 36px minmax(0, 1fr) 36px 36px 40px;
+  grid-template-columns: 36px 36px minmax(0, 1fr) 36px 36px 40px;
 }
 
 .live-judge-timer__button--extension {

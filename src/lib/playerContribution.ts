@@ -46,6 +46,8 @@ export const CONTRIBUTION_WEIGHTS = {
    * voted out at the девятка) the worst a black loses to good red play is −24, the mirror of the red pool.
    */
   blackNamedRed: 0.2, blackNamedBlack: -0.1, blackNotNamed: 0.1, blackOutAtNine: -0.2,
+  /** Owner, 2026-11-02: a black earns +2 Elo for every day circle in which nobody voted for him (he sat at the table all of it). */
+  blackUnvotedRound: 2 / ELO_PERSONAL_POINT_WEIGHT,
   /**
    * A broken zero-round split (owner, 2026-10-26), by the judge's mark «Кто сломал попил?» and the player voted in the zero
    * round: [breaker, the one it was broken into]. A black into a red: nothing; a black into a black: −24 / +8; a red into a
@@ -67,7 +69,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -409,6 +411,16 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       }
     } else if (blackRole(me.role)) {
       if (mode === 'club' && outAtNine(me.seat)) items.push({ kind: 'out_at_nine', seat: me.seat, points: W.blackOutAtNine });
+      if (mode === 'club') {
+        // Day circles the facts keep (after the zero circle, one player left): any ballot for this black in any of its votings spoils it.
+        const rounds = new Map<number, boolean>();
+        for (const voting of facts.votings) {
+          if (!voting.alive?.has(me.seat)) continue;
+          const spoiled = [...voting.votes.values()].includes(me.seat);
+          rounds.set(voting.round, (rounds.get(voting.round) ?? false) || spoiled);
+        }
+        for (const [round, spoiled] of rounds) if (!spoiled) items.push({ kind: 'unvoted_round', seat: me.seat, night: round, points: W.blackUnvotedRound });
+      }
       for (const night of missedShotNights(protocol, me.seat)) items.push({ kind: 'shot_miss', seat: me.seat, night, points: -MISSED_SHOT_ELO / ELO_PERSONAL_POINT_WEIGHT });
       if (mode === 'club' && me.role === 'don') {
         const roundOfSeq = new Map(facts.events.map((event) => [event.seq, event.round]));
@@ -487,6 +499,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   }
   const pool = of('pool_cap');
   if (pool.length) lines.push(`Больше +${elo(CONTRIBUTION_WEIGHTS.positivePool)} за игру не набрать: ${signedElo(elo(pool[0].points))}`);
+  const unvoted = of('unvoted_round');
+  if (unvoted.length) lines.push(`Кругов, где за него никто не голосовал: ${unvoted.length}, ${signedElo(elo(unvoted.reduce((sum, item) => sum + item.points, 0)))}`);
   for (const item of of('split_break_red')) lines.push(`Сломал попил красным: ${signedElo(elo(item.points))}`);
   for (const item of of('raise_defeat_black')) lines.push(`Красные подняли руки за подъём, после которого проиграли: ${signedElo(elo(item.points))}`);
   for (const item of of('raise_defeat')) lines.push(`Поднял руку за последний подъём, после которого красные проиграли: ${signedElo(elo(item.points))}`);

@@ -28,6 +28,7 @@ import "./components/crm/liveGameMobileCenterPriority.css";
 import "./components/crm/appWideDesktop.css";
 import "./components/crm/liveGameWideDesktop.css";
 import "./components/crm/liveGameSeatDisciplineClearance.css";
+import "./components/crm/liveGameFoulMeter.css";
 import "./components/public/liveBroadcastCompact.css";
 
 initializeTelegramWebAppViewport();

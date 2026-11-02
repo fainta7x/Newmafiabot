@@ -131,6 +131,18 @@ describe('found blacks count once each (owner, 2026-10-25)', () => {
     expect(by(8).points).toBe(0);
   });
 
+  it('a black earns +2 Elo for every day circle in which nobody voted for him (owner, 2026-11-02)', () => {
+    const complete = [...events, { seq: 99, at: 'x', round: 3, phase: 'day_voting', kind: 'game_end', value: 'red' }];
+    const of = (n: number) => gameContribution({ protocol: { winner_team: 'red', events: complete }, player_results: results }).find((item) => item.seat === n)!;
+    // The don (10) sat through both circles and nobody voted for him.
+    expect(of(10).items.filter((item) => item.kind === 'unvoted_round')).toHaveLength(2);
+    expect(of(10).points).toBeCloseTo(0.1, 6);
+    // Seat 8 was voted for in both circles: nothing.
+    expect(of(8).items.some((item) => item.kind === 'unvoted_round')).toBe(false);
+    // Seat 9 was alive in both circles but voted out in the second: only the first counts.
+    expect(of(9).items.filter((item) => item.kind === 'unvoted_round')).toHaveLength(1);
+  });
+
   it('a voting that ends in a revote, with nobody or several leaving, is not counted (possible agreed split)', () => {
     const tie = [
       { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },

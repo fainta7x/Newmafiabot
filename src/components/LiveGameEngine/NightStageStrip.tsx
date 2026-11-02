@@ -28,7 +28,7 @@ export function NightStageStrip({ view }: { view: NightStageView }) {
         ))}
       </div>
       <div className="live-night-stage__head"><strong>{view.stage}</strong><span>{view.index + 1}/{view.total}</span></div>
-      <div className="live-night-stage__hint" data-testid="live-night-hint">{view.hint}</div>
+      <div className="live-night-stage__hint" data-testid="live-night-hint"><span className="live-night-stage__long">{view.hint}</span><span className="live-night-stage__short">{view.shortHint}</span></div>
       {view.chosen ? <div className="live-night-stage__chosen" data-testid="live-night-chosen">{view.chosen}</div> : null}
     </div>
   );

@@ -41,3 +41,15 @@
 
 /* The avatar layer follows the board down by the banner's height. */
 html body .evening-live-engine-shell .evening-live-identity-layer { margin-top: var(--night-banner-h, 0px) !important; }
+
+/* A short screen (a 640 px phone) has no room to push the board down: when the page scrolls, the avatar layer stays behind. The
+   banner becomes one slim row — the stage and a one-line hint that also carries the current choice. */
+.live-night-stage__short { display: none; }
+@media (max-height: 700px) {
+  .live-night-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ribbon ribbon" "head hint"; column-gap: 8px; row-gap: 3px; padding: 5px 8px; margin-bottom: 3px; align-items: baseline; }
+  .live-night-stage__ribbon { grid-area: ribbon; }
+  .live-night-stage__head { grid-area: head; gap: 6px; }
+  .live-night-stage__hint { grid-area: hint; font-size: 11px; }
+  .live-night-stage__long, .live-night-stage__chosen { display: none; }
+  .live-night-stage__short { display: inline; }
+}

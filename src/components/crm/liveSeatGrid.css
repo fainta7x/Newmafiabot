@@ -341,16 +341,35 @@
 [data-testid="live-events-feedback"]:has([data-testid="live-game-inline-toast"]) > [data-testid="live-events-latest"] { visibility: hidden; }
 
 @layer seat-grid {
-  /* The candidate being counted: his own seat colour as a soft radial glow around the portrait, deepening to the edges, a fine light rim
-     and a halo; his voters wear the same hue much softer, as a dark glass card with a coloured hairline (owner, 2026-11-02: «кандидат
-     ярким цветом, голосовавшие чуть менее ярким», «но постильнее»). */
+  /* The candidate being counted (owner, 2026-11-02: the voters look right, the candidate looked cheap): his own seat colour as a rich
+     radial gradient, a gradient rim (white → seat colour → deep), a soft halo, a «ПРОТИВ» glass capsule on top and a glowing
+     portrait ring. His voters keep the same hue as a dark glass card with a coloured hairline. */
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] {
-    background: radial-gradient(120% 70% at 50% 28%, color-mix(in srgb, var(--seat-fill) 85%, #ffffff) 0%, var(--seat-fill) 45%, color-mix(in srgb, var(--seat-fill) 45%, #0b0c10) 100%) !important;
-    border: 1px solid color-mix(in srgb, var(--seat-fill) 55%, #ffffff) !important;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 0 4px color-mix(in srgb, var(--seat-fill) 22%, transparent), 0 12px 30px -8px color-mix(in srgb, var(--seat-fill) 60%, transparent) !important;
+    border: 2px solid transparent !important;
+    padding-top: 26px !important;
+    background:
+      radial-gradient(120% 70% at 50% 25%, color-mix(in srgb, var(--seat-fill) 72%, #ffffff 8%) 0%, color-mix(in srgb, var(--seat-fill) 52%, #0b0c10) 55%, color-mix(in srgb, var(--seat-fill) 22%, #0b0c10) 100%) padding-box,
+      linear-gradient(160deg, #ffffff 0%, color-mix(in srgb, var(--seat-fill) 55%, #ffffff) 30%, var(--seat-fill) 70%, color-mix(in srgb, var(--seat-fill) 60%, #0b0c10) 100%) border-box !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--seat-fill) 18%, transparent), 0 12px 30px -8px color-mix(in srgb, var(--seat-fill) 60%, transparent) !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current']::before {
+    content: 'ПРОТИВ';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font: 800 8.5px/1 system-ui, sans-serif;
+    letter-spacing: 0.16em;
+    color: #ffffff;
+    background: rgba(10, 10, 14, 0.6);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
   }
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__avatar {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--seat-fill) 30%, #ffffff), 0 0 22px rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 0 0 2px #ffffff, 0 0 18px rgba(255, 255, 255, 0.35) !important;
   }
   html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) {
     background: radial-gradient(110% 60% at 50% 30%, color-mix(in srgb, var(--seat-fill) 34%, #0d0f14), color-mix(in srgb, var(--seat-fill) 8%, #0a0b0f)) !important;
@@ -363,7 +382,7 @@
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value {
     background: rgba(10, 10, 14, 0.55) !important;
     backdrop-filter: blur(6px);
-    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    border: 1px solid rgba(255, 255, 255, 0.26) !important;
     color: #ffffff !important;
   }
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value { padding: 0 6px !important; border-radius: 6px !important; }

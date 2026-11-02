@@ -9,9 +9,9 @@ describe('judge training reuses the actual club Live Game layout', () => {
     const modal = read('src/components/crm/EveningLiveGameModal.tsx');
     expect(modal).toContain("{trainingMode && livePhase !== 'setup' && <JudgeConductCoach />}");
     expect(modal).toContain("if (!trainingMode || livePhase === 'setup') return;");
-    expect(modal).toContain('<div className="evening-live-engine-shell py-0.5 md:py-3"');
+    expect(modal).toContain('<div className={`evening-live-engine-shell py-0.5 md:py-3 ${seatIdentity ? \'evening-live-seatgrid\' : \'\'}`}');
     expect(modal).not.toContain("h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain");
-    expect(modal).toContain("const identityOverlay = livePhase === 'setup' ? null : (");
+    expect(modal).toContain("const identityOverlay = livePhase === 'setup' || seatIdentity ? null : (");
     expect(modal).toContain("createPortal(identityOverlay, trainingBoardElement)");
     expect(modal).toContain('grid-template-columns: inherit !important');
     expect(modal).toContain('grid-template-rows: inherit !important');

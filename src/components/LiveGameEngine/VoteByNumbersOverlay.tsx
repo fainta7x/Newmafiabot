@@ -41,9 +41,9 @@ export function VoteByNumbersOverlay({
       <div data-testid="live-vote-numbers-sheet" role="dialog" aria-label="Голоса цифрами" className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-[#121318] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
         <div className="space-y-1.5 text-center">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">Кандидат {nomineeIndex + 1} из {nominees.length}</div>
-          <h2 className="text-lg font-semibold text-white">За <SeatBadge seat={nominee} />{nickname ? ` ${nickname}` : ''} проголосовали</h2>
-          <p className="text-xs text-white/45">Голосов: <b className="text-white/80">{forThis}</b> · осталось: <b className="text-white/80">{remaining}</b></p>
-          {isLast && <p className="text-xs text-white/30">Остаток уйдёт к #{nominee} при подведении итога.</p>}
+          <h2 className="text-lg font-semibold text-white">Голосуют за <SeatBadge seat={nominee} />{nickname ? ` ${nickname}` : ''}</h2>
+          <p className="text-xs text-white/45">Проголосовали за него: <b className="text-white/80">{forThis}</b> · ещё не голосовали: <b className="text-white/80">{remaining}</b></p>
+          {isLast && <p className="text-xs text-white/30">Оставшиеся голоса достанутся #{nominee}, когда вы подведёте итог.</p>}
         </div>
         <div className="mx-auto grid max-w-sm grid-cols-5 gap-2">
           {Array.from({ length: tableSize }, (_, index) => index + 1).map((seat) => {

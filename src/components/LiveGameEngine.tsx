@@ -49,7 +49,8 @@ import LiveGameHotkeyLayer from "./LiveGameEngine/LiveGameHotkeyLayer.tsx";
 import { useLiveGameHotkeys } from "./LiveGameEngine/useLiveGameHotkeys.ts";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import { NightPrompt } from "./LiveGameEngine/NightPrompt.tsx";
-import { blacksAtTable, donAtTable, donFoundSheriffEarlier, sheriffAtTable } from "./LiveGameEngine/nightStageModel.ts";
+import { NightStageStrip } from "./LiveGameEngine/NightStageStrip.tsx";
+import { blacksAtTable, donAtTable, donFoundSheriffEarlier, nightStageView, sheriffAtTable } from "./LiveGameEngine/nightStageModel.ts";
 import {
   BestMoveProtocolOverlay,
   DisciplineConfirmationOverlay,
@@ -2093,6 +2094,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
               onRemoveCheck={handleRemoveAnnouncedCheck}
               onClose={() => setRevealPanelOpen(false)}
             />
+          ) : null}
+
+          {phase === 'night' && postNightStage === 'none' ? (
+            <NightStageStrip view={nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult })} />
           ) : null}
 
           {renderTable()}

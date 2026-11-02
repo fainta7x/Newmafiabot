@@ -1,4 +1,4 @@
-/* The night stage strip (owner, 2026-11-02: «понятно какая стадия и что нужно сделать»): a ribbon of the five stages and a hint
+/* The night stage strip sits above the board, full width, and is a banner of its own (the panel in the middle of the board has no room). (owner, 2026-11-02: «понятно какая стадия и что нужно сделать»): a ribbon of the five stages and a hint
    in the stage's colour above the timer. The summary row («Выставлены / Живых») is of no use at night and gives its room. */
 .live-night-stage {
   --stage: #b9a3ff;
@@ -22,13 +22,19 @@
 .live-night-stage__ribbon i.is-done { background: color-mix(in srgb, var(--stage) 55%, #fff 0%); opacity: 0.7; }
 .live-night-stage__ribbon i.is-current { background: var(--stage); box-shadow: 0 0 6px var(--stage); }
 .live-night-stage__head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; color: var(--stage); }
-.live-night-stage__head strong { font-size: 14px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
+.live-night-stage__head strong { font-size: 15px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
 .live-night-stage__head span { font-size: 10px; font-weight: 800; opacity: 0.8; }
-.live-night-stage__hint { font-size: 11px; line-height: 1.25; font-weight: 600; color: rgba(255, 255, 255, 0.86); overflow-wrap: anywhere; }
-.live-night-stage__chosen { font-size: 11px; line-height: 1.2; font-weight: 800; color: #fff; padding: 3px 6px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); overflow-wrap: anywhere; }
+.live-night-stage__hint { font-size: 12px; line-height: 1.25; font-weight: 600; color: rgba(255, 255, 255, 0.86); overflow-wrap: anywhere; }
+.live-night-stage__chosen { font-size: 12px; line-height: 1.2; font-weight: 800; color: #fff; padding: 3px 6px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); overflow-wrap: anywhere; }
 @media (max-width: 767px) {
-  .live-night-stage { padding: 5px 6px; gap: 2px; }
-  .live-night-stage__head strong { font-size: 12px; }
-  .live-night-stage__hint, .live-night-stage__chosen { font-size: 10px; }
+  .live-night-stage { padding: 6px 8px; gap: 3px; }
+}
+@media (min-width: 768px) {
+  .live-night-stage { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ribbon ribbon ribbon" "head hint chosen"; align-items: center; column-gap: 16px; }
+  .live-night-stage__ribbon { grid-area: ribbon; }
+  .live-night-stage__head { grid-area: head; gap: 10px; }
+  .live-night-stage__hint { grid-area: hint; font-size: 13px; }
+  .live-night-stage__chosen { grid-area: chosen; font-size: 13px; }
+  .live-night-stage__head strong { font-size: 16px; }
 }
 .live-judge-hud--night .live-judge-hud__summary { display: none !important; }

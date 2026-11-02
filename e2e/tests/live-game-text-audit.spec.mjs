@@ -182,6 +182,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('day-1-speech');
       // The judge timer with every button it can have at once: −10, +10, pause, reset, mute and «+30 за два фола»
       // (owner, 2026-11-02: the new «+10» must not break the row when the speech-extension button appears).
+      await page.getByRole('button', { name: /Завершить речь #3/ }).click();
       await page.getByRole('button', { name: /Речь #4(?:\s| ·|$)/ }).last().click();
       await expect(page.getByTestId('live-hud-speech-extension')).toBeVisible();
       await check('day-1-speech-extension');

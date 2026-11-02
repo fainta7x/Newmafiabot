@@ -428,7 +428,7 @@ Quick add of a player to an evening (request): the owner wants a player to be ad
 Bugs found by the owner on 2026-10-23 (to reproduce, then fix; asked back what is unclear):
 1. **The evening graphics** (a picture of the evening) drifts a little off the screen: layout moved, otherwise fine — check the 390 px layout.
 2. **Auto mode in the live game does nothing:** pressing «Авто» changes nothing, the judge still clicks every step by hand.
-3. **Betting from Telegram opens nothing in the app:** the Telegram notification «place a bet on the game» leads to an app screen with nothing to bet on. Wanted: two clear ways to bet — through Telegram or through the app — and the link must open the bet.
+3. **Betting from Telegram opens nothing in the app — CLOSED by the owner (2026-11-02):** the link opens `/player/wallet?tab=bets` (server, route parsing and wallet hub are wired and tested); it could not be reproduced without a real bet; the owner will report it if it happens again.
 4. **Engine visual bugs** on various elements: re-check the live game screens.
 6. **Telegram spam «приложение недоступно / восстановлена» on every restart** (owner, screenshot 2026-10-24): the bot's own monitor alerted after about a minute of «HTTP 503» that a new build causes. Fixed in code: an outage is reported only when it lasts `RUNTIME_ALERT_MIN_OUTAGE_SECONDS` (420 s by default) and a recovery message follows only a reported outage.
 5. **Music (owner decision):** switch off, do not delete, the music-enabling menu with its mandatory steps and the script loading / music start; instead a plain step «включите музыку» (a screen). Until a good design exists the old flow stays in the code but unused.

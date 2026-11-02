@@ -294,6 +294,19 @@ export const auditSeatZones = () => {
       add('ник', identity.querySelectorAll('.evening-live-identity-name'));
     }
     const box = rect(card);
+    // Everything in the middle of a card stands on the card's own vertical axis (owner, 2026-11-02: the avatar is centred, the «+Ф / −Ф»
+    // buttons were not). The side cells (seat number, role) are excluded.
+    const axis = box.left + box.width / 2;
+    const onAxis = (name, nodes) => nodes.forEach((el) => {
+      if (!visible(el)) return;
+      const r = rect(el);
+      const off = (r.left + r.right) / 2 - axis;
+      if (Math.abs(off) > 3) issues.add(`seat ${seat}: «${name}» is ${Math.round(off)} px off the card's axis`);
+    });
+    onAxis('аватар', [...card.querySelectorAll('.live-seat-id__avatar')]);
+    onAxis('ник', [...card.querySelectorAll('.live-seat-id__name')]);
+    onAxis('кнопки фолов', [...card.querySelectorAll('.live-seat-quickbar__group')]);
+    onAxis('поле фолов', [...card.querySelectorAll('.evening-live-discipline')]);
     for (const zone of zones) {
       // A part must lie inside its own card (a part pushed out of the card is a defect as much as an overlap).
       if (zone.r.left < box.left - 1 || zone.r.right > box.right + 1 || zone.r.top < box.top - 1 || zone.r.bottom > box.bottom + 1) {

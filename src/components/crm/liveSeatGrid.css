@@ -61,6 +61,13 @@
     gap: 3px !important;
     position: static !important;
     margin: 0 !important;
+    /* The box is exactly as wide as its buttons: an older rule gave it a fixed width, so one «+Ф» sat left of the axis in a wider box
+       and «−Ф +Ф» spilled to the right of it (owner, 2026-11-02: «плюс-минус фол смещены вправо от аватарки»). */
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+    justify-content: center !important;
   }
   /* The farewell fouls (−Ф/+Ф of a player leaving) take the quick-button row as well. */
   html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-farewell {
@@ -332,3 +339,13 @@
 /* The one-line notice («С игрока #3 снят фол») replaces the latest-event preview under it instead of lying over it: while it
    is shown the preview is hidden, so no two texts share the place (found by the stress walk, 2026-11-02). */
 [data-testid="live-events-feedback"]:has([data-testid="live-game-inline-toast"]) > [data-testid="live-events-latest"] { visibility: hidden; }
+
+@layer seat-grid {
+  /* The candidate being counted is not a voter: a plain dark card in a double white ring, while the voters of that candidate are tinted
+     in his colour (owner, 2026-11-02: «он одинаково подсвечен как и те, кто в него голосует»). */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] {
+    background: #0b0c10 !important;
+    border-color: #ffffff !important;
+    box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 3px rgba(255, 255, 255, 0.28) !important;
+  }
+}

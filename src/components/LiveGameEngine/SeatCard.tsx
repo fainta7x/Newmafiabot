@@ -322,6 +322,8 @@ export default function SeatCard(props: SeatCardProps) {
       onContextMenu={onOpenPlayerActions ? (event) => event.preventDefault() : undefined}
       data-seat={slotNum}
       data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
+      // The candidate whose votes are being counted now (owner, 2026-11-02: it looked the same as the voters of that candidate).
+      data-candidate={phase === 'day_voting' && isInteractiveVoting && activeVoteNominee === slotNum ? 'current' : undefined}
       // Who voted for whom at a glance (owner, 2026-10-27): the card takes the colour of the candidate's seat number it voted
       // for; a vote for the candidate being counted is framed more strongly.
       data-vote={voteTarget === undefined ? undefined : (voteTarget === activeVoteNominee ? 'current' : 'other')}

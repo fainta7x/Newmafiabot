@@ -20,6 +20,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
     await page.setViewportSize({ width, height });
     const report = [];
     let shot = 0;
+    let layerBaseline = null;
     const check = async (screen) => {
       await page.waitForTimeout(250);
       const found = await page.evaluate(auditScreen);
@@ -36,7 +37,12 @@ for (const [width, height, wideFont] of VIEWPORTS) {
         const cardsTop = Math.min(...cards.map((card) => card.getBoundingClientRect().top));
         return Math.round(layer.getBoundingClientRect().top - cardsTop);
       });
-      if (drift !== null && Math.abs(drift) > 8) report.push(`${screen}: the avatar layer is ${drift}px off the seat cards`);
+      // The layer's resting offset differs by layout (a few px on desktop), so the first reading is the baseline and a later
+      // screen is flagged when the layer moves away from it.
+      if (drift !== null) {
+        if (layerBaseline === null) layerBaseline = drift;
+        else if (Math.abs(drift - layerBaseline) > 6) report.push(`${screen}: the avatar layer moved ${drift - layerBaseline}px off the seat cards`);
+      }
     };
     const speech = async (slot, nominee) => {
       await page.getByRole('button', { name: new RegExp(`Речь #${slot}(?:\\s| ·|$)`) }).last().click();

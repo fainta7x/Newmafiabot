@@ -86,6 +86,8 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       // Fouls and the auto-mode switch (owner, 2026-10-31: layout broken with fouls and the auto-mode pop-up).
       await clickOptional(page.getByTestId('live-auto-toggle'));
       await check('auto-mode-on');
+      // Auto mode would end speeches by itself in a slow run and skip the screens below: switch it off again.
+      await clickOptional(page.getByTestId('live-auto-toggle'));
       for (const [slot, count] of [[1, 2], [3, 3]]) {
         for (let i = 0; i < count; i += 1) {
           await seatCard(page, slot).click();

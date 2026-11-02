@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext.ts';
+import { NumbersAutoOpenContext } from '../LiveGameEngine/numbersAutoOpenContext.ts';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
 import { getJudgeTrainingGate } from '../../lib/judgeConductTraining.ts';
@@ -718,6 +719,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") guardTrainingInput(event); }}
         data-training-input-gate={trainingMode ? "active" : undefined}
       >
+        <NumbersAutoOpenContext.Provider value={!trainingMode}>
         <SeatIdentityContext.Provider value={seatIdentity}>
         <LiveGameEngine
           players={legacyPlayers}
@@ -769,6 +771,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }}
         />
         </SeatIdentityContext.Provider>
+        </NumbersAutoOpenContext.Provider>
 
         {trainingMode
           ? (identityOverlay && trainingBoardElement ? createPortal(identityOverlay, trainingBoardElement) : null)

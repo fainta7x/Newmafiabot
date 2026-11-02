@@ -11,6 +11,7 @@ const JUDGE_MUSIC_MENU_ENABLED = false;
 import type { ZeroNightMusicState } from "./engineStateModel.js";
 import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
 import { seatColorVars } from "./seatColors.ts";
+import { NumbersAutoOpenContext } from "./numbersAutoOpenContext.ts";
 import { SeatBadge } from "./SeatBadge.tsx";
 import { FitText } from "../ui/FitText.tsx";
 import "../crm/liveGameEveningBugfixes.css";
@@ -252,10 +253,10 @@ export default function CenterPanel(props: CenterPanelProps) {
   // fold it («Свернуть») to see the table, fouls and the seat cards, and open it again with «Цифрами».
   // Not in the judge training: its input gate only lets the coach's highlighted seats through, so a window that opened by itself would
   // cover them and could not be folded (found by the training specs, 2026-11-02); there «Цифрами» stays a button.
+  const numbersAutoOpen = React.useContext(NumbersAutoOpenContext);
   React.useEffect(() => {
-    const training = typeof document !== 'undefined' && Boolean(document.querySelector('[data-training-input-gate="active"]'));
-    setNumbersOpen(votingStage === 'collecting' && !training);
-  }, [votingStage]);
+    setNumbersOpen(votingStage === 'collecting' && numbersAutoOpen);
+  }, [votingStage, numbersAutoOpen]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);

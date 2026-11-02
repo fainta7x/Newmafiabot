@@ -58,7 +58,8 @@ const play = async (snapshot: Record<string, unknown>, props: Partial<React.Comp
 
 const buttons = () => screen.getAllByRole('button').map((b) => b.textContent?.trim()).filter(Boolean).join(' | ');
 const press = async (name: RegExp | string) => {
-  const button = await screen.findByRole('button', { name }).catch(() => { throw new Error(`No button ${name}; on screen: ${buttons()}`); });
+  // The numbers window opens by itself during a vote count (owner, 2026-11-02) and repeats «Подвести итог»: the panel's button comes first.
+  const [button] = await screen.findAllByRole('button', { name }).catch(() => { throw new Error(`No button ${name}; on screen: ${buttons()}`); });
   fireEvent.click(button);
 };
 

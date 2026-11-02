@@ -248,7 +248,9 @@ export default function CenterPanel(props: CenterPanelProps) {
     return () => phone.removeEventListener?.('change', sync);
   }, []);
   // The numbers window belongs to one vote count: it closes when the count ends.
-  React.useEffect(() => { if (votingStage !== 'collecting') setNumbersOpen(false); }, [votingStage]);
+  // «Цифрами» is the main way to count (owner, 2026-11-02): the window opens by itself when a vote count starts. The judge can
+  // fold it («Свернуть») to see the table, fouls and the seat cards, and open it again with «Цифрами».
+  React.useEffect(() => { setNumbersOpen(votingStage === 'collecting'); }, [votingStage]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
@@ -753,7 +755,7 @@ export default function CenterPanel(props: CenterPanelProps) {
               onToggle={handleVoteToggle}
               onSelectNominee={selectVotingNomineeIndex}
               onFinish={() => { setNumbersOpen(false); finalizeVoting(); }}
-              onClose={() => setNumbersOpen(false)}
+              onCollapse={() => setNumbersOpen(false)}
             />
           ) : null}
         </div>

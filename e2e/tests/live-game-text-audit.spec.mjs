@@ -108,11 +108,14 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
       await check('voting-announcement');
       await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+      // «Цифрами» opens by itself, and it can be folded to reach the seat cards (owner, 2026-11-02).
+      await check('vote-numbers-auto');
+      await page.getByRole('button', { name: 'Свернуть', exact: true }).click();
       for (const voter of [1, 2, 3, 4, 5, 6]) await seatCard(page, voter).click();
       await check('vote-count');
       await page.getByRole('button', { name: 'Цифрами', exact: true }).click();
       await check('vote-numbers');
-      await page.getByRole('button', { name: 'Карточками за столом', exact: true }).click();
+      await page.getByRole('button', { name: 'Свернуть', exact: true }).click();
       await page.getByRole('button', { name: /Следующий/ }).click();
       await check('vote-count-last');
       await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();

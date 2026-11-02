@@ -140,6 +140,8 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+    await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
     await expect(page.getByText(/Кто против/)).toBeVisible();
     for (const label of ['Отменить последний голос', 'Следующий →']) {
       const target = page.getByRole('button', { name: label, exact: true });
@@ -163,6 +165,8 @@ for (const [width, height] of [[360, 780], [390, 844], [1366, 768], [1440, 900]]
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
     await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    // The numbers window opens by itself (owner, 2026-11-02); the seat cards need it folded.
+    await page.getByRole('button', { name: 'Свернуть', exact: true }).click({ timeout: 2000 }).catch(() => {});
     await expect(page.getByRole('button', { name: 'Цифрами', exact: true })).toBeVisible();
     const problems = await page.evaluate(() => {
       const stack = document.querySelector('.live-judge-hud__stack--voting-scroll');

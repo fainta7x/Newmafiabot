@@ -19,7 +19,8 @@ const player = (slot: number, alive: boolean) => ({
 });
 const buttons = () => screen.getAllByRole('button').map((b) => b.textContent?.trim()).filter(Boolean).join(' | ');
 const press = async (name: RegExp | string) => {
-  const button = await screen.findByRole('button', { name }).catch(() => { throw new Error(`No button ${name}; on screen: ${buttons()}`); });
+  // The numbers window opens by itself during a vote count (owner, 2026-11-02) and repeats «Подвести итог»: the panel's button comes first.
+  const [button] = await screen.findAllByRole('button', { name }).catch(() => { throw new Error(`No button ${name}; on screen: ${buttons()}`); });
   fireEvent.click(button);
 };
 const seat = (slot: number) => document.querySelector(`.live-seat-card[data-seat="${slot}"]`) as HTMLElement;
@@ -85,6 +86,18 @@ describe('vote count shortcuts', () => {
     await toRevote();
     expect(screen.queryByRole('button', { name: 'Поделилось также' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Цифрами' })).toBeTruthy();
+  });
+
+  it('the numbers window opens by itself, folds away for the seat cards (fouls, actions) and opens again (owner, 2026-11-02)', async () => {
+    await play(dayVote([5, 3]));
+    const sheet = await screen.findByTestId('live-vote-numbers-sheet');
+    expect(sheet).toBeTruthy();
+    fireEvent.click(screen.getByTestId('live-vote-numbers-collapse'));
+    expect(screen.queryByTestId('live-vote-numbers-sheet')).toBeNull();
+    fireEvent.click(seat(1)); // a seat card still counts a vote while the window is folded
+    expect(saved().votesByPlayer?.[1] ?? 5).toBe(5);
+    await press('Цифрами');
+    expect(await screen.findByTestId('live-vote-numbers-sheet')).toBeTruthy();
   });
 
   it('«Цифрами» counts the voting candidate by candidate; a voter of another candidate is dimmed and blocked', async () => {

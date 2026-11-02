@@ -167,7 +167,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const eveningCanStart = isOpenEvening(evening);
   const missingPresent = Math.max(0, minTable - eligible.length);
   // Registered or answered «going» but attendance not marked yet: the usual reason for a short list.
-  const awaitingArrival = roster.filter((participant) => !eligibleIds.has(participant.id) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined').length;
+  const awaitingList = roster.filter((participant) => !eligibleIds.has(participant.id) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined');
+  const awaitingArrival = awaitingList.length;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -221,6 +222,21 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
       return [...next, participant];
     });
     setSeats((previous) => toggleParticipantInSeats(previous, participant.id));
+  };
+
+  // «Одно окно» (owner, 2026-11-02): mark a registered player as arrived and seat them without leaving the game sheet.
+  const arriveAndSeat = async (participant: EveningParticipant) => {
+    if (addingParticipant) return;
+    setAddingParticipant(true);
+    setError(null);
+    try {
+      const updated = await api.updateParticipant(participant.id, { attendance_status: 'attended' });
+      selectNewParticipant(updated);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось отметить приход');
+    } finally {
+      setAddingParticipant(false);
+    }
   };
 
   const addKnownPlayer = async (player: Player) => {
@@ -403,7 +419,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           </section>
         ) : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
-        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из ${minTable} нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь, кто пришёл, на вкладке «Вечер» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
+        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из ${minTable} нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь пришедших ниже в «Записаны, приход не отмечен» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
 
         {plannedSlots.length > 0 && <div className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
           <label className="text-[10px] font-black uppercase text-text-muted">Игра из плана вечера
@@ -490,10 +506,20 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
             const priority = getRotationPriority(participant.id, previousRotationGame);
             const isGuest = Boolean((participant as any).is_guest || !String(participant.player_id || '').trim());
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}>{isGuest ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-soft bg-surface-1 text-[10px] font-black text-text-muted">Г</div> : <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" />}<div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block truncate text-[10px] text-text-muted">{isGuest ? 'Гость без профиля' : priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}>{isGuest ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-soft bg-surface-1 text-[10px] font-black text-text-muted">Г</div> : <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" />}<div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block break-words text-[10px] leading-snug text-text-muted">{isGuest ? 'Гость без профиля' : priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Участников не найдено</div>}
         </div>
+        {awaitingList.length > 0 ? <section data-testid="awaiting-arrival" className="space-y-2 rounded-[16px] border border-border-soft bg-surface-2 p-2.5">
+          <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wide text-text-muted"><span>Записаны, приход не отмечен</span><span>{awaitingList.length}</span></div>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {awaitingList.map((participant) => <div key={participant.id} className="flex min-w-0 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 p-2">
+              <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
+              <span className="min-w-0 flex-1 break-words text-[13px] font-semibold leading-snug text-text-primary">{participant.nickname}</span>
+              <button type="button" data-testid={`arrive-and-seat-${participant.id}`} disabled={addingParticipant || !eveningCanStart} onClick={() => void arriveAndSeat(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Пришёл · за стол</button>
+            </div>)}
+          </div>
+        </section> : null}
         <button type="button" disabled={!eveningCanStart || !sizeReady || creating || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount < minTable ? `Выбери ещё ${minTable - selectedCount}` : !seatsContiguous ? 'Заполни места подряд с #1' : selectedCount === 10 || !smallTablesAllowed ? 'Создать игру' : `Создать игру на ${selectedCount}`}</button>
       </div>
     </div>

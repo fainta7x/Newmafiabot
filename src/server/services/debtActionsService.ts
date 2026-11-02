@@ -5,6 +5,7 @@ import { runCrmAutomations } from './crmAutomationService.ts';
 import { playerPaymentReminderText, recentlyReminded } from './eveningPaymentReminderService.ts';
 import { resolveOrganizerNotificationRecipientsWithAccess } from './organizerNotificationService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { round2 } from '../../shared/numbers.ts';
 
 export class DebtActionError extends Error {
   constructor(message: string, readonly status = 400, readonly code = 'bad_request') { super(message); }
@@ -43,14 +44,14 @@ export async function markPlayerDebtPartiallyPaid(db: DatabaseWrapper, playerId:
   const debtor = (await loadPlayerEveningDebts(db)).find((group) => group.player_id === playerId);
   const evening = debtor?.evenings.find((e) => e.evening_id === eveningId);
   if (!debtor || !evening) throw new DebtActionError('Долга за этот вечер нет — возможно, уже отмечено', 404, 'not_found');
-  const received = Math.round(Number(amount) * 100) / 100;
+  const received = round2(amount);
   if (!Number.isFinite(received) || received <= 0) throw new DebtActionError('Введите сумму больше нуля');
   if (received >= evening.owed) return markPlayerDebtPaid(db, playerId, eveningId);
   const participant = await db.get<{ id: string; amount_paid: number }>('SELECT id, amount_paid FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);
   if (!participant) throw new DebtActionError('Участник не найден', 404, 'not_found');
-  await setClosedEveningParticipantPaidAmount(db, String(participant.id), Math.round((Number(participant.amount_paid || 0) + received) * 100) / 100);
+  await setClosedEveningParticipantPaidAmount(db, String(participant.id), round2(Number(participant.amount_paid || 0) + received));
   await runCrmAutomations(db);
-  return { nickname: debtor.nickname, evenings_paid: 0, amount: received, remaining: Math.round((evening.owed - received) * 100) / 100 };
+  return { nickname: debtor.nickname, evenings_paid: 0, amount: received, remaining: round2(evening.owed - received) };
 }
 
 /**

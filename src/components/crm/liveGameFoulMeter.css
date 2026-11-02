@@ -1,21 +1,24 @@
 /* Fouls at a glance (owner, 2026-11-02): players keep asking the judge how many fouls they have, so the count is a big
-   pill in the top-right corner of the seat card instead of the small «Ф 2» chip. Colour grows with the danger:
+   digit in the middle of the seat card's footer (between the seat number and the role slot) with a four-segment bar under it,
+   instead of the small «Ф 2» chip. Colour grows with the danger:
    1 amber, 2 orange, 3 red and pulsing (one more is the removal), 4 solid red. The markup, classes and `data-count`
    stay as they were; this sheet loads after every other discipline sheet and wins on every screen size. */
 html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline {
   position: absolute !important;
-  top: 6px !important;
-  right: 6px !important;
-  bottom: auto !important;
-  left: auto !important;
-  width: auto !important;
+  top: auto !important;
+  bottom: 6px !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: max-content !important;
+  max-width: calc(100% - 64px) !important;
   height: auto !important;
+  margin: 0 auto !important;
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: row !important;
   align-items: flex-end !important;
-  gap: 3px !important;
+  justify-content: center !important;
+  gap: 8px !important;
   padding: 0 !important;
-  margin: 0 !important;
   transform: none !important;
   translate: none !important;
   background: none !important;
@@ -24,72 +27,136 @@ html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline 
   pointer-events: none !important;
 }
 
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count] {
+/* Regular fouls: a small «Ф», the count as a big digit in the danger colour and a four-segment bar under it. */
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count] {
+  --foul-color: #fcd34d;
   position: relative !important;
-  display: inline-flex !important;
+  display: flex !important;
+  flex-direction: row !important;
   align-items: baseline !important;
   justify-content: center !important;
-  gap: 3px !important;
-  width: auto !important;
-  min-width: 40px !important;
-  height: 28px !important;
-  padding: 0 8px !important;
-  border: 2px solid currentColor !important;
-  border-radius: 10px !important;
-  background: rgba(8, 9, 12, 0.88) !important;
+  gap: 5px !important;
+  width: 50px !important;
+  min-width: 50px !important;
+  height: auto !important;
+  padding: 0 0 9px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  background-image:
+    repeating-linear-gradient(90deg, var(--foul-color) 0 10px, transparent 10px 12px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 10px, transparent 10px 12px) !important;
+  background-repeat: no-repeat !important;
+  background-position: center bottom, center bottom !important;
+  background-size: calc(var(--n, 1) * 12px - 2px) 4px, 46px 4px !important;
+  box-shadow: none !important;
+  color: var(--foul-color) !important;
   font-size: 0 !important;
   line-height: 1 !important;
   transform: none !important;
   translate: none !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.7));
 }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="1"] { --n: 1; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="2"] { --n: 2; --foul-color: #fb923c; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] { --n: 3; --foul-color: #fb7185; animation: live-foul-meter-pulse 1.6s ease-in-out infinite; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="4"] { --n: 4; --foul-color: #ef4444; }
 
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count]::before {
-  content: "Ф";
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::before {
+  content: "Ф" !important;
+  display: block !important;
   width: auto !important;
   height: auto !important;
   flex: none !important;
   background: none !important;
   -webkit-mask: none !important;
   mask: none !important;
-  align-self: center;
-  color: currentColor;
-  font: 800 11px/1 system-ui, sans-serif !important;
-  letter-spacing: 0.02em;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.55);
+  font: 800 13px/1 system-ui, sans-serif !important;
 }
-
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count]::after {
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::after {
   content: attr(data-count) !important;
   min-width: 0 !important;
-  color: currentColor;
-  font: 900 20px/1 system-ui, sans-serif !important;
+  color: var(--foul-color) !important;
+  font: 900 22px/1 system-ui, sans-serif !important;
   font-variant-numeric: tabular-nums;
 }
 
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before { content: "МТ"; }
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count]::before { content: "БТ"; }
-
-/* Regular fouls by danger. */
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="1"] { color: #fcd34d !important; }
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="2"] { color: #fb923c !important; }
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] {
-  color: #fb7185 !important;
-  animation: live-foul-meter-pulse 1.6s ease-in-out infinite;
+/* Technical fouls: a quiet outlined tag with a label and the count, like the nickname chip. */
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count],
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count] {
+  --tag-color: #fde047;
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 22px !important;
+  padding: 0 8px !important;
+  margin-bottom: 6px !important;
+  border: 1px solid color-mix(in srgb, var(--tag-color) 50%, transparent) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--tag-color) 12%, #0b0c10) !important;
+  color: var(--tag-color) !important;
+  font-size: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  translate: none !important;
 }
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="4"] {
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count] { --tag-color: #fca5a5; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before,
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count]::before {
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  background: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  font: 800 10px/1 system-ui, sans-serif !important;
+  letter-spacing: 0.06em;
+}
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before { content: "МТ" !important; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count]::before { content: "БТ" !important; }
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count]::after,
+html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count]::after {
+  content: attr(data-count) !important;
+  min-width: 0 !important;
   color: #fff !important;
-  background: #dc2626 !important;
-  border-color: #fecaca !important;
+  font: 900 13px/1 system-ui, sans-serif !important;
 }
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count] { color: #fde047 !important; }
-html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count] { color: #fca5a5 !important; }
+
+/* Phones: the seat is narrow — no caption, the tags stack above the digit. */
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline { flex-direction: column !important; align-items: center !important; gap: 3px !important; bottom: 7px !important; max-width: calc(100% - 58px) !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count] { width: 34px !important; min-width: 34px !important; padding-bottom: 8px !important; justify-content: center !important; background-size: calc(var(--n, 1) * 8px - 2px) 3px, 30px 3px !important; background-image: repeating-linear-gradient(90deg, var(--foul-color) 0 6px, transparent 6px 8px), repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 6px, transparent 6px 8px) !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::before { display: none !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::after { font-size: 20px !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count],
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-major[data-count] { height: 18px !important; padding: 0 6px !important; margin: 0 !important; }
+}
 
 @keyframes live-foul-meter-pulse {
-  0%, 100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
-  50% { box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.35), 0 2px 8px rgba(0, 0, 0, 0.45); }
+  0%, 100% { filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.7)); }
+  50% { filter: drop-shadow(0 0 7px rgba(251, 113, 133, 0.8)); }
 }
-
 @media (prefers-reduced-motion: reduce) {
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] { animation: none; }
+}
+
+/* The judge timer's button row with «+30 за два фола» (owner, 2026-11-02, after «+10» was added): on a phone six buttons no
+   longer fit in one row (the pause button was squeezed to a sliver), so the row takes two: −10, +10, reset and mute on top,
+   pause (wide) and «+30» below. */
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell .live-judge-timer__buttons.live-judge-timer__buttons--with-extension {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-auto-rows: auto !important;
+  }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(2) { grid-column: 2; grid-row: 1; }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(4) { grid-column: 3; grid-row: 1; }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(5) { grid-column: 4; grid-row: 1; }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(3) { grid-column: 1 / span 3; grid-row: 2; }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(6) { grid-column: 4; grid-row: 2; }
 }

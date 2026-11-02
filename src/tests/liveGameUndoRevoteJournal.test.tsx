@@ -28,6 +28,15 @@ const press = async (name: RegExp | string) => {
   const button = await screen.findByRole('button', { name }).catch(() => { throw new Error(`No button ${name}; on screen: ${buttons()}`); });
   fireEvent.click(button);
 };
+
+// A night step left without a choice now asks first («Вы никого не выбрали», «Дон не просыпался?»): these scenarios play such nights, so the prompt is answered.
+const pressPast = async (name: RegExp | string) => {
+  await press(name);
+  const prompt = screen.queryByTestId('night-prompt');
+  if (!prompt) return;
+  const tactic = screen.queryByTestId('night-miss-tactic');
+  fireEvent.click((tactic || screen.getByTestId('night-prompt-continue')) as HTMLElement);
+};
 const seat = (slot: number) => document.querySelector(`.live-seat-card[data-seat="${slot}"]`) as HTMLElement;
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); deactivateTableDecisionSelection(); });
@@ -89,10 +98,10 @@ describe('judge engine: an undone elimination and two revoting days reach the sa
     await press('Завершить последние речи');
     await press(/Включите музыку/);
     await press(/^Отстрел$/);
-    await press(/Проверка Дона/);
-    await press(/Проверка Шерифа/);
+    await pressPast(/Проверка Дона/);
+    await pressPast(/Проверка Шерифа/);
     await press(/Выключите музыку/);
-    await press(/Итоги ночи/);
+    await pressPast(/Итоги ночи/);
     await press(/Зафиксировать ночь/);
     // Day 3: #5, #8, #2, #3 nominated; 4–4 between #5 and #3, revote 3–5 → #3 out (as the journal reads); again no shot; day 4 ends by a PPK of #10.
     const nominate = (slot: number) => fireEvent.click(screen.getByRole('button', { name: `Выставить #${slot}` }));
@@ -114,10 +123,10 @@ describe('judge engine: an undone elimination and two revoting days reach the sa
     await press('Завершить последние речи');
     await press(/Включите музыку/);
     await press(/^Отстрел$/);
-    await press(/Проверка Дона/);
-    await press(/Проверка Шерифа/);
+    await pressPast(/Проверка Дона/);
+    await pressPast(/Проверка Шерифа/);
     await press(/Выключите музыку/);
-    await press(/Итоги ночи/);
+    await pressPast(/Итоги ночи/);
     await press(/Зафиксировать ночь/);
     fireEvent.click(seat(10));
     await press('ППК');

@@ -38,6 +38,7 @@ export type LiveSessionSnapshot = LiveEventSnapshot & {
   nightSubPhase?: string;
   postNightStage?: string;
   shotPlayerSlot?: number | null;
+  nightMiss?: { reason?: string; seats?: number[] } | null;
   nightLogs?: Array<{ round?: number; log?: string }>;
   activePlayers?: Array<{ slot_num?: number; alive?: boolean }>;
   votingRounds?: VotingRound[];
@@ -113,7 +114,14 @@ const nightResolutionHappened = (previous: LiveSessionSnapshot | null, current: 
 export const shotFromResolvedNight = (snapshot: LiveSessionSnapshot): ShotEntry => {
   const nightNumber = Math.max(1, Number(snapshot.roundNumber || 1));
   const targetSeat = Number(snapshot.shotPlayerSlot || 0);
-  if (!targetSeat) return { night_number: nightNumber, target_seat: 0, result: 'miss' };
+  if (!targetSeat) {
+    // The judge's answer to «Вы никого не выбрали»: a tactical miss costs nothing, a mistake names who missed (owner, 2026-11-02).
+    const miss = snapshot.nightMiss;
+    const seats = Array.isArray(miss?.seats) ? miss!.seats!.map(Number).filter((seat) => Number.isInteger(seat) && seat > 0) : [];
+    if (miss?.reason === 'intentional') return { night_number: nightNumber, target_seat: 0, result: 'miss', miss_reason: 'intentional', miss_responsible_seats: [] };
+    if (miss?.reason === 'error' && seats.length) return { night_number: nightNumber, target_seat: 0, result: 'miss', miss_reason: 'error', miss_responsible_seats: seats };
+    return { night_number: nightNumber, target_seat: 0, result: 'miss' };
+  }
   // The mafia can only name a player who is still at the table, so a named target is a kill. Reading «already dead in the
   // snapshot» as a miss (the first version) recorded every kill as a miss as soon as the engine applied the kill earlier.
   return { night_number: nightNumber, target_seat: targetSeat, result: 'killed' };

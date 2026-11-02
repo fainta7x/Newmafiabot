@@ -20,12 +20,29 @@ for (const [width, height, wideFont] of VIEWPORTS) {
     await page.setViewportSize({ width, height });
     const report = [];
     let shot = 0;
+    let layerBaseline = null;
     const check = async (screen) => {
       await page.waitForTimeout(250);
       const found = await page.evaluate(auditScreen);
       shot += 1;
       await page.screenshot({ path: info.outputPath(`${String(shot).padStart(2, '0')}-${screen}.png`) });
       for (const issue of found) report.push(`${screen}: ${issue}`);
+      // The avatars and nicknames are a separate layer over the board: it must stay on its cards (a banner or panel above the
+      // board once pushed the board down and left the layer behind).
+      const drift = await page.evaluate(() => {
+        const layer = document.querySelector('.evening-live-identity-layer');
+        if (!layer || getComputedStyle(layer).display === 'none') return null;
+        const cards = [...document.querySelectorAll('.live-seat-card')].filter((card) => card.getBoundingClientRect().height > 40);
+        if (!cards.length) return null;
+        const cardsTop = Math.min(...cards.map((card) => card.getBoundingClientRect().top));
+        return Math.round(layer.getBoundingClientRect().top - cardsTop);
+      });
+      // The layer's resting offset differs by layout (a few px on desktop), so the first reading is the baseline and a later
+      // screen is flagged when the layer moves away from it.
+      if (drift !== null) {
+        if (layerBaseline === null) layerBaseline = drift;
+        else if (Math.abs(drift - layerBaseline) > 6) report.push(`${screen}: the avatar layer moved ${drift - layerBaseline}px off the seat cards`);
+      }
     };
     const speech = async (slot, nominee) => {
       await page.getByRole('button', { name: new RegExp(`Речь #${slot}(?:\\s| ·|$)`) }).last().click();
@@ -69,6 +86,8 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       // Fouls and the auto-mode switch (owner, 2026-10-31: layout broken with fouls and the auto-mode pop-up).
       await clickOptional(page.getByTestId('live-auto-toggle'));
       await check('auto-mode-on');
+      // Auto mode would end speeches by itself in a slow run and skip the screens below: switch it off again.
+      await clickOptional(page.getByTestId('live-auto-toggle'));
       for (const [slot, count] of [[1, 2], [3, 3]]) {
         for (let i = 0; i < count; i += 1) {
           await seatCard(page, slot).click();
@@ -114,10 +133,38 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('night');
       await clickOptional(page.getByRole('button', { name: /Включите музыку/ }));
       await page.getByRole('button', { name: 'Отстрел', exact: true }).click();
-      await seatCard(page, 1).click();
+      // Tall screens get the banner above the board; a short one (≤ 700 px) carries the stage in the central panel itself.
+      if (height > 700) await expect(page.getByTestId('live-night-stage')).toBeVisible();
+      else await expect(page.getByTestId('live-judge-hud')).toHaveAttribute('data-night-tone', 'shot');
+      await check('night-shooting');
+      // «Вы никого не выбрали» (owner, 2026-11-02): the next step with no target asks whether it was a miss and who missed.
       await page.getByRole('button', { name: 'Проверка Дона', exact: true }).click();
-      await seatCard(page, 4).click();
+      await expect(page.getByTestId('night-prompt')).toBeVisible();
+      await check('night-prompt-miss');
+      await page.getByTestId('night-miss-error').click();
+      await check('night-prompt-miss-who');
+      await expect(page.getByTestId('night-miss-save')).toBeDisabled();
+      await page.locator('[data-testid^="night-miss-seat-"]').first().click();
+      await expect(page.getByTestId('night-miss-save')).toBeEnabled();
+      await page.getByTestId('night-prompt').getByRole('button', { name: 'Назад', exact: true }).click();
+      await page.getByTestId('night-prompt-choose').click();
+      await seatCard(page, 1).click();
+      await check('night-shot-chosen');
+      await page.getByRole('button', { name: 'Проверка Дона', exact: true }).click();
+      await check('night-don');
       await page.getByRole('button', { name: 'Проверка Шерифа', exact: true }).click();
+      await expect(page.getByTestId('night-prompt')).toBeVisible();
+      await check('night-prompt-don');
+      await page.getByTestId('night-prompt-choose').click();
+      await seatCard(page, 4).click();
+      await check('night-don-chosen');
+      await page.getByRole('button', { name: 'Проверка Шерифа', exact: true }).click();
+      await check('night-sheriff');
+      await clickOptional(page.getByRole('button', { name: /Выключите музыку/ }));
+      await page.getByRole('button', { name: /ЛХ первого убитого|Итоги ночи/ }).click();
+      await expect(page.getByTestId('night-prompt')).toBeVisible();
+      await check('night-prompt-sheriff');
+      await page.getByTestId('night-prompt-choose').click();
       await seatCard(page, 6).click();
       await check('night-checks');
       await clickOptional(page.getByRole('button', { name: /Выключите музыку/ }));
@@ -135,6 +182,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('day-1-speech');
       // The judge timer with every button it can have at once: −10, +10, pause, reset, mute and «+30 за два фола»
       // (owner, 2026-11-02: the new «+10» must not break the row when the speech-extension button appears).
+      await page.getByRole('button', { name: /Завершить речь #3/ }).click();
       await page.getByRole('button', { name: /Речь #4(?:\s| ·|$)/ }).last().click();
       await expect(page.getByTestId('live-hud-speech-extension')).toBeVisible();
       await check('day-1-speech-extension');

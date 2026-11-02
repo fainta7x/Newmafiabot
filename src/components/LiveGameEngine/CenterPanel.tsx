@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
+import { nightStageView } from "./nightStageModel.ts";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
 
 const JUDGE_MUSIC_MENU_ENABLED = false;
@@ -456,6 +457,12 @@ export default function CenterPanel(props: CenterPanelProps) {
         best_move: 'ЛХ первого убитого',
         morning: 'Итог ночи',
       } as Record<string, string>)[nightSubPhase] || 'Ночь'
+    : null;
+
+  // On a short screen the banner above the board has no room (see liveGameNightStage.css): the panel itself carries the stage —
+  // a ribbon on its top edge and the status line in the stage's colour.
+  const nightStage = phase === 'night' && postNightStage === 'none'
+    ? nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult })
     : null;
 
   const canReturnToSpeeches = phase === 'day_voting' && activeVotingRoundIndex === 0 && (votingStage === 'collecting' || votingStage === 'setup') && Boolean(onBackToDaySpeeches);
@@ -1090,7 +1097,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   return (
     <>
       {topbarSlot && autoControl ? createPortal(autoControl, topbarSlot) : null}
-      <div data-testid="live-judge-hud" className="live-judge-hud col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none">
+      <div data-testid="live-judge-hud" data-night-tone={nightStage?.tone} style={nightStage ? ({ '--night-step': nightStage.index + 1 } as React.CSSProperties) : undefined} className={`live-judge-hud ${phase === 'night' ? 'live-judge-hud--night' : ''} col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none`}>
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">

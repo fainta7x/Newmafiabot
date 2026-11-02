@@ -147,7 +147,7 @@ describe('live-game undo boundaries', () => {
     expect(shootingStart).toBeGreaterThanOrEqual(0);
     expect(block.slice(0, shootingStart)).not.toContain('saveSnapshot();');
     expect(block).toContain("if (nightSubPhase === 'shooting') {\n        saveSnapshot();");
-    expect(block).toContain("if (nightSubPhase === 'don') {\n        if (donCheckSlot === slot) return;\n        saveSnapshot();");
-    expect(block).toContain("if (nightSubPhase === 'sheriff') {\n        if (sheriffCheckSlot === slot) return;\n        saveSnapshot();");
+    expect(block).toContain("if (nightSubPhase === 'don') {\n        if (!donAtTable(activePlayers) || donCheckSlot === slot) return;\n        saveSnapshot();");
+    expect(block).toContain("if (nightSubPhase === 'sheriff') {\n        if (!sheriffAtTable(activePlayers) || sheriffCheckSlot === slot) return;\n        saveSnapshot();");
   });
 });

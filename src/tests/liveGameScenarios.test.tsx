@@ -61,6 +61,15 @@ const press = async (name: RegExp | string) => {
   const button = await screen.findByRole('button', { name }).catch(() => { throw new Error(`No button ${name}; on screen: ${buttons()}`); });
   fireEvent.click(button);
 };
+
+// A night step left without a choice now asks first («Вы никого не выбрали», «Дон не просыпался?»): these scenarios play such nights, so the prompt is answered.
+const pressPast = async (name: RegExp | string) => {
+  await press(name);
+  const prompt = screen.queryByTestId('night-prompt');
+  if (!prompt) return;
+  const tactic = screen.queryByTestId('night-miss-tactic');
+  fireEvent.click((tactic || screen.getByTestId('night-prompt-continue')) as HTMLElement);
+};
 const seat = (slot: number) => document.querySelector(`.live-seat-card[data-seat="${slot}"]`) as HTMLElement;
 const finished = (spy: ReturnType<typeof vi.fn>) => spy.mock.calls[0]?.[0];
 const exitOf = (result: any, slot: number) => result.slots.find((s: any) => s.slot_num === slot)?.exit_reason;
@@ -76,10 +85,10 @@ describe('judge engine: whole-game scenarios', () => {
     await press(/Включите музыку/);
     await press(/^Отстрел$/);
     fireEvent.click(seat(7));
-    await press(/Проверка Дона/);
-    await press(/Проверка Шерифа/);
+    await pressPast(/Проверка Дона/);
+    await pressPast(/Проверка Шерифа/);
     await press(/Выключите музыку/);
-    await press(/Итоги ночи/);
+    await pressPast(/Итоги ночи/);
     await press(/Зафиксировать ночь/);
     await press(/Протокол убитого/);
     await press(/Завершить игру/);
@@ -169,10 +178,10 @@ describe('judge engine: whole-game scenarios', () => {
     await press(/Включите музыку/);
     await press(/^Отстрел$/);
     fireEvent.click(seat(2));
-    await press(/Проверка Дона/);
-    await press(/Проверка Шерифа/);
+    await pressPast(/Проверка Дона/);
+    await pressPast(/Проверка Шерифа/);
     await press(/Выключите музыку/);
-    await press(/ЛХ первого убитого/);
+    await pressPast(/ЛХ первого убитого/);
     const sheet = await screen.findByTestId('live-best-move-sheet');
     for (const pick of [8, 9, 5]) fireEvent.click(sheet.querySelector(`[data-seat="${pick}"]`) as HTMLElement);
     fireEvent.click(screen.getByTestId('live-best-move-confirm'));

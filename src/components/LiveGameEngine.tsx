@@ -48,6 +48,9 @@ import { addReveal, removeAnnouncedCheck, removeReveal, setAnnouncedCheck, type 
 import LiveGameHotkeyLayer from "./LiveGameEngine/LiveGameHotkeyLayer.tsx";
 import { useLiveGameHotkeys } from "./LiveGameEngine/useLiveGameHotkeys.ts";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
+import { NightPrompt } from "./LiveGameEngine/NightPrompt.tsx";
+import { NightStageStrip } from "./LiveGameEngine/NightStageStrip.tsx";
+import { blacksAtTable, donAtTable, donFoundSheriffEarlier, nightStageView, sheriffAtTable } from "./LiveGameEngine/nightStageModel.ts";
 import {
   BestMoveProtocolOverlay,
   DisciplineConfirmationOverlay,
@@ -196,6 +199,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [votingFarewellIndex, setVotingFarewellIndex] = useState(0);
 
   const [shotPlayerSlot, setShotPlayerSlot] = useState<number | null>(null);
+  const [nightMiss, setNightMiss] = useState<{ reason: 'error' | 'intentional'; seats: number[] } | null>(null);
+  const [nightPrompt, setNightPrompt] = useState<'miss' | 'don' | 'sheriff' | null>(null);
   const [donCheckSlot, setDonCheckSlot] = useState<number | null>(null);
   const [donCheckResult, setDonCheckResult] = useState<boolean | null>(null);
   const [sheriffCheckSlot, setSheriffCheckSlot] = useState<number | null>(null);
@@ -254,6 +259,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       zeroNightSubPhase,
       zeroNightMusicState,
       shotPlayerSlot,
+      nightMiss,
       donCheckSlot,
       donCheckResult,
       sheriffCheckSlot,
@@ -309,6 +315,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setZeroNightSubPhase(restored.zeroNightSubPhase);
     setZeroNightMusicState(restored.zeroNightMusicState);
     setShotPlayerSlot(restored.shotPlayerSlot);
+    setNightMiss(restored.nightMiss ?? null);
+    setNightPrompt(null);
     setDonCheckSlot(restored.donCheckSlot);
     setDonCheckResult(restored.donCheckResult);
     setSheriffCheckSlot(restored.sheriffCheckSlot);
@@ -413,6 +421,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       ...takeSnapshot(),
       nightLogs,
       shotPlayerSlot,
+      nightMiss,
       donCheckSlot,
       donCheckResult,
       sheriffCheckSlot,
@@ -429,7 +438,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers, reveals,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, bestMoveDeadlineMs, votingRounds, activeVotingRoundIndex,
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, speechExtendedSlot, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
-    shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
+    shotPlayerSlot, nightMiss, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
     zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, zeroRoundRule, breakSpeechSlot, previousRoundVotes, historyStack,
     rosterJournalRevision,
@@ -542,6 +551,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setHistoryStack(restoredHistory);
     setNightLogs(restorableSession.nightLogs || []);
     setShotPlayerSlot(restorableSession.shotPlayerSlot ?? null);
+    setNightMiss(restorableSession.nightMiss ?? null);
     setDonCheckSlot(restorableSession.donCheckSlot ?? null);
     setDonCheckResult(restorableSession.donCheckResult ?? null);
     setSheriffCheckSlot(restorableSession.sheriffCheckSlot ?? null);
@@ -1385,6 +1395,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setPostNightStage('none');
     setBestMoveDeadlineMs(null);
     setShotPlayerSlot(null);
+    setNightMiss(null);
     setDonCheckSlot(null);
     setDonCheckResult(null);
     setSheriffCheckSlot(null);
@@ -1459,6 +1470,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setActionPlayerSlot(null);
     setIsTimerRunning(false);
     setShotPlayerSlot(null);
+    setNightMiss(null);
     setDonCheckSlot(null);
     setDonCheckResult(null);
     setSheriffCheckSlot(null);
@@ -1537,18 +1549,19 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       if (postNightStage !== 'none' || !player.alive) return;
       if (nightSubPhase === 'shooting') {
         saveSnapshot();
+        setNightMiss(null);
         setShotPlayerSlot((value) => toggleNightShotTarget(value, slot));
         return;
       }
       if (nightSubPhase === 'don') {
-        if (donCheckSlot === slot) return;
+        if (!donAtTable(activePlayers) || donCheckSlot === slot) return;
         saveSnapshot();
         setDonCheckSlot(slot);
         setDonCheckResult(getDonCheckResult(player));
         return;
       }
       if (nightSubPhase === 'sheriff') {
-        if (sheriffCheckSlot === slot) return;
+        if (!sheriffAtTable(activePlayers) || sheriffCheckSlot === slot) return;
         saveSnapshot();
         setSheriffCheckSlot(slot);
         setSheriffCheckResult(getSheriffCheckResult(player));
@@ -1598,11 +1611,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         return { label: 'К дневным речам', onClick: finishNightToDay };
       }
       if (nightSubPhase === 'intro') return { label: 'Стрельба мафии', onClick: () => handleAdvanceNightSubPhase('shooting') };
-      if (nightSubPhase === 'shooting') return { label: 'Проверка Дона', onClick: () => handleAdvanceNightSubPhase('don') };
-      if (nightSubPhase === 'don') return { label: 'Проверка Шерифа', onClick: () => handleAdvanceNightSubPhase('sheriff') };
+      if (nightSubPhase === 'shooting') return { label: 'Проверка Дона', onClick: () => (shotPlayerSlot ? handleAdvanceNightSubPhase('don') : setNightPrompt('miss')) };
+      if (nightSubPhase === 'don') return { label: 'Проверка Шерифа', onClick: () => (donAtTable(activePlayers) && !donCheckSlot && !donFoundSheriffEarlier(nightLogs) ? setNightPrompt('don') : handleAdvanceNightSubPhase('sheriff')) };
       if (nightSubPhase === 'sheriff') {
-        if (targetCanGiveFirstKilledBestMove()) return { label: 'ЛХ первого убитого', onClick: handleStartFirstKilledBestMove };
-        return { label: 'Итоги ночи', onClick: () => handleAdvanceNightSubPhase('morning') };
+        const askSheriff = sheriffAtTable(activePlayers) && !sheriffCheckSlot;
+        if (targetCanGiveFirstKilledBestMove()) return { label: 'ЛХ первого убитого', onClick: () => (askSheriff ? setNightPrompt('sheriff') : handleStartFirstKilledBestMove()) };
+        return { label: 'Итоги ночи', onClick: () => (askSheriff ? setNightPrompt('sheriff') : handleAdvanceNightSubPhase('morning')) };
       }
       if (nightSubPhase === 'best_move') return null;
       if (nightSubPhase === 'morning') return { label: 'Зафиксировать ночь', onClick: handleResolveNight };
@@ -1992,6 +2006,21 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onCancel={() => setPendingDisciplineConfirmation(null)}
         onConfirm={confirmPendingDisciplineAction}
       />
+      {nightPrompt ? (
+        <NightPrompt
+          kind={nightPrompt}
+          blacks={blacksAtTable(activePlayers)}
+          onChoose={() => setNightPrompt(null)}
+          onMiss={(reason, seats) => { saveSnapshot(); setNightMiss({ reason, seats }); setNightPrompt(null); handleAdvanceNightSubPhase('don'); }}
+          onContinue={() => {
+            const next = nightPrompt;
+            setNightPrompt(null);
+            if (next === 'don') handleAdvanceNightSubPhase('sheriff');
+            else if (targetCanGiveFirstKilledBestMove()) handleStartFirstKilledBestMove();
+            else handleAdvanceNightSubPhase('morning');
+          }}
+        />
+      ) : null}
       <PlayerActionOverlay
         player={actionPlayer}
         mode={farewellActionOpen && actionPlayer?.alive === false ? 'farewell' : 'standard'}
@@ -2065,6 +2094,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
               onRemoveCheck={handleRemoveAnnouncedCheck}
               onClose={() => setRevealPanelOpen(false)}
             />
+          ) : null}
+
+          {phase === 'night' && postNightStage === 'none' ? (
+            <NightStageStrip view={nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult })} />
           ) : null}
 
           {renderTable()}

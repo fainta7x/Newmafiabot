@@ -127,10 +127,24 @@ html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline 
   font: 900 13px/1 system-ui, sans-serif !important;
 }
 
-/* Phones: the seat is narrow — no caption, the tags stack above the digit. */
+/* Phones (owner, 2026-11-02): the digit with its bar stays, but it is measured to the room it has. A seat is 96 px wide at 390 px
+   and 89 px at 360 px; the seat number (left) and the role slot (right) take 36 px each (7.2 margin + 28.8 tile), so the foul
+   element gets exactly what is left between them (24 px / 17 px) and its bar is split from that width, not from a fixed 30 px. */
 @media (max-width: 767px) {
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline { flex-direction: column !important; align-items: center !important; gap: 3px !important; bottom: 7px !important; max-width: calc(100% - 58px) !important; }
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count] { width: 34px !important; min-width: 34px !important; padding-bottom: 8px !important; justify-content: center !important; background-size: calc(var(--n, 1) * 8px - 2px) 3px, 30px 3px !important; background-image: repeating-linear-gradient(90deg, var(--foul-color) 0 6px, transparent 6px 8px), repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 6px, transparent 6px 8px) !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline {
+    container-type: inline-size;
+    top: auto !important; bottom: 6px !important; left: 36px !important; right: 36px !important;
+    width: auto !important; max-width: none !important; margin: 0 !important;
+    flex-direction: column-reverse !important; align-items: center !important; gap: 3px !important;
+  }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count] {
+    --seg: calc(100cqw / 4);
+    width: calc(100% - 2px) !important; min-width: 0 !important; padding: 0 0 7px !important; gap: 0 !important;
+    background-image:
+      repeating-linear-gradient(90deg, var(--foul-color) 0, var(--foul-color) calc(var(--seg) - 2px), transparent calc(var(--seg) - 2px), transparent var(--seg)),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0, rgba(255, 255, 255, 0.16) calc(var(--seg) - 2px), transparent calc(var(--seg) - 2px), transparent var(--seg)) !important;
+    background-size: calc(var(--n, 1) * var(--seg)) 3px, 100% 3px !important;
+  }
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::before { display: none !important; }
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count]::after { font-size: 20px !important; }
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-minor[data-count],

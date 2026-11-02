@@ -535,9 +535,9 @@ export default function CenterPanel(props: CenterPanelProps) {
           <button type="button" onClick={() => adjustTimer(-10)} className="live-judge-timer__button" aria-label="Минус 10 секунд">−10</button>
           <button type="button" data-testid="live-timer-plus-10" onClick={() => adjustTimer(10)} className="live-judge-timer__button" aria-label="Плюс 10 секунд">+10</button>
           {isTimerRunning ? (
-            <button type="button" onClick={() => setIsTimerRunning(false)} className="live-judge-timer__button live-judge-timer__button--pause"><Pause />Пауза</button>
+            <button type="button" aria-label="Пауза" onClick={() => setIsTimerRunning(false)} className="live-judge-timer__button live-judge-timer__button--pause"><Pause />Пауза</button>
           ) : (
-            <button type="button" onClick={() => setIsTimerRunning(true)} className="live-judge-timer__button live-judge-timer__button--primary"><Play />Старт</button>
+            <button type="button" aria-label="Старт" onClick={() => setIsTimerRunning(true)} className="live-judge-timer__button live-judge-timer__button--primary"><Play />Старт</button>
           )}
           <button type="button" onClick={() => { setIsTimerRunning(false); setTimeLeft(effectiveTimerMax); }} className="live-judge-timer__button" aria-label="Сбросить таймер"><RotateCcw /></button>
           {setIsMuted ? (

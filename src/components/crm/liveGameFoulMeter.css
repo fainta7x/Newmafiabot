@@ -145,18 +145,22 @@ html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline 
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] { animation: none; }
 }
 
-/* The judge timer's button row with «+30 за два фола» (owner, 2026-11-02, after «+10» was added): on a phone six buttons no
-   longer fit in one row (the pause button was squeezed to a sliver), so the row takes two: −10, +10, reset and mute on top,
-   pause (wide) and «+30» below. */
+/* The judge timer's button row with «+30 за два фола» (owner, 2026-11-02, after «+10» was added): on a phone six buttons in one
+   row leave the pause button a sliver, and a second row is cut by the HUD, so the six share the row equally and the pause
+   button keeps only its icon (its name stays for screen readers). */
 @media (max-width: 767px) {
   html body .evening-live-engine-shell .live-judge-timer__buttons.live-judge-timer__buttons--with-extension {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    grid-auto-rows: auto !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 3px !important;
   }
-  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(1) { grid-column: 1; grid-row: 1; }
-  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(2) { grid-column: 2; grid-row: 1; }
-  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(4) { grid-column: 3; grid-row: 1; }
-  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(5) { grid-column: 4; grid-row: 1; }
-  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(3) { grid-column: 1 / span 3; grid-row: 2; }
-  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > :nth-child(6) { grid-column: 4; grid-row: 2; }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > .live-judge-timer__button {
+    min-width: 0 !important;
+    padding-inline: 0 !important;
+    font-size: 10px !important;
+  }
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > .live-judge-timer__button--pause,
+  html body .evening-live-engine-shell .live-judge-timer__buttons--with-extension > .live-judge-timer__button--primary {
+    font-size: 0 !important;
+    gap: 0 !important;
+  }
 }

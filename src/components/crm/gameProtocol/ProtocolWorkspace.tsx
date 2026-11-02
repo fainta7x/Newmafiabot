@@ -6,7 +6,7 @@ import { OverviewView } from './OverviewView';
 import { GameFlowView } from './GameFlowView';
 import { PlayerSheet, PlayersList } from './PlayersView';
 import { ResultView, WinnerSection } from './ResultView';
-import { revealProtocolSection } from './protocolNavigation';
+import { anchorOfTab, revealProtocolSectionSoon, type ProtocolAnchor } from './protocolNavigation';
 import { Card, type Tone } from './ui';
 import { buildCircles, computeChanges, computeIssues, type Change, type ProtocolState } from './protocolReview';
 import type { ProtocolApi } from './types';
@@ -90,13 +90,14 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
     await onConfirm();
   };
 
-  const goto = (tab: ProtocolTab, target?: { circle?: number; seat?: number }) => {
+  const goto = (tab: ProtocolTab, target?: { circle?: number; seat?: number; anchor?: ProtocolAnchor }) => {
     if (target?.circle != null) setCircle(target.circle);
     if (tab === 'players' && target?.seat != null) setSelectedSeat(target.seat);
     // «Игроки» and «Итог» live on the protocol page now.
     setActiveTab(tab === 'players' || tab === 'result' ? 'overview' : tab);
-    // The target is on the page that may already be open: take the eye to it.
-    if (tab === 'players' || tab === 'result') window.setTimeout(() => revealProtocolSection(tab), 60);
+    // The exact block the remark is about: scroll to it and flash it (it may be on a page that is already open).
+    const anchor = target?.anchor ?? anchorOfTab(tab);
+    if (anchor) revealProtocolSectionSoon(anchor);
   };
   const hint = completeHint || saveError || null;
   const toggleReviewed = (index: number) => setReviewed((prev) => ({ ...prev, [index]: !prev[index] }));
@@ -128,7 +129,7 @@ export const ProtocolWorkspace: React.FC<Props> = ({ api, title, subtitle, save,
       {activeTab === 'overview' && (
         <>
           <OverviewView api={api} circles={circles} issues={issues} changes={changes} reviewed={reviewed} onToggleReviewed={toggleReviewed} onGoto={goto} onRevert={onRevert} onConfirm={() => void confirmGame()} onReopen={() => void onReopen()} busy={!!busy}
-            winner={<WinnerSection api={api} />}
+            winner={<WinnerSection api={api} onGoto={goto} />}
             players={<PlayersList api={api} issues={issues} onOpen={setSelectedSeat} />}
             details={<ResultView api={api} />}
             footer={resultExtra} />

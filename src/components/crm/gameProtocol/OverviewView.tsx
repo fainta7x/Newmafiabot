@@ -6,6 +6,7 @@ import { exitLine, type Change, type CircleModel, type Issue } from './protocolR
 import { InfoTag, NeedsTag } from './tags';
 import { LockedNote } from './PlayersView';
 import type { ProtocolTab } from './ProtocolWindow';
+import type { ProtocolAnchor } from './protocolNavigation';
 
 type Props = {
   api: ProtocolApi;
@@ -14,7 +15,7 @@ type Props = {
   changes: Change[];
   reviewed: Record<number, boolean>;
   onToggleReviewed: (circle: number) => void;
-  onGoto: (tab: ProtocolTab, target?: { circle?: number; seat?: number }) => void;
+  onGoto: (tab: ProtocolTab, target?: { circle?: number; seat?: number; anchor?: ProtocolAnchor }) => void;
   onRevert: (change: Change) => void;
   onConfirm: () => void;
   onReopen: () => void;
@@ -62,7 +63,7 @@ export const OverviewView: React.FC<Props> = ({ api, circles, issues, changes, r
           <ul className="space-y-2">
             {issues.map((issue) => (
               <li key={issue.id}>
-                <button type="button" onClick={() => onGoto(issue.tab, { circle: issue.circle, seat: issue.seat })} className={cx('flex min-h-16 w-full items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left', issue.severity === 'error' ? 'border-rose-300/20 bg-rose-300/[0.07]' : 'border-amber-300/20 bg-amber-300/[0.07]')}>
+                <button type="button" onClick={() => onGoto(issue.tab, { circle: issue.circle, seat: issue.seat, anchor: issue.anchor })} className={cx('flex min-h-16 w-full items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left', issue.severity === 'error' ? 'border-rose-300/20 bg-rose-300/[0.07]' : 'border-amber-300/20 bg-amber-300/[0.07]')}>
                   <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', issue.severity === 'error' ? 'bg-rose-300/[0.15] text-rose-100' : 'bg-amber-300/[0.15] text-amber-100')}><AlertTriangle className="h-[18px] w-[18px]" aria-hidden="true" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold leading-5">{issue.title}</span>

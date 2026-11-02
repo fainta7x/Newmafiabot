@@ -218,6 +218,17 @@ export const foulsOf = (events: LiveGameEvent[]): Array<{ seat: number; text: st
   return [...last.values()];
 };
 
+/**
+ * Where a «winner does not match the table» remark leads: the game is not over at the table, so what is missing is a night — the first
+ * circle without its shot (owner, 2026-11-02: «пусть сразу перекидывает на нулевой круг»); with every night there, the winner itself.
+ */
+export const winnerRemarkTarget = (protocol: TournamentGameProtocolData): Pick<Issue, 'tab' | 'circle' | 'anchor'> => {
+  const shots = Array.isArray(protocol.shots) ? protocol.shots : [];
+  const circles = buildCircles(protocol);
+  const firstMissingNight = shots.length;
+  return firstMissingNight < circles.length ? { tab: 'game', circle: firstMissingNight, anchor: 'night' } : { tab: 'result', anchor: 'winner' };
+};
+
 export type Issue = {
   id: string;
   severity: 'error' | 'check';
@@ -226,6 +237,8 @@ export type Issue = {
   tab: 'game' | 'players' | 'result';
   circle?: number;
   seat?: number;
+  /** The exact block to scroll to and flash after the jump. */
+  anchor?: 'winner' | 'players' | 'night' | 'voting';
 };
 
 
@@ -371,20 +384,20 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
   if (!protocol.winner_team && protocol.end_reason !== 'ppk') issues.push({ id: 'winner', severity: 'error', title: 'Не указана победившая команда', tab: 'result' });
 
   const winnerMessage = winnerTableMessage(protocol, results);
-  if (winnerMessage && protocol.winner_team) issues.push({ id: 'winner-table', severity: 'error', title: 'Победитель не сходится со столом', sub: winnerMessage, tab: 'result' });
+  if (winnerMessage && protocol.winner_team) issues.push({ id: 'winner-table', severity: 'error', title: 'Победитель не сходится со столом', sub: winnerMessage, ...winnerRemarkTarget(protocol) });
 
   const firstKilled = protocol.first_killed_participant_id ?? null;
   const playersMessage = validatePlayerResults(results as any[], results as any[], firstKilled, tableSize);
   if (playersMessage) issues.push({ id: 'players', severity: 'error', title: playersMessage, tab: 'players' });
-  for (const item of deadTargetShotMessages(protocol)) issues.push({ id: `shot-dead-${item.night}`, severity: 'error', title: item.message, tab: 'game', circle: item.night - 1 });
-  for (const item of voterCountIssues(protocol, results)) issues.push({ id: `voters-${item.round}`, severity: 'check', title: item.message, tab: 'game', circle: item.day });
+  for (const item of deadTargetShotMessages(protocol)) issues.push({ id: `shot-dead-${item.night}`, severity: 'error', title: item.message, tab: 'game', circle: item.night - 1, anchor: 'night' });
+  for (const item of voterCountIssues(protocol, results)) issues.push({ id: `voters-${item.round}`, severity: 'check', title: item.message, tab: 'game', circle: item.day, anchor: 'voting' });
   const shotsMessage = validateShots(protocol.shots, tableSize, results, true);
-  if (shotsMessage) issues.push({ id: 'shots', severity: 'error', title: shotsMessage, tab: 'game', circle: 0 });
+  if (shotsMessage) issues.push({ id: 'shots', severity: 'error', title: shotsMessage, tab: 'game', circle: 0, anchor: 'night' });
   const firstMessage = validateFirstKilled(firstKilled, results as any[], results as any[], protocol.shots as any[]);
-  if (firstMessage) issues.push({ id: 'first-killed', severity: 'error', title: firstMessage, tab: 'game', circle: 0 });
+  if (firstMessage) issues.push({ id: 'first-killed', severity: 'error', title: firstMessage, tab: 'game', circle: 0, anchor: 'night' });
   const participantIds = results.map((player) => player.participant_id);
   const movesMessage = validateBestMoves(protocol.best_moves || [], firstKilled, protocol.zero_round_voted_participant_id ?? null, participantIds, results as any[], tableSize);
-  if (movesMessage) issues.push({ id: 'best-move', severity: 'error', title: movesMessage, tab: 'game', circle: 0 });
+  if (movesMessage) issues.push({ id: 'best-move', severity: 'error', title: movesMessage, tab: 'game', circle: 0, anchor: 'night' });
   if (votesOf(protocol).length) {
     const voting = validateProtocolVoting(protocol.votes as any, results as any[], protocol.zero_round_voted_participant_id ?? null, true, { tableSize, zeroRoundRule });
     if (voting.errorMsg) {
@@ -392,7 +405,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
       const day = round ? Number(round.day_number ?? 0) : 0;
       // The check speaks of «Голосование (№3)»; the window speaks of circles.
       const title = voting.errorMsg.replace(/^Голосование \(№\d+(?:, нулевой круг)?\):?\s*/, `${circleTitle(day, protocol)}: `).replace(/^Голосование:\s*/, `${circleTitle(day, protocol)}: `);
-      issues.push({ id: 'voting', severity: 'error', title, tab: 'game', circle: day });
+      issues.push({ id: 'voting', severity: 'error', title, tab: 'game', circle: day, anchor: 'voting' });
     }
   }
 
@@ -421,7 +434,7 @@ export const computeIssues = (state: ProtocolState, zeroRoundRule: ZeroRoundRule
       issues.push({
         id: `${kind}-checks`, severity: 'check',
         title: missing[kind].length === 1 ? `${circleTitle(missing[kind][0], protocol)}: проверка ${who} не отмечена` : `Проверка ${who} не отмечена: ${missing[kind].map((index) => circleTitle(index, protocol)).join('; ')}`,
-        sub: `В игре ${kind === 'don' ? 'Дон' : 'Шериф'} проверку не указал`, tab: 'game', circle: missing[kind][0],
+        sub: `В игре ${kind === 'don' ? 'Дон' : 'Шериф'} проверку не указал`, tab: 'game', circle: missing[kind][0], anchor: 'night',
       });
     }
     for (const player of results) {

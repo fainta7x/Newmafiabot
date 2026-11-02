@@ -30,6 +30,7 @@ import "./components/crm/liveGameWideDesktop.css";
 import "./components/crm/liveGameSeatDisciplineClearance.css";
 import "./components/crm/liveGameFoulMeter.css";
 import "./components/crm/liveGameNightStage.css";
+import "./components/crm/liveSeatGrid.css";
 import "./components/public/liveBroadcastCompact.css";
 
 initializeTelegramWebAppViewport();

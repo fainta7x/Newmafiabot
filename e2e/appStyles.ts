@@ -20,4 +20,5 @@ import '../src/components/crm/liveGameWideDesktop.css';
 import '../src/components/crm/liveGameSeatDisciplineClearance.css';
 import '../src/components/crm/liveGameFoulMeter.css';
 import '../src/components/crm/liveGameNightStage.css';
+import '../src/components/crm/liveSeatGrid.css';
 import '../src/components/public/liveBroadcastCompact.css';

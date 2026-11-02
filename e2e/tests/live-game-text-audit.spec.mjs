@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { auditScreen } from './support/layoutAudit.mjs';
+import { auditScreen, auditSeatZones } from './support/layoutAudit.mjs';
 
 // Every screen of a live game, phone and desktop (owner, 2026-10-27: «текст на тексте», «ПЕРЕ…»): no text sits on other
 // text, no label is cut to «…», nothing leaves its box or the screen, and no button is covered.
@@ -43,6 +43,8 @@ for (const [width, height, wideFont] of VIEWPORTS) {
         if (layerBaseline === null) layerBaseline = drift;
         else if (Math.abs(drift - layerBaseline) > 6) report.push(`${screen}: the avatar layer moved ${drift - layerBaseline}px off the seat cards`);
       }
+      // The parts of a seat card never intersect (owner, 2026-11-02).
+      for (const issue of await page.evaluate(auditSeatZones)) report.push(`${screen}: ${issue}`);
     };
     const speech = async (slot, nominee) => {
       await page.getByRole('button', { name: new RegExp(`Речь #${slot}(?:\\s| ·|$)`) }).last().click();

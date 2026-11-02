@@ -260,3 +260,55 @@ export const auditScreen = () => {
   forceHit.remove();
   return [...issues];
 };
+
+/**
+ * «Elements of a seat card never intersect» (owner, 2026-11-02: «постоянно борьба с наезжающими друг на друга элементами»). For every
+ * seat card of the live board the rectangles of its parts are compared pairwise: the quick buttons, the seat number, the role slot,
+ * the foul pills, the state text, and the avatar and nickname that sit in a separate layer over the board. A pair that overlaps by
+ * more than 2 px both ways is reported. Runs in the page; returns plain strings, an empty list when clean.
+ */
+export const auditSeatZones = () => {
+  const issues = new Set();
+  const rect = (el) => el.getBoundingClientRect();
+  const visible = (el) => {
+    const r = rect(el);
+    if (r.width < 2 || r.height < 2) return false;
+    const style = getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0.05;
+  };
+  for (const card of document.querySelectorAll('.live-seat-card[data-seat]')) {
+    const seat = card.getAttribute('data-seat');
+    const zones = [];
+    const add = (name, nodes) => { for (const el of nodes) if (visible(el)) zones.push({ name: name === 'состояние' ? `состояние «${(el.textContent || '').trim().slice(0, 14)}»` : name, el, r: rect(el) }); };
+    add('кнопка карточки', card.querySelectorAll('.live-seat-quick-action'));
+    add('номер места', card.querySelectorAll('.live-seat-number'));
+    add('слот роли', card.querySelectorAll('.live-seat-role'));
+    add('фолы', card.querySelectorAll('.evening-live-discipline > span'));
+    add('состояние', card.querySelectorAll('.live-seat-state__value, .live-seat-state__label'));
+    // In the evening Live game the avatar and the nickname are cells of the card (`.live-seat-id`); training keeps a layer over the board.
+    add('аватар', card.querySelectorAll('.live-seat-id__avatar'));
+    add('ник', card.querySelectorAll('.live-seat-id__name'));
+    const identity = document.querySelector(`.evening-live-identity[data-seat="${seat}"]`);
+    if (identity) {
+      add('аватар', identity.querySelectorAll('.evening-live-player-avatar'));
+      add('ник', identity.querySelectorAll('.evening-live-identity-name'));
+    }
+    const box = rect(card);
+    for (const zone of zones) {
+      // A part must lie inside its own card (a part pushed out of the card is a defect as much as an overlap).
+      if (zone.r.left < box.left - 1 || zone.r.right > box.right + 1 || zone.r.top < box.top - 1 || zone.r.bottom > box.bottom + 1) {
+        issues.add(`seat ${seat}: «${zone.name}» sticks out of the card [x ${Math.round(zone.r.left)}–${Math.round(zone.r.right)} / card ${Math.round(box.left)}–${Math.round(box.right)}, y ${Math.round(zone.r.top)}–${Math.round(zone.r.bottom)} / ${Math.round(box.top)}–${Math.round(box.bottom)}]`);
+      }
+    }
+    for (let i = 0; i < zones.length; i += 1) {
+      for (let j = i + 1; j < zones.length; j += 1) {
+        const a = zones[i]; const b = zones[j];
+        if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+        const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+        const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+        if (w > 2 && h > 2) issues.add(`seat ${seat}: «${a.name}» overlaps «${b.name}» by ${Math.round(w)}×${Math.round(h)} px [x ${Math.round(a.r.left)}–${Math.round(a.r.right)} / ${Math.round(b.r.left)}–${Math.round(b.r.right)}]`);
+      }
+    }
+  }
+  return [...issues];
+};

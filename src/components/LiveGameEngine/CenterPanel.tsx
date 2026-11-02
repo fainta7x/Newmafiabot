@@ -250,7 +250,12 @@ export default function CenterPanel(props: CenterPanelProps) {
   // The numbers window belongs to one vote count: it closes when the count ends.
   // «Цифрами» is the main way to count (owner, 2026-11-02): the window opens by itself when a vote count starts. The judge can
   // fold it («Свернуть») to see the table, fouls and the seat cards, and open it again with «Цифрами».
-  React.useEffect(() => { setNumbersOpen(votingStage === 'collecting'); }, [votingStage]);
+  // Not in the judge training: its input gate only lets the coach's highlighted seats through, so a window that opened by itself would
+  // cover them and could not be folded (found by the training specs, 2026-11-02); there «Цифрами» stays a button.
+  React.useEffect(() => {
+    const training = typeof document !== 'undefined' && Boolean(document.querySelector('[data-training-input-gate="active"]'));
+    setNumbersOpen(votingStage === 'collecting' && !training);
+  }, [votingStage]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);

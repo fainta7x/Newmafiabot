@@ -106,7 +106,8 @@ interface PlayerActionOverlayProps {
   onToggleNomination: (slot: number) => void;
   onDirectRemove: (slot: number) => void;
   onPpk: (slot: number) => void;
-  onEditNote: (player: ActivePlayerState) => void;
+  /** Saves the judge's note for the player (empty text clears it). */
+  onEditNote: (player: ActivePlayerState, note: string) => void;
   onRestorePlayer: (slot: number) => void;
   /** «Вскрытие»: the player openly claims to be the Sheriff; the judge records the announced checks right in the sheet. */
   reveal?: LiveReveal | null;
@@ -198,7 +199,19 @@ export function PlayerActionOverlay({
             </button>
           )}
           {mode === 'standard' && (
-            <button type="button" onClick={() => onEditNote(player)} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-black">Заметка</button>
+            <label className="col-span-2 block">
+              <span className="text-[10px] uppercase font-black tracking-wider text-slate-500">Заметка о игроке</span>
+              <textarea
+                key={player.slot_num}
+                data-testid="live-player-note"
+                rows={2}
+                maxLength={300}
+                defaultValue={player.note || ''}
+                onBlur={(event) => { if (event.target.value.trim() !== (player.note || '')) onEditNote(player, event.target.value); }}
+                placeholder="Что заметили за столом"
+                className="mt-1 w-full resize-none rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-600"
+              />
+            </label>
           )}
           {canDirectRemove && (
             <button type="button" onClick={() => onDirectRemove(player.slot_num)} className="min-h-12 rounded-xl bg-red-950/60 border border-red-700/70 text-red-200 text-xs font-black">Удалить</button>

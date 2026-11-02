@@ -86,6 +86,14 @@ const renderActions = ({
 afterEach(cleanup);
 
 describe('Live Game actions for players outside the table', () => {
+  it('saves the judge note typed right in the sheet (no browser prompt)', () => {
+    const handlers = renderActions();
+    const box = screen.getByTestId('live-player-note') as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: 'Часто перебивает' } });
+    fireEvent.blur(box);
+    expect(handlers.onEditNote).toHaveBeenCalledWith(expect.objectContaining({ slot_num: 4 }), 'Часто перебивает');
+  });
+
   it('allows direct removal and PPK for a player eliminated by voting', () => {
     const handlers = renderActions();
 

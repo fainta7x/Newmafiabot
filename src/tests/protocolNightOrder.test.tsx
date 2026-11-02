@@ -39,10 +39,12 @@ const renderCircle = (circleIndex: number, api = makeApi()) => {
 };
 
 describe('night order in the protocol (owner, 2026-11-02, game 24: «не могу поставить убийство во вторую ночь»)', () => {
-  it('the first night offers «Добавить ночь» and writes it', () => {
+  it('the first night offers a shot and a miss (owner, 2026-11-02: «не выбрано убийство — значит промах»)', () => {
     const { api } = renderCircle(0);
-    fireEvent.click(screen.getByRole('button', { name: /Добавить ночь/ }));
+    fireEvent.click(screen.getByTestId('night-add-miss'));
     expect(api.addNight).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('night-add-shot'));
+    expect(api.addNight).toHaveBeenCalledTimes(2);
   });
 
   it('the second night does not just refuse: it can write the missing first night as a miss, or jump to it', () => {
@@ -65,6 +67,6 @@ describe('night order in the protocol (owner, 2026-11-02, game 24: «не мог
   it('a confirmed game says why nothing can be edited and keeps the buttons off', () => {
     renderCircle(0, makeApi(true));
     expect(screen.getByText(/Игра подтверждена/)).toBeTruthy();
-    expect((screen.getByRole('button', { name: /Добавить ночь/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('night-add-miss') as HTMLButtonElement).disabled).toBe(true);
   });
 });

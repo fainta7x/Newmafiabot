@@ -291,7 +291,13 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       for (const split of mode === 'club' ? splitResults : []) {
         if (!split.voters.has(me.seat)) continue;
         for (const seat of split.left) {
-          if (blackRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, points: W.splitBlackOut });
+          if (blackRole(roleOf.get(seat))) {
+            // Owner, 2026-11-02: a black who left by a split is the same «заголосованный чёрный» as any other — one credit slot per black
+            // (8 Elo at most), shared with the check, the vote and the will. It used to be added on top (+12 for a checked black).
+            const out: ContributionItem = { kind: 'split_outcome', seat, points: W.splitBlackOut };
+            items.push(out);
+            finds.push({ item: out, target: seat, value: W.splitBlackOut, seq: votedOutAt.get(seat) ?? null, ownDecision: false });
+          }
           else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, points: W.splitRedOut });
         }
       }

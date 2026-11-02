@@ -368,6 +368,44 @@ describe('agreed split («попил») and a black already paid by a vote (owne
   });
 });
 
+describe('a black who left by a split is one credit with the check (owner, 2026-11-02: «максимум 2 начисления, не +12»)', () => {
+  it('a sheriff who checked a black who then left by a split earns that black once: +4 (check) +4 (left), not +12', () => {
+    const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+    const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: index === 7 ? 'voted_day' : 'alive' }));
+    const events = [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: 'x', round: 1, phase: 'night', kind: 'sheriff_check', target: 8, value: 'black' },
+      { seq: 21, at: 'x', round: 1, phase: 'night', kind: 'night_step', value: 'morning' },
+      { seq: 3, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 1, target: 3 },
+      { seq: 4, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
+      { seq: 5, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 8, value: 'voted_day' },
+      { seq: 6, at: 'x', round: 3, phase: 'night', kind: 'game_end', value: 'red' },
+    ];
+    const protocol = { winner_team: 'red', events, votes: [{ round_number: 1, day_number: 0 }, { round_number: 2, day_number: 1, no_scoring: true, eliminated_seats: [8] }] };
+    const sheriff = gameContribution({ protocol, player_results: results }).find((item) => item.seat === 1)!;
+    const forBlack8 = sheriff.items.filter((item) => item.seat === 8 && ['check_black', 'check_voted_out', 'split_outcome', 'found_black'].includes(item.kind));
+    const total = forBlack8.reduce((sum, item) => sum + item.points, 0);
+    expect(total * 40).toBeCloseTo(8, 6);
+    expect(forBlack8.filter((item) => item.points > 1e-10).length).toBeLessThanOrEqual(2);
+  });
+
+  it('a red who only saw the split still earns +4 for the black who left, once', () => {
+    const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
+    const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: index === 7 ? 'voted_day' : 'alive' }));
+    const events = [
+      { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: 'x', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 3 },
+      { seq: 3, at: 'x', round: 2, phase: 'day_voting', kind: 'vote_round_result', value: '1:single_eliminated' },
+      { seq: 4, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 8, value: 'voted_day' },
+      { seq: 5, at: 'x', round: 3, phase: 'night', kind: 'game_end', value: 'red' },
+    ];
+    const protocol = { winner_team: 'red', events, votes: [{ round_number: 1, day_number: 0 }, { round_number: 2, day_number: 1, no_scoring: true, eliminated_seats: [8] }] };
+    const red = gameContribution({ protocol, player_results: results }).find((item) => item.seat === 2)!;
+    expect(red.items.filter((item) => item.kind === 'split_outcome' && item.points > 0)).toHaveLength(1);
+    expect(red.points * 40).toBeCloseTo(4, 6);
+  });
+});
+
 describe('a revote at a восьмёрка or шестёрка marks the whole day as a split (owner, 2026-10-26)', () => {
   it('tags every voting of that day, and nothing at nine', () => {
     const keys = unscoredVotings({ votes: [

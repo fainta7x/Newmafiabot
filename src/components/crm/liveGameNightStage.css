@@ -38,3 +38,6 @@
   .live-night-stage__head strong { font-size: 16px; }
 }
 .live-judge-hud--night .live-judge-hud__summary { display: none !important; }
+
+/* The avatar layer follows the board down by the banner's height. */
+html body .evening-live-engine-shell .evening-live-identity-layer { margin-top: var(--night-banner-h, 0px) !important; }

@@ -368,7 +368,7 @@ export default function LiveBroadcastOverlay({ token, replayState }: LiveBroadca
           return (
             <article
               key={player.seat}
-              className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : 'is-out'} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
+              className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : `is-out exit-${player.statusKind}`} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
             >
               {/* The face first (owner, 2026-10-01): a large portrait with a role emblem. */}
               <div className="live-broadcast-player-head">

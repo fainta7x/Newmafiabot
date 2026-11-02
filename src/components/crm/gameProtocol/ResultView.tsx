@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { winnerTableMessage } from './protocolReview';
+import { winnerRemarkTarget, winnerTableMessage } from './protocolReview';
 import { AlertTriangle, ChevronDown, UserRoundCog } from 'lucide-react';
 import { api as backend, type Player } from '../../../lib/api';
 import { clubGamesApi } from '../../../lib/clubGamesApi';
@@ -10,6 +10,7 @@ import { RevealsCard } from './RevealsCard';
 import { GameAnalysis } from '../tournaments/protocol/GameAnalysis';
 
 type Props = { api: ProtocolApi };
+type WinnerProps = Props & { onGoto?: (tab: 'game', target: { circle: number; anchor: 'night' }) => void };
 
 const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
   const guests = useMemo(() => api.results.filter((player) => !String(player.player_id || '').trim() || Boolean((player as any).guest_placeholder_id)).slice().sort((a, b) => a.seat_number - b.seat_number), [api.results]);
@@ -79,13 +80,14 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
 };
 
 /** Who won (or the PPK that decided it): the first thing on the protocol page. */
-export const WinnerSection: React.FC<Props> = ({ api }) => {
+export const WinnerSection: React.FC<WinnerProps> = ({ api, onGoto }) => {
   const { protocol, results, locked } = api;
   const ppk = protocol.end_reason === 'ppk';
   const culprit = results.find((player) => player.participant_id === protocol.ppk_culprit_participant_id);
   const tableMessage = winnerTableMessage(protocol, results);
+  const remarkTarget = winnerRemarkTarget(protocol);
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" id="protocol-winner">
       <section aria-label="Победитель" className="space-y-2">
         <Eyebrow className="px-1">Победитель</Eyebrow>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Победившая команда">
@@ -98,7 +100,7 @@ export const WinnerSection: React.FC<Props> = ({ api }) => {
         </div>
       </section>
 
-      {tableMessage ? <Card tone="warn" className="flex items-start gap-3" data-testid="winner-table-warning"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-100" aria-hidden="true" /><div className="min-w-0 flex-1 text-[13px] leading-5 text-amber-50">{tableMessage}</div></Card> : null}
+      {tableMessage ? <Card tone="warn" className="flex items-start gap-3" data-testid="winner-table-warning"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-100" aria-hidden="true" /><div className="min-w-0 flex-1 space-y-2 text-[13px] leading-5 text-amber-50"><div>{tableMessage}</div>{remarkTarget.tab === 'game' && onGoto ? <button type="button" data-testid="winner-table-goto" onClick={() => onGoto('game', { circle: remarkTarget.circle ?? 0, anchor: 'night' })} className="min-h-11 rounded-xl border border-amber-200/30 px-3 text-left text-[13px] font-semibold text-amber-50">Перейти к ночи, которой не хватает →</button> : null}</div></Card> : null}
 
       {ppk ? (
         <Card tone="warn" className="flex items-center gap-3"><AlertTriangle className="h-5 w-5 shrink-0 text-amber-100" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="text-sm font-semibold">Игра закончилась ППК</div><div className="text-[12px] text-white/60">Виновник: #{culprit?.seat_number} {culprit?.display_name}. Победитель определён автоматически.</div></div>{!locked ? <Btn kind="ghost" className="px-3 text-[13px]" onClick={() => api.cancelPpk()}>Отменить</Btn> : null}</Card>

@@ -10,6 +10,7 @@ import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx 
 import type { ProtocolApi } from './types';
 import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
+import { revealProtocolSectionSoon } from './protocolNavigation';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
 import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, setSplitBreakTag, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
@@ -447,6 +448,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         <ul className="space-y-2">{circleIssues.map((issue) => <li key={issue.id} className={cx('rounded-2xl border px-3.5 py-2.5 text-[13px] leading-5', issue.severity === 'error' ? 'border-rose-300/20 bg-rose-300/[0.07] text-rose-50' : 'border-amber-300/20 bg-amber-300/[0.07] text-amber-50')}>{issue.title}{issue.sub ? <span className="block text-[12px] text-white/50">{issue.sub}</span> : null}</li>)}</ul>
       ) : null}
 
+      <div id="circle-voting" className="space-y-3">
       {chains.map((chain) => (
         <div key={chain[0]} className="space-y-3">
           {chain.map((roundIndex, position) => renderVotingCard(roundIndex, position))}
@@ -455,6 +457,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
 
       {circle.rootRounds.length === 0 ? <Card className="text-[13px] leading-5 text-white/55">В этом круге нет голосования. Если оно было, добавьте его.</Card> : null}
       <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addVoting(circle.index)}><Plus className="h-4 w-4" aria-hidden="true" />Добавить голосование</Btn>
+      </div>
 
       {circle.index === 0 && circle.rootRounds.length ? (
         <Card tone="warn" className="space-y-2">
@@ -467,11 +470,17 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
         </Card>
       ) : null}
 
-      <Card tone="night" className="space-y-2.5">
+      <div id="circle-night"><Card tone="night" className="space-y-2.5">
         <Eyebrow>{circle.index === 0 ? 'Первая ночь' : `Ночь после: ${circle.title}`}</Eyebrow>
         {shot && shotText
           ? nightRow('Выстрел мафии', shotText, shot.result === 'killed' ? 'ok' : 'quiet', () => setSheet({ type: 'shot', index: circle.shotIndex }))
-          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : earlierNightMissing ? <Btn kind="ghost" block data-testid="night-order-hint" onClick={() => onCircle(firstMissingNight)}>Сначала запишите ночь после: {circles[firstMissingNight]?.title || 'предыдущего круга'}</Btn> : nightRow('Выстрел мафии', 'не записан', 'quiet')}
+          : canAddNight ? <Btn kind="ghost" block disabled={api.locked} onClick={() => api.addNight()}><Plus className="h-4 w-4" aria-hidden="true" />Добавить ночь</Btn> : earlierNightMissing ? (
+            <div className="space-y-2" data-testid="night-order-hint">
+              <p className="text-[13px] leading-5 text-white/70">Ночь после «{circles[firstMissingNight]?.title || 'предыдущего круга'}» ещё не записана, а эта ночь идёт по порядку после неё.</p>
+              <Btn kind="soft" block disabled={api.locked} data-testid="night-order-miss" onClick={() => { for (let i = 0; i < circle.index - firstMissingNight; i += 1) api.addNight(); }}>Выстрела не было — записать {circle.index - firstMissingNight > 1 ? 'эти ночи' : 'ночь'} как промах</Btn>
+              <Btn kind="ghost" block data-testid="night-order-go" onClick={() => { onCircle(firstMissingNight); revealProtocolSectionSoon('night'); }}>Перейти к ночи после «{circles[firstMissingNight]?.title || 'предыдущего круга'}»</Btn>
+            </div>
+          ) : nightRow('Выстрел мафии', 'не записан', 'quiet')}
         {true ? (
           <>
             {nightRow('Проверка Дона', checks.don ? <span className="flex flex-wrap items-center gap-2"><span>#{checks.don.target} {nameOf(checks.don.target || 0)}</span><CheckAnswerTag kind="don" result={checkAnswerOf('don', roleOfSeat(checks.don.target)) ?? checks.don.result} />{!donHere ? <span className="text-[12px] text-amber-100">Дона уже нет за столом</span> : null}</span> : !donHere ? 'Дона нет за столом' : sheriffFound ? 'Шериф уже найден' : 'не было', checks.don && !donHere ? 'warn' : checks.don ? 'ok' : 'quiet', () => setSheet({ type: 'check', kind: 'don' }))}
@@ -479,7 +488,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           </>
         ) : null}
         {circle.index === 0 ? nightRow('Первый убитый и лучший ход', firstKilled ? <span className="flex flex-wrap items-center gap-2"><span>#{firstKilled.seat_number} {firstKilled.display_name}</span><FirstKilledTag />{bestMoveOf('first_killed').length ? <BestMoveTag /> : <InfoTag tone="attention">Ход не указан</InfoTag>}{bestMoveOf('first_killed').length ? <span className="text-[13px] text-white/60">{bestMoveOf('first_killed').map((seat) => `#${seat}`).join(' ')}</span> : null}</span> : 'не выбран', firstKilled ? 'ok' : 'quiet', () => setSheet({ type: 'first-killed' })) : null}
-      </Card>
+      </Card></div>
 
       {exits.length || fouls.length ? (
         <Card className="space-y-3">

@@ -76,6 +76,13 @@ const checkInvariants = (state: { protocol: any; results: any[] }, op: string): 
     const circles = buildCircles(protocol);
     circles.forEach((circle) => { if (!circleTitle(circle.index, protocol).trim()) at('empty circle title'); });
     winnerTableMessage(protocol, results);
+    // Every remark is a working link (owner, 2026-11-02): a circle that exists and the block to show in it.
+    for (const issue of computeIssues({ protocol, results } as any)) {
+      if (issue.tab === 'game') {
+        if (!(Number(issue.circle) >= 0 && Number(issue.circle) < circles.length)) at(`remark ${issue.id} leads to circle ${issue.circle} of ${circles.length}`);
+        if (!issue.anchor) at(`remark ${issue.id} names no block to show`);
+      }
+    }
     validateProtocolVoting(protocol.votes || [], results.map(() => ({})) as any, null, protocol.zero_round_rule);
   } catch (error: any) { at(`review threw: ${error?.message}`); }
   // The record must be accepted by the server's save gate as a draft: a window that builds a state the server refuses breaks «не могу сохранить».

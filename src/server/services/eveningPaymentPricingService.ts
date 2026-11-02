@@ -211,6 +211,9 @@ export async function countCompletedEveningGames(db: DatabaseWrapper, eveningId:
  * «Покупка роли» in the virtual deal (owner, 2026-11-01): roles bought during the evening's deals, in roubles per player.
  * Read from the stored deal state, so taking a purchase back (undo / redeal) takes the charge back too.
  */
+/** Bought roles are charged on every evening except rating and tournament ones; a club evening charges them in reconcileRegularEveningPayments. */
+export const rolePurchasesCharged = (evening: { format?: unknown }) => normalizeEveningFormat(evening.format) === 'NOVICE';
+
 export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string): Promise<Map<string, number>> {
   const totals = new Map<string, number>();
   let rows: Array<{ state_json: string }> = [];
@@ -357,7 +360,6 @@ export async function reconcileRegularEveningPayments(
 export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, eveningId: string): Promise<void> {
   const evening = await db.get<any>('SELECT id, title, format, status, settled_at, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening || normalizeEveningFormat(evening.format) === 'CASUAL') return;
-  if (!(await tableExists(db, 'evening_extensions'))) return;
 
   const participants = await db.all<any>('SELECT ep.* FROM evening_participants ep WHERE ep.evening_id = ?', [eveningId]);
   if (!participants.length || !('extension_total_due' in participants[0])) return;
@@ -375,6 +377,8 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
 
   const { completedGameParticipants } = await loadCompletedGames(db, eveningId, participants);
   const { shares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedOrganizerId, assignedJudgeId);
+  // «Покупка роли» on a novice evening (owner, 2026-11-02: every format except rating and tournament) is charged as an add-on, like an extension.
+  const rolePurchases = rolePurchasesCharged(evening) ? await loadRolePurchases(db, eveningId) : new Map<string, number>();
   const closed = evening.status === 'completed' || Boolean(evening.settled_at);
   const now = new Date().toISOString();
 
@@ -386,7 +390,8 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
       // A player who is free of the evening — a gifted evening, or a shop free-evening credit that set `waived` with a zero amount
       // without writing a waiver row — is free of the extension too.
       const freeOfCharge = waivedIds.has(participantId) || (String(participant.payment_status) === 'waived' && due === 0);
-      const newExtension = !freeOfCharge ? (shares.get(participantId) || 0) : 0;
+      const newExtension = (!freeOfCharge ? (shares.get(participantId) || 0) : 0) + (rolePurchases.get(String(participant.player_id)) || 0);
+      // A bought role is a purchase, not a fee: it is charged even to a player who plays free (same as on a club evening).
       const previousTotal = Number(participant.extension_total_due || 0);
       const ourTotalStillStands = oldExtension > 0 && due === previousTotal;
       if (newExtension === oldExtension && (oldExtension === 0 || ourTotalStillStands)) continue;
@@ -406,7 +411,7 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
           eveningId,
           playerId: String(participant.player_id),
           participantId,
-          description: `Продление вечера: ${String(evening.title || 'Игровой вечер')}`,
+          description: `Продление вечера и покупки ролей: ${String(evening.title || 'Игровой вечер')}`,
         });
       }
     }
@@ -418,9 +423,11 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
  * charged while the evening runs; the closing wrote the ledger from those amounts). Evenings without an extension are left as the closing wrote them.
  */
 export async function reconcileExtensionsAfterClose(db: DatabaseWrapper, eveningId: string): Promise<void> {
-  if (!(await tableExists(db, 'evening_extensions'))) return;
-  const row = await db.get<any>('SELECT 1 AS present FROM evening_extensions WHERE evening_id = ? LIMIT 1', [eveningId]);
-  if (!row) return;
+  const hasExtension = (await tableExists(db, 'evening_extensions'))
+    && Boolean(await db.get<any>('SELECT 1 AS present FROM evening_extensions WHERE evening_id = ? LIMIT 1', [eveningId]));
+  const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  const hasPurchase = Boolean(evening) && rolePurchasesCharged(evening) && (await loadRolePurchases(db, eveningId)).size > 0;
+  if (!hasExtension && !hasPurchase) return;
   await reconcileRegularEveningPayments(db, eveningId);
   await reconcileOtherFormatExtensions(db, eveningId);
 }

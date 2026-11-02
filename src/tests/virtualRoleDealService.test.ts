@@ -43,7 +43,7 @@ async function storedDeck(db: DatabaseWrapper) {
 
 describe('server virtual role deal', () => {
   it('«Покупка роли» takes that role out of the deck for the seat and undo puts it back', async () => {
-    const { db } = await setup('RATING');
+    const { db } = await setup('CASUAL');
     let view = await openVirtualRoleDeal(db, gameId);
     const bought = await buyVirtualRole(db, gameId, 1, 'don', view.version);
     expect(bought.priceRub).toBe(150);
@@ -68,6 +68,26 @@ describe('server virtual role deal', () => {
     expect(await due()).toBe(150);
     await undoVirtualRole(db, gameId, bought.version);
     expect(await due()).toBe(0);  });
+
+  it('adds a bought role to the debt on a novice evening on top of the price already written, and takes it back on undo', async () => {
+    const { db } = await setup('NOVICE');
+    const now = new Date().toISOString();
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['other-0', 'Новичок', now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+      VALUES ('participant-0','role-ev','other-0','attended','unpaid',300,0,?,?)`, [now, now]);
+    const due = async () => Number((await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'participant-0'"))!.amount_due);
+    const view = await openVirtualRoleDeal(db, gameId);
+    const bought = await buyVirtualRole(db, gameId, 1, 'don', view.version);
+    expect(await due()).toBe(450);
+    await undoVirtualRole(db, gameId, bought.version);
+    expect(await due()).toBe(300);
+  });
+
+  it.each(['RATING', 'TOURNAMENT'] as const)('does not sell a role on a %s evening (owner, 2026-11-02)', async (format) => {
+    const { db } = await setup(format as any);
+    const view = await openVirtualRoleDeal(db, gameId);
+    await expect(buyVirtualRole(db, gameId, 1, 'don', view.version)).rejects.toThrow(/недоступна на рейтинговых и турнирных/);
+  });
 
   it.each(['CASUAL', 'NOVICE', 'STANDARD'] as const)('keeps a red for the tenth seat in %s without exposing unopened roles', async (format) => {
     const { db } = await setup(format);

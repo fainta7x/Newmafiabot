@@ -128,10 +128,10 @@ html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline 
 }
 
 /* Phones (owner, 2026-11-02: the big glowing digit with a bar looked crude and scary): the seat is narrow, so the fouls are a
-   small quiet capsule between the seat number and the role slot — «Ф» and the count, the danger shown by the colour of the
+   small quiet capsule in the top-right corner of the card (the gap between the seat number and the role slot is only 26 px) — «Ф» and the count, the danger shown by the colour of the
    rim and a faint tint, no glow, no bar. */
 @media (max-width: 767px) {
-  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline { flex-direction: column !important; align-items: center !important; gap: 3px !important; bottom: 8px !important; max-width: calc(100% - 58px) !important; }
+  html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline { top: 6px !important; bottom: auto !important; left: auto !important; right: 6px !important; width: auto !important; max-width: none !important; margin: 0 !important; flex-direction: column !important; align-items: flex-end !important; gap: 3px !important; }
   html body .evening-live-engine-shell .live-seat-card > .evening-live-discipline > .evening-live-discipline-foul[data-count] {
     flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 3px !important;
     width: 38px !important; min-width: 38px !important; height: 25px !important; padding: 0 !important;

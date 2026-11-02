@@ -13,7 +13,9 @@ import { auditScreen, auditSeatZones } from './support/layoutAudit.mjs';
 const STEPS = Number(process.env.STRESS_STEPS || 120);
 const STARTS = String(process.env.STRESS_START || 'round0,speeches,voting,result,night').split(',');
 const SEEDS = String(process.env.STRESS_SEED || '1,2,3').split(',').map(Number);
-const VIEWPORTS = [[360, 640], [390, 844], [1366, 768], [1440, 900], [1920, 1089]];
+const ALL_VIEWPORTS = [[360, 640], [390, 844], [1366, 768], [1440, 900], [1920, 1089]];
+const WANTED = process.env.STRESS_SIZES ? new Set(process.env.STRESS_SIZES.split(',').map(Number)) : null;
+const VIEWPORTS = ALL_VIEWPORTS.filter(([width]) => !WANTED || WANTED.has(width));
 // Most taps go to what moves the game on, so a walk reaches the night, the voting, the revote, the shootout and the end, not only the first round.
 const PROGRESS = /следующ|завершить|к голосованию|начать|подтвердить|сохранить|далее|подвести|открыть|зафиксировать|продолжить|дальше|отстрел|проверка|протокол убитого|лх|да, |поднять|оставить|пауза|выставить/i;
 // What a random walk must not press: it leaves the game or ends it for good, which only restarts the walk.

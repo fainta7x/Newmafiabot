@@ -112,9 +112,9 @@ export default function LiveGameStateSheet({ open, gameNumber, hideRoles = false
                       <span className="text-xs font-semibold">#{player.seat}</span>
                       {!player.alive && <span className="text-[10px] font-semibold uppercase text-rose-200/65">вне игры</span>}
                     </div>
-                    <div className="mt-0.5 truncate text-[11px] font-semibold">{player.nickname}</div>
-                    <div className="mt-0.5 truncate text-[10px] text-white/32">{hideRoles ? 'Роль скрыта' : player.role}</div>
-                    <div className="truncate text-[10px] text-white/32">{player.status}</div>
+                    <div className="mt-0.5 break-words text-[11px] font-semibold leading-3">{player.nickname}</div>
+                    <div className="mt-0.5 break-words text-[10px] leading-3 text-white/32">{hideRoles ? 'Роль скрыта' : player.role}</div>
+                    <div className="break-words text-[10px] leading-3 text-white/32">{player.status}</div>
                     <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-semibold">
                       {player.fouls > 0 && <span className="rounded-md border border-amber-200/10 bg-amber-200/[0.08] px-1.5 py-0.5 text-amber-100/72">Ф {player.fouls}</span>}
                       {player.minorTech > 0 && <span className="rounded-md border border-yellow-200/10 bg-yellow-200/[0.07] px-1.5 py-0.5 text-yellow-100/70">МТ {player.minorTech}</span>}

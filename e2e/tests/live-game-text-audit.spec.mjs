@@ -140,6 +140,10 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('voting-will');
       await page.getByRole('button', { name: 'Сохранить → дальше', exact: true }).click();
       await check('night');
+      // The window «Текущее состояние игры» (stress walk, 2026-11-02: «Заголосован в нулевом круге» was cut to «…» on a phone).
+      await page.locator('button[aria-label="Текущее состояние игры"]:visible').first().click();
+      await check('state-sheet');
+      await page.getByTitle('Закрыть', { exact: true }).click();
       await clickOptional(page.getByRole('button', { name: /Включите музыку/ }));
       await page.getByRole('button', { name: 'Отстрел', exact: true }).click();
       // Tall screens get the banner above the board; a short one (≤ 700 px) carries the stage in the central panel itself.

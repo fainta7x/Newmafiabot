@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
+import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext.ts';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
 import { getJudgeTrainingGate } from '../../lib/judgeConductTraining.ts';
@@ -395,7 +396,19 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
   if (!game.club_protocol) return null;
 
-  const identityOverlay = livePhase === 'setup' ? null : (
+  // The evening game draws the avatar and the nickname inside each seat card; training keeps the old layer over the board.
+  const seatIdentity = useMemo(() => (trainingMode ? null : (slot: number) => {
+    const player = livePlayers.find((item) => item.seat_number === slot);
+    if (!player) return null;
+    return (
+      <>
+        <PlayerAvatar playerId={player.player_id} nickname={player.display_name} size="xl" forceStoredLookup className="live-seat-id__avatar" />
+        <span className="live-seat-id__name" title={player.display_name}>{player.display_name}</span>
+      </>
+    );
+  }), [trainingMode, livePlayers]);
+
+  const identityOverlay = livePhase === 'setup' || seatIdentity ? null : (
     <div className="evening-live-identity-layer" aria-hidden="true">
       {livePlayers.map((player) => (
         <div
@@ -696,12 +709,13 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       )}
 
       <div>
-      <div className="evening-live-engine-shell py-0.5 md:py-3"
+      <div className={`evening-live-engine-shell py-0.5 md:py-3 ${seatIdentity ? 'evening-live-seatgrid' : ''}`}
         onClickCapture={guardTrainingInput}
         onChangeCapture={guardTrainingInput}
         onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") guardTrainingInput(event); }}
         data-training-input-gate={trainingMode ? "active" : undefined}
       >
+        <SeatIdentityContext.Provider value={seatIdentity}>
         <LiveGameEngine
           players={legacyPlayers}
           initialJudgeId={getClubJudgeIdentity(game)}
@@ -751,6 +765,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             }
           }}
         />
+        </SeatIdentityContext.Provider>
 
         {trainingMode
           ? (identityOverlay && trainingBoardElement ? createPortal(identityOverlay, trainingBoardElement) : null)

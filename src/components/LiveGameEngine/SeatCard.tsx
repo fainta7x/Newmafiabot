@@ -1,5 +1,5 @@
 import { GAME_ROLES } from '../../shared/gameRoles.ts';
-import React from "react";
+import React, { useContext } from "react";
 import { ListPlus, Skull, Star } from "lucide-react";
 import { GameRoleIcon } from '../ui/GameRole.tsx';
 import { ActivePlayerState, Phase } from "./types.js";
@@ -12,6 +12,7 @@ import {
   resolveSeatContainerClass,
 } from "./seatPresentationModel.js";
 import { seatColorVars } from './seatColors.ts';
+import { SeatIdentityContext } from './seatIdentityContext.ts';
 import {
   toggleTableDecisionVoter,
   useTableDecisionSelection,
@@ -99,6 +100,7 @@ export default function SeatCard(props: SeatCardProps) {
     bothLeaveVotes = [],
   } = props;
 
+  const renderIdentity = useContext(SeatIdentityContext);
   const tableDecisionSelection = useTableDecisionSelection();
   const player = activePlayers.find((item) => item.slot_num === slotNum);
   if (!player) return null;
@@ -327,7 +329,7 @@ export default function SeatCard(props: SeatCardProps) {
       style={voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
-      className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
+      className={`live-seat-card ${renderIdentity ? 'live-seat-card--grid' : ''} ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {player.alive && phase === "day_speeches" && (
         <div className="live-seat-quickbar">
@@ -374,6 +376,8 @@ export default function SeatCard(props: SeatCardProps) {
         </div>
       )}
 
+      {renderIdentity ? <div className="live-seat-id">{renderIdentity(slotNum)}</div> : null}
+
       <div className="live-seat-state">
         {!player.alive ? (
           <div>
@@ -386,7 +390,7 @@ export default function SeatCard(props: SeatCardProps) {
       </div>
 
       {showFarewellFouls && (
-        <div className="absolute right-1.5 top-1.5 z-30 flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+        <div className="live-seat-farewell absolute right-1.5 top-1.5 z-30 flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
           <button type="button" disabled={regularFouls <= 0} onClick={(event) => handleQuickRegularFoul(event, "down")} className="live-seat-quick-action" title="Снять обычный фол">−Ф</button>
           <button type="button" disabled={regularFouls >= 4} onClick={(event) => handleQuickRegularFoul(event, "up")} className="live-seat-quick-action live-seat-quick-action--foul" title="Добавить обычный фол">+Ф</button>
         </div>

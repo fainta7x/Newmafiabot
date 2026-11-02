@@ -1,0 +1,308 @@
+/*
+ * The seat card of the evening Live game as ONE grid (owner, 2026-11-02: «переделывай всё, чтобы больше никогда не мучаться»).
+ *
+ * Why it exists: the avatar and the nickname used to sit in a separate layer over the board, while the state text, the fouls and
+ * the seat number lived in the card; about twenty stylesheets moved them by hand with `!important`, so fixing one place broke
+ * another. Now every part of a seat is a cell of the card's own grid, so two parts cannot occupy the same place:
+ *
+ *   ┌───────────────┐
+ *   │  quick buttons │  row 1  (auto: only as high as the buttons present)
+ *   │    avatar      │  row 2  (the free room: the avatar takes what is left, never more)
+ *   │    nickname    │  (inside row 2's column, under the avatar)
+ *   │     state      │  row 3  (auto: «Голос за», «Заголосован», «30 секунд» …)
+ *   │ № │ fouls │ role│  row 4  (three cells: seat number, foul meter, role slot)
+ *   └───────────────┘
+ *
+ * The rules live in the cascade layer `seat-grid`. For `!important` declarations a layer beats every unlayered one, whatever its
+ * specificity, so the old files lose here without being touched; they can be deleted at leisure. Sizes come from the card's own
+ * width (container units), not from pixels measured for one phone. The seat-zone audit (`auditSeatZones`) fails on any overlap.
+ */
+@layer seat-grid {
+  html body .evening-live-seatgrid .live-seat-card--grid {
+    --tile: 27px;
+    container-type: inline-size !important;
+    display: grid !important;
+    grid-template-columns: var(--tile) minmax(0, 1fr) var(--tile) !important;
+    grid-template-rows: auto minmax(0, 1fr) auto var(--tile) !important;
+    row-gap: 3px !important;
+    align-items: center !important;
+    justify-items: center !important;
+    padding: 6px !important;
+    overflow: hidden !important;
+    position: relative !important;
+    flex-direction: initial !important;
+  }
+
+  @media (min-width: 768px) {
+    html body .evening-live-seatgrid .live-seat-card--grid { --tile: 34px; padding: 8px !important; }
+  }
+
+  /* Row 1: quick buttons (nominate, fouls) and the night markers. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-quickbar {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 3px !important;
+    z-index: 3 !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-quickbar__group {
+    display: flex !important;
+    gap: 3px !important;
+    position: static !important;
+    margin: 0 !important;
+  }
+  /* The farewell fouls (−Ф/+Ф of a player leaving) take the quick-button row as well. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-farewell {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    justify-content: center !important;
+    z-index: 3 !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-quick-action {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    padding: 0 6px !important;
+    font-size: 10px !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-night-marker {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+  }
+
+  /* Row 2: the avatar (as large as the free room allows) over the nickname. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-id {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    justify-items: center !important;
+    align-items: center !important;
+    row-gap: 3px !important;
+    pointer-events: none !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-id__avatar {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    height: 100% !important;
+    width: auto !important;
+    min-height: 0 !important;
+    max-height: min(100%, 64cqw) !important;
+    aspect-ratio: 1 / 1 !important;
+    max-width: 64cqw !important;
+    border-radius: 18% !important;
+    overflow: hidden !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-id__avatar img,
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-id__avatar svg {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-id__name {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 2px 7px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #fff !important;
+    font: 800 clamp(9px, 11.5cqw, 14px) / 1.15 system-ui, sans-serif !important;
+    text-align: center !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    overflow-wrap: anywhere !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid.live-seat-card--dead > .live-seat-id {
+    opacity: 0.45 !important;
+    filter: grayscale(0.7) !important;
+  }
+
+  /* Row 3: the state of the seat. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-state {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    gap: 1px !important;
+    pointer-events: none !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-state:empty { display: none !important; }
+  /* The centre panel already shows the running speech timer, and a finished speech is a corner check (liveGameTelegram.css). */
+  html body .evening-live-seatgrid .live-seat-card--grid.live-seat-card--speaking > .live-seat-state,
+  html body .evening-live-seatgrid .live-seat-card--grid:has(.live-seat-quick-action--nomination):has(.live-seat-state__value--done) > .live-seat-state { display: none !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state > div { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 1px !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state svg { width: 14px !important; height: 14px !important; margin: 0 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__label {
+    font: 800 clamp(8px, 9cqw, 10px) / 1.1 system-ui, sans-serif !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__value {
+    font: 900 clamp(11px, 13cqw, 16px) / 1.1 system-ui, sans-serif !important;
+    white-space: nowrap !important;
+  }
+  /* Votes: «Голос за [N]» and «Кандидат N гол.» are rows of their own. */
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__votes { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__vote-line {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-vote-chip .live-seat-mini-number {
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    font-size: 12px !important;
+  }
+
+  /* Row 4: seat number | foul meter | role slot. The footer wrappers vanish, their children become cells. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .live-seat-footer,
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-footer__identity { display: contents !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-footer__name { display: none !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-number {
+    grid-column: 1 !important;
+    grid-row: 4 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    width: var(--tile) !important;
+    height: var(--tile) !important;
+    min-width: 0 !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-role {
+    grid-column: 3 !important;
+    grid-row: 4 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    width: var(--tile) !important;
+    height: var(--tile) !important;
+    min-width: 0 !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline {
+    grid-column: 2 !important;
+    grid-row: 4 !important;
+    container-type: inline-size !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 2px !important;
+    overflow: hidden !important;
+    z-index: 2 !important;
+  }
+  /* The foul meter: the digit over a bar of four segments, split from the cell's own width. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count] {
+    --seg: calc(100cqw / 4);
+    --foul-color: #fcd34d;
+    position: static !important;
+    display: flex !important;
+    align-items: baseline !important;
+    justify-content: center !important;
+    width: calc(100% - 2px) !important;
+    min-width: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 0 7px !important;
+    border: 0 !important;
+    background-color: transparent !important;
+    background-image:
+      repeating-linear-gradient(90deg, var(--foul-color) 0, var(--foul-color) calc(var(--seg) - 2px), transparent calc(var(--seg) - 2px), transparent var(--seg)),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0, rgba(255, 255, 255, 0.16) calc(var(--seg) - 2px), transparent calc(var(--seg) - 2px), transparent var(--seg)) !important;
+    background-repeat: no-repeat, no-repeat !important;
+    background-position: left bottom, left bottom !important;
+    background-size: calc(var(--n, 1) * var(--seg)) 3px, 100% 3px !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count="1"] { --n: 1; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count="2"] { --n: 2; --foul-color: #fb923c; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count="3"] { --n: 3; --foul-color: #fb7185; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count="4"] { --n: 4; --foul-color: #ef4444; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count]::before { display: none !important; content: none !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-foul[data-count]::after {
+    content: attr(data-count) !important;
+    position: static !important;
+    color: var(--foul-color) !important;
+    font: 900 clamp(16px, 20cqw, 22px) / 1 system-ui, sans-serif !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+  /* Technical fouls: a small tag over the meter. */
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count],
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count] {
+    position: static !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    height: 14px !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 3px !important;
+    font-size: 8px !important;
+    white-space: nowrap !important;
+  }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count]::before,
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count]::before { font-size: 8px !important; letter-spacing: 0 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-minor[data-count]::after,
+  html body .evening-live-seatgrid .live-seat-card--grid > .evening-live-discipline > .evening-live-discipline-major[data-count]::after { font-size: 9px !important; }
+}

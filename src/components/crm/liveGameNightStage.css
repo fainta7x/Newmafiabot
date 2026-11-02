@@ -42,14 +42,26 @@
 /* The avatar layer follows the board down by the banner's height. */
 html body .evening-live-engine-shell .evening-live-identity-layer { margin-top: var(--night-banner-h, 0px) !important; }
 
-/* A short screen (a 640 px phone) has no room to push the board down: when the page scrolls, the avatar layer stays behind. The
-   banner becomes one slim row — the stage and a one-line hint that also carries the current choice. */
+/* A short screen (a 640 px phone) has no room to push the board down: the board already fills it, so the banner would cut the
+   bottom row, and a scrolling page leaves the avatar layer behind. There the stage lives in the central panel itself: a five-segment
+   ribbon on its top edge and the status line («Отстрел · выберите номер») in the stage's colour. */
 .live-night-stage__short { display: none; }
 @media (max-height: 700px) {
-  .live-night-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ribbon ribbon" "head hint"; column-gap: 8px; row-gap: 3px; padding: 5px 8px; margin-bottom: 3px; align-items: baseline; }
-  .live-night-stage__ribbon { grid-area: ribbon; }
-  .live-night-stage__head { grid-area: head; gap: 6px; }
-  .live-night-stage__hint { grid-area: hint; font-size: 11px; }
-  .live-night-stage__long, .live-night-stage__chosen { display: none; }
-  .live-night-stage__short { display: inline; }
+  .live-night-stage { display: none !important; }
+  .live-judge-hud[data-night-tone] { --stage: #b9a3ff; position: relative; }
+  .live-judge-hud[data-night-tone="sleep"] { --stage: #94a3b8; }
+  .live-judge-hud[data-night-tone="shot"] { --stage: #f43f5e; }
+  .live-judge-hud[data-night-tone="don"] { --stage: #a78bfa; }
+  .live-judge-hud[data-night-tone="sheriff"] { --stage: #34d399; }
+  .live-judge-hud[data-night-tone="morning"] { --stage: #fbbf24; }
+  .live-judge-hud[data-night-tone]::before {
+    content: ""; position: absolute; z-index: 3; top: 0; left: 10px; right: 10px; height: 3px; border-radius: 0 0 2px 2px; pointer-events: none;
+    background-image:
+      repeating-linear-gradient(90deg, var(--stage) 0, var(--stage) calc(20% - 3px), transparent calc(20% - 3px), transparent 20%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0.18) calc(20% - 3px), transparent calc(20% - 3px), transparent 20%);
+    background-size: calc(var(--night-step, 1) * 20%) 100%, 100% 100%; background-repeat: no-repeat;
+  }
+  .live-judge-hud[data-night-tone] .live-judge-timer__name--status,
+  .live-judge-hud[data-night-tone] .live-judge-hud__title { color: var(--stage) !important; font-weight: 900; }
+  .live-judge-hud[data-night-tone] { border-color: color-mix(in srgb, var(--stage) 50%, transparent) !important; }
 }

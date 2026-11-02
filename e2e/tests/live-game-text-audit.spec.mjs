@@ -139,6 +139,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await check('night-don-chosen');
       await page.getByRole('button', { name: 'Проверка Шерифа', exact: true }).click();
       await check('night-sheriff');
+      await clickOptional(page.getByRole('button', { name: /Выключите музыку/ }));
       await page.getByRole('button', { name: /ЛХ первого убитого|Итоги ночи/ }).click();
       await expect(page.getByTestId('night-prompt')).toBeVisible();
       await check('night-prompt-sheriff');

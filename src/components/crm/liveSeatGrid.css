@@ -378,7 +378,6 @@
   }
   /* Readable on the bright fill: the nickname chip, the seat number and the tally are dark glass. */
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-id__name,
-  html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-number,
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value {
     background: rgba(10, 10, 14, 0.55) !important;
     backdrop-filter: blur(6px);
@@ -386,4 +385,34 @@
     color: #ffffff !important;
   }
   html body .evening-live-seatgrid .live-seat-card--grid[data-candidate='current'] .live-seat-state__value { padding: 0 6px !important; border-radius: 6px !important; }
+}
+
+@layer seat-grid {
+  /* The voter shows the number it voted for, big (owner, 2026-11-02): the portrait gives its place to the digit, the nickname stays. */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote]:not([data-candidate]) .live-seat-id__avatar { display: none !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-bigvote {
+    grid-row: 1 !important;
+    justify-self: center !important;
+    align-self: center !important;
+    font: 900 clamp(40px, 54cqw, 76px) / 1 system-ui, sans-serif !important;
+    letter-spacing: -0.02em !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 20px color-mix(in srgb, var(--seat-fill) 85%, transparent), 0 1px 0 rgba(0, 0, 0, 0.45) !important;
+    pointer-events: none !important;
+  }
+  /* The old «→ N» chip of the state band is replaced by the big digit. */
+  html body .evening-live-seatgrid .live-seat-card--grid .live-seat-state__vote-line:has(.live-seat-vote-chip) { display: none !important; }
+  /* A seat number keeps its OWN colour while voting (owner, 2026-11-02; this replaces the 2026-10-27 rule that tinted it with the colour
+     of the seat voted for). */
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number { color: #ffffff !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='1'] { background: #2563eb !important; border-color: #60a5fa !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='2'] { background: #ea580c !important; border-color: #fb923c !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='3'] { background: #ca8a04 !important; border-color: #facc15 !important; color: #111827 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='4'] { background: #dc2626 !important; border-color: #f87171 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='5'] { background: #15803d !important; border-color: #4ade80 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='6'] { background: #0891b2 !important; border-color: #22d3ee !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='7'] { background: #db2777 !important; border-color: #f472b6 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='8'] { background: #7c3aed !important; border-color: #a78bfa !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='9'] { background: #92400e !important; border-color: #d97706 !important; }
+  html body .evening-live-seatgrid .live-seat-card--grid[data-vote] .live-seat-number[data-seat='10'] { background: #4d7c0f !important; border-color: #84cc16 !important; }
 }

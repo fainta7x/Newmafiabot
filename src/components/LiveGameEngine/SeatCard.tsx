@@ -379,7 +379,16 @@ export default function SeatCard(props: SeatCardProps) {
         </div>
       )}
 
-      {renderIdentity ? <div className="live-seat-id">{renderIdentity(slotNum)}</div> : null}
+      {/* While votes are counted a voter shows one big digit, the seat it voted for, in place of its portrait (owner, 2026-11-02:
+          «просто писать цифру», как в Полемике). The candidate being counted keeps its portrait. */}
+      {renderIdentity ? (
+        <div className="live-seat-id">
+          {renderIdentity(slotNum)}
+          {phase === 'day_voting' && isInteractiveVoting && voteTarget !== undefined && activeVoteNominee !== slotNum
+            ? <div className="live-seat-bigvote" data-testid={`seat-bigvote-${slotNum}`} data-target={voteTarget} aria-hidden="true">{voteTarget}</div>
+            : null}
+        </div>
+      ) : null}
 
       <div className="live-seat-state">
         {!player.alive ? (

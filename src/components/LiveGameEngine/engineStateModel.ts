@@ -61,6 +61,8 @@ export type LiveSnapshot = {
   zeroNightSubPhase: 'agreement' | 'sheriff' | 'seating' | null;
   zeroNightMusicState: ZeroNightMusicState;
   shotPlayerSlot: number | null;
+  /** The judge's reading of a night nobody was shot in (owner, 2026-11-02): why the mafia missed and who is to blame. */
+  nightMiss?: { reason: 'error' | 'intentional'; seats: number[] } | null;
   donCheckSlot: number | null;
   donCheckResult: boolean | null;
   sheriffCheckSlot: number | null;
@@ -233,6 +235,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     zeroNightSubPhase: snapshot.zeroNightSubPhase ?? null,
     zeroNightMusicState: snapshot.zeroNightMusicState ?? 'pending',
     shotPlayerSlot: snapshot.shotPlayerSlot ?? null,
+    nightMiss: snapshot.nightMiss ?? null,
     donCheckSlot: snapshot.donCheckSlot ?? null,
     donCheckResult: snapshot.donCheckResult ?? null,
     sheriffCheckSlot: snapshot.sheriffCheckSlot ?? null,

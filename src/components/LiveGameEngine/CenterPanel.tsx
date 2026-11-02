@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
+import { NightStageStrip } from "./NightStageStrip.tsx";
+import { nightStageView } from "./nightStageModel.ts";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
 
 const JUDGE_MUSIC_MENU_ENABLED = false;
@@ -456,6 +458,10 @@ export default function CenterPanel(props: CenterPanelProps) {
         best_move: 'ЛХ первого убитого',
         morning: 'Итог ночи',
       } as Record<string, string>)[nightSubPhase] || 'Ночь'
+    : null;
+
+  const nightStage = phase === 'night' && postNightStage === 'none'
+    ? nightStageView({ subPhase: nightSubPhase, players: activePlayers, shotSlot: shotPlayerSlot, donSlot: donCheckSlot, donResult: Boolean(donCheckResult), sheriffSlot: sheriffCheckSlot, sheriffResult: sheriffCheckResult })
     : null;
 
   const canReturnToSpeeches = phase === 'day_voting' && activeVotingRoundIndex === 0 && (votingStage === 'collecting' || votingStage === 'setup') && Boolean(onBackToDaySpeeches);
@@ -1090,7 +1096,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   return (
     <>
       {topbarSlot && autoControl ? createPortal(autoControl, topbarSlot) : null}
-      <div data-testid="live-judge-hud" className="live-judge-hud col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none">
+      <div data-testid="live-judge-hud" className={`live-judge-hud ${phase === 'night' ? 'live-judge-hud--night' : ''} col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none`}>
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">
@@ -1108,6 +1114,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         {/* The countdown and its «Стоп» are the header button; a second in-panel notice pushed the HUD rows over each other on phones
             (owner, 2026-10-31: «окно авторежима ломает вёрстку»). Screen readers still hear the countdown. */}
         {autoCountdown !== null && <span className="sr-only" role="status">Авто: переход к следующему шагу через {autoCountdown}</span>}
+        {nightStage ? <NightStageStrip view={nightStage} /> : null}
         <div className="live-judge-hud__body">
           {phase === 'day_voting' && votingStage === 'revote_speeches'
             ? renderVoting()

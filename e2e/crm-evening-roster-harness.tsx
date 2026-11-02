@@ -30,6 +30,18 @@ api.updateParticipant = async (participantId: string, data: any) => {
   Object.assign(participant, data, { updated_at: new Date().toISOString() });
   return { ...participant } as any;
 };
+api.bulkUpdateParticipants = async (_eveningId: string, updates: any[]) => {
+  for (const update of updates) {
+    const participant = participants.find((item) => item.id === update.id);
+    if (!participant) continue;
+    const { attendance_fact: fact, ...rest } = update;
+    Object.assign(participant, rest);
+    if (fact === 'attended_on_time' || fact === 'attended_late') participant.attendance_status = 'attended';
+    else if (fact === 'pending') participant.attendance_status = 'pending';
+    else if (fact === 'no_show') participant.attendance_status = 'no_show';
+  }
+  return { success: true, participants } as any;
+};
 api.getPlayers = async () => players as any;
 
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {

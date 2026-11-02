@@ -61,8 +61,9 @@ for (const width of [360, 390]) {
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');
       await expect(manualRow).toBeVisible();
       await expect(manualRow).toContainText('В составе');
+      // Owner, 2026-11-02: a player added by hand at the evening is there; the answer (here none) stays as it was.
       await expect(manualRow).toContainText('Ответ: Нет ответа');
-      await expect(manualRow).toContainText('Явка: не отмечена');
+      await expect(manualRow).toContainText('Явка: на месте');
       const manualBody = await page.evaluate(() => JSON.parse(document.body.dataset.bulkParticipantBody || '{}'));
       expect(manualBody.response_status).toBe('unanswered');
       expect(manualBody.registration_status).toBe('invited');

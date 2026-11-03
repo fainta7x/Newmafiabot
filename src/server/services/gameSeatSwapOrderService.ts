@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getGame } from './gameService.ts';
+import { isCompletedClubGame } from './completedClubGame.ts';
 import { seatingWarnings, type EveningSeat } from '../../lib/eveningSeating.ts';
 import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 
@@ -87,7 +88,7 @@ export async function applyGameSeatSwap(db: DatabaseWrapper, orderId: string, ga
     if (!row) fail('Протокол не найден');
     let payload: any = null;
     try { payload = JSON.parse(row.protocol_text); } catch { fail('Некорректный протокол'); }
-    if (payload?.kind !== 'club_evening_protocol' || payload?.protocol?.status === 'completed' ||
+    if (payload?.kind !== 'club_evening_protocol' || isCompletedClubGame(payload) ||
         !Array.isArray(payload?.player_results)) fail('Протокол недоступен для обмена');
     const a = payload.player_results.find((entry: any) => String(entry.player_id || '') === order.player_id);
     const b = payload.player_results.find((entry: any) => String(entry.player_id || '') === order.target_player_id);

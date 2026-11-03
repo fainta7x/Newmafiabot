@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { getDb } from '../../db/index.ts';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { getGame, listEventGames } from '../services/gameService.ts';
@@ -40,8 +41,7 @@ playerRouter.get('/role-purchase-games', async (req, res) => {
     const events = await db.all<{ id: string; title: string }>(
       `SELECT e.id, e.title FROM game_evenings e
         JOIN evening_participants p ON p.evening_id=e.id
-       WHERE p.player_id=? AND e.status IN ('published','active')
-         AND e.settled_at IS NULL
+       WHERE p.player_id=? AND ${openEveningSql('e')}
        ORDER BY datetime(e.starts_at) ASC LIMIT 30`,
       [playerId],
     );
@@ -79,8 +79,7 @@ playerRouter.get('/game-purchase-options', async (req, res) => {
     const events = await db.all<{ id: string; title: string }>(
       `SELECT DISTINCT e.id,e.title FROM game_evenings e
         JOIN evening_participants ep ON ep.evening_id=e.id
-       WHERE ep.player_id=? AND e.status IN ('published','active')
-         AND e.settled_at IS NULL
+       WHERE ep.player_id=? AND ${openEveningSql('e')}
        ORDER BY datetime(e.starts_at) LIMIT 30`,
       [playerId],
     );

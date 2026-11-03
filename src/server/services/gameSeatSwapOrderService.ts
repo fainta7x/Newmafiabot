@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { OPEN_EVENING_STATUSES } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getGame } from './gameService.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
@@ -38,7 +39,7 @@ async function availableGame(db: DatabaseWrapper, gameId: number, formatRequired
   const game = await getGame(db, `club:${gameId}`);
   if (!game || game.storage !== 'club' || !game.eventId) fail('Игра не найдена', 404);
   if (formatRequired && !['CASUAL','NOVICE'].includes(game.format)) fail('Обмен местами недоступен в этом формате');
-  if (!['published','active'].includes(String(game.eventStatus)) ||
+  if (!OPEN_EVENING_STATUSES.some((value) => value === String(game.eventStatus)) ||
       ['completed','cancelled','archived'].includes(game.status)) fail('Игра уже закрыта');
   return game;
 }

@@ -230,7 +230,7 @@ for (const [width,height,wideFont] of VIEWPORTS) {
     await page.getByTestId('club-game-start-role-deal').click();const deal=page.getByTestId('virtual-role-deal');
     await check('virtual music');
     await deal.getByTestId('virtual-deal-buy-role').click();await expect(deal.getByTestId('virtual-deal-buy-panel')).toBeVisible();await check('role purchase before the deal');await page.screenshot({path:info.outputPath('virtual-buy.png')});await deal.getByTestId('virtual-deal-buy-role').click();
-    await deal.getByRole('button',{name:'Начать раздачу'}).click();
+    await deal.getByRole('button',{name:'Начать раздачу'}).click();await check('before «Стартуем»');await deal.getByTestId('virtual-deal-go').click();
     // The first player's turn opens by itself.
     await expect(deal.getByTestId('virtual-deal-turn')).toContainText('№1 Игрок 1');await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
     await expect(deal.getByRole('button',{name:/№7 Игрок 7/})).toBeVisible();

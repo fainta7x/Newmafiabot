@@ -1,6 +1,14 @@
 # Audit log
 
 
+## 2026-11-03 · AR03: one debt read rule (wallet / CRM)
+
+Scope: every reader of «a player owes for an evening». Production check (read-only): the CRM debts screen and the players list agree (13 debtors, 6 150 ₽, 0 mismatches); the wallet is a player-only route and was characterised in tests.
+
+1. MEDIUM `fixed (AR03 PR)` — the wallet counted a closed evening's waived participation (`payment_status='waived'` with due > paid) as debt; the CRM did not. The wallet now uses the same rule (`closedEveningDebtOwed`).
+2. MEDIUM `fixed (AR03 PR)` — the wallet's debt total was summed from the 200 latest participations; older debts were missing. It is now read by the shared loader (`loadPlayerEveningDebts(db, playerId)`), without a cap.
+3. LOW `fixed (AR03 PR)` — the players list had its own copy of the SQL (`ep.payment_status != 'waived'`, no COALESCE on amounts); it now uses `closedEveningDebtWhere`. `payment_status` is NOT NULL in the schema, so the empty-status case is `''`.
+4. NOTE — `organizerAccountLink.test.ts` fails locally when `ORGANIZER_PASSWORD` is set in the shell environment (passes without it); test isolation, not a product defect.
 ## 2026-11-03 · AR05: measured production slowness (read-only)
 
 Scope: `GET /api/health/performance` and `/api/health/performance/queries` on production (organizer login, GET only), Amvera status; build `01f6a9a` (#1145) RUNNING.

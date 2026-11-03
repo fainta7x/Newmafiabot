@@ -26,6 +26,7 @@ import { getRepositoryPlayerAvatarAsset, resolveRepositoryPlayerAvatarPath } fro
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { loadPlayerStaffStats } from '../services/playerStaffStatsService.ts';
+import { closedEveningDebtWhere } from '../services/playerEveningDebts.ts';
 import {
   getHistoricalAwardDefaultTitle,
   isHistoricalAwardKey,
@@ -104,14 +105,11 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
         visits.last_visit as last_visit,
         visits.first_visit as first_visit,
         (SELECT COUNT(*) FROM organizer_tasks t WHERE t.player_id = p.id AND t.status != 'done' AND t.status != 'cancelled') as open_tasks_count,
-        (SELECT COALESCE(SUM(ep.amount_due - ep.amount_paid), 0)
+        (SELECT COALESCE(SUM(COALESCE(ep.amount_due, 0) - COALESCE(ep.amount_paid, 0)), 0)
            FROM evening_participants ep
            JOIN game_evenings debt_evening ON debt_evening.id = ep.evening_id
           WHERE ep.player_id = p.id
-            AND (debt_evening.status = 'completed' OR debt_evening.settled_at IS NOT NULL)
-            AND ep.attendance_status = 'attended'
-            AND ep.payment_status != 'waived'
-            AND ep.amount_due > ep.amount_paid) as outstanding_debt
+            AND ${closedEveningDebtWhere('ep', 'debt_evening')}) as outstanding_debt
       FROM players p
       -- A visit = marked «пришёл» or seated in a game of that evening (owner, 2026-09-30).
       LEFT JOIN (${PLAYER_VISIT_STATS_SQL}) visits ON visits.player_id = CAST(p.id AS TEXT)

@@ -85,8 +85,10 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `auth.ts` | may an assigned judge conduct this game | ✅ moved (`getGame`; F1 decided) |
 | `playerJudgingRoutes.ts` | the judge's «Мои игры» list | ✅ tournament part moved (`listGamesJudgedBy`; F1 decided) |
 | `playerProfileService.ts` | a player's games and profile | ✅ moved (`listPlayerGameResults`: one seat-result type for every format; club games picked by the player in SQLite instead of parsing every protocol) |
-| `playerGameDetailRoutes.ts`, `playerSelfCoreRoutes.ts` | one game's page, the cabinet's game list | next |
-| `eloRatingService.ts`, `playerEloHistoryService.ts`, `ratingRoutes.ts`, `metricRatingService.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, ratings, statistics | next |
+| `playerSelfCoreRoutes.ts` | the cabinet's archive of club games | ✅ moved (`listRecentCompletedGames`) |
+| `ratingRoutes.ts` | games played per player in the rating | ✅ moved (`COMPLETED_GAME_PLAYERS_SQL`, one grouped count instead of a sub-query per player; games of a cancelled evening are no longer counted, as everywhere else) |
+| `playerGameDetailRoutes.ts` | one game's page | needs the protocol part (below) |
+| `eloRatingService.ts`, `playerEloHistoryService.ts`, `metricRatingService.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, metrics, statistics | needs the protocol part (below) |
 | `playerAchievementStoriesService.ts` | achievement stories | next |
 | `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast | next |
 | `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | next |
@@ -94,3 +96,5 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 The layer has the seat result (`GameSeatResult`, the same fields for every format) and owns three rules that had been written several times (all as achievements already counted): a tournament game is **completed** when the game and its protocol are completed; the **judge** of a tournament game is the game's judge, else the tournament's; a game of a **cancelled evening** is cancelled even with a protocol.
 
 - **F1 — decided by the owner 2026-11-03** (BUSINESS_RULES «Judge of a tournament game»): the tournament's judge conducts every game of a one-table tournament; with two tables the judge is bound to the table. Was: the judge-access check (`auth.ts`) and the judge's game list (`playerJudgingRoutes.ts`) take only the game's own judge, while the counting rule above also takes the tournament's judge. So in a managed tournament evening whose judge is set on the tournament, the judge's games are counted for them but not listed in «Мои игры» and cannot be opened with judge access. Should the tournament's judge be able to conduct its games?
+
+**Next part of the layer — «протокол игры».** The remaining files read the protocol's contents (votings, shots, chronology, best moves, end reason), stored inside `games.protocol_text` for a game of an evening and in `tournament_game_protocols` columns for a tournament game. `gameStatisticsService.loadStatGames` already reads votings, chronology and roles of both into one `StatGame`; it becomes the layer's protocol reader (with shots and markers added), and Elo, metrics, statistics, the game page, the broadcast and the result pictures move onto it.

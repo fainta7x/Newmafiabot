@@ -6,7 +6,7 @@
 
 Scope: `GET /api/games` on production (organizer login, GET only), the 22 club games with a live chronology; the local restore path (`LiveGameEngine/liveSessionStorage.ts`) and the server copy of a game.
 
-1. MEDIUM `open (step 2, needs the owner)` — an unfinished game is restored only from the judge's device (`readRestorableLiveSession`, localStorage); when that device loses its storage, the game cannot be resumed although the server holds its chronology.
+1. MEDIUM `fixed (AR04 step 2)` — an unfinished game was restored only from the judge's device (`readRestorableLiveSession`, localStorage); the chronology reaches the server only with the final protocol, so a lost device lost the game. Now the device sends its session copy to the server during the game and another device can «Продолжить игру».
 2. NOTE `done (step 1)` — `src/lib/liveGameReplayState.ts` rebuilds round, phase, exits, fouls, nominations, the ballots in progress, night shot and checks, first killed, best move and the winner from the chronology. Against the final protocols: exits 213/220 seats, fouls 213/220, winner 21/22 games. Every difference is a protocol edited after the game: game №24 (30.10, closed by the owner; six seats voted out only in the protocol and no `game_end`), game №11 (09.10, skipped by the owner; fouls corrected in the protocol), game №20 (23.10, #3 Богданчик: voted out in the live game, alive in the protocol). Timers and speech order are not in the chronology and are not rebuilt.
 
 ## 2026-11-03 · AR05: measured production slowness (read-only)

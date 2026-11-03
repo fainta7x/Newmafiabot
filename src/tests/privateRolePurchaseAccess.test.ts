@@ -12,8 +12,7 @@ describe('private role purchase visibility by game participation', () => {
     const actor = { playerId: 'owner', isOrganizer: true };
     expect(privateRoleAccess(game, actor)).toBe('own');
     expect(mayViewPurchasedRole(game, actor, 'guest')).toBe(false);
-    expect(privateRolePurchaseForActor(purchase, game, actor)).toMatchObject({ id: 'p1', playerId: 'guest' });
-    expect(privateRolePurchaseForActor(purchase, game, actor)).not.toHaveProperty('role');
+    expect(privateRolePurchaseForActor(purchase, game, actor)).toBeNull();
   });
   it('a judge of the game sees all; another player sees only own role', () => {
     expect(mayViewPurchasedRole(game, { playerId: 'judge', isOrganizer: false }, 'guest')).toBe(true);

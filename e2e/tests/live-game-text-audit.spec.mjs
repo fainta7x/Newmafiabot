@@ -232,10 +232,10 @@ for (const [width,height,wideFont] of VIEWPORTS) {
     await deal.getByTestId('virtual-deal-buy-role').click();await expect(deal.getByTestId('virtual-deal-buy-panel')).toBeVisible();await check('role purchase before the deal');await page.screenshot({path:info.outputPath('virtual-buy.png')});await deal.getByTestId('virtual-deal-buy-role').click();
     await deal.getByRole('button',{name:'Начать раздачу'}).click();
     // The first player's turn opens by itself.
-    await expect(deal.getByText('Выбирает: №1 Игрок 1',{exact:true})).toBeVisible();await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
+    await expect(deal.getByTestId('virtual-deal-turn')).toContainText('№1 Игрок 1');await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
     await expect(deal.getByRole('button',{name:/№7 Игрок 7/})).toBeVisible();
     await deal.getByRole('button',{name:/№7 Игрок 7/}).click();
-    await expect(deal.getByText('Выбирает: №7 Игрок 7',{exact:true})).toBeVisible();
+    await expect(deal.getByTestId('virtual-deal-turn')).toContainText('№7 Игрок 7');
     const notice=page.getByText(/Музыки для вечера нет — продолжаем/);if(await notice.isVisible())await expect(notice).toBeHidden({timeout:6000});
     await page.screenshot({path:info.outputPath('virtual-deck.png')});
     const cards=deal.getByRole('button',{name:/^Карта №/});
@@ -249,7 +249,7 @@ for (const [width,height,wideFont] of VIEWPORTS) {
     await deal.getByRole('button',{name:'Перераздать всё'}).click();await check('redeal confirmation');
     await deal.getByRole('button',{name:'Нет',exact:true}).click();
     for(let remaining=10;remaining>0;remaining--){
-      await deal.getByRole('button',{name:'Карта №1',exact:true}).click();
+      await deal.getByRole('button',{name:/^Карта №/}).first().click();
       await next();
     }
     await check('complete virtual deal');await page.screenshot({path:info.outputPath('virtual-complete.png')});

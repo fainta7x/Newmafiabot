@@ -1,7 +1,11 @@
 import { JUDGE_MUSIC_PLAYER_ENABLED, requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 import { FitText } from '../ui/FitText.tsx';
 import { RoleCard } from '../ui/RoleCard.tsx';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import { SEAT_COLORS } from '../LiveGameEngine/seatColors.ts';
+import { DealSeatPlayersContext } from './dealSeatPlayers.ts';
+import './virtualRoleDeal.css';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { clubGamesApi, type VirtualDealSnapshot } from '../../lib/clubGamesApi.ts';
@@ -80,6 +84,9 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const [turnStartedAt,setTurnStartedAt]=useState<number|null>(null);
   const [now,setNow]=useState(()=>Date.now());
   const [buying,setBuying]=useState(false);
+  // Where each card lies on the table: taken cards leave a faded place (owner-approved deal design, 2026-11-03).
+  const [layout, setLayout] = useState<string[]>(() => deck.map((card) => card.id));
+  const playerOfSeat = useContext(DealSeatPlayersContext);
   useEffect(()=>()=>{requestJudgeGameMusicStop();},[]);
   useEffect(() => {
     if (!serverGameId) return;
@@ -88,6 +95,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
     void request.then((response) => {
       if (!active) return;
       setDeck(response.cards.map((card) => ({ ...card, role: null })));
+      setLayout(response.cards.map((card) => card.id));
       setVersion(response.version);
       setLoaded(true);
     }).catch(() => {
@@ -234,8 +242,11 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
       if (serverGameId) {
         const snapshot = await clubGamesApi.roleDealReset(serverGameId, version);
         updateFromServer(snapshot);
+        setLayout(snapshot.cards.map((card) => card.id));
       } else {
-        setDeck(makeDeck(size));
+        const fresh = makeDeck(size);
+        setDeck(fresh);
+        setLayout(fresh.map((card) => card.id));
         setHistory([]);
         setSelectedId(null);
         setShowRole(false);
@@ -251,6 +262,20 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
     if(saving||!complete)return;setSaving(true);setError('');
     try{await onComplete(assignments);requestJudgeGameMusicStop();}catch(error:any){setError(error?.message||'Не удалось сохранить роли');}finally{setSaving(false);}
   };
+  const seatTile = (player: Seat, options: { disabled: boolean; onClick: () => void }) => {
+    const color = SEAT_COLORS[player.seat_number];
+    return (
+      <button key={player.seat_number} type="button" disabled={options.disabled} onClick={options.onClick} aria-pressed={active === player.seat_number}
+        aria-label={`№${player.seat_number} ${player.nickname}`} className="deal-seat"
+        style={color ? ({ '--seat-fill': color.fill, '--seat-line': color.line } as React.CSSProperties) : undefined}>
+        <span className="deal-seat__number">{player.seat_number}</span>
+        {assigned.has(player.seat_number) ? <span className="deal-seat__done" aria-hidden="true">✓</span> : null}
+        <span className="deal-seat__avatar"><PlayerAvatar playerId={playerOfSeat?.(player.seat_number) ?? null} nickname={player.nickname} size="sm" /></span>
+        <FitText as="div" minPx={8} className="deal-seat__name">{player.nickname}</FitText>
+      </button>
+    );
+  };
+  const timerShare = waiting && turnStartedAt !== null ? Math.max(0, Math.min(1, 1 - (now - turnStartedAt) / 1000 / waitSeconds)) : 0;
   if (!isSupportedTableSize(size)) return null;
   return (
     <div role="dialog" aria-modal="true" aria-label="Раздача виртуальных ролей" data-testid="virtual-role-deal" className="fixed inset-0 z-[160] bg-[#090a0d]/95 backdrop-blur-xl">
@@ -270,15 +295,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
           <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>
           {buying && (
             <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
-              <div className="grid grid-cols-5 gap-1.5" aria-label="Кто покупает">
-                {orderedSeats.map((player) => (
-                  <button key={player.seat_number} type="button" disabled={assigned.has(player.seat_number) || busy}
-                    onClick={() => setSeat(player.seat_number)} aria-pressed={active === player.seat_number}
-                    className={`min-h-11 min-w-0 rounded-lg border p-1 text-center text-xs disabled:opacity-30 ${active === player.seat_number ? 'border-white bg-white/15' : 'border-white/10 bg-black/20'}`}>
-                    <div>№{player.seat_number}</div>
-                    <FitText as="div" minPx={8} className="text-[10px]">{player.nickname}</FitText>
-                  </button>
-                ))}
+              <div className="deal-seats" aria-label="Кто покупает">
+                {orderedSeats.map((player) => seatTile(player, { disabled: assigned.has(player.seat_number) || busy, onClick: () => setSeat(player.seat_number) }))}
               </div>
               <p className="text-xs text-white/70">Игрок №{current?.seat_number} покупает роль{serverGameId ? ` (${ROLE_PURCHASE_PRICE_RUB} ₽)` : ''}. Карта этой роли уйдёт из колоды.</p>
               <div className="grid grid-cols-4 gap-2">
@@ -294,37 +312,39 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
         </div>:null}
         {started && !complete && (
           <>
-            <div className="grid grid-cols-5 gap-1.5" aria-label="Очередность игроков">
-              {orderedSeats.map((player) => (
-                <button key={player.seat_number} type="button" disabled={assigned.has(player.seat_number) || showRole || busy}
-                  onClick={() => { setSeat(player.seat_number); setSelectedId(null); }}
-                  aria-pressed={active === player.seat_number}
-                  className={`min-h-11 min-w-0 rounded-lg border p-1 text-center text-xs disabled:opacity-30 [@media(max-height:700px)]:min-h-9 ${active === player.seat_number ? 'border-white bg-white/15' : 'border-white/10 bg-black/20'}`}>
-                  <div>№{player.seat_number}</div>
-                  <FitText as="div" minPx={8} className="text-[10px]">{player.nickname}</FitText>
-                </button>
-              ))}
+            <div className="deal-seats" aria-label="Очередность игроков">
+              {orderedSeats.map((player) => seatTile(player, { disabled: assigned.has(player.seat_number) || showRole || busy, onClick: () => { setSeat(player.seat_number); setSelectedId(null); } }))}
             </div>
-            <p className="text-sm font-semibold">Выбирает: №{current?.seat_number} {current?.nickname}</p>
-            {waiting && turnOpen && !showRole && !timeUp && (
-              <p data-testid="virtual-deal-timer" role="timer" className="text-sm text-white/70">{`Выбирает карту: ещё ${remaining} с`}</p>
-            )}
-            {/* Numbered cards in two rows, no scrolling row (owner, 2026-11-01). */}
-            <div className="grid grid-cols-5 gap-2 py-1" data-testid="virtual-card-grid" role="group" aria-label="Закрытые карты">
-              {deck.map((card, index) => (
-                <button key={card.id} type="button" disabled={showRole || busy || !turnOpen || Boolean(selectedId)} onClick={() => { void revealCard(card.id); }}
-                  aria-label={`Карта №${index + 1}`} aria-pressed={selectedId === card.id}
-                  className={`flex aspect-[4/3] max-h-[72px] w-full min-w-0 [@media(max-height:800px)]:max-h-[52px] items-center justify-center rounded-xl border-2 text-xl font-bold transition active:scale-95 ${selectedId === card.id ? 'border-white bg-white/20' : 'border-white/15 bg-black/30'}`}>
-                  {index + 1}
-                </button>
-              ))}
-            </div>
-            {selected && showRole && selectedRole && (
-              <div className="flex items-center justify-center gap-4 rounded-xl border border-white/20 bg-white/10 p-3 [@media(max-height:800px)]:p-1.5" role="status">
-                <div className="w-16 shrink-0 [@media(max-height:800px)]:w-11"><RoleCard role={selectedRole} /></div>
-                <div className="text-xl font-semibold">Роль: {GAME_ROLES[selectedRole].label}</div>
+            <div className="deal-turn" data-testid="virtual-deal-turn">
+              <PlayerAvatar playerId={current ? playerOfSeat?.(current.seat_number) ?? null : null} nickname={current?.nickname || ''} size="md" />
+              <div className="deal-turn__who">
+                <div className="deal-turn__label">Выбирает карту</div>
+                <div className="deal-turn__name">№{current?.seat_number} {current?.nickname}</div>
               </div>
-            )}
+              {waiting && turnOpen ? <div className="deal-turn__time" data-testid="virtual-deal-timer" role="timer" aria-label={`Выбирает карту: ещё ${remaining} с`}>{remaining}с</div> : null}
+            </div>
+            {waiting ? <div className="deal-bar" aria-hidden="true"><i style={{ width: `${Math.round(timerShare * 100)}%` }} /></div> : null}
+            {/* Numbered cards in two rows, no scrolling row (owner, 2026-11-01). */}
+            <div className="deal-table">
+              {selected && showRole && selectedRole ? (
+                <div className="deal-face" role="status" aria-label={`Роль: ${GAME_ROLES[selectedRole].label}`}>
+                  <RoleCard role={selectedRole} label={GAME_ROLES[selectedRole].label} />
+                </div>
+              ) : (
+                <div className="deal-cards" data-testid="virtual-card-grid" role="group" aria-label="Закрытые карты">
+                  {layout.map((id, index) => {
+                    const card = deck.find((entry) => entry.id === id);
+                    if (!card) return <div key={id} className="deal-card deal-card--taken" aria-hidden="true"><span className="deal-card__number">{index + 1}</span></div>;
+                    return (
+                      <button key={id} type="button" className="deal-card" disabled={showRole || busy || !turnOpen || Boolean(selectedId)} onClick={() => { void revealCard(card.id); }}
+                        aria-label={`Карта №${index + 1}`} aria-pressed={selectedId === card.id}>
+                        <span className="deal-card__number">{index + 1}</span><span className="deal-card__logo" aria-hidden="true" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             {showRole && <button type="button" data-testid="virtual-deal-next-player" disabled={busy || !timeUp} onClick={() => { void confirmCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black disabled:opacity-40">{timeUp ? 'Следующий игрок' : `Следующий игрок · ${remaining} с`}</button>}
           </>
         )}

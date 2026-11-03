@@ -14,6 +14,10 @@ The old player ID is used only for the one-time settings migration, not the draw
 
 Verification: 51 focused integration/model/migration/architecture tests, 19 smoke tests, TypeScript, lint, dependency guard, project-context check and release-safety audit pass locally; exact-head CI still required. Local Chromium launch is blocked by the environment (`socket() EPERM`); the browser could not reach the local preview. Five-size UI audit and screenshots are in `vip-settings-preview.spec.mjs`, registered in UI preview CI. No visual approval or production-data read claimed. Next — assistant: complete exact-head CI and merge if green, then check deployment separately.
 
+## 2026-11-03 — #1173 merged-base verification
+
+Merged current main (#1170) into the Today-post candidate and retained both audit entries. Fixed explicit text claiming before async draft generation, so concurrent clicks cannot let Second replace First. The fixture sets a Telegram bot username and does not perform real getMe requests. All 12 Today-post tests pass locally. Exact-head CI pending; no production posts were sent.
+
 ## 2026-11-03 — owner: one architecture for the whole app (waiting for the owner's «да»)
 
 - Owner: «Игра» must be one entity with a status, not club and tournament games as different things; fix the cause, review the whole app. Analysis: `docs/ARCHITECTURE_REVIEW_2026-11-03.md` (five entities Событие / Игра / Участник / Деньги / Доставка, a code layer first, data moved only with a guarded migration and the owner's «да»). Parked: «Продолжить игру» for tournaments (`claude/wip-live-checkpoint-any-game`); #1151 (club games) held for the owner's decision.

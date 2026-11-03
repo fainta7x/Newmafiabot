@@ -3,7 +3,7 @@ import { chooseConflictingVipRule, validateVipProbabilityRule, vipEffectAllowed 
 
 const base = {
   playerId: 'player-a', kind: 'role', role: 'sheriff',
-  otherPlayerId: null, percent: 65, enabled: true, personalLimit: null, limitScope: 'evening',
+  otherPlayerId: null, percent: 65, enabled: true,
 };
 
 describe('manual organizer VIP probabilities', () => {
@@ -12,22 +12,12 @@ describe('manual organizer VIP probabilities', () => {
     expect(validateVipProbabilityRule({ ...base, percent: 0 }).percent).toBe(0);
     expect(validateVipProbabilityRule({ ...base, percent: 100 }).percent).toBe(100);
   });
-  it('supports manual quota period without silently interpreting bad values', () => {
-    expect(validateVipProbabilityRule({ ...base, limitScope: 'game' }).limitScope).toBe('game');
-    expect(validateVipProbabilityRule({ ...base, limitScope: 'evening' }).limitScope).toBe('evening');
-    expect(() => validateVipProbabilityRule({ ...base, limitScope: 'week' })).toThrow();
-  });
   it('requires another named player for same-color and different-color', () => {
     const colored = { ...base, kind: 'same_color', role: null, otherPlayerId: 'player-b' };
     expect(validateVipProbabilityRule(colored)).toMatchObject(colored);
     expect(validateVipProbabilityRule({ ...colored, kind: 'different_color' }).kind).toBe('different_color');
     expect(() => validateVipProbabilityRule({ ...colored, otherPlayerId: 'player-a' })).toThrow();
     expect(() => validateVipProbabilityRule({ ...colored, otherPlayerId: '' })).toThrow();
-  });
-  it('leaves manual per-player limit absent without inventing a default', () => {
-    expect(validateVipProbabilityRule(base).personalLimit).toBeNull();
-    expect(validateVipProbabilityRule({ ...base, personalLimit: 2 }).personalLimit).toBe(2);
-    expect(() => validateVipProbabilityRule({ ...base, personalLimit: -1 })).toThrow();
   });
   it('rejects invalid percentages and role identifiers', () => {
     for (const percent of [-1, 101, 2.5, null, '90']) {

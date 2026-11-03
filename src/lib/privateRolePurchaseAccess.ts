@@ -45,6 +45,6 @@ export function privateRolePurchaseForActor<T extends { playerId: string; role: 
   const level = privateRoleAccess(game, actor);
   if (level === 'none') return null;
   if (level === 'all' || actor.playerId === purchase.playerId) return { ...purchase };
-  const { role: _hidden, ...metadata } = purchase;
-  return metadata;
+  // Even existence or metadata of another player's purchase is private.
+  return null;
 }

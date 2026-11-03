@@ -1,3 +1,8 @@
+## 2026-11-03 — VIP: замечания владельца, пока только собирать
+
+- Исправить: после независимых проверок процентов выбирать ОДНО из всех сработавших доступных условий равновероятно, даже если они совместимы. «Шериф» + «красная» — 50/50 между условиями; не объединять их в гарантированного шерифа. Текущий код объединяет совместимые условия — это ошибка относительно уточнённого требования.
+- Владелец пока продолжает проверять условия: алгоритм не менять и PR не сливать до завершения согласования и исправления. Пока только фиксировать замечания.
+
 ## 2026-11-03 — PR #1172: one private VIP draw mechanism (owner: continue and finish)
 
 The owner approved activation and merging after green checks: the old Chagin 100% red guarantee must be an editable rule in the same private settings. Candidate, **not merged/deployed**: `vipLiveDrawService.ts` calls the shared closed-deck model for CASUAL/NOVICE only; quota is one player / distinct successful games / evening. Private success markers live in the existing deal state; reveal + capacity hold + confirm/undo/reset are serialized in the SQLite transaction. A pending reveal holds capacity against simultaneous other games but is not a confirmed success. Natural matching cards, failed chances and purchases do not spend quota. A configured eligible 100% red rule retains the legacy last-red protection; its real protection exchange credits its beneficiary once per game. Paid cards leave the deck first; unavailable roles are never fabricated. Changed roster rejects continuation until a fresh deal; reopened deals advance the version rather than reusing stale versions.

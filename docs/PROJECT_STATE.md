@@ -32,6 +32,10 @@ Verification: 51 focused integration/model/migration/architecture tests, 19 smok
 
 Merged current main (#1170) into the Today-post candidate and retained both audit entries. Fixed explicit text claiming before async draft generation, so concurrent clicks cannot let Second replace First. The fixture sets a Telegram bot username and does not perform real getMe requests. All 12 Today-post tests pass locally. Exact-head CI pending; no production posts were sent.
 
+## 2026-11-03 — #1173 merged-base verification
+
+Merged current main (#1170) into the Today-post candidate and retained both audit entries. Fixed explicit text claiming before async draft generation, so concurrent clicks cannot let Second replace First. The fixture sets a Telegram bot username and does not perform real getMe requests. All 12 Today-post tests pass locally. Exact-head CI pending; no production posts were sent.
+
 ## 2026-11-03 — owner: one architecture for the whole app (waiting for the owner's «да»)
 
 - Owner: «Игра» must be one entity with a status, not club and tournament games as different things; fix the cause, review the whole app. Analysis: `docs/ARCHITECTURE_REVIEW_2026-11-03.md` (five entities Событие / Игра / Участник / Деньги / Доставка, a code layer first, data moved only with a guarded migration and the owner's «да»). Parked: «Продолжить игру» for tournaments (`claude/wip-live-checkpoint-any-game`); #1151 (club games) held for the owner's decision.

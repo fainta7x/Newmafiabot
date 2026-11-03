@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { OPEN_EVENING_STATUSES } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getGame } from './gameService.ts';
 import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
@@ -58,7 +59,7 @@ export async function orderGameMusic(
   return db.transaction(async (tx) => {
     const game = await getGame(tx, `club:${gameId}`);
     if (!game || game.storage !== 'club' || !game.eventId) fail('Игра не найдена', 404);
-    if (!['published', 'active'].includes(String(game.eventStatus)) ||
+    if (!OPEN_EVENING_STATUSES.some((value) => value === String(game.eventStatus)) ||
         ['completed', 'cancelled', 'archived'].includes(game.status)) {
       fail('Заказ музыки для этой игры закрыт');
     }

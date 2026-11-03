@@ -39,3 +39,4 @@ button.deal-card:not(:disabled):active { transform: scale(.96); }
   .deal-card { max-height: 84px; }
   .deal-face { width: min(100px, 28vw); }
 }
+@media (max-height: 700px) { .deal-face { width: min(78px, 22vw); } }

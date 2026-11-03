@@ -64,7 +64,9 @@ export async function reserveRoleBeforeDeal(
   return db.transaction(async (tx) => {
     const game = await getGame(tx, `club:${gameId}`);
     if (!game || game.storage !== 'club' || !game.eventId) failure('Игра не найдена', 404);
-    if (game.status !== 'planned' || !['published', 'active'].includes(String(game.eventStatus))) failure('Покупки для этой игры закрыты');
+    // The live engine may mark a prepared game as 'running' before the
+    // first role is dealt. The precise cutoff is the persisted deal itself.
+    if (['completed', 'cancelled', 'archived'].includes(game.status) || !['published', 'active'].includes(String(game.eventStatus))) failure('Покупки для этой игры закрыты');
     if (!game.seats.some((seat) => seat.playerId === playerId)) failure('Игрок не участвует в этой игре', 403);
 
     // A deal row exists as soon as dealing starts, even before the first card.

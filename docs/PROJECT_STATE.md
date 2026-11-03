@@ -1,3 +1,7 @@
+## 2026-11-03 — платные услуги игры (владелец: завершить, слить и проверить Amvera)
+
+- PR #1160: скрытая покупка роли 150 ₽ (CASUAL/NOVICE), музыка 50 ₽ (вечера CASUAL/NOVICE/RATING), обмен местами 50 ₽ (CASUAL/NOVICE). Отдельные турниры исключены владельцем из данного релиза. Покупка в магазине/ЛК, судейская CRM, долг сразу, отмена снимает долг, при закрытии неисполненные услуги снимаются. Автоматические уведомления о покупке не введены, чтобы организатор-игрок не получал чужую информацию. До слияния необходимо дождаться CI точного SHA. После слияния проверить /api/health/runtime build.sha.
+
 ## 2026-11-03 — owner: one architecture for the whole app (waiting for the owner's «да»)
 
 - Owner: «Игра» must be one entity with a status, not club and tournament games as different things; fix the cause, review the whole app. Analysis: `docs/ARCHITECTURE_REVIEW_2026-11-03.md` (five entities Событие / Игра / Участник / Деньги / Доставка, a code layer first, data moved only with a guarded migration and the owner's «да»). Parked: «Продолжить игру» for tournaments (`claude/wip-live-checkpoint-any-game`); #1151 (club games) held for the owner's decision.

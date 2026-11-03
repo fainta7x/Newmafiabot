@@ -6,6 +6,8 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { cancelPreGameRolePurchase, reserveRoleBeforeDeal } from '../server/services/preGameRolePurchaseService.ts';
 import { orderGameMusic, markGameMusicPlayed, cancelGameMusicOrder, cancelOutstandingGameMusicOrders } from '../server/services/gameMusicOrderService.ts';
 import { orderGameSeatSwap, applyGameSeatSwap, cancelGameSeatSwap, cancelOutstandingGameSeatSwaps } from '../server/services/gameSeatSwapOrderService.ts';
+import { reconcileNoviceEveningCharges } from '../server/services/eveningSlotPlanningService.ts';
+import { reconcileOtherFormatExtensions } from '../server/services/eveningPaymentPricingService.ts';
 import { openVirtualRoleDeal, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal } from '../server/services/virtualRoleDealService.ts';
 
 const databases: DatabaseWrapper[] = [];
@@ -353,6 +355,24 @@ describe('pre-deal role purchase persistence and debt', () => {
       .set('Cookie',buyer).expect(200);
     expect(ratingChoices.body.games).toHaveLength(1);
     expect(ratingChoices.body.games[0]).toMatchObject({ format:'RATING', canRoleOrSwap:false });
+  });
+
+  it('novice and rating repricing preserve music charges exactly once', async () => {
+    for (const format of ['NOVICE','RATING']) {
+      const db = await setup(format);
+      const first = await orderGameMusic(db,817,'buyer-0','https://music.yandex.ru/album/18');
+      const afterOrder = await due(db,'buyer-0');
+      await reconcileNoviceEveningCharges(db,'reservation-evening');
+      await reconcileOtherFormatExtensions(db,'reservation-evening');
+      const afterReprice = await due(db,'buyer-0');
+      await reconcileNoviceEveningCharges(db,'reservation-evening');
+      await reconcileOtherFormatExtensions(db,'reservation-evening');
+      expect(await due(db,'buyer-0')).toBe(afterReprice);
+      expect(afterReprice).toBeGreaterThanOrEqual(50);
+      await cancelGameMusicOrder(db,first.id);
+      expect(await due(db,'buyer-0')).toBe(afterReprice-50);
+      expect(afterOrder).toBeGreaterThanOrEqual(50);
+    }
   });
 
   it('does not sell roles on rating evenings', async () => {

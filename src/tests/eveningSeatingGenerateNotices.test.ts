@@ -46,4 +46,24 @@ describe('generated evening seating is sent', () => {
     expect(after.some((id) => before.includes(id))).toBe(false);
     expect(await db.get<any>('SELECT player_id, seat_number FROM evening_seat_plans WHERE id = ?', [fixed.id])).toEqual({ player_id: fixed.player_id, seat_number: fixed.seat_number });
   });
+
+  it('an evening past its start time but not started yet still sends the seating (owner, 2026-11-03, 20:17 for 19:30)', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    const app = await createApp(db);
+    const now = new Date().toISOString();
+    const startedAgo = new Date(Date.now() - 50 * 60_000).toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,ends_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('e2','Вторник',?,'2099-08-29T00:00:00+03:00','Europe/Moscow','CASUAL','published',20,100,?,?)`, [startedAgo, now, now]);
+    await ensureSlotsForEvening(db, 'e2');
+    for (let i = 1; i <= 10; i += 1) {
+      await db.run("INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,telegram_user_id,created_at,updated_at) VALUES (?,?, 'normal','test',1000,0,?,?,?)", [`q${i}`, `Игрок ${i}`, String(200 + i), now, now]);
+      await db.run("INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,created_at,updated_at) VALUES (?,?,?,'unanswered','invited','pending',?,?)", [`eq-${i}`, 'e2', `q${i}`, now, now]);
+      await setParticipantResponse(db, `eq-${i}`, 'going');
+    }
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const response = await request(app).post('/api/evenings/e2/seating/generate').set('Cookie', cookie).send({});
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.notifications_skipped).toBeNull();
+    expect(response.body.notified_players).toBe(10);
+  });
 });

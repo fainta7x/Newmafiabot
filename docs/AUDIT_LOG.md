@@ -2667,6 +2667,7 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+## 2026-11-03 — a test game landed on a real evening (owner: «создал в тестовой оболочке, а он на основном»)
 
 ## 2026-11-03 — Live game text audit, first full run since #1166
 
@@ -2674,6 +2675,14 @@ The audit reached the Live game again once the stale «Начать раздач
 - `src/components/crm/liveSeatGrid.css`: on a computer «+Ф / −Ф» stood 36–40 px right of the seat card's axis (the row «Выставить +Ф» was centred as a whole); the pair is now the centre column of the row. The fix sits inside `@layer seat-grid` — an unlayered `!important` loses to a layered one.
 - `src/components/game/virtualRoleDeal.css` (#1169): the deal window scrolled 18 px at 360×640 and 27 px at 1366×768; compact spacing on screens up to 800 px high.
 - `e2e/tests/live-game-text-audit.spec.mjs`: a 1 s card timer let the program open a random card before the test pressed «Отменить последнюю карту»; 3 s.
+Production read only (organizer GET + Amvera run logs). Telegram Android: 14:20 MSK `POST /api/test-environment/login`; 14:25 the Mini App reopened and called `POST /api/auth/telegram`; 14:25 `POST /api/auth/login`; 14:27 game №30 (ten made-up guest names) was created on «Игровой вечер — 6 ноября», which turned it to «Идёт». The owner archived the game and took the start back himself at 18:55.
+
+- `src/server/routes/authRoutes.ts` `POST /telegram`: inside the sandbox it looked the Telegram account up in the test database, found nobody and cleared `player_token` — the sandbox session was gone without a word, and the organizer password then signed in to the real club — fixed: inside the sandbox the Telegram sign-in leaves the session as it is (`src/tests/sandboxTelegramSignIn.test.ts`).
+
+## 2026-11-03 — re-made seating sent to nobody
+
+Production read only: `POST /api/evenings/cbcb7301…/seating/generate` at 20:17 MSK for «Вечер во вторник 3.11» (starts 19:30, status «Запись открыта»).
+- `src/server/services/eveningSeatingNotificationsService.ts`: player notices were skipped once the evening's start TIME had passed, even while it was still gathering — fixed: only an evening «Идёт» or completed stops them (`src/tests/eveningSeatingGenerateNotices.test.ts`).
 ## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
 
 Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.

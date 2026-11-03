@@ -2655,3 +2655,8 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 ## 2026-11-03 — VIP rules: the same condition again
 
 - `src/server/services/vipProbabilityRulesService.ts` `saveVipProbabilityRule`: the same condition (player, kind, role, partner) could be added to the same player any number of times (owner: «начал одни и те же условия самому себе… спокойно даёт делать») — fixed: a second copy is refused with «Такое условие у игрока уже есть — измените его процент» (`src/tests/vipRuleDuplicates.test.ts`). Duplicates already saved stay until removed by hand.
+## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
+
+Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
+- `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
+- `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.

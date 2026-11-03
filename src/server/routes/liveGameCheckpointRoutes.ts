@@ -1,18 +1,19 @@
 import { Router } from 'express';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { parseGameKey } from '../../shared/game.ts';
 import { loadLiveGameCheckpoint, normalizeCheckpoint, saveLiveGameCheckpoint } from '../services/liveGameCheckpointService.ts';
 
-/** «Продолжить игру»: the server copy of a running club game's engine session (organizer only). */
+/** «Продолжить игру» for any game: `/api/live-checkpoints/club:7`, `/api/live-checkpoints/tournament:<id>` (organizer only). */
 const router = Router();
 
-router.put('/:gameId/live-checkpoint', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+router.put('/:key', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
+    const key = String(req.params.key || '');
+    if (!parseGameKey(key)) return res.status(400).json({ error: 'Игра не найдена' });
     const checkpoint = normalizeCheckpoint(req.body);
     if (!checkpoint) return res.status(400).json({ error: 'Некорректное сохранение игры' });
-    const result = await saveLiveGameCheckpoint(req.db || (await getDb()), gameId, checkpoint);
+    const result = await saveLiveGameCheckpoint(req.db || (await getDb()), key, checkpoint);
     if (result === 'missing') return res.status(404).json({ error: 'Игра не найдена' });
     if (result === 'finished') return res.status(409).json({ error: 'Игра уже завершена' });
     return res.json({ ok: true });
@@ -21,12 +22,12 @@ router.put('/:gameId/live-checkpoint', requireOrganizerAuth, async (req: Authent
   }
 });
 
-router.get('/:gameId/live-checkpoint', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+router.get('/:key', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
+    const key = String(req.params.key || '');
+    if (!parseGameKey(key)) return res.status(400).json({ error: 'Игра не найдена' });
     res.setHeader('Cache-Control', 'no-store');
-    const checkpoint = await loadLiveGameCheckpoint(req.db || (await getDb()), gameId);
+    const checkpoint = await loadLiveGameCheckpoint(req.db || (await getDb()), key);
     if (!checkpoint) return res.status(404).json({ error: 'Сохранения игры на сервере нет' });
     return res.json(checkpoint);
   } catch (error: any) {

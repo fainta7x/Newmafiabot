@@ -400,7 +400,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
   app.use('/api/games', organizerBettingRoutes);
   app.use('/api/games', liveBroadcastGameRoutes);
-  app.use('/api/games', liveGameCheckpointRoutes);
+  app.use('/api/live-checkpoints', liveGameCheckpointRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/tournaments', tournamentSeatingShareRoutes);
   app.use('/api/tournaments', tournamentTelegramRoutes);

@@ -66,6 +66,14 @@ Applies to every AI assistant working on this project (Claude, ChatGPT/Codex and
 - Do not name features or sections yourself (owner, 2026-11-02: invented names were «кринжовые»). Use the owner's wording or a plain description and ask the owner for the name.
 - When the owner asks for ideas, stay strictly inside the scope they described and keep them few and plain; do not pad the list.
 
+## 3c. One entity per business thing (owner, 2026-11-03)
+
+The owner: «должна быть сущность "Игра" со статусом… а получается разные вещи Клубная игра и Турнирная игра». The whole-app review is `docs/ARCHITECTURE_REVIEW_2026-11-03.md` (six entities: Событие, Игра, Участник, Деньги, Доставка, Привязка аккаунта).
+
+- A new kind of game, event, participant, payment or message is a new value of the existing entity's `format`/`kind`, never a new table, a copied service or a copied window. Rating, novice and tournament games are formats of «Игра».
+- A feature that touches games reads them through the one «Игра» layer (`src/shared/game.ts`, `src/server/services/gameService.ts`) and is written once for every format. Writing a feature for one kind and asking the owner whether the other kinds need it is the failure this rule exists for.
+- The guard `src/tests/architectureEntityGuard.test.ts` fails on a new `*_games` / `*_participants` / `*_registrations` / `*_publications` / `*_outbox` table; its list may only shrink.
+
 ## 4. Working style
 
 - Perform one targeted discovery pass, then keep a compact file map.

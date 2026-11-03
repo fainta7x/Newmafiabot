@@ -1,13 +1,15 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { oncePerDatabase } from '../../db/oncePerDatabase.ts';
+import { isFinishedGameStatus, parseGameKey, type GameKey } from '../../shared/game.ts';
+import { getGame } from './gameService.ts';
 
 /**
- * «Продолжить игру» (owner, 2026-11-03; AR04 step 2): the server copy of a club game's live engine session, so a game
- * can be continued on another device when the judge's device lost its own copy. The device stays the owner of the
- * session: the server only keeps the latest copy it was sent and gives it back. A finished game has no copy.
+ * «Продолжить игру» (owner, 2026-11-03; AR04 step 2) for EVERY game through the one «Игра» layer: the server copy of a
+ * running game's live engine session, keyed by the game key (`club:<id>`, `tournament:<id>`) — the same key the engine
+ * uses for its own session. The device stays the owner of the session; the server keeps the latest copy it was sent.
+ * A finished game (completed, cancelled, archived — `isFinishedGameStatus`) has no copy.
  */
 export type LiveGameCheckpoint = {
-  /** The device keys of the session, as the club recorder keeps them (session, protocol evidence, death protocols, notes). */
   session: string;
   evidence?: string | null;
   death_protocols?: string | null;
@@ -17,8 +19,17 @@ export type LiveGameCheckpoint = {
 export const MAX_CHECKPOINT_CHARS = 1_500_000;
 
 export const ensureLiveGameCheckpointSchema = oncePerDatabase(async (db: DatabaseWrapper): Promise<void> => {
+  const columns = await db.all<any>('PRAGMA table_info(live_game_checkpoints)');
+  if (columns.some((column: any) => column.name === 'game_id')) {
+    // The first version (club games only) keyed by games.id: move its copies to the game key once.
+    await db.exec(`CREATE TABLE live_game_checkpoints_by_key (game_key TEXT PRIMARY KEY, payload TEXT NOT NULL, saved_at TEXT NOT NULL);
+      INSERT OR IGNORE INTO live_game_checkpoints_by_key (game_key, payload, saved_at) SELECT 'club:' || game_id, payload, saved_at FROM live_game_checkpoints;
+      DROP TABLE live_game_checkpoints;
+      ALTER TABLE live_game_checkpoints_by_key RENAME TO live_game_checkpoints;`);
+    return;
+  }
   await db.exec(`CREATE TABLE IF NOT EXISTS live_game_checkpoints (
-    game_id INTEGER PRIMARY KEY,
+    game_key TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
     saved_at TEXT NOT NULL
   )`);
@@ -41,29 +52,22 @@ export function normalizeCheckpoint(input: unknown): LiveGameCheckpoint | null {
   return JSON.stringify(checkpoint).length > MAX_CHECKPOINT_CHARS ? null : checkpoint;
 }
 
-const gameIsFinished = async (db: DatabaseWrapper, gameId: number) => {
-  const row = await db.get<any>(`SELECT archived_at,
-      CASE WHEN json_valid(protocol_text) THEN json_extract(protocol_text, '$.protocol.status') END AS status
-    FROM games WHERE id = ?`, [gameId]);
-  if (!row) return null;
-  return Boolean(row.archived_at) || row.status === 'completed';
-};
-
-export async function saveLiveGameCheckpoint(db: DatabaseWrapper, gameId: number, checkpoint: LiveGameCheckpoint): Promise<'saved' | 'missing' | 'finished'> {
+export async function saveLiveGameCheckpoint(db: DatabaseWrapper, key: string, checkpoint: LiveGameCheckpoint): Promise<'saved' | 'missing' | 'finished'> {
   await ensureLiveGameCheckpointSchema(db);
-  const finished = await gameIsFinished(db, gameId);
-  if (finished === null) return 'missing';
-  if (finished) return 'finished';
-  await db.run(`INSERT INTO live_game_checkpoints (game_id, payload, saved_at) VALUES (?, ?, ?)
-    ON CONFLICT(game_id) DO UPDATE SET payload = excluded.payload, saved_at = excluded.saved_at`,
-  [gameId, JSON.stringify(checkpoint), new Date().toISOString()]);
+  const game = parseGameKey(key) ? await getGame(db, key) : null;
+  if (!game) return 'missing';
+  if (isFinishedGameStatus(game.status)) return 'finished';
+  await db.run(`INSERT INTO live_game_checkpoints (game_key, payload, saved_at) VALUES (?, ?, ?)
+    ON CONFLICT(game_key) DO UPDATE SET payload = excluded.payload, saved_at = excluded.saved_at`,
+  [game.key, JSON.stringify(checkpoint), new Date().toISOString()]);
   return 'saved';
 }
 
-export async function loadLiveGameCheckpoint(db: DatabaseWrapper, gameId: number): Promise<(LiveGameCheckpoint & { saved_at: string }) | null> {
+export async function loadLiveGameCheckpoint(db: DatabaseWrapper, key: string): Promise<(LiveGameCheckpoint & { saved_at: string }) | null> {
   await ensureLiveGameCheckpointSchema(db);
-  if ((await gameIsFinished(db, gameId)) !== false) return null;
-  const row = await db.get<any>('SELECT payload, saved_at FROM live_game_checkpoints WHERE game_id = ?', [gameId]);
+  const game = parseGameKey(key) ? await getGame(db, key) : null;
+  if (!game || isFinishedGameStatus(game.status)) return null;
+  const row = await db.get<any>('SELECT payload, saved_at FROM live_game_checkpoints WHERE game_key = ?', [game.key]);
   if (!row) return null;
   try {
     const checkpoint = normalizeCheckpoint(JSON.parse(String(row.payload)));
@@ -73,7 +77,8 @@ export async function loadLiveGameCheckpoint(db: DatabaseWrapper, gameId: number
   }
 }
 
-export async function clearLiveGameCheckpoint(db: DatabaseWrapper, gameId: number): Promise<void> {
+/** Called when a game's protocol is saved as completed (both save paths). */
+export async function clearLiveGameCheckpoint(db: DatabaseWrapper, key: GameKey | string): Promise<void> {
   await ensureLiveGameCheckpointSchema(db);
-  await db.run('DELETE FROM live_game_checkpoints WHERE game_id = ?', [gameId]);
+  await db.run('DELETE FROM live_game_checkpoints WHERE game_key = ?', [key]);
 }

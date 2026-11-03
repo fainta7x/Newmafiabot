@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { cancelPreGameRolePurchase, reserveRoleBeforeDeal } from '../server/services/preGameRolePurchaseService.ts';
+import { openVirtualRoleDeal, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal } from '../server/services/virtualRoleDealService.ts';
 
 const databases: DatabaseWrapper[] = [];
 afterEach(() => { while (databases.length) databases.pop()?.sqlite.close(); });
@@ -65,6 +66,45 @@ describe('pre-deal role purchase persistence and debt', () => {
     await reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'mafia')).rejects.toThrow();
     expect(await due(db, 'buyer-0')).toBe(150);
+  });
+
+  it('a buyer receives the paid role even if choosing a different closed card; debt is charged only once', async () => {
+    const db = await setup();
+    await reserveRoleBeforeDeal(db, 817, 'buyer-2', 'sheriff');
+    const opened = await openVirtualRoleDeal(db, 817);
+    const firstCardId = opened.cards[0].id;
+    const reveal = await revealVirtualRole(db, 817, 3, firstCardId, opened.version);
+    expect(reveal.role).toBe('sheriff');
+    const confirmed = await confirmVirtualRole(db, 817, 3, firstCardId, reveal.version);
+    expect(confirmed.history).toEqual([expect.objectContaining({ seat: 3, role: 'sheriff' })]);
+    expect(await due(db, 'buyer-2')).toBe(150);
+    const dbRow = await db.get<{ status: string }>(
+      "SELECT status FROM game_role_reservations WHERE game_id=817 AND player_id='buyer-2'",
+    );
+    expect(dbRow?.status).toBe('fulfilled');
+  });
+
+  it('other players cannot draw the last prepaid card; undo/redeal retain the paid reservation', async () => {
+    const db = await setup();
+    await reserveRoleBeforeDeal(db, 817, 'buyer-2', 'sheriff');
+    const opened = await openVirtualRoleDeal(db, 817);
+    const raw = await db.get<{ state_json: string }>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=817');
+    const state = JSON.parse(String(raw?.state_json));
+    const sheriffId: string = state.deck.find((card: any) => card.role === 'sheriff').id;
+    const otherReveal = await revealVirtualRole(db, 817, 1, sheriffId, opened.version);
+    expect(otherReveal.role).not.toBe('sheriff');
+    let confirmed = await confirmVirtualRole(db, 817, 1, sheriffId, otherReveal.version);
+    const buyerCardId = confirmed.cards[0].id;
+    const buyerReveal = await revealVirtualRole(db, 817, 3, buyerCardId, confirmed.version);
+    expect(buyerReveal.role).toBe('sheriff');
+    confirmed = await confirmVirtualRole(db, 817, 3, buyerCardId, buyerReveal.version);
+    expect(await due(db, 'buyer-2')).toBe(150);
+    const undone = await undoVirtualRole(db, 817, confirmed.version);
+    expect(await due(db, 'buyer-2')).toBe(150);
+    await resetVirtualRoleDeal(db, 817, undone.version);
+    expect(await due(db, 'buyer-2')).toBe(150);
+    const row = await db.get<{ status: string }>("SELECT status FROM game_role_reservations WHERE game_id=817 AND player_id='buyer-2'");
+    expect(row?.status).toBe('reserved');
   });
 
   it('does not sell roles on rating evenings', async () => {

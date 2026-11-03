@@ -111,7 +111,6 @@ async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: str
     : null;
   const games = await db.all<any>('SELECT judge_player_id, slots_json FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
   const staffIds = new Set([organizer?.organizer_player_id, ...games.map((game: any) => game.judge_player_id)].filter(Boolean).map(String));
-  const paidServices = await loadRolePurchases(db, eveningId);
   const playedIds = new Set<string>(seated);
   for (const game of games) {
     let slots: any[] = [];

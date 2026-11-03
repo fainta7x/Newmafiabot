@@ -435,11 +435,11 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
       const freeOfCharge = waivedIds.has(participantId) || (String(participant.payment_status) === 'waived' && due === 0);
       const newExtension = (!freeOfCharge ? (shares.get(participantId) || 0) : 0) + (rolePurchases.get(String(participant.player_id)) || 0);
       // A bought role is a purchase, not a fee: it is charged even to a player who plays free (same as on a club evening).
-      // All novice/rating repricers preserve extension_due in amount_due.
-      // Remove the previous addon before applying the new amount even when
-      // the base fee changed, otherwise repricing doubles a paid service.
-      if (newExtension === oldExtension) continue;
-      const base = Math.max(0, due - oldExtension);
+      const previousTotal = Number(participant.extension_total_due || 0);
+      const ourTotalStillStands = oldExtension > 0 && due === previousTotal;
+      if (newExtension === oldExtension && (oldExtension === 0 || ourTotalStillStands)) continue;
+
+      const base = ourTotalStillStands ? due - oldExtension : due;
       const total = base + newExtension;
       const paid = Math.max(0, Number(participant.amount_paid || 0));
       const status = total === 0 ? String(participant.payment_status || '') : paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid';

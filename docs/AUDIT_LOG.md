@@ -1,6 +1,24 @@
 # Audit log
 
 
+
+## 2026-11-03 · Architecture programme items 5–9 (audit; production reads GET only)
+
+Scope: PROJECT_STATE «Architecture unification» items 5–9, owner «делай» 2026-11-03. Source review plus read-only production checks (organizer login, GET only).
+
+**5. Query/state consistency.** 131 raw `fetch('/api…')` calls in 81 component files next to the shared helpers (`requestJson.ts`, `lib/api`). No global client rewrite (programme rule).
+- LOW `fixed (this PR)` — `EveningSeatingEditor.tsx` and `EveningGameCreateSheet.tsx` parsed the `/slots` and `/seating` answers without checking the status, so a server error showed an empty seating with no message; they now read through `readJsonResponse` (the editor shows «Не удалось загрузить рассадку»).
+- NOTE `open` — migrate the remaining raw GETs one screen per PR (already the item 4 plan).
+
+**6. Event lifecycle / RSVP across channels.** 36 direct `response_status` comparisons outside `eveningResponse.ts`; every «is attending» SQL counts `going` and `late` together, matching `isAttendingResponse`. Two use `going` only on purpose: `registerGoingParticipantsForAllGames` (owner rule 2026-10-13: «Иду» registers for every game, «Приду позже» stays an intent without games) and `loadVkJoinCounts` (counts each answer separately). The three client labels («Идёт») check `late` separately. No defect.
+
+**7. Player identity.** Players are found by nickname only in the developer read tool (`developerReadRoutes.ts`) and the nickname-uniqueness check on creation (`playerTokensRoutes.ts`); every other match is by id or seat. No defect.
+
+**8. Financial flows.** Production: for all 40 players `players.tokens` = the ledger balance = the latest `balance_after` (0 mismatches); debts: the CRM screen and the players list agree (13 debtors, 6 150 ₽; AR03 entry). No accounting change.
+
+**9. Live Game / judge / OBS.** `LiveGameEngine.tsx` is 2 147 lines with 53 `useState`; 10 pure models are already extracted and 55 test files cover the engine. No refactor without phase/snapshot/recovery tests (programme rule).
+- MEDIUM `open (needs the owner)` — «Продолжить игру» (AR04, #1151) covers club games only; a tournament game (`TournamentLiveGameModal.tsx`) is still restored only from the judge's device.
+
 ## 2026-11-03 · AR03: one debt read rule (wallet / CRM)
 
 Scope: every reader of «a player owes for an evening». Production check (read-only): the CRM debts screen and the players list agree (13 debtors, 6 150 ₽, 0 mismatches); the wallet is a player-only route and was characterised in tests.

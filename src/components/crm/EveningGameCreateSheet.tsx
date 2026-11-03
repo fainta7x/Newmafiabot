@@ -13,6 +13,9 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
 import TableScoutingCard from './TableScoutingCard.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import { readJsonResponse } from '../../lib/requestJson.ts';
+// An error answer is an error, not an empty seating (architecture item 5, 2026-11-03).
+const okJson = (response: Response) => readJsonResponse(response, 'Не удалось загрузить рассадку');
 
 interface EveningGameCreateSheetProps {
   evening: GameEvening;
@@ -64,8 +67,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   useEffect(() => {
     let current = true;
     Promise.all([
-      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
-      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
+      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(okJson),
+      fetch(`/api/evenings/${encodeURIComponent(evening.id)}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(okJson),
     ]).then(([plan, placement]) => {
       if (!current) return;
       setPlannedSlots(plan.slots || []);

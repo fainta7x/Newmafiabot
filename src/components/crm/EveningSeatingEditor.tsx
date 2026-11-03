@@ -5,6 +5,9 @@ import type { EveningParticipant } from '../../lib/api';
 import { isEveningGameEligible } from '../../lib/eveningRoster';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import { readJsonResponse } from '../../lib/requestJson.ts';
+// An error answer is an error, not an empty seating (architecture item 5, 2026-11-03).
+const okJson = (response: Response) => readJsonResponse(response, 'Не удалось загрузить рассадку');
 
 type Seat = { id: string; slot_id: string; game: number; tableId: string; seat: number; playerId: string; nickname: string; started: number };
 type Slot = { id: string; slot_number: number };
@@ -35,8 +38,8 @@ export function EveningSeatingEditor({ eveningId, tables, participants, playedGa
 
   const reload = async () => {
     const [plan, assigned] = await Promise.all([
-      fetch(`${root}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
-      fetch(`${root}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(r => r.json()),
+      fetch(`${root}/slots`, { credentials: 'include', headers: organizerHeaders(false) }).then(okJson),
+      fetch(`${root}/seating`, { credentials: 'include', headers: organizerHeaders(false) }).then(okJson),
     ]);
     setSlots(plan.slots || []);
     setSeats(assigned.seats || []);

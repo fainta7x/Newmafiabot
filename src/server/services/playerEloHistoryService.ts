@@ -1,27 +1,15 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sqliteReadVersion } from './sqliteReadVersion.ts';
-import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import {
+  prepareCanonicalEloEvents,
   calculateCanonicalEloGame,
   currentEloInputsGeneration,
   DEFAULT_ELO,
-  clubPersonalGamePoints,
-  clubPersonalPointParts,
-  tournamentPersonalEloPoints,
-  tournamentWillContributions,
-  clubDisciplinaryPenaltyPoints,
-  clubEloDisciplinePoints,
-  clubContributionByPlayer,
-  normalizeContributions,
-  sortTime,
-  validatePreparedEvent,
   type CanonicalEloGamePlayer,
   type CanonicalEloPlayerDelta,
   type EloTeam,
   type PreparedEloEvent as PreparedEvent,
-  type PreparedEloPlayer as PreparedPlayer,
 } from './eloRatingService.ts';
-import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 
 
 export interface PlayerEloHistoryRow extends CanonicalEloPlayerDelta {
@@ -42,14 +30,9 @@ export interface PlayerEloHistoryEvent {
 }
 
 
-const safeJsonParse = <T>(value: unknown, fallback: T): T => {
-  if (typeof value !== 'string' || !value.trim()) return fallback;
-  try { return JSON.parse(value) as T; } catch { return fallback; }
-};
 
 /** `guests` are the seats of guests without a profile: they are left out of the rating, so fewer players are expected. */
 const loadPreparedEvents = async (db: DatabaseWrapper) => {
-  const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');
   const players = await db.all<any>(
     'SELECT id, COALESCE(elo_seed, ?) AS elo_seed FROM players ORDER BY id',
     [DEFAULT_ELO],
@@ -61,139 +44,8 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     const seed = Number(player.elo_seed);
     return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
   }));
-  const events: PreparedEvent[] = [];
-
-  const tournaments = await db.all<any>(`
-    SELECT DISTINCT t.id, t.date, t.created_at
-      FROM tournaments t
-      JOIN tournament_games g ON g.tournament_id = t.id
-      JOIN tournament_game_protocols p ON p.game_id = g.id
-     WHERE g.status = 'completed' AND p.status = 'completed'
-     ORDER BY COALESCE(t.date, t.created_at) ASC, t.created_at ASC, t.id ASC
-  `);
-
-  for (const tournament of tournaments) {
-    const standingsData = await getFlexibleTournamentStandings(db, String(tournament.id));
-    const standings = Array.isArray(standingsData?.standings) ? standingsData.standings : [];
-    const games = await db.all<any>(`
-      SELECT g.id, g.game_number, COALESCE(p.winner_team, g.winner_team) AS winner_team,
-             COALESCE(g.completed_at, t.date, t.created_at) AS sort_at, p.shots_json
-        FROM tournament_games g
-        JOIN tournaments t ON t.id = g.tournament_id
-        JOIN tournament_game_protocols p ON p.game_id = g.id
-       WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
-       ORDER BY COALESCE(g.completed_at, t.date, t.created_at) ASC, g.game_number ASC, g.id ASC
-    `, [tournament.id]);
-
-    for (const game of games) {
-      const winner = normalizeWinnerTeam(game.winner_team);
-      if (!winner) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: winner is missing.`);
-      const eventPlayers: PreparedPlayer[] = [];
-      const contributions = await tournamentWillContributions(db, game, winner, standings);
-
-      for (const participant of standings) {
-        if (!participant.player_id) continue;
-        const canonicalGame = Array.isArray(participant.games)
-          ? participant.games.find((item: any) => Number(item.game_number) === Number(game.game_number))
-          : null;
-        if (!canonicalGame) continue;
-
-        const team = gameTeamOfRole(canonicalGame.role);
-        if (!team) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: role is missing.`);
-        const playerId = String(participant.player_id);
-        if (!knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
-
-        eventPlayers.push({
-          playerId,
-          team,
-          ...tournamentPersonalEloPoints(canonicalGame),
-          contribution: contributions.get(playerId),
-        });
-      }
-
-      const event: PreparedEvent = {
-        source: 'tournament',
-        sourceId: String(game.id),
-        sortAt: String(game.sort_at || tournament.date || tournament.created_at || ''),
-        sortOrder: Number(game.game_number || 0),
-        winnerTeam: winner,
-        players: eventPlayers,
-      };
-      validatePreparedEvent(event);
-      events.push(event);
-    }
-  }
-
-  const clubGames = await db.all<any>(`
-    SELECT g.id, g.global_game_number, g.game_date, g.created_at, g.winner_team, g.protocol_text,
-           e.format AS evening_format
-      FROM games g
-      JOIN game_evenings e ON e.id = g.evening_id
-     WHERE g.evening_id IS NOT NULL
-       AND g.archived_at IS NULL
-       AND g.protocol_text IS NOT NULL
-     ORDER BY COALESCE(g.game_date, g.created_at) ASC, g.global_game_number ASC, g.id ASC
-  `);
-
-  for (const game of clubGames) {
-    if (!eveningFormatAffectsElo(game.evening_format)) continue;
-    const payload = safeJsonParse<any>(game.protocol_text, null);
-    if (!payload || payload.version !== 1 || payload.kind !== 'club_evening_protocol') continue;
-    if (payload.protocol?.status !== 'completed') continue;
-
-    const winner = normalizeWinnerTeam(payload.protocol?.winner_team || game.winner_team);
-    if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
-    const results = Array.isArray(payload.player_results) ? payload.player_results : [];
-    // Same rule as the canonical Elo rebuild (`eloRatingService`): a guest without a profile is never an Elo subject, but
-    // the game still counts (owner, 2026-10-05) — it is rated from the remaining registered players, the guest's seat left out.
-    const isGuestSeat = (result: any) => {
-      const playerId = String(result?.player_id || '').trim();
-      return Boolean(result?.guest_placeholder_id) || !playerId || guestPlayerIds.has(playerId);
-    };
-    const guests = { red: 0, black: 0 };
-    for (const result of results.filter(isGuestSeat)) {
-      const team = gameTeamOfRole(result?.role);
-      if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
-      guests[team] += 1;
-    }
-    const contributions = clubContributionByPlayer(payload, results);
-    const eventPlayers: PreparedPlayer[] = results.filter((result: any) => !isGuestSeat(result)).map((result: any) => {
-      const playerId = String(result?.player_id || '').trim();
-      if (!playerId || !knownPlayerIds.has(playerId)) {
-        throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
-      }
-      const team = gameTeamOfRole(result?.role);
-      if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
-      return {
-        playerId,
-        team,
-        canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
-        ...clubPersonalPointParts(payload, result, results),
-        disciplinaryPenaltyPoints: clubDisciplinaryPenaltyPoints(payload, result),
-        eloDisciplinePoints: clubEloDisciplinePoints(payload, result),
-        contribution: contributions.get(playerId),
-      };
-    });
-
-    const event: PreparedEvent = {
-      source: 'club',
-      sourceId: String(game.id),
-      sortAt: String(game.game_date || game.created_at || ''),
-      sortOrder: Number(game.global_game_number || game.id || 0),
-      winnerTeam: winner,
-      players: eventPlayers,
-    };
-    validatePreparedEvent(event, guests);
-    events.push(event);
-  }
-
-  normalizeContributions(events);
-  events.sort((a, b) =>
-    sortTime(a.sortAt) - sortTime(b.sortAt)
-    || a.sortOrder - b.sortOrder
-    || a.source.localeCompare(b.source)
-    || a.sourceId.localeCompare(b.sourceId),
-  );
+  // One list of rated games with the canonical rebuild (`prepareCanonicalEloEvents`).
+  const events: PreparedEvent[] = await prepareCanonicalEloEvents(db, knownPlayerIds, guestPlayerIds);
 
   return { playerIds: players.map((player) => String(player.id)), seedByPlayer, events };
 };

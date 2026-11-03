@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../../db/index.ts';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
-import { getGame } from '../services/gameService.ts';
+import { getGame, listEventGames } from '../services/gameService.ts';
 import {
   cancelPreGameRolePurchase,
   chooseGameForDeferredRolePurchase,
@@ -22,6 +22,47 @@ const onError = (res: any, error: any) =>
   res.status(Number(error?.statusCode || 500)).json({
     error: error?.statusCode ? error.message : 'Не удалось оформить покупку',
   });
+
+/** The existing shop uses the same server-backed order as the game page.
+ * Only future games where this player is already seated are suggested.
+ * No reserved-role availability, purchase count or other buyers are included.
+ */
+playerRouter.get('/role-purchase-games', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в личный кабинет' });
+  try {
+    const db = req.db || await getDb();
+    const events = await db.all<{ id: string; title: string }>(
+      `SELECT e.id, e.title FROM game_evenings e
+        JOIN evening_participants p ON p.evening_id=e.id
+       WHERE p.player_id=? AND e.status IN ('published','active')
+         AND e.format IN ('CASUAL','NOVICE')
+         AND e.settled_at IS NULL
+       ORDER BY datetime(e.starts_at) ASC LIMIT 30`,
+      [playerId],
+    );
+    const games: Array<{ gameId: number; eveningId: string; eveningTitle: string; number: number }> = [];
+    for (const event of events) {
+      const entries = await listEventGames(db, 'evening', event.id);
+      for (const game of entries) {
+        if (game.storage !== 'club' || game.status === 'completed' ||
+            game.status === 'archived' || game.status === 'cancelled' ||
+            !game.seats.some((seat) => seat.playerId === playerId)) continue;
+        const deal = await db.get(
+          'SELECT 1 FROM game_virtual_role_deals WHERE game_id=? LIMIT 1',
+          [Number(game.id)],
+        ).catch(() => null);
+        if (deal) continue;
+        games.push({
+          gameId: Number(game.id), eveningId: event.id,
+          eveningTitle: event.title, number: game.number ?? 0,
+        });
+      }
+    }
+    res.set('Cache-Control', 'private, no-store');
+    return res.json({ games });
+  } catch (error: any) { return onError(res, error); }
+});
 
 /** The browser gets NO capacity, current reservation count or conflicting buyer. */
 playerRouter.post('/role-purchases', async (req, res) => {

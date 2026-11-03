@@ -9,6 +9,7 @@ import {
   ensurePreGameRolePurchaseSchema,
 } from '../services/preGameRolePurchaseService.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
+import { orderGameSeatSwap,applyGameSeatSwap,cancelGameSeatSwap,ensureGameSeatSwapSchema } from '../services/gameSeatSwapOrderService.ts';
 import {
   orderGameMusic, markGameMusicPlayed, cancelGameMusicOrder,
   ensureGameMusicOrderSchema,
@@ -119,6 +120,92 @@ playerRouter.get('/role-purchases', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     return res.json({ orders });
   } catch (error: any) { return onError(res, error); }
+});
+
+playerRouter.post('/seat-swap-orders', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в ЛК' });
+  const gameId = Number(req.body?.gameId);
+  const target = String(req.body?.targetPlayerId || '');
+  if (!Number.isInteger(gameId) || gameId <= 0 || !target) return res.status(400).json({ error: 'Выберите игру и игрока' });
+  try {
+    const db = req.db || await getDb();
+    const order = await orderGameSeatSwap(db, gameId, playerId, target);
+    res.set('Cache-Control','private, no-store');
+    return res.status(201).json({ orderId: order.id, priceRub: order.priceRub });
+  } catch (error: any) { return onError(res,error); }
+});
+
+playerRouter.get('/seat-swap-orders', async (req,res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в ЛК' });
+  try {
+    const db = req.db || await getDb();
+    await ensureGameSeatSwapSchema(db);
+    const orders = await db.all(
+      'SELECT id,game_id,target_player_id,status,amount_rub,created_at FROM game_seat_swap_orders WHERE player_id=? ORDER BY created_at DESC LIMIT 100',
+      [playerId],
+    );
+    res.set('Cache-Control','private, no-store');
+    return res.json({ orders });
+  } catch (error: any) { return onError(res,error); }
+});
+
+adminRouter.get('/seat-swap-orders', async (req,res) => {
+  const gameId = Number(req.query.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Укажите игру' });
+  try {
+    const db = req.db || await getDb();
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    const judge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (judge && game.judgePlayerId !== judge) return res.status(403).json({ error: 'Нет прав судьи игры' });
+    await ensureGameSeatSwapSchema(db);
+    const orders = await db.all(
+      'SELECT id,player_id,target_player_id,status,amount_rub,created_at FROM game_seat_swap_orders WHERE game_id=? ORDER BY created_at',
+      [gameId],
+    );
+    res.set('Cache-Control','private, no-store');
+    return res.json({ orders });
+  } catch (error: any) { return onError(res,error); }
+});
+
+adminRouter.post('/seat-swap-orders', async (req,res) => {
+  const gameId = Number(req.body?.gameId);
+  const playerId = String(req.body?.playerId || '');
+  const target = String(req.body?.targetPlayerId || '');
+  if (!Number.isInteger(gameId) || gameId <= 0 || !playerId || !target)
+    return res.status(400).json({ error: 'Укажите игру и двух игроков' });
+  try {
+    const db = req.db || await getDb();
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    const judge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (judge && game.judgePlayerId !== judge) return res.status(403).json({ error: 'Нет прав судьи игры' });
+    const order = await orderGameSeatSwap(db, gameId, playerId, target);
+    res.set('Cache-Control','private, no-store');
+    return res.status(201).json({ orderId: order.id, priceRub: order.priceRub });
+  } catch (error: any) { return onError(res,error); }
+});
+
+adminRouter.post('/seat-swap-orders/:orderId/apply', async (req,res) => {
+  const gameId = Number(req.body?.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Укажите игру' });
+  try {
+    const db = req.db || await getDb();
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    const judge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (judge && game.judgePlayerId !== judge) return res.status(403).json({ error: 'Нет прав судьи игры' });
+    return res.json(await applyGameSeatSwap(db, String(req.params.orderId), gameId));
+  } catch (error: any) { return onError(res,error); }
+});
+
+adminRouter.delete('/seat-swap-orders/:orderId', async (req,res) => {
+  try {
+    const db = req.db || await getDb();
+    return res.json(await cancelGameSeatSwap(db,String(req.params.orderId)));
+  } catch (error: any) { return onError(res,error); }
 });
 
 /** All personal song requests remain private, not part of the public game view. */

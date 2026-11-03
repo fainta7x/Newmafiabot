@@ -14,15 +14,16 @@ const makeDb = () => {
   sqlite.pragma('foreign_keys = ON');
   sqlite.exec(`
     CREATE TABLE players (id TEXT PRIMARY KEY, telegram_user_id TEXT UNIQUE, nickname TEXT NOT NULL, elo INTEGER NOT NULL DEFAULT 1000);
-    CREATE TABLE game_evenings (id TEXT PRIMARY KEY, status TEXT NOT NULL, format TEXT, starts_at TEXT);
+    CREATE TABLE game_evenings (id TEXT PRIMARY KEY, status TEXT NOT NULL, format TEXT, starts_at TEXT, title TEXT);
+    CREATE TABLE evening_tables (id TEXT PRIMARY KEY, name TEXT);
     CREATE TABLE games (
       id INTEGER PRIMARY KEY AUTOINCREMENT, evening_id TEXT, winner_team TEXT NOT NULL,
       judge_name TEXT, judge_player_id TEXT, protocol_text TEXT, archived_at TEXT,
-      global_game_number INTEGER, game_date TEXT, created_at TEXT
+      global_game_number INTEGER, game_date TEXT, created_at TEXT, evening_table_id TEXT
     );
-    CREATE TABLE tournaments (id TEXT PRIMARY KEY, status TEXT NOT NULL, date TEXT);
+    CREATE TABLE tournaments (id TEXT PRIMARY KEY, status TEXT NOT NULL, date TEXT, title TEXT);
     CREATE TABLE tournament_participants (id TEXT PRIMARY KEY, tournament_id TEXT NOT NULL, player_id TEXT, display_name TEXT);
-    CREATE TABLE tournament_games (id TEXT PRIMARY KEY, tournament_id TEXT NOT NULL, status TEXT NOT NULL, winner_team TEXT, judge_player_id TEXT, game_number INTEGER, started_at TEXT, completed_at TEXT);
+    CREATE TABLE tournament_games (id TEXT PRIMARY KEY, tournament_id TEXT NOT NULL, status TEXT NOT NULL, winner_team TEXT, judge_player_id TEXT, judge_name TEXT, game_number INTEGER, started_at TEXT, completed_at TEXT);
     CREATE TABLE tournament_game_seats (id TEXT PRIMARY KEY, game_id TEXT NOT NULL, participant_id TEXT NOT NULL, role TEXT, seat_number INTEGER);
     CREATE TABLE tournament_game_protocols (id TEXT PRIMARY KEY, game_id TEXT NOT NULL UNIQUE, status TEXT NOT NULL, first_killed_participant_id TEXT);
     CREATE TABLE tournament_game_player_results (

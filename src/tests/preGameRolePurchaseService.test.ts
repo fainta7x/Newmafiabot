@@ -179,6 +179,34 @@ describe('pre-deal role purchase persistence and debt', () => {
     await request(app).delete(`/api/admin/role-purchases/${order.body.orderId}`).set('Cookie', judge).expect(401);
   });
 
+  it('shop lists only this player\'s prepared games, and hides any paid card details', async () => {
+    const db = await setup();
+    const app = await createApp(db);
+    const buyer = `player_token=${generatePlayerSessionToken('buyer-0')}`;
+    const outside = `player_token=${generatePlayerSessionToken('outsider')}`;
+    const games = await request(app).get('/api/player/role-purchase-games').set('Cookie', buyer).expect(200);
+    expect(games.body.games).toEqual([expect.objectContaining({ gameId: 817, eveningId: 'reservation-evening' })]);
+    expect(JSON.stringify(games.body)).not.toContain('role');
+    const other = await request(app).get('/api/player/role-purchase-games').set('Cookie', outside).expect(200);
+    expect(other.body.games).toEqual([]);
+    await reserveRoleBeforeDeal(db, 817, 'buyer-1', 'don');
+    const after = await request(app).get('/api/player/role-purchase-games').set('Cookie', buyer).expect(200);
+    expect(after.body.games).toEqual(games.body.games); // A secret role order never changes public availability.
+    await openVirtualRoleDeal(db, 817);
+    const closed = await request(app).get('/api/player/role-purchase-games').set('Cookie', buyer).expect(200);
+    expect(closed.body.games).toEqual([]);
+  });
+
+  it('old in-deal purchase endpoint is closed even to an organizer', async () => {
+    const db = await setup();
+    const app = await createApp(db);
+    const opened = await openVirtualRoleDeal(db, 817);
+    const response = await request(app).post('/api/games/817/virtual-deal/buy')
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`)
+      .send({ seat: 1, role: 'don', version: opened.version }).expect(409);
+    expect(response.body.error).toMatch(/до начала раздачи/);
+  });
+
   it('does not sell roles on rating evenings', async () => {
     const db = await setup('RATING');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don')).rejects.toThrow();

@@ -127,6 +127,19 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(raw, window.location.origin);
   const method = String(init?.method || 'GET').toUpperCase();
 
+  // VIP block of the player card (owner, 2026-11-03): only with ?vip=1, otherwise the owner-only API refuses as for a helper.
+  if (url.pathname.startsWith('/api/admin/vip-probability-rules')) {
+    const vip = new URLSearchParams(window.location.search).get('vip') === '1';
+    const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    if (!vip) return reply({ error: 'Настройки доступны только организатору клуба' }, 403);
+    if (url.pathname.endsWith('/game-quotas')) return reply({ quotas: [{ playerId: 'bogdan', wholeEvening: true, maxSuccessfulGames: null }] });
+    if (method === 'GET') return reply({ rules: [
+      { id: 'v1', playerId: 'bogdan', kind: 'role', role: 'sheriff', otherPlayerId: null, percent: 50, enabled: true },
+      { id: 'v2', playerId: 'bogdan', kind: 'same_color', role: null, otherPlayerId: 'pristan', percent: 70, enabled: true },
+      { id: 'v3', playerId: 'bogdan', kind: 'different_color', role: null, otherPlayerId: 'kinder', percent: 30, enabled: false },
+    ] });
+    return reply({ ok: true });
+  }
   if (url.pathname.includes('/tokens')) {
     return new Response(JSON.stringify({ player_id: url.pathname.split('/')[3] || 'bogdan', balance: 120, ledger: { items: [], total: 0, limit: 5, offset: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }

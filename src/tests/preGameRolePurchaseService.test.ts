@@ -4,6 +4,7 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { cancelPreGameRolePurchase, reserveRoleBeforeDeal } from '../server/services/preGameRolePurchaseService.ts';
+import { orderGameMusic, markGameMusicPlayed, cancelGameMusicOrder, cancelOutstandingGameMusicOrders } from '../server/services/gameMusicOrderService.ts';
 import { openVirtualRoleDeal, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal } from '../server/services/virtualRoleDealService.ts';
 
 const databases: DatabaseWrapper[] = [];
@@ -214,6 +215,69 @@ describe('pre-deal role purchase persistence and debt', () => {
     await revealVirtualRole(db, 817, 1, opened.cards[0].id, opened.version);
     await expect(cancelPreGameRolePurchase(db, order.id)).rejects.toThrow(/открытую карту/);
     expect(await due(db, 'buyer-0')).toBe(150);
+  });
+
+  it('music order adds 50 rubles instantly and organizer cancellation returns it', async () => {
+    const db = await setup();
+    const order = await orderGameMusic(db, 817, 'buyer-0', 'https://music.yandex.ru/album/123/track/456');
+    expect(order.priceRub).toBe(50);
+    expect(await due(db, 'buyer-0')).toBe(50);
+    await cancelGameMusicOrder(db, order.id);
+    expect(await due(db, 'buyer-0')).toBe(0);
+  });
+
+  it('judge can order by song name, mark played and avoid duplicate charges', async () => {
+    const db = await setup();
+    const order = await orderGameMusic(db, 817, 'buyer-0', 'Тестовая песня', true);
+    expect(await due(db, 'buyer-0')).toBe(50);
+    await markGameMusicPlayed(db, order.id, 817);
+    await markGameMusicPlayed(db, order.id, 817);
+    expect(await due(db, 'buyer-0')).toBe(50);
+    await expect(cancelGameMusicOrder(db, order.id)).rejects.toThrow(/уже исполнена/);
+  });
+
+  it('music order requires Yandex Music URL from player, not arbitrary link', async () => {
+    const db = await setup();
+    await expect(orderGameMusic(db, 817, 'buyer-0', 'https://example.com/track')).rejects.toThrow(/Яндекс/);
+    await expect(orderGameMusic(db, 817, 'outsider', 'https://music.yandex.ru/album/2')).rejects.toThrow(/участвуете/);
+    expect(await due(db, 'buyer-0')).toBe(0);
+  });
+
+  it('unplayed music is cancelled at end of evening, played music stays charged', async () => {
+    const db = await setup();
+    const first = await orderGameMusic(db, 817, 'buyer-0', 'https://music.yandex.ru/album/1');
+    const second = await orderGameMusic(db, 817, 'buyer-1', 'https://music.yandex.ru/album/2');
+    await markGameMusicPlayed(db, first.id, 817);
+    const cancelled = await cancelOutstandingGameMusicOrders(db, 'reservation-evening');
+    expect(cancelled).toBe(1);
+    expect(await due(db, 'buyer-0')).toBe(50);
+    expect(await due(db, 'buyer-1')).toBe(0);
+    await expect(cancelGameMusicOrder(db, first.id)).rejects.toThrow();
+    expect(second.id).toBeTruthy();
+  });
+
+  it('music is available on rating evenings with 50-ruble debt', async () => {
+    const db = await setup('RATING');
+    await orderGameMusic(db, 817, 'buyer-0', 'https://music.yandex.ru/album/12');
+    expect(await due(db, 'buyer-0')).toBeGreaterThanOrEqual(50);
+  });
+
+  it('music API hides orders from other players and restricts cancellation to organizers', async () => {
+    const db = await setup();
+    const app = await createApp(db);
+    const buyer = `player_token=${generatePlayerSessionToken('buyer-0')}`;
+    const other = `player_token=${generatePlayerSessionToken('buyer-1')}`;
+    const response = await request(app).post('/api/player/music-orders').set('Cookie', buyer)
+      .send({ gameId: 817, track: 'https://music.yandex.ru/album/7' }).expect(201);
+    expect(response.body).toMatchObject({ priceRub: 50 });
+    const own = await request(app).get('/api/player/music-orders').set('Cookie', buyer).expect(200);
+    const hidden = await request(app).get('/api/player/music-orders').set('Cookie', other).expect(200);
+    expect(own.body.orders).toHaveLength(1);
+    expect(hidden.body.orders).toEqual([]);
+    await request(app).delete(`/api/admin/music-orders/${response.body.orderId}`).set('Cookie', buyer).expect(401);
+    await request(app).delete(`/api/admin/music-orders/${response.body.orderId}`)
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`).expect(200);
+    expect(await due(db, 'buyer-0')).toBe(0);
   });
 
   it('does not sell roles on rating evenings', async () => {

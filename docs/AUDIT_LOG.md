@@ -2651,3 +2651,8 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+
+## 2026-11-03 — re-made seating sent to nobody
+
+Production read only: `POST /api/evenings/cbcb7301…/seating/generate` at 20:17 MSK for «Вечер во вторник 3.11» (starts 19:30, status «Запись открыта»).
+- `src/server/services/eveningSeatingNotificationsService.ts`: player notices were skipped once the evening's start TIME had passed, even while it was still gathering — fixed: only an evening «Идёт» or completed stops them (`src/tests/eveningSeatingGenerateNotices.test.ts`).

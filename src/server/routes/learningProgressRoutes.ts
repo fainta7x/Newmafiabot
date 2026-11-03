@@ -4,6 +4,7 @@ import { ensureSplitVoteProgressSchema } from '../../db/ensureSplitVoteProgressS
 import { ensureLearningActivitySchema } from '../../db/ensureLearningActivitySchema.ts';
 import { learningItemKey, type LearningActivityRow } from '../../lib/learningActivity.ts';
 import type { LearningPlayerRow } from '../../lib/learningProgress.ts';
+import { loadColourReading } from '../services/colourReadingService.ts';
 
 /** Curator view: which trainer exams each player passed and when. Read-only. */
 const router = Router();
@@ -51,6 +52,15 @@ router.get('/split-vote/:playerId', async (req, res) => {
     return res.json(row);
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить результаты обучения' });
+  }
+});
+
+/** «Читать цвет» of any player for the organizer (owner, 2026-11-02). */
+router.get('/colour-reading/:playerId', async (req, res) => {
+  try {
+    return res.json(await loadColourReading(req.db, String(req.params.playerId)));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить статистику' });
   }
 });
 

@@ -238,7 +238,8 @@ eveningSlotRoutes.post('/:eveningId/seating/generate', requireOrganizerAuth, asy
       if (!row) return res.status(400).json({ error: 'Игра не принадлежит этому вечеру' });
     }
     const eveningId = String(req.params.eveningId);
-    const result = await generateEveningSeatingPlan(req.db, eveningId, slotId);
+    // The organizer's button draws the not-yet-started games again; the automatic run at «Сегодня играем» only fills gaps.
+    const result = await generateEveningSeatingPlan(req.db, eveningId, slotId, { redraw: true });
     // A generated seating is an initial assignment: players get their seats in personal messages before the evening
     // starts (BUSINESS_RULES «Evening seating and bookings»), and the judge gets the whole seating (owner, 2026-11-03).
     const players = await queueEveningSeatingNotifications(req.db, eveningId);

@@ -261,6 +261,17 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
       totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
     }
   }
+  if (await tableExists(db, 'game_seat_swap_orders')) {
+    const swaps = await db.all<{ player_id: string; amount: number }>(
+      `SELECT player_id, SUM(amount_rub) AS amount FROM game_seat_swap_orders
+        WHERE evening_id=? AND status IN ('ordered','applied') GROUP BY player_id`,
+      [eveningId],
+    );
+    for (const row of swaps) {
+      const id = String(row.player_id);
+      totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
+    }
+  }
   return totals;
 }
 

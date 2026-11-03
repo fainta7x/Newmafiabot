@@ -13,6 +13,7 @@ import { evaluateAchievementsForPlayers } from '../services/playerAchievementsSe
 import { blackParticipantIds, withoutBlackBestMoves } from '../services/blackBestMoves.ts';
 import { calculateBestMovePoints } from '../services/bestMovePoints.ts';
 import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { clearLiveGameCheckpoint } from '../services/liveGameCheckpointService.ts';
 
 const router = Router();
 
@@ -675,6 +676,9 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
         [protocol.winner_team, now, gameId]
       );
     });
+
+    // A finished game needs no server copy of its live session («Продолжить игру», AR04).
+    await clearLiveGameCheckpoint(db, 'tournament', String(gameId)).catch(() => {});
 
     const achievementPlayers = await db.all<any>(`
       SELECT DISTINCT tp.player_id

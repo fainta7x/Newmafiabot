@@ -2651,3 +2651,7 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+
+## 2026-11-03 — VIP rules: the same condition again
+
+- `src/server/services/vipProbabilityRulesService.ts` `saveVipProbabilityRule`: the same condition (player, kind, role, partner) could be added to the same player any number of times (owner: «начал одни и те же условия самому себе… спокойно даёт делать») — fixed: a second copy is refused with «Такое условие у игрока уже есть — измените его процент» (`src/tests/vipRuleDuplicates.test.ts`). Duplicates already saved stay until removed by hand.

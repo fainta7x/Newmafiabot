@@ -113,6 +113,11 @@ export async function saveVipProbabilityRule(db: DatabaseWrapper, input: unknown
       const other = await tx.get('SELECT id FROM players WHERE id=? LIMIT 1', [rule.otherPlayerId]);
       if (!other) throw Object.assign(new Error('Второй игрок не найден'), { statusCode: 400 });
     }
+    // One condition once per player (owner, 2026-11-03: the same condition could be added to the same player again and again).
+    const twin = await tx.get(`SELECT id FROM vip_probability_rules WHERE player_id=? AND kind=?
+      AND COALESCE(role,'')=COALESCE(?,'') AND COALESCE(other_player_id,'')=COALESCE(?,'') AND id<>? LIMIT 1`,
+      [rule.playerId, rule.kind, rule.role, rule.otherPlayerId, id || '']);
+    if (twin) throw Object.assign(new Error('Такое условие у игрока уже есть — измените его процент'), { statusCode: 409 });
     const now = new Date().toISOString();
     const ruleId = id || randomUUID();
     if (id) {

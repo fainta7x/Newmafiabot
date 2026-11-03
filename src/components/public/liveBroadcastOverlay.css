@@ -1095,9 +1095,8 @@ body.live-broadcast-document #root {
 }
 .live-broadcast-deal-who span { font-size: calc(16 * var(--u0)); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .live-broadcast-deal-who strong { font-size: calc(30 * var(--u0)); font-weight: 800; color: #ffe3a8; }
-.live-broadcast-deal-cards { display: grid; grid-template-columns: repeat(10, calc(88 * var(--u0))); gap: calc(10 * var(--u0)); perspective: calc(1400 * var(--u0)); }
+.live-broadcast-deal-cards { display: grid; grid-auto-flow: column; grid-auto-columns: calc(88 * var(--u0)); gap: calc(10 * var(--u0)); perspective: calc(1400 * var(--u0)); }
 .live-broadcast-deal-card { position: relative; aspect-ratio: 63 / 88; transition: opacity .4s ease, transform .4s ease; }
-.live-broadcast-deal-card.is-taken { opacity: .14; }
 .live-broadcast-deal-card.is-open { transform: scale(1.22); transform-origin: 50% 100%; z-index: 1; }
 .live-broadcast-deal-card-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2, .7, .2, 1); }
 .live-broadcast-deal-card.is-open .live-broadcast-deal-card-inner { transform: rotateY(180deg); }

@@ -130,13 +130,15 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
    * program picks a random one; «Следующий игрок» only after the time.
    */
   // The deal on the stream (owner, 2026-11-03): the choosing seat is lit, a chosen card turns over and the viewers see the role.
-  const openPosition = selected && showRole && selectedRole ? layout.indexOf(selected.id) + 1 : 0;
-  const dealCardsKey = layout.map((id) => (deck.some((card) => card.id === id) ? '1' : '0')).join('');
+  // Cards still in the deck, in their places; numbered again after each removal, the row narrows (BUSINESS_RULES, deal).
+  const cardsLeft = layout.filter((id) => deck.some((card) => card.id === id));
+  const openPosition = selected && showRole && selectedRole ? cardsLeft.indexOf(selected.id) + 1 : 0;
+  const dealCardsKey = cardsLeft.join(',');
   useEffect(() => {
     if (!started || complete || !loaded || active === undefined) { writeDealBroadcast(null); return; }
     writeDealBroadcast({
       seat: active,
-      cards: layout.map((id, index) => ({ position: index + 1, taken: !deck.some((card) => card.id === id) })),
+      cards: cardsLeft.map((_, index) => ({ position: index + 1 })),
       open: openPosition > 0 && selectedRole ? { position: openPosition, role: selectedRole } : null,
       dealt: assignments,
     });
@@ -346,9 +348,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
                 </div>
               ) : (
                 <div className="deal-cards" data-testid="virtual-card-grid" role="group" aria-label="Закрытые карты">
-                  {layout.map((id, index) => {
-                    const card = deck.find((entry) => entry.id === id);
-                    if (!card) return <div key={id} className="deal-card deal-card--taken" aria-hidden="true"><span className="deal-card__number">{index + 1}</span></div>;
+                  {cardsLeft.map((id, index) => {
+                    const card = deck.find((entry) => entry.id === id)!;
                     return (
                       <button key={id} type="button" className="deal-card" disabled={showRole || busy || !turnOpen || Boolean(selectedId)} onClick={() => { void revealCard(card.id); }}
                         aria-label={`Карта №${index + 1}`} aria-pressed={selectedId === card.id}>

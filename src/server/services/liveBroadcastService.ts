@@ -225,7 +225,7 @@ export const normalizeLiveBroadcastState = (
   const dealSource = source.deal && typeof source.deal === 'object' && !Array.isArray(source.deal) ? source.deal : null;
   const dealSeat = dealSource ? toSeat(dealSource.seat) : null;
   const dealCards = dealSource && Array.isArray(dealSource.cards)
-    ? (dealSource.cards as any[]).map((card) => ({ position: finiteInteger(card?.position), taken: card?.taken === true }))
+    ? (dealSource.cards as any[]).map((card) => ({ position: finiteInteger(card?.position) }))
       .filter((card, index, all) => card.position >= 1 && card.position <= 10 && all.findIndex((other) => other.position === card.position) === index)
     : [];
   const dealOpen = dealSource?.open && dealRoles.has(String(dealSource.open.role)) && finiteInteger(dealSource.open.position) >= 1 && finiteInteger(dealSource.open.position) <= 10

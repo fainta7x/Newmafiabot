@@ -104,7 +104,7 @@ const DealScene = ({ state }: { state: LiveBroadcastState }) => {
         {deal.cards.map((card) => {
           const open = deal.open?.position === card.position ? deal.open : null;
           return (
-            <div key={card.position} className={`live-broadcast-deal-card ${card.taken && !open ? 'is-taken' : ''} ${open ? 'is-open' : ''}`} aria-label={open ? `Карта №${card.position}: ${getGameRoleDefinition(open.role)?.label}` : `Карта №${card.position}`}>
+            <div key={card.position} className={`live-broadcast-deal-card ${open ? 'is-open' : ''}`} aria-label={open ? `Карта №${card.position}: ${getGameRoleDefinition(open.role)?.label}` : `Карта №${card.position}`}>
               <div className="live-broadcast-deal-card-inner">
                 <div className="live-broadcast-deal-back"><span>{card.position}</span><i aria-hidden="true" /></div>
                 <div className="live-broadcast-deal-front">{open ? <RoleCard role={open.role} label={getGameRoleDefinition(open.role)?.label} /> : null}</div>

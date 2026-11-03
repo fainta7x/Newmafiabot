@@ -100,7 +100,8 @@ export type LiveBroadcastProtocol = {
  */
 export type LiveBroadcastDeal = {
   seat: number;
-  cards: Array<{ position: number; taken: boolean }>;
+  /** Cards still in the deck, numbered 1..n again after each removal (the row narrows). */
+  cards: Array<{ position: number }>;
   open: { position: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don' } | null;
 };
 

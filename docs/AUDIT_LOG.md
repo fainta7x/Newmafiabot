@@ -2629,3 +2629,5 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 
 - Deal scene: clean at every desktop size — fixed.
 - `src/components/public/liveBroadcastOverlay.css` `.live-broadcast-phase-title`: at 390 px the phase title is cut to «…»; the same happens on the existing reveal preview (also the timer caption leaves the screen there), so it is the 16:9 OBS canvas at a phone width, not the deal — open (the OBS overlay is a stream picture, phone widths are not its target; ask the owner before changing).
+- `src/components/game/LiveGameContinueGate.tsx`: «Найдена незавершённая игра» was offered for any 200 answer, even an empty one or an HTML page without a copy (seen in the preview harness; the real server answers 404 when there is no copy) — fixed: only a copy with a session is offered (`src/tests/liveGameContinueGate.test.tsx`).
+- `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.

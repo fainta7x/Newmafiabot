@@ -15,7 +15,12 @@ export function LiveGameContinueGate({ gameKey, enabled, children }: { gameKey: 
     if (stage !== 'checking') return;
     let active = true;
     liveGameCheckpointApi.load(gameKey)
-      .then((copy) => { if (!active) return; setCheckpoint(copy); setStage('offer'); })
+      .then((copy) => {
+        if (!active) return;
+        // Only a real copy is offered: an empty or foreign answer starts the game as usual.
+        if (!copy || typeof copy.session !== 'string' || !copy.session) { setStage('ready'); return; }
+        setCheckpoint(copy); setStage('offer');
+      })
       .catch(() => { if (active) setStage('ready'); });
     return () => { active = false; };
   }, [stage, gameKey]);

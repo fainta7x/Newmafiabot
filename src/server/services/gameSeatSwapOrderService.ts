@@ -65,7 +65,7 @@ export async function orderGameSeatSwap(
         VALUES (?,?,?,?,?,'ordered',50,?,?)`,
       [id, gameId, game.eventId, playerId, targetPlayerId, now, now],
     );
-    await bill(tx, game.eventId);
+    await bill(tx, String(game.eventId));
     return { id, priceRub: GAME_SEAT_SWAP_PRICE_RUB };
   });
 }

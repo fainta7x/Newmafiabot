@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
 
-type Kind = 'role' | 'same_color' | 'different_color';
+type Kind = 'role' | 'same_color' | 'different_color' | 'red_color';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null;
   percent: number; enabled: boolean };
 type Draft = Omit<Rule, 'id'>;

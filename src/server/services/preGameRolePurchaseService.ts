@@ -141,3 +141,53 @@ export async function cancelOutstandingRolePurchasesForEvening(db: DatabaseWrapp
     return { cancelled: Number(change.changes) };
   });
 }
+
+/**
+ * Once the game for a deferred order has finished, the buyer chooses another
+ * concrete game of the SAME evening. The original payment survives transfer;
+ * it is never added a second time.
+ */
+export async function chooseGameForDeferredRolePurchase(
+  db: DatabaseWrapper,
+  orderId: string,
+  buyerPlayerId: string,
+  nextGameId: number,
+): Promise<{ id: string; accepted: true }> {
+  await ensurePreGameRolePurchaseSchema(db);
+  return db.transaction(async (tx) => {
+    const row = await tx.get<OrderRow>(
+      'SELECT id, game_id, evening_id, player_id, role, status, created_at FROM game_role_reservations WHERE id=?',
+      [orderId],
+    );
+    if (!row || row.player_id !== buyerPlayerId) failure('Заказ не найден', 404);
+    if (row.status !== 'deferred') failure('Этот заказ не ожидает переноса');
+    const original = await getGame(tx, `club:${row.game_id}`);
+    if (!original || original.status !== 'completed') failure('Выбрать следующую игру можно после завершения текущей');
+    if (row.game_id === nextGameId) failure('Выберите другую игру');
+    const game = await getGame(tx, `club:${nextGameId}`);
+    if (!game || game.eventId !== row.evening_id || game.storage !== 'club') failure('Игра не относится к этому вечеру');
+    if (game.status !== 'planned') failure('На выбранную игру покупки закрыты');
+    if (!game.seats.some((seat) => seat.playerId === buyerPlayerId)) failure('Игрок не участвует в выбранной игре', 403);
+    const deal = await tx.get(
+      'SELECT 1 FROM game_virtual_role_deals WHERE game_id=? LIMIT 1', [nextGameId],
+    ).catch(() => null);
+    const orders = await tx.all<OrderRow>(
+      'SELECT id, game_id, evening_id, player_id, role, status, created_at FROM game_role_reservations WHERE game_id=?',
+      [nextGameId],
+    );
+    const decision = decideRoleReservation({
+      gameId: nextGameId, tableSize: game.seats.length, format: game.format,
+      playerId: buyerPlayerId, role: row.role, dealStarted: Boolean(deal),
+      reservations: orders.map(asDomain),
+    });
+    if (orders.some((order) => order.player_id === buyerPlayerId && order.status === 'deferred')) {
+      failure('На эту игру уже оформлен заказ');
+    }
+    await tx.run(
+      'UPDATE game_role_reservations SET game_id=?, status=?, updated_at=? WHERE id=?',
+      [nextGameId, decision.status, new Date().toISOString(), orderId],
+    );
+    // The existing order remains payable once, irrespective of new outcome.
+    return { id: orderId, accepted: true };
+  });
+}

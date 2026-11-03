@@ -304,7 +304,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   return (
     <ClubOwnerContext.Provider value={isClubOwner}>
-    <div className={`crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col ${activeTab === 'analytics' ? 'overflow-x-clip' : 'overflow-x-hidden'} bg-app-bg font-sans text-text-primary transition-colors duration-200`}>
+    <div className={`crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl 2xl:max-w-[1760px] flex-col ${activeTab === 'analytics' ? 'overflow-x-clip' : 'overflow-x-hidden'} bg-app-bg font-sans text-text-primary transition-colors duration-200`}>
       <header className="crm-premium-header sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
           {/* The title block is the way home, as on any site (owner, 2026-10-12). */}
@@ -336,7 +336,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl lg:max-w-6xl flex-1 px-3 pt-2.5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 md:pb-8">
+      <main className="mx-auto w-full max-w-3xl lg:max-w-6xl 2xl:max-w-[1640px] flex-1 px-3 pt-2.5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 md:pb-8">
         {loading ? (
           <div className="flex min-h-[48vh] flex-col items-center justify-center gap-3 text-center">
             <RefreshCw className="h-6 w-6 animate-spin text-accent" />

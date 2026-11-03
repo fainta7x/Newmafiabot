@@ -81,7 +81,7 @@ export default function VipProbabilitySettings() {
     <p className="text-xs leading-5 text-white/60">
       Настройки организатора для обычных и новичковых игр. Процент — шанс срабатывания
       конкретного условия. Общий лимит игр с успешной подкруткой задаётся отдельно
-      для игрока, а не для каждого условия. Пока правила не влияют на реальную раздачу.
+      для игрока, а не для каждого условия. Условия действуют при виртуальной раздаче.
     </p>
     {loaded && <div className="space-y-2">
       {rules.map(rule=><div key={rule.id} className="rounded-xl border border-white/10 bg-black/15 p-3">

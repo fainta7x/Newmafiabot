@@ -21,6 +21,7 @@ type DrawingContext = {
 const red = (role: GameRole) => role === 'citizen' || role === 'sheriff';
 const ALL_ROLES: GameRole[] = ['citizen','sheriff','mafia','don'];
 const eligibleRoles = (rule: VipProbabilityRule, context: DrawingContext): GameRole[] => {
+  if (rule.kind === 'red_color') return ['citizen','sheriff'];
   if (rule.kind === 'role') return rule.role ? [rule.role] : [];
   const peerRole = context.revealedRolesByPlayer.get(rule.otherPlayerId || '');
   if (!peerRole) return []; // Cannot inspect, reserve or influence an unrevealed peer.

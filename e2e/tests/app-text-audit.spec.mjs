@@ -56,6 +56,7 @@ export const PAGES = [
   ['crm-more', '/e2e/crm-more.html'],
   ['crm-gift-outreach', '/e2e/crm-gift-outreach.html'],
   ['evening-prices', '/e2e/evening-prices.html'],
+  ['evening-prices-vip', '/e2e/evening-prices.html?vip=1'],
   ['owner-evenings', '/e2e/owner-evenings.html'],
   ['owner-evenings-answers', '/e2e/owner-evenings.html?screen=answers'],
   ['project-board', '/e2e/project-board.html'],
@@ -87,6 +88,14 @@ for (const [width, height, wideFont] of VIEWPORTS) {
           await page.waitForTimeout(400);
           for (const issue of await page.evaluate(auditScreen)) report.push(`${screen}: ${issue}`);
         };
+        if (name === 'evening-prices-vip') {
+          await page.route('**/api/players**',route=>route.fulfill({json:[{id:'owner',nickname:'Чагин'}]}));
+          await page.route('**/api/admin/vip-probability-rules**',route=>route.fulfill({json:
+            route.request().url().endsWith('/game-quotas')
+              ? {quotas:[{playerId:'owner',wholeEvening:true,maxSuccessfulGames:null}]}
+              : {rules:[{id:'red',playerId:'owner',kind:'red_color',role:null,otherPlayerId:null,percent:100,enabled:true}]},
+          }));
+        }
         await page.goto(url);
         await page.waitForLoadState('networkidle').catch(() => {});
         await check(name);

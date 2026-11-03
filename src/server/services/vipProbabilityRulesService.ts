@@ -4,6 +4,7 @@ import { validateVipProbabilityRule } from '../../lib/vipRoleProbabilityRules.ts
 import { ensureVipGameQuotaSchema } from './vipGameQuotaService.ts';
 
 export async function ensureVipProbabilityRulesSchema(db: DatabaseWrapper) {
+  return db.transaction(async db => {
   await db.exec(`CREATE TABLE IF NOT EXISTS vip_probability_rules (
     id TEXT PRIMARY KEY,
     player_id TEXT NOT NULL,
@@ -55,6 +56,7 @@ export async function ensureVipProbabilityRulesSchema(db: DatabaseWrapper) {
   if (!columns.some(row => row.name === 'limit_scope')) {
     await db.exec("ALTER TABLE vip_probability_rules ADD COLUMN limit_scope TEXT NOT NULL DEFAULT 'evening'");
   }
+  });
 }
 
 /**
@@ -71,21 +73,23 @@ export async function migrateLegacyChaginRedGuarantee(db: DatabaseWrapper) {
   )`);
   const key = 'chagin_red_card_to_private_vip_20261103';
   const playerId = 'fad23405-9715-566f-acd9-5632c30eb198';
-  const already = await db.get('SELECT migration_key FROM vip_legacy_migrations WHERE migration_key=?',[key]);
+  await db.transaction(async tx => {
+  const already = await tx.get('SELECT migration_key FROM vip_legacy_migrations WHERE migration_key=?',[key]);
   if (already) return;
-  const owner = await db.get('SELECT id FROM players WHERE id=?',[playerId]);
+  const owner = await tx.get('SELECT id FROM players WHERE id=?',[playerId]);
   if (!owner) return; // A new install should not invent a profile.
   const now = new Date().toISOString();
-  await db.run(`INSERT INTO vip_probability_rules
+  await tx.run(`INSERT INTO vip_probability_rules
     (id,player_id,kind,role,other_player_id,percent,enabled,created_at,updated_at)
     SELECT ?, ?, 'red_color',NULL,NULL,100,1,?,?
      WHERE NOT EXISTS (
        SELECT 1 FROM vip_probability_rules WHERE player_id=? AND kind='red_color'
      )`, ['legacy-chagin-red-guarantee',playerId,now,now,playerId]);
-  await db.run(`INSERT INTO vip_player_game_quotas
+  await tx.run(`INSERT INTO vip_player_game_quotas
     (player_id,whole_evening,max_successful_games,updated_at)
     VALUES (?,1,NULL,?) ON CONFLICT(player_id) DO NOTHING`,[playerId,now]);
-  await db.run('INSERT OR IGNORE INTO vip_legacy_migrations (migration_key,applied_at) VALUES (?,?)',[key,now]);
+  await tx.run('INSERT OR IGNORE INTO vip_legacy_migrations (migration_key,applied_at) VALUES (?,?)',[key,now]);
+  });
 }
 
 export async function listVipProbabilityRules(db: DatabaseWrapper) {

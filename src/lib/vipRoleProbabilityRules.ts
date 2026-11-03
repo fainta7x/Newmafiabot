@@ -14,7 +14,7 @@ export type VipProbabilityRule = {
 
 const ROLES: GameRole[] = ['citizen','sheriff','mafia','don'];
 
-/** Validate persisted owner settings; selection does not yet activate dealing effects. */
+/** Validate persisted owner settings; the server alone applies dealing effects. */
 export function validateVipProbabilityRule(value: any): Omit<VipProbabilityRule, 'id'> {
   const playerId = typeof value?.playerId === 'string' ? value.playerId.trim() : '';
   const kind = value?.kind;

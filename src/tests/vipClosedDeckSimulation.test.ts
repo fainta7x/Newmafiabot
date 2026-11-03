@@ -78,3 +78,17 @@ describe('VIP closed deck simulation, not connected to live deals', () => {
     expect(result.deck).toEqual(remaining);
   });
 });
+
+
+describe('red-colour condition',()=>{
+  it('accepts either red role and preserves all cards',()=>{
+    for (const target of ['citizen','sheriff'] as const) {
+      const cards=[{id:'black',role:'don' as const},{id:'red',role:target}];
+      const result=simulateVipDraw(cards,'black',[roleRule({kind:'red_color',role:null})],context(),()=>0);
+      expect(result.deck.find(c=>c.id==='black')?.role).toBe(target);
+      expect(result.appliedRuleIds).toHaveLength(1);
+      expect(result.deck.map(c=>c.role).sort()).toEqual(cards.map(c=>c.role).sort());
+      expect(simulateVipDraw(cards,'red',[roleRule({kind:'red_color',role:null})],context(),()=>0).appliedRuleIds).toEqual([]);
+    }
+  });
+});

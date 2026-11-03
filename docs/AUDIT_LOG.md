@@ -1,7 +1,18 @@
 # Audit log
 
+## 2026-11-03 · PR #1172: private VIP draw integration (source review, no production data)
+
+- HIGH `fixed (this PR)` — `virtualRoleDealService.ts` still hardcodes a player ID; saved red-colour settings cannot disable or change it. Replace with owner rules, preserving the last closed red for an eligible 100% red rule.
+- HIGH `fixed (this PR)` — `vipClosedDeckSimulation.ts` lacks red-colour handling and no live service atomically accounts for successful games, undo/reset or concurrent quota reservations.
+- MEDIUM `fixed (this PR)` — migration test never constructs the old CHECK schema; verify retained records, rollback, owner edits/deletion and judge/delegated access.
 
 
+
+
+
+- HIGH `fixed (this PR)` — settings accepted every organizer rather than only the club owner; use `requireClubOwner` and hide the blocks for every other identity. Assigned judges use the ordinary same-game deal route without settings access.
+- MEDIUM `fixed (this PR)` — re-open reset the version to zero and deal state lacked roster identity; advance versions across reopens and reject stale/changed-roster operations.
+- Verification limit — local Chromium launch denied (`socket() EPERM`); five-size audit registered in preview CI, no screenshots or visual approval claimed locally.
 
 ## 2026-11-03 · Evening seating generation (owner report, evening 3.11; production read GET only)
 

@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generateOrganizerToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import {
   openVirtualRoleDeal, buyVirtualRole, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal,
 } from '../server/services/virtualRoleDealService.ts';
+import { listVipProbabilityRules, saveVipProbabilityRule, deleteVipProbabilityRule } from '../server/services/vipProbabilityRulesService.ts';
+import { saveVipGameQuota } from '../server/services/vipGameQuotaService.ts';
 import { tableRoleCounts } from '../lib/tableComposition.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -19,6 +21,7 @@ async function setup(format: 'CASUAL' | 'NOVICE' | 'RATING' | 'STANDARD') {
   const db = createDatabaseConnection(':memory:'); opened.push(db);
   const app = await createApp(db);
   const now = new Date().toISOString();
+  await db.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES(?,?,?,?)',[ownerPlayerId,'Чагин',now,now]);
   await db.run(`INSERT INTO game_evenings
     (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
     VALUES ('role-ev','Вечер','2099-10-16T18:00:00Z','Europe/Moscow',?,'published',20,100,?,?)`,
@@ -166,5 +169,142 @@ describe('server virtual role deal', () => {
     expect(authorized.body.cards).toHaveLength(10);
     expect(authorized.body.cards.every((card: any) => Object.keys(card).join(',') === 'id')).toBe(true);
     expect(JSON.stringify(authorized.body)).not.toContain('fad23405-9715-566f-acd9-5632c30eb198');
+  });
+});
+
+async function copyGame(db:DatabaseWrapper,id:number,eveningId='role-ev') {
+  await db.run(`INSERT INTO games(id,evening_id,global_game_number,game_date,winner_team,winner_label,slots_json,protocol_text,created_at)
+    SELECT ?,?, ?,game_date,winner_team,winner_label,slots_json,protocol_text,created_at FROM games WHERE id=?`,[id,eveningId,id,gameId]);
+}
+async function drawBlack(db:DatabaseWrapper,id:number,seat=10){
+  const view=await openVirtualRoleDeal(db,id);
+  const row=await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[id]);
+  const card=JSON.parse(row!.state_json).deck.find((c:any)=>!isRed(c.role));
+  const reveal=await revealVirtualRole(db,id,seat,card.id,view.version);
+  return {card,reveal,view};
+}
+async function privateSuccesses(db:DatabaseWrapper,id=gameId){
+  const row=await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[id]);
+  return JSON.parse(row!.state_json).history.flatMap((entry:any)=>entry.vipPlayerIds||[]);
+}
+describe('private VIP rules in the actual server deal',()=>{
+  it('owner can disable/delete the migrated guarantee; no ID-based override remains',async()=>{
+    const {db}=await setup('CASUAL');
+    const rule=(await listVipProbabilityRules(db)).find(r=>r.kind==='red_color')!;
+    await saveVipProbabilityRule(db,{...rule,percent:0},rule.id);
+    expect(isRed((await drawBlack(db,gameId)).reveal.role)).toBe(false);
+    await deleteVipProbabilityRule(db,rule.id);
+    expect(isRed((await drawBlack(db,gameId)).reveal.role)).toBe(false);
+  });
+  it('a non-owner player uses the same configurable role algorithm',async()=>{
+    const {db}=await setup('NOVICE');
+    const now=new Date().toISOString();
+    await db.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES(?,?,?,?)',['other-0','Игрок',now,now]);
+    await saveVipProbabilityRule(db,{playerId:'other-0',kind:'role',role:'sheriff',percent:100,enabled:true});
+    await saveVipGameQuota(db,'other-0',{wholeEvening:true,maxSuccessfulGames:null});
+    const {card,reveal}=await drawBlack(db,gameId,1);
+    expect(reveal.role).toBe('sheriff');
+    const confirmed=await confirmVirtualRole(db,gameId,1,card.id,reveal.version);
+    expect(await privateSuccesses(db)).toEqual(['other-0']);
+    expect(JSON.stringify(confirmed)).not.toMatch(/vip|appliedRule|playerId|percent/i);
+  });
+  it('holds a pending success across simultaneous games, counts once, and undo releases it',async()=>{
+    const {db}=await setup('CASUAL');
+    await listVipProbabilityRules(db);
+    await saveVipGameQuota(db,ownerPlayerId,{wholeEvening:false,maxSuccessfulGames:1});
+    await copyGame(db,718);await copyGame(db,719);await copyGame(db,720);
+    const first=await drawBlack(db,gameId);
+    expect(isRed(first.reveal.role)).toBe(true);
+    expect(await privateSuccesses(db)).toEqual([]); // still unconfirmed
+    expect(isRed((await drawBlack(db,718)).reveal.role)).toBe(false); // held capacity
+    const confirmed=await confirmVirtualRole(db,gameId,10,first.card.id,first.reveal.version);
+    expect(await privateSuccesses(db)).toEqual([ownerPlayerId]);
+    await expect(confirmVirtualRole(db,gameId,10,first.card.id,first.reveal.version)).rejects.toThrow();
+    expect(isRed((await drawBlack(db,719)).reveal.role)).toBe(false);
+    await undoVirtualRole(db,gameId,confirmed.version);
+    expect(await privateSuccesses(db)).toEqual([]);
+    expect(isRed((await drawBlack(db,720)).reveal.role)).toBe(true);
+  });
+  it('a natural red and a bought role never consume VIP quota; reset releases pending capacity',async()=>{
+    const {db}=await setup('CASUAL');
+    await listVipProbabilityRules(db);
+    await saveVipGameQuota(db,ownerPlayerId,{wholeEvening:false,maxSuccessfulGames:1});
+    let view=await openVirtualRoleDeal(db,gameId);
+    const red=(await storedDeck(db)).find(c=>isRed(c.role))!;
+    const reveal=await revealVirtualRole(db,gameId,10,red.id,view.version);
+    view=await confirmVirtualRole(db,gameId,10,red.id,reveal.version);
+    expect(await privateSuccesses(db)).toEqual([]);
+    view=await resetVirtualRoleDeal(db,gameId,view.version);
+    view=await buyVirtualRole(db,gameId,10,'don',view.version);
+    expect(view.history[0].role).toBe('don');
+    expect(await privateSuccesses(db)).toEqual([]);
+    view=await resetVirtualRoleDeal(db,gameId,view.version);
+    const black=(await storedDeck(db)).find(c=>!isRed(c.role))!;
+    const pending=await revealVirtualRole(db,gameId,10,black.id,view.version);
+    await resetVirtualRoleDeal(db,gameId,pending.version);
+    await copyGame(db,718);
+    expect(isRed((await drawBlack(db,718)).reveal.role)).toBe(true);
+  });
+  it('starts a fresh quota for a different evening',async()=>{
+    const {db}=await setup('CASUAL');
+    await listVipProbabilityRules(db);
+    await saveVipGameQuota(db,ownerPlayerId,{wholeEvening:false,maxSuccessfulGames:1});
+    const first=await drawBlack(db,gameId);
+    await confirmVirtualRole(db,gameId,10,first.card.id,first.reveal.version);
+    await db.run(`INSERT INTO game_evenings(id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      SELECT 'next',title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at FROM game_evenings WHERE id='role-ev'`);
+    await copyGame(db,718,'next');
+    expect(isRed((await drawBlack(db,718)).reveal.role)).toBe(true);
+  });
+  it('rejects changed roster and old operations after reopening the deal',async()=>{
+    const {db}=await setup('CASUAL');
+    const first=await openVirtualRoleDeal(db,gameId);
+    const row=await db.get<{protocol_text:string}>('SELECT protocol_text FROM games WHERE id=?',[gameId]);
+    const protocol=JSON.parse(row!.protocol_text);
+    protocol.player_results[9].player_id='replacement';
+    await db.run('UPDATE games SET protocol_text=? WHERE id=?',[JSON.stringify(protocol),gameId]);
+    await expect(revealVirtualRole(db,gameId,10,first.cards[0].id,first.version)).rejects.toThrow(/Состав игры изменился/);
+    const second=await openVirtualRoleDeal(db,gameId);
+    expect(second.version).toBeGreaterThan(first.version);
+    await expect(revealVirtualRole(db,gameId,10,second.cards[0].id,first.version)).rejects.toThrow(/Состояние раздачи изменилось/);
+  });
+  it('a last-red protection exchange is credited to its beneficiary and undone atomically',async()=>{
+    const {db}=await setup('CASUAL');
+    let view=await openVirtualRoleDeal(db,gameId);
+    for (let seat=1;seat<=7;seat++) {
+      const card=(await storedDeck(db)).find(c=>isRed(c.role))!;
+      const reveal=await revealVirtualRole(db,gameId,seat,card.id,view.version);
+      view=await confirmVirtualRole(db,gameId,seat,card.id,reveal.version);
+    }
+    expect(view.history[6].role).toMatch(/mafia|don/);
+    expect(await privateSuccesses(db)).toEqual([ownerPlayerId]);
+    view=await undoVirtualRole(db,gameId,view.version);
+    expect(await privateSuccesses(db)).toEqual([]);
+    expect(view.cards).toHaveLength(4);
+  });
+  it('assigned judge can deal, but neither judge nor another organizer can read/change private settings',async()=>{
+    const {db,app}=await setup('CASUAL');
+    const now=new Date().toISOString();
+    await db.run(`INSERT INTO players(id,nickname,judge_level,created_at,updated_at) VALUES ('judge','Судья','judge',?,?)`,[now,now]);
+    await db.run("UPDATE games SET judge_player_id='judge' WHERE id=?",[gameId]);
+    const judge=`player_token=${generatePlayerSessionToken('judge')}`;
+    const opened=await request(app).post(`/api/games/${gameId}/virtual-deal/open`).set('Cookie',judge);
+    expect(opened.status).toBe(200);
+    expect(JSON.stringify(opened.body)).not.toMatch(/vip|percent|playerId/);
+    const root=`organizer_token=${generateOrganizerToken()}`;
+    const other=`organizer_token=${generateOrganizerToken('judge')}; ${judge}`;
+    await db.run("INSERT INTO organizer_player_access(player_id,granted_at,granted_via) VALUES ('judge',?,'test')",[now]);
+    for (const cookie of [judge,other]) {
+      for (const path of ['', '/game-quotas']) {
+        const result=await request(app).get('/api/admin/vip-probability-rules'+path).set('Cookie',cookie);
+        expect([401,403]).toContain(result.status);
+        expect(JSON.stringify(result.body)).not.toMatch(/red_color|percent|wholeEvening/);
+      }
+      for (const method of ['post','put','delete'] as const) {
+        const path=method==='post' ? '' : '/legacy-chagin-red-guarantee';
+        expect([401,403]).toContain((await request(app)[method]('/api/admin/vip-probability-rules'+path).set('Cookie',cookie).send({})).status);
+      }
+    }
+    expect((await request(app).get('/api/admin/vip-probability-rules').set('Cookie',root)).status).toBe(200);
   });
 });

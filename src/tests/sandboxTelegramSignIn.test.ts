@@ -1,7 +1,4 @@
 import crypto from 'node:crypto';
-import express from 'express';
-import cookieParser from 'cookie-parser';
-import request from 'supertest';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 const { previousSecret, previousBot } = vi.hoisted(() => {
@@ -26,32 +23,37 @@ const initData = () => {
   return params.toString();
 };
 
-const makeApp = (db: any) => {
-  const app = express();
-  app.use(express.json());
-  app.use(cookieParser());
-  app.use((req, _res, next) => { (req as any).db = db; next(); });
-  app.use(parseUserSession);
-  app.use('/api/auth', authRoutes);
-  return app;
+// The /telegram handler of the auth router, called directly with a request carrying the given cookie.
+const telegramHandler = (authRoutes as any).stack.find((layer: any) => layer.route?.path === '/telegram' && layer.route.methods.post).route.stack.at(-1).handle;
+const call = async (db: any, playerToken?: string) => {
+  const req: any = { body: { initData: initData() }, cookies: playerToken ? { player_token: playerToken } : {}, headers: {}, db };
+  await parseUserSession(req, {} as any, () => {});
+  const cookies: string[] = [];
+  let body: any; let status = 200;
+  const res: any = {
+    cookie: (name: string) => { cookies.push(name); return res; }, clearCookie: (name: string) => { cookies.push(`cleared:${name}`); return res; },
+    status: (code: number) => { status = code; return res; }, json: (value: any) => { body = value; return res; },
+  };
+  await telegramHandler(req, res);
+  return { status, body, cookies };
 };
 
 describe('Telegram sign-in inside the test environment (owner, 2026-11-03)', () => {
   it('keeps the sandbox session: no cookie is replaced or cleared and the database is not read', async () => {
     const db = { get: vi.fn(), run: vi.fn(), all: vi.fn(), exec: vi.fn() };
     const sandbox = generatePlayerSessionToken(testEnvironmentPlayerId('p-test-1'));
-    const response = await request(makeApp(db)).post('/api/auth/telegram').set('Cookie', [`player_token=${sandbox}`]).send({ initData: initData() });
+    const response = await call(db, sandbox);
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ linked: true, sandbox: true });
-    expect(response.headers['set-cookie']).toBeUndefined();
+    expect(response.cookies).toEqual([]);
     expect(db.get).not.toHaveBeenCalled();
   });
 
   it('outside the sandbox signs the player in as before', async () => {
     const db = { get: vi.fn(async () => ({ id: 'p-real', nickname: 'Чагин' })), run: vi.fn(), all: vi.fn(), exec: vi.fn() };
-    const response = await request(makeApp(db)).post('/api/auth/telegram').send({ initData: initData() });
+    const response = await call(db);
     expect(response.status).toBe(200);
     expect(response.body.linked).toBe(true);
-    expect(String(response.headers['set-cookie'])).toContain('player_token=');
+    expect(response.cookies).toContain('player_token');
   });
 });

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { cancelOutstandingRolePurchasesForEvening } from '../services/preGameRolePurchaseService.ts';
 import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
@@ -485,6 +486,8 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res, ne
 router.post('/:id/settle', requireOrganizerAuth, async (req, res, next) => {
   try {
     const db = req.db || (await getDb());
+    // An evening cannot collect payment for a role that was never delivered.
+    await cancelOutstandingRolePurchasesForEvening(db, String(req.params.id));
     await reconcileRegularEveningPayments(db, String(req.params.id));
     await reconcileNoviceEveningCharges(db, String(req.params.id));
     return next();

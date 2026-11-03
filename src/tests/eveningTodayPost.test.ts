@@ -164,11 +164,29 @@ describe('«Сегодня играем» post', () => {
     expect(calls).toHaveLength(2);
     expect(calls[1].url).toContain('/editMessageText');
     expect(calls[1].body).toMatchObject({ chat_id: '-100500', message_id: 100 });
+    expect(calls[1].body.chat_id).toBe('-100500');
     expect(calls[1].body.text).toContain('Опоздавший');
     expect((await loadTodayPost(db, 'ev')).text).toContain('Опоздавший');
+    // The group setting changed later: the saved chat is still the one edited.
+    await db.run("UPDATE telegram_destinations SET chat_id = '-999' WHERE id = 'club'");
+    await db.run("UPDATE evening_participants SET response_status='going', registration_status='going' WHERE id='ep-d'");
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:10:00Z'), fetchImpl)).toBe(1);
+    expect(calls[2].body.chat_id).toBe('-100500');
+    // Without the bot token the edit waits and is retried, the saved text does not move.
+    await db.run("UPDATE evening_participants SET response_status='declined', registration_status='declined' WHERE id='ep-c'");
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', '');
+    const before = (await loadTodayPost(db, 'ev')).text;
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:15:00Z'), fetchImpl)).toBe(0);
+    expect((await loadTodayPost(db, 'ev')).text).toBe(before);
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:18:00Z'), fetchImpl)).toBe(1);
+    expect(calls[3].body.text).not.toContain('Вера');
     // Nothing new: no second edit.
-    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:20:00Z'), fetchImpl)).toBe(0);
-    expect(calls).toHaveLength(2);
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:30:00Z'), fetchImpl)).toBe(0);
+    expect(calls).toHaveLength(4);
   });
 
   it('leaves a hand-edited post alone', async () => {

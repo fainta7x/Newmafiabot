@@ -237,9 +237,14 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
 }
 
 const REFRESH_MIN_GAP_MS = 2 * 60_000;
-const publishedMessageId = async (db: DatabaseWrapper, eveningId: string, channel: 'telegram') => {
-  const delivery = await db.get<any>('SELECT result FROM publication_deliveries WHERE delivery_key = ? AND status = ?', [`today:${eveningId}:${channel}`, 'accepted']).catch(() => null);
-  try { return String(JSON.parse(delivery?.result || '{}').ids?.[0] || '') || null; } catch { return null; }
+/** The chat and message of the Telegram post as saved at delivery: edits go there even if the group setting changed since. */
+const publishedTelegramMessage = async (db: DatabaseWrapper, eveningId: string) => {
+  const delivery = await db.get<any>('SELECT payload, result FROM publication_deliveries WHERE delivery_key = ? AND status = ?', [`today:${eveningId}:telegram`, 'accepted']).catch(() => null);
+  try {
+    const chatId = JSON.parse(delivery?.payload || '{}').fields?.chat_id;
+    const messageId = Number(JSON.parse(delivery?.result || '{}').ids?.[0]);
+    return chatId && Number.isSafeInteger(messageId) && messageId > 0 ? { chatId, messageId } : null;
+  } catch { return null; }
 };
 
 /**
@@ -264,18 +269,18 @@ export async function refreshPublishedTodayPosts(db: DatabaseWrapper, now = Date
       if (!evening || !isOpenEvening(evening)) continue;
       const draft = await buildTodayPostDraft(db, eveningId, row.game_number);
       if (draft.text === row.text) continue;
-      let failed = false;
-      if (row.telegram_status === 'published') {
-        const messageId = await publishedMessageId(db, eveningId, 'telegram');
-        const { destination, cover } = await telegramTarget(db, evening);
-        const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-        if (messageId && destination?.chat_id && token) {
-          const response = await fetchImpl(`https://api.telegram.org/bot${token}/editMessageText`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: destination.chat_id, message_id: Number(messageId), text: draft.text,
-              ...(cover ? { link_preview_options: { url: cover, prefer_large_media: true, show_above_text: true } } : { disable_web_page_preview: true }) }) }).catch(() => null);
-          const body: any = response ? await response.json().catch(() => null) : null;
-          if (!response?.ok && !String(body?.description || '').includes('message is not modified')) { failed = true; console.error('[TODAY POST] Telegram edit failed:', body?.description || response?.status); }
-        }
+      const message = await publishedTelegramMessage(db, eveningId);
+      // No saved chat/message (a post sent before delivery records existed): nothing can be edited.
+      if (!message) continue;
+      const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+      let failed = !token;
+      if (token) {
+        const { cover } = await telegramTarget(db, evening);
+        const response = await fetchImpl(`https://api.telegram.org/bot${token}/editMessageText`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: message.chatId, message_id: message.messageId, text: draft.text,
+            ...(cover ? { link_preview_options: { url: cover, prefer_large_media: true, show_above_text: true } } : { disable_web_page_preview: true }) }) }).catch(() => null);
+        const body: any = response ? await response.json().catch(() => null) : null;
+        if (!response?.ok && !String(body?.description || '').includes('message is not modified')) { failed = true; console.error('[TODAY POST] Telegram edit failed:', body?.description || response?.status); }
       }
       const stamp = new Date(now).toISOString();
       // On a failed edit only the retry clock moves, so the next scan (after the gap) tries the same roster again.

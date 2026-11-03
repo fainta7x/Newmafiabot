@@ -11,6 +11,7 @@ export const useDealBroadcast = (
   metadata: DealBroadcastMetadata | null,
   publish: (state: LiveBroadcastState) => Promise<unknown>,
 ) => {
+  // The loop restarts only when the table itself changes, not on every render of the window.
   const metadataKey = metadata ? JSON.stringify(metadata) : '';
   useEffect(() => {
     if (!enabled || !metadata) return undefined;
@@ -34,6 +35,5 @@ export const useDealBroadcast = (
     void sync();
     const interval = window.setInterval(() => { void sync(); }, 350);
     return () => { disposed = true; window.clearInterval(interval); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, metadataKey]);
 };

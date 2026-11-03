@@ -158,6 +158,27 @@ describe('pre-deal role purchase persistence and debt', () => {
     expect(await due(db, 'buyer-0')).toBe(0);
   });
 
+  it('assigned judge can create and list purchases for own game but cannot cancel them', async () => {
+    const db = await setup();
+    await db.run("UPDATE players SET judge_level='host' WHERE id='buyer-9'");
+    await db.run("UPDATE games SET judge_player_id='buyer-9' WHERE id=817");
+    // For real games a judge is not seated; replace the last seat with a
+    // separate participant rather than treating a seated buyer as judge.
+    const row = await db.get<{ protocol_text: string }>('SELECT protocol_text FROM games WHERE id=817');
+    const payload = JSON.parse(String(row?.protocol_text));
+    payload.player_results[9].player_id = 'buyer-8';
+    await db.run('UPDATE games SET protocol_text=? WHERE id=817', [JSON.stringify(payload)]);
+    const app = await createApp(db);
+    const judge = `player_token=${generatePlayerSessionToken('buyer-9')}`;
+    const outsider = `player_token=${generatePlayerSessionToken('buyer-7')}`;
+    const order = await request(app).post('/api/admin/role-purchases').set('Cookie', judge)
+      .send({ gameId: 817, playerId: 'buyer-0', role: 'sheriff' }).expect(201);
+    const list = await request(app).get('/api/admin/role-purchases?gameId=817').set('Cookie', judge).expect(200);
+    expect(list.body.orders).toEqual([expect.objectContaining({ role: 'sheriff', player_id: 'buyer-0' })]);
+    await request(app).get('/api/admin/role-purchases?gameId=817').set('Cookie', outsider).expect(401);
+    await request(app).delete(`/api/admin/role-purchases/${order.body.orderId}`).set('Cookie', judge).expect(401);
+  });
+
   it('does not sell roles on rating evenings', async () => {
     const db = await setup('RATING');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don')).rejects.toThrow();

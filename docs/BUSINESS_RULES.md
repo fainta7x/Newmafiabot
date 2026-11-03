@@ -1125,7 +1125,14 @@ VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_202
 
 A separate training statistic in the player's **«Обучение»** section — not part of the player's profile. **«Читать цвет»** (owner's term) = to correctly tell a player's colour (red/black). The player sees whose colours he reads correctly and whose completely wrongly, so he understands which players' colours he needs to work on.
 
-Statistics per pair «player → another player» from games played at one table; split votes («попил») are not counted. The six approved blocks are: whom the player misreads, which blacks lead him, who misreads him, his allies in correct/wrong votes, how he plays as a black, and the organizer's table «who errs in whom». Names of the blocks are the owner's to give.
+What the page shows (owner, 2026-11-02): **top-3 lists, ranked by count; no minimum number of games** — the count itself is what matters. Split votes («попил») are not counted. The lists:
+1. top-3 players you vote for **correctly**;
+2. top-3 players you vote for **wrongly**;
+3. top-3 players who vote for you **correctly**;
+4. top-3 players who vote for you **wrongly**;
+5. top-3: whom you vote for when he is **the don**;
+6. top-3: whom you vote for when he is **the sheriff**.
+The earlier six «blocks» and the minimum of 5 games together are replaced by these lists. Names of the lists are the owner's to give.
 
 - **Red player's vote error** = a vote for a red player (a civilian or the sheriff). A vote for **the sheriff** is a much worse error and is shown separately.
 - **Black player**: no «error» metric; show who trusts him least (votes against him most) and who votes together with him most often.

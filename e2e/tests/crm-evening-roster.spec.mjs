@@ -75,19 +75,21 @@ for (const width of [360, 390]) {
       await nav.getByRole('button', { name: 'Оплата', exact: true }).click();
       const payments = page.getByTestId('evening-payments-panel');
       await expect(payments).toBeVisible();
-      await payments.getByRole('button', { name: '2 Не оплатили', exact: true }).click();
+      await payments.getByRole('button', { name: '3 Не оплатили', exact: true }).click();
       await expect(payments.getByTestId('evening-payment-row-ep-vid')).toHaveCount(0);
       await payments.getByRole('textbox', { name: 'Найти игрока в оплатах' }).fill('Вид');
       await expect(payments.getByTestId('evening-payment-row-ep-vid')).toBeVisible();
       await payments.getByRole('button', { name: 'Очистить поиск' }).click();
       await payments.getByTestId('evening-payment-row-ep-bogdan').getByRole('button', { name: 'Принять оплату', exact: true }).click();
-      await expect(payments.getByRole('button', { name: '1 Не оплатили', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(payments.getByRole('button', { name: '2 Не оплатили', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(payments.getByTestId('evening-payment-row-ep-bogdan')).toHaveCount(0);
       await expectNoHorizontalOverflow(page, 'payments');
       const heights = await payments.locator('button:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
       expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
       await attachViewport(page, testInfo, `crm-payments-filtered-${width}.png`);
       await payments.getByTestId('evening-payment-row-ep-matroskina').getByRole('button', { name: 'Принять оплату', exact: true }).click();
+      // The player added by hand has arrived (#1114), so he owes for the evening too.
+      await payments.getByTestId('evening-payment-row-ep-manual').getByRole('button', { name: 'Принять оплату', exact: true }).click();
       await expect(payments.getByText('Все оплаты отмечены.')).toBeVisible();
     });
   });

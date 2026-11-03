@@ -21,7 +21,7 @@ type DrawingContext = {
 const red = (role: GameRole) => role === 'citizen' || role === 'sheriff';
 const ALL_ROLES: GameRole[] = ['citizen','sheriff','mafia','don'];
 const eligibleRoles = (rule: VipProbabilityRule, context: DrawingContext): GameRole[] => {
-  if (rule.kind === 'red_color') return ['citizen','sheriff'];
+  if (rule.kind === 'red_color') return ['citizen'];
   if (rule.kind === 'role') return rule.role ? [rule.role] : [];
   const peerRole = context.revealedRolesByPlayer.get(rule.otherPlayerId || '');
   if (!peerRole) return []; // Cannot inspect, reserve or influence an unrevealed peer.
@@ -33,10 +33,9 @@ const eligibleRoles = (rule: VipProbabilityRule, context: DrawingContext): GameR
  * Pure rehearsal engine only. The service controls format, paid role priority,
  * atomic quota, and concurrency before it may call this.
  *
- * Draw each configured chance independently. If triggered constraints can all
- * be satisfied, apply their intersection; when the intersection is empty,
- * choose one valid triggered condition with equal chances (not a weighted
- * selection by its configured percentage). Unavailable requirements do not
+ * Draw each configured chance independently, then choose exactly one available
+ * triggered condition with equal chances, including compatible conditions
+ * (not a weighted selection by its configured percentage). Unavailable requirements do not
  * manufacture cards or alter a previously confirmed card.
  */
 export function simulateVipDraw<T extends VipClosedCard>(
@@ -63,12 +62,8 @@ export function simulateVipDraw<T extends VipClosedCard>(
     triggered.push({ rule, acceptable });
   }
   if (!triggered.length) return unchanged();
-  const compatible = triggered.reduce<GameRole[]>((current, entry) =>
-    current.filter(role => entry.acceptable.includes(role)), [...ALL_ROLES]);
-  const chosen = compatible.length
-    ? triggered
-    : [chooseConflictingVipRule(triggered, randomIndex)!];
-  const candidates = compatible.length ? compatible : chosen[0].acceptable;
+  const chosen = chooseConflictingVipRule(triggered, randomIndex)!;
+  const candidates = chosen.acceptable;
   const targetRole = candidates.includes(selected.role)
     ? selected.role
     : candidates[randomIndex(candidates.length)];
@@ -83,6 +78,6 @@ export function simulateVipDraw<T extends VipClosedCard>(
         : card.id === donor.id ? { ...card, role: selected.role }
           : card,
     ),
-    appliedRuleIds: chosen.map(entry => entry.rule.id),
+    appliedRuleIds: [chosen.rule.id],
   };
 }

@@ -87,7 +87,7 @@ export default function VipProbabilitySettings() {
       {rules.map(rule=><div key={rule.id} className="rounded-xl border border-white/10 bg-black/15 p-3">
         <div className="text-sm text-white">{playerName(rule.playerId)} · {labels[rule.kind]}</div>
         <div className="mt-1 text-xs text-white/60">
-          {rule.kind==='role'?roleLabels[rule.role||'']:rule.kind==='red_color'?'Любая красная роль':playerName(rule.otherPlayerId)}
+          {rule.kind==='role'?roleLabels[rule.role||'']:rule.kind==='red_color'?'Мирный житель':playerName(rule.otherPlayerId)}
           {' · '}{rule.percent}% · {rule.enabled?'Включено':'Выключено'}
         </div>
         <div className="mt-2 flex gap-2">

@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-11-03 · VIP owner corrections (PR #1172, no production data)
+
+- HIGH `fixed in candidate` — compatible triggered conditions were intersected, forcing sheriff for sheriff + red; choose exactly one available triggered condition uniformly, even when compatible.
+- HIGH `fixed in candidate` — requested role percentages were checked only on the beneficiary draw. Owner confirmed a fresh percentage check on each earlier attempt to take that role: 80% swaps it with a different closed role, 20% lets it go. Open roles and purchases are never recalled; quota and format gates apply to the beneficiary.
+
+
 ## 2026-11-03 · PR #1172: private VIP draw integration (source review, no production data)
 
 - HIGH `fixed (this PR)` — `virtualRoleDealService.ts` still hardcodes a player ID; saved red-colour settings cannot disable or change it. Replace with owner rules, preserving the last closed red for an eligible 100% red rule.
@@ -2633,3 +2639,12 @@ Exact-head #1086 CI follow-up: shards 1/5 and 5/5 failed in `liveBroadcastReveal
 - [fixed, STRESS-3] 2026-11-02: (a) the stress walk found no new defects on the current build (390×844, starts «речи» and «голосование»; the earlier 57 findings were from a build before #1131/#1132); (b) the dead seat's status «Заголосован» broke inside the word («Заголосова/н») on 390 px — `overflow-wrap: break-word` plus a smaller face on `live-seat-state__value--dead` (#1138); (c) the training numbers window no longer opens through a DOM query but through `NumbersAutoOpenContext` (`liveEngineNativeWiring` forbids `querySelector` in `CenterPanel`).
 - Owner decisions 2026-11-02 (design, recorded for `DESIGN_SYSTEM`): the ten seat colours are blue, orange, yellow, red, green, violet, pink, teal, silver, lime (`seatColors.ts` and the per-seat rules in `liveGameJudge.css`/`liveSeatGrid.css`); a player who left the table is dim but legible: killed = red crosshair over the whole card, voted out = prison bars, removed = violet «no entry»; the sign lies over the avatar and nickname on purpose; the same looks in the OBS overlay (`exit-killed` / `exit-voted` / `exit-removed`, ribbons of killed/removed hidden).
 - [open] owner questions: may a player vote for himself; an optional «Проголосовали: …» strip; where the floating warning notice lives on a short phone (STRESS-2).
+
+## 2026-11-03 — layout audit of the OBS overlay with the role deal
+
+Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×1080, 1440×900, 1366×768, 390×844, 360×640.
+
+- Deal scene: clean at every desktop size — fixed.
+- `src/components/public/liveBroadcastOverlay.css` `.live-broadcast-phase-title`: at 390 px the phase title is cut to «…»; the same happens on the existing reveal preview (also the timer caption leaves the screen there), so it is the 16:9 OBS canvas at a phone width, not the deal — open (the OBS overlay is a stream picture, phone widths are not its target; ask the owner before changing).
+- `src/components/game/LiveGameContinueGate.tsx`: «Найдена незавершённая игра» was offered for any 200 answer, even an empty one or an HTML page without a copy (seen in the preview harness; the real server answers 404 when there is no copy) — fixed: only a copy with a session is offered (`src/tests/liveGameContinueGate.test.tsx`).
+- `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.

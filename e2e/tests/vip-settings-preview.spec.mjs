@@ -26,7 +26,7 @@ for (const [width,height] of [[360,640],[390,844],[1366,768],[1440,900],[1920,10
     await page.screenshot({path:testInfo.outputPath(`vip-red-${width}.png`),fullPage:true});
     await page.getByLabel('Шанс срабатывания').fill('0');
     await page.getByRole('button',{name:'Сохранить изменения'}).click();
-    await expect(page.getByText('Любая красная роль · 0% · Включено')).toBeVisible();
+    await expect(page.getByText('Мирный житель · 0% · Включено')).toBeVisible();
     expect(rule.percent).toBe(0);
   });
 }

@@ -107,7 +107,7 @@ describe('server virtual role deal', () => {
       const first = await revealVirtualRole(db, gameId, seat, picked.id, view.version);
       const retry = await revealVirtualRole(db, gameId, seat, picked.id, view.version);
       expect(retry).toEqual(first);
-      if (seat === 10) expect(isRed(first.role)).toBe(true);
+      if (seat === 10) expect(first.role).toBe('citizen');
       revealed.push(first.role);
       view = await confirmVirtualRole(db, gameId, seat, picked.id, first.version);
       expect(view.cards).toHaveLength(10 - seat);
@@ -230,7 +230,7 @@ describe('private VIP rules in the actual server deal',()=>{
     await listVipProbabilityRules(db);
     await saveVipGameQuota(db,ownerPlayerId,{wholeEvening:false,maxSuccessfulGames:1});
     let view=await openVirtualRoleDeal(db,gameId);
-    const red=(await storedDeck(db)).find(c=>isRed(c.role))!;
+    const red=(await storedDeck(db)).find(c=>c.role==='citizen')!;
     const reveal=await revealVirtualRole(db,gameId,10,red.id,view.version);
     view=await confirmVirtualRole(db,gameId,10,red.id,reveal.version);
     expect(await privateSuccesses(db)).toEqual([]);
@@ -268,19 +268,20 @@ describe('private VIP rules in the actual server deal',()=>{
     expect(second.version).toBeGreaterThan(first.version);
     await expect(revealVirtualRole(db,gameId,10,second.cards[0].id,first.version)).rejects.toThrow(/Состояние раздачи изменилось/);
   });
-  it('a last-red protection exchange is credited to its beneficiary and undone atomically',async()=>{
+  it('a protected LAST citizen exchange credits its beneficiary and undo releases it',async()=>{
     const {db}=await setup('CASUAL');
-    let view=await openVirtualRoleDeal(db,gameId);
-    for (let seat=1;seat<=7;seat++) {
-      const card=(await storedDeck(db)).find(c=>isRed(c.role))!;
-      const reveal=await revealVirtualRole(db,gameId,seat,card.id,view.version);
-      view=await confirmVirtualRole(db,gameId,seat,card.id,reveal.version);
-    }
-    expect(view.history[6].role).toMatch(/mafia|don/);
+    const opening=await openVirtualRoleDeal(db,gameId);
+    const row=await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[gameId]);
+    const state=JSON.parse(row!.state_json);
+    state.deck=[{id:'last-c',role:'citizen'},{id:'last-s',role:'sheriff'},{id:'last-b',role:'mafia'}];
+    state.history=['citizen','citizen','citizen','citizen','citizen','don','mafia'].map((role,i)=>({seat:i+1,cardId:'past-'+i,role,previousDeck:[]}));
+    await db.run('UPDATE game_virtual_role_deals SET state_json=? WHERE game_id=?',[JSON.stringify(state),gameId]);
+    const reveal=await revealVirtualRole(db,gameId,8,'last-c',opening.version);
+    expect(reveal.role).not.toBe('citizen');
+    const confirmed=await confirmVirtualRole(db,gameId,8,'last-c',reveal.version);
     expect(await privateSuccesses(db)).toEqual([ownerPlayerId]);
-    view=await undoVirtualRole(db,gameId,view.version);
+    await undoVirtualRole(db,gameId,confirmed.version);
     expect(await privateSuccesses(db)).toEqual([]);
-    expect(view.cards).toHaveLength(4);
   });
   it('assigned judge can deal, but neither judge nor another organizer can read/change private settings',async()=>{
     const {db,app}=await setup('CASUAL');

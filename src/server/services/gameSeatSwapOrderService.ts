@@ -9,9 +9,9 @@ type Swap = {
   id: string; game_id: number; evening_id: string; player_id: string; target_player_id: string;
   status: 'ordered' | 'applied' | 'cancelled';
 };
-const fail = (message: string, statusCode = 409): never => {
+function fail(message: string, statusCode = 409): never {
   throw Object.assign(new Error(message), { statusCode });
-};
+}
 
 export async function ensureGameSeatSwapSchema(db: DatabaseWrapper) {
   await db.exec(`CREATE TABLE IF NOT EXISTS game_seat_swap_orders (

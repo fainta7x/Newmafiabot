@@ -387,3 +387,4 @@ export const clubGamesApi = {
     guest?: { nickname: string; phone?: string };
   }) => request<ClubGameRecord>(`/api/games/${gameId}/seat-identity`, { method: 'PUT', body: JSON.stringify(data) }),
 };
+

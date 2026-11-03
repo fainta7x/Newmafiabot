@@ -6,6 +6,7 @@ import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import TournamentBroadcastPanel from './TournamentBroadcastPanel.tsx';
+import { useDealBroadcast } from '../game/useDealBroadcast.ts';
 import LiveGameEngine from '../LiveGameEngine.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import type { Player as LegacyPlayer, GameSlot } from '../../types.ts';
@@ -26,6 +27,10 @@ import {
 } from '../../lib/liveClubSession.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
 import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { useLiveGameCheckpoint } from '../game/useLiveGameCheckpoint';
+import { LiveGameContinueGate } from '../game/LiveGameContinueGate';
+import { gameKey } from '../../shared/game';
+import { DealSeatPlayersContext } from '../game/dealSeatPlayers';
 
 const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | null | undefined): LegacyPlayer[] => {
   const players: LegacyPlayer[] = results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player, index) => ({
@@ -147,7 +152,7 @@ export const changedRoles = (before: PlayerResultData[], after: PlayerResultData
     .sort((a, b) => a - b);
 };
 
-export default function TournamentLiveGameModal({
+function TournamentLiveGameModalBody({
   tournamentId,
   gameId,
   judgeName,
@@ -173,6 +178,8 @@ export default function TournamentLiveGameModal({
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
+  // «Продолжить игру»: the server keeps a copy of this game's session for another device (one mechanism for every game).
+  useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
   const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
@@ -332,6 +339,17 @@ export default function TournamentLiveGameModal({
       window.clearInterval(interval);
     };
   }, [payload, tournamentId, gameId, livePhase, reviewMode]);
+
+  const dealGameNumber = Math.max(1, Number(payload?.game?.game_number || 1));
+  useDealBroadcast(Boolean(payload) && livePhase === 'setup' && !reviewMode, payload ? {
+    gameId: dealGameNumber, globalGameNumber: dealGameNumber, eveningGameNumber: dealGameNumber, tableName: 'Турнир',
+    players: payload.player_results.map((player) => ({ seat: Number(player.seat_number), playerId: null, nickname: player.display_name || `Игрок ${player.seat_number}` })),
+  } : null, async (state) => {
+    const response = await fetch(`/api/games/tournament/${encodeURIComponent(tournamentId)}/${encodeURIComponent(gameId)}/broadcast-state`, {
+      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state }),
+    });
+    if (!response.ok) throw new Error('Tournament broadcast state rejected');
+  });
 
   const finishedGameRef = useRef<any>(null);
   // The finished result is kept in the browser until it is saved: if the app is reloaded after a failed save, the judge
@@ -506,13 +524,13 @@ export default function TournamentLiveGameModal({
       {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 ? <div className="mx-4 my-2">
         <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number))} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
       </div>:null}
-      {virtualSeats ? <VirtualRoleDeal seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
+      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
         const fresh=await loadLivePayload();
         const identity=(rows:PlayerResultData[])=>JSON.stringify(rows.slice().sort((a,b)=>a.seat_number-b.seat_number).map(p=>[p.seat_number,p.participant_id,p.player_id]));
         if(identity(fresh.player_results)!==identity(virtualSeats))throw new Error('Состав игры изменился. Закройте раздачу и проверьте игроков.');
         await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/roles`,'PATCH',{roles:Object.entries(assignments).map(([seat,role])=>({seat_number:Number(seat),role}))},'Не удалось сохранить роли');
         const saved=await loadLivePayload();setPayload(saved);setLatestRoleResults(saved.player_results);setVirtualSeats(null);
-      }}/>:null}
+      }}/></DealSeatPlayersContext.Provider>:null}
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (
@@ -539,4 +557,9 @@ export default function TournamentLiveGameModal({
       ) : null}
     </div>
   );
+}
+
+/** «Продолжить игру»: the one gate of every live-game window (`LiveGameContinueGate`). */
+export default function TournamentLiveGameModal(props: React.ComponentProps<typeof TournamentLiveGameModalBody>) {
+  return <LiveGameContinueGate gameKey={gameKey('tournament', props.gameId)} enabled><TournamentLiveGameModalBody {...props} /></LiveGameContinueGate>;
 }

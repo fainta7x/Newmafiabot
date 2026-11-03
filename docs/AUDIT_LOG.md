@@ -1,5 +1,54 @@
 # Audit log
 
+
+
+
+## 2026-11-03 · Evening seating generation (owner report, evening 3.11; production read GET only)
+
+1. HIGH `fixed (this PR)` — `planEveningSeats` (`src/lib/eveningSeating.ts`) was deterministic: seats in order, the lowest player id first, so games 2–6 of 3.11 came out as swapped pairs (ФМ ↔ Jin, Millourt ↔ Пристань, Алоэ ↔ Серый, Денди ↔ Богданчик, Насон ↔ Диссонанс). Now random under the agreed conditions.
+2. HIGH `fixed (this PR)` — the greedy fill dropped a candidate with any warning and never backtracked: game 4 of 3.11 had seat №10 empty with 11 players registered. Now a random matching without repeats per game, up to 40 whole-plan attempts, and a seat is never left empty while a player is free.
+3. MEDIUM `fixed (this PR)` — «Сформировать рассадку» sent nothing: personal seat notices were queued only by the automatic «Сегодня играем» run and single-seat edits. Now the generate route queues the players' notices and the judge's whole seating; the screen says how many were sent.
+4. LOW `fixed (this PR)` — `evening-seating-audit.spec.mjs` never ran in CI: its page was not built into the preview. Added to the build and the preview run.
+5. HIGH `fixed (follow-up PR)` — after the deploy the button still changed nothing on 3.11: all 50 seats were the old generated plan (`locked=0`, no game started) and the generator only filled free seats, so the new random draw never ran. The organizer's «Сформировать» now draws the generated seats of not-started open games again in one transaction; reservations and manual changes (`locked=1`) stay; the automatic «Сегодня играем» run still only fills gaps.
+
+## 2026-11-03 · Architecture programme items 5–9 (audit; production reads GET only)
+
+Scope: PROJECT_STATE «Architecture unification» items 5–9, owner «делай» 2026-11-03. Source review plus read-only production checks (organizer login, GET only).
+
+**5. Query/state consistency.** 131 raw `fetch('/api…')` calls in 81 component files next to the shared helpers (`requestJson.ts`, `lib/api`). No global client rewrite (programme rule).
+- LOW `fixed (this PR)` — `EveningSeatingEditor.tsx` and `EveningGameCreateSheet.tsx` parsed the `/slots` and `/seating` answers without checking the status, so a server error showed an empty seating with no message; they now read through `readJsonResponse` (the editor shows «Не удалось загрузить рассадку»).
+- NOTE `open` — migrate the remaining raw GETs one screen per PR (already the item 4 plan).
+
+**6. Event lifecycle / RSVP across channels.** 36 direct `response_status` comparisons outside `eveningResponse.ts`; every «is attending» SQL counts `going` and `late` together, matching `isAttendingResponse`. Two use `going` only on purpose: `registerGoingParticipantsForAllGames` (owner rule 2026-10-13: «Иду» registers for every game, «Приду позже» stays an intent without games) and `loadVkJoinCounts` (counts each answer separately). The three client labels («Идёт») check `late` separately. No defect.
+
+**7. Player identity.** Players are found by nickname only in the developer read tool (`developerReadRoutes.ts`) and the nickname-uniqueness check on creation (`playerTokensRoutes.ts`); every other match is by id or seat. No defect.
+
+**8. Financial flows.** Production: for all 40 players `players.tokens` = the ledger balance = the latest `balance_after` (0 mismatches); debts: the CRM screen and the players list agree (13 debtors, 6 150 ₽; AR03 entry). No accounting change.
+
+**9. Live Game / judge / OBS.** `LiveGameEngine.tsx` is 2 147 lines with 53 `useState`; 10 pure models are already extracted and 55 test files cover the engine. No refactor without phase/snapshot/recovery tests (programme rule).
+- MEDIUM `open (needs the owner)` — «Продолжить игру» (AR04, #1151) covers club games only; a tournament game (`TournamentLiveGameModal.tsx`) is still restored only from the judge's device.
+## 2026-11-03 · AR04: can the chronology rebuild the table? (read-only)
+
+Scope: `GET /api/games` on production (organizer login, GET only), the 22 club games with a live chronology; the local restore path (`LiveGameEngine/liveSessionStorage.ts`) and the server copy of a game.
+
+1. MEDIUM `fixed (AR04 step 2)` — an unfinished game was restored only from the judge's device (`readRestorableLiveSession`, localStorage); the chronology reaches the server only with the final protocol, so a lost device lost the game. Now the device sends its session copy to the server during the game and another device can «Продолжить игру».
+2. NOTE `done (step 1)` — `src/lib/liveGameReplayState.ts` rebuilds round, phase, exits, fouls, nominations, the ballots in progress, night shot and checks, first killed, best move and the winner from the chronology. Against the final protocols: exits 213/220 seats, fouls 213/220, winner 21/22 games. Every difference is a protocol edited after the game: game №24 (30.10, closed by the owner; six seats voted out only in the protocol and no `game_end`), game №11 (09.10, skipped by the owner; fouls corrected in the protocol), game №20 (23.10, #3 Богданчик: voted out in the live game, alive in the protocol). Timers and speech order are not in the chronology and are not rebuilt.
+
+## 2026-11-03 · AR03: one debt read rule (wallet / CRM)
+
+Scope: every reader of «a player owes for an evening». Production check (read-only): the CRM debts screen and the players list agree (13 debtors, 6 150 ₽, 0 mismatches); the wallet is a player-only route and was characterised in tests.
+
+1. MEDIUM `fixed (AR03 PR)` — the wallet counted a closed evening's waived participation (`payment_status='waived'` with due > paid) as debt; the CRM did not. The wallet now uses the same rule (`closedEveningDebtOwed`).
+2. MEDIUM `fixed (AR03 PR)` — the wallet's debt total was summed from the 200 latest participations; older debts were missing. It is now read by the shared loader (`loadPlayerEveningDebts(db, playerId)`), without a cap.
+3. LOW `fixed (AR03 PR)` — the players list had its own copy of the SQL (`ep.payment_status != 'waived'`, no COALESCE on amounts); it now uses `closedEveningDebtWhere`. `payment_status` is NOT NULL in the schema, so the empty-status case is `''`.
+4. NOTE — `organizerAccountLink.test.ts` fails locally when `ORGANIZER_PASSWORD` is set in the shell environment (passes without it); test isolation, not a product defect.
+## 2026-11-03 · AR05: measured production slowness (read-only)
+
+Scope: `GET /api/health/performance` and `/api/health/performance/queries` on production (organizer login, GET only), Amvera status; build `01f6a9a` (#1145) RUNNING.
+
+1. MEDIUM `fixed (AR05 PR)` — the event loop stalls 0.4–2.6 s about once a minute; the slow job each time is `personal_notifications` (263 SQLite calls, 1.0–2.5 s of synchronous SQLite; sub-steps `club_results` 0.5–1.5 s, `evening_start_questions` 0.6–0.8 s). Even trivial statements cost 100–480 ms at times (`SELECT 1 FROM sqlite_master …` max 106 ms, `CREATE TABLE IF NOT EXISTS telegram_destinations` max 379 ms), so query plans/indexes are not the cause: per-statement latency on the host is. The fix is fewer statements per tick: `ensureTelegramPublishingSchema` (DDL + destination upserts, called by the evening-start questions and the weekly automation every minute) and `ensurePublicationDeliverySchema` now run their DDL once per connection (`oncePerDatabase`); the data steps of the former still run every call.
+2. LOW `open` — other per-tick statements in the top list: `tournament_game_token_settlements` upserts (50× up to 240 ms), `evening_staff_assignments` upserts (15×), `importLegacyPublicationHolds` probes (36×). To be measured again after this deploy before changing.
+
 ## 2026-11-01 — Elo balance simulation, verdict (owner request: «симуляция… нужно ли подбалансировать»)
 
 Script: `src/scripts/eloBalanceSimulation.ts` (real `calculateCanonicalEloGame`; one player at an equal-level table; contribution levels from the real club data, win chances are stated assumptions). Nothing in the formulas was changed.
@@ -2569,3 +2618,16 @@ Exact-head #1086 CI follow-up: shards 1/5 and 5/5 failed in `liveBroadcastReveal
 
 - [fixed, STRESS-1] 2026-11-02 stress walk of the Live game: (a) the OBS panel crashed the whole game window when the broadcast config came without `overlay_url` (`EveningLiveGameModal.tsx`); (b) technical-foul tags overlapped the seat number and role slot; (c) the one-line notice over the events preview lay on the preview text; (d) «С игрока #N снят фол» floated over the top row on a short phone; (e) copying the journal with a denied clipboard raised an unhandled rejection and still said «Скопировано» (`EventsPanel.tsx`).
 - [open, STRESS-2] a warning notice («Игрок #1 уже выставлял кандидатов») floats over the buttons of the top row for a few seconds on a short phone (360×640, no events panel). Skipped by the walk on purpose; needs an owner decision on where such notices live there.
+
+- [fixed, STRESS-3] 2026-11-02: (a) the stress walk found no new defects on the current build (390×844, starts «речи» and «голосование»; the earlier 57 findings were from a build before #1131/#1132); (b) the dead seat's status «Заголосован» broke inside the word («Заголосова/н») on 390 px — `overflow-wrap: break-word` plus a smaller face on `live-seat-state__value--dead` (#1138); (c) the training numbers window no longer opens through a DOM query but through `NumbersAutoOpenContext` (`liveEngineNativeWiring` forbids `querySelector` in `CenterPanel`).
+- Owner decisions 2026-11-02 (design, recorded for `DESIGN_SYSTEM`): the ten seat colours are blue, orange, yellow, red, green, violet, pink, teal, silver, lime (`seatColors.ts` and the per-seat rules in `liveGameJudge.css`/`liveSeatGrid.css`); a player who left the table is dim but legible: killed = red crosshair over the whole card, voted out = prison bars, removed = violet «no entry»; the sign lies over the avatar and nickname on purpose; the same looks in the OBS overlay (`exit-killed` / `exit-voted` / `exit-removed`, ribbons of killed/removed hidden).
+- [open] owner questions: may a player vote for himself; an optional «Проголосовали: …» strip; where the floating warning notice lives on a short phone (STRESS-2).
+
+## 2026-11-03 — layout audit of the OBS overlay with the role deal
+
+Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×1080, 1440×900, 1366×768, 390×844, 360×640.
+
+- Deal scene: clean at every desktop size — fixed.
+- `src/components/public/liveBroadcastOverlay.css` `.live-broadcast-phase-title`: at 390 px the phase title is cut to «…»; the same happens on the existing reveal preview (also the timer caption leaves the screen there), so it is the 16:9 OBS canvas at a phone width, not the deal — open (the OBS overlay is a stream picture, phone widths are not its target; ask the owner before changing).
+- `src/components/game/LiveGameContinueGate.tsx`: «Найдена незавершённая игра» was offered for any 200 answer, even an empty one or an HTML page without a copy (seen in the preview harness; the real server answers 404 when there is no copy) — fixed: only a copy with a session is offered (`src/tests/liveGameContinueGate.test.tsx`).
+- `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.

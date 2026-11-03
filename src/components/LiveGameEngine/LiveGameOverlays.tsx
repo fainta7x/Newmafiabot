@@ -367,7 +367,7 @@ export function LiveGameToast({ toast }: { toast: { message: string; type: "erro
         data-testid="live-game-inline-toast"
         role="status"
         aria-live="polite"
-        className={`absolute inset-0 z-10 block truncate bg-[#101116] text-[10px] font-semibold leading-3 pointer-events-none ${inlineTone}`}
+        className={`absolute inset-0 z-10 block line-clamp-2 bg-[#101116] text-[10px] font-semibold leading-3 pointer-events-none ${inlineTone}`}
         title={toast.message}
       >
         {toast.message}

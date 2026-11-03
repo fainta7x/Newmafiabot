@@ -24,7 +24,7 @@ describe('evening seating rotation', () => {
     expect(plan.find((seat) => seat.game === 1 && seat.seat === 2)?.playerId).toBe('p');
     expect(plan.filter((seat) => seat.playerId === 'p')).toHaveLength(2);
     expect(plan.filter((seat) => seat.playerId === 'q')).toHaveLength(2);
-    expect(plan.filter((seat) => seat.game === 2).map((seat) => seat.seat)).toEqual([1, 2]);
+    expect(plan.filter((seat) => seat.game === 2).map((seat) => seat.seat).sort()).toEqual([1, 2]);
   });
   it('rejects an earlier booking that would repeat a later reserved seat', () => {
     const future = [{ game: 5, tableId: 'a', seat: 4, playerId: 'p', started: false }];

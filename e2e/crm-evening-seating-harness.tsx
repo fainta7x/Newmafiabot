@@ -18,7 +18,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   if (url.pathname.endsWith('/slots')) return json({ slots });
   if (url.pathname.endsWith('/seating') && !init?.method) return json({ seats });
-  if (url.pathname.endsWith('/seating/generate')) return json({ created: 3 });
+  if (url.pathname.endsWith('/seating/generate')) return json({ created: 3, notified_players: 11, notifications_skipped: null, judge_notified: true });
   const put = /seating\/player\/([^/]+)$/.exec(url.pathname);
   if (put && init?.method === 'PUT') {
     const body = JSON.parse(String(init.body));

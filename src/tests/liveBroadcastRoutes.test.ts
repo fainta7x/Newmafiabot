@@ -290,6 +290,9 @@ describe('live broadcast routes', () => {
     expect(games.length).toBeGreaterThanOrEqual(3);
     await db.run("UPDATE tournament_games SET status = 'completed', winner_team = 'red' WHERE id = ?", [games[0].id]);
     await db.run("UPDATE tournament_games SET status = 'completed', winner_team = 'black' WHERE id = ?", [games[1].id]);
+    // Completing a game completes its protocol in the same step (owner rule 2026-10-23: both make a played game).
+    await db.run("INSERT OR REPLACE INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES (?,?, 'completed', 'red', '[]', datetime('now'), datetime('now'))", ['pr-' + games[0].id, games[0].id]);
+    await db.run("INSERT OR REPLACE INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES (?,?, 'completed', 'black', '[]', datetime('now'), datetime('now'))", ['pr-' + games[1].id, games[1].id]);
     await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [games[2].id]);
     await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
 
@@ -353,9 +356,11 @@ describe('live broadcast routes', () => {
     expect((await publish()).status).toBe(202);
 
     await db.run("UPDATE tournament_games SET status = 'completed' WHERE id = ?", [gameId0]);
+    await db.run("INSERT OR REPLACE INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES (?,?, 'completed', 'red', '[]', datetime('now'), datetime('now'))", ['pr-' + gameId0, gameId0]);
     expect((await publish()).status).toBe(404);
 
     await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [gameId0]);
+    await db.run("DELETE FROM tournament_game_protocols WHERE game_id = ?", [gameId0]);
     await db.run("UPDATE tournaments SET status = 'cancelled' WHERE id = ?", [tournamentId]);
     expect((await publish()).status).toBe(404);
   });

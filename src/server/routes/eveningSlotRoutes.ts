@@ -1,7 +1,7 @@
 import { loadEveningSeatBookings, saveEveningSeatBooking, cancelEveningSeatBooking } from '../services/eveningSeatBookingService.ts';
 import { Router, type Request, type Response } from 'express';
 import { generateEveningSeatingPlan } from '../services/eveningSeatingGenerationService.ts';
-import { queueEveningSeatingNotifications } from '../services/eveningSeatingNotificationsService.ts';
+import { queueEveningSeatingJudgeSummary, queueEveningSeatingNotifications } from '../services/eveningSeatingNotificationsService.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
@@ -237,6 +237,13 @@ eveningSlotRoutes.post('/:eveningId/seating/generate', requireOrganizerAuth, asy
       );
       if (!row) return res.status(400).json({ error: 'Игра не принадлежит этому вечеру' });
     }
-    return res.json(await generateEveningSeatingPlan(req.db, String(req.params.eveningId), slotId));
+    const eveningId = String(req.params.eveningId);
+    // The organizer's button draws the not-yet-started games again; the automatic run at «Сегодня играем» only fills gaps.
+    const result = await generateEveningSeatingPlan(req.db, eveningId, slotId, { redraw: true });
+    // A generated seating is an initial assignment: players get their seats in personal messages before the evening
+    // starts (BUSINESS_RULES «Evening seating and bookings»), and the judge gets the whole seating (owner, 2026-11-03).
+    const players = await queueEveningSeatingNotifications(req.db, eveningId);
+    const judge = await queueEveningSeatingJudgeSummary(req.db, eveningId);
+    return res.json({ ...result, notified_players: players.queued, notifications_skipped: players.skipped, judge_notified: judge.queued });
   } catch (error: any) { return sendError(res, error, 'Не удалось сформировать рассадку'); }
 });

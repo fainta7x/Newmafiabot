@@ -23,6 +23,8 @@ export interface StatGame {
   votingRounds?: VotingRound[];
   eventId?: string;
   title?: string;
+  /** Players (ids) marked in the protocol: first killed, voted out in the zero round, named by a best move. */
+  highlights?: { firstKilled: string[]; zeroRound: string[]; bestMove: string[] };
 }
 
 /** `percent` is null while there is nothing to divide by, so a screen can show «—» instead of a misleading 0. */

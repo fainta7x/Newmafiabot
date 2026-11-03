@@ -8,6 +8,10 @@ const output = path.join(root, 'temp/ui-preview');
 const pages = [
   'preview/index.html',
   'e2e/crm-evening-roster.html',
+  'e2e/crm-evening-seating.html',
+  'e2e/crm-evening-game-create.html',
+  'e2e/colour-reading.html',
+  'e2e/live-checkpoint-offer.html',
   'e2e/live-game.html',
   'e2e/tournament-live-game.html',
   'e2e/live-game-overlay.html',
@@ -28,6 +32,7 @@ const pages = [
   'e2e/trophy-icons.html',
   'e2e/project-board.html',
   'e2e/live-broadcast-reveal.html',
+  'e2e/live-broadcast-deal.html',
   'e2e/crm-evenings.html',
   'e2e/owner-evenings.html',
   'e2e/crm-players.html',
@@ -70,6 +75,8 @@ await build({
 // The poker harness needs only the checked-in art bundle. Keep uploads, avatars,
 // checkpoints and other runtime files out of the isolated preview artifact.
 await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
+// The role deal's card back carries the club logo (owner-approved deal design, 2026-11-03).
+await cp(path.join(root, 'public/assets/deal'), path.join(output, 'assets/deal'), { recursive: true });
 const manifest = JSON.parse(await readFile(path.join(output, '.vite/manifest.json'), 'utf8'));
 const bootstrapAsset = manifest[bootstrapSource]?.file;
 if (!bootstrapAsset) throw new Error(`UI preview bootstrap asset missing from Vite manifest: ${bootstrapSource}`);

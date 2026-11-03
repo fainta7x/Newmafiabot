@@ -1,7 +1,7 @@
 
 ## Evening seating and bookings (owner decisions 2026-10-29)
 
-An evening's player may reserve an exact game, table, and seat as soon as they have selected that game, before the evening is confirmed. Self-booking shows its confirmation in the app and does not send a personal message. At the confirmation event associated with «Сегодня играем» (automatic or manual), a fixed advance seating plan is generated without requiring an organizer click, preserving those reservations and balancing participation; future game results never retroactively reshape it. Each player has an independent visited-seat cycle for each table for the duration of the evening: a position is not repeated until the available positions have all been used, at which point the cycle restarts. Positions in future games are tentative; only actual game starts make them part of historical seating. Organizer may change every future assignment and override any rule after a warning; the organizer can remove self-bookings. Planned seats are visible to players in the cabinet and organizers in CRM. Initial assignments and organizer changes before evening start warrant personal notices; changes after the evening starts require only an in-app update. Existing signup/attendance/payment/protocol semantics are preserved. Implementation is in draft #1088, not yet live.
+An evening's player may reserve an exact game, table, and seat as soon as they have selected that game, before the evening is confirmed. Self-booking shows its confirmation in the app and does not send a personal message. At the confirmation event associated with «Сегодня играем» (automatic or manual), a fixed advance seating plan is generated without requiring an organizer click, preserving those reservations and balancing participation; future game results never retroactively reshape it. Each player has an independent visited-seat cycle for each table for the duration of the evening: a position is not repeated until the available positions have all been used, at which point the cycle restarts. Positions in future games are tentative; only actual game starts make them part of historical seating. Organizer may change every future assignment and override any rule after a warning; the organizer can remove self-bookings. Planned seats are visible to players in the cabinet and organizers in CRM. Initial assignments and organizer changes before evening start warrant personal notices; changes after the evening starts require only an in-app update. Existing signup/attendance/payment/protocol semantics are preserved. **Random (owner, 2026-11-03):** the generated plan is a full random seating under these conditions — players with fewer games first (random among equals), a random seat that does not repeat the player's current cycle at that table; when no seating without a repeat exists, the seat is still filled with the fewest repeats; no free seat while an eligible player is free. A generated seating sends the players their seats and the evening judge the whole seating in personal messages (before the evening starts). The organizer's «Сформировать» draws the not-yet-started games again (generated seats only; reservations and the organizer's own seat changes stay); the automatic run at «Сегодня играем» only fills free seats. Implementation is in draft #1088, not yet live.
 
 ## Evening judge and default portraits (owner, 2026-10-30)
 
@@ -1113,3 +1113,53 @@ These are the owner's answers to the questions where copies in the code disagree
 The approved fair virtual deck is an alternative to manual physical-role entry in all game formats. It follows the existing10/9/8-player composition in tableComposition; horizontal cards are renumbered after removal, the judge reveals and confirms separately, may choose another unassigned seat, undo the last assignment or explicitly redeal before starting. Synthetic training keeps its fixed task roles. Tournament assignments remain subject to the existing server role permissions and composition checks.
 
 VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_2026-10-28.md). Persistent toggleable personal preferences do not authorize any deployed probabilistic effect. No default global2-swap cap is approved; the personal limit is manually configured. Effects may influence only the owner's own still-closed card and must never alter an already shown role or operate in rating/tournament games. Strength/frequency/conflicts/global caps require modelling and owner agreement before implementation.
+
+## Owner decisions of 2026-11-02 (live game and Elo)
+
+- **Self-vote is allowed.** A player may vote for himself in a vote count (owner: «конечно»). Nothing in the code blocks it; it is not to be blocked.
+- **Elo is counted only for a registered player, from his first game.** Owner (verbatim): «ЭЛО считаем только у зареганного гостя с 1 игры». A guest without a profile is not converted into a profile inside an already played game (owner: «нет»); Elo is not counted for him retroactively. Wording to be confirmed back to the owner: a guest who registers gets Elo from the first game he plays as a registered player.
+- **No adaptive base win chance in Elo.** The idea of replacing the fixed 30/70 base chance by one built from the club's real win rates is cancelled (owner: «такого не будет»).
+- **Telegram: two kinds of places (owner, 2026-11-02).** The entry channel «Анонсы» (destination `public`) gets only announcements of games and the «there is a table / there is none» announcements (the «Мы собрались» photo, evening and tournament announcements). Every other message that used to go there goes to the regular chats instead: the evening summary picture (already goes to the evening's group), the weekly season table (now to the club chat, destination `club`), tournament results (now to the rating group only). A club digest is posted by the organizer to the destinations he chooses.
+
+## «Обучение»: reading colours of specific players (owner, 2026-11-02)
+
+A separate training statistic in the player's **«Обучение»** section — not part of the player's profile. **«Читать цвет»** (owner's term) = to correctly tell a player's colour (red/black). The player sees whose colours he reads correctly and whose completely wrongly, so he understands which players' colours he needs to work on.
+
+What the page shows (owner, 2026-11-02): **top-3 lists, ranked by count; no minimum number of games** — the count itself is what matters. Split votes («попил») are not counted. The lists:
+1. top-3 players you vote for **correctly**;
+2. top-3 players you vote for **wrongly**;
+3. top-3 players who vote for you **correctly**;
+4. top-3 players who vote for you **wrongly**;
+5. top-3: whom you vote for when he is **the don**;
+6. top-3: whom you vote for when he is **the sheriff**.
+The earlier six «blocks» and the minimum of 5 games together are replaced by these lists. Names of the lists are the owner's to give.
+
+- **Red player's vote error** = a vote for a red player (a civilian or the sheriff). A vote for **the sheriff** is a much worse error and is shown separately.
+- **«Who votes for you correctly / wrongly»** (owner, 2026-11-03): correctly = you are black and he votes for you; wrongly = you are red and he votes for you.
+- **The player's own votes while he is black are not counted** (owner, 2026-11-03).
+- **Black block stays** (owner, 2026-11-03): when you are **mafia** — top-3 who votes for you (trusts you least) and top-3 who votes together with you; when you are **the don** — the same two top-3 lists (who votes with you, who votes for you).
+- **Layout** (owner, 2026-11-03): not one long column — the lists are chosen with a switch, the page should look organic and good.
+- **Visibility** (owner, 2026-11-02): only the player himself sees his statistic; the organizer can view the full statistic of every player.
+
+## Judge of a tournament game (owner, 2026-11-03)
+
+- In a tournament with **one table** the tournament's judge conducts **every** game of it.
+- With **two tables** a judge is bound to a table. A table is not stored yet: the judge set on the game is the table's judge; a game without its own judge belongs to the tournament's judge.
+- One rule for every reader (who may open a game with judge access, the judge's «Мои игры», «судил N игр», achievements): the «Игра» layer (`gameService.ts`).
+
+## Virtual role deal: one tap per player (owner, 2026-11-03)
+
+- On the setup screen the virtual deal is the main button on top («Раздать виртуальные карты»); the physical deal is the second choice below («Физическая раздача»).
+- A bought role (150 ₽ into the evening debt) is marked **before** the deal starts: choose the player, then the role; its card leaves the deck.
+- «Начать раздачу» opens the turn of the first player without a role by itself, with 10 seconds to pick a card. A tapped card shows the role to the player at once. When the time is up without a card, the program picks a random card. **«Следующий игрок»** is available only after the 10 seconds and opens the next player's turn.
+- **Look (owner-approved mock-up, 2026-11-03):** the live-game material; ten seat tiles with the player's avatar and the table's seat colour (done: dimmed with a tick; choosing: white frame); the choosing player large with the timer in seconds and a shrinking bar; playing cards in real proportions (63 × 88 mm, corners about 5 % of the width) with a matte black back and the club logo; a taken card leaves the row: the cards left are numbered again from 1 and the row narrows, no faded places (owner, 2026-11-03: «не было затемнения карт, они должны перенумеровываться и сужаться»); the opened card is the app's role card in the same proportions.
+- **On the stream (owner, 2026-11-03):** the OBS overlay shows the deal at the bottom, just above the players' cards, centred, with «Выбирает карту · №N ник» above the cards (the middle of the picture stays free for the camera): the choosing player's seat and nickname are lit, only the cards left are shown (renumbered, as on the judge's screen), the chosen card turns over and the viewers see its role; a player who got a card shows that role on their player card at once, as the overlay does during the game. No timer box. A training game does not stream the deal.
+
+## VIP: количество игр с успешной подкруткой (решение владельца 2026-11-03)
+
+- Проценты задаются отдельно для роли/одноцвета/разноцвета, но **счётчик один на игрока для всех его условий**, а не на отдельное условие и не на число замен карт.
+- Галочка **«На весь вечер»**: вероятности проверяются заново в каждой игре вечера без ограничения числа успешных игр.
+- Без галочки организатор выставляет количество **игр, в которых реально сработала VIP-подкрутка**. Если лимит 2, и подкрутка была успешна в играх №2 и №4, на последующие игры этого вечера вероятностные условия отключаются.
+- Несколько успешных условий в одной игре считаются одной успешной игрой. Не сработавшие вероятности, невозможная подмена и обычная естественно выбранная подходящая карта лимит не расходуют.
+- При новом вечере отсчёт начинается заново. Оплаченная гарантированная роль имеет приоритет и сама по себе VIP-лимит не расходует. Турнир/рейтинг остаются без VIP-подкруток.
+- Сохранение настроек **пока не означает, что эффект уже подключён к реальной раздаче**; для этого требуется отдельный атомарный учёт подтверждённых результатов с защитой от отмены/повторных запросов.

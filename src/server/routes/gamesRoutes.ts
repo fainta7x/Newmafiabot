@@ -19,6 +19,7 @@ import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettl
 import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
 import { replaceGuestWithRegisteredPlayer, replaceSeatWithGuest, setGuestAttendance } from '../services/guestPlayerService.ts';
 import { ENGINE_TEAM_NAMES, gameTeamOfRole } from '../../shared/gameRoles.ts';
+import { clearLiveGameCheckpoint } from '../services/liveGameCheckpointService.ts';
 
 const router = Router();
 
@@ -324,6 +325,8 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
   try {
     const db = req.db || (await getDb());
     const row = await saveClubEveningProtocol(db, Number(req.params.gameId), req.body);
+    // A finished game needs no server copy of its live session («Продолжить игру», AR04).
+    if (req.body?.protocol?.status === 'completed') await clearLiveGameCheckpoint(db, `club:${Number(req.params.gameId)}`).catch(() => {});
     return res.json(normalizeGame(row));
   } catch (err: any) {
     const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');

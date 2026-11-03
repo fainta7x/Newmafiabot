@@ -107,9 +107,11 @@ import { resolveEveningShortCode } from './server/services/announcementShortLink
 import { loadAnnouncementPhoto } from './server/services/announcementPhotoService.ts';
 import announcementPhotoRoutes from './server/routes/announcementPhotoRoutes.ts';
 import eveningPriceSettingsRoutes from './server/routes/eveningPriceSettingsRoutes.ts';
+import vipProbabilityRulesRoutes from './server/routes/vipProbabilityRulesRoutes.ts';
 import postTemplateRoutes from './server/routes/postTemplateRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
 import { liveBroadcastGameRoutes, liveBroadcastPublicRoutes } from './server/routes/liveBroadcastRoutes.ts';
+import liveGameCheckpointRoutes from './server/routes/liveGameCheckpointRoutes.ts';
 import { obsRemoteBridgeRoutes, obsRemoteOrganizerRoutes } from './server/routes/obsRemoteRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
 import judgeAuthorityAdminRoutes from './server/routes/judgeAuthorityAdminRoutes.ts';
@@ -356,6 +358,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/announcement-photos', announcementPhotoRoutes);
   app.use('/api/post-templates', postTemplateRoutes);
   app.use('/api/evening-prices', eveningPriceSettingsRoutes);
+  app.use('/api/admin/vip-probability-rules', vipProbabilityRulesRoutes);
   app.use('/api/club-digest', clubDigestRoutes);
   app.use('/api/system-status', systemStatusRoutes);
   app.use('/api/obs-remote', obsRemoteOrganizerRoutes);
@@ -399,6 +402,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
   app.use('/api/games', organizerBettingRoutes);
   app.use('/api/games', liveBroadcastGameRoutes);
+  app.use('/api/live-checkpoints', liveGameCheckpointRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/tournaments', tournamentSeatingShareRoutes);
   app.use('/api/tournaments', tournamentTelegramRoutes);

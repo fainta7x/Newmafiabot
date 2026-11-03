@@ -8,6 +8,7 @@ import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBro
 import { MafiaHatIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 import { FitText } from '../ui/FitText.tsx';
+import { RoleCard } from '../ui/RoleCard.tsx';
 
 type LiveBroadcastOverlayProps = {
   token: string;
@@ -82,6 +83,37 @@ const BroadcastAvatar = ({ token, player }: { token: string; player: LiveBroadca
         />
       ) : <span aria-hidden="true">{initial}</span>}
     </span>
+  );
+};
+
+/**
+ * The role deal on the stream (owner, 2026-11-03): the choosing player's seat and nickname are lit, the chosen card is
+ * marked and turns over to the role; nothing else is shown.
+ */
+const DealScene = ({ state }: { state: LiveBroadcastState }) => {
+  const deal = state.deal;
+  if (!deal) return null;
+  const chooser = state.players.find((player) => player.seat === deal.seat);
+  return (
+    <section className="live-broadcast-deal" aria-label="Раздача ролей">
+      <div className="live-broadcast-deal-who">
+        <span>Выбирает карту</span>
+        <strong>№{deal.seat} {chooser?.nickname || ''}</strong>
+      </div>
+      <div className="live-broadcast-deal-cards">
+        {deal.cards.map((card) => {
+          const open = deal.open?.position === card.position ? deal.open : null;
+          return (
+            <div key={card.position} className={`live-broadcast-deal-card ${open ? 'is-open' : ''}`} aria-label={open ? `Карта №${card.position}: ${getGameRoleDefinition(open.role)?.label}` : `Карта №${card.position}`}>
+              <div className="live-broadcast-deal-card-inner">
+                <div className="live-broadcast-deal-back"><span>{card.position}</span><i aria-hidden="true" /></div>
+                <div className="live-broadcast-deal-front">{open ? <RoleCard role={open.role} label={getGameRoleDefinition(open.role)?.label} /> : null}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 };
 
@@ -356,6 +388,8 @@ export default function LiveBroadcastOverlay({ token, replayState }: LiveBroadca
         </aside>
       ) : null}
 
+      {state.phaseKey === 'deal' ? <DealScene state={state} /> : null}
+
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {
           const kind = roleKind(player.role);
@@ -364,11 +398,11 @@ export default function LiveBroadcastOverlay({ token, replayState }: LiveBroadca
           const hasDiscipline = player.fouls > 0 || player.minorTech > 0 || player.majorTech > 0;
           const order = nominationOrder.get(player.seat);
           const isVoteCandidate = voteCandidates.has(player.seat);
-          const speaking = state.currentSpeakerSeat === player.seat;
+          const speaking = state.currentSpeakerSeat === player.seat || (state.phaseKey === 'deal' && state.deal?.seat === player.seat);
           return (
             <article
               key={player.seat}
-              className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : 'is-out'} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
+              className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : `is-out exit-${player.statusKind}`} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
             >
               {/* The face first (owner, 2026-10-01): a large portrait with a role emblem. */}
               <div className="live-broadcast-player-head">
@@ -382,7 +416,7 @@ export default function LiveBroadcastOverlay({ token, replayState }: LiveBroadca
                 </div>
                 <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">
-                    {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
+                    {speaking && state.phaseKey !== 'deal' ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
                   </div>
                   <FitText as="div" minPx={9} className="live-broadcast-role">{(getGameRoleDefinition(kind)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</FitText>
                 </div>

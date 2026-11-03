@@ -5,6 +5,9 @@ import { createPortal } from 'react-dom';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext.ts';
+import { DealSeatPlayersContext } from '../game/dealSeatPlayers.ts';
+import { useDealBroadcast } from '../game/useDealBroadcast.ts';
+import { NumbersAutoOpenContext } from '../LiveGameEngine/numbersAutoOpenContext.ts';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
 import { getJudgeTrainingGate } from '../../lib/judgeConductTraining.ts';
@@ -25,6 +28,9 @@ import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGame
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
 import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { useLiveGameCheckpoint } from '../game/useLiveGameCheckpoint';
+import { LiveGameContinueGate } from '../game/LiveGameContinueGate';
+import { gameKey } from '../../shared/game';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -174,7 +180,7 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false, titleBadge }) => {
+const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false, titleBadge }) => {
   // A reload returns to this window: the record says it is open until the judge closes it or the game ends.
   const resumable = !trainingMode && Number(game.id) > 0;
   useEffect(() => { if (resumable) rememberOpenLiveGame('club', game.id); }, [resumable, game.id]);
@@ -186,6 +192,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       : null,
   );
   const [livePhase, setLivePhase] = useState('setup');
+  // «Продолжить игру» (AR04): the server keeps a copy of this game's session for another device.
+  useLiveGameCheckpoint(gameKey('club', game.id), livePhase, resumable);
   const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
   const [trainingIdentityPositions, setTrainingIdentityPositions] = useState<Record<number, React.CSSProperties>>({});
   const [rolesHidden, setRolesHidden] = useState(true);
@@ -301,6 +309,10 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
   const liveAlive = useLiveAliveSeats(livePhase);
   const { connection: broadcastConnection, forgetReplayFrames } = useClubLiveBroadcast(game, livePhase);
+  useDealBroadcast(livePhase === 'setup' && !trainingMode, {
+    gameId: game.id, globalGameNumber: game.global_game_number, tableName: game.table_name || null,
+    players: livePlayers.map((player) => ({ seat: player.seat_number, playerId: player.player_id, nickname: player.display_name })),
+  }, (state) => clubGamesApi.publishBroadcastState(game.id, state));
 
   const openBroadcastSetup = async () => {
     setBroadcastSetupOpen(true);
@@ -411,6 +423,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     );
   }), [trainingMode, livePlayers]);
 
+  // The role deal shows each seat's avatar (owner-approved deal design, 2026-11-03).
+  const dealSeatPlayer = useMemo(() => (seat: number) => livePlayers.find((item) => item.seat_number === seat)?.player_id || null, [livePlayers]);
   const identityOverlay = livePhase === 'setup' || seatIdentity ? null : (
     <div className="evening-live-identity-layer" aria-hidden="true">
       {livePlayers.map((player) => (
@@ -718,6 +732,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") guardTrainingInput(event); }}
         data-training-input-gate={trainingMode ? "active" : undefined}
       >
+        <NumbersAutoOpenContext.Provider value={!trainingMode}>
+        <DealSeatPlayersContext.Provider value={dealSeatPlayer}>
         <SeatIdentityContext.Provider value={seatIdentity}>
         <LiveGameEngine
           players={legacyPlayers}
@@ -769,6 +785,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }}
         />
         </SeatIdentityContext.Provider>
+        </DealSeatPlayersContext.Provider>
+        </NumbersAutoOpenContext.Provider>
 
         {trainingMode
           ? (identityOverlay && trainingBoardElement ? createPortal(identityOverlay, trainingBoardElement) : null)
@@ -777,4 +795,10 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       </div>
     </div>
   );
+};
+
+/** «Продолжить игру»: the one gate of every live-game window (`LiveGameContinueGate`). */
+export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = (props) => {
+  const resumable = !props.trainingMode && Number(props.game.id) > 0;
+  return <LiveGameContinueGate gameKey={gameKey('club', props.game.id)} enabled={resumable}><EveningLiveGameModalBody {...props} /></LiveGameContinueGate>;
 };

@@ -49,6 +49,8 @@ describe('«Заставка» and «Итоги» broadcast scenes', () => {
     await db.run("INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('a','Альфа',?,?), ('b','Бета',?,?)", [stamp, stamp, stamp, stamp]);
     await db.run("INSERT INTO tournament_participants (id,tournament_id,player_id,display_name,participant_number) VALUES ('pa','t','a','Альфа',1), ('pb','t','b','Бета',2)");
     await db.run("INSERT INTO tournament_games (id,tournament_id,game_number,status) VALUES ('g1','t',1,'completed'), ('g2','t',2,'planned')");
+    // Owner, 2026-10-23: a tournament game is played when the game and its protocol are both completed.
+    await db.run("INSERT INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES ('pr1','g1','completed','red','[]',?,?)", [new Date().toISOString(), new Date().toISOString()]);
     await db.run("INSERT INTO tournament_game_seats (id,game_id,participant_id,seat_number) VALUES ('s1','g2','pb',1), ('s2','g2','pa',2)");
     const lobby = await loadBroadcastLobby(db);
     expect(lobby.event).toMatchObject({ kind: 'tournament', title: 'Кубок' });

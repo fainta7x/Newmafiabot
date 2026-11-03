@@ -8,7 +8,8 @@ for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]])test(`to
   await deal.getByRole('button',{name:'Начать раздачу'}).click();
   expect(await page.evaluate(auditScreen)).toEqual([]);
   for(let i=0;i<10;i++){
-    await deal.getByRole('button',{name:'Карта №1',exact:true}).click();await deal.getByRole('button',{name:'Открыть карту №1',exact:true}).click();await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
+    // Owner, 2026-11-03: a tapped card shows its role; «Следующий игрок» passes the turn.
+    await deal.getByRole('button',{name:/^Карта №/}).first().click();await deal.getByTestId('virtual-deal-next-player').click();
   }
   await deal.getByRole('button',{name:'Сохранить роли и вернуться к игре'}).click();await expect(deal).toHaveCount(0);
   const roles=await page.evaluate(()=>window.__savedVirtualRoles);expect(roles).toHaveLength(10);

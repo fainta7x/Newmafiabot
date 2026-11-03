@@ -62,11 +62,14 @@ interface SeatCardProps {
   bothLeaveVotes?: number[];
 }
 
-const getExitLabel = (player: ActivePlayerState): string => {
-  if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'Заголосован';
-  if (player.removal_reason || player.kick) return 'Удалён';
-  return 'Убит';
+type ExitKind = 'voted' | 'removed' | 'killed';
+const getExitKind = (player: ActivePlayerState): ExitKind => {
+  if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'voted';
+  if (player.removal_reason || player.kick) return 'removed';
+  return 'killed';
 };
+const EXIT_LABELS: Record<ExitKind, string> = { voted: 'Заголосован', removed: 'Удалён', killed: 'Убит' };
+const getExitLabel = (player: ActivePlayerState): string => EXIT_LABELS[getExitKind(player)];
 
 export default function SeatCard(props: SeatCardProps) {
   const {
@@ -322,11 +325,15 @@ export default function SeatCard(props: SeatCardProps) {
       onContextMenu={onOpenPlayerActions ? (event) => event.preventDefault() : undefined}
       data-seat={slotNum}
       data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
+      // The candidate whose votes are being counted now (owner, 2026-11-02: it looked the same as the voters of that candidate).
+      data-exit={!player.alive ? getExitKind(player) : undefined}
+      data-candidate={phase === 'day_voting' && isInteractiveVoting && activeVoteNominee === slotNum ? 'current' : undefined}
       // Who voted for whom at a glance (owner, 2026-10-27): the card takes the colour of the candidate's seat number it voted
       // for; a vote for the candidate being counted is framed more strongly.
       data-vote={voteTarget === undefined ? undefined : (voteTarget === activeVoteNominee ? 'current' : 'other')}
       data-vote-for={voteTarget}
-      style={voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
+      // The candidate being counted wears his OWN seat colour (saturated); a voter wears the colour of the candidate he voted for (softer).
+      style={phase === 'day_voting' && isInteractiveVoting && activeVoteNominee === slotNum ? seatColorVars(slotNum) as React.CSSProperties : voteTarget === undefined ? undefined : seatColorVars(voteTarget) as React.CSSProperties}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
       className={`live-seat-card ${renderIdentity ? 'live-seat-card--grid' : ''} ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
@@ -376,13 +383,22 @@ export default function SeatCard(props: SeatCardProps) {
         </div>
       )}
 
-      {renderIdentity ? <div className="live-seat-id">{renderIdentity(slotNum)}</div> : null}
+      {/* While votes are counted a voter shows one big digit, the seat it voted for, in place of its portrait (owner, 2026-11-02:
+          «просто писать цифру», как в Полемике). The candidate being counted keeps its portrait. */}
+      {renderIdentity ? (
+        <div className="live-seat-id">
+          {renderIdentity(slotNum)}
+          {phase === 'day_voting' && isInteractiveVoting && voteTarget !== undefined && activeVoteNominee !== slotNum
+            ? <div className="live-seat-bigvote" data-testid={`seat-bigvote-${slotNum}`} data-target={voteTarget} aria-hidden="true">{voteTarget}</div>
+            : null}
+        </div>
+      ) : null}
 
       <div className="live-seat-state">
         {!player.alive ? (
           <div>
             <Skull className="w-4 h-4 mx-auto mb-1 text-rose-400/70" />
-            <div className="live-seat-state__value">{getExitLabel(player)}</div>
+            <div className="live-seat-state__value live-seat-state__value--dead">{getExitLabel(player)}</div>
           </div>
         ) : phase === "day_voting" ? (
           tableDecisionActive ? renderTableDecisionState() : isInteractiveVoting ? renderVoteState() : renderResolvedTally()

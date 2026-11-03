@@ -7,6 +7,7 @@ import {
 } from '../../db/ensureJudgeAuthoritySchema.ts';
 import { canHostEveningFormat, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
 import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
+import { listGamesJudgedBy } from '../services/gameService.ts';
 
 const router = Router();
 
@@ -177,15 +178,20 @@ router.get('/judging', async (req, res) => {
          ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC
          LIMIT 60
       `, [playerId, playerId]),
-      db.all(`
+      // Which tournament games are this judge's: the «Игра» layer's rule — the table's judge, else the tournament's judge.
+      listGamesJudgedBy(db, playerId).then(async (games) => {
+        const ids = games.filter((game) => game.storage === 'tournament').map((game) => game.id);
+        if (!ids.length) return [];
+        return db.all(`
         SELECT tg.*, t.title AS tournament_title, t.date AS tournament_date,
                t.status AS tournament_status, t.venue
           FROM tournament_games tg
           JOIN tournaments t ON t.id = tg.tournament_id
-         WHERE tg.judge_player_id = ?
+         WHERE tg.id IN (${ids.map(() => '?').join(',')})
          ORDER BY COALESCE(tg.started_at, t.date) DESC, tg.game_number DESC
          LIMIT 60
-      `, [playerId]),
+      `, ids);
+      }),
       loadAvailableEvenings(db, formats, playerId),
     ]);
 

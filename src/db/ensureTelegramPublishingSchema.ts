@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { weeklyAnnouncementDueMs } from '../lib/weeklyAnnouncementDue.ts';
+import { oncePerDatabase } from './oncePerDatabase.ts';
 
 // The novice group «Игры для новичков», announcements topic (owner, 2026-09-29).
 export const NOVICE_GROUP_CHAT_ID = '-1003925510303';
@@ -63,7 +64,8 @@ const tournamentDispatchUpsertSql = (entityExpression: string) => `
     last_error = NULL;
 `;
 
-export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promise<void> {
+// Once per connection (AR05, 2026-11-03): the one-minute workers re-ran this DDL and the destination upserts every tick.
+const ensureTelegramPublishingTables = oncePerDatabase(async (db: DatabaseWrapper): Promise<void> => {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS telegram_destinations (
       id TEXT PRIMARY KEY,
@@ -313,6 +315,12 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     );
   }
 
+});
+
+/** Tables and destinations once per connection; the data steps below still run on every call (migrations and the sync-queue clean-up). */
+export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promise<void> {
+  await ensureTelegramPublishingTables(db);
+  const now = new Date().toISOString();
   // Owner request 2026-09-29: the novice group «Игры для новичков» (announcements topic). Set once;
   // later changes in CRM «Ещё → Telegram» are kept. Open novice evenings whose announcement is already
   // due are then synced once, so the missed post appears in the group.

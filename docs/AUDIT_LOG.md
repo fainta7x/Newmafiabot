@@ -2674,3 +2674,8 @@ The audit reached the Live game again once the stale «Начать раздач
 - `src/components/crm/liveSeatGrid.css`: on a computer «+Ф / −Ф» stood 36–40 px right of the seat card's axis (the row «Выставить +Ф» was centred as a whole); the pair is now the centre column of the row. The fix sits inside `@layer seat-grid` — an unlayered `!important` loses to a layered one.
 - `src/components/game/virtualRoleDeal.css` (#1169): the deal window scrolled 18 px at 360×640 and 27 px at 1366×768; compact spacing on screens up to 800 px high.
 - `e2e/tests/live-game-text-audit.spec.mjs`: a 1 s card timer let the program open a random card before the test pressed «Отменить последнюю карту»; 3 s.
+## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
+
+Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
+- `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
+- `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.

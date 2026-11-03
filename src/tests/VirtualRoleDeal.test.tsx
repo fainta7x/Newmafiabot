@@ -91,7 +91,9 @@ describe('VirtualRoleDeal', () => {
       expect(within(grid).getAllByRole('button')).toHaveLength(remaining);
       choose(position);
     }
-    fireEvent.click(screen.getByRole('button', { name: 'Все роли выданы — начать игру' }));
+    // The last card goes straight into the game (owner, 2026-11-03): no extra tap, no «next player».
+    expect(complete).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId('virtual-deal-next-player')).toBeNull();
     const assignments = complete.mock.calls[0][0];
     const counts = tableRoleCounts(n);
     for (const role of Object.keys(counts) as (keyof typeof counts)[]) {
@@ -140,7 +142,7 @@ describe('VirtualRoleDeal', () => {
     render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={save} cardSeconds={0}/>);
     fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
     for(let i=0;i<10;i++)choose('first');
-    fireEvent.click(screen.getByRole('button',{name:'Все роли выданы — начать игру'}));
+    // The first, automatic save fails; the button stays for a retry.
     await screen.findByRole('alert');await waitFor(()=>expect((screen.getByRole('button',{name:'Все роли выданы — начать игру'}) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole('button',{name:'Все роли выданы — начать игру'}));
     await waitFor(()=>expect(save).toHaveBeenCalledTimes(2));expect(save.mock.calls[0][0]).toEqual(save.mock.calls[1][0]);

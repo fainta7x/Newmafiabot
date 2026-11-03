@@ -115,7 +115,9 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const selected = deck.find((entry) => entry.id === selectedId);
   const selectedRole = serverGameId ? revealedRole : selected?.role;
   const assignments = Object.fromEntries(history.map((entry) => [entry.seat, entry.role])) as Record<number, GameRole>;
-  const complete = history.length === size && deck.length === 0;
+  // Every seat has its card: the deal is over even if the server still lists a card (owner, 2026-11-03: after the 10th player it
+  // offered «the next player» instead of the game).
+  const complete = history.length >= size;
   const turnKey = `${active ?? 0}:${history.length}`;
   const turnStartedAt = turnStart && turnStart.key === turnKey ? turnStart.at : null;
   useEffect(() => { if (started) setBuying(false); }, [turnKey]);
@@ -283,6 +285,13 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
     if(saving||!complete)return;setSaving(true);setError('');
     try{await onComplete(assignments);requestJudgeGameMusicStop();}catch(error:any){setError(error?.message||'Не удалось сохранить роли');}finally{setSaving(false);}
   };
+  // The last card confirmed → straight into the game; the button stays for a retry if saving failed.
+  const autoFinished = useRef(false);
+  useEffect(() => {
+    if (!complete || autoFinished.current) return;
+    autoFinished.current = true;
+    void finish();
+  }, [complete]);
   const seatTile = (player: Seat, options: { disabled: boolean; onClick: () => void }) => {
     const color = SEAT_COLORS[player.seat_number];
     return (

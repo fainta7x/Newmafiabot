@@ -11,7 +11,8 @@ for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]])test(`to
     // Owner, 2026-11-03: a tapped card shows its role; «Следующий игрок» passes the turn.
     await deal.getByRole('button',{name:/^Карта №/}).first().click();await deal.getByTestId('virtual-deal-next-player').click();
   }
-  await deal.getByRole('button',{name:'Сохранить роли и вернуться к игре'}).click();await expect(deal).toHaveCount(0);
+  // The last card saves the roles by itself (owner, 2026-11-03).
+  await expect(deal).toHaveCount(0);
   const roles=await page.evaluate(()=>window.__savedVirtualRoles);expect(roles).toHaveLength(10);
   expect(roles.filter(r=>r.role==='mafia')).toHaveLength(2);expect(roles.filter(r=>r.role==='don')).toHaveLength(1);expect(roles.filter(r=>r.role==='sheriff')).toHaveLength(1);expect(roles.filter(r=>r.role==='citizen')).toHaveLength(6);
   await page.getByRole('button',{name:'Запустить Игру 🚀',exact:true}).click();

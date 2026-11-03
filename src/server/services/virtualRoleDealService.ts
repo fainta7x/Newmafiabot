@@ -208,6 +208,7 @@ async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: nu
     if (reserved.has(seat)) reject('На это место уже оформлена покупка роли');
     const protectedCount = [...reserved.values()].filter((reservedRole) => reservedRole === role).length;
     const available = state.deck.filter((entry) => entry.role === role);
+    if (!available.length) return reject('Такой роли уже нет в колоде');
     if (available.length <= protectedCount) return reject('Роль недоступна для покупки в текущей раздаче');
     const card = available[0];
     const purchase: Purchase = { playerId: context.playerBySeat.get(seat) || null, amountRub: ROLE_PURCHASE_PRICE_RUB };

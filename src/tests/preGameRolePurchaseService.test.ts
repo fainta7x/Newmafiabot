@@ -335,6 +335,26 @@ describe('pre-deal role purchase persistence and debt', () => {
     expect(await due(db, 'buyer-0')).toBe(50);
   });
 
+  it('unified shop options expose no paid reservation data and include rating music', async () => {
+    const casual = await setup();
+    const app = await createApp(casual);
+    const buyer = `player_token=${generatePlayerSessionToken('buyer-0')}`;
+    const before = await request(app).get('/api/player/game-purchase-options').set('Cookie',buyer).expect(200);
+    expect(before.body.games).toHaveLength(1);
+    expect(before.body.games[0]).toMatchObject({ gameId:817, canRoleOrSwap:true });
+    await reserveRoleBeforeDeal(casual,817,'buyer-1','sheriff');
+    const after = await request(app).get('/api/player/game-purchase-options').set('Cookie',buyer).expect(200);
+    expect(after.body.games).toEqual(before.body.games);
+    expect(JSON.stringify(after.body)).not.toContain('sheriff');
+
+    const rating = await setup('RATING');
+    const ratingApp = await createApp(rating);
+    const ratingChoices = await request(ratingApp).get('/api/player/game-purchase-options')
+      .set('Cookie',buyer).expect(200);
+    expect(ratingChoices.body.games).toHaveLength(1);
+    expect(ratingChoices.body.games[0]).toMatchObject({ format:'RATING', canRoleOrSwap:false });
+  });
+
   it('does not sell roles on rating evenings', async () => {
     const db = await setup('RATING');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don')).rejects.toThrow();

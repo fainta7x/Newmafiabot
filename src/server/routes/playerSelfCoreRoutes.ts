@@ -1,4 +1,3 @@
-import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
@@ -9,7 +8,7 @@ import { loadPlayerAchievementProfile } from '../services/playerAchievementsServ
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
-import { normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { listRecentCompletedGames } from '../services/gameService.ts';
 
 const router = Router();
 const EVENING_RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'declined']);
@@ -31,14 +30,6 @@ const playerAvatarUrl = (playerId: string, hasDbAvatar: unknown, suppressed: unk
     ? `/api/player/players/${encodeURIComponent(playerId)}/avatar`
     : null;
 
-const safeJsonParse = (value: unknown): any => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-};
 
 router.get('/me', async (req, res) => {
   const playerId = requirePlayerId(req, res);
@@ -208,64 +199,18 @@ router.get('/games/all', async (req, res) => {
 
   try {
     const db = req.db;
-    const [clubRows, tournamentRows] = await Promise.all([
-      db.all(`
-        SELECT g.id, g.global_game_number, g.game_date, g.winner_team, g.judge_name, g.protocol_text,
-               e.title AS evening_title, e.starts_at AS evening_date, e.format AS evening_format
-          FROM games g
-     LEFT JOIN game_evenings e ON e.id = g.evening_id
-         WHERE g.evening_id IS NOT NULL
-           AND g.archived_at IS NULL
-           AND g.protocol_text IS NOT NULL
-           AND COALESCE(e.status, '') <> 'cancelled'
-         ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC, g.id DESC
-         LIMIT 250
-      `),
-      db.all(`
-        SELECT tg.id, tg.game_number, tg.winner_team, tg.judge_name, tg.completed_at,
-               t.id AS tournament_id, t.title AS tournament_title, t.date AS tournament_date
-          FROM tournament_games tg
-          JOIN tournaments t ON t.id = tg.tournament_id
-         WHERE tg.status = 'completed'
-           AND EXISTS (SELECT 1 FROM tournament_game_protocols tgp WHERE tgp.game_id = tg.id AND tgp.status = 'completed')
-         ORDER BY COALESCE(tg.completed_at, t.date) DESC, tg.game_number DESC
-         LIMIT 250
-      `),
-    ]);
-
-    const clubGames = clubRows.flatMap((row: any) => {
-      const payload = safeJsonParse(row.protocol_text);
-      if (!isCompletedClubGame(payload)) return [];
-      return [{
-        id: `club:${row.id}`,
-        source: 'club',
-        title: row.evening_title || 'Клубный вечер',
-        date: row.evening_date || row.game_date || null,
-        game_number: Number(row.global_game_number || 0),
-        format: String(row.evening_format || 'CASUAL'),
-        winner_team: normalizeWinnerTeam(payload.protocol?.winner_team || row.winner_team),
-        judge_name: row.judge_name || null,
-      }];
-    });
-
-    const tournamentGames = tournamentRows.map((row: any) => ({
-      id: `tournament:${row.id}`,
-      source: 'tournament',
-      title: row.tournament_title || 'Турнир',
-      date: row.completed_at || row.tournament_date || null,
-      game_number: Number(row.game_number || 0),
-      format: 'TOURNAMENT',
-      winner_team: normalizeWinnerTeam(row.winner_team),
-      judge_name: row.judge_name || null,
-    }));
-
-    const games = [...clubGames, ...tournamentGames]
-      .sort((a: any, b: any) => {
-        const aTime = a.date ? new Date(a.date).getTime() : 0;
-        const bTime = b.date ? new Date(b.date).getTime() : 0;
-        return bTime - aTime;
-      })
-      .slice(0, 300);
+    // Every format through the one «Игра» layer (docs/ARCHITECTURE_REVIEW_2026-11-03.md).
+    const games = (await listRecentCompletedGames(db, 250))
+      .map((game) => ({
+        id: game.key,
+        source: game.storage,
+        title: game.eventTitle || (game.storage === 'club' ? 'Клубный вечер' : 'Турнир'),
+        date: game.date,
+        game_number: Number(game.number || 0),
+        format: game.format,
+        winner_team: game.winner,
+        judge_name: game.judgeName,
+      }))      .slice(0, 300);
 
     return res.json({ games });
   } catch (error: any) {

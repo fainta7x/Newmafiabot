@@ -5,6 +5,7 @@ import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadMetricRating, loadRoleRating } from '../services/metricRatingService.ts';
 
 import { loadMetricTable } from '../services/metricTableService.ts';
+import { COMPLETED_GAME_PLAYERS_SQL } from '../services/gameService.ts';
 
 const router = Router();
 
@@ -71,24 +72,11 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         p.contact_status,
         EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
         EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed,
-        (
-          SELECT COUNT(DISTINCT g.id)
-            FROM games g,
-                 json_each(CASE WHEN json_valid(g.protocol_text) THEN g.protocol_text ELSE '{}' END, '$.player_results') result
-           WHERE g.archived_at IS NULL
-             AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'
-             AND CAST(json_extract(result.value, '$.player_id') AS TEXT) = CAST(p.id AS TEXT)
-        ) + (
-          SELECT COUNT(DISTINCT tgs.game_id)
-            FROM tournament_participants tp
-            JOIN tournament_game_seats tgs ON tgs.participant_id = tp.id
-            JOIN tournament_games tg ON tg.id = tgs.game_id
-            JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
-           WHERE tp.player_id = p.id
-             AND tg.status = 'completed'
-             AND tgp.status = 'completed'
-        ) AS games
+        COALESCE(played.games, 0) AS games
       FROM players p
+      -- Completed games of every format, counted once per player (the «Игра» layer's rule and SQL).
+      LEFT JOIN (SELECT player_id, COUNT(DISTINCT game_key) AS games FROM (${COMPLETED_GAME_PLAYERS_SQL}) GROUP BY player_id) played
+        ON played.player_id = CAST(p.id AS TEXT)
       WHERE COALESCE(p.contact_status, 'normal') != 'blocked'
         AND COALESCE(p.source, '') != 'legacy_guest_migrated'
         AND COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'merged')

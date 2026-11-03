@@ -198,3 +198,39 @@ export async function listPlayerGameResults(db: DatabaseWrapper, playerId: strin
   }
   return out;
 }
+
+/** The latest completed games of every format, newest first (the cabinet's archive of the club). */
+export async function listRecentCompletedGames(db: DatabaseWrapper, limitPerStorage = 250): Promise<Game[]> {
+  const limit = Math.max(1, Math.min(1000, Math.trunc(limitPerStorage)));
+  const club = (await loadClubGames(db, `g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL
+      AND COALESCE(e.status, '') <> 'cancelled' AND json_valid(g.protocol_text) AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'
+    ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC, g.id DESC LIMIT ${limit}`, [])).map(strip);
+  const tournament = await loadTournamentGames(db, `tg.status = 'completed' AND tgp.status = 'completed'
+    ORDER BY COALESCE(tg.completed_at, t.date) DESC, tg.game_number DESC LIMIT ${limit}`, []);
+  const time = (game: Game) => (game.date ? new Date(game.date).getTime() : 0);
+  return [...club, ...tournament].filter((game) => game.status === 'completed').sort((a, b) => time(b) - time(a));
+}
+
+/**
+ * SQL of «who played in which completed game», every format, for counts inside one query (ratings, lists). The same
+ * rules as `Game.status === 'completed'`: a completed club protocol of a game that is not archived and whose evening is
+ * not cancelled; a tournament game completed with its protocol, of a tournament that is not cancelled.
+ * Columns: game_key, player_id.
+ */
+export const COMPLETED_GAME_PLAYERS_SQL = `
+  SELECT 'club:' || g.id AS game_key, CAST(json_extract(r.value, '$.player_id') AS TEXT) AS player_id
+    FROM games g
+    LEFT JOIN game_evenings e ON e.id = g.evening_id,
+         json_each(CASE WHEN json_valid(g.protocol_text) THEN g.protocol_text ELSE '{}' END, '$.player_results') r
+   WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND COALESCE(e.status, '') <> 'cancelled'
+     AND json_extract(g.protocol_text, '$.kind') = 'club_evening_protocol'
+     AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'
+     AND json_extract(r.value, '$.player_id') IS NOT NULL
+  UNION ALL
+  SELECT 'tournament:' || tg.id AS game_key, CAST(tp.player_id AS TEXT) AS player_id
+    FROM tournament_participants tp
+    JOIN tournament_game_seats tgs ON tgs.participant_id = tp.id
+    JOIN tournament_games tg ON tg.id = tgs.game_id
+    JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
+    JOIN tournaments t ON t.id = tg.tournament_id
+   WHERE tg.status = 'completed' AND tgp.status = 'completed' AND COALESCE(t.status, '') <> 'cancelled' AND tp.player_id IS NOT NULL`;

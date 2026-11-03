@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { getGame, listEventGames, listGamesJudgedBy, listPlayerGameResults } from '../server/services/gameService.ts';
+import { COMPLETED_GAME_PLAYERS_SQL, getGame, listEventGames, listGamesJudgedBy, listPlayerGameResults } from '../server/services/gameService.ts';
 import { gameKey, parseGameKey, isFinishedGameStatus } from '../shared/game.ts';
 
 // «Игра» — one entity for every game (owner, 2026-11-03; docs/ARCHITECTURE_REVIEW_2026-11-03.md, step 1).
@@ -95,6 +95,13 @@ describe('one «Игра» over both tables', () => {
     expect(tournament.game).toMatchObject({ eventTitle: 'Турнир', status: 'completed' });
     expect(results.find((r) => r.game.key === 'club:1')!.result).toMatchObject({ seat: 2, role: 'mafia', nickname: 'Матроскина' });
     expect(await listPlayerGameResults(db, 'nobody')).toEqual([]);
+  });
+
+  it('the SQL of who played in completed games follows the same rules as Game.status', async () => {
+    const db = await seed();
+    await db.run(`UPDATE games SET protocol_text = ? WHERE id = 5`, [protocol('completed')]);
+    const rows = await db.all<any>(`SELECT game_key FROM (${COMPLETED_GAME_PLAYERS_SQL}) WHERE player_id = 'p2' ORDER BY game_key`);
+    expect(rows.map((r) => r.game_key)).toEqual(['club:1', 'tournament:tg1']);
   });
 
   it('keys and statuses', () => {

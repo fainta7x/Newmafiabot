@@ -291,10 +291,10 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
               </div>
             )}
             {selected && !showRole && <button type="button" disabled={!timeUp || busy} onClick={() => { void revealCard(); }} className="min-h-12 w-full rounded-xl bg-white font-semibold text-black disabled:opacity-40">Открыть карту №{deck.findIndex((entry) => entry.id === selectedId) + 1}{!timeUp ? ` (через ${remaining} с)` : ''}</button>}
-            {!showRole && !selected && (
+            {!serverGameId && !showRole && !selected && (
               <button type="button" data-testid="virtual-deal-buy-role" disabled={busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>
             )}
-            {buying && !showRole && (
+            {!serverGameId && buying && !showRole && (
               <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
                 <p className="text-xs text-white/70">Игрок №{current?.seat_number} покупает роль{serverGameId ? ` (${ROLE_PURCHASE_PRICE_RUB} ₽)` : ''}. Карта этой роли уйдёт из колоды.</p>
                 <div className="grid grid-cols-4 gap-2">

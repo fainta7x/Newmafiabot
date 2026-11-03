@@ -2651,3 +2651,9 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+
+## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
+
+Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
+- `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
+- `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.

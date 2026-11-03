@@ -207,6 +207,15 @@ describe('pre-deal role purchase persistence and debt', () => {
     expect(response.body.error).toMatch(/до начала раздачи/);
   });
 
+  it('cannot silently remove the debt after the buyer has revealed a paid role', async () => {
+    const db = await setup();
+    const order = await reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don');
+    const opened = await openVirtualRoleDeal(db, 817);
+    await revealVirtualRole(db, 817, 1, opened.cards[0].id, opened.version);
+    await expect(cancelPreGameRolePurchase(db, order.id)).rejects.toThrow(/открытую карту/);
+    expect(await due(db, 'buyer-0')).toBe(150);
+  });
+
   it('does not sell roles on rating evenings', async () => {
     const db = await setup('RATING');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don')).rejects.toThrow();

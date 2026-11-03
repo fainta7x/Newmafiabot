@@ -9,6 +9,14 @@ Scope: `GET /api/games` on production (organizer login, GET only), the 22 club g
 1. MEDIUM `fixed (AR04 step 2)` — an unfinished game was restored only from the judge's device (`readRestorableLiveSession`, localStorage); the chronology reaches the server only with the final protocol, so a lost device lost the game. Now the device sends its session copy to the server during the game and another device can «Продолжить игру».
 2. NOTE `done (step 1)` — `src/lib/liveGameReplayState.ts` rebuilds round, phase, exits, fouls, nominations, the ballots in progress, night shot and checks, first killed, best move and the winner from the chronology. Against the final protocols: exits 213/220 seats, fouls 213/220, winner 21/22 games. Every difference is a protocol edited after the game: game №24 (30.10, closed by the owner; six seats voted out only in the protocol and no `game_end`), game №11 (09.10, skipped by the owner; fouls corrected in the protocol), game №20 (23.10, #3 Богданчик: voted out in the live game, alive in the protocol). Timers and speech order are not in the chronology and are not rebuilt.
 
+## 2026-11-03 · AR03: one debt read rule (wallet / CRM)
+
+Scope: every reader of «a player owes for an evening». Production check (read-only): the CRM debts screen and the players list agree (13 debtors, 6 150 ₽, 0 mismatches); the wallet is a player-only route and was characterised in tests.
+
+1. MEDIUM `fixed (AR03 PR)` — the wallet counted a closed evening's waived participation (`payment_status='waived'` with due > paid) as debt; the CRM did not. The wallet now uses the same rule (`closedEveningDebtOwed`).
+2. MEDIUM `fixed (AR03 PR)` — the wallet's debt total was summed from the 200 latest participations; older debts were missing. It is now read by the shared loader (`loadPlayerEveningDebts(db, playerId)`), without a cap.
+3. LOW `fixed (AR03 PR)` — the players list had its own copy of the SQL (`ep.payment_status != 'waived'`, no COALESCE on amounts); it now uses `closedEveningDebtWhere`. `payment_status` is NOT NULL in the schema, so the empty-status case is `''`.
+4. NOTE — `organizerAccountLink.test.ts` fails locally when `ORGANIZER_PASSWORD` is set in the shell environment (passes without it); test isolation, not a product defect.
 ## 2026-11-03 · AR05: measured production slowness (read-only)
 
 Scope: `GET /api/health/performance` and `/api/health/performance/queries` on production (organizer login, GET only), Amvera status; build `01f6a9a` (#1145) RUNNING.

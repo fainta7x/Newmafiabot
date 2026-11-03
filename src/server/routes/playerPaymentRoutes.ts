@@ -5,6 +5,7 @@ import { isSettledEvening, isPaymentExpected } from '../services/playerPaymentEl
 import { robokassaTestAvailable } from './robokassaTestRoutes.ts';
 import { loadClubNews } from '../services/clubDigestService.ts';
 import { enqueueOrganizerNotification } from '../services/organizerNotificationService.ts';
+import { closedEveningDebtOwed, loadPlayerEveningDebts } from '../services/playerEveningDebts.ts';
 
 const router = Router();
 
@@ -29,7 +30,8 @@ const serializePayment = (row: any) => {
   const storedAmountDue = Math.max(0, Number(row.amount_due || 0));
   const amountDue = paymentExpected ? storedAmountDue : 0;
   const amountPaid = Math.max(0, Number(row.amount_paid || 0));
-  const outstanding = Math.max(0, amountDue - amountPaid);
+  // A closed evening follows the one debt rule of the CRM (AR03): a waived participation is no debt.
+  const outstanding = isSettledEvening(row) ? closedEveningDebtOwed(row) : Math.max(0, amountDue - amountPaid);
   return {
     participant_id: String(row.participant_id),
     evening_id: String(row.evening_id),
@@ -137,6 +139,10 @@ router.get('/payments', async (req, res) => {
       else acc.upcoming_due += item.outstanding;
       return acc;
     }, { amount_due: 0, amount_paid: 0, outstanding: 0, historical_debt: 0, upcoming_due: 0, open: 0, closed: 0 });
+    // The debt total is read by the same rule as the CRM debts screen, not from the 200 latest rows (AR03).
+    const historicalDebt = (await loadPlayerEveningDebts(db, playerId))[0]?.owed || 0;
+    summary.outstanding += historicalDebt - summary.historical_debt;
+    summary.historical_debt = historicalDebt;
 
     const freeEvening = await db.get<any>(`
       SELECT COUNT(*) AS count

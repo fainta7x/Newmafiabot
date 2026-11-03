@@ -9,6 +9,7 @@
 2. HIGH `fixed (this PR)` — the greedy fill dropped a candidate with any warning and never backtracked: game 4 of 3.11 had seat №10 empty with 11 players registered. Now a random matching without repeats per game, up to 40 whole-plan attempts, and a seat is never left empty while a player is free.
 3. MEDIUM `fixed (this PR)` — «Сформировать рассадку» sent nothing: personal seat notices were queued only by the automatic «Сегодня играем» run and single-seat edits. Now the generate route queues the players' notices and the judge's whole seating; the screen says how many were sent.
 4. LOW `fixed (this PR)` — `evening-seating-audit.spec.mjs` never ran in CI: its page was not built into the preview. Added to the build and the preview run.
+5. HIGH `fixed (follow-up PR)` — after the deploy the button still changed nothing on 3.11: all 50 seats were the old generated plan (`locked=0`, no game started) and the generator only filled free seats, so the new random draw never ran. The organizer's «Сформировать» now draws the generated seats of not-started open games again in one transaction; reservations and manual changes (`locked=1`) stay; the automatic «Сегодня играем» run still only fills gaps.
 
 ## 2026-11-03 · Architecture programme items 5–9 (audit; production reads GET only)
 

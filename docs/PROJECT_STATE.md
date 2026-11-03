@@ -1,3 +1,7 @@
+## 2026-11-03 — owner: one architecture for the whole app (waiting for the owner's «да»)
+
+- Owner: «Игра» must be one entity with a status, not club and tournament games as different things; fix the cause, review the whole app. Analysis: `docs/ARCHITECTURE_REVIEW_2026-11-03.md` (five entities Событие / Игра / Участник / Деньги / Доставка, a code layer first, data moved only with a guarded migration and the owner's «да»). Parked: «Продолжить игру» for tournaments (`claude/wip-live-checkpoint-any-game`); #1151 (club games) held for the owner's decision.
+
 ## 2026-11-03 — «Читать цвет» in «Обучение» (owner-approved mock-up)
 
 - Top-3 lists by count from the per-voter ballots of the game chronology (rules: BUSINESS_RULES «"Обучение": reading colours of specific players»): pure `src/lib/colourReading.ts` (test `colourReading.test.ts`), service `colourReadingService.ts`, player route `GET /api/player/colour-reading` (own only), organizer route `GET /api/learning/colour-reading/:playerId`; UI `src/components/player/ColourReadingPanel.tsx` in the player's «Обучение» and on the organizer's player card; audit `e2e/tests/colour-reading-audit.spec.mjs`. A split («Попил» in BUSINESS_RULES: votes split evenly into a tie, any circle) is excluded: a day whose voting tied is left out whole, and a voting tagged «без оценок». Only 22 of 44 production games (2026-11-02) have per-voter chronology.

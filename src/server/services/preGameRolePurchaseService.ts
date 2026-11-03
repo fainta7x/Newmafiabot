@@ -118,6 +118,24 @@ export async function cancelPreGameRolePurchase(db: DatabaseWrapper, orderId: st
     if (!row) failure('Заказ не найден', 404);
     if (row.status === 'fulfilled') failure('Нельзя отменить уже исполненный заказ');
     if (row.status === 'cancelled') return { cancelled: true };
+    if (row.status === 'reserved') {
+      // If a judge has already revealed this buyer's closed card, the order
+      // cannot be revoked in the small window before confirmation. This
+      // prevents an unpaid guaranteed role after cancellation.
+      const game = await getGame(tx, `club:${row.game_id}`);
+      const seat = game?.seats.find((entry) => entry.playerId === row.player_id)?.seat;
+      const deal = await tx.get<{ state_json: string }>(
+        'SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',
+        [row.game_id],
+      ).catch(() => null);
+      if (deal?.state_json && seat != null) {
+        let pendingSeat: unknown = null;
+        try { pendingSeat = JSON.parse(deal.state_json)?.pending?.seat; } catch {}
+        if (Number(pendingSeat) === seat) {
+          failure('Сначала подтвердите или отмените открытую карту');
+        }
+      }
+    }
     await tx.run(
       "UPDATE game_role_reservations SET status='cancelled', updated_at=? WHERE id=?",
       [new Date().toISOString(), orderId],

@@ -1153,3 +1153,12 @@ The earlier six «blocks» and the minimum of 5 games together are replaced by t
 - A bought role (150 ₽ into the evening debt) is marked **before** the deal starts: choose the player, then the role; its card leaves the deck.
 - «Начать раздачу» opens the turn of the first player without a role by itself, with 10 seconds to pick a card. A tapped card shows the role to the player at once. When the time is up without a card, the program picks a random card. **«Следующий игрок»** is available only after the 10 seconds and opens the next player's turn.
 - **Look (owner-approved mock-up, 2026-11-03):** the live-game material; ten seat tiles with the player's avatar and the table's seat colour (done: dimmed with a tick; choosing: white frame); the choosing player large with the timer in seconds and a shrinking bar; playing cards in real proportions (63 × 88 mm, corners about 5 % of the width) with a matte black back and the club logo; a taken card leaves a faded place; the opened card is the app's role card in the same proportions.
+
+## VIP: количество игр с успешной подкруткой (решение владельца 2026-11-03)
+
+- Проценты задаются отдельно для роли/одноцвета/разноцвета, но **счётчик один на игрока для всех его условий**, а не на отдельное условие и не на число замен карт.
+- Галочка **«На весь вечер»**: вероятности проверяются заново в каждой игре вечера без ограничения числа успешных игр.
+- Без галочки организатор выставляет количество **игр, в которых реально сработала VIP-подкрутка**. Если лимит 2, и подкрутка была успешна в играх №2 и №4, на последующие игры этого вечера вероятностные условия отключаются.
+- Несколько успешных условий в одной игре считаются одной успешной игрой. Не сработавшие вероятности, невозможная подмена и обычная естественно выбранная подходящая карта лимит не расходуют.
+- При новом вечере отсчёт начинается заново. Оплаченная гарантированная роль имеет приоритет и сама по себе VIP-лимит не расходует. Турнир/рейтинг остаются без VIP-подкруток.
+- Сохранение настроек **пока не означает, что эффект уже подключён к реальной раздаче**; для этого требуется отдельный атомарный учёт подтверждённых результатов с защитой от отмены/повторных запросов.

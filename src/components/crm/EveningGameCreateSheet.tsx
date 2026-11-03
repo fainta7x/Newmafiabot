@@ -62,6 +62,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [roster, setRoster] = useState<EveningParticipant[]>(participants);
   const [seats, setSeats] = useState<string[]>(Array(10).fill(''));
   const [plannedSlotId, setPlannedSlotId] = useState('');
+  const [planNote, setPlanNote] = useState('');
   const [plannedSlots, setPlannedSlots] = useState<Array<{ id: string; slot_number: number }>>([]);
   const [plannedSeats, setPlannedSeats] = useState<Array<{ slot_id: string; tableId: string; seat: number; playerId: string }>>([]);
   useEffect(() => {
@@ -191,6 +192,24 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 
+  // The seating of a planned game fills the table at once (owner, 2026-11-03: «рассадка не подтягивается в новую игру» — the
+  // load button waited for the optional «Стол» field, which nobody fills). The game's own table is taken from the plan.
+  const loadPlannedSeats = (slotId: string, tableId = selectedTableId) => {
+    const planned = plannedSeats.filter(item => item.slot_id === slotId);
+    const table = tableId && planned.some(item => item.tableId === tableId) ? tableId : planned[0]?.tableId || '';
+    if (!table) return;
+    if (table !== selectedTableId) changeTable(table);
+    const next = Array(10).fill('');
+    const absent: string[] = [];
+    for (const assigned of planned.filter(item => item.tableId === table)) {
+      const participant = byPlayerId.get(String(assigned.playerId));
+      if (participant && eligibleIds.has(participant.id) && assigned.seat >= 1 && assigned.seat <= 10) next[assigned.seat - 1] = participant.id;
+      else if (participant) absent.push(`№${assigned.seat} ${participant.nickname}`);
+    }
+    setSeats(next);
+    setPlanNote(absent.length ? `Не отмечен приход — места пустые: ${absent.join(', ')}. Отметьте «Пришёл» и загрузите рассадку снова.` : '');
+  };
+  const choosePlannedSlot = (slotId: string) => { setPlannedSlotId(slotId); if (slotId) loadPlannedSeats(slotId); };
   const changeTable = (tableId: string) => {
     setSelectedTableId(tableId);
     const table = tables.find((item) => item.id === tableId);
@@ -426,20 +445,13 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
 
         {plannedSlots.length > 0 && <div className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
           <label className="text-[10px] font-black uppercase text-text-muted">Игра из плана вечера
-            <select value={plannedSlotId} onChange={event => setPlannedSlotId(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs text-text-primary">
+            <select value={plannedSlotId} onChange={event => choosePlannedSlot(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs text-text-primary">
               <option value="">Без привязки к плану</option>
               {plannedSlots.map(slot => <option key={slot.id} value={slot.id}>Игра №{slot.slot_number}</option>)}
             </select>
           </label>
-          {plannedSlotId && selectedTableId && <button type="button" className="mt-2 min-h-11 w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs font-bold" onClick={() => {
-            const next = Array(10).fill('');
-            for (const assigned of plannedSeats.filter(item => item.slot_id === plannedSlotId && item.tableId === selectedTableId)) {
-              const participant = byPlayerId.get(String(assigned.playerId));
-              if (participant && eligibleIds.has(participant.id) && assigned.seat >= 1 && assigned.seat <= 10)
-                next[assigned.seat - 1] = participant.id;
-            }
-            setSeats(next);
-          }}>Загрузить рассадку из плана</button>}
+          {plannedSlotId && <button type="button" className="mt-2 min-h-11 w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs font-bold" onClick={() => loadPlannedSeats(plannedSlotId)}>Загрузить рассадку из плана</button>}
+          {planNote ? <p role="status" className="mt-1 text-[11px] text-warning">{planNote}</p> : null}
           {plannedSlotId && <p className="mt-1 text-[11px] text-text-secondary">При создании игры фактическая рассадка закрепится в истории. Можно скорректировать состав вручную.</p>}
         </div>}
 

@@ -23,8 +23,9 @@ export async function queueEveningSeatingNotifications(
 ) {
   await ensureEveningSeatingSchema(db);
   const evening = await db.get<any>('SELECT title, starts_at, status FROM game_evenings WHERE id=?', [eveningId]);
-  if (!evening || ['active', 'completed'].includes(String(evening.status)) ||
-      new Date(evening.starts_at).getTime() <= Date.now()) return { queued: 0, skipped: 'started' as const };
+  // Only an evening that really runs or is over stops the notices. The clock alone does not: the owner re-made the seating at
+  // 20:17 for a 19:30 evening still gathering, and nobody got it (2026-11-03).
+  if (!evening || ['active', 'completed'].includes(String(evening.status))) return { queued: 0, skipped: 'started' as const };
 
   const allRows = await db.all<SeatNoticeRow>(`
     SELECT b.player_id, s.slot_number, t.name AS table_name, b.seat_number

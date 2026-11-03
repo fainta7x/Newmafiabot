@@ -9,6 +9,7 @@ import {
   resetLoginRateLimit,
   isClubOwner,
   assignedOpenEveningCount,
+  isTestEnvironmentRequest,
 } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { cabinetOrganizeFormats } from '../../lib/organizeFormats.ts';
@@ -79,6 +80,10 @@ const validateTelegramRequest = (initData: unknown) => {
 router.post('/telegram', async (req, res) => {
   try {
     const telegram = validateTelegramRequest(req.body?.initData);
+    // The Mini App signs in through Telegram on every opening. Inside the test environment that sign-in must not replace
+    // the sandbox session: the sandbox has no player with this Telegram account, so the old code dropped the session and
+    // the next organizer sign-in landed in the club's real data (owner, 2026-11-03: a test game appeared on a real evening).
+    if (isTestEnvironmentRequest(req)) return res.json({ ...telegram, linked: true, sandbox: true });
     const db = req.db;
     const player = await db.get(
       `SELECT id, nickname, full_name, telegram_username, elo, tokens

@@ -217,12 +217,12 @@ for (const [width, height, wideFont] of VIEWPORTS) {
 // The approved alternative deal must pass the same four-size gate as physical dealing.
 for (const [width,height,wideFont] of VIEWPORTS) {
   test(`virtual role deal text audit at ${width}x${height}${wideFont?' wide':''}`,async({page},info)=>{
-    test.setTimeout(150_000); // Ten reveals (each waits the 3 s card timer: with 1 s the program opened a random card before «Отменить последнюю карту»)/confirmations, manual seat choice, screenshots and the music notice, like the physical audit's bounded budget.
-    await page.addInitScript(()=>sessionStorage.setItem('role_deal_card_seconds','3'));
+    test.setTimeout(240_000); // Ten reveals (each waits the 6 s card timer: with 1–3 s the program opened a random card before «Отменить последнюю карту»)/confirmations, manual seat choice, screenshots and the music notice, like the physical audit's bounded budget.
+    await page.addInitScript(()=>sessionStorage.setItem('role_deal_card_seconds','6'));
     await page.setViewportSize({width,height});
     if(wideFont)await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent='*{font-family:"DejaVu Sans",sans-serif!important;letter-spacing:.04em!important}';document.head.appendChild(style);}));
     const check=async label=>{await page.waitForTimeout(200);expect(await page.evaluate(auditScreen),label).toEqual([]);};
-    const next=async()=>{const b=deal.getByTestId('virtual-deal-next-player');await expect(b).toBeEnabled({timeout:6000});await b.click();};
+    const next=async()=>{const b=deal.getByTestId('virtual-deal-next-player');await expect(b).toBeEnabled({timeout:9000});await b.click();};
     await page.goto('/e2e/live-game.html');await page.getByRole('button',{name:'Подтвердить состав'}).click();
     await check('choose dealing method');
     await page.screenshot({path:info.outputPath('setup.png')});
@@ -230,7 +230,7 @@ for (const [width,height,wideFont] of VIEWPORTS) {
     await page.getByTestId('club-game-start-role-deal').click();const deal=page.getByTestId('virtual-role-deal');
     await check('virtual music');
     await deal.getByTestId('virtual-deal-buy-role').click();await expect(deal.getByTestId('virtual-deal-buy-panel')).toBeVisible();await check('role purchase before the deal');await page.screenshot({path:info.outputPath('virtual-buy.png')});await deal.getByTestId('virtual-deal-buy-role').click();
-    await deal.getByRole('button',{name:'Начать раздачу'}).click();
+    await deal.getByRole('button',{name:'Начать раздачу'}).click();await check('before «Стартуем»');await deal.getByTestId('virtual-deal-go').click();
     // The first player's turn opens by itself.
     await expect(deal.getByTestId('virtual-deal-turn')).toContainText('№1 Игрок 1');await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
     await expect(deal.getByRole('button',{name:/№7 Игрок 7/})).toBeVisible();

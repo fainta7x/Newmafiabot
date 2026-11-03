@@ -5,7 +5,7 @@ for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]])test(`to
   await page.addInitScript(()=>sessionStorage.setItem('role_deal_card_seconds','0'));
   await page.setViewportSize({width,height});await page.goto('/e2e/tournament-live-game.html?mode=deal');
   await page.getByTestId('tournament-start-virtual-deal').click();const deal=page.getByTestId('virtual-role-deal');
-  await deal.getByRole('button',{name:'Начать раздачу'}).click();
+  await deal.getByRole('button',{name:'Начать раздачу'}).click();await deal.getByTestId('virtual-deal-go').click();
   expect(await page.evaluate(auditScreen)).toEqual([]);
   for(let i=0;i<10;i++){
     // Owner, 2026-11-03: a tapped card shows its role; «Следующий игрок» passes the turn.

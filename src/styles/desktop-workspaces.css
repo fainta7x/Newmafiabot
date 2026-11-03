@@ -96,3 +96,15 @@
   [data-testid="crm-today-clear"] { width: fit-content; min-height: 40px; border-radius: 12px; }
   .crm-today-planning > div > section, [data-testid="crm-today-evening-card"] { border-radius: 20px; }
 }
+
+/* A monitor (owner, 2026-11-03: «чтобы органично смотрелось на мониторе… не такие огромные элементы»): debts are short
+   cards side by side instead of full-width bars, the two list buttons are as wide as their words. */
+@media (min-width: 1024px) {
+  [data-testid="debts-panel"] .crm-debt-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(540px, 1fr)); gap: 8px; }
+  [data-testid="debts-panel"] .crm-debt-list > * { margin-block: 0 !important; }
+  [data-testid="debts-panel"] .crm-debt-action { display: inline-flex; align-items: center; width: auto; margin-right: 8px; padding-inline: 18px; }
+}
+@media (min-width: 1536px) {
+  /* The header keeps the edges of the wider workspace below it. */
+  .crm-premium-header { padding-inline: max(16px, calc((100% - 1640px) / 2 + 16px)); }
+}

@@ -11,7 +11,7 @@ const deck = [
 ];
 const roleRule = (overrides: Partial<VipProbabilityRule> = {}): VipProbabilityRule => ({
   id:'r1',playerId:'buyer',kind:'role',role:'sheriff',otherPlayerId:null,
-  percent:100,enabled:true,personalLimit:null,limitScope:'evening',...overrides,
+  percent:100,enabled:true,...overrides,
 });
 const context = (overrides: Partial<Parameters<typeof simulateVipDraw>[3]> = {}) => ({
   playerId:'buyer',revealedRolesByPlayer:new Map<string, 'citizen' | 'sheriff' | 'mafia' | 'don'>(),

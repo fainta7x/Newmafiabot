@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
 
 type Kind = 'role' | 'same_color' | 'different_color';
-type Scope = 'game' | 'evening';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null;
-  percent: number; enabled: boolean; personalLimit: number | null; limitScope: Scope };
+  percent: number; enabled: boolean };
 type Draft = Omit<Rule, 'id'>;
 const empty = (): Draft => ({ playerId:'', kind:'role',role:'citizen',otherPlayerId:null,
-  percent:0,enabled:true,personalLimit:null,limitScope:'evening' });
+  percent:0,enabled:true });
 const roleLabels: Record<string,string> = {
   citizen:'Мирный житель',sheriff:'Шериф',mafia:'Мафия',don:'Дон',
 };
@@ -28,7 +27,6 @@ export default function VipProbabilitySettings() {
   const [rules,setRules] = useState<Rule[]>([]);
   const [draft,setDraft] = useState<Draft>(empty);
   const [editing,setEditing] = useState<string | null>(null);
-  const [limitText,setLimitText] = useState('');
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
   const [loaded,setLoaded] = useState(false);
@@ -51,11 +49,9 @@ export default function VipProbabilitySettings() {
   const edit = (rule:Rule)=>{
     setEditing(rule.id);
     setDraft({playerId:rule.playerId,kind:rule.kind,role:rule.role,
-      otherPlayerId:rule.otherPlayerId,percent:rule.percent,enabled:rule.enabled,
-      personalLimit:rule.personalLimit,limitScope:rule.limitScope??'evening'});
-    setLimitText(rule.personalLimit == null ? '' : String(rule.personalLimit));
+      otherPlayerId:rule.otherPlayerId,percent:rule.percent,enabled:rule.enabled});
   };
-  const reset = ()=>{setEditing(null);setDraft(empty());setLimitText('');};
+  const reset = ()=>{setEditing(null);setDraft(empty());};
   const save = async ()=>{
     if(busy)return;
     setBusy(true);setError('');
@@ -63,7 +59,6 @@ export default function VipProbabilitySettings() {
       const body = {...draft,
         role:draft.kind==='role'?draft.role:null,
         otherPlayerId:draft.kind==='role'?null:draft.otherPlayerId,
-        personalLimit:limitText.trim()===''?null:Number(limitText),
       };
       await send('/api/admin/vip-probability-rules'+(editing?'/'+encodeURIComponent(editing):''),{
         method:editing?'PUT':'POST',body:JSON.stringify(body),
@@ -82,11 +77,11 @@ export default function VipProbabilitySettings() {
   };
   const playerName = (id:string|null)=>players.find(x=>String(x.id)===id)?.nickname || id || '—';
   return <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 space-y-3">
-    <h3 className="text-base font-semibold text-white">Вероятности и лимиты подмен</h3>
+    <h3 className="text-base font-semibold text-white">Вероятности ролей и цвета</h3>
     <p className="text-xs leading-5 text-white/60">
       Настройки организатора для обычных и новичковых игр. Процент — шанс срабатывания
-      условия подмены, не итоговый шанс роли. Пока сохранённые правила не влияют
-      на раздачу: механизм пока проверяется в тестах.
+      конкретного условия. Общий лимит игр с успешной подкруткой задаётся отдельно
+      для игрока, а не для каждого условия. Пока правила не влияют на реальную раздачу.
     </p>
     {loaded && <div className="space-y-2">
       {rules.map(rule=><div key={rule.id} className="rounded-xl border border-white/10 bg-black/15 p-3">
@@ -94,7 +89,6 @@ export default function VipProbabilitySettings() {
         <div className="mt-1 text-xs text-white/60">
           {rule.kind==='role'?roleLabels[rule.role||'']:playerName(rule.otherPlayerId)}
           {' · '}{rule.percent}% · {rule.enabled?'Включено':'Выключено'}
-          {' · Лимит: '}{rule.personalLimit == null ? 'Не задан' : rule.personalLimit}{' · '}{rule.limitScope==='game'?'за игру':'за вечер'}
         </div>
         <div className="mt-2 flex gap-2">
           <button type="button" disabled={busy} onClick={()=>edit(rule)} className="min-h-10 rounded-lg border border-white/15 px-3 text-xs text-white">Изменить</button>
@@ -130,31 +124,6 @@ export default function VipProbabilitySettings() {
         </label>
         <input id="vip-rule-percent" type="range" min={0} max={100} step={1} className="w-full accent-white"
           value={draft.percent} onChange={e=>change('percent',Number(e.target.value))}/>
-      </div>
-      <div className="space-y-2 rounded-xl border border-white/10 p-3">
-        <div className="flex items-center justify-between gap-2">
-          <label htmlFor="vip-rule-limit" className="text-xs text-white/70">Успешных подмен</label>
-          <span className="text-sm font-semibold text-white">{limitText === '' ? 'Не ограничено' : limitText}</span>
-        </div>
-        <input id="vip-rule-limit" type="range" min={0} max={20} step={1} className="w-full accent-white"
-          value={limitText === '' ? 0 : Math.min(20,Number(limitText))}
-          disabled={limitText === ''}
-          onChange={e=>setLimitText(e.target.value)}/>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="flex items-center gap-2 text-xs text-white/70">
-            <input type="checkbox" checked={limitText !== ''} onChange={e=>setLimitText(e.target.checked?'1':'')}/>
-            Установить лимит
-          </label>
-          {limitText !== '' && <input type="number" min={0} max={10000} step={1} aria-label="Точное число успешных подмен"
-            value={limitText} onChange={e=>setLimitText(e.target.value)}
-            className="min-h-10 w-20 rounded-lg border border-white/15 bg-[#202126] px-2 text-sm text-white"/>}
-        </div>
-        <label className="flex items-center gap-2 text-xs text-white/70">
-          <input type="checkbox" checked={draft.limitScope === 'evening'}
-            onChange={e=>change('limitScope',e.target.checked?'evening':'game')}/>
-          На весь вечер
-        </label>
-        <p className="text-[11px] text-white/45">Без галочки лимит действует на одну игру. Перемещение ползунка не влияет на текущую раздачу.</p>
       </div>
     </div>
     <label className="flex items-center gap-2 text-xs text-white/70">

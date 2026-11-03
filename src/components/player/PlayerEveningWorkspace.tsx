@@ -124,7 +124,7 @@ export default function PlayerEveningWorkspace({
       </div>)}
     </div>
     {game.status !== 'completed' && <p className="mt-2 text-[11px] text-white/35">Роли и проверки откроются после игры.</p>}
-    {game.status !== 'completed' && game.self_seat !== null && ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(data.evening.format)) && <PlayerGameRolePurchase gameId={game.id} />}
+    {game.self_seat !== null && ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(data.evening.format)) && <PlayerGameRolePurchase gameId={game.id} canPurchase={game.status !== 'completed'} futureGames={data.games.filter(next => next.id !== game.id && next.status !== 'completed' && next.self_seat !== null).map(next => ({ id: next.id, number: next.local_number }))} />}
   </article>;
 
   return <section data-testid="player-evening-workspace" className="mt-3 space-y-3 text-white">

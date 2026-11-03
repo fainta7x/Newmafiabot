@@ -1146,3 +1146,9 @@ The earlier six «blocks» and the minimum of 5 games together are replaced by t
 - In a tournament with **one table** the tournament's judge conducts **every** game of it.
 - With **two tables** a judge is bound to a table. A table is not stored yet: the judge set on the game is the table's judge; a game without its own judge belongs to the tournament's judge.
 - One rule for every reader (who may open a game with judge access, the judge's «Мои игры», «судил N игр», achievements): the «Игра» layer (`gameService.ts`).
+
+## Virtual role deal: one tap per player (owner, 2026-11-03)
+
+- On the setup screen the virtual deal is the main button on top («Раздать виртуальные карты»); the physical deal is the second choice below («Физическая раздача»).
+- A bought role (150 ₽ into the evening debt) is marked **before** the deal starts: choose the player, then the role; its card leaves the deck.
+- «Начать раздачу» opens the turn of the first player without a role by itself, with 10 seconds to pick a card. A tapped card shows the role to the player at once. When the time is up without a card, the program picks a random card. **«Следующий игрок»** is available only after the 10 seconds and opens the next player's turn.

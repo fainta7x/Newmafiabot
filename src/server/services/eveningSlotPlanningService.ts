@@ -5,6 +5,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
+import { loadRolePurchases } from './eveningPaymentPricingService.ts';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice, type EveningPrices } from '../../lib/eveningPrices.ts';
 
 export const SLOT_PRICE = DEFAULT_EVENING_PRICES.casual_game;
@@ -65,6 +66,7 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
   const organizerId = staffTable
     ? String((await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId]))?.organizer_player_id || '')
     : '';
+  const paidServices = await loadRolePurchases(db, eveningId);
   for (const participant of participants) {
     if (waived.has(String(participant.id))) continue;
     const price = organizerId && String(participant.player_id) === organizerId
@@ -73,7 +75,8 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
     const selected = Number(participant.games || 0);
     const planned = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
     const games = seated.has(String(participant.id)) ? Math.max(planned, 1) : planned;
-    const due = eveningSelectionPrice('NOVICE', Array.from({ length: games }, () => price), policy);
+    const due = eveningSelectionPrice('NOVICE', Array.from({ length: games }, () => price), policy)
+      + (paidServices.get(String(participant.player_id)) || 0);
     const paid = Math.max(0, Number(participant.amount_paid || 0));
     const status = novicePaymentStatus(due, paid);
     if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;
@@ -110,6 +113,7 @@ async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: str
     : null;
   const games = await db.all<any>('SELECT judge_player_id, slots_json FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
   const staffIds = new Set([organizer?.organizer_player_id, ...games.map((game: any) => game.judge_player_id)].filter(Boolean).map(String));
+  const paidServices = await loadRolePurchases(db, eveningId);
   const playedIds = new Set<string>(seated);
   for (const game of games) {
     let slots: any[] = [];
@@ -128,7 +132,7 @@ async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: str
         || ['going', 'late'].includes(String(participant.response_status || ''))
         || String(participant.attendance_status || '') === 'attended';
     // Every player at a rating table pays, a playing organizer included (a full table is 5000 ₽).
-    const due = comes ? policy.rating_entry : 0;
+    const due = (comes ? policy.rating_entry : 0) + (paidServices.get(String(participant.player_id)) || 0);
     const status = novicePaymentStatus(due, Math.max(0, Number(participant.amount_paid || 0)));
     if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;
     await db.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [due, status, now, participant.id]);

@@ -2,7 +2,6 @@ import { randomInt } from 'node:crypto';
 import type { GameRole } from '../shared/gameRoles.ts';
 
 export type VipChanceKind = 'role' | 'same_color' | 'different_color';
-export type VipLimitScope = 'game' | 'evening';
 export type VipProbabilityRule = {
   id: string;
   playerId: string;
@@ -11,8 +10,6 @@ export type VipProbabilityRule = {
   otherPlayerId: string | null;
   percent: number;
   enabled: boolean;
-  personalLimit: number | null;
-  limitScope: VipLimitScope;
 };
 
 const ROLES: GameRole[] = ['citizen','sheriff','mafia','don'];
@@ -22,14 +19,9 @@ export function validateVipProbabilityRule(value: any): Omit<VipProbabilityRule,
   const playerId = typeof value?.playerId === 'string' ? value.playerId.trim() : '';
   const kind = value?.kind;
   const percent = value?.percent;
-  const personalLimit = value?.personalLimit == null ? null : value.personalLimit;
-  const limitScope = value?.limitScope ?? 'evening';
-  if (limitScope !== 'game' && limitScope !== 'evening') throw new Error('Период лимита: игра или вечер');
   if (!playerId || playerId.length > 128) throw new Error('Выберите игрока');
   if (!['role','same_color','different_color'].includes(kind)) throw new Error('Неверное условие');
   if (!Number.isInteger(percent) || percent < 0 || percent > 100) throw new Error('Процент должен быть от 0 до 100');
-  if (personalLimit != null && (!Number.isInteger(personalLimit) || personalLimit < 0 || personalLimit > 10000))
-    throw new Error('Лимит должен быть целым неотрицательным числом');
   if (typeof value.enabled !== 'boolean') throw new Error('Неверный статус правила');
   const role = kind === 'role' ? value.role : null;
   if (kind === 'role' && !ROLES.includes(role)) throw new Error('Укажите роль');
@@ -37,7 +29,7 @@ export function validateVipProbabilityRule(value: any): Omit<VipProbabilityRule,
   if (kind !== 'role' && (!otherPlayerId || otherPlayerId.length > 128 || otherPlayerId === playerId))
     throw new Error('Выберите другого игрока');
   return { playerId, kind, role: role ?? null, otherPlayerId, percent,
-    enabled: value.enabled, personalLimit, limitScope };
+    enabled: value.enabled };
 }
 
 /** Never activates on rating or tournament games; configured values remain stored. */

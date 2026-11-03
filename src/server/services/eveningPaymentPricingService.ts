@@ -248,6 +248,19 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
       totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
     }
   }
+  // Paid music is charged once when ordered and remains charged after
+  // performance. An organizer cancellation removes it before closeout.
+  if (await tableExists(db, 'game_music_orders')) {
+    const songTotals = await db.all<{ player_id: string; amount: number }>(
+      `SELECT player_id, SUM(amount_rub) AS amount FROM game_music_orders
+        WHERE evening_id=? AND status IN ('ordered','played') GROUP BY player_id`,
+      [eveningId],
+    );
+    for (const row of songTotals) {
+      const id = String(row.player_id);
+      totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
+    }
+  }
   return totals;
 }
 
@@ -395,7 +408,9 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
   const { completedGameParticipants } = await loadCompletedGames(db, eveningId, participants);
   const { shares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedOrganizerId, assignedJudgeId);
   // «Покупка роли» on a novice evening (owner, 2026-11-02: every format except rating and tournament) is charged as an add-on, like an extension.
-  const rolePurchases = rolePurchasesCharged(evening) ? await loadRolePurchases(db, eveningId) : new Map<string, number>();
+  // All evening formats may order music. Prepaid role reservations exist
+  // only on CASUAL/NOVICE; the common loader returns zero roles on RATING.
+  const rolePurchases = await loadRolePurchases(db, eveningId);
   const closed = evening.status === 'completed' || Boolean(evening.settled_at);
   const now = new Date().toISOString();
 

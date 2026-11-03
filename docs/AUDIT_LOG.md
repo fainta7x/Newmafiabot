@@ -2651,3 +2651,8 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+## 2026-11-03 — a test game landed on a real evening (owner: «создал в тестовой оболочке, а он на основном»)
+
+Production read only (organizer GET + Amvera run logs). Telegram Android: 14:20 MSK `POST /api/test-environment/login`; 14:25 the Mini App reopened and called `POST /api/auth/telegram`; 14:25 `POST /api/auth/login`; 14:27 game №30 (ten made-up guest names) was created on «Игровой вечер — 6 ноября», which turned it to «Идёт». The owner archived the game and took the start back himself at 18:55.
+
+- `src/server/routes/authRoutes.ts` `POST /telegram`: inside the sandbox it looked the Telegram account up in the test database, found nobody and cleared `player_token` — the sandbox session was gone without a word, and the organizer password then signed in to the real club — fixed: inside the sandbox the Telegram sign-in leaves the session as it is (`src/tests/sandboxTelegramSignIn.test.ts`).

@@ -6,6 +6,8 @@ import {
 
 import { readVipTiers,saveVipTier,assignVipTier,deleteVipTier } from '../services/vipTierService.ts';
 
+import { getVipGameQuotas,saveVipGameQuota,deleteVipGameQuota } from '../services/vipGameQuotaService.ts';
+
 const router = Router();
 router.use(requireOrganizerAuth);
 router.use((req: AuthenticatedRequest,res,next) => {
@@ -58,4 +60,21 @@ router.put('/assignments/:playerId',async(req,res)=>{
     return res.json(await assignVipTier(req.db,String(req.params.playerId),tierId));
   }catch(error){return onError(res,error);}
 });
+router.get('/game-quotas',async(req,res)=>{
+  try {
+    res.setHeader('Cache-Control','private, no-store');
+    return res.json({ quotas: await getVipGameQuotas(req.db) });
+  } catch(error) { return onError(res,error); }
+});
+router.put('/game-quotas/:playerId',async(req,res)=>{
+  try {
+    return res.json(await saveVipGameQuota(req.db,String(req.params.playerId),req.body));
+  } catch(error) { return onError(res,error); }
+});
+router.delete('/game-quotas/:playerId',async(req,res)=>{
+  try {
+    return res.json(await deleteVipGameQuota(req.db,String(req.params.playerId)));
+  } catch(error) { return onError(res,error); }
+});
+
 export default router;

@@ -8,7 +8,7 @@ For every new chat/session that touches the repository:
 
 1. Fetch the latest remote `main`.
 2. Read this file.
-3. Read `docs/PROJECT_STATE.md`.
+3. Read `docs/PROJECT_STATE.md` and `docs/OWNER_CHECKLIST.md`. **The checklist is the source of truth for the status of the owner's items** (owner, 2026-11-03: an old PROJECT_STATE line was presented as open work although the checklist showed it done); answer «what is next» from it and keep it updated in every PR.
 4. Review only the last 5–10 commits on `main` unless deeper history is necessary.
 5. Use `docs/FEATURE_MAP.md` for known features or `docs/ERROR_PLAYBOOK.md` for symptoms/errors.
 6. Read `docs/ARCHITECTURE.md` only when the task spans subsystems or ownership is unclear.

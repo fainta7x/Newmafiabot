@@ -58,6 +58,8 @@ for (const width of [360, 390]) {
       await sheet.getByRole('button', { name: 'Игроки', exact: true }).click();
       await sheet.getByRole('button', { name: /Ручной Игрок С Очень Длинным Ником/ }).click();
       await sheet.getByRole('button', { name: 'Добавить в состав · 1', exact: true }).click();
+      // A player added by hand has arrived at once (#1114), so the «Ожидаем» filter left on above hides him: show everyone.
+      await roster.getByRole('button', { name: /^\d+ Все$/ }).click();
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');
       await expect(manualRow).toBeVisible();
       await expect(manualRow).toContainText('В составе');
@@ -72,19 +74,21 @@ for (const width of [360, 390]) {
       await nav.getByRole('button', { name: 'Оплата', exact: true }).click();
       const payments = page.getByTestId('evening-payments-panel');
       await expect(payments).toBeVisible();
-      await payments.getByRole('button', { name: '2 Не оплатили', exact: true }).click();
+      // The player added by hand has arrived (#1114), so he owes for the evening too.
+      await payments.getByRole('button', { name: '3 Не оплатили', exact: true }).click();
       await expect(payments.getByTestId('evening-payment-row-ep-vid')).toHaveCount(0);
       await payments.getByRole('textbox', { name: 'Найти игрока в оплатах' }).fill('Вид');
       await expect(payments.getByTestId('evening-payment-row-ep-vid')).toBeVisible();
       await payments.getByRole('button', { name: 'Очистить поиск' }).click();
       await payments.getByTestId('evening-payment-row-ep-bogdan').getByRole('button', { name: 'Принять оплату', exact: true }).click();
-      await expect(payments.getByRole('button', { name: '1 Не оплатили', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(payments.getByRole('button', { name: '2 Не оплатили', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(payments.getByTestId('evening-payment-row-ep-bogdan')).toHaveCount(0);
       await expectNoHorizontalOverflow(page, 'payments');
       const heights = await payments.locator('button:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
       expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
       await attachViewport(page, testInfo, `crm-payments-filtered-${width}.png`);
       await payments.getByTestId('evening-payment-row-ep-matroskina').getByRole('button', { name: 'Принять оплату', exact: true }).click();
+      await payments.getByTestId('evening-payment-row-ep-manual').getByRole('button', { name: 'Принять оплату', exact: true }).click();
       await expect(payments.getByText('Все оплаты отмечены.')).toBeVisible();
     });
   });

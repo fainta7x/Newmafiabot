@@ -37,7 +37,8 @@ const restore = async (page, start = 'round0') => {
   await page.goto('/e2e/live-game.html');
   await page.getByRole('button', { name: 'Подтвердить состав' }).click();
   await page.getByTestId('zero-round-rule').getByRole('radio', { name: 'Турнирная' }).click();
-  await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
+  // The physical deal is the second choice below the virtual one (owner, 2026-11-03).
+  await page.getByTestId('club-game-start-physical-deal').click();
   await page.getByTestId('physical-role-deal-start').click();
   for (const role of ROLE_SEQUENCE) await page.getByRole('button', { name: new RegExp(role) }).click();
   await page.getByRole('button', { name: /Роли зафиксированы/ }).click();

@@ -113,7 +113,8 @@ const prepareGame = async (page, testInfo, { zeroRoundRule } = {}) => {
   await expectNoHorizontalOverflow(page, 'setup');
   await attachViewport(page, testInfo, '01-setup.png');
 
-  await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
+  // The physical deal is the second choice below the virtual one (owner, 2026-11-03).
+  await page.getByTestId('club-game-start-physical-deal').click();
   await page.getByTestId('physical-role-deal-start').click();
 
   for (const role of ROLE_SEQUENCE) {

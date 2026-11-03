@@ -62,7 +62,8 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'Подтвердить состав' }).click();
       await page.getByTestId('zero-round-rule').getByRole('radio', { name: 'Турнирная' }).click();
       await check('setup');
-      await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
+      // The physical deal is the second choice below the virtual one (owner, 2026-11-03).
+      await page.getByTestId('club-game-start-physical-deal').click();
       await check('deal-music');
       await page.getByTestId('physical-role-deal-start').click();
       await check('role-deal');

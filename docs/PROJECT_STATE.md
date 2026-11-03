@@ -1,3 +1,7 @@
+## 2026-11-03 — голосование цифрами: попилы
+
+Готово в коде, ожидают проверки: в окне цифр доступны «Попил» и «Поделилось также» через общие обработчики обычного режима. 13 целевых тестов прошли, включая попил → речи → переголосование → повторный попил → решение стола. Проверки CI/layout и merge ещё нужны.
+
 ## 2026-11-03 — expanded preview fixes before the combined release
 
 Actual artifacts show stale physical-deal button wording and an arrived participant searched under the retained expected filter. Corrected those two test actions, keeping every behavior/layout assertion and detector unchanged. #1172 was merged as 4c7524f after exact-head non-browser CI and the all-app layout audit passed; expanded preview regressions are addressed in #1160. Runtime GET still reports build 2e500c7, so deployment of the new VIP mechanism is not confirmed.

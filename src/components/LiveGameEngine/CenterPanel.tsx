@@ -768,6 +768,8 @@ export default function CenterPanel(props: CenterPanelProps) {
               onSelectNominee={selectVotingNomineeIndex}
               onFinish={() => { setNumbersOpen(false); finalizeVoting(); }}
               onCollapse={() => setNumbersOpen(false)}
+              onQuickSplit={quickSplitAvailable ? handleQuickSplit : undefined}
+              onSameSplit={sameSplitAvailable ? handleSameSplit : undefined}
             />
           ) : null}
         </div>

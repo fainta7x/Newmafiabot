@@ -8,6 +8,7 @@ const output = path.join(root, 'temp/ui-preview');
 const pages = [
   'preview/index.html',
   'e2e/crm-evening-roster.html',
+  'e2e/crm-evening-seating.html',
   'e2e/crm-evening-game-create.html',
   'e2e/colour-reading.html',
   'e2e/live-checkpoint-offer.html',

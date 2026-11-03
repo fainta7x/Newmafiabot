@@ -2,6 +2,14 @@
 
 
 
+
+## 2026-11-03 · Evening seating generation (owner report, evening 3.11; production read GET only)
+
+1. HIGH `fixed (this PR)` — `planEveningSeats` (`src/lib/eveningSeating.ts`) was deterministic: seats in order, the lowest player id first, so games 2–6 of 3.11 came out as swapped pairs (ФМ ↔ Jin, Millourt ↔ Пристань, Алоэ ↔ Серый, Денди ↔ Богданчик, Насон ↔ Диссонанс). Now random under the agreed conditions.
+2. HIGH `fixed (this PR)` — the greedy fill dropped a candidate with any warning and never backtracked: game 4 of 3.11 had seat №10 empty with 11 players registered. Now a random matching without repeats per game, up to 40 whole-plan attempts, and a seat is never left empty while a player is free.
+3. MEDIUM `fixed (this PR)` — «Сформировать рассадку» sent nothing: personal seat notices were queued only by the automatic «Сегодня играем» run and single-seat edits. Now the generate route queues the players' notices and the judge's whole seating; the screen says how many were sent.
+4. LOW `fixed (this PR)` — `evening-seating-audit.spec.mjs` never ran in CI: its page was not built into the preview. Added to the build and the preview run.
+
 ## 2026-11-03 · Architecture programme items 5–9 (audit; production reads GET only)
 
 Scope: PROJECT_STATE «Architecture unification» items 5–9, owner «делай» 2026-11-03. Source review plus read-only production checks (organizer login, GET only).

@@ -80,33 +80,98 @@ export function seatingWarnings(
   return warnings;
 }
 
+/** Seats a player already took at a table before `game` in the current cycle (planned and started games alike). */
+const usedBefore = (playerId: string, tableId: string, game: number, assignments: EveningSeat[], capacity: number): Set<number> => {
+  const used = new Set<number>();
+  for (const entry of assignments.filter((item) => item.playerId === playerId && item.tableId === tableId && item.game < game).sort((a, b) => a.game - b.game)) {
+    if (used.size >= capacity) used.clear();
+    used.add(entry.seat);
+  }
+  return used.size >= capacity ? new Set() : used;
+};
+
+const shuffle = <T,>(items: T[], random: () => number): T[] => {
+  const copy = items.slice();
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+/** A random perfect matching player → seat over allowed pairs (Kuhn's algorithm on shuffled orders); unmatched players are returned too. */
+const matchSeats = (players: string[], seats: EveningSeatCandidate[], allowed: (player: string, seat: EveningSeatCandidate) => boolean, random: () => number) => {
+  const seatOrder = shuffle(seats, random);
+  const owner = new Map<number, string>();
+  const tryPlace = (player: string, seen: Set<number>): boolean => {
+    for (let index = 0; index < seatOrder.length; index += 1) {
+      if (seen.has(index) || !allowed(player, seatOrder[index])) continue;
+      seen.add(index);
+      const current = owner.get(index);
+      if (current === undefined || tryPlace(current, seen)) { owner.set(index, player); return true; }
+    }
+    return false;
+  };
+  const unmatched = shuffle(players, random).filter((player) => !tryPlace(player, new Set()));
+  return { placed: [...owner].map(([index, player]) => ({ ...seatOrder[index], playerId: player })), unmatched, free: seatOrder.filter((_, index) => !owner.has(index)) };
+};
+
 /**
- * Deterministic plan using preassigned reservations, balanced participation
- * and per-table seat rotation. No results of not-yet-played games are guessed.
- * Input slots enumerate only real games/table seats; vacancies remain empty.
+ * Random plan (owner, 2026-11-03: «нужна полная случайная рассадка с теми условиями, которые уже согласованы»), game by
+ * game and table by table: reservations stay; the players of a game are those with the fewest games so far (random among
+ * equals); seats are a random assignment in which nobody repeats a seat of the current cycle at that table. When no
+ * assignment without a repeat exists, the seat is still filled (fewest repeats) — a free seat is never left while an
+ * eligible player is free. `random` is injectable for tests.
  */
+function planOnce(
+  slots: EveningSeatCandidate[],
+  players: EveningPlayer[],
+  existing: EveningSeat[],
+  capacity: number,
+  random: () => number,
+): { planned: EveningSeat[]; repeats: number } {
+  let repeats = 0;
+  const planned = [...existing];
+  const taken = (slot: EveningSeatCandidate) => planned.some((entry) => gameTableKey(entry.game, entry.tableId, entry.seat) === gameTableKey(slot.game, slot.tableId, slot.seat));
+  const counts = new Map(players.map((player) => [player.id, existing.filter((seat) => seat.playerId === player.id).length]));
+  const games = [...new Set(slots.map((slot) => slot.game))].sort((a, b) => a - b);
+  for (const game of games) {
+    const free = slots.filter((slot) => slot.game === game && !taken(slot));
+    if (!free.length) continue;
+    const pool = shuffle(players.filter((player) => player.eligibleGames.includes(game) && !planned.some((entry) => entry.game === game && entry.playerId === player.id)), random)
+      .sort((a, b) => (counts.get(a.id) || 0) - (counts.get(b.id) || 0));
+    const chosen = pool.slice(0, free.length).map((player) => player.id);
+    const noRepeat = (player: string, seat: EveningSeatCandidate) => !usedBefore(player, seat.tableId, game, planned, capacity).has(seat.seat);
+    const first = matchSeats(chosen, free, noRepeat, random);
+    const result = [...first.placed];
+    if (first.unmatched.length) {
+      // No assignment without a repeat: fill the rest anyway, a random free seat each.
+      const rest = matchSeats(first.unmatched, first.free, () => true, random);
+      repeats += rest.placed.length;
+      result.push(...rest.placed);
+    }
+    for (const seat of result) {
+      planned.push(seat);
+      counts.set(seat.playerId, (counts.get(seat.playerId) || 0) + 1);
+    }
+  }
+  return { planned, repeats };
+}
+
+/** Up to `attempts` random plans; the first without a repeated seat wins, otherwise the one with the fewest repeats. */
 export function planEveningSeats(
   slots: EveningSeatCandidate[],
   players: EveningPlayer[],
   existing: EveningSeat[],
   capacity = 10,
+  random: () => number = Math.random,
+  attempts = 40,
 ): EveningSeat[] {
-  const planned = [...existing];
-  const counts = new Map(players.map((player) => [player.id, existing.filter((seat) => seat.playerId === player.id).length]));
-  for (const slot of slots.slice().sort((a, b) => a.game - b.game || a.tableId.localeCompare(b.tableId) || a.seat - b.seat)) {
-    if (planned.some((entry) => gameTableKey(entry.game, entry.tableId, entry.seat) === gameTableKey(slot.game, slot.tableId, slot.seat))) continue;
-    const candidates = players.filter((player) => player.eligibleGames.includes(slot.game)
-      && !planned.some((entry) => entry.game === slot.game && entry.playerId === player.id))
-      .map((player) => ({
-        player,
-        warnings: seatingWarnings({ ...slot, playerId: player.id }, planned, player.eligibleGames, capacity),
-      }))
-      .filter((item) => item.warnings.length === 0)
-      .sort((a, b) => (counts.get(a.player.id) || 0) - (counts.get(b.player.id) || 0) || a.player.id.localeCompare(b.player.id));
-    const chosen = candidates[0]?.player;
-    if (!chosen) continue;
-    planned.push({ ...slot, playerId: chosen.id });
-    counts.set(chosen.id, (counts.get(chosen.id) || 0) + 1);
+  let best: { planned: EveningSeat[]; repeats: number } | null = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const plan = planOnce(slots, players, existing, capacity, random);
+    if (!best || plan.repeats < best.repeats) best = plan;
+    if (plan.repeats === 0) break;
   }
-  return planned;
+  return best ? best.planned : [...existing];
 }

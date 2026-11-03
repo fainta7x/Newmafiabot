@@ -28,3 +28,14 @@ button.deal-card:not(:disabled):active { transform: scale(.96); }
 .deal-face { width: min(150px, 40vw); margin: 2px auto 0; }
 .deal-face [data-role-card-face] { aspect-ratio: 63 / 88; border-radius: 6% / 4.3%; box-shadow: 0 16px 40px rgba(0, 0, 0, .6); }
 @media (max-height: 760px) { .deal-card { max-height: 92px; } .deal-face { width: min(110px, 30vw); } }
+/* Short screens (360×640 phones, 1366×768 laptops): the whole deal fits without scrolling (owner, 2026-11-01). */
+@media (max-height: 800px) {
+  .deal-seats { gap: 4px; }
+  .deal-seat { padding: 3px 2px 3px; }
+  .deal-seat__name { margin-top: 1px; }
+  .deal-turn { padding: 6px 10px; }
+  .deal-table { padding: 6px; }
+  .deal-cards { gap: 5px; }
+  .deal-card { max-height: 84px; }
+  .deal-face { width: min(100px, 28vw); }
+}

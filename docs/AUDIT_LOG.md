@@ -2671,3 +2671,9 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 ## 2026-11-03 — VIP slider rebuilt to the owner's meaning (50 % neutral), stress run
 
 `src/lib/vipNeutralSlider.ts` + `vipLiveDrawService.ts`: a once-per-deal die per condition, then the 100 % promise (or its opposite below 50 %) through the unchanged `planVipDraw`. 20 000 full deals per case: sheriff seat 1 and seat 10 at 0/25/50/75/100 % → 0/4.8/9.9/54.4/100 and 0/5.1/9.9/54.7/100; «одноцвет» → 0/26.5/52.4/76.7/100; 20 random conditions for everybody, 5000 deals — composition intact. «мафия»+«дон» at 0 % for one player gave 4.5 % — fixed: «never» conditions of one player are merged into one promise (now 0 %). Terms (owner): «чёрная карта» is the mafia card only, «красная» the citizen card; my «black = mafia or don» was a wrong reading, recorded in BUSINESS_RULES.
+## 2026-11-03 — Live game text audit, first full run since #1166
+
+The audit reached the Live game again once the stale «Начать раздачу ролей» click was fixed. Findings — all fixed:
+- `src/components/crm/liveSeatGrid.css`: on a computer «+Ф / −Ф» stood 36–40 px right of the seat card's axis (the row «Выставить +Ф» was centred as a whole); the pair is now the centre column of the row. The fix sits inside `@layer seat-grid` — an unlayered `!important` loses to a layered one.
+- `src/components/game/virtualRoleDeal.css` (#1169): the deal window scrolled 18 px at 360×640 and 27 px at 1366×768; compact spacing on screens up to 800 px high.
+- `e2e/tests/live-game-text-audit.spec.mjs`: a 1 s card timer let the program open a random card before the test pressed «Отменить последнюю карту»; 3 s.

@@ -4,8 +4,9 @@ import { buildGameAnalysis } from './liveGameAnalysis';
 /**
  * «Читать цвет» (owner, 2026-11-02/03; rules: docs/BUSINESS_RULES.md «"Обучение": reading colours of specific players»).
  * Top-3 lists per player from the per-voter ballots of the game chronology, ranked by count, no minimum of games.
- * Split votes («попил») are not counted: only a day whose first voting put out one player is read; a day that had a tie
- * (revote, table decision, nobody or everybody out) is left out whole. Pure and read-only.
+ * Split votes («попил», BUSINESS_RULES «Попил»: the votes split evenly between players so that a tie is made, any circle)
+ * are not counted: a day whose voting ended in a tie (revote, both raised) is left out whole, and so is a voting the judge
+ * tagged «без оценок» (a split, usually a broken one, BUSINESS_RULES «"Без оценок" and double pay»). Pure and read-only.
  */
 
 export type ColourReadingListKey =
@@ -35,12 +36,15 @@ export function buildColourReading(games: StatGame[], playerId: string, top = TO
     if (!mine) continue;
     const bySeat = new Map(game.seats.map((seat) => [seat.seat, seat]));
     const analysis = buildGameAnalysis(game.events || []);
+    const noScoringDays = new Set((game.votingRounds || []).filter((round) => round.no_scoring).map((round) => Number(round.day_number ?? 0)));
     let counted = false;
     for (const circle of analysis.circles) {
       const votings = circle.votings.filter((voting) => voting.votes.length > 0);
       if (!votings.length) continue;
       const first = votings.slice().sort((a, b) => a.number - b.number)[0];
-      if (votings.length > 1 || first.outcome !== 'single_eliminated') continue;
+      if (votings.length > 1 || first.outcome === 'tie_revote' || first.outcome === 'all_tied_eliminated') continue;
+      // Engine round 1 is the zero circle (day 0).
+      if (noScoringDays.has(circle.round - 1)) continue;
       const ballots = new Map<number, number>();
       for (const vote of first.votes) for (const voter of vote.voters) ballots.set(voter, vote.candidate);
       const myTarget = ballots.get(mine.seat) ?? null;

@@ -12,7 +12,7 @@ For every new chat/session that touches the repository:
 4. Review only the last 5–10 commits on `main` unless deeper history is necessary.
 5. Use `docs/FEATURE_MAP.md` for known features or `docs/ERROR_PLAYBOOK.md` for symptoms/errors.
 6. Read `docs/ARCHITECTURE.md` only when the task spans subsystems or ownership is unclear.
-7. Read `docs/BUSINESS_RULES.md` before changing Mafia/game/product behavior.
+7. Read `docs/BUSINESS_RULES.md` before changing Mafia/game/product behavior, and search it for every game term the task uses (§3a).
 8. Read `docs/RUNBOOK.md` for CI, deployment, database, recovery or integration work.
 9. Before reading any binary/compressed/database/Base64 artifact, read `docs/BINARY_ARTIFACT_SAFETY.md` and use a byte-safe local/materialized path instead of injecting the payload into chat/model context.
 10. When a local checkout is available, run `npm run project:status`; use `--check --json` for machine-readable verification.
@@ -54,6 +54,8 @@ Other docs should link to the owner instead of restating mutable facts.
 ## 3a. No guessing game rules or terminology (owner, 2026-10-16)
 
 Never invent, infer, or reinterpret sports-Mafia terms, player actions, statistics, or owner wording. If the precise meaning is unclear, ask the owner before writing code. Record the owner's exact definition in docs/BUSINESS_RULES.md. «Подняли в нуле» means a player was eliminated together with one other player after a double revote during the zero round; it does NOT mean players stayed at the table. Never fabricate missing historical events.
+
+**Look the term up first (owner, 2026-11-03).** Before asking the owner what a game term means, and before choosing how to count it, search `docs/BUSINESS_RULES.md` for the term in Russian and English (e.g. «попил», «split», «Без оценок») and read every hit. Asking about a term the rules already define is a process failure (2026-11-03: «попил» was asked although it is defined in BUSINESS_RULES). Only a term the rules really lack goes to the owner; record the answer in BUSINESS_RULES.
 
 ## 3b. Never think up things for the owner — agree everything first (owner, 2026-11-02)
 

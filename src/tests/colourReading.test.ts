@@ -43,11 +43,21 @@ describe('«Читать цвет»', () => {
 
   it('leaves out a day with a split («попил»)', () => {
     const split = game([
-      ...voting(1, 1, [[5, 2], [6, 2], [7, 3], [8, 3]], 'needs_revote'),
+      ...voting(1, 1, [[5, 2], [6, 2], [7, 3], [8, 3]], 'tie_revote'),
       ...voting(1, 2, [[5, 2], [6, 2], [7, 2], [8, 3]], 'single_eliminated'),
     ]);
     expect(buildColourReading([split], 'p2').me_correct).toEqual([]);
     expect(buildColourReading([split], 'p2').games).toBe(0);
+  });
+
+  it('leaves out a voting tagged «без оценок»', () => {
+    const tagged = { ...game(voting(2, 1, [[5, 2], [6, 2]], 'single_eliminated')), votingRounds: [{ round_number: 1, day_number: 1, nominated_seats: [2], vote_counts: {}, no_scoring: true }] };
+    expect(buildColourReading([tagged], 'p2').me_correct).toEqual([]);
+  });
+
+  it('counts a single voting that put nobody out without a tie', () => {
+    const none = game(voting(2, 1, [[5, 2]], 'no_elimination'));
+    expect(buildColourReading([none], 'p2').me_correct).toEqual([{ playerId: 'p5', count: 1 }]);
   });
 
   it('keeps the top three by count', () => {

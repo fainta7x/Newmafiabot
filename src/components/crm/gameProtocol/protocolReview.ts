@@ -1,5 +1,6 @@
 import type { PlayerResultData, TournamentGameProtocolData } from '../../../lib/api';
-import type { LiveGameEvent } from '../../../shared/liveGameEvents';
+import type { EloTag, LiveGameEvent } from '../../../shared/liveGameEvents';
+import { eloTagMarks } from '../../../shared/liveGameEvents';
 import type { VotingRound } from '../../../shared/tournamentVoting';
 import { determineVotingResult } from '../../../shared/tournamentVoting';
 import type { ZeroRoundRule } from '../../../shared/zeroRoundRule';
@@ -357,6 +358,16 @@ export const setSplitBreakTag = (events: LiveGameEvent[], circleIndex: number, s
   if (seat === null) return kept;
   const nextSeq = events.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
   return [...kept, { seq: nextSeq, at: new Date().toISOString(), round, phase: 'day_voting', kind: 'split_break', seat }];
+};
+
+/** Puts on or takes off an Elo tag («Вскрылся чёрному», «Убил шерифа в нуле») of a seat on one circle (owner, 2026-11-03). */
+export const toggleEloTagEvent = (events: LiveGameEvent[], tag: EloTag, circleIndex: number, seat: number): LiveGameEvent[] => {
+  const round = circleIndex + 1;
+  const on = eloTagMarks(events).some((mark) => mark.tag === tag && mark.round === round && mark.seat === seat);
+  const kept = events.filter((event) => !(event.kind === 'elo_tag' && event.round === round && event.seat === seat && String(event.value ?? '').split(':')[0] === tag));
+  if (on) return kept;
+  const nextSeq = events.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+  return [...kept, { seq: nextSeq, at: new Date().toISOString(), round, phase: 'day_speeches', kind: 'elo_tag', seat, value: tag }];
 };
 
 /** The kinds of record the judge may move to another circle with a button (owner, 2026-11-01); the many votes and night steps are not listed one by one. */

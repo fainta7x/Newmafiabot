@@ -3,7 +3,7 @@ import { Check, ChevronRight, Plus } from 'lucide-react';
 import type { LiveGameEvent } from '../../../shared/liveGameEvents';
 import type { VotingRound } from '../../../shared/tournamentVoting';
 import { determineVotingResult } from '../../../shared/tournamentVoting';
-import { splitBreakMarks, zeroRoundBreakerSeat } from '../../../shared/liveGameEvents';
+import { ELO_TAGS, eloTagMarks, splitBreakMarks, zeroRoundBreakerSeat, type EloTag } from '../../../shared/liveGameEvents';
 import { moveNominatedSeat, setTableLeaveVotes, setVotingSeatCount, toggleNominatedSeat, updateEligibleVoters } from '../tournaments/protocol/protocolVotingEditorUtils';
 import { describeLiveGameEvents } from '../../../lib/liveGameEventText';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
@@ -12,7 +12,7 @@ import { MissAssessmentEditor } from './MissAssessmentEditor';
 import { LockedNote } from './PlayersView';
 import { revealProtocolSectionSoon } from './protocolNavigation';
 import { BestMoveTag, CheckAnswerTag, ConfirmedTag, FirstKilledTag, InfoTag, NeedsTag } from './tags';
-import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, setSplitBreakTag, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
+import { checkAnswerOf, exitLine, checksOf, roleAtTable, describeVoting, exitLabel, exitsOf, MOVABLE_EVENT_KINDS, moveEventToCircle, setSplitBreakTag, toggleEloTagEvent, recordsAfterVoting, tableDecision, foulsOf, nominatorsOf, tableVotersOf, plural, roundBallots, roundChain, teamOfRole, withBallots, type CircleModel, type Issue } from './protocolReview';
 
 type Props = {
   api: ProtocolApi;
@@ -519,6 +519,24 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
           <option value="">Не отмечен</option>
           {api.results.slice().sort((a, b) => a.seat_number - b.seat_number).filter((player) => player.role === 'citizen' || player.role === 'sheriff').map((player) => <option key={player.participant_id} value={player.seat_number}>#{player.seat_number} {player.display_name}</option>)}
         </select>
+      </Card>
+
+      {/* Elo tags of the judge (owner, 2026-11-03): «Вскрылся чёрному» −10 on any circle, «Убил шерифа в нуле» +10 on the zero one. */}
+      <Card className="space-y-3" data-testid="elo-tags">
+        {(Object.keys(ELO_TAGS) as EloTag[]).filter((tag) => tag !== 'killed_sheriff_zero' || circle.index === 0).map((tag) => {
+          const marked = new Set(eloTagMarks(circle.events).filter((mark) => mark.tag === tag && mark.round === circle.index + 1).map((mark) => mark.seat));
+          return (
+            <div key={tag} className="space-y-1.5">
+              <Eyebrow>{ELO_TAGS[tag].label} · {ELO_TAGS[tag].elo > 0 ? '+' : '−'}{Math.abs(ELO_TAGS[tag].elo)} Elo</Eyebrow>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={ELO_TAGS[tag].label}>
+                {api.results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player) => (
+                  <button key={player.participant_id} type="button" disabled={api.locked} aria-pressed={marked.has(player.seat_number)} onClick={() => api.setEvents((list: LiveGameEvent[]) => toggleEloTagEvent(list, tag, circle.index, player.seat_number))}
+                    className={`min-h-10 rounded-lg border px-2.5 text-[12px] font-semibold ${marked.has(player.seat_number) ? 'border-white bg-white text-black' : 'border-white/12 bg-[#111216] text-white/80'}`}>#{player.seat_number}</button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </Card>
 
       {movable.length ? (

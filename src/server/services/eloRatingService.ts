@@ -144,7 +144,8 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
       + (player.contributionNegativePoints ?? Math.min(0, numeric(player.contributionPoints)));
     const awardedPersonal = Math.max(-PERSONAL_CAP_ELO, Math.min(PERSONAL_CAP_ELO, positive * PERSONAL_POINT_WEIGHT) + negative * PERSONAL_POINT_WEIGHT);
     const personalCapDelta = awardedPersonal - personalSum;
-    const missDelta = -Math.max(0, numeric(player.missPenaltyElo));
+    // Fixed cuts after the personal cap; a negative value is a fixed bonus (the «Убил шерифа в нуле» tag, owner 2026-11-03).
+    const missDelta = -numeric(player.missPenaltyElo);
     const disciplinaryDelta = -Math.max(0, numeric(player.eloDisciplinePoints ?? disciplinePoints)) * ELO_DISCIPLINE_POINT_WEIGHT;
     return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta,
       personalDelta, contributionDelta, personalCapDelta, missDelta, disciplinaryDelta,

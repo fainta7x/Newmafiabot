@@ -67,3 +67,15 @@ describe('bonus for the blacks at the table during the lost raise (owner, 2026-1
     assert.equal(points(players(), { votes: [raised], events: [] }, 8), 0);
   });
 });
+
+describe('Elo tags of the judge (owner, 2026-11-03)', () => {
+  it('«Вскрылся чёрному» −10, «Убил шерифа в нуле» +10, outside the personal limits, any role; taking a tag off undoes it', () => {
+    const on = seq([ev(2, 'elo_tag', { seat: 6, value: 'revealed_to_black' }), ev(1, 'elo_tag', { seat: 8, value: 'killed_sheriff_zero' })]);
+    assert.equal(score({ events: on }, 6).missPenaltyElo, 10);
+    assert.equal(score({ events: on }, 8).missPenaltyElo, -10);
+    assert.ok(contributionBreakdown('citizen', score({ events: on }, 6).items).some((line) => /Вскрылся чёрному: −10/.test(line)));
+    assert.ok(contributionBreakdown('mafia', score({ events: on }, 8).items).some((line) => /Убил шерифа в нуле: \+10/.test(line)));
+    const off = seq([ev(2, 'elo_tag', { seat: 6, value: 'revealed_to_black' }), ev(2, 'elo_tag', { seat: 6, value: 'revealed_to_black:off' })]);
+    assert.equal(score({ events: off }, 6).missPenaltyElo, 0);
+  });
+});

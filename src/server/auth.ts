@@ -266,6 +266,25 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
     return true;
   }
 
+  // A game judge may inspect this game's purchases or enter a player's
+  // in-person role purchase. Cancellation remains organizer-only.
+  const rolePurchaseRoute = /^\/api\/admin\/role-purchases\/?$/.test(path);
+  if (rolePurchaseRoute && (req.method === 'GET' || req.method === 'POST')) {
+    const gameId = Number(req.method === 'GET' ? req.query?.gameId : req.body?.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) return false;
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game || String(game.judgePlayerId || '') !== playerId) return false;
+    const qualified = await db.get('SELECT judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!canHostEveningFormat(qualified, game.format)) return false;
+    if (req.method === 'POST' && (
+      !['published', 'active'].includes(String(game.eventStatus || '')) ||
+      ['completed', 'cancelled', 'archived'].includes(game.status)
+    )) return false;
+    req.delegatedOrganizerAccess = true;
+    req.delegatedPlayerId = playerId;
+    return true;
+  }
+
   const tournamentMatch = path.match(/^\/api\/tournaments\/([^/]+)\/games\/([^/]+)\/(roles|start|protocol(?:\/complete)?)\/?$/);
   if (!tournamentMatch) return false;
 

@@ -252,8 +252,7 @@ for (const [width,height,wideFont] of VIEWPORTS) {
       await deal.getByRole('button',{name:/^Карта №/}).first().click();
       await next();
     }
-    await check('complete virtual deal');await page.screenshot({path:info.outputPath('virtual-complete.png')});
-    await deal.getByRole('button',{name:'Все роли выданы — начать игру'}).click();
+    // The last card goes straight into the game (owner, 2026-11-03).
     await expect(deal).toHaveCount(0);await expect(page.getByRole('button',{name:/Включите музыку/})).toBeVisible();await check('night after virtual deal');
   });
 }

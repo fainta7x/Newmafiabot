@@ -6,7 +6,7 @@ type Rule = { id: string; playerId: string; kind: Kind; role: string | null; oth
   percent: number; enabled: boolean };
 type Draft = Omit<Rule, 'id'>;
 const empty = (): Draft => ({ playerId:'', kind:'role',role:'citizen',otherPlayerId:null,
-  percent:0,enabled:true });
+  percent:50,enabled:true });
 const roleLabels: Record<string,string> = {
   citizen:'Мирный житель',sheriff:'Шериф',mafia:'Мафия',don:'Дон',
 };
@@ -120,8 +120,9 @@ export default function VipProbabilitySettings() {
         </label>}
       <div className="space-y-2 rounded-xl border border-white/10 p-3">
         <label htmlFor="vip-rule-percent" className="flex justify-between gap-2 text-xs text-white/70">
-          <span>Шанс срабатывания</span><strong className="text-white">{draft.percent}%</strong>
+          <span>Шанс</span><strong className="text-white">{draft.percent}%</strong>
         </label>
+        <p className="text-[11px] text-white/50">50% — обычная раздача, 100% — всегда, 0% — никогда.</p>
         <input id="vip-rule-percent" type="range" min={0} max={100} step={1} className="w-full accent-white"
           value={draft.percent} onChange={e=>change('percent',Number(e.target.value))}/>
       </div>

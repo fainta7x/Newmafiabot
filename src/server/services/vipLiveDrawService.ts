@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 import { planVipDraw } from '../../lib/vipDrawPlanner.ts';
+import { vipDealSeed, vipRulesForDeal } from '../../lib/vipNeutralSlider.ts';
 import { vipEffectAllowed } from '../../lib/vipRoleProbabilityRules.ts';
 import { vipCanTriggerInGame } from '../../lib/vipSuccessfulGamesQuota.ts';
 import { listVipProbabilityRules } from './vipProbabilityRulesService.ts';
@@ -43,7 +44,10 @@ export async function applyPrivateVipDraw(
     const id = context.playerBySeat.get(entry.seat);
     if (id) revealedRolesByPlayer.set(id,entry.role);
   }
-  return planVipDraw(state.deck,cardId,rules.filter(rule=>allowed(rule.playerId)),{
+  // The full deck of this deal (ids stay until a redeal): the seed of the once-per-deal die of each condition.
+  const fullDeck: Array<{ id: string }> = (state.history[0] as any)?.previousDeck ?? (state.pending as any)?.previousDeck ?? state.deck;
+  const dealRules = vipRulesForDeal(rules.filter(rule=>allowed(rule.playerId)), vipDealSeed(fullDeck.map(card=>String(card.id))));
+  return planVipDraw(state.deck,cardId,dealRules,{
     drawingPlayerId:context.playerBySeat.get(seat) || null,
     protectedClosedRoles,
     waitingPlayerIds:new Set([...context.playerBySeat.entries()]

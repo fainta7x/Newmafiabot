@@ -9,9 +9,9 @@ type MusicOrder = {
   id: string; game_id: number; evening_id: string; player_id: string;
   track_reference: string; status: MusicOrderStatus; amount_rub: number; created_at: string;
 };
-const fail = (msg: string, statusCode = 409): never => {
+function fail(msg: string, statusCode = 409): never {
   throw Object.assign(new Error(msg), { statusCode });
-};
+}
 
 export async function ensureGameMusicOrderSchema(db: DatabaseWrapper) {
   await db.exec(`CREATE TABLE IF NOT EXISTS game_music_orders (

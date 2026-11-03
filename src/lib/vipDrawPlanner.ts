@@ -7,6 +7,7 @@ const roles: GameRole[] = ['citizen','sheriff','mafia','don'];
 const isRedTeam = (role:GameRole)=>role==='citizen'||role==='sheriff';
 type Context = {
   drawingPlayerId:string|null;
+  protectedClosedRoles?:Partial<Record<GameRole,number>>;
   waitingPlayerIds:ReadonlySet<string>;
   revealedRolesByPlayer:ReadonlyMap<string,GameRole>;
 };
@@ -23,7 +24,7 @@ export function planVipDraw<T extends VipClosedCard>(
   const unchanged={deck:[...deck],vipPlayerIds:[] as string[]};
   const selected=deck.find(card=>card.id===selectedId);
   if(!selected)return unchanged;
-  const available=roles.filter(role=>deck.some(card=>card.role===role));
+  const available=roles.filter(role=>deck.filter(card=>card.role===role).length>(context.protectedClosedRoles?.[role]??0));
   let constraints:Constraint[]=[];
   for(const rule of rules){
     if(!rule.enabled||rule.percent<=0)continue;

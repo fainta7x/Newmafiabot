@@ -7,6 +7,7 @@ import { canHostEveningFormat } from '../lib/hostFormats.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { cabinetOrganizeFormats, canOrganizeEveningFormat } from '../lib/organizeFormats.ts';
 import { getGame } from './services/gameService.ts';
+import { OPEN_EVENING_STATUSES } from '../lib/eveningStatus.ts';
 
 dotenv.config();
 
@@ -213,7 +214,7 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
       'SELECT id, format, status FROM game_evenings WHERE id = ? LIMIT 1',
       [decodeURIComponent(clubCreateMatch[1])],
     );
-    if (!evening || !['published', 'active'].includes(String(evening.status || ''))) return false;
+    if (!evening || !OPEN_EVENING_STATUSES.some((value) => value === String(evening.status || ''))) return false;
 
     const player = await db.get('SELECT judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!canHostEveningFormat(player, evening.format)) return false;
@@ -262,6 +263,25 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
     } catch {
       return false;
     }
+    req.delegatedOrganizerAccess = true;
+    req.delegatedPlayerId = playerId;
+    return true;
+  }
+
+  // A game judge may inspect this game's purchases or enter a player's
+  // in-person role purchase. Cancellation remains organizer-only.
+  const rolePurchaseRoute = /^\/api\/admin\/(?:role-purchases|music-orders|music-orders\/[^/]+\/played|seat-swap-orders|seat-swap-orders\/[^/]+\/apply)\/?$/.test(path);
+  if (rolePurchaseRoute && (req.method === 'GET' || req.method === 'POST')) {
+    const gameId = Number(req.method === 'GET' ? req.query?.gameId : req.body?.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) return false;
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game || String(game.judgePlayerId || '') !== playerId) return false;
+    const qualified = await db.get('SELECT judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!canHostEveningFormat(qualified, game.format)) return false;
+    if (req.method === 'POST' && (
+      !OPEN_EVENING_STATUSES.some((value) => value === String(game.eventStatus || '')) ||
+      ['completed', 'cancelled', 'archived'].includes(game.status)
+    )) return false;
     req.delegatedOrganizerAccess = true;
     req.delegatedPlayerId = playerId;
     return true;

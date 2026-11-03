@@ -1,5 +1,21 @@
 # Audit log
 
+## 2026-11-03 — expanded preview regression triage (artifact #13244315358)
+
+- `fixed in candidate` e2e/tests/live-game-text-audit.spec.mjs: waited three minutes per viewport for removed «Начать раздачу ролей» while actual setup offers «Физическая раздача». Use the actual physical-deal entry; preserve all following layout/seat audits and detector thresholds.
+- `fixed in candidate` e2e/tests/crm-evening-roster.spec.mjs: after adding a player (correctly marked arrived), the test searched for them in the retained «Ожидаем» filter. The artifact shows «0 Ожидаем» / «4 Пришли». Open «Пришли» and keep assertions for original RSVP, actual attendance and layout. No app/fixture attendance semantics changed.
+- Actual VIP settings screenshot (390 px) inspected from layout-audit-evidence: «Мирный житель · 100%», readable controls, no overlap; full app audit passed. No local browser screenshot claimed.
+
+
+- #1160 + #1172 integration: paid role is enforced before VIP; private draws cannot consume a still-reserved role, and a buyer spends no VIP quota. Reopening a deal with a reserved/fulfilled purchase preserves it. Hide the obsolete in-deal server purchase button; preserve current approved one-tap/card/stream layout.
+
+
+## 2026-11-03 — #1160 merge verification
+
+- Fixed the stale open-evening guard expectation: auth now uses OPEN_EVENING_STATUSES, so its obsolete direct-status exception is removed.
+- Retained current main one-tap/card/stream UI when reconciling the older purchase branch; no return to the old two-click deal screen.
+
+
 ## 2026-11-03 · VIP owner corrections (PR #1172, no production data)
 
 - HIGH `fixed in candidate` — compatible triggered conditions were intersected, forcing sheriff for sheriff + red; choose exactly one available triggered condition uniformly, even when compatible.
@@ -2653,6 +2669,12 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
 ## 2026-11-03 — a test game landed on a real evening (owner: «создал в тестовой оболочке, а он на основном»)
 
+## 2026-11-03 — Live game text audit, first full run since #1166
+
+The audit reached the Live game again once the stale «Начать раздачу ролей» click was fixed. Findings — all fixed:
+- `src/components/crm/liveSeatGrid.css`: on a computer «+Ф / −Ф» stood 36–40 px right of the seat card's axis (the row «Выставить +Ф» was centred as a whole); the pair is now the centre column of the row. The fix sits inside `@layer seat-grid` — an unlayered `!important` loses to a layered one.
+- `src/components/game/virtualRoleDeal.css` (#1169): the deal window scrolled 18 px at 360×640 and 27 px at 1366×768; compact spacing on screens up to 800 px high.
+- `e2e/tests/live-game-text-audit.spec.mjs`: a 1 s card timer let the program open a random card before the test pressed «Отменить последнюю карту»; 3 s.
 ## 2026-11-03 — VIP rules: the same condition again
 
 - `src/server/services/vipProbabilityRulesService.ts` `saveVipProbabilityRule`: the same condition (player, kind, role, partner) could be added to the same player any number of times (owner: «начал одни и те же условия самому себе… спокойно даёт делать») — fixed: a second copy is refused with «Такое условие у игрока уже есть — измените его процент» (`src/tests/vipRuleDuplicates.test.ts`). Duplicates already saved stay until removed by hand.

@@ -46,7 +46,7 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
     ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
     : []).map((row: any) => String(row.participant_id)));
   const participants = await db.all<any>(
-    `SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.response_status,
+    `SELECT ep.id, ep.player_id, ep.amount_due, ep.extension_due, ep.amount_paid, ep.payment_status, ep.response_status,
             (SELECT COUNT(*) FROM evening_slot_registrations r
                JOIN evening_game_slots s ON s.id = r.slot_id
               WHERE r.participant_id = ep.id AND s.evening_id = ep.evening_id) AS games
@@ -73,11 +73,12 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
     const selected = Number(participant.games || 0);
     const planned = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
     const games = seated.has(String(participant.id)) ? Math.max(planned, 1) : planned;
-    const due = eveningSelectionPrice('NOVICE', Array.from({ length: games }, () => price), policy);
+    const due = eveningSelectionPrice('NOVICE', Array.from({ length: games }, () => price), policy)
+      + Math.max(0, Number(participant.extension_due || 0));
     const paid = Math.max(0, Number(participant.amount_paid || 0));
     const status = novicePaymentStatus(due, paid);
     if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;
-    await db.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [due, status, now, participant.id]);
+    await db.run('UPDATE evening_participants SET amount_due = ?, extension_total_due = CASE WHEN COALESCE(extension_due,0) > 0 THEN ? ELSE extension_total_due END, payment_status = ?, updated_at = ? WHERE id = ?', [due, due, status, now, participant.id]);
     changed += 1;
   }
   return changed;
@@ -94,7 +95,7 @@ async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: str
     ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
     : []).map((row: any) => String(row.participant_id)));
   const participants = await db.all<any>(
-    `SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.response_status, ep.attendance_status,
+    `SELECT ep.id, ep.player_id, ep.amount_due, ep.extension_due, ep.amount_paid, ep.payment_status, ep.response_status, ep.attendance_status,
             (SELECT COUNT(*) FROM evening_slot_registrations r
                JOIN evening_game_slots s ON s.id = r.slot_id
               WHERE r.participant_id = ep.id AND s.evening_id = ep.evening_id) AS games
@@ -128,10 +129,10 @@ async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: str
         || ['going', 'late'].includes(String(participant.response_status || ''))
         || String(participant.attendance_status || '') === 'attended';
     // Every player at a rating table pays, a playing organizer included (a full table is 5000 ₽).
-    const due = comes ? policy.rating_entry : 0;
+    const due = (comes ? policy.rating_entry : 0) + Math.max(0, Number(participant.extension_due || 0));
     const status = novicePaymentStatus(due, Math.max(0, Number(participant.amount_paid || 0)));
     if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;
-    await db.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [due, status, now, participant.id]);
+    await db.run('UPDATE evening_participants SET amount_due = ?, extension_total_due = CASE WHEN COALESCE(extension_due,0) > 0 THEN ? ELSE extension_total_due END, payment_status = ?, updated_at = ? WHERE id = ?', [due, due, status, now, participant.id]);
     changed += 1;
   }
   return changed;

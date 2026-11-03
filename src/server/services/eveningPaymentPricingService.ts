@@ -221,7 +221,7 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
     rows = await db.all<{ state_json: string }>(
       `SELECT d.state_json FROM game_virtual_role_deals d JOIN games g ON g.id = d.game_id
         WHERE g.evening_id = ? AND g.archived_at IS NULL`, [eveningId]);
-  } catch { return totals; } // the deal table does not exist before the first virtual deal
+  } catch { rows = []; } // pre-deal purchases must still be charged when no virtual-deal table exists
   for (const row of rows) {
     let state: any = null;
     try { state = JSON.parse(row.state_json); } catch { continue; }
@@ -229,6 +229,47 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
       const playerId = entry?.purchase?.playerId;
       const amount = Number(entry?.purchase?.amountRub);
       if (playerId && Number.isFinite(amount) && amount > 0) totals.set(String(playerId), (totals.get(String(playerId)) || 0) + amount);
+    }
+  }
+  // Pre-deal paid reservations accrue immediately, before any virtual-deck
+  // history exists. Fulfilled reservations are charged by their resulting
+  // deal history instead, so fulfilling a purchase never double-charges.
+  // Cancelled reservations contribute nothing.
+  if (await tableExists(db, 'game_role_reservations')) {
+    const reservations = await db.all<{ player_id: string; amount: number }>(
+      `SELECT player_id, COALESCE(SUM(amount_rub),0) AS amount
+         FROM game_role_reservations
+        WHERE evening_id = ? AND status IN ('reserved','deferred')
+        GROUP BY player_id`,
+      [eveningId],
+    );
+    for (const row of reservations) {
+      const id = String(row.player_id);
+      totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
+    }
+  }
+  // Paid music is charged once when ordered and remains charged after
+  // performance. An organizer cancellation removes it before closeout.
+  if (await tableExists(db, 'game_music_orders')) {
+    const songTotals = await db.all<{ player_id: string; amount: number }>(
+      `SELECT player_id, SUM(amount_rub) AS amount FROM game_music_orders
+        WHERE evening_id=? AND status IN ('ordered','played') GROUP BY player_id`,
+      [eveningId],
+    );
+    for (const row of songTotals) {
+      const id = String(row.player_id);
+      totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
+    }
+  }
+  if (await tableExists(db, 'game_seat_swap_orders')) {
+    const swaps = await db.all<{ player_id: string; amount: number }>(
+      `SELECT player_id, SUM(amount_rub) AS amount FROM game_seat_swap_orders
+        WHERE evening_id=? AND status IN ('ordered','applied') GROUP BY player_id`,
+      [eveningId],
+    );
+    for (const row of swaps) {
+      const id = String(row.player_id);
+      totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
     }
   }
   return totals;
@@ -378,7 +419,9 @@ export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, evenin
   const { completedGameParticipants } = await loadCompletedGames(db, eveningId, participants);
   const { shares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedOrganizerId, assignedJudgeId);
   // «Покупка роли» on a novice evening (owner, 2026-11-02: every format except rating and tournament) is charged as an add-on, like an extension.
-  const rolePurchases = rolePurchasesCharged(evening) ? await loadRolePurchases(db, eveningId) : new Map<string, number>();
+  // All evening formats may order music. Prepaid role reservations exist
+  // only on CASUAL/NOVICE; the common loader returns zero roles on RATING.
+  const rolePurchases = await loadRolePurchases(db, eveningId);
   const closed = evening.status === 'completed' || Boolean(evening.settled_at);
   const now = new Date().toISOString();
 

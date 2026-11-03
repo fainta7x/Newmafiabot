@@ -313,8 +313,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
         {!started ? <div className="space-y-3">
           <p className="text-sm leading-6">Карты уже перемешаны. Каждый игрок по очереди выбирает карту за {waitSeconds} с и видит свою роль.</p>
           {/* Owner, 2026-11-03: a bought role is marked before the deal starts. */}
-          <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>
-          {buying && (
+          {!serverGameId && <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>}
+          {!serverGameId && buying && (
             <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
               <div className="deal-seats" aria-label="Кто покупает">
                 {orderedSeats.map((player) => seatTile(player, { disabled: assigned.has(player.seat_number) || busy, onClick: () => setSeat(player.seat_number) }))}

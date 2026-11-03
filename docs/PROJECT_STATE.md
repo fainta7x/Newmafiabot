@@ -1,3 +1,18 @@
+## 2026-11-03 — expanded preview fixes before the combined release
+
+Actual artifacts show stale physical-deal button wording and an arrived participant searched under the retained expected filter. Corrected those two test actions, keeping every behavior/layout assertion and detector unchanged. #1172 was merged as 4c7524f after exact-head non-browser CI and the all-app layout audit passed; expanded preview regressions are addressed in #1160. Runtime GET still reports build 2e500c7, so deployment of the new VIP mechanism is not confirmed.
+
+## 2026-11-03 — общий кандидат #1160 перед вечером
+
+По просьбе владельца завершить остальные PR в #1160 сведены heads #1172 a6b8924 (окончательные VIP-уточнения), #1173 9b39809 (обновление поста/защита первого текста) и #1137 222a5d2 (зависимости с текущими исправлениями main). Исходные ветки сохранены в родителях коммита, чтобы merge интеграции сохранил их историю. Покупки + VIP проверены совместно: платная роль приоритетна, другие оплаченные карты недоступны для VIP, повторное открытие оплаченной раздачи не сбрасывает историю/долг. После синхронизации с main устранена устаревшая проверка open-evening; прежняя ошибка таймера документа уже исправлена в main. 139 целевых тестов в 16 файлах прошли на обновлённых зависимостях. Нужны exact-head CI, аудит интерфейса и merge; выкладка отдельно подтверждается runtime build.sha. Никаких боевых публикаций или изменений данных не выполнялось.
+
+## 2026-11-03 — #1160 integrated with #1172 and current main
+
+Retained the current one-tap card/stream UI. Paid role reservations are applied first, then VIP can use only roles with an unreserved copy. A buyer cannot spend VIP quota on their paid role; confirm/undo/reset preserve payment/reservation semantics, and reopening a paid deal is idempotent. The obsolete server buy control inside the deal is hidden; order role before opening the deck through the existing purchase panel. The open-evening guard removes the obsolete auth exception because auth now uses the canonical statuses. Focused purchase/deal/privacy/guard tests and typecheck/lint run locally; exact-head CI still required. No production data read or write.
+
+## 2026-11-03 — платные услуги игры (владелец: завершить, слить и проверить Amvera)
+
+- PR #1160: скрытая покупка роли 150 ₽ (CASUAL/NOVICE), музыка 50 ₽ (вечера CASUAL/NOVICE/RATING), обмен местами 50 ₽ (CASUAL/NOVICE). Отдельные турниры исключены владельцем из данного релиза. Покупка в магазине/ЛК, судейская CRM, долг сразу, отмена снимает долг, при закрытии неисполненные услуги снимаются. Автоматические уведомления о покупке не введены, чтобы организатор-игрок не получал чужую информацию. До слияния необходимо дождаться CI точного SHA. После слияния проверить /api/health/runtime build.sha.
 ## 2026-11-03 — VIP: окончательные уточнения владельца, реализация разрешена
 
 Владелец завершил обсуждение и попросил реализовать/смёржить перед вечером. «Красная карта» в настройке означает ТОЛЬКО мирного жителя, не шерифа и не красную команду. Одноцвет/разноцвет сравнивает команды, поэтому для красной команды допустим и шериф.
@@ -13,6 +28,9 @@ The owner approved activation and merging after green checks: the old Chagin 100
 The old player ID is used only for the one-time settings migration, not the draw. Owner edits/deletion survive restarts. Old CHECK schema upgrades transactionally and retains prior rules. Settings routes require the club owner; other organizers/judges/players neither see the blocks nor read/write the API. Assigned judges can perform their own game's ordinary deal actions with no VIP metadata in responses. Rating/tournament and local training dealing are unchanged.
 
 Verification: 51 focused integration/model/migration/architecture tests, 19 smoke tests, TypeScript, lint, dependency guard, project-context check and release-safety audit pass locally; exact-head CI still required. Local Chromium launch is blocked by the environment (`socket() EPERM`); the browser could not reach the local preview. Five-size UI audit and screenshots are in `vip-settings-preview.spec.mjs`, registered in UI preview CI. No visual approval or production-data read claimed. Next — assistant: complete exact-head CI and merge if green, then check deployment separately.
+## 2026-11-03 — #1173 merged-base verification
+
+Merged current main (#1170) into the Today-post candidate and retained both audit entries. Fixed explicit text claiming before async draft generation, so concurrent clicks cannot let Second replace First. The fixture sets a Telegram bot username and does not perform real getMe requests. All 12 Today-post tests pass locally. Exact-head CI pending; no production posts were sent.
 
 ## 2026-11-03 — #1173 merged-base verification
 

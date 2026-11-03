@@ -1,6 +1,7 @@
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
+import PlayerRolePurchasesShop from './PlayerRolePurchasesShop.tsx';
 import { getJson } from '../../lib/requestJson.ts';
 import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
@@ -309,6 +310,7 @@ export default function PlayerEconomy({ onBalanceChange, view }: { onBalanceChan
       {error && <p className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100/70">{error}</p>}
       {success && <p className="rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.06] px-3 py-3 text-sm text-emerald-100/75">{success}</p>}
 
+      {scope === 'shop' && <PlayerRolePurchasesShop />}
       {scope === 'shop' ? (
         <Section title="Доступные товары">
           {data?.shop_items.length ? (

@@ -18,6 +18,33 @@ export async function ensureVipProbabilityRulesSchema(db: DatabaseWrapper) {
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_vip_probability_player ON vip_probability_rules(player_id);`);
+  // Earlier releases allowed only role/same_color/different_color in the
+  // SQLite CHECK. SQLite cannot ALTER a CHECK, so migrate the existing
+  // table once, preserving the owner's saved rules and timestamps.
+  const schema = await db.get<{sql:string}>(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='vip_probability_rules'",
+  );
+  if (schema?.sql && !schema.sql.includes("'red_color'")) {
+    await db.exec(`CREATE TABLE vip_probability_rules_next (
+      id TEXT PRIMARY KEY,
+      player_id TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('role','same_color','different_color','red_color')),
+      role TEXT,
+      other_player_id TEXT,
+      percent INTEGER NOT NULL CHECK(percent BETWEEN 0 AND 100),
+      enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+      personal_limit INTEGER,
+      limit_scope TEXT NOT NULL DEFAULT 'evening' CHECK(limit_scope IN ('game','evening')),
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    INSERT INTO vip_probability_rules_next
+      (id,player_id,kind,role,other_player_id,percent,enabled,personal_limit,limit_scope,created_at,updated_at)
+    SELECT id,player_id,kind,role,other_player_id,percent,enabled,personal_limit,
+      COALESCE(limit_scope,'evening'),created_at,updated_at FROM vip_probability_rules;
+    DROP TABLE vip_probability_rules;
+    ALTER TABLE vip_probability_rules_next RENAME TO vip_probability_rules;
+    CREATE INDEX IF NOT EXISTS idx_vip_probability_player ON vip_probability_rules(player_id);`);
+  }
   const columns = await db.all<{ name: string }>('PRAGMA table_info(vip_probability_rules)');
   if (!columns.some(row => row.name === 'limit_scope')) {
     await db.exec("ALTER TABLE vip_probability_rules ADD COLUMN limit_scope TEXT NOT NULL DEFAULT 'evening'");

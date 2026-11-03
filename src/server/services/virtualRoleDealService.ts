@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { exchangeClosedRolesForDraw } from '../../lib/closedDeckRoleExchange.ts';
+import { protectReservedRolesForDraw } from '../../lib/protectReservedRolesForDraw.ts';
 import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
@@ -54,6 +55,20 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   const target = eligible ? raw.filter((row) => String(row.player_id || '') === TARGET_PLAYER_ID) : [];
   const playerBySeat = new Map<number, string>(raw.filter((row) => row.player_id).map((row) => [Number(row.seat_number), String(row.player_id)]));
   return { eveningId: String(game.evening_id), format: normalizeEveningFormat(game.format), seats, playerBySeat, targetSeat: target.length === 1 ? Number(target[0].seat_number) : null };
+}
+
+/** Active pre-deal purchases are private server-only state. */
+async function reservedRolesBySeat(db: DatabaseWrapper, gameId: number, playerBySeat: Map<number, string>): Promise<Map<number, GameRole>> {
+  let rows: Array<{ player_id: string; role: GameRole }> = [];
+  try {
+    rows = await db.all<{ player_id: string; role: GameRole }>(
+      "SELECT player_id, role FROM game_role_reservations WHERE game_id=? AND status='reserved'",
+      [gameId],
+    );
+  } catch { return new Map(); } // schema absent on older installations
+  const roleByPlayer = new Map(rows.map((row) => [row.player_id, row.role]));
+  return new Map([...playerBySeat].flatMap(([seat, playerId]) =>
+    roleByPlayer.has(playerId) ? [[seat, roleByPlayer.get(playerId)!] as const] : []));
 }
 
 function shuffledDeck(size: number): Card[] {
@@ -114,11 +129,17 @@ export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, sea
     if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
     if (!state.deck.some((card) => card.id === cardId)) reject('Карта недоступна');
     const previousDeck = state.deck;
-    state.deck = exchangeClosedRolesForDraw(
-      state.deck, cardId, context.targetSeat === seat,
+    const reserved = await reservedRolesBySeat(tx, gameId, context.playerBySeat);
+    // Existing closed-card preference is applied before the paid guarantee.
+    // Paid reservations always take precedence when the two conflict.
+    const preferred = exchangeClosedRolesForDraw(
+      state.deck, cardId, context.targetSeat === seat && !reserved.has(seat),
       context.targetSeat !== null && context.targetSeat !== seat
         && !state.history.some((entry) => entry.seat === context.targetSeat),
     );
+    state.deck = reserved.size
+      ? protectReservedRolesForDraw(preferred, cardId, seat, reserved)
+      : preferred;
     const chosen = state.deck.find((card) => card.id === cardId)!;
     state.pending = { seat, cardId, role: chosen.role, previousDeck };
     state.version += 1;
@@ -127,7 +148,7 @@ export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, sea
   });
 }
 
-export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
+async function confirmVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     await gameContext(tx, gameId);
@@ -135,13 +156,36 @@ export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, se
     versionMatches(state, version);
     if (!state.pending || state.pending.seat !== seat || state.pending.cardId !== cardId) return reject('Открытая карта не совпадает');
     const pending = state.pending;
-    state.history.push({ ...pending });
+    const context = await gameContext(tx, gameId);
+    const playerId = context.playerBySeat.get(seat);
+    let purchase: Purchase | null = null;
+    if (playerId) {
+      const active = await tx.get<{ id: string; role: GameRole; amount_rub: number }>(
+        "SELECT id, role, amount_rub FROM game_role_reservations WHERE game_id=? AND player_id=? AND status='reserved' LIMIT 1",
+        [gameId, playerId],
+      ).catch(() => null);
+      if (active) {
+        if (active.role !== pending.role) reject('Нарушена бронь роли: раздача не может быть подтверждена');
+        purchase = { playerId, amountRub: Number(active.amount_rub) };
+        await tx.run(
+          "UPDATE game_role_reservations SET status='fulfilled', updated_at=? WHERE id=?",
+          [new Date().toISOString(), active.id],
+        );
+      }
+    }
+    state.history.push({ ...pending, purchase });
     state.deck = state.deck.filter((card) => card.id !== cardId);
     state.pending = null;
     state.version += 1;
     await writeState(tx, gameId, state);
     return visible(state);
   });
+}
+
+export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
+  const result = await confirmVirtualRoleInner(db, gameId, seat, cardId, version);
+  await syncEveningPayments(db, gameId);
+  return result;
 }
 
 /** «Покупка роли»: the judge gives the seat a role the player bought; one card of that role leaves the deck for this seat. */
@@ -156,8 +200,11 @@ async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: nu
     if (!['citizen', 'sheriff', 'mafia', 'don'].includes(role)) reject('Неизвестная роль', 400);
     if (state.pending) reject('Сначала подтвердите открытую карту');
     if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
-    const card = state.deck.find((entry) => entry.role === role);
-    if (!card) return reject('Такой роли уже нет в колоде');
+    const reserved = await reservedRolesBySeat(tx, gameId, context.playerBySeat);
+    const protectedCount = [...reserved.values()].filter((reservedRole) => reservedRole === role).length;
+    const available = state.deck.filter((entry) => entry.role === role);
+    if (available.length <= protectedCount) return reject('Роль недоступна для покупки в текущей раздаче');
+    const card = available[0];
     const purchase: Purchase = { playerId: context.playerBySeat.get(seat) || null, amountRub: ROLE_PURCHASE_PRICE_RUB };
     state.history.push({ seat, cardId: card.id, role, previousDeck: state.deck, purchase });
     state.deck = state.deck.filter((entry) => entry.id !== card.id);

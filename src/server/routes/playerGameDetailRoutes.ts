@@ -10,6 +10,7 @@ import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from '../services/pl
 import { eloTableOfEvent, seatEloLines, seatEloOfGame } from '../services/clubResultData.ts';
 import { gameContribution } from '../../lib/playerContribution.ts';
 import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { getGame } from '../services/gameService.ts';
 
 const router = Router();
 
@@ -364,7 +365,8 @@ router.get('/games/:gameKey', async (req, res) => {
        WHERE tg.id = ? AND tg.status = 'completed'
        LIMIT 1
     `, [parsed.sourceId]);
-    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    // «completed» is the «Игра» layer's rule (the game and its protocol); the page shows only played games.
+    if (!game || (await getGame(db, `tournament:${parsed.sourceId}`))?.status !== 'completed') return res.status(404).json({ error: 'Игра не найдена' });
 
     const winnerTeam = normalizeWinnerTeam(game.winner_team);
     const rows = await db.all(`

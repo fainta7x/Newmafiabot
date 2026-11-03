@@ -1065,3 +1065,47 @@ body.live-broadcast-document #root {
 .live-broadcast-player.exit-voted::after { background: repeating-linear-gradient(90deg, transparent 0 calc(44 * var(--u)), rgba(190,198,212,.75) calc(44 * var(--u)) calc(46 * var(--u)), transparent calc(46 * var(--u)) calc(48 * var(--u))); }
 .live-broadcast-player.exit-killed .live-broadcast-out-ribbon,
 .live-broadcast-player.exit-removed .live-broadcast-out-ribbon { display: none; }
+
+/* ---------- The role deal (owner, 2026-11-03): the chooser is lit, the chosen card turns over to the role ---------- */
+/* A seat shows its role as soon as it got its card; a seat still waiting shows none. */
+.live-broadcast-canvas.phase-deal .live-broadcast-player.is-unknown .live-broadcast-emblem,
+.live-broadcast-canvas.phase-deal .live-broadcast-player.is-unknown .live-broadcast-role { visibility: hidden; }
+/* No timer runs while the cards are dealt: the timer box stays out of the picture. */
+.live-broadcast-canvas.phase-deal .live-broadcast-timer { display: none; }
+.live-broadcast-deal {
+  /* Owner, 2026-11-03: at the bottom above the players' cards, centred, the chooser's caption above the cards. */
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--bottom-space) + 6 * var(--u0));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(36 * var(--u0));
+}
+.live-broadcast-deal-who {
+  display: flex;
+  align-items: baseline;
+  gap: calc(14 * var(--u0));
+  white-space: nowrap;
+  padding: calc(8 * var(--u0)) calc(22 * var(--u0));
+  border-radius: calc(14 * var(--u0));
+  background: var(--glass-strong);
+  border: 1px solid rgba(232, 182, 90, .5);
+}
+.live-broadcast-deal-who span { font-size: calc(16 * var(--u0)); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.live-broadcast-deal-who strong { font-size: calc(30 * var(--u0)); font-weight: 800; color: #ffe3a8; }
+.live-broadcast-deal-cards { display: grid; grid-auto-flow: column; grid-auto-columns: calc(88 * var(--u0)); gap: calc(10 * var(--u0)); perspective: calc(1400 * var(--u0)); }
+.live-broadcast-deal-card { position: relative; aspect-ratio: 63 / 88; transition: opacity .4s ease, transform .4s ease; }
+.live-broadcast-deal-card.is-open { transform: scale(1.22); transform-origin: 50% 100%; z-index: 1; }
+.live-broadcast-deal-card-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2, .7, .2, 1); }
+.live-broadcast-deal-card.is-open .live-broadcast-deal-card-inner { transform: rotateY(180deg); }
+.live-broadcast-deal-back,
+.live-broadcast-deal-front { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 6% / 4.3%; overflow: hidden; }
+.live-broadcast-deal-back { background: #0c0c0e; border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 calc(10 * var(--u0)) calc(24 * var(--u0)) rgba(0, 0, 0, .6); }
+.live-broadcast-deal-back::after { content: ''; position: absolute; inset: 7%; border-radius: 3% / 2.2%; border: 1px solid rgba(255, 255, 255, .1); }
+.live-broadcast-deal-back i { position: absolute; inset: 14% 9%; background: url('/assets/deal/club-logo.webp') center / contain no-repeat; -webkit-mask: radial-gradient(ellipse 58% 60% at 50% 50%, #000 62%, transparent 100%); mask: radial-gradient(ellipse 58% 60% at 50% 50%, #000 62%, transparent 100%); }
+.live-broadcast-deal-back span { position: absolute; left: 9%; top: 3%; z-index: 1; font-size: calc(15 * var(--u0)); font-weight: 700; color: rgba(255, 255, 255, .75); }
+.live-broadcast-deal-front { transform: rotateY(180deg); box-shadow: 0 0 0 calc(3 * var(--u0)) var(--gold), 0 0 calc(40 * var(--u0)) rgba(232, 182, 90, .55); }
+.live-broadcast-deal-front [data-role-card-face] { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; }
+.live-broadcast-deal-front [data-role-card-face] > span:last-child { bottom: 8%; font-size: calc(15 * var(--u0)); }

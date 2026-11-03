@@ -14,6 +14,7 @@ import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
+import { getGame } from './gameService.ts';
 
 // Data for the pictures the bot posts to the club chat (owner, 2026-10-01): the blank after each
 // game and the evening summary at closeout. Points exist only on rating and tournament evenings.
@@ -433,7 +434,8 @@ export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGam
  LEFT JOIN players j ON j.id = g.judge_player_id
      WHERE g.id = ? LIMIT 1
   `, [tournamentGameId]);
-  if (!game || game.status !== 'completed') return null;
+  // «completed» is the «Игра» layer's rule: the game and its protocol are completed.
+  if (!game || (await getGame(db, `tournament:${tournamentGameId}`))?.status !== 'completed') return null;
   const protocol = await db.get<any>("SELECT * FROM tournament_game_protocols WHERE game_id = ? AND status = 'completed' LIMIT 1", [tournamentGameId]);
   if (!protocol) return null;
 

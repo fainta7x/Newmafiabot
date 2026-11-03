@@ -127,11 +127,10 @@ export default function ClubGameSetupPhase({
           disabled: false,
           onClick: () => setConfirmedRosterSignature(rosterSignature),
         }
-      : {
-          label: 'Начать раздачу ролей →',
-          disabled: false,
-          onClick: openRoleDeal,
-        };
+      // Owner, 2026-11-03: the virtual deal is the main way and stands on top; the physical deal is the second choice below.
+      : trainingRoles
+        ? { label: 'Начать раздачу ролей →', disabled: false, onClick: openRoleDeal }
+        : { label: 'Раздать виртуальные карты', disabled: false, onClick: openVirtualDeal };
 
   return (
     <div className="space-y-2.5 pb-2">
@@ -205,7 +204,7 @@ export default function ClubGameSetupPhase({
       {speechRecordingControl}
 
       {rosterConfirmed && !trainingRoles && !showPhysicalDeal && !showVirtualDeal && (
-        <button type="button" data-testid="club-game-start-virtual-deal" onClick={openVirtualDeal} className="min-h-[52px] w-full rounded-[16px] border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white">Раздать виртуальные карты</button>
+        <button type="button" data-testid="club-game-start-physical-deal" onClick={openRoleDeal} className="min-h-[52px] w-full rounded-[16px] border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] font-semibold text-white/60">Физическая раздача</button>
       )}
       {virtualDealError && <p role="alert" className="text-xs text-rose-300">{virtualDealError}</p>}
       {showVirtualDeal && rosterConfirmed && !trainingRoles && (

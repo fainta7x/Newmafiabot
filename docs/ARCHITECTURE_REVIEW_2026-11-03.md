@@ -87,14 +87,24 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `playerProfileService.ts` | a player's games and profile | ✅ moved (`listPlayerGameResults`: one seat-result type for every format; club games picked by the player in SQLite instead of parsing every protocol) |
 | `playerSelfCoreRoutes.ts` | the cabinet's archive of club games | ✅ moved (`listRecentCompletedGames`) |
 | `ratingRoutes.ts` | games played per player in the rating | ✅ moved (`COMPLETED_GAME_PLAYERS_SQL`, one grouped count instead of a sub-query per player; games of a cancelled evening are no longer counted, as everywhere else) |
-| `playerGameDetailRoutes.ts` | one game's page | needs the protocol part (below) |
-| `eloRatingService.ts`, `playerEloHistoryService.ts`, `metricRatingService.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, metrics, statistics | needs the protocol part (below) |
-| `playerAchievementStoriesService.ts` | achievement stories | next |
-| `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast | next |
-| `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | next |
+| `playerGameDetailRoutes.ts` | one game's page | ✅ «completed» from the layer; the page's protocol details (votings, shots, chronology) are read per storage until the protocol storage itself is unified (step 2 of the plan, with the owner's «да» for the data move) |
+| `gameStatisticsService.ts` | the layer's protocol reader (`loadStatGames` → `StatGame`) | ✅ is the protocol part: now also the first-killed / zero-round / best-move players (`StatGame.highlights`) |
+| `metricRatingService.ts` | metric ratings | ✅ moved (highlights from `StatGame`, its own second parse of every protocol removed) |
+| `clubGameAnalyticsService.ts` | completed-game snapshots of seasons, connections, community | ✅ moved (`listCompletedGames`; a tournament seat shows the player's current nickname, as before) |
+| `clubAnalyticsService.ts` | games judged per staff member in a period | ✅ moved (`listCompletedGames`; a tournament game counts with its protocol completed, owner rule 2026-10-23) |
+| `eloRatingService.ts`, `playerEloHistoryService.ts` | Elo | next |
+| `playerAchievementStoriesService.ts` | achievement stories | ✅ moved (`listGamesJudgedBy`, `listEventGames`) |
+| `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast, «Заставка» | ✅ moved (`getGame`, `listEventGames`); a seat shows the club nickname, the tournament name only for a guest (owner rule 2026-10-23, now the layer's) |
+| `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | ✅ «completed» from the layer: as light SQL (`clubGameCompletedSql`, `tournamentGameCompletedSql`) in the one-minute worker, which must not parse protocols (AR05), and `getGame` for the tournament blank. The pictures themselves stay per format by design (club blank, tournament blank). |
 
 The layer has the seat result (`GameSeatResult`, the same fields for every format) and owns three rules that had been written several times (all as achievements already counted): a tournament game is **completed** when the game and its protocol are completed; the **judge** of a tournament game is the game's judge, else the tournament's; a game of a **cancelled evening** is cancelled even with a protocol.
 
 - **F1 — decided by the owner 2026-11-03** (BUSINESS_RULES «Judge of a tournament game»): the tournament's judge conducts every game of a one-table tournament; with two tables the judge is bound to the table. Was: the judge-access check (`auth.ts`) and the judge's game list (`playerJudgingRoutes.ts`) take only the game's own judge, while the counting rule above also takes the tournament's judge. So in a managed tournament evening whose judge is set on the tournament, the judge's games are counted for them but not listed in «Мои игры» and cannot be opened with judge access. Should the tournament's judge be able to conduct its games?
 
 **Next part of the layer — «протокол игры».** The remaining files read the protocol's contents (votings, shots, chronology, best moves, end reason), stored inside `games.protocol_text` for a game of an evening and in `tournament_game_protocols` columns for a tournament game. `gameStatisticsService.loadStatGames` already reads votings, chronology and roles of both into one `StatGame`; it becomes the layer's protocol reader (with shots and markers added), and Elo, metrics, statistics, the game page, the broadcast and the result pictures move onto it.
+
+## 6. «Событие» (entity 1) — step 1 started 2026-11-03
+
+- One type `src/shared/event.ts` (key `evening:` / `tournament:` / `custom:` / `poker:`, one status draft → published → running → completed / cancelled) and one reader `src/server/services/eventService.ts` (`listEvents`) over the four event tables.
+- First consumer: the player's calendar (`playerEventCalendarRoutes.ts`) — which events a month shows comes from the layer; each kind's own details (slots, registrations, places) stay with the kind.
+- Next: announcements, reminders, cancellation and the organizer's calendar, one per PR.

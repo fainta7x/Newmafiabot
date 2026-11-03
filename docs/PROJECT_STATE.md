@@ -1,6 +1,32 @@
+## 2026-11-03 — общий кандидат #1160 перед вечером
+
+По просьбе владельца завершить остальные PR в #1160 сведены heads #1172 a6b8924 (окончательные VIP-уточнения), #1173 9b39809 (обновление поста/защита первого текста) и #1137 222a5d2 (зависимости с текущими исправлениями main). Исходные ветки сохранены в родителях коммита, чтобы merge интеграции сохранил их историю. Покупки + VIP проверены совместно: платная роль приоритетна, другие оплаченные карты недоступны для VIP, повторное открытие оплаченной раздачи не сбрасывает историю/долг. После синхронизации с main устранена устаревшая проверка open-evening; прежняя ошибка таймера документа уже исправлена в main. 139 целевых тестов в 16 файлах прошли на обновлённых зависимостях. Нужны exact-head CI, аудит интерфейса и merge; выкладка отдельно подтверждается runtime build.sha. Никаких боевых публикаций или изменений данных не выполнялось.
+
+## 2026-11-03 — #1160 integrated with #1172 and current main
+
+Retained the current one-tap card/stream UI. Paid role reservations are applied first, then VIP can use only roles with an unreserved copy. A buyer cannot spend VIP quota on their paid role; confirm/undo/reset preserve payment/reservation semantics, and reopening a paid deal is idempotent. The obsolete server buy control inside the deal is hidden; order role before opening the deck through the existing purchase panel. The open-evening guard removes the obsolete auth exception because auth now uses the canonical statuses. Focused purchase/deal/privacy/guard tests and typecheck/lint run locally; exact-head CI still required. No production data read or write.
+
 ## 2026-11-03 — платные услуги игры (владелец: завершить, слить и проверить Amvera)
 
 - PR #1160: скрытая покупка роли 150 ₽ (CASUAL/NOVICE), музыка 50 ₽ (вечера CASUAL/NOVICE/RATING), обмен местами 50 ₽ (CASUAL/NOVICE). Отдельные турниры исключены владельцем из данного релиза. Покупка в магазине/ЛК, судейская CRM, долг сразу, отмена снимает долг, при закрытии неисполненные услуги снимаются. Автоматические уведомления о покупке не введены, чтобы организатор-игрок не получал чужую информацию. До слияния необходимо дождаться CI точного SHA. После слияния проверить /api/health/runtime build.sha.
+## 2026-11-03 — VIP: окончательные уточнения владельца, реализация разрешена
+
+Владелец завершил обсуждение и попросил реализовать/смёржить перед вечером. «Красная карта» в настройке означает ТОЛЬКО мирного жителя, не шерифа и не красную команду. Одноцвет/разноцвет сравнивает команды, поэтому для красной команды допустим и шериф.
+
+`vipDrawPlanner.ts`: на каждом открытии независимо проверяются применимые проценты; затем одно из сработавших доступных условий выбирается равновероятно, включая совместимые. Никакой предварительный выбор одного бонуса на всю игру не делается. Для ожидающего игрока проверка защиты нужной роли повторяется при каждой попытке забрать её (80% — обмен с доступной другой закрытой картой, 20% — карта уходит). Для пары условие становится определённым после первой открытой карты; работает для второго игрока в любом порядке, а также при попытках других забрать нужный цвет до его хода. Процент и квота принадлежат владельцу условия, не второму игроку пары. Открытые роли и оплаченные карты не меняются. Один проход, одна жеребьёвка, максимум один обмен, без повторного каскада проверки карты замены. Донор выбирается случайно среди допустимых карт.
+
+Выполнимые условия 100% ограничивают допустимый результат: последнего мирного нельзя отдать другому, а шериф не заменяет мирного. Невозможные/взаимоисключающие гарантии не создают лишних ролей; купленная роль имеет приоритет. Рейтинг/турниры исключены сервером. Private quota/retry/undo/reset остаются в существующем состоянии раздачи. Кандидат требует новых exact-head проверок и merge; выкладка пока не подтверждена.
+
+## 2026-11-03 — PR #1172: one private VIP draw mechanism (owner: continue and finish)
+
+The owner approved activation and merging after green checks: the old Chagin 100% red guarantee must be an editable rule in the same private settings. Candidate, **not merged/deployed**: `vipLiveDrawService.ts` calls the shared closed-deck model for CASUAL/NOVICE only; quota is one player / distinct successful games / evening. Private success markers live in the existing deal state; reveal + capacity hold + confirm/undo/reset are serialized in the SQLite transaction. A pending reveal holds capacity against simultaneous other games but is not a confirmed success. Natural matching cards, failed chances and purchases do not spend quota. A configured eligible 100% red rule retains the legacy last-red protection; its real protection exchange credits its beneficiary once per game. Paid cards leave the deck first; unavailable roles are never fabricated. Changed roster rejects continuation until a fresh deal; reopened deals advance the version rather than reusing stale versions.
+
+The old player ID is used only for the one-time settings migration, not the draw. Owner edits/deletion survive restarts. Old CHECK schema upgrades transactionally and retains prior rules. Settings routes require the club owner; other organizers/judges/players neither see the blocks nor read/write the API. Assigned judges can perform their own game's ordinary deal actions with no VIP metadata in responses. Rating/tournament and local training dealing are unchanged.
+
+Verification: 51 focused integration/model/migration/architecture tests, 19 smoke tests, TypeScript, lint, dependency guard, project-context check and release-safety audit pass locally; exact-head CI still required. Local Chromium launch is blocked by the environment (`socket() EPERM`); the browser could not reach the local preview. Five-size UI audit and screenshots are in `vip-settings-preview.spec.mjs`, registered in UI preview CI. No visual approval or production-data read claimed. Next — assistant: complete exact-head CI and merge if green, then check deployment separately.
+## 2026-11-03 — #1173 merged-base verification
+
+Merged current main (#1170) into the Today-post candidate and retained both audit entries. Fixed explicit text claiming before async draft generation, so concurrent clicks cannot let Second replace First. The fixture sets a Telegram bot username and does not perform real getMe requests. All 12 Today-post tests pass locally. Exact-head CI pending; no production posts were sent.
 
 ## 2026-11-03 — owner: one architecture for the whole app (waiting for the owner's «да»)
 
@@ -1212,6 +1238,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Трансляция: раздача ролей видна на стриме — внизу над карточками игроков подсвечен выбирающий игрок, выбранная карта переворачивается и показывает роль, а полученная роль сразу появляется на карточке игрока.
 - Живая игра, подсчёт голосов: кандидат выделен градиентом и меткой «ПРОТИВ», голосовавшие показывают большую цифру за кого проголосовали, окно «Цифрами» открывается само и сворачивается; у десяти мест теперь заметно разные цвета.
 - Живая игра и трансляция: выбывшие игроки тусклые, но видно, как они выбыли: «Убит» — красный прицел, «Заголосован» — тюремная решётка, «Удалён» — знак «запрещено».
 

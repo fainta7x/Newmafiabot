@@ -1,6 +1,6 @@
 import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
-import { completedClubGameDate, isCompletedClubGamePayload } from './completedClubGame.ts';
-import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { listCompletedGames } from './gameService.ts';
 export type AnalyticsTeam = 'red' | 'black';
 
 export type AnalyticsPlayerResult = {
@@ -25,11 +25,6 @@ export type CompletedGameSnapshot = {
   players: AnalyticsPlayerResult[];
   /** The legacy projection omitted an unidentifiable or unclassified original seat. */
   has_unresolved_players?: boolean;
-};
-
-const safeJsonParse = (value: unknown): any => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try { return JSON.parse(value); } catch { return null; }
 };
 
 const validDate = (value: unknown): { iso: string; ms: number } | null => {
@@ -61,120 +56,42 @@ export function loadCompletedGameSnapshots(db: any): Promise<CompletedGameSnapsh
   return promise.then((rows) => rows.slice());
 }
 
+/** Completed games of every format through the one «Игра» layer (docs/ARCHITECTURE_REVIEW_2026-11-03.md). */
 async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGameSnapshot[]> {
-  const [clubRows, tournamentRows] = await Promise.all([
-    db.all(`
-      SELECT g.id, g.evening_id, g.global_game_number, g.game_date, g.created_at,
-             g.winner_team, g.protocol_text,
-             e.title AS evening_title, e.starts_at AS evening_date
-        FROM games g
-   LEFT JOIN game_evenings e ON e.id = g.evening_id
-       WHERE g.evening_id IS NOT NULL
-         AND g.archived_at IS NULL
-         AND g.protocol_text IS NOT NULL
-         AND COALESCE(e.status, '') <> 'cancelled'
-    `),
-    db.all(`
-      SELECT t.id AS tournament_id, tg.id AS game_id, tg.game_number, tg.winner_team, tg.completed_at,
-             t.title AS tournament_title, t.date AS tournament_date,
-             tp.player_id, p.nickname, tgs.seat_number, tgs.role
-        FROM tournament_game_seats tgs
-        JOIN tournament_participants tp ON tp.id = tgs.participant_id
-        JOIN tournament_games tg ON tg.id = tgs.game_id
-        JOIN tournaments t ON t.id = tg.tournament_id
-   LEFT JOIN players p ON p.id = tp.player_id
-       WHERE tg.status = 'completed'
-         -- Owner, 2026-10-23: a tournament game counts when the game and its protocol are both completed.
-         AND EXISTS (SELECT 1 FROM tournament_game_protocols tgp WHERE tgp.game_id = tg.id AND tgp.status = 'completed')
-    `),
-  ]);
-
   const snapshots: CompletedGameSnapshot[] = [];
-
-  for (const row of clubRows) {
-    const payload = safeJsonParse(row.protocol_text);
-    if (!isCompletedClubGamePayload(payload)) continue;
-    const winner = normalizeWinnerTeam(payload.protocol?.winner_team || row.winner_team);
-    const eventDate = validDate(row.evening_date || row.game_date || row.created_at);
-    // A game can be saved before it ends. Season placements must follow the completed-at date,
-    // matching detailed statistics, not the creation date of its draft record.
-    const playedDate = validDate(completedClubGameDate(payload, row)) || eventDate;
-    const eventId = String(row.evening_id || '').trim();
+  for (const game of await listCompletedGames(db)) {
+    const winner = game.winner;
+    const eventDate = validDate(game.eventDate || game.date);
+    const playedDate = validDate(game.date) || eventDate;
+    const eventId = String(game.eventId || '').trim();
     if (!winner || !eventDate || !playedDate || !eventId) continue;
-
-    const players = payload.player_results.flatMap((result: any) => {
-      const playerId = String(result.player_id || '').trim();
-      const team = gameTeamOfRole(result.role);
+    const players = game.seats.flatMap((seat) => {
+      const playerId = String(seat.playerId || '').trim();
+      const team = gameTeamOfRole(seat.role);
       if (!playerId || !team) return [];
       return [{
         player_id: playerId,
-        nickname: String(result.display_name || 'Игрок'),
-        role: normalizeGameRole(result.role),
+        nickname: String(seat.nickname || 'Игрок'),
+        role: normalizeGameRole(seat.role),
         team,
         won: team === winner,
-        seat_number: Number(result.seat_number || 0),
+        seat_number: Number(seat.seat || 0),
       } satisfies AnalyticsPlayerResult];
     });
     if (!players.length) continue;
-
     snapshots.push({
-      id: `club:${row.id}`,
-      source: 'club',
+      id: game.key,
+      source: game.storage,
       event_id: eventId,
       date: eventDate.iso,
       dateMs: playedDate.ms,
       played_at: playedDate.iso,
-      title: String(row.evening_title || 'Клубный вечер'),
-      game_number: Number(row.global_game_number || 0),
+      title: String(game.eventTitle || (game.storage === 'club' ? 'Клубный вечер' : 'Турнир')),
+      game_number: Number(game.number || 0),
       winner_team: winner,
-      has_unresolved_players: players.length !== payload.player_results.length,
+      has_unresolved_players: players.length !== game.seats.length,
       players,
-    });
-  }
-
-  const tournamentByGame = new Map<string, any[]>();
-  for (const row of tournamentRows) {
-    const key = String(row.game_id);
-    const bucket = tournamentByGame.get(key) || [];
-    bucket.push(row);
-    tournamentByGame.set(key, bucket);
-  }
-
-  for (const [gameId, rows] of tournamentByGame.entries()) {
-    const head = rows[0];
-    const winner = normalizeWinnerTeam(head?.winner_team);
-    const eventDate = validDate(head?.tournament_date || head?.completed_at);
-    const playedDate = validDate(head?.completed_at || head?.tournament_date) || eventDate;
-    const eventId = String(head?.tournament_id || '').trim();
-    if (!winner || !eventDate || !playedDate || !eventId) continue;
-    const players = rows.flatMap((row: any) => {
-      const playerId = String(row.player_id || '').trim();
-      const team = gameTeamOfRole(row.role);
-      if (!playerId || !team) return [];
-      return [{
-        player_id: playerId,
-        nickname: String(row.nickname || 'Игрок'),
-        role: normalizeGameRole(row.role),
-        team,
-        won: team === winner,
-        seat_number: Number(row.seat_number || 0),
-      } satisfies AnalyticsPlayerResult];
-    });
-    if (!players.length) continue;
-
-    snapshots.push({
-      id: `tournament:${gameId}`,
-      source: 'tournament',
-      event_id: eventId,
-      date: eventDate.iso,
-      dateMs: playedDate.ms,
-      played_at: playedDate.iso,
-      title: String(head?.tournament_title || 'Турнир'),
-      game_number: Number(head?.game_number || 0),
-      winner_team: winner,
-      has_unresolved_players: players.length !== rows.length,
-      players,
-    });
+    } as CompletedGameSnapshot);
   }
 
   return snapshots.sort((a, b) => b.dateMs - a.dateMs || b.game_number - a.game_number);

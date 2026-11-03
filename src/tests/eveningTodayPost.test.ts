@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { buildTodayPostDraft, loadTodayPost, publishTodayPost, runTodayPostSchedule, skipTodayPost } from '../server/services/eveningTodayPostService.ts';
@@ -7,6 +7,8 @@ import { addAnnouncementPhoto } from '../server/services/announcementPhotoServic
 import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService.ts';
 
 const opened: DatabaseWrapper[] = [];
+// Keep generated invitation links deterministic; never call Telegram getMe with a fixture token.
+beforeEach(()=>vi.stubEnv('TELEGRAM_BOT_USERNAME','FixtureBot'));
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
 
 async function setup() {
@@ -144,6 +146,64 @@ describe('«Сегодня играем» post', () => {
     const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'today-post')!;
     expect(step.title).toContain('дошёл не везде');
     expect(step.action).toBe('today_post');
+  });
+
+  it('adds players who sign up after the post went out by editing the published message', async () => {
+    const db = await setup();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const calls: any[] = [];
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true, result: { message_id: 100 } }), { status: 200 }); }) as any;
+    await publishTodayPost(db, 'ev', {}, fetchImpl);
+    expect(calls).toHaveLength(1);
+    const now = new Date().toISOString();
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['late1', 'Опоздавший', now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
+      VALUES ('ep-late1','ev','late1','going','going','pending','unpaid',?,?)`, [now, now]);
+    // Too soon after publishing: nothing is edited yet.
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:59:30.000Z' WHERE evening_id = 'ev'");
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:00:00Z'), fetchImpl)).toBe(0);
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:03:00Z'), fetchImpl)).toBe(1);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].url).toContain('/editMessageText');
+    expect(calls[1].body).toMatchObject({ chat_id: '-100500', message_id: 100 });
+    expect(calls[1].body.chat_id).toBe('-100500');
+    expect(calls[1].body.text).toContain('Опоздавший');
+    expect((await loadTodayPost(db, 'ev')).text).toContain('Опоздавший');
+    // The group setting changed later: the saved chat is still the one edited.
+    await db.run("UPDATE telegram_destinations SET chat_id = '-999' WHERE id = 'club'");
+    await db.run("UPDATE evening_participants SET response_status='going', registration_status='going' WHERE id='ep-d'");
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:10:00Z'), fetchImpl)).toBe(1);
+    expect(calls[2].body.chat_id).toBe('-100500');
+    // Without the bot token the edit waits and is retried, the saved text does not move.
+    await db.run("UPDATE evening_participants SET response_status='declined', registration_status='declined' WHERE id='ep-c'");
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', '');
+    const before = (await loadTodayPost(db, 'ev')).text;
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:15:00Z'), fetchImpl)).toBe(0);
+    expect((await loadTodayPost(db, 'ev')).text).toBe(before);
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:18:00Z'), fetchImpl)).toBe(1);
+    expect(calls[3].body.text).not.toContain('Вера');
+    // Nothing new: no second edit.
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:30:00Z'), fetchImpl)).toBe(0);
+    expect(calls).toHaveLength(4);
+  });
+
+  it('leaves a hand-edited post alone', async () => {
+    const db = await setup();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const calls: any[] = [];
+    const fetchImpl = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({ ok: true, result: { message_id: 100 } }), { status: 200 }); }) as any;
+    await publishTodayPost(db, 'ev', { text: 'Свой текст организатора' }, fetchImpl);
+    await db.run("UPDATE evening_today_posts SET updated_at = '2026-10-02T13:00:00.000Z' WHERE evening_id = 'ev'");
+    const now = new Date().toISOString();
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['late1', 'Опоздавший', now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
+      VALUES ('ep-late1','ev','late1','going','going','pending','unpaid',?,?)`, [now, now]);
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:05:00Z'), fetchImpl)).toBe(0);
+    expect(calls).toHaveLength(1);
   });
 
   it('at 17:00 Moscow asks the organizer when 3 of 4 games are full, once', async () => {

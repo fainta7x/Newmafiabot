@@ -18,7 +18,6 @@ const ON_PURPOSE: Record<string, { count: number; why: string }> = {
   'src/server/routes/playerJudgingRoutes.ts': { count: 1, why: 'judge list: status only, ordered by running first' },
   'src/server/routes/gamesRoutes.ts': { count: 1, why: 'a game may start while the status is open; settlement is checked elsewhere' },
   'src/server/routes/noviceRoutes.ts': { count: 1, why: 'a novice application also has its own time window' },
-  'src/server/auth.ts': { count: 1, why: 'status-only access check' },
   'src/scripts/auditEveningRsvpDrift.ts': { count: 1, why: 'a read-only census that names the «open» bucket itself' },
   'src/db/ensureTelegramPublishingSchema.ts': { count: 4, why: 'frozen start-up repair SQL' },
 };

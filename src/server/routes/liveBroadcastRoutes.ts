@@ -14,72 +14,35 @@ import {
   type CanonicalBroadcastGame,
 } from '../services/liveBroadcastService.ts';
 import { broadcastLobbyPlayerIds, loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
+import { getGame, listEventGames } from '../services/gameService.ts';
 
 const gameRouter = Router();
 const publicRouter = Router();
-
-const parseProtocol = (value: unknown): Record<string, any> | null => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-};
 
 const loadCanonicalBroadcastGame = async (
   req: AuthenticatedRequest,
   gameId: number,
 ): Promise<CanonicalBroadcastGame | null> => {
   const db = req.db || (await getDb());
-  const row = await db.get<any>(`
-    SELECT g.id, g.evening_id, g.global_game_number, g.protocol_text, g.archived_at,
-           et.name AS table_name,
-           (SELECT COUNT(*)
-              FROM games prior
-             WHERE prior.evening_id = g.evening_id
-               AND prior.archived_at IS NULL
-               AND prior.global_game_number <= g.global_game_number) AS evening_game_number
-      FROM games g
- LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-     WHERE g.id = ?
-     LIMIT 1
-  `, [gameId]);
-  if (!row || !row.evening_id || row.archived_at) return null;
-
-  const protocol = parseProtocol(row.protocol_text);
-  const results = Array.isArray(protocol?.player_results) ? protocol.player_results : [];
-  if (
-    protocol?.kind !== 'club_evening_protocol'
-    || protocol?.protocol?.status === 'completed'
-    // 10 seats, or 8–9 at a novice table.
-    || !isSupportedTableSize(results.length)
-  ) return null;
-
-  const players = results
-    .map((player: any) => ({
-      seat: Number(player.seat_number),
-      playerId: player.player_id ? String(player.player_id) : null,
-      nickname: String(player.display_name || `Игрок ${player.seat_number}`),
-    }))
-    .sort((left: any, right: any) => left.seat - right.seat);
-
-  if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
+  // The game, its seats and the evening's other games through the one «Игра» layer.
+  const game = await getGame(db, `club:${gameId}`);
+  if (!game || game.eventKind !== 'evening' || !game.eventId || game.status === 'archived' || game.status === 'completed') return null;
+  // 10 seats, or 8–9 at a novice table.
+  if (!isSupportedTableSize(game.seats.length)) return null;
+  const players = game.seats.map((seat) => ({ seat: seat.seat, playerId: seat.playerId, nickname: seat.nickname || `Игрок ${seat.seat}` }));
+  if (players.some((player, index) => player.seat !== index + 1)) return null;
+  const eveningGames = (await listEventGames(db, 'evening', game.eventId)).filter((other) => other.status !== 'archived');
   // Red and black wins in the evening's other finished games (the score shown on stream).
-  const eveningGames = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL AND id <> ?', [row.evening_id, row.id]);
   const eveningScore = { red: 0, black: 0 };
   for (const other of eveningGames) {
-    const finished = parseProtocol(other.protocol_text);
-    if (finished?.protocol?.status !== 'completed') continue;
-    if (finished.protocol.winner_team === 'red') eveningScore.red += 1;
-    if (finished.protocol.winner_team === 'black') eveningScore.black += 1;
+    if (other.key === game.key || other.status !== 'completed' || !other.winner) continue;
+    eveningScore[other.winner] += 1;
   }
   return {
-    gameId: Number(row.id),
-    globalGameNumber: Number(row.global_game_number),
-    eveningGameNumber: Math.max(1, Number(row.evening_game_number || 1)),
-    tableName: row.table_name ? String(row.table_name) : null,
+    gameId: Number(game.id),
+    globalGameNumber: Number(game.number),
+    eveningGameNumber: Math.max(1, eveningGames.filter((other) => Number(other.number) <= Number(game.number)).length),
+    tableName: game.tableName,
     eveningScore,
     players,
   };
@@ -95,49 +58,22 @@ const loadCanonicalTournamentBroadcastGame = async (
   // Publishing follows the club path: only a game still to be played of a running tournament can go on air, so a
   // controller left open on a finished game or a cancelled / draft tournament cannot overwrite the live picture.
   // The overlay link itself (the config) is available before the tournament starts, to set OBS up in advance.
-  const game = await db.get<any>(`
-    SELECT g.id, g.game_number
-      FROM tournament_games g
-      JOIN tournaments t ON t.id = g.tournament_id
-     WHERE g.id = ? AND g.tournament_id = ?
-       ${options.forPublish ? "AND t.status = 'active' AND g.status <> 'completed'" : ''}
-     LIMIT 1
-  `, [gameId, tournamentId]);
-  if (!game) return null;
-
-  const rows = await db.all<any>(`
-    SELECT tgs.seat_number,
-           tp.player_id,
-           tp.display_name,
-           p.nickname AS club_nickname
-      FROM tournament_game_seats tgs
-      JOIN tournament_participants tp ON tp.id = tgs.participant_id
- LEFT JOIN players p ON p.id = tp.player_id
-     WHERE tgs.game_id = ?
-     ORDER BY tgs.seat_number ASC
-  `, [gameId]);
-
-  const players = rows.map((player: any) => ({
-    seat: Number(player.seat_number),
-    playerId: player.player_id ? String(player.player_id) : null,
-    // Owner, 2026-10-23: the club nickname everywhere in tournaments; the tournament name only for a guest without a profile.
-    nickname: String(player.club_nickname || player.display_name || `Игрок ${player.seat_number}`),
-  }));
-
+  const game = await getGame(db, `tournament:${gameId}`);
+  if (!game || game.eventId !== tournamentId) return null;
+  if (options.forPublish && (game.eventStatus !== 'active' || game.status === 'completed')) return null;
+  // Owner, 2026-10-23: the club nickname everywhere in tournaments; the tournament name only for a guest without a profile
+  // (the «Игра» layer's seat nickname).
+  const players = game.seats.map((seat) => ({ seat: seat.seat, playerId: seat.playerId, nickname: seat.nickname || `Игрок ${seat.seat}` }));
   if (!isSupportedTableSize(players.length)) return null;
-  if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
-
+  if (players.some((player, index) => player.seat !== index + 1)) return null;
   // Red and black wins in the tournament's other finished games (the score shown on stream)
-  const finishedGames = await db.all<any>(
-    "SELECT winner_team FROM tournament_games WHERE tournament_id = ? AND status = 'completed' AND id <> ?",
-    [tournamentId, gameId],
-  );
-  const eveningScore = {
-    red: finishedGames.filter((finished: any) => finished.winner_team === 'red').length,
-    black: finishedGames.filter((finished: any) => finished.winner_team === 'black').length,
-  };
+  const eveningScore = { red: 0, black: 0 };
+  for (const other of await listEventGames(db, 'tournament', tournamentId)) {
+    if (other.key === game.key || other.status !== 'completed' || !other.winner) continue;
+    eveningScore[other.winner] += 1;
+  }
 
-  const gameNumber = Math.max(1, Number(game.game_number || 1));
+  const gameNumber = Math.max(1, Number(game.number || 1));
   return {
     gameId: gameNumber,
     globalGameNumber: gameNumber,

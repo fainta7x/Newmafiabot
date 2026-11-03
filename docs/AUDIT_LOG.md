@@ -1,7 +1,33 @@
 # Audit log
 
+- #1160 + #1172 integration: paid role is enforced before VIP; private draws cannot consume a still-reserved role, and a buyer spends no VIP quota. Reopening a deal with a reserved/fulfilled purchase preserves it. Hide the obsolete in-deal server purchase button; preserve current approved one-tap/card/stream layout.
 
 
+## 2026-11-03 — #1160 merge verification
+
+- Fixed the stale open-evening guard expectation: auth now uses OPEN_EVENING_STATUSES, so its obsolete direct-status exception is removed.
+- Retained current main one-tap/card/stream UI when reconciling the older purchase branch; no return to the old two-click deal screen.
+
+
+## 2026-11-03 · VIP owner corrections (PR #1172, no production data)
+
+- HIGH `fixed in candidate` — compatible triggered conditions were intersected, forcing sheriff for sheriff + red; choose exactly one available triggered condition uniformly, even when compatible.
+- HIGH `fixed in candidate` — requested role percentages were checked only on the beneficiary draw. Owner confirmed a fresh percentage check on each earlier attempt to take that role: 80% swaps it with a different closed role, 20% lets it go. Open roles and purchases are never recalled; quota and format gates apply to the beneficiary.
+
+
+## 2026-11-03 · PR #1172: private VIP draw integration (source review, no production data)
+
+- HIGH `fixed (this PR)` — `virtualRoleDealService.ts` still hardcodes a player ID; saved red-colour settings cannot disable or change it. Replace with owner rules, preserving the last closed red for an eligible 100% red rule.
+- HIGH `fixed (this PR)` — `vipClosedDeckSimulation.ts` lacks red-colour handling and no live service atomically accounts for successful games, undo/reset or concurrent quota reservations.
+- MEDIUM `fixed (this PR)` — migration test never constructs the old CHECK schema; verify retained records, rollback, owner edits/deletion and judge/delegated access.
+
+
+
+
+
+- HIGH `fixed (this PR)` — settings accepted every organizer rather than only the club owner; use `requireClubOwner` and hide the blocks for every other identity. Assigned judges use the ordinary same-game deal route without settings access.
+- MEDIUM `fixed (this PR)` — re-open reset the version to zero and deal state lacked roster identity; advance versions across reopens and reject stale/changed-roster operations.
+- Verification limit — local Chromium launch denied (`socket() EPERM`); five-size audit registered in preview CI, no screenshots or visual approval claimed locally.
 
 ## 2026-11-03 · Evening seating generation (owner report, evening 3.11; production read GET only)
 
@@ -9,6 +35,7 @@
 2. HIGH `fixed (this PR)` — the greedy fill dropped a candidate with any warning and never backtracked: game 4 of 3.11 had seat №10 empty with 11 players registered. Now a random matching without repeats per game, up to 40 whole-plan attempts, and a seat is never left empty while a player is free.
 3. MEDIUM `fixed (this PR)` — «Сформировать рассадку» sent nothing: personal seat notices were queued only by the automatic «Сегодня играем» run and single-seat edits. Now the generate route queues the players' notices and the judge's whole seating; the screen says how many were sent.
 4. LOW `fixed (this PR)` — `evening-seating-audit.spec.mjs` never ran in CI: its page was not built into the preview. Added to the build and the preview run.
+5. HIGH `fixed (follow-up PR)` — after the deploy the button still changed nothing on 3.11: all 50 seats were the old generated plan (`locked=0`, no game started) and the generator only filled free seats, so the new random draw never ran. The organizer's «Сформировать» now draws the generated seats of not-started open games again in one transaction; reservations and manual changes (`locked=1`) stay; the automatic «Сегодня играем» run still only fills gaps.
 
 ## 2026-11-03 · Architecture programme items 5–9 (audit; production reads GET only)
 
@@ -2621,3 +2648,15 @@ Exact-head #1086 CI follow-up: shards 1/5 and 5/5 failed in `liveBroadcastReveal
 - [fixed, STRESS-3] 2026-11-02: (a) the stress walk found no new defects on the current build (390×844, starts «речи» and «голосование»; the earlier 57 findings were from a build before #1131/#1132); (b) the dead seat's status «Заголосован» broke inside the word («Заголосова/н») on 390 px — `overflow-wrap: break-word` plus a smaller face on `live-seat-state__value--dead` (#1138); (c) the training numbers window no longer opens through a DOM query but through `NumbersAutoOpenContext` (`liveEngineNativeWiring` forbids `querySelector` in `CenterPanel`).
 - Owner decisions 2026-11-02 (design, recorded for `DESIGN_SYSTEM`): the ten seat colours are blue, orange, yellow, red, green, violet, pink, teal, silver, lime (`seatColors.ts` and the per-seat rules in `liveGameJudge.css`/`liveSeatGrid.css`); a player who left the table is dim but legible: killed = red crosshair over the whole card, voted out = prison bars, removed = violet «no entry»; the sign lies over the avatar and nickname on purpose; the same looks in the OBS overlay (`exit-killed` / `exit-voted` / `exit-removed`, ribbons of killed/removed hidden).
 - [open] owner questions: may a player vote for himself; an optional «Проголосовали: …» strip; where the floating warning notice lives on a short phone (STRESS-2).
+
+- [fixed] 2026-11-03 owner report: the published «Сегодня играем» post froze the roster at publish time, so players who signed up later were missing. Now `refreshPublishedTodayPosts` (`eveningTodayPostService.ts`, minute scan) edits the Telegram message to the current roster; Telegram only, VK is not touched (owner); a hand-edited post is left alone. Posts published before this change have no stored generated text and are not refreshed.
+## 2026-11-03 — layout audit of the OBS overlay with the role deal
+
+Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×1080, 1440×900, 1366×768, 390×844, 360×640.
+
+- Deal scene: clean at every desktop size — fixed.
+- `src/components/public/liveBroadcastOverlay.css` `.live-broadcast-phase-title`: at 390 px the phase title is cut to «…»; the same happens on the existing reveal preview (also the timer caption leaves the screen there), so it is the 16:9 OBS canvas at a phone width, not the deal — open (the OBS overlay is a stream picture, phone widths are not its target; ask the owner before changing).
+- `src/components/game/LiveGameContinueGate.tsx`: «Найдена незавершённая игра» was offered for any 200 answer, even an empty one or an HTML page without a copy (seen in the preview harness; the real server answers 404 when there is no copy) — fixed: only a copy with a session is offered (`src/tests/liveGameContinueGate.test.tsx`).
+- `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
+
+- [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.

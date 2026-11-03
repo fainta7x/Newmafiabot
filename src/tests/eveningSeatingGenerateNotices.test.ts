@@ -35,7 +35,15 @@ describe('generated evening seating is sent', () => {
     const judge = await db.get<any>("SELECT text FROM personal_notification_deliveries WHERE player_id = 'judge' AND notification_key LIKE 'evening-seating-judge:%'");
     expect(judge.text).toContain('Игра №1');
     expect(judge.text).toContain('Игрок');
+    // Pressing again draws the not-started games anew (owner, 2026-11-03); a seat the organizer fixed by hand stays.
+    const fixed = await db.get<any>("SELECT id, slot_id, seat_number, player_id FROM evening_seat_plans WHERE evening_id='e1' ORDER BY slot_id, seat_number LIMIT 1");
+    await db.run('UPDATE evening_seat_plans SET locked = 1 WHERE id = ?', [fixed.id]);
+    const before = (await db.all<any>("SELECT id FROM evening_seat_plans WHERE evening_id='e1' AND locked = 0")).map((r) => r.id).sort();
     const again = await request(app).post('/api/evenings/e1/seating/generate').set('Cookie', cookie).send({});
-    expect(again.body).toMatchObject({ created: 0, notified_players: 0, judge_notified: false });
+    expect(again.status).toBe(200);
+    expect(again.body.created).toBe(before.length);
+    const after = (await db.all<any>("SELECT id FROM evening_seat_plans WHERE evening_id='e1' AND locked = 0")).map((r) => r.id).sort();
+    expect(after.some((id) => before.includes(id))).toBe(false);
+    expect(await db.get<any>('SELECT player_id, seat_number FROM evening_seat_plans WHERE id = ?', [fixed.id])).toEqual({ player_id: fixed.player_id, seat_number: fixed.seat_number });
   });
 });

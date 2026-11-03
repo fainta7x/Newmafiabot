@@ -12,7 +12,7 @@ import { eveningJudgeId } from './eveningStaffService.ts';
  * (especially self-booked ones) are kept; only free seats are filled.
  * This produces a plan, never actual club-game records or billing events.
  */
-export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId: string, targetSlotId?: string) {
+export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId: string, targetSlotId?: string, options: { redraw?: boolean } = {}) {
   const plan = await loadEveningSlotPlan(db, eveningId);
   await ensureEveningSeatingSchema(db);
   // Repair pre-existing evenings created before the primary-table default.
@@ -47,10 +47,17 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   const players: EveningPlayer[] = [...numbersByPlayer]
     .map(([id, games]) => ({ id, eligibleGames: [...games] }));
   const occupied = await db.all<any>(`
-    SELECT b.slot_id, s.slot_number, b.table_id, b.seat_number, b.player_id, b.locked, b.started
+    SELECT b.id, b.slot_id, s.slot_number, b.table_id, b.seat_number, b.player_id, b.locked, b.started
       FROM evening_seat_plans b JOIN evening_game_slots s ON s.id = b.slot_id
      WHERE b.evening_id = ?`, [eveningId]);
-  const existing: EveningSeat[] = occupied.map(b => ({
+  // «Сформировать» by the organizer draws again (owner, 2026-11-03: «ничего не перегенерирует по нажатию»): the generated
+  // seats (not locked) of open games not started yet are drawn anew; reservations and the organizer's own changes stay.
+  const openSlotIds = new Set(plan.slots.filter((slot) => slot.status === 'open').map((slot) => String(slot.id)));
+  const startedSlotIds = new Set(occupied.filter((row) => Number(row.started)).map((row) => String(row.slot_id)));
+  const redrawn = (row: any) => Boolean(options.redraw) && !Number(row.locked) && !Number(row.started)
+    && openSlotIds.has(String(row.slot_id)) && !startedSlotIds.has(String(row.slot_id)) && (!targetSlotId || String(row.slot_id) === targetSlotId);
+  const redrawIds = occupied.filter(redrawn).map((row) => String(row.id));
+  const existing: EveningSeat[] = occupied.filter((row) => !redrawn(row)).map(b => ({
     game: Number(b.slot_number), tableId: String(b.table_id),
     seat: Number(b.seat_number), playerId: String(b.player_id),
     locked: Boolean(b.locked), started: Boolean(b.started),
@@ -88,6 +95,10 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   const additions = planned.filter(entry => !preexisting.has(JSON.stringify([entry.game, entry.tableId, entry.seat])));
   const now = new Date().toISOString();
   return db.transaction(async tx => {
+    for (let from = 0; from < redrawIds.length; from += 400) {
+      const chunk = redrawIds.slice(from, from + 400);
+      await tx.run(`DELETE FROM evening_seat_plans WHERE id IN (${chunk.map(() => '?').join(',')}) AND locked = 0 AND started = 0`, chunk);
+    }
     let created = 0;
     for (const seat of additions) {
       const slotId = slotsByNumber.get(seat.game);

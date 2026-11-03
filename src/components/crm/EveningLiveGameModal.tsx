@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext.ts';
+import { DealSeatPlayersContext } from '../game/dealSeatPlayers.ts';
+import { useDealBroadcast } from '../game/useDealBroadcast.ts';
 import { NumbersAutoOpenContext } from '../LiveGameEngine/numbersAutoOpenContext.ts';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
@@ -307,6 +309,10 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
 
   const liveAlive = useLiveAliveSeats(livePhase);
   const { connection: broadcastConnection, forgetReplayFrames } = useClubLiveBroadcast(game, livePhase);
+  useDealBroadcast(livePhase === 'setup' && !trainingMode, {
+    gameId: game.id, globalGameNumber: game.global_game_number, tableName: game.table_name || null,
+    players: livePlayers.map((player) => ({ seat: player.seat_number, playerId: player.player_id, nickname: player.display_name })),
+  }, (state) => clubGamesApi.publishBroadcastState(game.id, state));
 
   const openBroadcastSetup = async () => {
     setBroadcastSetupOpen(true);
@@ -417,6 +423,8 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
     );
   }), [trainingMode, livePlayers]);
 
+  // The role deal shows each seat's avatar (owner-approved deal design, 2026-11-03).
+  const dealSeatPlayer = useMemo(() => (seat: number) => livePlayers.find((item) => item.seat_number === seat)?.player_id || null, [livePlayers]);
   const identityOverlay = livePhase === 'setup' || seatIdentity ? null : (
     <div className="evening-live-identity-layer" aria-hidden="true">
       {livePlayers.map((player) => (
@@ -725,6 +733,7 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
         data-training-input-gate={trainingMode ? "active" : undefined}
       >
         <NumbersAutoOpenContext.Provider value={!trainingMode}>
+        <DealSeatPlayersContext.Provider value={dealSeatPlayer}>
         <SeatIdentityContext.Provider value={seatIdentity}>
         <LiveGameEngine
           players={legacyPlayers}
@@ -776,6 +785,7 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
           }}
         />
         </SeatIdentityContext.Provider>
+        </DealSeatPlayersContext.Provider>
         </NumbersAutoOpenContext.Provider>
 
         {trainingMode

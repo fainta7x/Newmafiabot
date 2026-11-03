@@ -68,6 +68,7 @@ async function loadClubGames(db: DatabaseWrapper, where: string, params: unknown
       eventId: row.evening_id ? String(row.evening_id) : null, eventKind: row.evening_id ? 'evening' : null, eventStatus: row.evening_status ? String(row.evening_status) : null,
       number: row.global_game_number == null ? null : Number(row.global_game_number),
       date: String(protocol.completed_at || row.game_date || row.starts_at || row.created_at || '') || null,
+      eventDate: String(row.starts_at || row.game_date || row.created_at || '') || null,
       winner: normalizeWinnerTeam(protocol.winner_team) as Game['winner'],
       judgePlayerId: row.judge_player_id ? String(row.judge_player_id) : null,
       judgeName: row.judge_name ? String(row.judge_name) : null,
@@ -91,8 +92,8 @@ async function loadTournamentGames(db: DatabaseWrapper, where: string, params: u
     SELECT tg.id, tg.tournament_id, tg.game_number, tg.status, tg.winner_team, tg.started_at, tg.completed_at, tg.judge_name,
            ${judge} AS judge_player_id, tgp.status AS protocol_status,
            t.status AS tournament_status, t.date AS tournament_date, t.title AS tournament_title,
-           (SELECT json_group_array(json_object('seat', s.seat_number, 'role', s.role, 'player_id', tp.player_id, 'nickname', tp.display_name))
-              FROM tournament_game_seats s JOIN tournament_participants tp ON tp.id = s.participant_id WHERE s.game_id = tg.id) AS seats_json
+           (SELECT json_group_array(json_object('seat', s.seat_number, 'role', s.role, 'player_id', tp.player_id, 'nickname', COALESCE(pl.nickname, tp.display_name)))
+              FROM tournament_game_seats s JOIN tournament_participants tp ON tp.id = s.participant_id LEFT JOIN players pl ON pl.id = tp.player_id WHERE s.game_id = tg.id) AS seats_json
       FROM tournament_games tg JOIN tournaments t ON t.id = tg.tournament_id
       ${protocols ? 'LEFT JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id' : 'LEFT JOIN (SELECT NULL AS game_id, NULL AS status) tgp ON 0'}
      WHERE ${where}`, params);
@@ -103,6 +104,7 @@ async function loadTournamentGames(db: DatabaseWrapper, where: string, params: u
     eventId: String(row.tournament_id), eventKind: 'tournament', eventStatus: row.tournament_status ? String(row.tournament_status) : null,
     number: row.game_number == null ? null : Number(row.game_number),
     date: String(row.completed_at || row.started_at || row.tournament_date || '') || null,
+    eventDate: String(row.tournament_date || row.completed_at || '') || null,
     winner: normalizeWinnerTeam(row.winner_team) as Game['winner'],
     judgePlayerId: row.judge_player_id ? String(row.judge_player_id) : null,
     judgeName: row.judge_name ? String(row.judge_name) : null,
@@ -170,12 +172,13 @@ export async function listPlayerGameResults(db: DatabaseWrapper, playerId: strin
   }
   if (!(await tableExists(db, 'tournament_games'))) return out;
   const rows = await db.all<any>(`
-    SELECT tgs.game_id, tp.id AS participant_id, tp.display_name, tgs.seat_number, tgs.role,
+    SELECT tgs.game_id, tp.id AS participant_id, COALESCE(pl.nickname, tp.display_name) AS display_name, tgs.seat_number, tgs.role,
            tgpr.exit_type, tgpr.regular_fouls, tgpr.minor_technical_fouls, tgpr.major_technical_fouls, tgpr.judge_bonus, tgpr.protocol_bonus,
            tgpr.ci_points, tgpr.penalty_points, tgpr.disciplinary_penalty_points,
            tgp.first_killed_participant_id, tgp.zero_round_voted_participant_id, tgbm.source AS best_move_source
       FROM tournament_participants tp
       JOIN tournament_game_seats tgs ON tgs.participant_id = tp.id
+ LEFT JOIN players pl ON pl.id = tp.player_id
  LEFT JOIN tournament_game_player_results tgpr ON tgpr.game_id = tgs.game_id AND tgpr.participant_id = tp.id
  LEFT JOIN tournament_game_protocols tgp ON tgp.game_id = tgs.game_id
  LEFT JOIN tournament_game_best_moves tgbm ON tgbm.game_id = tgs.game_id AND tgbm.participant_id = tp.id
@@ -234,3 +237,21 @@ export const COMPLETED_GAME_PLAYERS_SQL = `
     JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
     JOIN tournaments t ON t.id = tg.tournament_id
    WHERE tg.status = 'completed' AND tgp.status = 'completed' AND COALESCE(t.status, '') <> 'cancelled' AND tp.player_id IS NOT NULL`;
+
+/** Every completed game of every format (analytics, seasons); played-date order, oldest first. */
+export async function listCompletedGames(db: DatabaseWrapper): Promise<Game[]> {
+  const club = (await loadClubGames(db, `g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL
+      AND COALESCE(e.status, '') <> 'cancelled' AND json_valid(g.protocol_text) AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'`, [])).map(strip);
+  const tournament = await loadTournamentGames(db, `tg.status = 'completed' AND tgp.status = 'completed'`, []);
+  const time = (game: Game) => (game.date ? new Date(game.date).getTime() : 0);
+  return [...club, ...tournament].filter((game) => game.status === 'completed').sort((a, b) => time(a) - time(b));
+}
+
+/**
+ * The «completed» rule as SQL conditions, for queries that must stay light (the one-minute result worker parses no protocol):
+ * the same rule as `Game.status === 'completed'` without archive/cancel (the caller filters those as it needs).
+ */
+export const clubGameCompletedSql = (g = 'g') =>
+  `(json_valid(${g}.protocol_text) AND json_extract(${g}.protocol_text, '$.kind') = 'club_evening_protocol' AND json_extract(${g}.protocol_text, '$.protocol.status') = 'completed')`;
+export const tournamentGameCompletedSql = (tg = 'tg') =>
+  `(${tg}.status = 'completed' AND EXISTS (SELECT 1 FROM tournament_game_protocols layer_tgp WHERE layer_tgp.game_id = ${tg}.id AND layer_tgp.status = 'completed'))`;

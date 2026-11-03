@@ -1,3 +1,5 @@
+import {saveVipProbabilityRule} from '../server/services/vipProbabilityRulesService.ts';
+import {saveVipGameQuota} from '../server/services/vipGameQuotaService.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
@@ -378,5 +380,32 @@ describe('pre-deal role purchase persistence and debt', () => {
   it('does not sell roles on rating evenings', async () => {
     const db = await setup('RATING');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don')).rejects.toThrow();
+  });
+});
+
+
+describe('paid reservation priority over private VIP settings',()=>{
+  it('keeps a future paid sheriff safe and never charges the buyer VIP quota',async()=>{
+    const db=await setup();
+    await reserveRoleBeforeDeal(db,817,'buyer-1','sheriff');
+    for(const [playerId,role] of [['buyer-0','sheriff'],['buyer-1','citizen']] as const){
+      await saveVipProbabilityRule(db,{playerId,kind:'role',role,percent:100,enabled:true});
+      await saveVipGameQuota(db,playerId,{wholeEvening:true,maxSuccessfulGames:null});
+    }
+    let view=await openVirtualRoleDeal(db,817);
+    const state=async()=>JSON.parse((await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=817'))!.state_json);
+    const first=(await state()).deck.find((card:any)=>card.role==='mafia');
+    let reveal=await revealVirtualRole(db,817,1,first.id,view.version);
+    expect(reveal.role).not.toBe('sheriff');
+    view=await confirmVirtualRole(db,817,1,first.id,reveal.version);
+    const second=(await state()).deck.find((card:any)=>card.role==='don');
+    reveal=await revealVirtualRole(db,817,2,second.id,view.version);
+    expect(reveal.role).toBe('sheriff');
+    await confirmVirtualRole(db,817,2,second.id,reveal.version);
+    expect((await state()).history.flatMap((entry:any)=>entry.vipPlayerIds||[])).toEqual([]);
+    expect(await due(db,'buyer-1')).toBe(150);
+    const reopened=await openVirtualRoleDeal(db,817);
+    expect(reopened.history).toHaveLength(2);
+    expect(await due(db,'buyer-1')).toBe(150);
   });
 });

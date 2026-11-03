@@ -39,6 +39,8 @@ export interface Game {
   /** Number of the game: the club's global number, or the number inside the tournament. */
   number: number | null;
   date: string | null;
+  /** Start of the event the game belongs to (evening start, tournament date). */
+  eventDate: string | null;
   winner: 'red' | 'black' | null;
   judgePlayerId: string | null;
   /** As written in the protocol (an external judge has no profile). */

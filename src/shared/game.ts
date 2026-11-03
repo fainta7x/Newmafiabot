@@ -41,7 +41,34 @@ export interface Game {
   date: string | null;
   winner: 'red' | 'black' | null;
   judgePlayerId: string | null;
+  /** As written in the protocol (an external judge has no profile). */
+  judgeName: string | null;
+  /** Title of the event (evening or tournament) and the table of an evening game. */
+  eventTitle: string | null;
+  tableName: string | null;
   seats: GameSeat[];
+}
+
+/** One seat's result of a game, the same fields for every format (the protocol core's names). */
+export interface GameSeatResult {
+  seat: number;
+  participantId: string | null;
+  playerId: string | null;
+  nickname: string;
+  role: string | null;
+  exitType: string | null;
+  regularFouls: number;
+  minorTechnicalFouls: number;
+  majorTechnicalFouls: number;
+  judgeBonus: number;
+  protocolBonus: number;
+  ciPoints: number;
+  penaltyPoints: number;
+  disciplinaryPenaltyPoints: number;
+  bestMoveSource: 'first_killed' | 'zero_round_voted' | null;
+  bestMove: boolean;
+  firstKilled: boolean;
+  zeroRoundVoted: boolean;
 }
 
 export const gameKey = (storage: GameStorage, id: string | number): GameKey => `${storage}:${String(id)}` as GameKey;

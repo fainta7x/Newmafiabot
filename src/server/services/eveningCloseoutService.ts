@@ -1,4 +1,5 @@
 import { cancelOutstandingRolePurchasesForEvening } from './preGameRolePurchaseService.ts';
+import { cancelOutstandingGameMusicOrders } from './gameMusicOrderService.ts';
 import { randomUUID } from 'node:crypto';
 import { awardEveningOrganizer } from './staffRewards.ts';
 import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
@@ -283,6 +284,7 @@ export async function settleEveningFromCloseout(
   // Do not remove a paid reservation until all attendance / unfinished-game
   // closeout blockers have passed. Recompute dues before creating the ledger.
   await cancelOutstandingRolePurchasesForEvening(db, eveningId);
+  await cancelOutstandingGameMusicOrders(db, eveningId);
   await reconcileRegularEveningPayments(db, eveningId);
   await reconcileNoviceEveningCharges(db, eveningId);
   await reconcileOtherFormatExtensions(db, eveningId);

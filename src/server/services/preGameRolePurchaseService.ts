@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { OPEN_EVENING_STATUSES } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { decideRoleReservation, type RoleReservation } from '../../lib/rolePurchaseReservation.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
@@ -66,7 +67,7 @@ export async function reserveRoleBeforeDeal(
     if (!game || game.storage !== 'club' || !game.eventId) failure('Игра не найдена', 404);
     // The live engine may mark a prepared game as 'running' before the
     // first role is dealt. The precise cutoff is the persisted deal itself.
-    if (['completed', 'cancelled', 'archived'].includes(game.status) || !['published', 'active'].includes(String(game.eventStatus))) failure('Покупки для этой игры закрыты');
+    if (['completed', 'cancelled', 'archived'].includes(game.status) || !OPEN_EVENING_STATUSES.some((value) => value === String(game.eventStatus))) failure('Покупки для этой игры закрыты');
     if (!game.seats.some((seat) => seat.playerId === playerId)) failure('Игрок не участвует в этой игре', 403);
 
     // A deal row exists as soon as dealing starts, even before the first card.

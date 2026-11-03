@@ -283,24 +283,13 @@ export interface EloRebuildRow { player_id: string; nickname: string; elo: numbe
 let eloInputsGeneration = 0;
 export const currentEloInputsGeneration = () => eloInputsGeneration;
 
-export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
-  eloInputsGeneration += 1;
-  const { getFlexibleTournamentStandings: internalGetStandings } = await import('./flexibleTournamentStandingsService.ts');
-  const players = await db.all<any>(
-    `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
-       FROM players
-      WHERE COALESCE(source, '') != 'legacy_guest_migrated'
-        AND COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged')
-      ORDER BY nickname COLLATE NOCASE, id`,
-    [DEFAULT_ELO],
-  );
-  const guestPlayerRows = await db.all<any>("SELECT id FROM players WHERE COALESCE(source,'') = 'legacy_guest_migrated'");
-  const guestPlayerIds = new Set(guestPlayerRows.map((player: any) => String(player.id)));
-  const knownPlayerIds = new Set(players.map((player) => String(player.id)));
-  const seedByPlayer = new Map<string, number>(players.map((player) => {
-    const seed = Number(player.elo_seed);
-    return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
-  }));
+/**
+ * The ONE list of rated games for every Elo reader — the canonical rebuild and the kept Elo timeline used to prepare it
+ * twice, line for line (architecture review 2026-11-03). Tournament games are rated from the tournament table (owner's
+ * rules), games of an evening from their protocol; the order is the played order.
+ */
+export async function prepareCanonicalEloEvents(db: DatabaseWrapper, knownPlayerIds: Set<string>, guestPlayerIds: Set<string>): Promise<PreparedEloEvent[]> {
+  const { getFlexibleTournamentStandings: getStandings } = await import('./flexibleTournamentStandingsService.ts');
   const events: PreparedEloEvent[] = [];
 
   const tournaments = await db.all<any>(`
@@ -312,7 +301,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
      ORDER BY COALESCE(t.date, t.created_at) ASC, t.created_at ASC, t.id ASC
   `);
   for (const tournament of tournaments) {
-    const standingsData = await internalGetStandings(db, String(tournament.id));
+    const standingsData = await getStandings(db, String(tournament.id));
     const standings = Array.isArray(standingsData?.standings) ? standingsData.standings : [];
     const games = await db.all<any>(`
       SELECT g.id, g.game_number, COALESCE(p.winner_team, g.winner_team) AS winner_team,
@@ -392,6 +381,27 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
 
   normalizeContributions(events);
   events.sort((a, b) => sortTime(a.sortAt) - sortTime(b.sortAt) || a.sortOrder - b.sortOrder || a.source.localeCompare(b.source) || a.sourceId.localeCompare(b.sourceId));
+  return events;
+}
+
+export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
+  eloInputsGeneration += 1;
+  const players = await db.all<any>(
+    `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
+       FROM players
+      WHERE COALESCE(source, '') != 'legacy_guest_migrated'
+        AND COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged')
+      ORDER BY nickname COLLATE NOCASE, id`,
+    [DEFAULT_ELO],
+  );
+  const guestPlayerRows = await db.all<any>("SELECT id FROM players WHERE COALESCE(source,'') = 'legacy_guest_migrated'");
+  const guestPlayerIds = new Set(guestPlayerRows.map((player: any) => String(player.id)));
+  const knownPlayerIds = new Set(players.map((player) => String(player.id)));
+  const seedByPlayer = new Map<string, number>(players.map((player) => {
+    const seed = Number(player.elo_seed);
+    return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
+  }));
+  const events = await prepareCanonicalEloEvents(db, knownPlayerIds, guestPlayerIds);
   const ratings = new Map<string, number>(players.map((player) => [String(player.id), seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO]));
   const gameCounts = new Map<string, number>();
   for (const event of events) {

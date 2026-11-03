@@ -24,6 +24,7 @@ type Game = {
   status: 'draft' | 'completed';
   winner_team: 'red' | 'black' | null;
   self_seat: number | null;
+  role_purchase_open?: boolean;
   players: Array<{ seat_number: number; player_id: string | null; nickname: string }>;
 };
 export type PlayerEveningWorkspaceData = {
@@ -124,7 +125,7 @@ export default function PlayerEveningWorkspace({
       </div>)}
     </div>
     {game.status !== 'completed' && <p className="mt-2 text-[11px] text-white/35">Роли и проверки откроются после игры.</p>}
-    {game.self_seat !== null && ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(data.evening.format)) && <PlayerGameRolePurchase gameId={game.id} canPurchase={game.status !== 'completed'} futureGames={data.games.filter(next => next.id !== game.id && next.status !== 'completed' && next.self_seat !== null).map(next => ({ id: next.id, number: next.local_number }))} />}
+    {game.self_seat !== null && ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(data.evening.format)) && <PlayerGameRolePurchase gameId={game.id} canPurchase={Boolean(game.role_purchase_open)} futureGames={data.games.filter(next => next.id !== game.id && next.role_purchase_open && next.self_seat !== null).map(next => ({ id: next.id, number: next.local_number }))} />}
   </article>;
 
   return <section data-testid="player-evening-workspace" className="mt-3 space-y-3 text-white">

@@ -5,6 +5,7 @@ import { getJson } from '../../lib/requestJson.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import PlayerGameRolePurchase from './PlayerGameRolePurchase.tsx';
 import PlayerGameMusicOrder from './PlayerGameMusicOrder.tsx';
+import PlayerGameSeatSwapOrder from './PlayerGameSeatSwapOrder.tsx';
 
 type Person = {
   player_id: string;
@@ -127,6 +128,7 @@ export default function PlayerEveningWorkspace({
     </div>
     {game.status !== 'completed' && <p className="mt-2 text-[11px] text-white/35">Роли и проверки откроются после игры.</p>}
     {game.self_seat !== null && game.status !== 'completed' && <PlayerGameMusicOrder gameId={game.id} canOrder />}
+    {game.self_seat !== null && ['CASUAL','NOVICE'].includes(normalizeEveningFormat(data.evening.format)) && <PlayerGameSeatSwapOrder gameId={game.id} ownSeat={game.self_seat} seats={game.players} canOrder={Boolean(game.role_purchase_open)} />}
     {game.self_seat !== null && ['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(data.evening.format)) && <PlayerGameRolePurchase gameId={game.id} canPurchase={Boolean(game.role_purchase_open)} futureGames={data.games.filter(next => next.id !== game.id && next.role_purchase_open && next.self_seat !== null).map(next => ({ id: next.id, number: next.local_number }))} />}
   </article>;
 

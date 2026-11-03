@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getGame } from './gameService.ts';
+import { seatingWarnings, type EveningSeat } from '../../lib/eveningSeating.ts';
 import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 
 export const GAME_SEAT_SWAP_PRICE_RUB = 50;
@@ -95,20 +96,54 @@ export async function applyGameSeatSwap(db: DatabaseWrapper, orderId: string, ga
     if (!Number.isInteger(seatA) || !Number.isInteger(seatB)) fail('Некорректные места');
     if (a.role || b.role || payload.player_results.some((entry: any) => entry.role)) fail('Роли уже назначены');
 
-    // No repeated seat per table during the evening for either buyer or peer.
-    const previous = await tx.all<{ protocol_text: string }>(
-      `SELECT protocol_text FROM games
-         WHERE evening_id=? AND evening_table_id IS ? AND id<>? AND archived_at IS NULL`,
-      [game.eventId, row.evening_table_id, gameId],
+    // Keep the table-specific cycle semantics, not a permanent ban on any
+    // repeated position. Evaluate both moves against the evening's plan.
+    const planExists = await tx.get<any>(
+      "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='evening_seat_plans'",
     );
-    for (const prior of previous) {
-      let parsed: any = null;
-      try { parsed = JSON.parse(prior.protocol_text); } catch { continue; }
-      if (parsed?.protocol?.status !== 'completed' || !Array.isArray(parsed.player_results)) continue;
-      if (parsed.player_results.some((entry: any) =>
-        (entry.player_id === order.player_id && Number(entry.seat_number) === seatB) ||
-        (entry.player_id === order.target_player_id && Number(entry.seat_number) === seatA))) {
-        fail('Игрок уже занимал это место за этим столом в течение вечера');
+    const plans: Array<{ id: string; slot_id: string; table_id: string; seat_number: number; player_id: string; started: number; locked: number; created_at: string; updated_at: string; game: number }> = planExists
+      ? await tx.all(
+        `SELECT b.*, s.slot_number AS game FROM evening_seat_plans b
+          JOIN evening_game_slots s ON s.id=b.slot_id
+         WHERE b.evening_id=?`, [game.eventId],
+      ) : [];
+    const tablePlans = plans.filter(entry => entry.table_id === row.evening_table_id);
+    const matching = tablePlans.filter(entry =>
+      Number(entry.started) === 1 &&
+      ((entry.player_id === order.player_id && entry.seat_number === seatA)
+        || (entry.player_id === order.target_player_id && entry.seat_number === seatB)));
+    // Both seats must be from the SAME explicit planned slot if either has
+    // been recorded; never guess from the global game number.
+    const slotIds = [...new Set(matching.map(entry => entry.slot_id))];
+    if (slotIds.length > 1) fail('Нельзя однозначно связать места с планом игры');
+    const matchingPlan = slotIds.length === 1
+      ? tablePlans.filter(entry => entry.slot_id === slotIds[0] && Number(entry.started) === 1)
+      : [];
+    const planA = matchingPlan.find(entry => entry.player_id === order.player_id && entry.seat_number === seatA);
+    const planB = matchingPlan.find(entry => entry.player_id === order.target_player_id && entry.seat_number === seatB);
+    if (slotIds.length && (!planA || !planB)) fail('Фактическая рассадка не совпадает с составом игры');
+    if (planA && planB) {
+      const timeline: EveningSeat[] = plans.filter(entry => entry.id !== planA.id && entry.id !== planB.id)
+        .map(entry => ({ game: entry.game, tableId: entry.table_id, seat: entry.seat_number,
+          playerId: entry.player_id, started: Boolean(entry.started) }));
+      const gameNumber = planA.game;
+      const firstMove: EveningSeat = { game: gameNumber, tableId: String(row.evening_table_id), seat: seatB, playerId: order.player_id, started: true };
+      const secondMove: EveningSeat = { game: gameNumber, tableId: String(row.evening_table_id), seat: seatA, playerId: order.target_player_id, started: true };
+      const warningsA = seatingWarnings(firstMove, [...timeline, secondMove], [gameNumber]);
+      const warningsB = seatingWarnings(secondMove, [...timeline, firstMove], [gameNumber]);
+      if ([...warningsA,...warningsB].some(warning => warning.code === 'repeat_seat')) {
+        fail('Обмен нарушает цикл неповторяющихся мест за столом');
+      }
+      // The two seats have UNIQUE slot/table/number indexes. Delete and
+      // restore both rows in the same transaction to avoid a transient clash.
+      await tx.run('DELETE FROM evening_seat_plans WHERE id IN (?,?)', [planA.id,planB.id]);
+      for (const [entry,seat] of [[planA,seatB],[planB,seatA]] as const) {
+        await tx.run(
+          `INSERT INTO evening_seat_plans
+          (id,evening_id,slot_id,table_id,seat_number,player_id,locked,started,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [entry.id,game.eventId,entry.slot_id,entry.table_id,seat,entry.player_id,entry.locked,entry.started,entry.created_at,new Date().toISOString()],
+        );
       }
     }
     a.seat_number = seatB;

@@ -1,10 +1,10 @@
-import { isCompletedClubGame } from './completedClubGame.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { AnalyticsRange } from '../../lib/analyticsPeriod.ts';
 import { MEMBER_SQL } from './organizerAgendaService.ts';
 import { PLAYER_VISITS_SQL } from './playerVisitsService.ts';
 import { playerSourceLabel } from '../../lib/playerSources.ts';
 import { parseAnalyticsPeriod } from '../../lib/analyticsPeriod.ts';
+import { listCompletedGames } from './gameService.ts';
 export async function loadClubStaff(db: DatabaseWrapper, range: AnalyticsRange) {
     const tables = new Set((await db.all<any>("SELECT name FROM sqlite_master WHERE type = 'table'")).map((row: any) => String(row.name)));
     const { since, until } = range;
@@ -31,26 +31,21 @@ export async function loadClubStaff(db: DatabaseWrapper, range: AnalyticsRange) 
          WHERE t.status = 'completed' AND julianday(t.date) >= julianday(?) AND julianday(t.date) < julianday(?)
          GROUP BY t.organizer_player_id, p.nickname`, [since, until])) bump(String(row.id), String(row.nickname), 'evenings', Number(row.count));
     }
-    const clubGames = await db.all<any>(`
-      SELECT g.judge_player_id AS id, p.nickname, g.protocol_text
-        FROM games g JOIN players p ON p.id = g.judge_player_id
-        LEFT JOIN game_evenings e ON e.id = g.evening_id
-       WHERE g.archived_at IS NULL AND julianday(COALESCE(e.starts_at, g.created_at)) >= julianday(?) AND julianday(COALESCE(e.starts_at, g.created_at)) < julianday(?)`, [since, until]);
-    for (const game of clubGames) {
-      let completed = false;
-      try { const payload = JSON.parse(String(game.protocol_text || '')); completed = isCompletedClubGame(payload); } catch { completed = false; }
-      if (completed) bump(String(game.id), String(game.nickname), 'games', 1);
+    // Games judged in the period, every format, through the one «Игра» layer (judge and «completed» rules live there).
+    // A game of an evening belongs to the evening's date; a tournament game to the moment it was completed.
+    const sinceMs = Date.parse(since), untilMs = Date.parse(until);
+    const judgedCounts = new Map<string, number>();
+    for (const game of await listCompletedGames(db)) {
+      if (!game.judgePlayerId) continue;
+      const at = Date.parse(String((game.storage === 'club' ? game.eventDate : game.date) || ''));
+      if (!Number.isFinite(at) || at < sinceMs || at >= untilMs) continue;
+      judgedCounts.set(game.judgePlayerId, (judgedCounts.get(game.judgePlayerId) || 0) + 1);
     }
-    if (tables.has('tournament_games')) {
-      const judge = (await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')
-        ? 'COALESCE(tg.judge_player_id, t.judge_player_id)' : 'tg.judge_player_id';
-      for (const row of await db.all<any>(`
-        SELECT ${judge} AS id, p.nickname, COUNT(*) AS count
-          FROM tournament_games tg
-          JOIN tournaments t ON t.id = tg.tournament_id
-          JOIN players p ON p.id = ${judge}
-         WHERE tg.status = 'completed' AND julianday(tg.completed_at) >= julianday(?) AND julianday(tg.completed_at) < julianday(?)
-         GROUP BY ${judge}, p.nickname`, [since, until])) bump(String(row.id), String(row.nickname), 'games', Number(row.count));
+    if (judgedCounts.size) {
+      const ids = [...judgedCounts.keys()];
+      for (const row of await db.all<any>(`SELECT id, nickname FROM players WHERE id IN (${ids.map(() => '?').join(',')})`, ids)) {
+        bump(String(row.id), String(row.nickname), 'games', judgedCounts.get(String(row.id)) || 0);
+      }
     }
     const staff = [...rows.values()].sort((a, b) => (b.evenings + b.games) - (a.evenings + a.games) || a.nickname.localeCompare(b.nickname, 'ru'));
 

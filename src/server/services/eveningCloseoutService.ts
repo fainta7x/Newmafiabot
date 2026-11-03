@@ -1,5 +1,6 @@
 import { cancelOutstandingRolePurchasesForEvening } from './preGameRolePurchaseService.ts';
 import { cancelOutstandingGameMusicOrders } from './gameMusicOrderService.ts';
+import { cancelOutstandingGameSeatSwaps } from './gameSeatSwapOrderService.ts';
 import { randomUUID } from 'node:crypto';
 import { awardEveningOrganizer } from './staffRewards.ts';
 import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
@@ -285,6 +286,7 @@ export async function settleEveningFromCloseout(
   // closeout blockers have passed. Recompute dues before creating the ledger.
   await cancelOutstandingRolePurchasesForEvening(db, eveningId);
   await cancelOutstandingGameMusicOrders(db, eveningId);
+  await cancelOutstandingGameSeatSwaps(db, eveningId);
   await reconcileRegularEveningPayments(db, eveningId);
   await reconcileNoviceEveningCharges(db, eveningId);
   await reconcileOtherFormatExtensions(db, eveningId);

@@ -16,7 +16,7 @@ export interface LiveProtocolMarkers {
   /** «Сломал попил красным»: the red the judge tagged on a circle, by engine round (owner, 2026-11-01; any circle, the zero one included). */
   splitBreakTags?: Record<string, number>;
   /** Elo tags («Вскрылся чёрному», «Убил шерифа в нуле»): seats by tag and engine round (owner, 2026-11-03). */
-  eloTags?: Array<{ tag: 'revealed_to_black' | 'killed_sheriff_zero'; round: number; seat: number }>;
+  eloTags?: Array<{ tag: 'revealed_to_black' | 'killed_sheriff_zero' | 'false_sheriff_red_sheriff'; round: number; seat: number }>;
 }
 
 export interface ConfirmedBestMove { source: BestMoveSource; slot: number; seats: number[]; }
@@ -94,7 +94,7 @@ export function setSplitBreakTag(state: LiveProtocolMarkers, round: number, slot
 }
 
 /** Puts on or takes off an Elo tag of a seat on an engine round. */
-export function toggleEloTag(state: LiveProtocolMarkers, tag: 'revealed_to_black' | 'killed_sheriff_zero', round: number, slot: number): LiveProtocolMarkers {
+export function toggleEloTag(state: LiveProtocolMarkers, tag: 'revealed_to_black' | 'killed_sheriff_zero' | 'false_sheriff_red_sheriff', round: number, slot: number): LiveProtocolMarkers {
   if (!Number.isInteger(round) || round < 1 || !isValidSeat(slot)) return state;
   const tags = state.eloTags || [];
   const has = tags.some((item) => item.tag === tag && item.round === round && item.seat === slot);

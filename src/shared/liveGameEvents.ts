@@ -119,7 +119,7 @@ export const splitBreakMarks = (events: ReadonlyArray<Pick<LiveGameEvent, 'kind'
  * «Убил шерифа в нуле» (+10 Elo, the zero circle). Event `elo_tag`: `value` is the tag, «<tag>:off» takes it back; the latest
  * event of a (tag, circle, seat) wins.
  */
-export const ELO_TAGS = { revealed_to_black: { label: 'Вскрылся чёрному', elo: -10 }, killed_sheriff_zero: { label: 'Убил шерифа в нуле', elo: 10 } } as const;
+export const ELO_TAGS = { false_sheriff_red_sheriff: { label: 'Вскрылся шерифом с шерифом красным', elo: -20 }, revealed_to_black: { label: 'Вскрылся чёрному', elo: -10 }, killed_sheriff_zero: { label: 'Убил шерифа в нуле', elo: 10 } } as const;
 export type EloTag = keyof typeof ELO_TAGS;
 export const isEloTag = (value: unknown): value is EloTag => typeof value === 'string' && value in ELO_TAGS;
 export const eloTagMarks = (events: ReadonlyArray<Pick<LiveGameEvent, 'kind' | 'round' | 'seat' | 'value'>> | null | undefined): Array<{ tag: EloTag; round: number; seat: number }> => {

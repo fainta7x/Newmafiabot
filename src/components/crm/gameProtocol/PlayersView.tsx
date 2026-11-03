@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ELO_TAGS, eloTagMarks, splitBreakMarks, type EloTag } from '../../../shared/liveGameEvents';
 import { ChevronRight, Lock } from 'lucide-react';
 import type { PlayerResultData } from '../../../lib/api';
 import { Btn, Card, Eyebrow, SeatBadge, SeatGrid, Segmented, Sheet, Stepper, cx } from './ui';
 import type { ProtocolApi } from './types';
-import { teamOfRole, type Issue } from './protocolReview';
+import { buildCircles, setSplitBreakTag, toggleEloTagEvent, teamOfRole, type Issue } from './protocolReview';
 import { deriveExitTypes } from '../tournaments/protocol/protocolStateUtils';
 import { BestMoveTag, ConfirmedTag, ExitTag, FirstKilledTag, FoulTag, InfoTag, NeedsTag, PpkTag, RoleTag } from './tags';
 
@@ -96,8 +97,10 @@ export const LockedNote: React.FC = () => (
 type SheetProps = { api: ProtocolApi; seat: number | null; onClose: () => void };
 
 export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
+  const [tagCircle, setTagCircle] = useState(0);
   const player = seat == null ? null : api.results.find((item) => item.seat_number === seat) || null;
   if (!player) return <Sheet open={false} title="" onClose={onClose}>{null}</Sheet>;
+  const splitOn = splitBreakMarks(api.protocol.events).some((mark) => mark.round === tagCircle + 1 && mark.seat === player.seat_number);
   const locked = api.locked;
   const isKilled = player.exit_type === 'killed';
   const marks = marksOf(player);
@@ -125,6 +128,20 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
       <div className="space-y-5 pb-2 pt-1">
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Состояние игрока"><RoleTag role={player.role} /><ExitTag exit={player.exit_type} />{isPpk ? <PpkTag /> : null}{tech ? <FoulTag count={tech} kind="minor" /> : null}{(player.regular_fouls || 0) ? <FoulTag count={player.regular_fouls || 0} /> : null}{removedByJudge ? <InfoTag tone="removed">Удалён судьёй</InfoTag> : null}</div>
         {locked ? <LockedNote /> : null}
+        <section aria-label="Теги игрока" className="space-y-2" data-testid="protocol-player-tags">
+          <Eyebrow>Теги</Eyebrow>
+          <select aria-label="Круг тега" value={tagCircle} disabled={locked} onChange={(event) => setTagCircle(Number(event.target.value))} className="min-h-11 w-full rounded-xl border border-white/15 bg-[#111216] px-3 text-sm text-white">
+            {buildCircles(api.protocol).map((circle) => <option key={circle.index} value={circle.index}>{circle.title}</option>)}
+          </select>
+          <div className="flex flex-col gap-2">
+            {(Object.keys(ELO_TAGS) as EloTag[]).filter((tag) => tag !== 'killed_sheriff_zero' || tagCircle === 0).map((tag) => {
+              const on = eloTagMarks(api.protocol.events).some((mark) => mark.tag === tag && mark.round === tagCircle + 1 && mark.seat === player.seat_number);
+              return <button key={tag} type="button" disabled={locked} aria-pressed={on} onClick={() => api.setEvents((events) => toggleEloTagEvent(events, tag, tagCircle, player.seat_number))} className={cx('min-h-11 rounded-xl border px-3 py-2 text-left text-sm break-words', on ? 'border-white bg-white text-black' : 'border-white/15 text-white')}>{ELO_TAGS[tag].label} · {ELO_TAGS[tag].elo > 0 ? '+' : '−'}{Math.abs(ELO_TAGS[tag].elo)} Elo</button>;
+            })}
+            {teamOfRole(player.role) === 'red' ? <button type="button" disabled={locked} aria-pressed={splitOn} onClick={() => api.setEvents((events) => setSplitBreakTag(events, tagCircle, splitBreakMarks(events).some((mark) => mark.round === tagCircle + 1 && mark.seat === player.seat_number) ? null : player.seat_number))} className={cx('min-h-11 rounded-xl border px-3 py-2 text-left text-sm', splitOn ? 'border-white bg-white text-black' : 'border-white/15 text-white')}>Сломал попил красным · −20 Elo</button> : null}
+          </div>
+        </section>
+
 
         {recorded && recorded !== player.exit_type ? (
           <div className="flex items-center gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] p-3" role="alert">

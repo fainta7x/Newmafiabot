@@ -79,3 +79,17 @@ describe('Elo tags of the judge (owner, 2026-11-03)', () => {
     assert.equal(score({ events: off }, 6).missPenaltyElo, 0);
   });
 });
+
+
+describe('false sheriff naming the real sheriff red', () => {
+  it('costs the tagged black 20, not the sheriff, deduplicates and can be removed', () => {
+    for (const seat of [8, 10]) {
+      const mark = ev(2, 'elo_tag', { seat, value: 'false_sheriff_red_sheriff' });
+      const events = seq([mark, mark]);
+      assert.equal(score({ events }, seat).missPenaltyElo, 20);
+      assert.equal(score({ events }, 1).missPenaltyElo, 0);
+      assert.ok(contributionBreakdown(seat === 10 ? 'don' : 'mafia', score({ events }, seat).items).some((line) => /шерифом красным: −20/.test(line)));
+      assert.equal(score({ events: seq([...events, ev(2, 'elo_tag', { seat, value: 'false_sheriff_red_sheriff:off' })]) }, seat).missPenaltyElo, 0);
+    }
+  });
+});

@@ -338,8 +338,10 @@ Besides the miss penalty (−10 Elo for each responsible black on a black loss, 
 
 The global Elo formulas are not changed (owner decision after the balance simulation in AUDIT_LOG).
 
-## Elo tags of the judge (owner, 2026-11-03)
+## Elo tags of the judge (owner, 2026-11-03/04)
 
+- **«Вскрылся шерифом с шерифом красным»** — −20 Elo: дон/мафия лжевскрылся шерифом и объявил настоящего шерифа красной проверкой. Судья ставит/снимает тег вручную.
+- Теги протокола доступны в карточке выбранного игрока с указанием круга; карточка и круг изменяют одни события.
 - Like «Сломал попил», the judge puts the tag on a player in the live game (player sheet) and in the protocol (circle card).
 - **«Вскрылся чёрному»** — −10 Elo, on any circle. **«Убил шерифа в нуле»** — +10 Elo, the zero circle only (this is the positive tag).
 - Fixed amounts after every personal limit (like the split-break cut), club games, any role; a tag taken off is undone. Who may be tagged is the judge's call — the program does not check the role.

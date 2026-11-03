@@ -221,7 +221,7 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
     rows = await db.all<{ state_json: string }>(
       `SELECT d.state_json FROM game_virtual_role_deals d JOIN games g ON g.id = d.game_id
         WHERE g.evening_id = ? AND g.archived_at IS NULL`, [eveningId]);
-  } catch { return totals; } // the deal table does not exist before the first virtual deal
+  } catch { rows = []; } // pre-deal purchases must still be charged when no virtual-deal table exists
   for (const row of rows) {
     let state: any = null;
     try { state = JSON.parse(row.state_json); } catch { continue; }

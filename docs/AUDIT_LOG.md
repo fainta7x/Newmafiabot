@@ -2667,6 +2667,10 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+
+## 2026-11-03 — VIP draw stress run (#1160 `planVipDraw`, 20 000 full deals per case)
+
+Full ten-seat deals, random card per seat, `planVipDraw` at every choice. The deck composition (6 citizens, sheriff, 2 mafia, don) held in every deal, including 30 rules at 100 % for everybody and 30 at 10 %; a bought (reserved) sheriff was never taken. Results: seat 1 «шериф» 10/50/80/100 % → 18.7/55.1/82.2/100 %; seat 10 «шериф» 50 % → 35.5 % (the chance depends on the seat: earlier players' attempts are each checked once); two players «шериф» 100 % → 49.5/50.5 %; «одноцвет с №8» 50 % → 86 % (baseline 53 %), 100 % → 100 % in both orders; «не хочу одноцвет» 100 % → 0 %; role + colour 100 % for one player → both kept. Matches the agreed rules; the seat dependence and the pair amplification were reported to the owner.
 ## 2026-11-03 — a test game landed on a real evening (owner: «создал в тестовой оболочке, а он на основном»)
 
 ## 2026-11-03 — VIP slider rebuilt to the owner's meaning (50 % neutral), stress run

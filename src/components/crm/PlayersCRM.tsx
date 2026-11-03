@@ -41,6 +41,7 @@ import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import PlayerIdentityFields from '../player/PlayerIdentityFields.tsx';
 import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
+import { PlayerVipSettings } from './PlayerVipSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
 import PlayerGoMafiaLink from '../player/PlayerGoMafiaLink.tsx';
 import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
@@ -653,6 +654,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             </button>
 
             <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
+            <PlayerVipSettings playerId={String(playerDetails.id)} />
             <PlayerGoMafiaLink playerId={playerDetails.id} isSelf={false} organizer />
 
             <section data-testid="crm-player-form" className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">

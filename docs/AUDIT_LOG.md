@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-11-03 — expanded preview regression triage (artifact #13244315358)
+
+- `fixed in candidate` e2e/tests/live-game-text-audit.spec.mjs: waited three minutes per viewport for removed «Начать раздачу ролей» while actual setup offers «Физическая раздача». Use the actual physical-deal entry; preserve all following layout/seat audits and detector thresholds.
+- `fixed in candidate` e2e/tests/crm-evening-roster.spec.mjs: after adding a player (correctly marked arrived), the test searched for them in the retained «Ожидаем» filter. The artifact shows «0 Ожидаем» / «4 Пришли». Open «Пришли» and keep assertions for original RSVP, actual attendance and layout. No app/fixture attendance semantics changed.
+- Actual VIP settings screenshot (390 px) inspected from layout-audit-evidence: «Мирный житель · 100%», readable controls, no overlap; full app audit passed. No local browser screenshot claimed.
+
+
 - #1160 + #1172 integration: paid role is enforced before VIP; private draws cannot consume a still-reserved role, and a buyer spends no VIP quota. Reopening a deal with a reserved/fulfilled purchase preserves it. Hide the obsolete in-deal server purchase button; preserve current approved one-tap/card/stream layout.
 
 

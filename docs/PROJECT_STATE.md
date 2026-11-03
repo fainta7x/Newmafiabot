@@ -1,3 +1,7 @@
+## 2026-11-03 — expanded preview fixes before the combined release
+
+Actual artifacts show stale physical-deal button wording and an arrived participant searched under the retained expected filter. Corrected those two test actions, keeping every behavior/layout assertion and detector unchanged. #1172 was merged as 4c7524f after exact-head non-browser CI and the all-app layout audit passed; expanded preview regressions are addressed in #1160. Runtime GET still reports build 2e500c7, so deployment of the new VIP mechanism is not confirmed.
+
 ## 2026-11-03 — общий кандидат #1160 перед вечером
 
 По просьбе владельца завершить остальные PR в #1160 сведены heads #1172 a6b8924 (окончательные VIP-уточнения), #1173 9b39809 (обновление поста/защита первого текста) и #1137 222a5d2 (зависимости с текущими исправлениями main). Исходные ветки сохранены в родителях коммита, чтобы merge интеграции сохранил их историю. Покупки + VIP проверены совместно: платная роль приоритетна, другие оплаченные карты недоступны для VIP, повторное открытие оплаченной раздачи не сбрасывает историю/долг. После синхронизации с main устранена устаревшая проверка open-evening; прежняя ошибка таймера документа уже исправлена в main. 139 целевых тестов в 16 файлах прошли на обновлённых зависимостях. Нужны exact-head CI, аудит интерфейса и merge; выкладка отдельно подтверждается runtime build.sha. Никаких боевых публикаций или изменений данных не выполнялось.

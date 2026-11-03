@@ -58,6 +58,9 @@ for (const width of [360, 390]) {
       await sheet.getByRole('button', { name: 'Игроки', exact: true }).click();
       await sheet.getByRole('button', { name: /Ручной Игрок С Очень Длинным Ником/ }).click();
       await sheet.getByRole('button', { name: 'Добавить в состав · 1', exact: true }).click();
+      // The manually added player is arrived, so open the matching filter before inspecting them.
+      await expect(sheet).not.toBeVisible();
+      await roster.getByRole('button', { name: /^\d+ Пришли$/, exact: true }).click();
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');
       await expect(manualRow).toBeVisible();
       await expect(manualRow).toContainText('В составе');

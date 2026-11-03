@@ -62,7 +62,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'Подтвердить состав' }).click();
       await page.getByTestId('zero-round-rule').getByRole('radio', { name: 'Турнирная' }).click();
       await check('setup');
-      await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
+      await page.getByRole('button', { name: 'Физическая раздача', exact: true }).click();
       await check('deal-music');
       await page.getByTestId('physical-role-deal-start').click();
       await check('role-deal');

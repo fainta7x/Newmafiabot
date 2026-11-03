@@ -51,6 +51,12 @@ export async function ensureEveningTodayPostSchema(db: DatabaseWrapper) {
       updated_at TEXT NOT NULL
     )
   `);
+  // The text the app generated itself: a post whose text still equals it is kept in step with the roster.
+  const columns = await db.all<any>('PRAGMA table_info(evening_today_posts)');
+  if (!columns.some((column: any) => column.name === 'auto_text')) {
+    // Two concurrent first calls may both see the column missing; the loser's duplicate-column error is harmless.
+    await db.run('ALTER TABLE evening_today_posts ADD COLUMN auto_text TEXT').catch((error: any) => { if (!/duplicate column/i.test(String(error?.message))) throw error; });
+  }
 }
 
 const time = (value: unknown) => new Date(String(value)).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
@@ -135,16 +141,21 @@ export async function loadTodayPost(db: DatabaseWrapper, eveningId: string) {
   return { evening_id: eveningId, state, text: row.text, game_number: row.game_number, telegram_status: row.telegram_status, telegram_error: row.telegram_error, vk_status: row.vk_status, vk_error: row.vk_error, vk_url: row.vk_url, published_at: row.published_at, decision_prompt_at: row.decision_prompt_at || null, skipped_at: row.skipped_at || null };
 }
 
-export async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fetchImpl: typeof fetch, context?: PublicationContext) {
-  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  if (!token) return { certainty: 'rejected' as const, status: 'failed', error: 'Telegram-бот не настроен' };
+async function telegramTarget(db: DatabaseWrapper, evening: any) {
   const format = normalizeEveningFormat(evening.format);
   const destination = await db.get<any>(
     'SELECT chat_id, topic_id FROM telegram_destinations WHERE id = ? LIMIT 1',
     [format === 'NOVICE' ? 'novice' : format === 'CASUAL' ? 'club' : 'rating'],
   ).catch(() => null);
+  const cover = destination?.chat_id ? await announcementCoverUrl(db, getPublicAppBaseUrl(), String(evening.id), evening.format).catch(() => null) : null;
+  return { destination, cover };
+}
+
+export async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fetchImpl: typeof fetch, context?: PublicationContext) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (!token) return { certainty: 'rejected' as const, status: 'failed', error: 'Telegram-бот не настроен' };
+  const { destination, cover } = await telegramTarget(db, evening);
   if (!destination?.chat_id) return { certainty: 'rejected' as const, status: 'failed', error: 'Не настроена Telegram-группа для этого вечера' };
-  const cover = await announcementCoverUrl(db, getPublicAppBaseUrl(), String(evening.id), evening.format).catch(() => null);
   const result = await sendPublicTelegram(db, { method:'sendMessage', fields: {
     chat_id:destination.chat_id, ...(destination.topic_id ? { message_thread_id:Number(destination.topic_id) } : {}), text,
     ...(cover ? { link_preview_options:{ url:cover, prefer_large_media:true, show_above_text:true } } : { disable_web_page_preview:true }),
@@ -201,9 +212,10 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
   const now = new Date().toISOString();
   await db.run('INSERT OR IGNORE INTO evening_today_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)', [eveningId, now, now]);
   const existing = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id = ?', [eveningId]);
-  const proposed = String(input.text || '').trim().slice(0,3500) || String(existing?.text || '') || (await buildTodayPostDraft(db,eveningId,input.game_number)).text;
+  const draft = await buildTodayPostDraft(db, eveningId, input.game_number);
+  const proposed = String(input.text || '').trim().slice(0,3500) || String(existing?.text || '') || draft.text;
   // Freeze the payload before either channel starts; a second request reads the winning text.
-  await db.run('UPDATE evening_today_posts SET text=COALESCE(text,?),game_number=COALESCE(game_number,?),updated_at=? WHERE evening_id=?', [proposed,Number(input.game_number)||null,now,eveningId]);
+  await db.run('UPDATE evening_today_posts SET text=COALESCE(text,?),auto_text=COALESCE(auto_text,?),game_number=COALESCE(game_number,?),updated_at=? WHERE evening_id=?', [proposed,draft.text,Number(input.game_number)||draft.game_number||null,now,eveningId]);
   const row = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id=?',[eveningId]);
   await Promise.all((['telegram','vk'] as const).map(async channel => {
     if (row[channel+'_status'] === 'published') return;
@@ -222,6 +234,58 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
     await queueEveningSeatingJudgeSummary(db, eveningId);
   }
   return publication;
+}
+
+const REFRESH_MIN_GAP_MS = 2 * 60_000;
+const publishedMessageId = async (db: DatabaseWrapper, eveningId: string, channel: 'telegram') => {
+  const delivery = await db.get<any>('SELECT result FROM publication_deliveries WHERE delivery_key = ? AND status = ?', [`today:${eveningId}:${channel}`, 'accepted']).catch(() => null);
+  try { return String(JSON.parse(delivery?.result || '{}').ids?.[0] || '') || null; } catch { return null; }
+};
+
+/**
+ * Players who sign up after «Сегодня играем» went out (owner, 2026-11-03) must appear in it: the published
+ * Telegram message is edited to the current roster (Telegram only, owner 2026-11-03: VK is not touched). A post the organizer edited by hand is left alone.
+ * Returns the number of posts whose text changed.
+ */
+export async function refreshPublishedTodayPosts(db: DatabaseWrapper, now = Date.now(), fetchImpl: typeof fetch = fetch) {
+  if (isEveningPublishingPaused()) return 0;
+  await ensureEveningTodayPostSchema(db);
+  const rows = await db.all<any>(
+    `SELECT p.* FROM evening_today_posts p JOIN game_evenings e ON e.id = p.evening_id
+      WHERE p.telegram_status = 'published' AND p.auto_text IS NOT NULL AND p.text = p.auto_text
+        AND e.status = 'published' AND e.settled_at IS NULL AND datetime(e.starts_at) > datetime(?) AND p.updated_at <= ?`,
+    [new Date(now - 6 * 3_600_000).toISOString(), new Date(now - REFRESH_MIN_GAP_MS).toISOString()],
+  );
+  let changed = 0;
+  for (const row of rows) {
+    const eveningId = String(row.evening_id);
+    try {
+      const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+      if (!evening || !isOpenEvening(evening)) continue;
+      const draft = await buildTodayPostDraft(db, eveningId, row.game_number);
+      if (draft.text === row.text) continue;
+      let failed = false;
+      if (row.telegram_status === 'published') {
+        const messageId = await publishedMessageId(db, eveningId, 'telegram');
+        const { destination, cover } = await telegramTarget(db, evening);
+        const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+        if (messageId && destination?.chat_id && token) {
+          const response = await fetchImpl(`https://api.telegram.org/bot${token}/editMessageText`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: destination.chat_id, message_id: Number(messageId), text: draft.text,
+              ...(cover ? { link_preview_options: { url: cover, prefer_large_media: true, show_above_text: true } } : { disable_web_page_preview: true }) }) }).catch(() => null);
+          const body: any = response ? await response.json().catch(() => null) : null;
+          if (!response?.ok && !String(body?.description || '').includes('message is not modified')) { failed = true; console.error('[TODAY POST] Telegram edit failed:', body?.description || response?.status); }
+        }
+      }
+      const stamp = new Date(now).toISOString();
+      // On a failed edit only the retry clock moves, so the next scan (after the gap) tries the same roster again.
+      if (failed) await db.run('UPDATE evening_today_posts SET updated_at = ? WHERE evening_id = ?', [stamp, eveningId]);
+      else { await db.run('UPDATE evening_today_posts SET text = ?, auto_text = ?, updated_at = ? WHERE evening_id = ?', [draft.text, draft.text, stamp, eveningId]); changed += 1; }
+    } catch (error) {
+      console.error('[TODAY POST] refresh failed:', error);
+    }
+  }
+  return changed;
 }
 
 /** The organizer decided not to publish today (the evening may still be cancelled separately). */
@@ -246,8 +310,9 @@ export async function runTodayPostSchedule(db: DatabaseWrapper, now = Date.now()
   if (isEveningPublishingPaused()) return 0;
   await ensureEveningTodayPostSchema(db);
   await importLegacyPublicationHolds(db);
+  const refreshed = await refreshPublishedTodayPosts(db, now, fetchImpl);
   const clock = moscowParts(now);
-  if (clock.hour < TODAY_POST_HOUR_MSK) return 0;
+  if (clock.hour < TODAY_POST_HOUR_MSK) return refreshed;
   const evenings = await db.all<any>(
     `SELECT e.id, e.title, e.starts_at, p.telegram_status, p.vk_status, p.decision_prompt_at, p.skipped_at
        FROM game_evenings e LEFT JOIN evening_today_posts p ON p.evening_id = e.id
@@ -297,5 +362,5 @@ export async function runTodayPostSchedule(db: DatabaseWrapper, now = Date.now()
     });
     actions += 1;
   }
-  return actions;
+  return actions + refreshed;
 }

@@ -32,6 +32,7 @@ const pages = [
   'e2e/trophy-icons.html',
   'e2e/project-board.html',
   'e2e/live-broadcast-reveal.html',
+  'e2e/live-broadcast-deal.html',
   'e2e/crm-evenings.html',
   'e2e/owner-evenings.html',
   'e2e/crm-players.html',

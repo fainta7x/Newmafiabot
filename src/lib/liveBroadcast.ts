@@ -94,6 +94,17 @@ export type LiveBroadcastProtocol = {
   sheriff: number[];
 };
 
+/**
+ * The role deal on the stream (owner, 2026-11-03): whose turn it is (nickname and seat lit), the ten cards on the table
+ * (taken ones faded) and the card just opened, flipped to its role — the viewers see the role.
+ */
+export type LiveBroadcastDeal = {
+  seat: number;
+  /** Cards still in the deck, numbered 1..n again after each removal (the row narrows). */
+  cards: Array<{ position: number }>;
+  open: { position: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don' } | null;
+};
+
 export type LiveBroadcastState = {
   version: typeof LIVE_BROADCAST_VERSION;
   gameId: number;
@@ -121,6 +132,8 @@ export type LiveBroadcastState = {
   reveals?: LiveBroadcastReveal[];
   /** Red and black wins in the evening's finished games; the server fills it in. */
   eveningScore?: { red: number; black: number } | null;
+  /** Only while the roles are being dealt (`phaseKey: 'deal'`). */
+  deal?: LiveBroadcastDeal | null;
   updatedAt: string;
 };
 

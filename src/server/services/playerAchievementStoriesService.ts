@@ -1,8 +1,8 @@
-import { isCompletedClubGame } from './completedClubGame.ts';
 import type { StatGame, StatRole } from '../../lib/gameStatistics.ts';
 import { blackRole, redRole, gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { ACHIEVEMENT_STORIES, type StoryResult } from '../../lib/achievementStories.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
+import { listEventGames, listGamesJudgedBy } from './gameService.ts';
 
 export function buildAchievementStories(games: StatGame[], playerId: string): Record<string, StoryResult> {
   const result: Record<string, StoryResult> = Object.fromEntries(ACHIEVEMENT_STORIES.map(a => [a.id, { current: 0 }]));
@@ -88,19 +88,17 @@ export async function loadPlayerAchievementStories(db: any, playerId: string): P
     stories[id] = { current, evidence: current >= 1 ? { gameId, date, detail } : undefined };
   };
   const own = games.filter(g => g.seats.some(s => s.playerId === playerId));
-  const club = await db.all(`SELECT g.id, g.evening_id, g.judge_player_id, g.protocol_text, e.status evening_status
-    FROM games g JOIN game_evenings e ON e.id=g.evening_id WHERE g.archived_at IS NULL AND e.status!='cancelled'`);
-  const played = (row: any) => { try { const p = JSON.parse(row.protocol_text || '{}'); return isCompletedClubGame(p); } catch { return false; } };
-  const judged = club.filter((g: any) => g.judge_player_id === playerId && played(g));
-  const tournamentJudges = await db.all(`SELECT tg.id FROM tournament_games tg JOIN tournament_game_protocols p ON p.game_id=tg.id JOIN tournaments t ON t.id=tg.tournament_id
-    WHERE tg.status='completed' AND p.status='completed' AND COALESCE(tg.judge_player_id,t.judge_player_id)=?`, [playerId]);
-  const judgedGames = games.filter(g => judged.some((r: any) => g.id === `club:${r.id}`) || tournamentJudges.some((r: any) => g.id === `tournament:${r.id}`));
+  // Judged games and whole evenings through the one «Игра» layer (judge and «completed» rules live there).
+  const judgedKeys = new Set((await listGamesJudgedBy(db, playerId)).filter((game) => game.status === 'completed').map((game) => game.key));
+  const judgedGames = games.filter(g => judgedKeys.has(g.id as any));
   if (own.length && judgedGames.length) evidence('other_side_of_table', 1, [own[0].date,judgedGames[0].date].sort().at(-1)!, 'Подтверждены сыгранная игра и игра назначенным судьёй.');
-  const byEvening = new Map<string, any[]>();
-  for (const row of club) byEvening.set(String(row.evening_id), [...(byEvening.get(String(row.evening_id)) || []), row]);
-  for (const [eventId, rows] of byEvening) if (rows.length >= 3 && rows.every(r => r.evening_status === 'completed' && played(r) && r.judge_player_id === playerId)) {
-    const game = games.filter(g => g.source === 'club' && g.eventId === eventId).at(-1);
-    if (game) evidence('full_judge_evening', 1, game.date, `Все ${rows.length} игр закрытого вечера проведены судьёй.`, game.id);
+  const judgedEvenings = new Set([...judgedKeys].filter((key) => key.startsWith('club:')).map((key) => games.find((g) => g.id === key)?.eventId).filter(Boolean) as string[]);
+  for (const eventId of judgedEvenings) {
+    const rows = (await listEventGames(db, 'evening', eventId)).filter((game) => game.status !== 'archived');
+    if (rows.length >= 3 && rows.every((game) => game.eventStatus === 'completed' && game.status === 'completed' && game.judgePlayerId === playerId)) {
+      const game = games.filter(g => g.source === 'club' && g.eventId === eventId).at(-1);
+      if (game) evidence('full_judge_evening', 1, game.date, `Все ${rows.length} игр закрытого вечера проведены судьёй.`, game.id);
+    }
   }
   if (await db.get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_referrals'")) {
     const referrals = await db.all('SELECT invited_player_id FROM player_referrals WHERE inviter_player_id=?', [playerId]);
@@ -120,13 +118,13 @@ export async function loadPlayerAchievementStories(db: any, playerId: string): P
     evidence('own_company', Math.min(returning,3)/3, returns.sort((a,b)=>a.date.localeCompare(b.date))[2]?.date || '', `${returning} приглашённых сыграли на двух разных вечерах.`);
     stories.own_company.target = 3;
   }
-  const tournamentRounds = await db.all(`SELECT tg.id,tg.status,tg.tournament_id,t.game_count
-    FROM tournament_games tg JOIN tournaments t ON t.id=tg.tournament_id WHERE t.status='completed'`);
-  const byTournament = new Map<string, any[]>();
-  for (const row of tournamentRounds) byTournament.set(String(row.tournament_id), [...(byTournament.get(String(row.tournament_id)) || []),row]);
-  for (const [id,rounds] of byTournament) {
+  const tournaments: any[] = await db.all(`SELECT id, game_count FROM tournaments WHERE status='completed'`);
+  for (const tournament of tournaments) {
+    const id = String(tournament.id);
     const ownRounds = own.filter(g => g.source === 'tournament' && g.eventId === id);
-    if (rounds.length === Number(rounds[0].game_count) && rounds.length > 0 && rounds.every((r: any) => r.status === 'completed' && ownRounds.some(g => g.id === `tournament:${r.id}`)))
+    if (!ownRounds.length) continue;
+    const rounds = await listEventGames(db, 'tournament', id);
+    if (rounds.length === Number(tournament.game_count) && rounds.every((game) => game.status === 'completed' && ownRounds.some(g => g.id === game.key)))
       evidence('first_distance', 1, ownRounds.at(-1)!.date, `Сыграна вся фактическая дистанция: ${rounds.length} игр.`, ownRounds.at(-1)!.id);
   }
   return stories;

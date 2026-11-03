@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { sendJson, getJson } from '../../lib/requestJson.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Order = { id: string; game_id: number; role: string; status: string };
 

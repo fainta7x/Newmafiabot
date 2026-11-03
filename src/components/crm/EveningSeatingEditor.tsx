@@ -64,7 +64,10 @@ export function EveningSeatingEditor({ eveningId, tables, participants, playedGa
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Не удалось сформировать план');
       await reload();
-      setMessage(`Рассадка обновлена: добавлено ${Number(data.created || 0)} мест`);
+      const sent = data.notifications_skipped === 'started'
+        ? 'вечер уже начался — сообщения не отправляются'
+        : `игрокам отправлено сообщений: ${Number(data.notified_players || 0)}${data.judge_notified ? ' · судье — вся рассадка' : ''}`;
+      setMessage(`Рассадка обновлена: добавлено ${Number(data.created || 0)} мест · ${sent}`);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Ошибка генерации'); }
     finally { setBusy(false); }
   };

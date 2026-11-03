@@ -29,6 +29,9 @@ for (const [width, height] of VIEWPORTS) {
     await check('filled-seat');
     await page.getByTestId('seating-remove').click();
     await expect(page.getByTestId('seating-seat-t1-8')).toContainText('Свободно');
+    await page.getByRole('button', { name: 'Сформировать весь вечер' }).click();
+    await expect(page.getByText(/игрокам отправлено сообщений/)).toBeVisible();
+    await check('generated');
     if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height} ===\n${report.join('\n') || 'clean'}`);
     expect(report).toEqual([]);
   });

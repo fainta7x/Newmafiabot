@@ -1135,5 +1135,8 @@ What the page shows (owner, 2026-11-02): **top-3 lists, ranked by count; no mini
 The earlier six «blocks» and the minimum of 5 games together are replaced by these lists. Names of the lists are the owner's to give.
 
 - **Red player's vote error** = a vote for a red player (a civilian or the sheriff). A vote for **the sheriff** is a much worse error and is shown separately.
-- **Black player**: no «error» metric; show who trusts him least (votes against him most) and who votes together with him most often.
+- **«Who votes for you correctly / wrongly»** (owner, 2026-11-03): correctly = you are black and he votes for you; wrongly = you are red and he votes for you.
+- **The player's own votes while he is black are not counted** (owner, 2026-11-03).
+- **Black block stays** (owner, 2026-11-03): when you are **mafia** — top-3 who votes for you (trusts you least) and top-3 who votes together with you; when you are **the don** — the same two top-3 lists (who votes with you, who votes for you).
+- **Layout** (owner, 2026-11-03): not one long column — the lists are chosen with a switch, the page should look organic and good.
 - **Visibility** (owner, 2026-11-02): only the player himself sees his statistic; the organizer can view the full statistic of every player.

@@ -87,7 +87,7 @@ export function PlayerVipSettings({ playerId }: { playerId: string }) {
     <section data-testid="crm-player-vip" className="space-y-3 rounded-[17px] border border-amber-300/20 bg-amber-300/[0.04] p-3.5">
       <div>
         <div className="text-[13px] font-bold text-text-primary">VIP-подкрутка</div>
-        <p className="mt-0.5 text-[11px] leading-4 text-text-secondary">Только обычные и новичковые вечера, виртуальная раздача. Процент — шанс, что условие сработает. Видите только вы.</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-text-secondary">Только обычные и новичковые вечера, виртуальная раздача. 50% — обычная раздача, 100% — всегда, 0% — никогда. Видите только вы.</p>
       </div>
 
       {rules.map((rule) => (
@@ -103,7 +103,7 @@ export function PlayerVipSettings({ playerId }: { playerId: string }) {
             </select>
           )}
           <label className="flex items-center justify-between gap-2 text-[11px] text-text-secondary">
-            <span>Шанс срабатывания</span><strong className="text-[13px] text-text-primary">{rule.percent}%</strong>
+            <span>Шанс · 50% — обычная раздача</span><strong className="text-[13px] text-text-primary">{rule.percent}%</strong>
           </label>
           <input type="range" min={0} max={100} step={5} aria-label={`${PHRASE[rule.kind]}: шанс срабатывания`} className="w-full accent-white" value={rule.percent} disabled={busy}
             onChange={(event) => setRules((list) => list.map((item) => (item.id === rule.id ? { ...item, percent: Number(event.target.value) } : item)))}
@@ -129,7 +129,7 @@ export function PlayerVipSettings({ playerId }: { playerId: string }) {
               {others.map((player) => <option key={player.id} value={String(player.id)}>{player.nickname}</option>)}
             </select>
           )}
-          <p className="text-[11px] text-text-secondary">Шанс срабатывания {DEFAULT_PERCENT}% — его можно поменять ползунком после добавления.</p>
+          <p className="text-[11px] text-text-secondary">Ползунок начнёт с 50% — это обычная раздача: выше — чаще, 100% — всегда; ниже — реже, 0% — никогда.</p>
           <div className="flex gap-2">
             <button type="button" disabled={busy || (draft.kind !== 'role' && !draft.otherPlayerId)} onClick={() => void add()} className="min-h-11 flex-1 rounded-xl bg-white px-3 text-[13px] font-semibold text-black disabled:opacity-40">Добавить</button>
             <button type="button" onClick={() => setDraft(null)} className="min-h-11 flex-1 rounded-xl border border-white/15 px-3 text-[13px] text-text-primary">Отмена</button>

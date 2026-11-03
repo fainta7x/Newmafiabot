@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { useState } from "react";
 import { SEAT_COLORS } from "./seatColors.ts";
 import { SeatBadge } from "./SeatBadge.tsx";
 
@@ -18,6 +19,8 @@ interface VoteByNumbersOverlayProps {
   onFinish: () => void;
   /** Folds the window away: the table with its seat cards (fouls, actions) is free again; «Цифрами» in the panel opens it back. */
   onCollapse: () => void;
+  onQuickSplit?: (pair: [number, number]) => void;
+  onSameSplit?: () => void;
 }
 
 /**
@@ -27,8 +30,9 @@ interface VoteByNumbersOverlayProps {
  */
 export function VoteByNumbersOverlay({
   nominees, nomineeIndex, votesByPlayer, voterSeats, tableSize, nicknameOf, remaining, busy = false,
-  onToggle, onSelectNominee, onFinish, onCollapse,
+  onToggle, onSelectNominee, onFinish, onCollapse, onQuickSplit, onSameSplit,
 }: VoteByNumbersOverlayProps) {
+  const [splitPicking, setSplitPicking] = useState<number[] | null>(null);
   const nominee = nominees[nomineeIndex];
   if (nominee === undefined || typeof document === 'undefined') return null;
   const isLast = nomineeIndex >= nominees.length - 1;
@@ -45,7 +49,25 @@ export function VoteByNumbersOverlay({
           <p className="text-xs text-white/45">Проголосовали за него: <b className="text-white/80">{forThis}</b> · ещё не голосовали: <b className="text-white/80">{remaining}</b></p>
           {isLast && <p className="text-xs text-white/30">Оставшиеся голоса достанутся #{nominee}, когда вы подведёте итог.</p>}
         </div>
-        <div className="mx-auto grid max-w-sm grid-cols-5 gap-2">
+        {onQuickSplit || onSameSplit ? (
+          <div className="flex flex-wrap gap-2">
+            {onQuickSplit && <button type="button" disabled={busy} onClick={() => setSplitPicking([])} className="min-h-11 rounded-2xl border border-white/15 px-3 text-xs text-white">Попил</button>}
+            {onSameSplit && <button type="button" disabled={busy} onClick={onSameSplit} className="min-h-11 rounded-2xl border border-white/15 px-3 text-xs text-white">Поделилось также</button>}
+          </div>
+        ) : null}
+        {splitPicking && onQuickSplit ? (
+          <div className="space-y-2" data-testid="live-vote-numbers-split">
+            <p className="text-sm text-white">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</p>
+            <div className="flex flex-wrap gap-2">
+              {nominees.map((candidate) => <button key={candidate} type="button" disabled={busy || splitPicking.includes(candidate)} aria-pressed={splitPicking.includes(candidate)} onClick={() => {
+                if (!splitPicking.length) return setSplitPicking([candidate]);
+                onQuickSplit([splitPicking[0], candidate]);
+                setSplitPicking(null);
+              }} className="min-h-11 min-w-11 rounded-xl border border-white/15 text-white">#{candidate}</button>)}
+            </div>
+            <button type="button" disabled={busy} onClick={() => setSplitPicking(null)} className="min-h-11 px-3 text-sm text-white">Отмена</button>
+          </div>
+        ) : <div className="mx-auto grid max-w-sm grid-cols-5 gap-2">
           {Array.from({ length: tableSize }, (_, index) => index + 1).map((seat) => {
             const votesFor = votesByPlayer[seat];
             const atTable = voters.has(seat);
@@ -76,7 +98,7 @@ export function VoteByNumbersOverlay({
               </button>
             );
           })}
-        </div>
+        </div>}
         {/* The history of this voting (owner, 2026-10-27): every candidate with who voted for them so far, in their colours. */}
         <div data-testid="live-vote-numbers-history" className="space-y-1.5 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
           {nominees.map((candidate, index) => {

@@ -119,6 +119,10 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       await page.getByRole('button', { name: 'Отмена', exact: true }).click();
       await page.getByRole('button', { name: 'Цифрами', exact: true }).click();
       await check('vote-numbers');
+      const numbersSheet = page.getByTestId('live-vote-numbers-sheet');
+      await numbersSheet.getByRole('button', { name: 'Попил', exact: true }).click();
+      await check('vote-numbers-split-picker');
+      await numbersSheet.getByRole('button', { name: 'Отмена', exact: true }).click();
       await page.getByRole('button', { name: 'Свернуть', exact: true }).click();
       await page.getByRole('button', { name: /Следующий/ }).click();
       await check('vote-count-last');

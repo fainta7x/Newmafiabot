@@ -77,6 +77,34 @@ playerRouter.get('/role-purchases', async (req, res) => {
   } catch (error: any) { return onError(res, error); }
 });
 
+/** Explicit admin lookup: never shipped as a push notification.
+ * This management route requires authenticated organizer privileges.
+ */
+adminRouter.get('/role-purchases', async (req, res) => {
+  const gameId = Number(req.query.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) {
+    return res.status(400).json({ error: 'Укажите игру' });
+  }
+  try {
+    const db = req.db || await getDb();
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    const actingJudge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (actingJudge && game.judgePlayerId !== actingJudge) {
+      return res.status(403).json({ error: 'Нет прав судьи этой игры' });
+    }
+    await ensurePreGameRolePurchaseSchema(db);
+    const orders = await db.all(
+      `SELECT id, player_id, role, status, amount_rub, created_at
+         FROM game_role_reservations WHERE game_id=?
+         ORDER BY created_at ASC`,
+      [gameId],
+    );
+    res.set('Cache-Control', 'private, no-store');
+    return res.json({ gameId, orders });
+  } catch (error: any) { return onError(res, error); }
+});
+
 /** The organizer may always cancel, including while sitting at the table. */
 adminRouter.delete('/role-purchases/:orderId', async (req, res) => {
   try {

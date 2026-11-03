@@ -162,6 +162,9 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/pulse': return json(pulse);
   case '/api/player/club-world': return json(new URLSearchParams(location.search).has('results-context') ? {...clubWorld,season_history:[resultsContextSeason('2026-summer','Лето 2026'),resultsContextSeason('2026-spring','Весна 2026',true)]} : clubWorld);
   case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });
+  // Purchases before a game (#1160): nothing ordered yet, no game open for orders.
+  case '/api/player/music-orders': case '/api/player/role-purchases': case '/api/player/seat-swap-orders': return json({ orders: [] });
+  case '/api/player/game-purchase-options': return json({ games: [] });
   default: return json({ error: 'Этот сценарий пока не подготовлен в предпросмотре' }, 404);
  }
 };

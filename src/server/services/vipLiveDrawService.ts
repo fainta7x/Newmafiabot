@@ -13,7 +13,7 @@ type Context = { eveningId: string; format: string; playerBySeat: Map<number,str
 
 /** Called inside the same SQLite transaction as reveal. Private state is never sent to clients. */
 export async function applyPrivateVipDraw(
-  db: DatabaseWrapper, gameId: number, context: Context, state: DealState, seat: number, cardId: string,
+  db: DatabaseWrapper, gameId: number, context: Context, state: DealState, seat: number, cardId: string, protectedClosedRoles: Partial<Record<GameRole,number>> = {},
 ): Promise<{ deck: Card[]; vipPlayerIds: string[] }> {
   const unchanged = { deck: state.deck, vipPlayerIds: [] as string[] };
   if (!vipEffectAllowed(context.format)) return unchanged;
@@ -45,6 +45,7 @@ export async function applyPrivateVipDraw(
   }
   return planVipDraw(state.deck,cardId,rules.filter(rule=>allowed(rule.playerId)),{
     drawingPlayerId:context.playerBySeat.get(seat) || null,
+    protectedClosedRoles,
     waitingPlayerIds:new Set([...context.playerBySeat.entries()]
       .filter(([otherSeat])=>!state.history.some(entry=>entry.seat===otherSeat)).map(([,id])=>id)),
     revealedRolesByPlayer,

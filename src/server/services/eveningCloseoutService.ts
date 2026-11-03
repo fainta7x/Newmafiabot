@@ -1,3 +1,6 @@
+import { cancelOutstandingRolePurchasesForEvening } from './preGameRolePurchaseService.ts';
+import { cancelOutstandingGameMusicOrders } from './gameMusicOrderService.ts';
+import { cancelOutstandingGameSeatSwaps } from './gameSeatSwapOrderService.ts';
 import { randomUUID } from 'node:crypto';
 import { awardEveningOrganizer } from './staffRewards.ts';
 import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
@@ -279,9 +282,19 @@ export async function settleEveningFromCloseout(
     ), { statusCode: 409, code: 'game_stats_confirmation_required', details: state.games });
   }
 
+  // Do not remove a paid reservation until all attendance / unfinished-game
+  // closeout blockers have passed. Recompute dues before creating the ledger.
+  await cancelOutstandingRolePurchasesForEvening(db, eveningId);
+  await cancelOutstandingGameMusicOrders(db, eveningId);
+  await cancelOutstandingGameSeatSwaps(db, eveningId);
+  await reconcileRegularEveningPayments(db, eveningId);
+  await reconcileNoviceEveningCharges(db, eveningId);
+  await reconcileOtherFormatExtensions(db, eveningId);
+  const refreshed = await loadEveningCloseout(db, eveningId);
+
   const now = new Date().toISOString();
   const unfinishedIds = state.games.unfinished.map((item: any) => Number(item.id)).filter(Number.isFinite);
-  const participants = state.participants;
+  const participants = refreshed.participants;
 
   await db.transaction(async (tx) => {
     if (unfinishedIds.length && options.allow_missing_game_stats) {

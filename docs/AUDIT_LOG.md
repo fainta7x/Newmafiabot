@@ -1,5 +1,21 @@
 # Audit log
 
+## 2026-11-03 — expanded preview regression triage (artifact #13244315358)
+
+- `fixed in candidate` e2e/tests/live-game-text-audit.spec.mjs: waited three minutes per viewport for removed «Начать раздачу ролей» while actual setup offers «Физическая раздача». Use the actual physical-deal entry; preserve all following layout/seat audits and detector thresholds.
+- `fixed in candidate` e2e/tests/crm-evening-roster.spec.mjs: after adding a player (correctly marked arrived), the test searched for them in the retained «Ожидаем» filter. The artifact shows «0 Ожидаем» / «4 Пришли». Open «Пришли» and keep assertions for original RSVP, actual attendance and layout. No app/fixture attendance semantics changed.
+- Actual VIP settings screenshot (390 px) inspected from layout-audit-evidence: «Мирный житель · 100%», readable controls, no overlap; full app audit passed. No local browser screenshot claimed.
+
+
+- #1160 + #1172 integration: paid role is enforced before VIP; private draws cannot consume a still-reserved role, and a buyer spends no VIP quota. Reopening a deal with a reserved/fulfilled purchase preserves it. Hide the obsolete in-deal server purchase button; preserve current approved one-tap/card/stream layout.
+
+
+## 2026-11-03 — #1160 merge verification
+
+- Fixed the stale open-evening guard expectation: auth now uses OPEN_EVENING_STATUSES, so its obsolete direct-status exception is removed.
+- Retained current main one-tap/card/stream UI when reconciling the older purchase branch; no return to the old two-click deal screen.
+
+
 ## 2026-11-03 · VIP owner corrections (PR #1172, no production data)
 
 - HIGH `fixed in candidate` — compatible triggered conditions were intersected, forcing sheriff for sheriff + red; choose exactly one available triggered condition uniformly, even when compatible.
@@ -2655,3 +2671,27 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 ## 2026-11-03 — VIP draw stress run (#1160 `planVipDraw`, 20 000 full deals per case)
 
 Full ten-seat deals, random card per seat, `planVipDraw` at every choice. The deck composition (6 citizens, sheriff, 2 mafia, don) held in every deal, including 30 rules at 100 % for everybody and 30 at 10 %; a bought (reserved) sheriff was never taken. Results: seat 1 «шериф» 10/50/80/100 % → 18.7/55.1/82.2/100 %; seat 10 «шериф» 50 % → 35.5 % (the chance depends on the seat: earlier players' attempts are each checked once); two players «шериф» 100 % → 49.5/50.5 %; «одноцвет с №8» 50 % → 86 % (baseline 53 %), 100 % → 100 % in both orders; «не хочу одноцвет» 100 % → 0 %; role + colour 100 % for one player → both kept. Matches the agreed rules; the seat dependence and the pair amplification were reported to the owner.
+## 2026-11-03 — a test game landed on a real evening (owner: «создал в тестовой оболочке, а он на основном»)
+
+## 2026-11-03 — Live game text audit, first full run since #1166
+
+The audit reached the Live game again once the stale «Начать раздачу ролей» click was fixed. Findings — all fixed:
+- `src/components/crm/liveSeatGrid.css`: on a computer «+Ф / −Ф» stood 36–40 px right of the seat card's axis (the row «Выставить +Ф» was centred as a whole); the pair is now the centre column of the row. The fix sits inside `@layer seat-grid` — an unlayered `!important` loses to a layered one.
+- `src/components/game/virtualRoleDeal.css` (#1169): the deal window scrolled 18 px at 360×640 and 27 px at 1366×768; compact spacing on screens up to 800 px high.
+- `e2e/tests/live-game-text-audit.spec.mjs`: a 1 s card timer let the program open a random card before the test pressed «Отменить последнюю карту»; 3 s.
+## 2026-11-03 — VIP rules: the same condition again
+
+- `src/server/services/vipProbabilityRulesService.ts` `saveVipProbabilityRule`: the same condition (player, kind, role, partner) could be added to the same player any number of times (owner: «начал одни и те же условия самому себе… спокойно даёт делать») — fixed: a second copy is refused with «Такое условие у игрока уже есть — измените его процент» (`src/tests/vipRuleDuplicates.test.ts`). Duplicates already saved stay until removed by hand.
+Production read only (organizer GET + Amvera run logs). Telegram Android: 14:20 MSK `POST /api/test-environment/login`; 14:25 the Mini App reopened and called `POST /api/auth/telegram`; 14:25 `POST /api/auth/login`; 14:27 game №30 (ten made-up guest names) was created on «Игровой вечер — 6 ноября», which turned it to «Идёт». The owner archived the game and took the start back himself at 18:55.
+
+- `src/server/routes/authRoutes.ts` `POST /telegram`: inside the sandbox it looked the Telegram account up in the test database, found nobody and cleared `player_token` — the sandbox session was gone without a word, and the organizer password then signed in to the real club — fixed: inside the sandbox the Telegram sign-in leaves the session as it is (`src/tests/sandboxTelegramSignIn.test.ts`).
+
+## 2026-11-03 — re-made seating sent to nobody
+
+Production read only: `POST /api/evenings/cbcb7301…/seating/generate` at 20:17 MSK for «Вечер во вторник 3.11» (starts 19:30, status «Запись открыта»).
+- `src/server/services/eveningSeatingNotificationsService.ts`: player notices were skipped once the evening's start TIME had passed, even while it was still gathering — fixed: only an evening «Идёт» or completed stops them (`src/tests/eveningSeatingGenerateNotices.test.ts`).
+## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
+
+Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
+- `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
+- `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.

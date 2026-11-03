@@ -72,6 +72,14 @@ export async function loadPlayerEveningWorkspace(db: any, eveningId: string, vie
     ),
   ]);
 
+  // Only the existence of a started deal is public to the participant;
+  // never expose reserved roles or other buyers' order state.
+  const dealingIds = new Set((await db.all(
+    `SELECT d.game_id FROM game_virtual_role_deals d
+      JOIN games g ON g.id=d.game_id WHERE g.evening_id=?`,
+    [eveningId],
+  ).catch(() => [])).map((row: any) => Number(row.game_id)));
+
   const roster = rosterRows.map((row: any) => ({
     player_id: String(row.player_id),
     nickname: String(row.nickname || 'Игрок'),
@@ -105,6 +113,7 @@ export async function loadPlayerEveningWorkspace(db: any, eveningId: string, vie
       status,
       winner_team: winnerTeam,
       self_seat: selfSeat,
+      role_purchase_open: status !== 'completed' && !dealingIds.has(Number(row.id)),
       players,
     }];
   });

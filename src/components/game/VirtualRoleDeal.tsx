@@ -82,7 +82,11 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
-  const [turnStartedAt,setTurnStartedAt]=useState<number|null>(null);
+  // The turn timer belongs to one turn: right after «Следующий игрок» the old start time was still read for the new player and
+  // the program opened a random card for him at once (owner, 2026-11-03: «не выдаёт карту после первой»).
+  const [turnStart,setTurnStart]=useState<{ key: string; at: number }|null>(null);
+  // «Стартуем» (owner, 2026-11-03): the first player's turn opens only on the judge's tap; later turns open by themselves.
+  const [go,setGo]=useState(false);
   const [now,setNow]=useState(()=>Date.now());
   const [buying,setBuying]=useState(false);
   // Where each card lies on the table: taken cards leave a faded place (owner-approved deal design, 2026-11-03).
@@ -113,7 +117,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   const assignments = Object.fromEntries(history.map((entry) => [entry.seat, entry.role])) as Record<number, GameRole>;
   const complete = history.length === size && deck.length === 0;
   const turnKey = `${active ?? 0}:${history.length}`;
-  useEffect(() => { setTurnStartedAt(null); if (started) setBuying(false); }, [turnKey]);
+  const turnStartedAt = turnStart && turnStart.key === turnKey ? turnStart.at : null;
+  useEffect(() => { if (started) setBuying(false); }, [turnKey]);
   const waiting = waitSeconds > 0;
   const remaining = turnStartedAt === null ? waitSeconds : Math.max(0, Math.ceil(waitSeconds - (now - turnStartedAt) / 1000));
   useEffect(() => {
@@ -123,7 +128,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   }, [turnStartedAt, remaining]);
   const turnOpen = !waiting || turnStartedAt !== null;
   const timeUp = !waiting || (turnStartedAt !== null && remaining <= 0);
-  const startTurn = () => { setNotice(''); setNow(Date.now()); setTurnStartedAt(Date.now()); setSelectedId(null); };
+  const startTurn = () => { setNotice(''); setNow(Date.now()); setTurnStart({ key: turnKey, at: Date.now() }); setSelectedId(null); };
   /**
    * Owner, 2026-11-03: «Начал раздачу — автоматом берётся игрок №1 и 10 секунд выбрать карту — потом кнопка "Следующий
    * игрок"». The turn opens by itself; a tapped card shows its role at once; when the time is up without a card the
@@ -145,9 +150,9 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   }, [started, complete, loaded, active, dealCardsKey, openPosition, selectedRole, history.length]);
   useEffect(() => () => writeDealBroadcast(null), []);
   useEffect(() => {
-    if (!started || complete || !loaded || active === undefined || turnStartedAt !== null) return;
+    if (!started || complete || !loaded || active === undefined || turnStartedAt !== null || (!go && history.length === 0)) return;
     startTurn();
-  }, [started, complete, loaded, active, turnStartedAt]);
+  }, [started, complete, loaded, active, turnStartedAt, go, history.length]);
   useEffect(() => {
     if (!started || !waiting || !timeUp || turnStartedAt === null || showRole || selectedId || busy || !deck.length) return;
     void revealCard(deck[Math.floor(Math.random() * deck.length)].id);
@@ -308,8 +313,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
         {!started ? <div className="space-y-3">
           <p className="text-sm leading-6">Карты уже перемешаны. Каждый игрок по очереди выбирает карту за {waitSeconds} с и видит свою роль.</p>
           {/* Owner, 2026-11-03: a bought role is marked before the deal starts. */}
-          <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>
-          {buying && (
+          {!serverGameId && <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>}
+          {!serverGameId && buying && (
             <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
               <div className="deal-seats" aria-label="Кто покупает">
                 {orderedSeats.map((player) => seatTile(player, { disabled: assigned.has(player.seat_number) || busy, onClick: () => setSeat(player.seat_number) }))}
@@ -340,6 +345,7 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
               {waiting && turnOpen ? <div className="deal-turn__time" data-testid="virtual-deal-timer" role="timer" aria-label={`Выбирает карту: ещё ${remaining} с`}>{remaining}с</div> : null}
             </div>
             {waiting ? <div className="deal-bar" aria-hidden="true"><i style={{ width: `${Math.round(timerShare * 100)}%` }} /></div> : null}
+            {!go && history.length === 0 ? <button type="button" data-testid="virtual-deal-go" disabled={!loaded || busy} onClick={() => setGo(true)} className="min-h-12 w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-black">Стартуем</button> : null}
             {/* Numbered cards in two rows, no scrolling row (owner, 2026-11-01). */}
             <div className="deal-table">
               {selected && showRole && selectedRole ? (

@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { protectReservedRolesForDraw } from '../../lib/protectReservedRolesForDraw.ts';
 import { applyPrivateVipDraw } from './vipLiveDrawService.ts';
 import { migrateLegacyChaginRedGuarantee } from './vipProbabilityRulesService.ts';
 import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
@@ -54,6 +55,20 @@ async function gameContext(db: DatabaseWrapper, gameId: number) {
   return { eveningId: String(game.evening_id), format: normalizeEveningFormat(game.format), seats, playerBySeat };
 }
 
+/** Active pre-deal purchases are private server-only state. */
+async function reservedRolesBySeat(db: DatabaseWrapper, gameId: number, playerBySeat: Map<number, string>): Promise<Map<number, GameRole>> {
+  let rows: Array<{ player_id: string; role: GameRole }> = [];
+  try {
+    rows = await db.all<{ player_id: string; role: GameRole }>(
+      "SELECT player_id, role FROM game_role_reservations WHERE game_id=? AND status='reserved'",
+      [gameId],
+    );
+  } catch { return new Map(); } // schema absent on older installations
+  const roleByPlayer = new Map(rows.map((row) => [row.player_id, row.role]));
+  return new Map([...playerBySeat].flatMap(([seat, playerId]) =>
+    roleByPlayer.has(playerId) ? [[seat, roleByPlayer.get(playerId)!] as const] : []));
+}
+
 function shuffledDeck(size: number): Card[] {
   const counts = tableRoleCounts(size);
   const roles = (Object.keys(counts) as GameRole[])
@@ -102,8 +117,10 @@ export async function openVirtualRoleDeal(db: DatabaseWrapper, gameId: number) {
   return db.transaction(async (tx) => {
     const context = await gameContext(tx, gameId);
     const previous = await tx.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[gameId]);
+    const hasPurchase = await tx.get("SELECT 1 FROM game_role_reservations WHERE game_id=? AND status IN ('reserved','fulfilled') LIMIT 1",[gameId]).catch(()=>null);
+    if (previous && hasPurchase) return visible(await readState(tx,gameId,context));
     const previousVersion = previous ? Number(JSON.parse(previous.state_json).version) : -1;
-    const state: State = { rosterKey:rosterKey(context), version: previousVersion + 1, deck: shuffledDeck(context.seats.length), history: [], pending: null };
+    const state: State = { rosterKey:rosterKey(context),version:previousVersion+1,deck:shuffledDeck(context.seats.length),history:[],pending:null };
     await writeState(tx, gameId, state);
     return visible(state);
   });
@@ -122,8 +139,15 @@ export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, sea
     if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
     if (!state.deck.some((card) => card.id === cardId)) reject('Карта недоступна');
     const previousDeck = state.deck;
-    const effect = await applyPrivateVipDraw(tx, gameId, context, state, seat, cardId);
-    state.deck = effect.deck;
+    const reserved = await reservedRolesBySeat(tx,gameId,context.playerBySeat);
+    const paidDeck = reserved.size ? protectReservedRolesForDraw(state.deck,cardId,seat,reserved) : state.deck;
+    const protectedClosedRoles: Partial<Record<GameRole,number>> = {};
+    for (const [otherSeat,role] of reserved) {
+      if(otherSeat!==seat) protectedClosedRoles[role]=(protectedClosedRoles[role]||0)+1;
+    }
+    const effect = reserved.has(seat) ? {deck:paidDeck,vipPlayerIds:[]}
+      : await applyPrivateVipDraw(tx,gameId,context,{...state,deck:paidDeck},seat,cardId,protectedClosedRoles);
+    state.deck=effect.deck;
     const chosen = state.deck.find((card) => card.id === cardId)!;
     state.pending = { seat, cardId, role: chosen.role, previousDeck,
       ...(effect.vipPlayerIds.length ? { vipPlayerIds: effect.vipPlayerIds } : {}) };
@@ -133,7 +157,7 @@ export async function revealVirtualRole(db: DatabaseWrapper, gameId: number, sea
   });
 }
 
-export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
+async function confirmVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     const context = await gameContext(tx, gameId);
@@ -141,13 +165,35 @@ export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, se
     versionMatches(state, version);
     if (!state.pending || state.pending.seat !== seat || state.pending.cardId !== cardId) return reject('Открытая карта не совпадает');
     const pending = state.pending;
-    state.history.push({ ...pending });
+    const playerId = context.playerBySeat.get(seat);
+    let purchase: Purchase | null = null;
+    if (playerId) {
+      const active = await tx.get<{ id: string; role: GameRole; amount_rub: number }>(
+        "SELECT id, role, amount_rub FROM game_role_reservations WHERE game_id=? AND player_id=? AND status='reserved' LIMIT 1",
+        [gameId, playerId],
+      ).catch(() => null);
+      if (active) {
+        if (active.role !== pending.role) reject('Нарушена бронь роли: раздача не может быть подтверждена');
+        purchase = { playerId, amountRub: Number(active.amount_rub) };
+        await tx.run(
+          "UPDATE game_role_reservations SET status='fulfilled', updated_at=? WHERE id=?",
+          [new Date().toISOString(), active.id],
+        );
+      }
+    }
+    state.history.push({ ...pending, purchase });
     state.deck = state.deck.filter((card) => card.id !== cardId);
     state.pending = null;
     state.version += 1;
     await writeState(tx, gameId, state);
     return visible(state);
   });
+}
+
+export async function confirmVirtualRole(db: DatabaseWrapper, gameId: number, seat: number, cardId: string, version: number) {
+  const result = await confirmVirtualRoleInner(db, gameId, seat, cardId, version);
+  await syncEveningPayments(db, gameId);
+  return result;
 }
 
 /** «Покупка роли»: the judge gives the seat a role the player bought; one card of that role leaves the deck for this seat. */
@@ -162,8 +208,13 @@ async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: nu
     if (!['citizen', 'sheriff', 'mafia', 'don'].includes(role)) reject('Неизвестная роль', 400);
     if (state.pending) reject('Сначала подтвердите открытую карту');
     if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
-    const card = state.deck.find((entry) => entry.role === role);
-    if (!card) return reject('Такой роли уже нет в колоде');
+    const reserved = await reservedRolesBySeat(tx, gameId, context.playerBySeat);
+    if (reserved.has(seat)) reject('На это место уже оформлена покупка роли');
+    const protectedCount = [...reserved.values()].filter((reservedRole) => reservedRole === role).length;
+    const available = state.deck.filter((entry) => entry.role === role);
+    if (!available.length) return reject('Такой роли уже нет в колоде');
+    if (available.length <= protectedCount) return reject('Роль недоступна для покупки в текущей раздаче');
+    const card = available[0];
     const purchase: Purchase = { playerId: context.playerBySeat.get(seat) || null, amountRub: ROLE_PURCHASE_PRICE_RUB };
     state.history.push({ seat, cardId: card.id, role, previousDeck: state.deck, purchase });
     state.deck = state.deck.filter((entry) => entry.id !== card.id);
@@ -182,6 +233,17 @@ async function undoVirtualRoleInner(db: DatabaseWrapper, gameId: number, version
     if (state.pending) reject('Сначала подтвердите открытую карту');
     const last = state.history.pop();
     if (!last) return reject('Нет выданных карт');
+    // A pre-paid reservation must survive undo: the role stays purchased and
+    // reserved for the same buyer until a fresh, correct draw is confirmed.
+    if (last.purchase?.playerId) {
+      await tx.run(
+        `UPDATE game_role_reservations SET status='reserved', updated_at=?
+          WHERE game_id=? AND player_id=? AND status='fulfilled'`,
+        [new Date().toISOString(), gameId, last.purchase.playerId],
+      ).catch((error) => {
+        if (!String(error).includes('no such table')) throw error;
+      });
+    }
     state.deck = last.previousDeck;
     state.version += 1;
     await writeState(tx, gameId, state);
@@ -196,6 +258,15 @@ async function resetVirtualRoleDealInner(db: DatabaseWrapper, gameId: number, ve
     const { seats } = context;
     const state = await readState(tx, gameId, context);
     versionMatches(state, version);
+    // A redeal does not silently delete paid reservations or their debts.
+    // Only an organizer's explicit order cancellation reverses a purchase.
+    await tx.run(
+      `UPDATE game_role_reservations SET status='reserved', updated_at=?
+       WHERE game_id=? AND status='fulfilled'`,
+      [new Date().toISOString(), gameId],
+    ).catch((error) => {
+      if (!String(error).includes('no such table')) throw error;
+    });
     state.deck = shuffledDeck(seats.length);
     state.history = [];
     state.pending = null;

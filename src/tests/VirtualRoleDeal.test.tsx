@@ -22,6 +22,11 @@ describe('VirtualRoleDeal', () => {
     try {
       render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={vi.fn()} />);
       fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
+      // «Стартуем» (owner, 2026-11-03): the first turn waits for the judge.
+      act(() => { vi.advanceTimersByTime(15000); });
+      expect(screen.queryByRole('status')).toBeNull();
+      fireEvent.click(screen.getByTestId('virtual-deal-go'));
+      expect(screen.queryByTestId('virtual-deal-go')).toBeNull();
       expect(turn()).toContain('№1 Player 1');
       expect((screen.getByRole('button', { name: 'Карта №1' }) as HTMLButtonElement).disabled).toBe(false);
       fireEvent.click(screen.getByRole('button', { name: 'Карта №1' }));
@@ -34,6 +39,10 @@ describe('VirtualRoleDeal', () => {
       expect(next().disabled).toBe(false);
       fireEvent.click(next());
       expect(turn()).toContain('№2 Player 2');
+      // The next player gets his own 10 seconds: no random card opened for him at once (owner, 2026-11-03).
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(screen.queryByRole('status')).toBeNull();
+      expect((screen.getByRole('button', { name: 'Карта №1' }) as HTMLButtonElement).disabled).toBe(false);
       expect(screen.getAllByRole('button', { name: /^Карта №/ })).toHaveLength(9);
       // No faded place: the cards left are numbered 1–9 again (BUSINESS_RULES, virtual deal).
       expect(screen.getAllByRole('button', { name: /^Карта №/ }).map((card) => card.getAttribute('aria-label'))).toEqual(Array.from({ length: 9 }, (_, index) => `Карта №${index + 1}`));
@@ -46,6 +55,7 @@ describe('VirtualRoleDeal', () => {
     try {
       render(<VirtualRoleDeal seats={seats(10)} onCancel={vi.fn()} onComplete={vi.fn()} />);
       fireEvent.click(screen.getByRole('button',{name:'Начать раздачу'}));
+      fireEvent.click(screen.getByTestId('virtual-deal-go'));
       expect(screen.queryByRole('status')).toBeNull();
       act(() => { vi.advanceTimersByTime(10500); });
       expect(screen.getByRole('status').getAttribute('aria-label')).toContain('Роль');

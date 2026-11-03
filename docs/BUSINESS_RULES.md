@@ -1112,7 +1112,7 @@ These are the owner's answers to the questions where copies in the code disagree
 
 The approved fair virtual deck is an alternative to manual physical-role entry in all game formats. It follows the existing10/9/8-player composition in tableComposition; horizontal cards are renumbered after removal, the judge reveals and confirms separately, may choose another unassigned seat, undo the last assignment or explicitly redeal before starting. Synthetic training keeps its fixed task roles. Tournament assignments remain subject to the existing server role permissions and composition checks.
 
-VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_2026-10-28.md). Persistent toggleable personal preferences do not authorize any deployed probabilistic effect. No default global2-swap cap is approved; the personal limit is manually configured. Effects may influence only the owner's own still-closed card and must never alter an already shown role or operate in rating/tournament games. Strength/frequency/conflicts/global caps require modelling and owner agreement before implementation.
+VIP owner decisions and the current integration are recorded in [ROLE_DEAL_SPEC](ROLE_DEAL_SPEC_2026-10-28.md); later decisions below supersede the initial configuration-only scope. No default global2-swap cap is approved; the personal limit is manually configured. Effects may influence only the owner's own still-closed card and must never alter an already shown role or operate in rating/tournament games. Strength/frequency/conflicts/global caps require modelling and owner agreement before implementation.
 
 ## Owner decisions of 2026-11-02 (live game and Elo)
 
@@ -1162,4 +1162,15 @@ The earlier six «blocks» and the minimum of 5 games together are replaced by t
 - Без галочки организатор выставляет количество **игр, в которых реально сработала VIP-подкрутка**. Если лимит 2, и подкрутка была успешна в играх №2 и №4, на последующие игры этого вечера вероятностные условия отключаются.
 - Несколько успешных условий в одной игре считаются одной успешной игрой. Не сработавшие вероятности, невозможная подмена и обычная естественно выбранная подходящая карта лимит не расходуют.
 - При новом вечере отсчёт начинается заново. Оплаченная гарантированная роль имеет приоритет и сама по себе VIP-лимит не расходует. Турнир/рейтинг остаются без VIP-подкруток.
-- Сохранение настроек **пока не означает, что эффект уже подключён к реальной раздаче**; для этого требуется отдельный атомарный учёт подтверждённых результатов с защитой от отмены/повторных запросов.
+- Владелец разрешил подключить эти настройки к реальной виртуальной раздаче (2026-11-03). Учёт подтверждённых успешных игр атомарный, с защитой повторных запросов; отмена/перераздача убирает соответствующие успехи. Незавершённое открытие карты временно резервирует квоту от одновременной другой игры.
+- Прежняя гарантия Чагина — обычное редактируемое условие «Красная карта» с 100% и «На весь вечер», без отдельной привязки игрока в алгоритме. Выключение, изменение процента и удаление действуют через те же настройки. Для активного 100% условия сохраняется прежняя защита последней закрытой красной карты; успешный защитный обмен учитывается получателю гарантии. Купленные роли имеют приоритет. Настройки и внутренний учёт видит только владелец клуба; ведущий/судья не получает признаков эффекта.
+
+
+## VIP — окончательное уточнение владельца 2026-11-03 (заменяет прежние трактовки)
+
+- «Красная карта» в настройке — строго `citizen` (мирный житель). Шериф — отдельная роль. Красная команда для одноцвета — мирный или шериф.
+- Процент проверяется независимо заново на каждом применимом выборе. Если до владельца условия другой выбирает нужную роль, при 80% в 80 случаях из 100 карта заменяется другой доступной закрытой картой, а в 20 случаях уходит этому игроку. Это не одна предварительная проверка на всю раздачу и не обещание итоговой частоты роли.
+- Одноцвет/разноцвет становится определённым после первой открытой карты пары. Второму может подмениться карта с исходным процентом, независимо от того, кто первым открылся. До хода второго тем же процентом проверяются попытки остальных забрать нужный цвет. Не заводить дополнительный микрокоэффициент. Квота/успех учитывается владельцу условия, даже если меняется карта второго игрока.
+- Из всех сработавших доступных условий выбирается одно с равными шансами, в том числе если условия совместимы. «Шериф» + «мирный» — разные условия. Одна жеребьёвка и максимум один обмен на выбор; не запускать цепочку новых подмен от карты замены.
+- Выполнимые 100% гарантии не допускают иной роли: для 100% мирного одна карта мирного сохраняется до хода игрока, шериф не является заменой. Если несколько гарантий несовместимы или нужной карты уже нет (в том числе из-за покупки), нельзя добавлять роли или отнимать открытую/купленную карту; применим равный выбор между выполнимыми гарантиями.
+- Обмен только двух закрытых карт; донор выбирается случайно среди допустимых карт, не между названиями ролей. Купленная роль имеет приоритет. Общая квота разных успешных игр, идемпотентность, отмена и запрет VIP в рейтингах/турнирах сохраняются.

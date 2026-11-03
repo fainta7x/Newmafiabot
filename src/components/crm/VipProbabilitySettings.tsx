@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
 
-type Kind = 'role' | 'same_color' | 'different_color';
+type Kind = 'role' | 'same_color' | 'different_color' | 'red_color';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null;
   percent: number; enabled: boolean };
 type Draft = Omit<Rule, 'id'>;
@@ -11,7 +11,7 @@ const roleLabels: Record<string,string> = {
   citizen:'Мирный житель',sheriff:'Шериф',mafia:'Мафия',don:'Дон',
 };
 const labels: Record<Kind,string> = { role:'Конкретная роль',same_color:'Одноцвет с игроком',
-  different_color:'Разноцвет с игроком' };
+  different_color:'Разноцвет с игроком', red_color:'Красная карта' };
 const field = 'min-h-11 w-full rounded-xl border border-white/15 bg-[#202126] px-3 text-sm text-white';
 async function send(url: string, init: RequestInit = {}) {
   const response = await fetch(url,{ credentials:'include',...init,headers:{
@@ -58,7 +58,7 @@ export default function VipProbabilitySettings() {
     try {
       const body = {...draft,
         role:draft.kind==='role'?draft.role:null,
-        otherPlayerId:draft.kind==='role'?null:draft.otherPlayerId,
+        otherPlayerId:draft.kind==='same_color'||draft.kind==='different_color'?draft.otherPlayerId:null,
       };
       await send('/api/admin/vip-probability-rules'+(editing?'/'+encodeURIComponent(editing):''),{
         method:editing?'PUT':'POST',body:JSON.stringify(body),
@@ -81,13 +81,13 @@ export default function VipProbabilitySettings() {
     <p className="text-xs leading-5 text-white/60">
       Настройки организатора для обычных и новичковых игр. Процент — шанс срабатывания
       конкретного условия. Общий лимит игр с успешной подкруткой задаётся отдельно
-      для игрока, а не для каждого условия. Пока правила не влияют на реальную раздачу.
+      для игрока, а не для каждого условия. Условия действуют при виртуальной раздаче.
     </p>
     {loaded && <div className="space-y-2">
       {rules.map(rule=><div key={rule.id} className="rounded-xl border border-white/10 bg-black/15 p-3">
         <div className="text-sm text-white">{playerName(rule.playerId)} · {labels[rule.kind]}</div>
         <div className="mt-1 text-xs text-white/60">
-          {rule.kind==='role'?roleLabels[rule.role||'']:playerName(rule.otherPlayerId)}
+          {rule.kind==='role'?roleLabels[rule.role||'']:rule.kind==='red_color'?'Мирный житель':playerName(rule.otherPlayerId)}
           {' · '}{rule.percent}% · {rule.enabled?'Включено':'Выключено'}
         </div>
         <div className="mt-2 flex gap-2">
@@ -107,7 +107,7 @@ export default function VipProbabilitySettings() {
           {(Object.keys(labels) as Kind[]).map(kind=><option key={kind} value={kind}>{labels[kind]}</option>)}
         </select>
       </label>
-      {draft.kind==='role'?
+      {draft.kind==='red_color'?null:draft.kind==='role'?
         <label className="text-xs text-white/60">Роль
           <select className={field} value={draft.role||'citizen'} onChange={e=>change('role',e.target.value)}>
             {Object.entries(roleLabels).map(([id,label])=><option key={id} value={id}>{label}</option>)}

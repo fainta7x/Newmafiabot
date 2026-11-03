@@ -12,9 +12,9 @@ type OrderRow = {
   role: GameRole; status: RoleReservation['status']; created_at: string;
 };
 
-const failure = (message: string, statusCode = 409): never => {
+function failure(message: string, statusCode = 409): never {
   throw Object.assign(new Error(message), { statusCode });
-};
+}
 
 /** The same order entity is shared by direct player checkout and judge's in-person checkout. */
 export async function ensurePreGameRolePurchaseSchema(db: DatabaseWrapper) {

@@ -36,7 +36,6 @@ playerRouter.get('/role-purchase-games', async (req, res) => {
       `SELECT e.id, e.title FROM game_evenings e
         JOIN evening_participants p ON p.evening_id=e.id
        WHERE p.player_id=? AND e.status IN ('published','active')
-         AND e.format IN ('CASUAL','NOVICE')
          AND e.settled_at IS NULL
        ORDER BY datetime(e.starts_at) ASC LIMIT 30`,
       [playerId],
@@ -45,7 +44,7 @@ playerRouter.get('/role-purchase-games', async (req, res) => {
     for (const event of events) {
       const entries = await listEventGames(db, 'evening', event.id);
       for (const game of entries) {
-        if (game.storage !== 'club' || game.status === 'completed' ||
+        if (game.storage !== 'club' || !['CASUAL', 'NOVICE'].includes(game.format) || game.status === 'completed' ||
             game.status === 'archived' || game.status === 'cancelled' ||
             !game.seats.some((seat) => seat.playerId === playerId)) continue;
         const deal = await db.get(

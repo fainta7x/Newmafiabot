@@ -25,12 +25,12 @@ export async function ensureVipProbabilityRulesSchema(db: DatabaseWrapper) {
 
 export async function listVipProbabilityRules(db: DatabaseWrapper) {
   await ensureVipProbabilityRulesSchema(db);
-  const rows = await db.all<any>(`SELECT id,player_id,kind,role,other_player_id,percent,enabled,personal_limit,limit_scope
+  const rows = await db.all<any>(`SELECT id,player_id,kind,role,other_player_id,percent,enabled
     FROM vip_probability_rules ORDER BY created_at, id`);
   return rows.map(row => ({
     id: row.id, playerId: row.player_id, kind: row.kind, role: row.role,
     otherPlayerId: row.other_player_id, percent: row.percent,
-    enabled: Boolean(row.enabled), personalLimit: row.personal_limit, limitScope: row.limit_scope ?? 'evening',
+    enabled: Boolean(row.enabled),
   }));
 }
 
@@ -50,15 +50,15 @@ export async function saveVipProbabilityRule(db: DatabaseWrapper, input: unknown
       const existing = await tx.get('SELECT id FROM vip_probability_rules WHERE id=?', [id]);
       if (!existing) throw Object.assign(new Error('Правило не найдено'), { statusCode: 404 });
       await tx.run(`UPDATE vip_probability_rules
-        SET player_id=?,kind=?,role=?,other_player_id=?,percent=?,enabled=?,personal_limit=?,limit_scope=?,updated_at=?
+        SET player_id=?,kind=?,role=?,other_player_id=?,percent=?,enabled=?,personal_limit=NULL,limit_scope='evening',updated_at=?
         WHERE id=?`, [rule.playerId,rule.kind,rule.role,rule.otherPlayerId,rule.percent,
-          Number(rule.enabled),rule.personalLimit,rule.limitScope,now,id]);
+          Number(rule.enabled),now,id]);
     } else {
       await tx.run(`INSERT INTO vip_probability_rules
-        (id,player_id,kind,role,other_player_id,percent,enabled,personal_limit,limit_scope,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        (id,player_id,kind,role,other_player_id,percent,enabled,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?)`,
         [ruleId,rule.playerId,rule.kind,rule.role,rule.otherPlayerId,rule.percent,
-          Number(rule.enabled),rule.personalLimit,rule.limitScope,now,now]);
+          Number(rule.enabled),now,now]);
     }
     return { id: ruleId, ...rule };
   });

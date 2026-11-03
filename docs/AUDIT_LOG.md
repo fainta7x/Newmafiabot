@@ -2656,3 +2656,9 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 Production read only (organizer GET + Amvera run logs). Telegram Android: 14:20 MSK `POST /api/test-environment/login`; 14:25 the Mini App reopened and called `POST /api/auth/telegram`; 14:25 `POST /api/auth/login`; 14:27 game №30 (ten made-up guest names) was created on «Игровой вечер — 6 ноября», which turned it to «Идёт». The owner archived the game and took the start back himself at 18:55.
 
 - `src/server/routes/authRoutes.ts` `POST /telegram`: inside the sandbox it looked the Telegram account up in the test database, found nobody and cleared `player_token` — the sandbox session was gone without a word, and the organizer password then signed in to the real club — fixed: inside the sandbox the Telegram sign-in leaves the session as it is (`src/tests/sandboxTelegramSignIn.test.ts`).
+
+## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
+
+Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
+- `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
+- `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.

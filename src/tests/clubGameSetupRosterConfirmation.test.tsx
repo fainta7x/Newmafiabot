@@ -34,7 +34,7 @@ const renderSetup = (roster = activePlayers) => render(
 afterEach(() => cleanup());
 
 describe('ClubGameSetupPhase roster confirmation', () => {
-  it('requires an explicit roster confirmation before physical role dealing', () => {
+  it('requires an explicit roster confirmation before role dealing; virtual first, physical below', () => {
     renderSetup();
 
     const primary = screen.getByTestId('club-game-start-role-deal') as HTMLButtonElement;
@@ -44,10 +44,11 @@ describe('ClubGameSetupPhase roster confirmation', () => {
 
     fireEvent.click(primary);
     expect(screen.getByTestId('club-game-roster-confirmed')).toBeTruthy();
-    expect(primary.textContent).toContain('Начать раздачу ролей');
+    // Owner, 2026-11-03: the virtual deal is the main button; the physical deal is the second choice below.
+    expect(primary.textContent).toContain('Раздать виртуальные карты');
     expect(screen.queryByTestId('physical-role-deal-mock')).toBeNull();
 
-    fireEvent.click(primary);
+    fireEvent.click(screen.getByTestId('club-game-start-physical-deal'));
     expect(screen.getByTestId('physical-role-deal-mock')).toBeTruthy();
   });
 

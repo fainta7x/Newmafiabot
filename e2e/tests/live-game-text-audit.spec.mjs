@@ -222,34 +222,35 @@ for (const [width,height,wideFont] of VIEWPORTS) {
     await page.setViewportSize({width,height});
     if(wideFont)await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent='*{font-family:"DejaVu Sans",sans-serif!important;letter-spacing:.04em!important}';document.head.appendChild(style);}));
     const check=async label=>{await page.waitForTimeout(200);expect(await page.evaluate(auditScreen),label).toEqual([]);};
-    const give=async()=>{const b=deal.getByTestId('virtual-deal-give-card');if(await b.isVisible())await b.click();};
+    const next=async()=>{const b=deal.getByTestId('virtual-deal-next-player');await expect(b).toBeEnabled({timeout:4000});await b.click();};
     await page.goto('/e2e/live-game.html');await page.getByRole('button',{name:'Подтвердить состав'}).click();
     await check('choose dealing method');
     await page.screenshot({path:info.outputPath('setup.png')});
-    await page.getByTestId('club-game-start-virtual-deal').click();const deal=page.getByTestId('virtual-role-deal');
-    await check('virtual music');await deal.getByRole('button',{name:'Начать раздачу'}).click();
-    await check('horizontal deck');
+    // Owner, 2026-11-03: the virtual deal is the main button on top.
+    await page.getByTestId('club-game-start-role-deal').click();const deal=page.getByTestId('virtual-role-deal');
+    await check('virtual music');
+    await deal.getByTestId('virtual-deal-buy-role').click();await expect(deal.getByTestId('virtual-deal-buy-panel')).toBeVisible();await check('role purchase before the deal');await page.screenshot({path:info.outputPath('virtual-buy.png')});await deal.getByTestId('virtual-deal-buy-role').click();
+    await deal.getByRole('button',{name:'Начать раздачу'}).click();
+    // The first player's turn opens by itself.
+    await expect(deal.getByText('Выбирает: №1 Игрок 1',{exact:true})).toBeVisible();await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
     await expect(deal.getByRole('button',{name:/№7 Игрок 7/})).toBeVisible();
     await deal.getByRole('button',{name:/№7 Игрок 7/}).click();
     await expect(deal.getByText('Выбирает: №7 Игрок 7',{exact:true})).toBeVisible();
-    await check('give the card');await give();await expect(deal.getByTestId('virtual-deal-timer')).toBeVisible();await check('card timer');
-    await deal.getByTestId('virtual-deal-buy-role').click();await expect(deal.getByTestId('virtual-deal-buy-panel')).toBeVisible();await check('role purchase');await page.screenshot({path:info.outputPath('virtual-buy.png')});await deal.getByTestId('virtual-deal-buy-role').click();
     const notice=page.getByText(/Музыки для вечера нет — продолжаем/);if(await notice.isVisible())await expect(notice).toBeHidden({timeout:6000});
     await page.screenshot({path:info.outputPath('virtual-deck.png')});
     const cards=deal.getByRole('button',{name:/^Карта №/});
     // Owner, 2026-11-01: numbered cards in two rows and no scrolling on any screen.
     expect(await page.evaluate(()=>[...document.querySelectorAll('[data-testid="virtual-role-deal"], [data-testid="virtual-role-deal"] *')].filter(e=>e.scrollHeight>e.clientHeight+1&&['auto','scroll'].includes(getComputedStyle(e).overflowY)).map(e=>String(e.className).slice(0,40))),'virtual deal scrolls').toEqual([]);
     expect(await page.evaluate(()=>{const g=document.querySelector('[data-testid="virtual-card-grid"]');return g?g.scrollWidth<=g.clientWidth+1:false;}),'card row scrolls sideways').toBe(true);
-    await give();await cards.nth(4).click();await deal.getByRole('button',{name:'Открыть карту №5'}).click();await check('revealed role');await page.screenshot({path:info.outputPath('virtual-revealed.png')});
+    await cards.nth(4).click();await expect(deal.getByRole('status').first()).toBeVisible();await check('revealed role');await page.screenshot({path:info.outputPath('virtual-revealed.png')});
     expect(await page.evaluate(()=>[...document.querySelectorAll('[data-testid="virtual-role-deal"], [data-testid="virtual-role-deal"] *')].filter(e=>e.scrollHeight>e.clientHeight+1&&['auto','scroll'].includes(getComputedStyle(e).overflowY)).map(e=>String(e.className).slice(0,30)+' '+e.scrollHeight+'>'+e.clientHeight)),'virtual deal scrolls after the reveal').toEqual([]);
-    await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
+    await next();
     await deal.getByRole('button',{name:'Отменить последнюю карту'}).click();await expect(cards).toHaveCount(10);
     await deal.getByRole('button',{name:'Перераздать всё'}).click();await check('redeal confirmation');
     await deal.getByRole('button',{name:'Нет',exact:true}).click();
     for(let remaining=10;remaining>0;remaining--){
-      await give();await deal.getByRole('button',{name:'Карта №1',exact:true}).click();
-      await deal.getByRole('button',{name:'Открыть карту №1',exact:true}).click();
-      await deal.getByRole('button',{name:'Подтвердить роль и продолжить'}).click();
+      await deal.getByRole('button',{name:'Карта №1',exact:true}).click();
+      await next();
     }
     await check('complete virtual deal');await page.screenshot({path:info.outputPath('virtual-complete.png')});
     await deal.getByRole('button',{name:'Все роли выданы — начать игру'}).click();

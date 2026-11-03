@@ -1,4 +1,4 @@
-import { openEveningSql } from '../../lib/eveningStatus.ts';
+
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -7,6 +7,7 @@ import { replacePlayerSlotSelection } from '../services/eveningSlotWritesService
 import { getNovicePlayerState } from '../services/noviceService.ts';
 import { canSeeCustomEvent } from './customEventRoutes.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
+import { listEvents } from '../services/eventService.ts';
 
 const router = Router();
 const requirePlayer = (req:any,res:any) => { const id=getPlayerSessionId(req); if(!id){res.status(401).json({error:'Player authentication required.'});return null;} return id; };
@@ -19,7 +20,11 @@ router.get('/calendar', async (req,res) => {
     const player=await db.get('SELECT id, game_level, club_stage FROM players WHERE id = ? LIMIT 1',[playerId]);
     if(!player)return res.status(404).json({error:'Игрок не найден'});
     const bounds=monthBounds(req.query.month);
-    const rows=await db.all(`SELECT id, title, starts_at, ends_at, timezone, venue, format, status FROM game_evenings WHERE ${openEveningSql()} AND starts_at >= ? AND starts_at < ? ORDER BY starts_at`,[bounds.start,bounds.end]);
+    // Which events the month shows: the one «Событие» layer (published or running, every kind); details per kind below.
+    const open=await listEvents(db,{since:bounds.start,until:bounds.end,statuses:['published','running']});
+    const idsOf=(kind:string)=>open.filter((event)=>event.kind===kind).map((event)=>event.id);
+    const eveningIds=idsOf('evening');
+    const rows=eveningIds.length?await db.all(`SELECT id, title, starts_at, ends_at, timezone, venue, format, status FROM game_evenings WHERE id IN (${eveningIds.map(()=>'?').join(',')}) ORDER BY starts_at`,eveningIds):[];
     const events:any[]=[];
     for(const row of rows){
       if(!playerLevelAllowsEveningFormat(player.game_level,row.format))continue;
@@ -30,11 +35,10 @@ router.get('/calendar', async (req,res) => {
       const tournaments=await db.all(`SELECT t.id,t.title,t.date AS starts_at,t.venue,t.stage,t.status,t.game_count,t.chief_judge_name,
         t.entry_fee_rub,t.prize_fund_rub,t.prize_allocations_json,t.player_capacity,t.registration_closed_at
         FROM tournaments t
-        WHERE substr(t.date,1,10) >= ? AND substr(t.date,1,10) < ?
-          AND t.published_at IS NOT NULL
+        WHERE t.id IN (${['',...idsOf('tournament')].map(()=>'?').join(',')})
+          -- Only a tournament run as a tournament evening has a registration page in the calendar.
           AND COALESCE(t.tournament_evening_flow,0)=1
-          AND COALESCE(t.status,'draft') NOT IN ('completed','cancelled')
-        ORDER BY t.date`,[bounds.startDay,bounds.endDay]);
+        ORDER BY t.date`,['',...idsOf('tournament')]);
       for(const item of tournaments){
         const x=await db.get("SELECT COUNT(*) AS count FROM tournament_registrations WHERE tournament_id = ? AND status='confirmed'",[item.id]);
         const mine=await db.get("SELECT status,queue_order FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1",[item.id,playerId]);
@@ -44,7 +48,7 @@ router.get('/calendar', async (req,res) => {
     const customRows=await db.all(`SELECT e.*,
       COALESCE(SUM(CASE WHEN r.status='registered' THEN 1+r.guest_count ELSE 0 END),0) AS participant_count
       FROM custom_events e LEFT JOIN custom_event_registrations r ON r.event_id=e.id
-      WHERE e.status='published' AND e.starts_at >= ? AND e.starts_at < ? GROUP BY e.id ORDER BY e.starts_at`,[bounds.start,bounds.end]);
+      WHERE e.id IN (${['',...idsOf('custom')].map(()=>'?').join(',')}) GROUP BY e.id ORDER BY e.starts_at`,['',...idsOf('custom')]);
     for(const item of customRows){
       const invited=Boolean(await db.get('SELECT 1 FROM custom_event_invitations WHERE event_id=? AND player_id=?',[item.id,playerId]));
       if(!canSeeCustomEvent(item,player,invited,playerId))continue;
@@ -54,7 +58,8 @@ router.get('/calendar', async (req,res) => {
     // Poker tournaments (owner, 2026-10-10) sit in the calendar next to the mafia evenings and the club's own events.
     try{
       await ensurePokerTournamentSchema(db);
-      const pokerRows=await db.all("SELECT id,title,description,start_at,status,config_json FROM poker_tournaments WHERE status IN ('registration','running') AND start_at >= ? AND start_at < ? ORDER BY start_at",[bounds.start,bounds.end]);
+      const pokerIds=['',...idsOf('poker')];
+      const pokerRows=await db.all(`SELECT id,title,description,start_at,status,config_json FROM poker_tournaments WHERE id IN (${pokerIds.map(()=>'?').join(',')}) ORDER BY start_at`,pokerIds);
       for(const item of pokerRows){
         const config=JSON.parse(item.config_json||'{}');
         const count=await db.get("SELECT COUNT(*) AS count FROM poker_tournament_entries WHERE tournament_id=? AND status!='cancelled'",[item.id]);

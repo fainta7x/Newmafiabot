@@ -74,6 +74,7 @@ import anonymousTestamentRoutes from './server/routes/anonymousTestamentRoutes.t
 import playerReplayRoutes from './server/routes/playerReplayRoutes.ts';
 import playerSpeechRecordingRoutes from './server/routes/playerSpeechRecordingRoutes.ts';
 import playerEveningJourneyRoutes from './server/routes/playerEveningJourneyRoutes.ts';
+import { playerRolePurchaseRoutes, adminRolePurchaseRoutes } from './server/routes/preGameRolePurchaseRoutes.ts';
 import adminDataRoutes from './server/routes/adminDataRoutes.ts';
 import projectBoardRoutes from './server/routes/projectBoardRoutes.ts';
 import commerceAdminRoutes from './server/routes/commerceAdminRoutes.ts';
@@ -349,6 +350,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerReplayRoutes);
   app.use('/api/player/speech-recordings', playerSpeechRecordingRoutes);
   app.use('/api/player', playerEveningJourneyRoutes);
+  app.use('/api/player', playerRolePurchaseRoutes);
+  app.use('/api/admin', adminRolePurchaseRoutes);
   app.use('/api/player', novicePlayerRoutes);
   app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/project-board', projectBoardRoutes);

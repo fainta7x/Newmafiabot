@@ -139,6 +139,25 @@ describe('pre-deal role purchase persistence and debt', () => {
     expect(await due(db, 'buyer-0')).toBe(0);
   });
 
+  it('admin can inspect and order privately, but a regular buyer cannot list admin orders', async () => {
+    const db = await setup();
+    const app = await createApp(db);
+    const admin = `organizer_token=${generateOrganizerToken()}`;
+    const guest = `player_token=${generatePlayerSessionToken('buyer-1')}`;
+    const created = await request(app).post('/api/admin/role-purchases')
+      .set('Cookie', admin).send({ gameId: 817, playerId: 'buyer-0', role: 'mafia' }).expect(201);
+    expect(created.body).toMatchObject({ accepted: true, priceRub: 150 });
+    const adminView = await request(app).get('/api/admin/role-purchases?gameId=817')
+      .set('Cookie', admin).expect(200);
+    expect(adminView.body.orders).toEqual([expect.objectContaining({ player_id: 'buyer-0', role: 'mafia', status: 'reserved' })]);
+    await request(app).get('/api/admin/role-purchases?gameId=817').set('Cookie', guest).expect(401);
+    const guestView = await request(app).get('/api/player/role-purchases').set('Cookie', guest).expect(200);
+    expect(guestView.body.orders).toEqual([]);
+    await request(app).delete(`/api/admin/role-purchases/${created.body.orderId}`)
+      .set('Cookie', admin).expect(200);
+    expect(await due(db, 'buyer-0')).toBe(0);
+  });
+
   it('does not sell roles on rating evenings', async () => {
     const db = await setup('RATING');
     await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'don')).rejects.toThrow();

@@ -14,8 +14,8 @@ async function call(url: string, init: RequestInit = {}) {
 }
 
 export default function EveningSeatSwapPanel({
-  gameId, seats, completed, format,
-}: { gameId: number; seats: Seat[]; completed: boolean; format: string }) {
+  gameId, seats, completed, format, onApplied,
+}: { gameId: number; seats: Seat[]; completed: boolean; format: string; onApplied?: () => void }) {
   const [open,setOpen] = useState(false);
   const [orders,setOrders] = useState<Order[]>([]);
   const [first,setFirst] = useState('');
@@ -54,6 +54,7 @@ export default function EveningSeatSwapPanel({
       await call(`/api/admin/seat-swap-orders/${encodeURIComponent(id)}${kind === 'apply' ? '/apply' : ''}`,
         kind === 'apply' ? { method: 'POST', body: JSON.stringify({ gameId }) } : { method: 'DELETE' });
       await refresh();
+      if (kind === 'apply') onApplied?.();
     } catch (e: any) { setError(e?.message || 'Не удалось выполнить обмен'); }
     finally { setBusy(false); }
   };

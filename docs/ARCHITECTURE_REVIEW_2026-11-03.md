@@ -102,3 +102,9 @@ The layer has the seat result (`GameSeatResult`, the same fields for every forma
 - **F1 — decided by the owner 2026-11-03** (BUSINESS_RULES «Judge of a tournament game»): the tournament's judge conducts every game of a one-table tournament; with two tables the judge is bound to the table. Was: the judge-access check (`auth.ts`) and the judge's game list (`playerJudgingRoutes.ts`) take only the game's own judge, while the counting rule above also takes the tournament's judge. So in a managed tournament evening whose judge is set on the tournament, the judge's games are counted for them but not listed in «Мои игры» and cannot be opened with judge access. Should the tournament's judge be able to conduct its games?
 
 **Next part of the layer — «протокол игры».** The remaining files read the protocol's contents (votings, shots, chronology, best moves, end reason), stored inside `games.protocol_text` for a game of an evening and in `tournament_game_protocols` columns for a tournament game. `gameStatisticsService.loadStatGames` already reads votings, chronology and roles of both into one `StatGame`; it becomes the layer's protocol reader (with shots and markers added), and Elo, metrics, statistics, the game page, the broadcast and the result pictures move onto it.
+
+## 6. «Событие» (entity 1) — step 1 started 2026-11-03
+
+- One type `src/shared/event.ts` (key `evening:` / `tournament:` / `custom:` / `poker:`, one status draft → published → running → completed / cancelled) and one reader `src/server/services/eventService.ts` (`listEvents`) over the four event tables.
+- First consumer: the player's calendar (`playerEventCalendarRoutes.ts`) — which events a month shows comes from the layer; each kind's own details (slots, registrations, places) stay with the kind.
+- Next: announcements, reminders, cancellation and the organizer's calendar, one per PR.

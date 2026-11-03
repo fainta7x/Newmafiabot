@@ -1,6 +1,6 @@
 import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
-import { sanitizeLiveGameEvents, splitBreakMarks, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
+import { ELO_TAGS, eloTagMarks, sanitizeLiveGameEvents, splitBreakMarks, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../shared/gameRoles.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
 import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStreak.ts';
@@ -69,7 +69,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -442,6 +442,12 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
         else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
       }
     }
+    // Elo tags of the judge (owner, 2026-11-03): fixed −10 / +10 after every personal limit, any role.
+    if (mode === 'club') {
+      for (const mark of eloTagMarks(protocol.events).filter((entry) => entry.seat === me.seat)) {
+        items.push({ kind: `elo_tag_${mark.tag}` as ContributionKind, seat: me.seat, night: mark.round, points: ELO_TAGS[mark.tag].elo / ELO_PERSONAL_POINT_WEIGHT });
+      }
+    }
     if (mode === 'club' && redRole(me.role)) {
       for (const mark of redSplitBreaks.filter((entry) => entry.seat === me.seat)) items.push({ kind: 'split_break_red', seat: me.seat, night: mark.round, points: -SPLIT_BREAK_RED_ELO / ELO_PERSONAL_POINT_WEIGHT });
       if (raiseVoters.has(me.seat)) items.push({ kind: 'raise_defeat', seat: me.seat, points: -RAISE_DEFEAT_ELO / ELO_PERSONAL_POINT_WEIGHT });
@@ -452,14 +458,16 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
     if (mode === 'club' && zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);
-    const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' ? 0 : Math.max(0, item.points)), 0);
+    const fixedTag = (item: ContributionItem) => item.kind === 'elo_tag_revealed_to_black' || item.kind === 'elo_tag_killed_sheriff_zero';
+    const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' || fixedTag(item) ? 0 : Math.max(0, item.points)), 0);
     if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const positivePoints = Math.min(W.positivePool, pluses) + items.filter((item) => item.kind === 'streak_correct').reduce((sum, item) => sum + item.points, 0);
-    const negativePoints = items.filter((item) => item.points < 0 && item.kind !== 'pool_cap' && item.kind !== 'shot_miss' && item.kind !== 'split_break_red' && item.kind !== 'raise_defeat').reduce((sum, item) => sum + item.points, 0);
+    const negativePoints = items.filter((item) => item.points < 0 && item.kind !== 'pool_cap' && item.kind !== 'shot_miss' && item.kind !== 'split_break_red' && item.kind !== 'raise_defeat' && !fixedTag(item)).reduce((sum, item) => sum + item.points, 0);
     // Fixed cuts after all personal limits: a miss, a red who broke a split, a red who raised for the lost game.
     const missPenaltyElo = items.filter((item) => item.kind === 'shot_miss').length * MISSED_SHOT_ELO
       + items.filter((item) => item.kind === 'split_break_red').length * SPLIT_BREAK_RED_ELO
-      + items.filter((item) => item.kind === 'raise_defeat').length * RAISE_DEFEAT_ELO;
+      + items.filter((item) => item.kind === 'raise_defeat').length * RAISE_DEFEAT_ELO
+      - items.filter(fixedTag).reduce((sum, item) => sum + item.points * ELO_PERSONAL_POINT_WEIGHT, 0);
     return { seat: me.seat, role: me.role, points: positivePoints + negativePoints, positivePoints, negativePoints, missPenaltyElo, items, streaks };
   });
 }
@@ -508,6 +516,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const unvoted = of('unvoted_round');
   if (unvoted.length) lines.push(`Кругов, где за него никто не голосовал: ${unvoted.length}, ${signedElo(elo(unvoted.reduce((sum, item) => sum + item.points, 0)))}`);
   for (const item of of('split_break_red')) lines.push(`Сломал попил красным: ${signedElo(elo(item.points))}`);
+  for (const item of of('elo_tag_revealed_to_black')) lines.push(`${ELO_TAGS.revealed_to_black.label}: ${signedElo(elo(item.points))}`);
+  for (const item of of('elo_tag_killed_sheriff_zero')) lines.push(`${ELO_TAGS.killed_sheriff_zero.label}: ${signedElo(elo(item.points))}`);
   for (const item of of('raise_defeat_black')) lines.push(`Красные подняли руки за подъём, после которого проиграли: ${signedElo(elo(item.points))}`);
   for (const item of of('raise_defeat')) lines.push(`Поднял руку за последний подъём, после которого красные проиграли: ${signedElo(elo(item.points))}`);
   const misses = of('shot_miss');

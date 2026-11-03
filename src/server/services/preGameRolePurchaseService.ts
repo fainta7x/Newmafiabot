@@ -168,7 +168,7 @@ export async function chooseGameForDeferredRolePurchase(
     if (row.game_id === nextGameId) failure('Выберите другую игру');
     const game = await getGame(tx, `club:${nextGameId}`);
     if (!game || game.eventId !== row.evening_id || game.storage !== 'club') failure('Игра не относится к этому вечеру');
-    if (game.status !== 'planned') failure('На выбранную игру покупки закрыты');
+    if (['completed', 'cancelled', 'archived'].includes(game.status)) failure('На выбранную игру покупки закрыты');
     if (!game.seats.some((seat) => seat.playerId === buyerPlayerId)) failure('Игрок не участвует в выбранной игре', 403);
     const deal = await tx.get(
       'SELECT 1 FROM game_virtual_role_deals WHERE game_id=? LIMIT 1', [nextGameId],

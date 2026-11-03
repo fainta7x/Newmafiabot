@@ -88,8 +88,10 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `playerSelfCoreRoutes.ts` | the cabinet's archive of club games | ✅ moved (`listRecentCompletedGames`) |
 | `ratingRoutes.ts` | games played per player in the rating | ✅ moved (`COMPLETED_GAME_PLAYERS_SQL`, one grouped count instead of a sub-query per player; games of a cancelled evening are no longer counted, as everywhere else) |
 | `playerGameDetailRoutes.ts` | one game's page | needs the protocol part (below) |
-| `eloRatingService.ts`, `playerEloHistoryService.ts`, `metricRatingService.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, metrics, statistics | needs the protocol part (below) |
-| `playerAchievementStoriesService.ts` | achievement stories | next |
+| `gameStatisticsService.ts` | the layer's protocol reader (`loadStatGames` → `StatGame`) | ✅ is the protocol part: now also the first-killed / zero-round / best-move players (`StatGame.highlights`) |
+| `metricRatingService.ts` | metric ratings | ✅ moved (highlights from `StatGame`, its own second parse of every protocol removed) |
+| `eloRatingService.ts`, `playerEloHistoryService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, analytics | next |
+| `playerAchievementStoriesService.ts` | achievement stories | ✅ moved (`listGamesJudgedBy`, `listEventGames`) |
 | `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast | next |
 | `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | next |
 

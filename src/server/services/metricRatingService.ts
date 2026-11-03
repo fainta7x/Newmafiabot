@@ -99,69 +99,23 @@ const parseJson = (value: unknown): any => {
   try { return JSON.parse(value); } catch { return null; }
 };
 
-async function loadHighlightsUncached(db: DatabaseWrapper): Promise<Highlights> {
+/**
+ * First killed / zero-round / best-move players of every completed game, from the one protocol reader of the «Игра» layer
+ * (`loadStatGames` → `StatGame.highlights`, docs/ARCHITECTURE_REVIEW_2026-11-03.md) instead of parsing every protocol again.
+ */
+async function loadHighlights(db: DatabaseWrapper): Promise<Highlights> {
+  const { games } = await loadStatGamesCached(db);
   const out: Highlights = new Map();
-  const entry = (gameId: string) => {
-    let value = out.get(gameId);
-    if (!value) { value = { firstKilled: new Set(), bestMove: new Set(), zeroRound: new Set() }; out.set(gameId, value); }
-    return value;
-  };
-  const clubRows = await db.all<any>(`
-    SELECT id, protocol_text FROM games
-     WHERE evening_id IS NOT NULL AND archived_at IS NULL AND protocol_text IS NOT NULL
-       AND json_valid(protocol_text) AND json_extract(protocol_text, '$.protocol.status') = 'completed'
-  `);
-  for (const row of clubRows) {
-    const payload = parseJson(row.protocol_text);
-    if (!payload || !Array.isArray(payload.player_results)) continue;
-    const playerOf = new Map<string, string>();
-    for (const result of payload.player_results) {
-      if (result?.participant_id && result?.player_id) playerOf.set(String(result.participant_id), String(result.player_id));
-    }
-    const protocol = payload.protocol || {};
-    const target = entry(`club:${row.id}`);
-    const first = playerOf.get(String(protocol.first_killed_participant_id || ''));
-    if (first) target.firstKilled.add(first);
-    const zero = playerOf.get(String(protocol.zero_round_voted_participant_id || ''));
-    if (zero) target.zeroRound.add(zero);
-    for (const move of Array.isArray(protocol.best_moves) ? protocol.best_moves : []) {
-      const player = playerOf.get(String(move?.participant_id || ''));
-      if (player) target.bestMove.add(player);
-    }
+  for (const game of games) {
+    if (!game.highlights) continue;
+    out.set(game.id, { firstKilled: new Set(game.highlights.firstKilled), bestMove: new Set(game.highlights.bestMove), zeroRound: new Set(game.highlights.zeroRound) });
   }
-  const tournamentRows = await db.all<any>(`
-    SELECT tg.id AS game_id, tgp.first_killed_participant_id AS first_id, tgp.zero_round_voted_participant_id AS zero_id,
-           (SELECT player_id FROM tournament_participants WHERE id = tgp.first_killed_participant_id) AS first_player,
-           (SELECT player_id FROM tournament_participants WHERE id = tgp.zero_round_voted_participant_id) AS zero_player
-      FROM tournament_game_protocols tgp JOIN tournament_games tg ON tg.id = tgp.game_id
-     WHERE tg.status = 'completed' AND tgp.status = 'completed'
-  `).catch(() => []);
-  for (const row of tournamentRows) {
-    const target = entry(`tournament:${row.game_id}`);
-    if (row.first_player) target.firstKilled.add(String(row.first_player));
-    if (row.zero_player) target.zeroRound.add(String(row.zero_player));
-  }
-  const bestRows = await db.all<any>(`
-    SELECT b.game_id, tp.player_id FROM tournament_game_best_moves b
-      JOIN tournament_participants tp ON tp.id = b.participant_id
-  `).catch(() => []);
-  for (const row of bestRows) if (row.player_id) entry(`tournament:${row.game_id}`).bestMove.add(String(row.player_id));
   return out;
 }
 
 // Parsing every protocol is expensive on the synchronous connection: keep the result until a watched input changes, and
 // at most a minute (the protocol tables are not all watched).
 const HIGHLIGHT_TTL_MS = 60_000;
-const highlightCache = new WeakMap<object, { version: string | null; at: number; promise: Promise<Highlights> }>();
-async function loadHighlights(db: DatabaseWrapper): Promise<Highlights> {
-  const version = analyticsInputsVersion(db, 'club_snapshots', CLUB_SNAPSHOT_INPUTS);
-  const cached = highlightCache.get(db as object);
-  if (cached && cached.version === version && Date.now() - cached.at < HIGHLIGHT_TTL_MS) return cached.promise;
-  const promise = loadHighlightsUncached(db);
-  highlightCache.set(db as object, { version, at: Date.now(), promise });
-  void promise.catch(() => { if (highlightCache.get(db as object)?.promise === promise) highlightCache.delete(db as object); });
-  return promise;
-}
 
 // The move chronology of every finished game is parsed once per input change (at most a minute): the analysis of each game
 // is memoised on the game object, so many rankings and profiles reuse it.

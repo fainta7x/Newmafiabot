@@ -37,6 +37,18 @@ export async function loadStatGames(db: any, options: StatOptions = {}): Promise
   return promise;
 }
 
+/** First killed, zero-round voted and best-move players of a club protocol, by player id. */
+const clubHighlights = (payload: any): NonNullable<StatGame['highlights']> => {
+  const playerOf = new Map<string, string>();
+  for (const result of payload.player_results || []) {
+    if (result?.participant_id && result?.player_id) playerOf.set(String(result.participant_id), String(result.player_id));
+  }
+  const protocol = payload.protocol || {};
+  const one = (participant: unknown) => { const player = playerOf.get(String(participant || '')); return player ? [player] : []; };
+  const best = (Array.isArray(protocol.best_moves) ? protocol.best_moves : []).map((move: any) => playerOf.get(String(move?.participant_id || ''))).filter(Boolean) as string[];
+  return { firstKilled: one(protocol.first_killed_participant_id), zeroRound: one(protocol.zero_round_voted_participant_id), bestMove: [...new Set(best)] };
+};
+
 async function loadStatGamesUncached(db: any, options: StatOptions): Promise<StatGame[]> {
   const games: StatGame[] = [];
   const since = new Date(options.sinceMs ?? 0).toISOString();
@@ -71,11 +83,15 @@ async function loadStatGamesUncached(db: any, options: StatOptions): Promise<Sta
       })),
       events: sanitizeLiveGameEvents(payload.protocol?.events),
       votingRounds: payload.protocol?.votes, eventId: String(row.evening_id),
+      highlights: clubHighlights(payload),
     });
   }
 
   const tournamentRows = await db.all(`
     SELECT tg.id AS game_id, tg.completed_at, tg.winner_team, tgp.events_json, tgp.votes_json, tg.tournament_id,
+      (SELECT player_id FROM tournament_participants WHERE id = tgp.first_killed_participant_id) AS first_player,
+      (SELECT player_id FROM tournament_participants WHERE id = tgp.zero_round_voted_participant_id) AS zero_player,
+      (SELECT json_group_array(tp.player_id) FROM tournament_game_best_moves b JOIN tournament_participants tp ON tp.id = b.participant_id WHERE b.game_id = tg.id AND tp.player_id IS NOT NULL) AS best_players,
       (SELECT json_group_array(json_object('seat_number',tgs.seat_number,'role',tgs.role,'player_id',tp.player_id)) FROM tournament_game_seats tgs JOIN tournament_participants tp ON tp.id=tgs.participant_id WHERE tgs.game_id=tg.id) seats_json
       FROM tournament_games tg JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
      WHERE tg.status = 'completed' AND tgp.status = 'completed'
@@ -99,6 +115,11 @@ async function loadStatGamesUncached(db: any, options: StatOptions): Promise<Sta
       })),
       events: sanitizeLiveGameEvents(parse(row.events_json)),
       votingRounds: parse(row.votes_json) || [], eventId: String(row.tournament_id),
+      highlights: {
+        firstKilled: row.first_player ? [String(row.first_player)] : [],
+        zeroRound: row.zero_player ? [String(row.zero_player)] : [],
+        bestMove: [...new Set<string>((parse(row.best_players) || []).filter(Boolean).map(String))],
+      },
     });
   }
 

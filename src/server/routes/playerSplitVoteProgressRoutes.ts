@@ -5,6 +5,7 @@ import { checkExpertAnswer, isValidExpertScenario } from '../../lib/splitVoteExp
 import { SPLIT_THREE_ORDER, correctSplitThreeVote, isCorrectSplitThreeAssignment, isValidSplitThreeScenario, type SplitThreeLevel } from '../../lib/splitThreeTraining.ts';
 import { isCorrectSplitThreeBreak, isCorrectSplitThreeChoice, isValidSplitThreeBreak } from '../../lib/splitThreeBreak.ts';
 import { getPlayerSessionId } from '../auth.ts';
+import { loadColourReading } from '../services/colourReadingService.ts';
 import { evaluatePlayerAchievements } from '../services/playerAchievementsService.ts';
 
 const router = Router();
@@ -58,6 +59,17 @@ const isPassedSplitThreeExam = (answers: unknown, level: SplitThreeLevel) => {
     return level === 'three_easy' ? answer === correctSplitThreeVote(scenario) : isAssignment(answer) && isCorrectSplitThreeAssignment(scenario, answer);
   });
 };
+
+/** «Читать цвет»: only the player himself sees his statistic (owner, 2026-11-02). */
+router.get('/colour-reading', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Войдите как игрок' });
+  try {
+    return res.json(await loadColourReading(req.db, playerId));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить статистику' });
+  }
+});
 
 router.get('/split-vote-progress', async (req, res) => {
   const playerId = getPlayerSessionId(req);

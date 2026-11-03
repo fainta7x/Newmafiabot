@@ -1,5 +1,6 @@
 import { readProgress } from '../../lib/guideProgress.ts';
 import { GUIDE_LESSONS, findGuideEntry } from '../../lib/guideCatalog.ts';
+import ColourReadingPanel from './ColourReadingPanel.tsx';
 import { ArrowRight, BookOpen, BookOpenCheck, ChevronRight, GraduationCap, Gavel, LibraryBig, Brain } from 'lucide-react';
 
 /** Learning lives in Progress; the public guide is the one canonical content source. */
@@ -14,6 +15,7 @@ export default function PlayerLearningBlock() {
   return (
     <div className="space-y-4" data-testid="player-learning">
       {(recent||hasProgress)&&<a data-testid="player-learning-continue" href={continueUrl} className="ds-focus-ring block min-h-20 rounded-2xl border border-amber-200/25 bg-amber-200/[.06] p-4"><span className="block text-xs text-white/55">Недавно на этом устройстве</span><strong className="mt-1 block text-base">Продолжить{recent?`: ${recent.title}`:' обучение'} ›</strong><span className="mt-1 block text-xs text-white/60">{recent?'Открыть знакомый раздел':nextLesson>=0?'Следующий непрочитанный урок':'Перейти к практике'}</span></a>}
+      <ColourReadingPanel url="/api/player/colour-reading" />
       <section className="space-y-2" aria-label="Разделы обучения">
         <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[.13em] text-white/45">С чего начать</h3>
         {[

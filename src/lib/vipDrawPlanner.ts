@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import type { GameRole } from '../shared/gameRoles.ts';
-import { chooseConflictingVipRule, type VipProbabilityRule } from './vipRoleProbabilityRules.ts';
+import { chooseConflictingVipRule } from './vipRoleProbabilityRules.ts';
+import type { VipDealRule as VipProbabilityRule } from './vipNeutralSlider.ts';
 import type { VipClosedCard } from './vipClosedDeckSimulation.ts';
 
 const roles: GameRole[] = ['citizen','sheriff','mafia','don'];
@@ -32,6 +33,7 @@ export function planVipDraw<T extends VipClosedCard>(
     let wanted:GameRole[];
     if(rule.kind==='red_color')wanted=['citizen']; // a red CARD is strictly a citizen
     else if(rule.kind==='role')wanted=rule.role?[rule.role]:[];
+    else if(rule.kind==='role_not')wanted=roles.filter(role=>role!==rule.role); // «never this role»
     else {
       const peer=rule.otherPlayerId;
       if(!peer)continue;

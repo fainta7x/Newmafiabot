@@ -2667,3 +2667,7 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+
+## 2026-11-03 — VIP slider rebuilt to the owner's meaning (50 % neutral), stress run
+
+`src/lib/vipNeutralSlider.ts` + `vipLiveDrawService.ts`: a once-per-deal die per condition, then the 100 % promise (or its opposite below 50 %) through the unchanged `planVipDraw`. 20 000 full deals per case: sheriff seat 1 and seat 10 at 0/25/50/75/100 % → 0/4.8/9.9/54.4/100 and 0/5.1/9.9/54.7/100; «одноцвет» → 0/26.5/52.4/76.7/100; 20 random conditions for everybody, 5000 deals — composition intact. Open: «мафия»+«дон» at 0 % for one player still gives 4.5 % black (no single «чёрная карта» condition) — reported to the owner.

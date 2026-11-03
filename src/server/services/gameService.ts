@@ -246,3 +246,12 @@ export async function listCompletedGames(db: DatabaseWrapper): Promise<Game[]> {
   const time = (game: Game) => (game.date ? new Date(game.date).getTime() : 0);
   return [...club, ...tournament].filter((game) => game.status === 'completed').sort((a, b) => time(a) - time(b));
 }
+
+/**
+ * The «completed» rule as SQL conditions, for queries that must stay light (the one-minute result worker parses no protocol):
+ * the same rule as `Game.status === 'completed'` without archive/cancel (the caller filters those as it needs).
+ */
+export const clubGameCompletedSql = (g = 'g') =>
+  `(json_valid(${g}.protocol_text) AND json_extract(${g}.protocol_text, '$.kind') = 'club_evening_protocol' AND json_extract(${g}.protocol_text, '$.protocol.status') = 'completed')`;
+export const tournamentGameCompletedSql = (tg = 'tg') =>
+  `(${tg}.status = 'completed' AND EXISTS (SELECT 1 FROM tournament_game_protocols layer_tgp WHERE layer_tgp.game_id = ${tg}.id AND layer_tgp.status = 'completed'))`;

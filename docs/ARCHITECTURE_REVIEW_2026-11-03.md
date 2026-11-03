@@ -82,8 +82,8 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 |---|---|---|
 | `playerStaffStatsService.ts` | games a player judged, by format | ✅ moved (`listGamesJudgedBy`) |
 | `playerAchievementsService.ts` (judged count) | achievements «судил N игр» | ✅ moved (`listGamesJudgedBy`); its played-games part — next |
-| `auth.ts` | may an assigned judge conduct this game | open — see finding F1 |
-| `playerJudgingRoutes.ts` | the judge's «Мои игры» list | open — see finding F1 |
+| `auth.ts` | may an assigned judge conduct this game | ✅ moved (`getGame`; F1 decided) |
+| `playerJudgingRoutes.ts` | the judge's «Мои игры» list | ✅ tournament part moved (`listGamesJudgedBy`; F1 decided) |
 | `playerGameDetailRoutes.ts`, `playerProfileService.ts`, `playerSelfCoreRoutes.ts` | a player's games and profile | next |
 | `eloRatingService.ts`, `playerEloHistoryService.ts`, `ratingRoutes.ts`, `metricRatingService.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, ratings, statistics | next |
 | `playerAchievementStoriesService.ts` | achievement stories | next |
@@ -92,4 +92,4 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 
 The layer now owns three rules that had been written several times (all as achievements already counted): a tournament game is **completed** when the game and its protocol are completed; the **judge** of a tournament game is the game's judge, else the tournament's; a game of a **cancelled evening** is cancelled even with a protocol.
 
-- **F1 (owner decision)** — who may conduct a tournament game: the judge-access check (`auth.ts`) and the judge's game list (`playerJudgingRoutes.ts`) take only the game's own judge, while the counting rule above also takes the tournament's judge. So in a managed tournament evening whose judge is set on the tournament, the judge's games are counted for them but not listed in «Мои игры» and cannot be opened with judge access. Should the tournament's judge be able to conduct its games?
+- **F1 — decided by the owner 2026-11-03** (BUSINESS_RULES «Judge of a tournament game»): the tournament's judge conducts every game of a one-table tournament; with two tables the judge is bound to the table. Was: the judge-access check (`auth.ts`) and the judge's game list (`playerJudgingRoutes.ts`) take only the game's own judge, while the counting rule above also takes the tournament's judge. So in a managed tournament evening whose judge is set on the tournament, the judge's games are counted for them but not listed in «Мои игры» and cannot be opened with judge access. Should the tournament's judge be able to conduct its games?

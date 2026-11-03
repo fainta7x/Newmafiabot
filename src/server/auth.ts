@@ -6,6 +6,7 @@ import { normalizeJudgeLevel } from '../db/ensureJudgeAuthoritySchema.ts';
 import { canHostEveningFormat } from '../lib/hostFormats.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { cabinetOrganizeFormats, canOrganizeEveningFormat } from '../lib/organizeFormats.ts';
+import { getGame } from './services/gameService.ts';
 
 dotenv.config();
 
@@ -279,17 +280,12 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
   const player = await db.get('SELECT judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
   if (normalizeJudgeLevel(player?.judge_level) !== 'judge') return false;
 
-  const game = await db.get(`
-    SELECT tg.judge_player_id, tg.status AS game_status, t.status AS tournament_status
-      FROM tournament_games tg
-      JOIN tournaments t ON t.id = tg.tournament_id
-     WHERE tg.id = ? AND tg.tournament_id = ?
-     LIMIT 1
-  `, [tournamentMatch[2], tournamentMatch[1]]);
-  if (!game || String(game.judge_player_id || '') !== playerId) return false;
+  // The judge rule is the «Игра» layer's: the table's judge, else the tournament's judge (owner, 2026-11-03).
+  const game = await getGame(db, `tournament:${tournamentMatch[2]}`);
+  if (!game || game.eventId !== tournamentMatch[1] || String(game.judgePlayerId || '') !== playerId) return false;
 
   if (req.method !== 'GET') {
-    if (game.tournament_status !== 'active' || game.game_status === 'completed') return false;
+    if (game.eventStatus !== 'active' || game.status === 'completed') return false;
   }
 
   req.delegatedOrganizerAccess = true;

@@ -61,7 +61,7 @@ async function loadClubGames(db: DatabaseWrapper, where: string, params: unknown
       key: gameKey('club', row.id), storage: 'club', id: String(row.id),
       format: normalizeEveningFormat(row.evening_format),
       status: clubGameStatus({ archived_at: row.archived_at, payload, evening_status: row.evening_status }, running.has(String(row.id))),
-      eventId: row.evening_id ? String(row.evening_id) : null, eventKind: row.evening_id ? 'evening' : null,
+      eventId: row.evening_id ? String(row.evening_id) : null, eventKind: row.evening_id ? 'evening' : null, eventStatus: row.evening_status ? String(row.evening_status) : null,
       number: row.global_game_number == null ? null : Number(row.global_game_number),
       date: String(protocol.completed_at || row.game_date || row.starts_at || row.created_at || '') || null,
       winner: normalizeWinnerTeam(protocol.winner_team) as Game['winner'],
@@ -74,7 +74,8 @@ async function loadClubGames(db: DatabaseWrapper, where: string, params: unknown
 async function loadTournamentGames(db: DatabaseWrapper, where: string, params: unknown[]): Promise<Game[]> {
   if (!(await tableExists(db, 'tournament_games'))) return [];
   const protocols = await tableExists(db, 'tournament_game_protocols');
-  // The judge of a tournament game: the game's own judge, else the tournament's (managed tournament evenings), as achievements count it.
+  // The judge of a tournament game (owner, 2026-11-03): the judge of the game's table, else the tournament's judge, who conducts
+  // every game of a one-table tournament. A table is not stored yet — the per-game judge is the table's judge.
   const judge = (await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')
     ? 'COALESCE(tg.judge_player_id, t.judge_player_id)' : 'tg.judge_player_id';
   where = where.replace(/\$\{judge\}/g, judge);
@@ -91,7 +92,7 @@ async function loadTournamentGames(db: DatabaseWrapper, where: string, params: u
     key: gameKey('tournament', row.id), storage: 'tournament', id: String(row.id),
     format: 'TOURNAMENT',
     status: tournamentGameStatus(row),
-    eventId: String(row.tournament_id), eventKind: 'tournament',
+    eventId: String(row.tournament_id), eventKind: 'tournament', eventStatus: row.tournament_status ? String(row.tournament_status) : null,
     number: row.game_number == null ? null : Number(row.game_number),
     date: String(row.completed_at || row.started_at || row.tournament_date || '') || null,
     winner: normalizeWinnerTeam(row.winner_team) as Game['winner'],

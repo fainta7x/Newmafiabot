@@ -34,6 +34,8 @@ export interface Game {
   /** The event the game belongs to: an evening or a tournament. */
   eventId: string | null;
   eventKind: 'evening' | 'tournament' | null;
+  /** Status of that event (evening or tournament status as stored). */
+  eventStatus: string | null;
   /** Number of the game: the club's global number, or the number inside the tournament. */
   number: number | null;
   date: string | null;

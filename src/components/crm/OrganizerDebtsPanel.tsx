@@ -74,7 +74,7 @@ export default function OrganizerDebtsPanel({ enabled, refreshKey, onOpenPlayer,
     <section data-testid="debts-panel" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="text-[12px] font-semibold text-warning">Долги игроков · {debtors.length} чел. · {formatRubles(total)}</div>
       <p className="mt-0.5 text-[12px] leading-4 text-text-muted">За завершённые вечера. «Оплачено» — когда перевод получен целиком, «Часть» — когда получили только часть суммы; у кого несколько вечеров, можно отметить каждый или всё сразу.</p>
-      <div className="mt-2 space-y-1.5">
+      <div className="crm-debt-list mt-2 space-y-1.5">
         {shown.map((debtor) => (
           <div key={debtor.player_id} data-testid="debt-row" className="rounded-[10px] bg-surface-1 px-2.5 py-2">
             <div className="flex items-center gap-2">
@@ -103,8 +103,8 @@ export default function OrganizerDebtsPanel({ enabled, refreshKey, onOpenPlayer,
           </div>
         ))}
       </div>
-      {debtors.length > FIRST ? <button type="button" onClick={() => setAll((value) => !value)} className="mt-2 min-h-11 w-full rounded-[10px] border border-border-soft text-[13px] font-semibold text-text-secondary">{all ? 'Свернуть' : `Показать всех (${debtors.length})`}</button> : null}
-      <button type="button" disabled={Boolean(busy)} onClick={() => void remind()} className="mt-2 min-h-11 w-full rounded-[10px] border border-border-soft text-[13px] font-semibold text-text-primary disabled:opacity-40">{busy === 'remind' ? 'Отправляем…' : 'Напомнить всем должникам'}</button>
+      {debtors.length > FIRST ? <button type="button" onClick={() => setAll((value) => !value)} className="crm-debt-action mt-2 min-h-11 w-full rounded-[10px] border border-border-soft text-[13px] font-semibold text-text-secondary">{all ? 'Свернуть' : `Показать всех (${debtors.length})`}</button> : null}
+      <button type="button" disabled={Boolean(busy)} onClick={() => void remind()} className="crm-debt-action mt-2 min-h-11 w-full rounded-[10px] border border-border-soft text-[13px] font-semibold text-text-primary disabled:opacity-40">{busy === 'remind' ? 'Отправляем…' : 'Напомнить всем должникам'}</button>
       {notice ? <p role="status" className="mt-2 text-[12px] text-text-secondary">{notice}</p> : null}
       {error ? <p role="alert" className="mt-2 text-[12px] text-danger">{error}</p> : null}
     </section>

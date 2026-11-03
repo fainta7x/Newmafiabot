@@ -2656,3 +2656,8 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 
 Production read only: `POST /api/evenings/cbcb7301…/seating/generate` at 20:17 MSK for «Вечер во вторник 3.11» (starts 19:30, status «Запись открыта»).
 - `src/server/services/eveningSeatingNotificationsService.ts`: player notices were skipped once the evening's start TIME had passed, even while it was still gathering — fixed: only an evening «Идёт» or completed stops them (`src/tests/eveningSeatingGenerateNotices.test.ts`).
+## 2026-11-03 — during the evening: deal stops after the first card, seating not loaded, «Стартуем»
+
+Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
+- `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
+- `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.

@@ -13,19 +13,20 @@ import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
-import { clubGamesApi, getPendingClubGameProtocolSaveFor, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
+import { clubGamesApi, getPendingClubGameProtocolSaveFor, type ClubGameRecord, type LiveBroadcastConfig, type LiveGameCheckpointPayload } from '../../lib/clubGamesApi';
 import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { evictReplayFrames } from '../../lib/liveStorageBudget';
-import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume';
+import { forgetOpenLiveGame, markAutoRestore, rememberOpenLiveGame } from '../../lib/liveGameResume';
 import { useClubLiveBroadcast, useLiveAliveSeats } from './useClubLiveBroadcast.ts';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
-import { ClubLiveSessionRecorder, renumberVotingRoundsSequentially } from '../../lib/liveClubSession';
+import { ClubLiveSessionRecorder, clubLiveSessionKey, renumberVotingRoundsSequentially } from '../../lib/liveClubSession';
 import { buildFinalChronology } from '../../lib/liveGameEventLog';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
 import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { useClubLiveCheckpoint, writeClubLiveCheckpoint } from './useClubLiveCheckpoint';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -175,7 +176,7 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false, titleBadge }) => {
+const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false, titleBadge }) => {
   // A reload returns to this window: the record says it is open until the judge closes it or the game ends.
   const resumable = !trainingMode && Number(game.id) > 0;
   useEffect(() => { if (resumable) rememberOpenLiveGame('club', game.id); }, [resumable, game.id]);
@@ -187,6 +188,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       : null,
   );
   const [livePhase, setLivePhase] = useState('setup');
+  // «Продолжить игру» (AR04): the server keeps a copy of this game's session for another device.
+  useClubLiveCheckpoint(Number(game.id), livePhase, resumable);
   const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
   const [trainingIdentityPositions, setTrainingIdentityPositions] = useState<Record<number, React.CSSProperties>>({});
   const [rolesHidden, setRolesHidden] = useState(true);
@@ -778,6 +781,52 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           : identityOverlay}
       </div>
       </div>
+    </div>
+  );
+};
+
+/**
+ * «Продолжить игру» (owner, 2026-11-03; AR04 step 2): when this device has no saved session of the game but the server
+ * has a copy (the judge changed device or the browser lost its storage), offer to continue it; the engine then restores
+ * the copy exactly as it restores its own saved session.
+ */
+export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = (props) => {
+  const { game, trainingMode = false } = props;
+  const resumable = !trainingMode && Number(game.id) > 0;
+  const [stage, setStage] = useState<'checking' | 'offer' | 'ready'>(() => {
+    if (!resumable) return 'ready';
+    try { return localStorage.getItem(clubLiveSessionKey(game.id)) ? 'ready' : 'checking'; } catch { return 'ready'; }
+  });
+  const [checkpoint, setCheckpoint] = useState<(LiveGameCheckpointPayload & { saved_at: string }) | null>(null);
+  useEffect(() => {
+    if (stage !== 'checking') return;
+    let active = true;
+    clubGamesApi.loadLiveCheckpoint(Number(game.id))
+      .then((copy) => { if (!active) return; setCheckpoint(copy); setStage('offer'); })
+      .catch(() => { if (active) setStage('ready'); });
+    return () => { active = false; };
+  }, [stage, game.id]);
+
+  if (stage === 'ready') return <EveningLiveGameModalBody {...props} />;
+  const savedAt = checkpoint?.saved_at
+    ? new Date(checkpoint.saved_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
+    : null;
+  const continueGame = () => {
+    if (!checkpoint) return;
+    try { writeClubLiveCheckpoint(Number(game.id), checkpoint); markAutoRestore(); } catch { /* storage full: start as usual */ }
+    setStage('ready');
+  };
+  return (
+    <div data-testid="live-checkpoint-offer" className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950 p-4">
+      {stage === 'checking' ? <p className="text-sm text-white/60">Загружаем игру…</p> : (
+        <div className="w-full max-w-sm space-y-4 rounded-[20px] border border-amber-200/15 bg-amber-200/[0.06] p-5 text-white">
+          <p className="text-sm leading-6 text-amber-50/80">Найдена незавершённая игра{savedAt ? ` · ${savedAt}` : ''}</p>
+          <div className="grid gap-2">
+            <button type="button" data-testid="live-checkpoint-continue" onClick={continueGame} className="min-h-12 rounded-xl bg-white px-4 text-sm font-semibold text-[#090a0d]">Продолжить игру</button>
+            <button type="button" data-testid="live-checkpoint-discard" onClick={() => setStage('ready')} className="min-h-11 rounded-xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-white/60">Сбросить</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,6 +9,10 @@ import {
   ensurePreGameRolePurchaseSchema,
 } from '../services/preGameRolePurchaseService.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
+import {
+  orderGameMusic, markGameMusicPlayed, cancelGameMusicOrder,
+  ensureGameMusicOrderSchema,
+} from '../services/gameMusicOrderService.ts';
 
 const playerRouter = Router();
 const adminRouter = Router();
@@ -114,6 +118,90 @@ playerRouter.get('/role-purchases', async (req, res) => {
     }));
     res.set('Cache-Control', 'no-store');
     return res.json({ orders });
+  } catch (error: any) { return onError(res, error); }
+});
+
+/** All personal song requests remain private, not part of the public game view. */
+playerRouter.post('/music-orders', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в ЛК' });
+  const gameId = Number(req.body?.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Укажите игру' });
+  try {
+    const db = req.db || await getDb();
+    const result = await orderGameMusic(db, gameId, playerId, req.body?.track);
+    res.set('Cache-Control', 'private, no-store');
+    return res.status(201).json({ orderId: result.id, priceRub: result.priceRub });
+  } catch (error: any) { return onError(res, error); }
+});
+
+playerRouter.get('/music-orders', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в ЛК' });
+  try {
+    const db = req.db || await getDb();
+    await ensureGameMusicOrderSchema(db);
+    const orders = await db.all(
+      'SELECT id,game_id,track_reference,status,amount_rub,created_at FROM game_music_orders WHERE player_id=? ORDER BY created_at DESC LIMIT 100',
+      [playerId],
+    );
+    res.set('Cache-Control', 'private, no-store');
+    return res.json({ orders });
+  } catch (error: any) { return onError(res, error); }
+});
+
+adminRouter.post('/music-orders', async (req, res) => {
+  const gameId = Number(req.body?.gameId);
+  const playerId = String(req.body?.playerId || '');
+  if (!Number.isInteger(gameId) || gameId <= 0 || !playerId) return res.status(400).json({ error: 'Укажите игру и игрока' });
+  try {
+    const db = req.db || await getDb();
+    const judge = (req as AuthenticatedRequest).delegatedPlayerId;
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    if (judge && game.judgePlayerId !== judge) return res.status(403).json({ error: 'Нет прав судьи игры' });
+    const result = await orderGameMusic(db, gameId, playerId, req.body?.track, true);
+    res.set('Cache-Control', 'private, no-store');
+    return res.status(201).json({ orderId: result.id, priceRub: result.priceRub });
+  } catch (error: any) { return onError(res, error); }
+});
+
+adminRouter.get('/music-orders', async (req, res) => {
+  const gameId = Number(req.query.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Укажите игру' });
+  try {
+    const db = req.db || await getDb();
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    const judge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (judge && game.judgePlayerId !== judge) return res.status(403).json({ error: 'Нет прав судьи игры' });
+    await ensureGameMusicOrderSchema(db);
+    const orders = await db.all(
+      'SELECT id,player_id,track_reference,status,amount_rub,created_at FROM game_music_orders WHERE game_id=? ORDER BY created_at',
+      [gameId],
+    );
+    res.set('Cache-Control', 'private, no-store');
+    return res.json({ orders });
+  } catch (error: any) { return onError(res, error); }
+});
+
+adminRouter.post('/music-orders/:orderId/played', async (req, res) => {
+  const gameId = Number(req.body?.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Укажите игру' });
+  try {
+    const db = req.db || await getDb();
+    const game = await getGame(db, `club:${gameId}`);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    const judge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (judge && game.judgePlayerId !== judge) return res.status(403).json({ error: 'Нет прав судьи игры' });
+    return res.json(await markGameMusicPlayed(db, String(req.params.orderId), gameId));
+  } catch (error: any) { return onError(res, error); }
+});
+
+adminRouter.delete('/music-orders/:orderId', async (req, res) => {
+  try {
+    const db = req.db || await getDb();
+    return res.json(await cancelGameMusicOrder(db, String(req.params.orderId)));
   } catch (error: any) { return onError(res, error); }
 });
 

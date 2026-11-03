@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { DeliveryCertainty } from './messageDeliveryCertainty.ts';
+import { oncePerDatabase } from '../../db/oncePerDatabase.ts';
 
 export type PublicationResult = { ok: boolean; inFlight?: boolean; certainty: DeliveryCertainty; temporary?: boolean; error?: string; ids?: string[]; url?: string | null; retryAfter?: number };
 export type PublicationContext = { key: string; entityId?: string; kind: string; legacyStatus?: string | null };
 const STALE_MS = 15 * 60_000;
 
-export async function ensurePublicationDeliverySchema(db: DatabaseWrapper) {
+// Once per connection (AR05, 2026-11-03): every publication and the one-minute club-results scan called it.
+export const ensurePublicationDeliverySchema = oncePerDatabase(async (db: DatabaseWrapper): Promise<void> => {
   await db.exec(`CREATE TABLE IF NOT EXISTS publication_deliveries (
     delivery_key TEXT PRIMARY KEY, entity_id TEXT, kind TEXT NOT NULL, channel TEXT NOT NULL,
     target TEXT NOT NULL, payload TEXT NOT NULL, fingerprint TEXT NOT NULL,
@@ -18,7 +20,7 @@ export async function ensurePublicationDeliverySchema(db: DatabaseWrapper) {
     actor TEXT NOT NULL, decision TEXT NOT NULL, evidence TEXT, created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS publication_delivery_migrations (source TEXT PRIMARY KEY,created_at TEXT NOT NULL)`);
-}
+});
 
 /** Persist before HTTP. A lost response or failed result write never grants another send. */
 export async function deliverPublication<T>(db: DatabaseWrapper, context: PublicationContext, channel: string, target: string, payload: T,

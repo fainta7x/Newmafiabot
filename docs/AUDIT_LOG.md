@@ -1,5 +1,13 @@
 # Audit log
 
+
+## 2026-11-03 · AR05: measured production slowness (read-only)
+
+Scope: `GET /api/health/performance` and `/api/health/performance/queries` on production (organizer login, GET only), Amvera status; build `01f6a9a` (#1145) RUNNING.
+
+1. MEDIUM `fixed (AR05 PR)` — the event loop stalls 0.4–2.6 s about once a minute; the slow job each time is `personal_notifications` (263 SQLite calls, 1.0–2.5 s of synchronous SQLite; sub-steps `club_results` 0.5–1.5 s, `evening_start_questions` 0.6–0.8 s). Even trivial statements cost 100–480 ms at times (`SELECT 1 FROM sqlite_master …` max 106 ms, `CREATE TABLE IF NOT EXISTS telegram_destinations` max 379 ms), so query plans/indexes are not the cause: per-statement latency on the host is. The fix is fewer statements per tick: `ensureTelegramPublishingSchema` (DDL + destination upserts, called by the evening-start questions and the weekly automation every minute) and `ensurePublicationDeliverySchema` now run their DDL once per connection (`oncePerDatabase`); the data steps of the former still run every call.
+2. LOW `open` — other per-tick statements in the top list: `tournament_game_token_settlements` upserts (50× up to 240 ms), `evening_staff_assignments` upserts (15×), `importLegacyPublicationHolds` probes (36×). To be measured again after this deploy before changing.
+
 ## 2026-11-01 — Elo balance simulation, verdict (owner request: «симуляция… нужно ли подбалансировать»)
 
 Script: `src/scripts/eloBalanceSimulation.ts` (real `calculateCanonicalEloGame`; one player at an equal-level table; contribution levels from the real club data, win chances are stated assumptions). Nothing in the formulas was changed.

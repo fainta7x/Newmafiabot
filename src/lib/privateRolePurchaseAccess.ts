@@ -1,10 +1,9 @@
 import type { Game } from '../shared/game.ts';
 
 /**
- * Access to private role purchases is determined by participation in this
- * specific game, not merely by club-wide organizer privileges.
- * The route must resolve actor identity from verified sessions, never from a
- * playerId field supplied by the browser.
+ * Administrative access and proactive purchase notifications are independent.
+ * A club organizer keeps full management and transaction permissions even
+ * while playing. Never infer permissions from notification eligibility.
  */
 export type PrivateRoleActor = {
   playerId: string | null;
@@ -13,18 +12,27 @@ export type PrivateRoleActor = {
 
 export type PrivateRoleAccess = 'all' | 'own' | 'none';
 
-/**
- * In the game -> non-playing organizer can manage/view all purchases.
- * At the table -> even the club organizer cannot inspect other players'
- * purchased roles. A designated judge sees them as part of the deal.
- */
 export function privateRoleAccess(game: Pick<Game, 'judgePlayerId' | 'seats'>, actor: PrivateRoleActor): PrivateRoleAccess {
-  const playerId = actor.playerId;
-  if (playerId && game.judgePlayerId === playerId) return 'all';
-  const participates = Boolean(playerId && game.seats.some((seat) => seat.playerId === playerId));
-  if (participates) return 'own';
   if (actor.isOrganizer) return 'all';
+  if (actor.playerId && game.judgePlayerId === actor.playerId) return 'all';
+  if (actor.playerId && game.seats.some((seat) => seat.playerId === actor.playerId)) return 'own';
   return 'none';
+}
+
+/**
+ * A playing organizer must receive no proactive information about other
+ * players' purchases, despite retaining access to the management panel.
+ * The game's judge may receive notices even when otherwise associated with
+ * the game; ordinary players must never receive notices about other buyers.
+ */
+export function mayReceiveOtherRolePurchaseNotice(
+  game: Pick<Game, 'judgePlayerId' | 'seats'>,
+  actor: PrivateRoleActor,
+): boolean {
+  if (actor.playerId && game.judgePlayerId === actor.playerId) return true;
+  if (!actor.isOrganizer) return false;
+  if (!actor.playerId) return true;
+  return !game.seats.some((seat) => seat.playerId === actor.playerId);
 }
 
 export function mayViewPurchasedRole(
@@ -36,15 +44,11 @@ export function mayViewPurchasedRole(
   return level === 'all' || (level === 'own' && actor.playerId === buyerPlayerId);
 }
 
-/** Organizer's cancellation authority never implies access to a role field. */
+/** Explicit admin lookup, never a push notification payload or player catalogue. */
 export function privateRolePurchaseForActor<T extends { playerId: string; role: string }>(
   purchase: T,
   game: Pick<Game, 'judgePlayerId' | 'seats'>,
   actor: PrivateRoleActor,
-): Omit<T, 'role'> & { role?: string } | null {
-  const level = privateRoleAccess(game, actor);
-  if (level === 'none') return null;
-  if (level === 'all' || actor.playerId === purchase.playerId) return { ...purchase };
-  // Even existence or metadata of another player's purchase is private.
-  return null;
+): T | null {
+  return mayViewPurchasedRole(game, actor, purchase.playerId) ? { ...purchase } : null;
 }

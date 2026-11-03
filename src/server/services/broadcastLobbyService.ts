@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
 import { readLiveBroadcastEnvelope } from './liveBroadcastService.ts';
+import { listEventGames } from './gameService.ts';
 
 /**
  * «Заставка» and «Итоги» scenes (owner, 2026-10-01): what the broadcast shows between games.
@@ -17,8 +18,6 @@ export type BroadcastLobby = {
   total_games: number | null;
   standings: BroadcastStanding[];
 };
-
-const parse = (value: unknown): any => { try { return JSON.parse(String(value || '')); } catch { return null; } };
 
 export const broadcastLobbyPlayerIds = (lobby: BroadcastLobby) => new Set<string>([
   ...(lobby.next_game?.seats || []).map((seat) => seat.player_id),
@@ -38,13 +37,10 @@ async function todaysTournament(db: DatabaseWrapper, now: number) {
 }
 
 async function tournamentLobby(db: DatabaseWrapper, tournament: any): Promise<BroadcastLobby> {
-  const games = await db.all<any>('SELECT id, game_number, status FROM tournament_games WHERE tournament_id = ? ORDER BY game_number', [tournament.id]);
-  const next = games.find((game: any) => String(game.status) === 'planned') || null;
-  const seats = next ? (await db.all<any>(
-    `SELECT s.seat_number, tp.display_name, tp.player_id FROM tournament_game_seats s
-       JOIN tournament_participants tp ON tp.id = s.participant_id
-      WHERE s.game_id = ? ORDER BY s.seat_number`, [next.id],
-  )).map((row: any) => ({ seat: Number(row.seat_number), nickname: String(row.display_name || 'Игрок'), player_id: row.player_id ? String(row.player_id) : null })) : [];
+  // The games and the next game's seats through the one «Игра» layer.
+  const games = await listEventGames(db, 'tournament', String(tournament.id));
+  const next = games.find((game) => game.status === 'planned') || null;
+  const seats: LobbySeat[] = next ? next.seats.map((seat) => ({ seat: seat.seat, nickname: seat.nickname || 'Игрок', player_id: seat.playerId })) : [];
   let standings: BroadcastLobby['standings'] = [];
   try {
     const participants = await db.all<any>(
@@ -67,8 +63,8 @@ async function tournamentLobby(db: DatabaseWrapper, tournament: any): Promise<Br
   } catch { standings = []; }
   return {
     event: { kind: 'tournament', id: String(tournament.id), title: String(tournament.title || 'Турнир'), starts_at: tournament.date || null },
-    next_game: next ? { number: Number(next.game_number), table: null, seats } : null,
-    played_games: games.filter((game: any) => String(game.status) === 'completed').length,
+    next_game: next ? { number: Number(next.number), table: null, seats } : null,
+    played_games: games.filter((game) => game.status === 'completed').length,
     total_games: Number(tournament.game_count || games.length) || null,
     standings,
   };
@@ -84,21 +80,15 @@ async function eveningLobby(db: DatabaseWrapper, now: number): Promise<Broadcast
   );
   if (!evening) return null;
   const onAir = readLiveBroadcastEnvelope(now).state?.gameId ?? null;
-  const games = await db.all<any>(
-    `SELECT g.id, g.global_game_number, g.protocol_text, et.name AS table_name FROM games g
-       LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-      WHERE g.evening_id = ? AND g.archived_at IS NULL ORDER BY g.global_game_number, g.id`, [evening.id],
-  );
-  const played = games.filter((game: any) => parse(game.protocol_text)?.protocol?.status === 'completed');
-  const next = games.find((game: any) => parse(game.protocol_text)?.protocol?.status !== 'completed' && Number(game.id) !== Number(onAir)) || null;
-  const results = Array.isArray(parse(next?.protocol_text)?.player_results) ? parse(next.protocol_text).player_results : [];
+  const games = (await listEventGames(db, 'evening', String(evening.id))).filter((game) => game.status !== 'archived');
+  const played = games.filter((game) => game.status === 'completed');
+  const next = games.find((game) => game.status !== 'completed' && Number(game.id) !== Number(onAir)) || null;
   return {
     event: { kind: 'evening', id: String(evening.id), title: String(evening.title || 'Игровой вечер'), starts_at: evening.starts_at || null },
     next_game: next ? {
       number: games.indexOf(next) + 1,
-      table: next.table_name ? String(next.table_name) : null,
-      seats: results.map((row: any) => ({ seat: Number(row.seat_number), nickname: String(row.display_name || row.nickname || 'Игрок'), player_id: row.player_id ? String(row.player_id) : null }))
-        .sort((a: LobbySeat, b: LobbySeat) => a.seat - b.seat),
+      table: next.tableName,
+      seats: next.seats.map((seat) => ({ seat: seat.seat, nickname: seat.nickname || 'Игрок', player_id: seat.playerId })),
     } : null,
     played_games: played.length,
     total_games: null,

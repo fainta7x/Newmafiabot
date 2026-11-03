@@ -94,7 +94,7 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `clubAnalyticsService.ts` | games judged per staff member in a period | ✅ moved (`listCompletedGames`; a tournament game counts with its protocol completed, owner rule 2026-10-23) |
 | `eloRatingService.ts`, `playerEloHistoryService.ts` | Elo | next |
 | `playerAchievementStoriesService.ts` | achievement stories | ✅ moved (`listGamesJudgedBy`, `listEventGames`) |
-| `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast | next |
+| `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast, «Заставка» | ✅ moved (`getGame`, `listEventGames`); a seat shows the club nickname, the tournament name only for a guest (owner rule 2026-10-23, now the layer's) |
 | `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | next |
 
 The layer has the seat result (`GameSeatResult`, the same fields for every format) and owns three rules that had been written several times (all as achievements already counted): a tournament game is **completed** when the game and its protocol are completed; the **judge** of a tournament game is the game's judge, else the tournament's; a game of a **cancelled evening** is cancelled even with a protocol.

@@ -172,12 +172,13 @@ export async function listPlayerGameResults(db: DatabaseWrapper, playerId: strin
   }
   if (!(await tableExists(db, 'tournament_games'))) return out;
   const rows = await db.all<any>(`
-    SELECT tgs.game_id, tp.id AS participant_id, tp.display_name, tgs.seat_number, tgs.role,
+    SELECT tgs.game_id, tp.id AS participant_id, COALESCE(pl.nickname, tp.display_name) AS display_name, tgs.seat_number, tgs.role,
            tgpr.exit_type, tgpr.regular_fouls, tgpr.minor_technical_fouls, tgpr.major_technical_fouls, tgpr.judge_bonus, tgpr.protocol_bonus,
            tgpr.ci_points, tgpr.penalty_points, tgpr.disciplinary_penalty_points,
            tgp.first_killed_participant_id, tgp.zero_round_voted_participant_id, tgbm.source AS best_move_source
       FROM tournament_participants tp
       JOIN tournament_game_seats tgs ON tgs.participant_id = tp.id
+ LEFT JOIN players pl ON pl.id = tp.player_id
  LEFT JOIN tournament_game_player_results tgpr ON tgpr.game_id = tgs.game_id AND tgpr.participant_id = tp.id
  LEFT JOIN tournament_game_protocols tgp ON tgp.game_id = tgs.game_id
  LEFT JOIN tournament_game_best_moves tgbm ON tgbm.game_id = tgs.game_id AND tgbm.participant_id = tp.id

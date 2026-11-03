@@ -284,8 +284,8 @@ export async function settleEveningFromCloseout(
   // closeout blockers have passed. Recompute dues before creating the ledger.
   await cancelOutstandingRolePurchasesForEvening(db, eveningId);
   await reconcileRegularEveningPayments(db, eveningId);
-  await reconcileOtherFormatExtensions(db, eveningId);
   await reconcileNoviceEveningCharges(db, eveningId);
+  await reconcileOtherFormatExtensions(db, eveningId);
   const refreshed = await loadEveningCloseout(db, eveningId);
 
   const now = new Date().toISOString();

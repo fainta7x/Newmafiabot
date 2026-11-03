@@ -268,7 +268,7 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
 
   // A game judge may inspect this game's purchases or enter a player's
   // in-person role purchase. Cancellation remains organizer-only.
-  const rolePurchaseRoute = /^\/api\/admin\/(?:role-purchases|music-orders|music-orders\/[^/]+\/played)\/?$/.test(path);
+  const rolePurchaseRoute = /^\/api\/admin\/(?:role-purchases|music-orders|music-orders\/[^/]+\/played|seat-swap-orders|seat-swap-orders\/[^/]+\/apply)\/?$/.test(path);
   if (rolePurchaseRoute && (req.method === 'GET' || req.method === 'POST')) {
     const gameId = Number(req.method === 'GET' ? req.query?.gameId : req.body?.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return false;

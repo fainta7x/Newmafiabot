@@ -474,4 +474,13 @@
   html body .evening-live-seatgrid .live-seat-card--grid.live-seat-card--dead[data-exit='voted'] .live-seat-state svg,
   html body .evening-live-seatgrid .live-seat-card--grid.live-seat-card--dead[data-exit='voted'] .live-seat-state__value { color: #d5dbe5 !important; }
   html body .evening-live-seatgrid .live-seat-card--grid.live-seat-card--dead .live-seat-state__value { background: rgba(10, 11, 14, .8) !important; border: 0 !important; border-radius: 6px !important; }
+/* «+Ф / −Ф» stay on the card's axis under the avatar even when «Выставить» stands beside them (owner, 2026-11-02; the audit
+   found the pair 36–40 px right of the axis on a computer, where the whole row was centred instead). */
+html body .evening-live-engine-shell .live-seat-card > .live-seat-quickbar:has(> .live-seat-quickbar__group) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  justify-content: stretch !important;
+}
+html body .evening-live-engine-shell .live-seat-card > .live-seat-quickbar:has(> .live-seat-quickbar__group) > .live-seat-quickbar__group { grid-column: 2 !important; grid-row: 1 !important; }
+html body .evening-live-engine-shell .live-seat-card > .live-seat-quickbar:has(> .live-seat-quickbar__group) > :not(.live-seat-quickbar__group) { grid-column: 1 !important; grid-row: 1 !important; justify-self: end !important; }
 }

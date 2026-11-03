@@ -2667,3 +2667,10 @@ Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×
 - `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
 
 - [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.
+
+## 2026-11-03 — Live game text audit, first full run since #1166
+
+The audit reached the Live game again once the stale «Начать раздачу ролей» click was fixed. Findings — all fixed:
+- `src/components/crm/liveSeatGrid.css`: on a computer «+Ф / −Ф» stood 36–40 px right of the seat card's axis (the row «Выставить +Ф» was centred as a whole); the pair is now the centre column of the row. The fix sits inside `@layer seat-grid` — an unlayered `!important` loses to a layered one.
+- `src/components/game/virtualRoleDeal.css` (#1169): the deal window scrolled 18 px at 360×640 and 27 px at 1366×768; compact spacing on screens up to 800 px high.
+- `e2e/tests/live-game-text-audit.spec.mjs`: a 1 s card timer let the program open a random card before the test pressed «Отменить последнюю карту»; 3 s.

@@ -3,10 +3,10 @@ import { api, type Player } from '../../lib/api.ts';
 
 type Kind = 'role' | 'same_color' | 'different_color';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null;
-  percent: number; enabled: boolean; personalLimit: number | null; limitScope: 'game' | 'evening' };
+  percent: number; enabled: boolean };
 type Draft = Omit<Rule, 'id'>;
 const empty = (): Draft => ({ playerId:'', kind:'role',role:'citizen',otherPlayerId:null,
-  percent:0,enabled:true,personalLimit:null,limitScope:'evening' });
+  percent:0,enabled:true });
 const roleLabels: Record<string,string> = {
   citizen:'Мирный житель',sheriff:'Шериф',mafia:'Мафия',don:'Дон',
 };
@@ -49,8 +49,7 @@ export default function VipProbabilitySettings() {
   const edit = (rule:Rule)=>{
     setEditing(rule.id);
     setDraft({playerId:rule.playerId,kind:rule.kind,role:rule.role,
-      otherPlayerId:rule.otherPlayerId,percent:rule.percent,enabled:rule.enabled,
-      personalLimit:rule.personalLimit,limitScope:rule.limitScope??'evening'});
+      otherPlayerId:rule.otherPlayerId,percent:rule.percent,enabled:rule.enabled});
   };
   const reset = ()=>{setEditing(null);setDraft(empty());};
   const save = async ()=>{
@@ -60,7 +59,6 @@ export default function VipProbabilitySettings() {
       const body = {...draft,
         role:draft.kind==='role'?draft.role:null,
         otherPlayerId:draft.kind==='role'?null:draft.otherPlayerId,
-        personalLimit:null,limitScope:'evening',
       };
       await send('/api/admin/vip-probability-rules'+(editing?'/'+encodeURIComponent(editing):''),{
         method:editing?'PUT':'POST',body:JSON.stringify(body),
@@ -91,7 +89,6 @@ export default function VipProbabilitySettings() {
         <div className="mt-1 text-xs text-white/60">
           {rule.kind==='role'?roleLabels[rule.role||'']:playerName(rule.otherPlayerId)}
           {' · '}{rule.percent}% · {rule.enabled?'Включено':'Выключено'}
-
         </div>
         <div className="mt-2 flex gap-2">
           <button type="button" disabled={busy} onClick={()=>edit(rule)} className="min-h-10 rounded-lg border border-white/15 px-3 text-xs text-white">Изменить</button>

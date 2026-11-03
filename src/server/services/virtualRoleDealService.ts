@@ -223,6 +223,17 @@ async function undoVirtualRoleInner(db: DatabaseWrapper, gameId: number, version
     if (state.pending) reject('Сначала подтвердите открытую карту');
     const last = state.history.pop();
     if (!last) return reject('Нет выданных карт');
+    // A pre-paid reservation must survive undo: the role stays purchased and
+    // reserved for the same buyer until a fresh, correct draw is confirmed.
+    if (last.purchase?.playerId) {
+      await tx.run(
+        `UPDATE game_role_reservations SET status='reserved', updated_at=?
+          WHERE game_id=? AND player_id=? AND status='fulfilled'`,
+        [new Date().toISOString(), gameId, last.purchase.playerId],
+      ).catch((error) => {
+        if (!String(error).includes('no such table')) throw error;
+      });
+    }
     state.deck = last.previousDeck;
     state.version += 1;
     await writeState(tx, gameId, state);
@@ -236,6 +247,15 @@ async function resetVirtualRoleDealInner(db: DatabaseWrapper, gameId: number, ve
     const { seats } = await gameContext(tx, gameId);
     const state = await readState(tx, gameId);
     versionMatches(state, version);
+    // A redeal does not silently delete paid reservations or their debts.
+    // Only an organizer's explicit order cancellation reverses a purchase.
+    await tx.run(
+      `UPDATE game_role_reservations SET status='reserved', updated_at=?
+       WHERE game_id=? AND status='fulfilled'`,
+      [new Date().toISOString(), gameId],
+    ).catch((error) => {
+      if (!String(error).includes('no such table')) throw error;
+    });
     state.deck = shuffledDeck(seats.length);
     state.history = [];
     state.pending = null;

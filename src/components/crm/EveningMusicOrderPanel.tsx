@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { readJsonResponse } from '../../lib/requestJson.ts';
 

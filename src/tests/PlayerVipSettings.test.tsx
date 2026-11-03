@@ -13,7 +13,7 @@ describe('VIP in the player card (owner, 2026-11-03)', () => {
     vi.stubGlobal('fetch', vi.fn(() => json({ error: 'нет' }, 403)));
     const { container } = render(<PlayerVipSettings playerId="p1" />);
     await waitFor(() => expect((fetch as any).mock.calls.length).toBeGreaterThan(0));
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 20); });
     expect(container.querySelector('[data-testid="crm-player-vip"]')).toBeNull();
   });
 

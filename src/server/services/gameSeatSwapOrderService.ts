@@ -80,8 +80,8 @@ export async function applyGameSeatSwap(db: DatabaseWrapper, orderId: string, ga
     const game = await availableGame(tx, gameId);
     const deal = await tx.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id=?', [gameId]).catch(() => null);
     if (deal) fail('Нельзя менять места после начала раздачи');
-    const row = await tx.get<{ protocol_text: string; evening_table_id: string | null }>(
-      'SELECT protocol_text,evening_table_id FROM games WHERE id=?', [gameId],
+    const row = await tx.get<{ protocol_text: string; slots_json: string; evening_table_id: string | null }>(
+      'SELECT protocol_text,slots_json,evening_table_id FROM games WHERE id=?', [gameId],
     );
     if (!row) fail('Протокол не найден');
     let payload: any = null;
@@ -113,9 +113,19 @@ export async function applyGameSeatSwap(db: DatabaseWrapper, orderId: string, ga
     }
     a.seat_number = seatB;
     b.seat_number = seatA;
-    // Numeric seat order is the only thing exchanged. Players retain their
-    // personal IDs and any already paid future role reservation.
-    await tx.run('UPDATE games SET protocol_text=? WHERE id=?', [JSON.stringify(payload), gameId]);
+    // Keep the legacy slots snapshot consistent with the canonical protocol:
+    // payment/attendance readers may still use slots_json for older games.
+    let slots: any[] = [];
+    try { slots = JSON.parse(String(row.slots_json || '[]')); } catch { slots = []; }
+    if (!Array.isArray(slots)) slots = [];
+    for (const slot of slots) {
+      if (String(slot.player_id || '') === order.player_id) slot.slot_num = seatB;
+      else if (String(slot.player_id || '') === order.target_player_id) slot.slot_num = seatA;
+    }
+    slots.sort((first,second) => Number(first.slot_num)-Number(second.slot_num));
+    // Players and their paid role purchases remain identified by player_id.
+    await tx.run('UPDATE games SET protocol_text=?,slots_json=? WHERE id=?',
+      [JSON.stringify(payload), JSON.stringify(slots), gameId]);
     await tx.run(
       "UPDATE game_seat_swap_orders SET status='applied',updated_at=? WHERE id=?",
       [new Date().toISOString(), orderId],

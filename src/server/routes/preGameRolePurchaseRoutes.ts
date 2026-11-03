@@ -49,8 +49,17 @@ playerRouter.get('/role-purchases', async (req, res) => {
          FROM game_role_reservations WHERE player_id=? ORDER BY created_at DESC LIMIT 100`,
       [playerId],
     );
+    // A deferred order must not reveal that the requested role was already
+    // purchased by someone else while this game is still in progress.
+    const orders = await Promise.all((rows as Array<any>).map(async (row) => {
+      if (row.status !== 'deferred') return row;
+      const game = await getGame(db, `club:${row.game_id}`);
+      return game?.status === 'completed' || game?.status === 'cancelled'
+        ? row
+        : { ...row, status: 'processing' };
+    }));
     res.set('Cache-Control', 'no-store');
-    return res.json({ orders: rows });
+    return res.json({ orders });
   } catch (error: any) { return onError(res, error); }
 });
 

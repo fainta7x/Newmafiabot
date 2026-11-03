@@ -3,7 +3,6 @@ import { sendPublicTelegram } from './publicationTelegramService.ts';
 import { type PublicationContext, type PublicationResult, ensurePublicationDeliverySchema } from './publicationDeliveryService.ts';
 import {loadMvpRunoff,startMvpRunoff,ensureRunoffSchema,type MvpRunoff} from './eveningVoteRounds.ts';
 import { round2 } from '../../shared/numbers.ts';
-import { isCompletedClubGame } from './completedClubGame.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -23,6 +22,7 @@ import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
 import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
+import { clubGameCompletedSql, tournamentGameCompletedSql } from './gameService.ts';
 
 /**
  * Club chat results (owner, 2026-10-01): after each completed game the bot posts the game blank,
@@ -205,16 +205,15 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     // Only the two fields that say «a completed club game» are read: parsing the whole protocol (with its replay frames,
     // ~1.4 MB a game) every minute was most of this scan's ~1.5 s of synchronous work (2026-10-26).
     const games = await db.all<any>(`
-      SELECT g.id,
-             CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.kind') END AS protocol_kind,
-             CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text, '$.protocol.status') END AS protocol_status
+      SELECT g.id
         FROM games g
        WHERE g.evening_id = ? AND g.archived_at IS NULL
+         -- «completed» is the «Игра» layer's rule, as light SQL (no protocol is parsed every minute).
+         AND ${clubGameCompletedSql('g')}
          AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'game:' || g.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
        ORDER BY g.global_game_number, g.id
     `, [evening.id]);
     for (const game of games) {
-      if (!isCompletedClubGame({ kind: game.protocol_kind, protocol: { status: game.protocol_status } })) continue;
       if (await postGameBlank(db, String(game.id), evening.format, String(evening.id), fetchImpl)) posted += 1;
     }
   } });
@@ -770,7 +769,7 @@ async function runTournamentGameFollowUps(db: DatabaseWrapper, fetchImpl: typeof
   const games = await db.all<any>(`
     SELECT g.id, g.tournament_id, g.game_number, g.completed_at FROM tournament_games g
       JOIN tournaments t ON t.id = g.tournament_id
-     WHERE g.status = 'completed' AND t.status IN ('active', 'correction', 'completed')
+     WHERE ${tournamentGameCompletedSql('g')} AND t.status IN ('active', 'correction', 'completed')
        AND g.completed_at IS NOT NULL AND datetime(g.completed_at) >= datetime(?)
      ORDER BY g.completed_at
   `, [since]).catch(() => []);

@@ -87,7 +87,7 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `playerProfileService.ts` | a player's games and profile | ✅ moved (`listPlayerGameResults`: one seat-result type for every format; club games picked by the player in SQLite instead of parsing every protocol) |
 | `playerSelfCoreRoutes.ts` | the cabinet's archive of club games | ✅ moved (`listRecentCompletedGames`) |
 | `ratingRoutes.ts` | games played per player in the rating | ✅ moved (`COMPLETED_GAME_PLAYERS_SQL`, one grouped count instead of a sub-query per player; games of a cancelled evening are no longer counted, as everywhere else) |
-| `playerGameDetailRoutes.ts` | one game's page | needs the protocol part (below) |
+| `playerGameDetailRoutes.ts` | one game's page | ✅ «completed» from the layer; the page's protocol details (votings, shots, chronology) are read per storage until the protocol storage itself is unified (step 2 of the plan, with the owner's «да» for the data move) |
 | `gameStatisticsService.ts` | the layer's protocol reader (`loadStatGames` → `StatGame`) | ✅ is the protocol part: now also the first-killed / zero-round / best-move players (`StatGame.highlights`) |
 | `metricRatingService.ts` | metric ratings | ✅ moved (highlights from `StatGame`, its own second parse of every protocol removed) |
 | `clubGameAnalyticsService.ts` | completed-game snapshots of seasons, connections, community | ✅ moved (`listCompletedGames`; a tournament seat shows the player's current nickname, as before) |
@@ -95,7 +95,7 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `eloRatingService.ts`, `playerEloHistoryService.ts` | Elo | next |
 | `playerAchievementStoriesService.ts` | achievement stories | ✅ moved (`listGamesJudgedBy`, `listEventGames`) |
 | `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast, «Заставка» | ✅ moved (`getGame`, `listEventGames`); a seat shows the club nickname, the tournament name only for a guest (owner rule 2026-10-23, now the layer's) |
-| `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | next |
+| `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | ✅ «completed» from the layer: as light SQL (`clubGameCompletedSql`, `tournamentGameCompletedSql`) in the one-minute worker, which must not parse protocols (AR05), and `getGame` for the tournament blank. The pictures themselves stay per format by design (club blank, tournament blank). |
 
 The layer has the seat result (`GameSeatResult`, the same fields for every format) and owns three rules that had been written several times (all as achievements already counted): a tournament game is **completed** when the game and its protocol are completed; the **judge** of a tournament game is the game's judge, else the tournament's; a game of a **cancelled evening** is cancelled even with a protocol.
 

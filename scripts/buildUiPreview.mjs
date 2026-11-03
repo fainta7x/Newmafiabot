@@ -74,6 +74,8 @@ await build({
 // The poker harness needs only the checked-in art bundle. Keep uploads, avatars,
 // checkpoints and other runtime files out of the isolated preview artifact.
 await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
+// The role deal's card back carries the club logo (owner-approved deal design, 2026-11-03).
+await cp(path.join(root, 'public/assets/deal'), path.join(output, 'assets/deal'), { recursive: true });
 const manifest = JSON.parse(await readFile(path.join(output, '.vite/manifest.json'), 'utf8'));
 const bootstrapAsset = manifest[bootstrapSource]?.file;
 if (!bootstrapAsset) throw new Error(`UI preview bootstrap asset missing from Vite manifest: ${bootstrapSource}`);

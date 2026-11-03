@@ -5,6 +5,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { cancelPreGameRolePurchase, reserveRoleBeforeDeal } from '../server/services/preGameRolePurchaseService.ts';
 import { orderGameMusic, markGameMusicPlayed, cancelGameMusicOrder, cancelOutstandingGameMusicOrders } from '../server/services/gameMusicOrderService.ts';
+import { orderGameSeatSwap, applyGameSeatSwap, cancelGameSeatSwap, cancelOutstandingGameSeatSwaps } from '../server/services/gameSeatSwapOrderService.ts';
 import { openVirtualRoleDeal, revealVirtualRole, confirmVirtualRole, undoVirtualRole, resetVirtualRoleDeal } from '../server/services/virtualRoleDealService.ts';
 
 const databases: DatabaseWrapper[] = [];
@@ -278,6 +279,60 @@ describe('pre-deal role purchase persistence and debt', () => {
     await request(app).delete(`/api/admin/music-orders/${response.body.orderId}`)
       .set('Cookie', `organizer_token=${generateOrganizerToken()}`).expect(200);
     expect(await due(db, 'buyer-0')).toBe(0);
+  });
+
+  it('seat exchange charges 50 immediately and judge exchanges actual game positions', async () => {
+    const db = await setup();
+    const order = await orderGameSeatSwap(db, 817, 'buyer-0', 'buyer-1');
+    expect(order.priceRub).toBe(50);
+    expect(await due(db, 'buyer-0')).toBe(50);
+    const result = await applyGameSeatSwap(db, order.id, 817);
+    expect(result).toMatchObject({ applied: true, firstSeat: 2, secondSeat: 1 });
+    const saved = await db.get<{ protocol_text: string }>('SELECT protocol_text FROM games WHERE id=817');
+    const results = JSON.parse(String(saved?.protocol_text)).player_results;
+    expect(results.find((row: any) => row.player_id === 'buyer-0').seat_number).toBe(2);
+    expect(results.find((row: any) => row.player_id === 'buyer-1').seat_number).toBe(1);
+    expect(await due(db, 'buyer-0')).toBe(50);
+    await expect(cancelGameSeatSwap(db, order.id)).rejects.toThrow(/выполнен/);
+  });
+
+  it('seat exchange can be cancelled before execution without retaining debt', async () => {
+    const db = await setup();
+    const order = await orderGameSeatSwap(db, 817, 'buyer-0', 'buyer-1');
+    await cancelGameSeatSwap(db, order.id);
+    expect(await due(db, 'buyer-0')).toBe(0);
+    const next = await orderGameSeatSwap(db, 817, 'buyer-0', 'buyer-1');
+    expect(next.id).not.toEqual(order.id);
+    await cancelOutstandingGameSeatSwaps(db, 'reservation-evening');
+    expect(await due(db, 'buyer-0')).toBe(0);
+  });
+
+  it('seat swap refuses rating games and refuses any exchange after the deal begins', async () => {
+    const rating = await setup('RATING');
+    await expect(orderGameSeatSwap(rating, 817, 'buyer-0', 'buyer-1')).rejects.toThrow(/формате/);
+    const casual = await setup();
+    const ordered = await orderGameSeatSwap(casual, 817, 'buyer-0', 'buyer-1');
+    await openVirtualRoleDeal(casual, 817);
+    await expect(applyGameSeatSwap(casual, ordered.id, 817)).rejects.toThrow(/начала раздачи/);
+    expect(await due(casual, 'buyer-0')).toBe(50);
+  });
+
+  it('players may request their own paid swaps but cannot execute or cancel other orders', async () => {
+    const db = await setup();
+    const app = await createApp(db);
+    const buyer = `player_token=${generatePlayerSessionToken('buyer-0')}`;
+    const other = `player_token=${generatePlayerSessionToken('buyer-2')}`;
+    const bought = await request(app).post('/api/player/seat-swap-orders').set('Cookie',buyer)
+      .send({ gameId:817, targetPlayerId:'buyer-1' }).expect(201);
+    expect(bought.body.priceRub).toBe(50);
+    const hidden = await request(app).get('/api/player/seat-swap-orders').set('Cookie',other).expect(200);
+    expect(hidden.body.orders).toEqual([]);
+    await request(app).post(`/api/admin/seat-swap-orders/${bought.body.orderId}/apply`)
+      .set('Cookie',buyer).send({ gameId:817 }).expect(401);
+    await request(app).post(`/api/admin/seat-swap-orders/${bought.body.orderId}/apply`)
+      .set('Cookie',`organizer_token=${generateOrganizerToken()}`)
+      .send({ gameId:817 }).expect(200);
+    expect(await due(db, 'buyer-0')).toBe(50);
   });
 
   it('does not sell roles on rating evenings', async () => {

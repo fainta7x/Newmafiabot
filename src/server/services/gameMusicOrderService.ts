@@ -40,7 +40,7 @@ const normalizeTrack = (value: unknown, fromJudge: boolean) => {
     }
     return url.href;
   }
-  return track.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 500);
+  return track.split('').filter((character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127).join('').slice(0, 500);
 };
 
 async function reconcile(db: DatabaseWrapper, eveningId: string) {

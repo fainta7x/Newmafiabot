@@ -68,6 +68,47 @@ playerRouter.get('/role-purchase-games', async (req, res) => {
   } catch (error: any) { return onError(res, error); }
 });
 
+/** Unified shop choices for music (all club-evening formats), role and seat swap.
+ * Contains only published seating, never role assignments or purchase data.
+ */
+playerRouter.get('/game-purchase-options', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в личный кабинет' });
+  try {
+    const db = req.db || await getDb();
+    const events = await db.all<{ id: string; title: string }>(
+      `SELECT DISTINCT e.id,e.title FROM game_evenings e
+        JOIN evening_participants ep ON ep.evening_id=e.id
+       WHERE ep.player_id=? AND e.status IN ('published','active')
+         AND e.settled_at IS NULL
+       ORDER BY datetime(e.starts_at) LIMIT 30`,
+      [playerId],
+    );
+    const games: Array<any> = [];
+    for (const event of events) {
+      const entries = await listEventGames(db, 'evening', event.id);
+      for (const game of entries) {
+        if (game.storage !== 'club' ||
+            ['completed','archived','cancelled'].includes(game.status)) continue;
+        const ownSeat = game.seats.find((seat) => seat.playerId === playerId);
+        if (!ownSeat) continue;
+        const deal = await db.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id=?',
+          [Number(game.id)]).catch(() => null);
+        games.push({
+          gameId: Number(game.id), eveningId: event.id,
+          eveningTitle: event.title, number: game.number ?? Number(game.id),
+          format: game.format,
+          canRoleOrSwap: !deal && ['CASUAL','NOVICE'].includes(game.format),
+          ownSeat: ownSeat.seat,
+          seats: game.seats.map((seat) => ({ seat_number: seat.seat, player_id: seat.playerId, nickname: seat.nickname })),
+        });
+      }
+    }
+    res.set('Cache-Control','private, no-store');
+    return res.json({ games });
+  } catch (error: any) { return onError(res,error); }
+});
+
 /** The browser gets NO capacity, current reservation count or conflicting buyer. */
 playerRouter.post('/role-purchases', async (req, res) => {
   const playerId = getPlayerSessionId(req);

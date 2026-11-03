@@ -4,6 +4,7 @@ import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } f
 import { getGame } from '../services/gameService.ts';
 import {
   cancelPreGameRolePurchase,
+  chooseGameForDeferredRolePurchase,
   reserveRoleBeforeDeal,
   ensurePreGameRolePurchaseSchema,
 } from '../services/preGameRolePurchaseService.ts';
@@ -34,6 +35,19 @@ playerRouter.post('/role-purchases', async (req, res) => {
     const order = await reserveRoleBeforeDeal(db, gameId, playerId, role);
     res.set('Cache-Control', 'no-store');
     return res.status(201).json({ orderId: order.id, accepted: true, priceRub: order.priceRub });
+  } catch (error: any) { return onError(res, error); }
+});
+
+playerRouter.post('/role-purchases/:orderId/select-game', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в личный кабинет' });
+  const gameId = Number(req.body?.gameId);
+  if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Выберите игру' });
+  try {
+    const db = req.db || await getDb();
+    const result = await chooseGameForDeferredRolePurchase(db, String(req.params.orderId), playerId, gameId);
+    res.set('Cache-Control', 'no-store');
+    return res.json(result);
   } catch (error: any) { return onError(res, error); }
 });
 

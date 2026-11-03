@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../../db/index.ts';
-import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
+import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { getGame } from '../services/gameService.ts';
 import {
   cancelPreGameRolePurchase,
@@ -79,7 +79,8 @@ adminRouter.post('/role-purchases', async (req, res) => {
     if (!game) return res.status(404).json({ error: 'Игра не найдена' });
     // The organizer role is necessary for this route; this check also
     // protects delegated judge access when organizer middleware delegates it.
-    if (req.delegatedPlayerId && game.judgePlayerId !== req.delegatedPlayerId) {
+    const actingJudge = (req as AuthenticatedRequest).delegatedPlayerId;
+    if (actingJudge && game.judgePlayerId !== actingJudge) {
       return res.status(403).json({ error: 'Нет прав судьи этой игры' });
     }
     const order = await reserveRoleBeforeDeal(db, gameId, playerId, role);

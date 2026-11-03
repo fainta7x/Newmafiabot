@@ -335,12 +335,6 @@ export const clubGamesApi = {
   ),
   getTournamentBroadcastConfig: (tournamentId: string, gameId: string) => request<LiveBroadcastConfig>(`/api/games/tournament/${encodeURIComponent(tournamentId)}/${encodeURIComponent(gameId)}/broadcast-config`),
   getBroadcastConfig: (gameId: number) => request<LiveBroadcastConfig>(`/api/games/${gameId}/broadcast-config`),
-  /** «Продолжить игру» (AR04): the server copy of this game's live engine session. */
-  saveLiveCheckpoint: (gameId: number, checkpoint: LiveGameCheckpointPayload) => request<{ ok: true }>(
-    `/api/games/${gameId}/live-checkpoint`,
-    { method: 'PUT', body: JSON.stringify(checkpoint) },
-  ),
-  loadLiveCheckpoint: (gameId: number) => request<LiveGameCheckpointPayload & { saved_at: string }>(`/api/games/${gameId}/live-checkpoint`),
   publishBroadcastState: (gameId: number, state: LiveBroadcastState) => request<{ ok: true; received_at: string }>(
     `/api/games/${gameId}/broadcast-state`,
     { method: 'PUT', body: JSON.stringify({ state }) },
@@ -394,4 +388,3 @@ export const clubGamesApi = {
   }) => request<ClubGameRecord>(`/api/games/${gameId}/seat-identity`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 
-export type LiveGameCheckpointPayload = { session: string; evidence?: string | null; death_protocols?: string | null; notes?: string | null };

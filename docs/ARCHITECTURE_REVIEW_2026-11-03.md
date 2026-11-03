@@ -2,7 +2,7 @@
 
 Owner, 2026-11-03: «у нас же должна быть сущность "Игра" со статусом… а получается разные вещи Клубная игра и Турнирная игра… Ты исправляешь следствие, а не причину. Пройтись по всему приложению и сделать архитектуру всего, чтобы такого не было опять.»
 
-Status: **owner «да» 2026-11-03 for the entities and the order; step 1 «Игра» started: the one type `src/shared/game.ts` and reader `src/server/services/gameService.ts` (both tables, statuses, formats), the rule AGENTS §3c and the guard test `architectureEntityGuard.test.ts`. Next: move the consumers to it one per PR, first «Продолжить игру» for every game.** Originally: analysis for the owner's agreement. No code is changed on the strength of this document until the owner says «да»** (AGENTS §3b, §4e). Numbers are from the current `main` (source search) and production (GET only).
+Status: **owner «да» 2026-11-03 for the entities and the order; step 1 «Игра» started: the one type `src/shared/game.ts` and reader `src/server/services/gameService.ts` (both tables, statuses, formats), the rule AGENTS §3c and the guard test `architectureEntityGuard.test.ts`. First consumer done: «Продолжить игру» for every game (one table by game key, one gate for both windows). Next: the 19 files that know both tables, one per PR.** Originally: analysis for the owner's agreement. No code is changed on the strength of this document until the owner says «да»** (AGENTS §3b, §4e). Numbers are from the current `main` (source search) and production (GET only).
 
 ## 1. The cause
 

@@ -26,6 +26,9 @@ import {
 } from '../../lib/liveClubSession.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
 import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { useLiveGameCheckpoint } from '../game/useLiveGameCheckpoint';
+import { LiveGameContinueGate } from '../game/LiveGameContinueGate';
+import { gameKey } from '../../shared/game';
 
 const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | null | undefined): LegacyPlayer[] => {
   const players: LegacyPlayer[] = results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player, index) => ({
@@ -147,7 +150,7 @@ export const changedRoles = (before: PlayerResultData[], after: PlayerResultData
     .sort((a, b) => a - b);
 };
 
-export default function TournamentLiveGameModal({
+function TournamentLiveGameModalBody({
   tournamentId,
   gameId,
   judgeName,
@@ -173,6 +176,8 @@ export default function TournamentLiveGameModal({
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
+  // «Продолжить игру»: the server keeps a copy of this game's session for another device (one mechanism for every game).
+  useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
   const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
@@ -539,4 +544,9 @@ export default function TournamentLiveGameModal({
       ) : null}
     </div>
   );
+}
+
+/** «Продолжить игру»: the one gate of every live-game window (`LiveGameContinueGate`). */
+export default function TournamentLiveGameModal(props: React.ComponentProps<typeof TournamentLiveGameModalBody>) {
+  return <LiveGameContinueGate gameKey={gameKey('tournament', props.gameId)} enabled><TournamentLiveGameModalBody {...props} /></LiveGameContinueGate>;
 }

@@ -212,6 +212,10 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
   const now = new Date().toISOString();
   await db.run('INSERT OR IGNORE INTO evening_today_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)', [eveningId, now, now]);
   const existing = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id = ?', [eveningId]);
+  // Claim explicit owner text before the asynchronous draft calculation: two
+  // clicks must not reorder First/Second while building the generated roster.
+  const explicit = String(input.text || '').trim().slice(0,3500) || String(existing?.text || '');
+  if (explicit) await db.run('UPDATE evening_today_posts SET text=COALESCE(text,?) WHERE evening_id=?',[explicit,eveningId]);
   const draft = await buildTodayPostDraft(db, eveningId, input.game_number);
   const proposed = String(input.text || '').trim().slice(0,3500) || String(existing?.text || '') || draft.text;
   // Freeze the payload before either channel starts; a second request reads the winning text.

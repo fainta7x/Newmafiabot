@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { buildTodayPostDraft, loadTodayPost, publishTodayPost, runTodayPostSchedule, skipTodayPost } from '../server/services/eveningTodayPostService.ts';
@@ -7,6 +7,8 @@ import { addAnnouncementPhoto } from '../server/services/announcementPhotoServic
 import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService.ts';
 
 const opened: DatabaseWrapper[] = [];
+// Keep generated invitation links deterministic; never call Telegram getMe with a fixture token.
+beforeEach(()=>vi.stubEnv('TELEGRAM_BOT_USERNAME','FixtureBot'));
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
 
 async function setup() {

@@ -2624,3 +2624,13 @@ Exact-head #1086 CI follow-up: shards 1/5 and 5/5 failed in `liveBroadcastReveal
 - [open] owner questions: may a player vote for himself; an optional «Проголосовали: …» strip; where the floating warning notice lives on a short phone (STRESS-2).
 
 - [fixed] 2026-11-03 owner report: the published «Сегодня играем» post froze the roster at publish time, so players who signed up later were missing. Now `refreshPublishedTodayPosts` (`eveningTodayPostService.ts`, minute scan) edits the Telegram message to the current roster; Telegram only, VK is not touched (owner); a hand-edited post is left alone. Posts published before this change have no stored generated text and are not refreshed.
+## 2026-11-03 — layout audit of the OBS overlay with the role deal
+
+Scope: `e2e/live-broadcast-deal.html` (deal on the stream) at 1920×1089, 1920×1080, 1440×900, 1366×768, 390×844, 360×640.
+
+- Deal scene: clean at every desktop size — fixed.
+- `src/components/public/liveBroadcastOverlay.css` `.live-broadcast-phase-title`: at 390 px the phase title is cut to «…»; the same happens on the existing reveal preview (also the timer caption leaves the screen there), so it is the 16:9 OBS canvas at a phone width, not the deal — open (the OBS overlay is a stream picture, phone widths are not its target; ask the owner before changing).
+- `src/components/game/LiveGameContinueGate.tsx`: «Найдена незавершённая игра» was offered for any 200 answer, even an empty one or an HTML page without a copy (seen in the preview harness; the real server answers 404 when there is no copy) — fixed: only a copy with a session is offered (`src/tests/liveGameContinueGate.test.tsx`).
+- `src/components/game/VirtualRoleDeal.tsx` (#1169): a taken card left a faded place, against the rule «cards are renumbered after removal» — fixed: the cards left are renumbered and the row narrows, on the judge's screen and on the stream.
+
+- [fixed, #1173 merge verification] Draft calculation introduced an await before freezing an explicit publication payload, allowing concurrent Second to beat First. Claim explicit text with COALESCE before calculating the generated roster; keep delivery deduplication.

@@ -35,6 +35,9 @@ describe('VirtualRoleDeal', () => {
       fireEvent.click(next());
       expect(turn()).toContain('№2 Player 2');
       expect(screen.getAllByRole('button', { name: /^Карта №/ })).toHaveLength(9);
+      // No faded place: the cards left are numbered 1–9 again (BUSINESS_RULES, virtual deal).
+      expect(screen.getAllByRole('button', { name: /^Карта №/ }).map((card) => card.getAttribute('aria-label'))).toEqual(Array.from({ length: 9 }, (_, index) => `Карта №${index + 1}`));
+      expect(document.querySelector('.deal-card--taken')).toBeNull();
     } finally { vi.useRealTimers(); }
   });
 

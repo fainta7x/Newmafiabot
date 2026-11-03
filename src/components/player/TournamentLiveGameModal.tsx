@@ -6,6 +6,7 @@ import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import TournamentBroadcastPanel from './TournamentBroadcastPanel.tsx';
+import { useDealBroadcast } from '../game/useDealBroadcast.ts';
 import LiveGameEngine from '../LiveGameEngine.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import type { Player as LegacyPlayer, GameSlot } from '../../types.ts';
@@ -338,6 +339,17 @@ function TournamentLiveGameModalBody({
       window.clearInterval(interval);
     };
   }, [payload, tournamentId, gameId, livePhase, reviewMode]);
+
+  const dealGameNumber = Math.max(1, Number(payload?.game?.game_number || 1));
+  useDealBroadcast(Boolean(payload) && livePhase === 'setup' && !reviewMode, payload ? {
+    gameId: dealGameNumber, globalGameNumber: dealGameNumber, eveningGameNumber: dealGameNumber, tableName: 'Турнир',
+    players: payload.player_results.map((player) => ({ seat: Number(player.seat_number), playerId: null, nickname: player.display_name || `Игрок ${player.seat_number}` })),
+  } : null, async (state) => {
+    const response = await fetch(`/api/games/tournament/${encodeURIComponent(tournamentId)}/${encodeURIComponent(gameId)}/broadcast-state`, {
+      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state }),
+    });
+    if (!response.ok) throw new Error('Tournament broadcast state rejected');
+  });
 
   const finishedGameRef = useRef<any>(null);
   // The finished result is kept in the browser until it is saved: if the app is reloaded after a failed save, the judge

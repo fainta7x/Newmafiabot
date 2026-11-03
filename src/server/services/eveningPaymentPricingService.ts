@@ -231,6 +231,23 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
       if (playerId && Number.isFinite(amount) && amount > 0) totals.set(String(playerId), (totals.get(String(playerId)) || 0) + amount);
     }
   }
+  // Pre-deal paid reservations accrue immediately, before any virtual-deck
+  // history exists. Fulfilled reservations are charged by their resulting
+  // deal history instead, so fulfilling a purchase never double-charges.
+  // Cancelled reservations contribute nothing.
+  if (await tableExists(db, 'game_role_reservations')) {
+    const reservations = await db.all<{ player_id: string; amount: number }>(
+      `SELECT player_id, COALESCE(SUM(amount_rub),0) AS amount
+         FROM game_role_reservations
+        WHERE evening_id = ? AND status IN ('reserved','deferred')
+        GROUP BY player_id`,
+      [eveningId],
+    );
+    for (const row of reservations) {
+      const id = String(row.player_id);
+      totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
+    }
+  }
   return totals;
 }
 

@@ -25,6 +25,12 @@ describe('VIP slider: 50 % is an ordinary deal (owner, 2026-11-03)', () => {
     expect(vipRulesForDeal([rule(0, 'different_color')], 'x')[0]).toMatchObject({ kind: 'same_color' });
   });
 
+  it('«never mafia» and «never don» of one player become one promise', () => {
+    const merged = vipRulesForDeal([rule(0, 'role', { id: 'a', role: 'mafia' }), rule(0, 'role', { id: 'b', role: 'don' })], 'x');
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ kind: 'role_not', excludedRoles: ['mafia', 'don'] });
+  });
+
   it('one deal gives one answer at every choice; a disabled condition never acts', () => {
     const seed = vipDealSeed(['c3', 'c1', 'c2']);
     expect(seed).toBe(vipDealSeed(['c1', 'c2', 'c3']));

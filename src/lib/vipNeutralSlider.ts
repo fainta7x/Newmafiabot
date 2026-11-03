@@ -12,7 +12,7 @@ import type { VipProbabilityRule } from './vipRoleProbabilityRules.ts';
  * the line in the owner's table, whatever the seat. The die is fixed by the deal's own cards, so every choice of one deal sees
  * the same answer and a redeal rolls again.
  */
-export type VipDealRule = Omit<VipProbabilityRule, 'kind'> & { kind: VipProbabilityRule['kind'] | 'role_not' };
+export type VipDealRule = Omit<VipProbabilityRule, 'kind'> & { kind: VipProbabilityRule['kind'] | 'role_not'; excludedRoles?: GameRole[] };
 
 const roll = (seed: string, ruleId: string) => {
   const digest = createHash('sha256').update(`${seed}:${ruleId}`).digest();
@@ -34,7 +34,16 @@ export function vipRulesForDeal(rules: readonly VipProbabilityRule[], seed: stri
     if (roll(seed, rule.id) >= pull) continue;
     result.push(rule.percent > 50 ? { ...rule, percent: 100 } : opposite(rule));
   }
-  return result;
+  // «Never mafia» and «never don» of one player are one promise «never black»: kept apart, each was content with the other
+  // black card and nobody saved a red card for him (owner, 2026-11-03: «при 0 % чёрная всё равно 4 %»).
+  const merged: VipDealRule[] = [];
+  for (const rule of result) {
+    if (rule.kind !== 'role_not') { merged.push(rule); continue; }
+    const same = merged.find((item) => item.kind === 'role_not' && item.playerId === rule.playerId);
+    if (same) same.excludedRoles = [...new Set([...(same.excludedRoles || []), rule.role as GameRole])];
+    else merged.push({ ...rule, excludedRoles: [rule.role as GameRole] });
+  }
+  return merged;
 }
 
 /** The deal's own seed: the ids of its full deck (they never change until a redeal). */

@@ -33,7 +33,7 @@ export function planVipDraw<T extends VipClosedCard>(
     let wanted:GameRole[];
     if(rule.kind==='red_color')wanted=['citizen']; // a red CARD is strictly a citizen
     else if(rule.kind==='role')wanted=rule.role?[rule.role]:[];
-    else if(rule.kind==='role_not')wanted=roles.filter(role=>role!==rule.role); // «never this role»
+    else if(rule.kind==='role_not')wanted=roles.filter(role=>!(rule.excludedRoles??[rule.role]).includes(role)); // «never these roles»
     else {
       const peer=rule.otherPlayerId;
       if(!peer)continue;

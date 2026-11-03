@@ -90,7 +90,9 @@ The 19 files that read both game tables, and how each moves. Each move keeps the
 | `playerGameDetailRoutes.ts` | one game's page | needs the protocol part (below) |
 | `gameStatisticsService.ts` | the layer's protocol reader (`loadStatGames` → `StatGame`) | ✅ is the protocol part: now also the first-killed / zero-round / best-move players (`StatGame.highlights`) |
 | `metricRatingService.ts` | metric ratings | ✅ moved (highlights from `StatGame`, its own second parse of every protocol removed) |
-| `eloRatingService.ts`, `playerEloHistoryService.ts`, `clubGameAnalyticsService.ts`, `clubAnalyticsService.ts` | Elo, analytics | next |
+| `clubGameAnalyticsService.ts` | completed-game snapshots of seasons, connections, community | ✅ moved (`listCompletedGames`; a tournament seat shows the player's current nickname, as before) |
+| `clubAnalyticsService.ts` | games judged per staff member in a period | ✅ moved (`listCompletedGames`; a tournament game counts with its protocol completed, owner rule 2026-10-23) |
+| `eloRatingService.ts`, `playerEloHistoryService.ts` | Elo | next |
 | `playerAchievementStoriesService.ts` | achievement stories | ✅ moved (`listGamesJudgedBy`, `listEventGames`) |
 | `liveBroadcastRoutes.ts`, `broadcastLobbyService.ts` | OBS broadcast | next |
 | `clubResultData.ts`, `clubResultPostService.ts` | result pictures and posts | next |

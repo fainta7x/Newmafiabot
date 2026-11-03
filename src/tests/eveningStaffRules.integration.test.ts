@@ -123,6 +123,8 @@ describe('evening organizer and game judge', () => {
     await db.run("INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('judge','Судья',0,?,?)", [now, now]);
     await db.run("INSERT INTO tournaments (id,title,date,status,judge_player_id,created_at,updated_at) VALUES ('t1','Кубок',?,'active','judge',?,?)", [now, now, now]);
     await db.run("INSERT INTO tournament_games (id,tournament_id,game_number,status,completed_at) VALUES ('tg1','t1',1,'completed',?)", [now]);
+    // Owner, 2026-10-23: a tournament game counts when the game and its protocol are both completed.
+    await db.run("INSERT INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES ('pr1','tg1','completed','red','[]',?,?)", [now, now]);
     const report = await request(app).get('/api/analytics/staff?period=month').set('Cookie', cookie());
     expect(report.body.staff).toEqual([{ player_id: 'judge', nickname: 'Судья', evenings: 0, games: 1 }]);
   });

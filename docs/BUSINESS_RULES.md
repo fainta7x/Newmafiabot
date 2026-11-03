@@ -1120,3 +1120,23 @@ VIP is a separate unfinished scope: [current owner decisions](ROLE_DEAL_SPEC_202
 - **Elo is counted only for a registered player, from his first game.** Owner (verbatim): «ЭЛО считаем только у зареганного гостя с 1 игры». A guest without a profile is not converted into a profile inside an already played game (owner: «нет»); Elo is not counted for him retroactively. Wording to be confirmed back to the owner: a guest who registers gets Elo from the first game he plays as a registered player.
 - **No adaptive base win chance in Elo.** The idea of replacing the fixed 30/70 base chance by one built from the club's real win rates is cancelled (owner: «такого не будет»).
 - **Telegram: two kinds of places (owner, 2026-11-02).** The entry channel «Анонсы» (destination `public`) gets only announcements of games and the «there is a table / there is none» announcements (the «Мы собрались» photo, evening and tournament announcements). Every other message that used to go there goes to the regular chats instead: the evening summary picture (already goes to the evening's group), the weekly season table (now to the club chat, destination `club`), tournament results (now to the rating group only). A club digest is posted by the organizer to the destinations he chooses.
+
+## «Обучение»: reading colours of specific players (owner, 2026-11-02)
+
+A separate training statistic in the player's **«Обучение»** section — not part of the player's profile. **«Читать цвет»** (owner's term) = to correctly tell a player's colour (red/black). The player sees whose colours he reads correctly and whose completely wrongly, so he understands which players' colours he needs to work on.
+
+What the page shows (owner, 2026-11-02): **top-3 lists, ranked by count; no minimum number of games** — the count itself is what matters. Split votes («попил») are not counted. The lists:
+1. top-3 players you vote for **correctly**;
+2. top-3 players you vote for **wrongly**;
+3. top-3 players who vote for you **correctly**;
+4. top-3 players who vote for you **wrongly**;
+5. top-3: whom you vote for when he is **the don**;
+6. top-3: whom you vote for when he is **the sheriff**.
+The earlier six «blocks» and the minimum of 5 games together are replaced by these lists. Names of the lists are the owner's to give.
+
+- **Red player's vote error** = a vote for a red player (a civilian or the sheriff). A vote for **the sheriff** is a much worse error and is shown separately.
+- **«Who votes for you correctly / wrongly»** (owner, 2026-11-03): correctly = you are black and he votes for you; wrongly = you are red and he votes for you.
+- **The player's own votes while he is black are not counted** (owner, 2026-11-03).
+- **Black block stays** (owner, 2026-11-03): when you are **mafia** — top-3 who votes for you (trusts you least) and top-3 who votes together with you; when you are **the don** — the same two top-3 lists (who votes with you, who votes for you).
+- **Layout** (owner, 2026-11-03): not one long column — the lists are chosen with a switch, the page should look organic and good.
+- **Visibility** (owner, 2026-11-02): only the player himself sees his statistic; the organizer can view the full statistic of every player.

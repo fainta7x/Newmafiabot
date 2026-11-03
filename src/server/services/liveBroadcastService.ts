@@ -220,6 +220,20 @@ export const normalizeLiveBroadcastState = (
         .slice(-40) as NonNullable<LiveBroadcastState['timeline']>
     : [];
   const seats = new Set(game.players.map((player) => player.seat));
+  // The role deal (owner, 2026-11-03): a seat of this game, up to ten card places, the opened card's role.
+  const dealRoles = new Set(['citizen', 'sheriff', 'mafia', 'don']);
+  const dealSource = source.deal && typeof source.deal === 'object' && !Array.isArray(source.deal) ? source.deal : null;
+  const dealSeat = dealSource ? toSeat(dealSource.seat) : null;
+  const dealCards = dealSource && Array.isArray(dealSource.cards)
+    ? (dealSource.cards as any[]).map((card) => ({ position: finiteInteger(card?.position), taken: card?.taken === true }))
+      .filter((card, index, all) => card.position >= 1 && card.position <= 10 && all.findIndex((other) => other.position === card.position) === index)
+    : [];
+  const dealOpen = dealSource?.open && dealRoles.has(String(dealSource.open.role)) && finiteInteger(dealSource.open.position) >= 1 && finiteInteger(dealSource.open.position) <= 10
+    ? { position: finiteInteger(dealSource.open.position), role: String(dealSource.open.role) as NonNullable<NonNullable<LiveBroadcastState['deal']>['open']>['role'] }
+    : null;
+  const deal: LiveBroadcastState['deal'] = String(source.phaseKey) === 'deal' && dealSeat && seats.has(dealSeat) && dealCards.length
+    ? { seat: dealSeat, cards: dealCards.sort((a, b) => a.position - b.position), open: dealOpen }
+    : null;
   const dayVotes: NonNullable<LiveBroadcastState['dayVotes']> = Array.isArray(source.dayVotes)
     ? source.dayVotes
         .map((vote: any) => ({
@@ -287,6 +301,7 @@ export const normalizeLiveBroadcastState = (
     protocols,
     ...(reveals.length ? { reveals } : {}),
     eveningScore: game.eveningScore || null,
+    ...(deal ? { deal } : {}),
     updatedAt: receivedAt.toISOString(),
   };
 };

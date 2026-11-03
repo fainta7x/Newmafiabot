@@ -6,6 +6,7 @@ import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext.ts';
 import { DealSeatPlayersContext } from '../game/dealSeatPlayers.ts';
+import { useDealBroadcast } from '../game/useDealBroadcast.ts';
 import { NumbersAutoOpenContext } from '../LiveGameEngine/numbersAutoOpenContext.ts';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
@@ -308,6 +309,10 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
 
   const liveAlive = useLiveAliveSeats(livePhase);
   const { connection: broadcastConnection, forgetReplayFrames } = useClubLiveBroadcast(game, livePhase);
+  useDealBroadcast(livePhase === 'setup' && !trainingMode, {
+    gameId: game.id, globalGameNumber: game.global_game_number, tableName: game.table_name || null,
+    players: livePlayers.map((player) => ({ seat: player.seat_number, playerId: player.player_id, nickname: player.display_name })),
+  }, (state) => clubGamesApi.publishBroadcastState(game.id, state));
 
   const openBroadcastSetup = async () => {
     setBroadcastSetupOpen(true);

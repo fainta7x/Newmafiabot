@@ -1,6 +1,7 @@
 import { JUDGE_MUSIC_PLAYER_ENABLED, requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 import { FitText } from '../ui/FitText.tsx';
 import { RoleCard } from '../ui/RoleCard.tsx';
+import { writeDealBroadcast } from '../../lib/liveBroadcastDeal';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import { SEAT_COLORS } from '../LiveGameEngine/seatColors.ts';
@@ -128,6 +129,18 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
    * игрок"». The turn opens by itself; a tapped card shows its role at once; when the time is up without a card the
    * program picks a random one; «Следующий игрок» only after the time.
    */
+  // The deal on the stream (owner, 2026-11-03): the choosing seat is lit, a chosen card turns over and the viewers see the role.
+  const openPosition = selected && showRole && selectedRole ? layout.indexOf(selected.id) + 1 : 0;
+  const dealCardsKey = layout.map((id) => (deck.some((card) => card.id === id) ? '1' : '0')).join('');
+  useEffect(() => {
+    if (!started || complete || !loaded || active === undefined) { writeDealBroadcast(null); return; }
+    writeDealBroadcast({
+      seat: active,
+      cards: layout.map((id, index) => ({ position: index + 1, taken: !deck.some((card) => card.id === id) })),
+      open: openPosition > 0 && selectedRole ? { position: openPosition, role: selectedRole } : null,
+    });
+  }, [started, complete, loaded, active, dealCardsKey, openPosition, selectedRole]);
+  useEffect(() => () => writeDealBroadcast(null), []);
   useEffect(() => {
     if (!started || complete || !loaded || active === undefined || turnStartedAt !== null) return;
     startTurn();

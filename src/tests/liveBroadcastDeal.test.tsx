@@ -46,4 +46,10 @@ describe('the role deal on the stream (owner, 2026-11-03)', () => {
     expect(open.querySelector('[data-role-card-face="sheriff"]')).not.toBeNull();
     expect(container.querySelectorAll('[data-role-card-face]')).toHaveLength(1);
   });
+
+  it('a seat shows its role on the stream as soon as it got its card', () => {
+    const state = buildDealBroadcastState(metadata, { ...deal, dealt: { 1: 'citizen', 2: 'don' } });
+    expect(state.players.slice(0, 3).map((player) => [player.role, player.team])).toEqual([['Мирный', 'Красные'], ['Дон', 'Чёрные'], ['—', '—']]);
+    expect(state.deal).toEqual(deal);
+  });
 });

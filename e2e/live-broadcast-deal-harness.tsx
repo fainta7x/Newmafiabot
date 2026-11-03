@@ -3,7 +3,7 @@ import LiveBroadcastOverlay from '../src/components/public/LiveBroadcastOverlay.
 import { buildDealBroadcastState } from '../src/lib/liveBroadcastDeal.ts';
 import './appStyles.ts';
 
-// The role deal on the stream: seat 3 chooses, two cards are taken, the chosen card (?open=0 keeps it closed) shows the Sheriff.
+// The role deal on the stream: seats 1-2 got their roles, seat 3 chooses, two cards are taken, the chosen card (?open=0 keeps it closed) shows the Sheriff.
 const names = ['Богданчик', 'Алоэ', 'Дина', 'Знак', 'Тень', 'Маша', 'Игорь', 'Вера', 'Чагин', 'Дон Эль'];
 const players = names.map((nickname, index) => ({ seat: index + 1, playerId: `p${index + 1}`, nickname }));
 const open = new URLSearchParams(location.search).get('open') !== '0';
@@ -11,6 +11,7 @@ const state = buildDealBroadcastState({ gameId: 1, globalGameNumber: 12, evening
   seat: 3,
   cards: Array.from({ length: 10 }, (_, index) => ({ position: index + 1, taken: index === 1 || index === 7 })),
   open: open ? { position: 5, role: 'sheriff' } : null,
+  dealt: { 1: 'citizen', 2: 'don' },
 });
 
 globalThis.fetch = async () => new Response(JSON.stringify({ connected: true, receivedAt: new Date().toISOString(), state }), { status: 200, headers: { 'Content-Type': 'application/json' } });

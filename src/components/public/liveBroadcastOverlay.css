@@ -1067,33 +1067,34 @@ body.live-broadcast-document #root {
 .live-broadcast-player.exit-removed .live-broadcast-out-ribbon { display: none; }
 
 /* ---------- The role deal (owner, 2026-11-03): the chooser is lit, the chosen card turns over to the role ---------- */
-.live-broadcast-canvas.phase-deal .live-broadcast-emblem,
-.live-broadcast-canvas.phase-deal .live-broadcast-role { visibility: hidden; }
+/* A seat shows its role as soon as it got its card; a seat still waiting shows none. */
+.live-broadcast-canvas.phase-deal .live-broadcast-player.is-unknown .live-broadcast-emblem,
+.live-broadcast-canvas.phase-deal .live-broadcast-player.is-unknown .live-broadcast-role { visibility: hidden; }
 /* No timer runs while the cards are dealt: the timer box stays out of the picture. */
 .live-broadcast-canvas.phase-deal .live-broadcast-timer { display: none; }
 .live-broadcast-deal {
-  /* Owner, 2026-11-03: «не по центру экрана, а снизу над карточками игроков» — the middle of the picture is the camera. */
+  /* Owner, 2026-11-03: at the bottom above the players' cards, centred, the chooser's caption above the cards. */
   position: absolute;
   left: 50%;
   bottom: calc(var(--bottom-space) + 6 * var(--u0));
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: calc(28 * var(--u0));
+  gap: calc(36 * var(--u0));
 }
 .live-broadcast-deal-who {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  white-space: nowrap;
+  align-items: baseline;
   gap: calc(14 * var(--u0));
-  padding: calc(10 * var(--u0)) calc(22 * var(--u0));
-  border-radius: calc(16 * var(--u0));
+  white-space: nowrap;
+  padding: calc(8 * var(--u0)) calc(22 * var(--u0));
+  border-radius: calc(14 * var(--u0));
   background: var(--glass-strong);
   border: 1px solid rgba(232, 182, 90, .5);
 }
 .live-broadcast-deal-who span { font-size: calc(16 * var(--u0)); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.live-broadcast-deal-who strong { font-size: calc(34 * var(--u0)); font-weight: 800; color: #ffe3a8; }
+.live-broadcast-deal-who strong { font-size: calc(30 * var(--u0)); font-weight: 800; color: #ffe3a8; }
 .live-broadcast-deal-cards { display: grid; grid-template-columns: repeat(10, calc(88 * var(--u0))); gap: calc(10 * var(--u0)); perspective: calc(1400 * var(--u0)); }
 .live-broadcast-deal-card { position: relative; aspect-ratio: 63 / 88; transition: opacity .4s ease, transform .4s ease; }
 .live-broadcast-deal-card.is-taken { opacity: .14; }

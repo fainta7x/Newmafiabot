@@ -138,8 +138,9 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
       seat: active,
       cards: layout.map((id, index) => ({ position: index + 1, taken: !deck.some((card) => card.id === id) })),
       open: openPosition > 0 && selectedRole ? { position: openPosition, role: selectedRole } : null,
+      dealt: assignments,
     });
-  }, [started, complete, loaded, active, dealCardsKey, openPosition, selectedRole]);
+  }, [started, complete, loaded, active, dealCardsKey, openPosition, selectedRole, history.length]);
   useEffect(() => () => writeDealBroadcast(null), []);
   useEffect(() => {
     if (!started || complete || !loaded || active === undefined || turnStartedAt !== null) return;

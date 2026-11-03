@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import request from 'supertest';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { cancelPreGameRolePurchase, reserveRoleBeforeDeal } from '../server/services/preGameRolePurchaseService.ts';
@@ -105,6 +107,36 @@ describe('pre-deal role purchase persistence and debt', () => {
     expect(await due(db, 'buyer-2')).toBe(150);
     const row = await db.get<{ status: string }>("SELECT status FROM game_role_reservations WHERE game_id=817 AND player_id='buyer-2'");
     expect(row?.status).toBe('reserved');
+  });
+
+  it('API allows a player to order only for their own game and organizer to cancel', async () => {
+    const db = await setup();
+    // createApp installs all routes; it shares this in-memory database.
+    const app = await createApp(db);
+    const buyerToken = generatePlayerSessionToken('buyer-0');
+    const otherToken = generatePlayerSessionToken('not-at-table');
+    const payload = { gameId: 817, role: 'don' };
+
+    await request(app).post('/api/player/role-purchases').send(payload).expect(401);
+    await request(app).post('/api/player/role-purchases').set('Cookie', `player_token=${otherToken}`).send(payload).expect(403);
+    const receipt = await request(app).post('/api/player/role-purchases')
+      .set('Cookie', `player_token=${buyerToken}`).send(payload).expect(201);
+    expect(receipt.body).toMatchObject({ accepted: true, priceRub: 150 });
+    expect(receipt.body).not.toHaveProperty('role');
+    expect(await due(db, 'buyer-0')).toBe(150);
+
+    const buyerList = await request(app).get('/api/player/role-purchases')
+      .set('Cookie', `player_token=${buyerToken}`).expect(200);
+    expect(buyerList.body.orders).toEqual([expect.objectContaining({ role: 'don' })]);
+    const strangerList = await request(app).get('/api/player/role-purchases')
+      .set('Cookie', `player_token=${otherToken}`).expect(200);
+    expect(strangerList.body.orders).toEqual([]);
+
+    await request(app).delete(`/api/admin/role-purchases/${receipt.body.orderId}`)
+      .set('Cookie', `player_token=${buyerToken}`).expect(401);
+    await request(app).delete(`/api/admin/role-purchases/${receipt.body.orderId}`)
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`).expect(200);
+    expect(await due(db, 'buyer-0')).toBe(0);
   });
 
   it('does not sell roles on rating evenings', async () => {

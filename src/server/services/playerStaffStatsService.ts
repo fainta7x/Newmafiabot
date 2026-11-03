@@ -1,6 +1,6 @@
-import { isCompletedClubGame } from './completedClubGame.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
+import { listGamesJudgedBy } from './gameService.ts';
 
 /**
  * Staff work on a player profile (user-approved 2026-09-24):
@@ -25,37 +25,16 @@ const breakdown = (counts: Map<EveningFormat, number>): StaffBreakdown => ({
     .map((format) => ({ format, label: STAFF_FORMAT_LABELS[format], count: counts.get(format) || 0 })),
 });
 
-const parse = (value: unknown) => {
-  try { return JSON.parse(String(value || '')); } catch { return null; }
-};
 
 async function tableNames(db: DatabaseWrapper) {
   return new Set((await db.all<any>("SELECT name FROM sqlite_master WHERE type = 'table'")).map((row: any) => String(row.name)));
 }
 
-/** Same games as the «judged» achievements: completed club protocols and completed tournament games. */
-async function judgedByFormat(db: DatabaseWrapper, playerId: string, tables: Set<string>) {
+/** Same games as the «judged» achievements: every completed game this player judged, read through the one «Игра» layer. */
+async function judgedByFormat(db: DatabaseWrapper, playerId: string, _tables: Set<string>) {
   const counts = new Map<EveningFormat, number>();
-  const bump = (format: EveningFormat) => counts.set(format, (counts.get(format) || 0) + 1);
-  const clubGames = await db.all<any>(`
-    SELECT g.protocol_text, e.format
-      FROM games g LEFT JOIN game_evenings e ON e.id = g.evening_id
-     WHERE g.judge_player_id = ? AND g.archived_at IS NULL AND (e.status IS NULL OR e.status != 'cancelled')`, [playerId]);
-  for (const game of clubGames) {
-    const payload = parse(game.protocol_text);
-    if (isCompletedClubGame(payload)) bump(normalizeEveningFormat(game.format));
-  }
-  if (tables.has('tournament_games') && tables.has('tournament_game_protocols')) {
-    const judge = (await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')
-      ? 'COALESCE(tg.judge_player_id, t.judge_player_id)' : 'tg.judge_player_id';
-    const row = await db.get<any>(`
-      SELECT COUNT(DISTINCT tg.id) AS count
-        FROM tournament_games tg
-        JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
-        JOIN tournaments t ON t.id = tg.tournament_id
-       WHERE ${judge} = ? AND tg.status = 'completed' AND tgp.status = 'completed'`, [playerId]);
-    const count = Number(row?.count || 0);
-    if (count) counts.set('TOURNAMENT', (counts.get('TOURNAMENT') || 0) + count);
+  for (const game of await listGamesJudgedBy(db, playerId)) {
+    if (game.status === 'completed') counts.set(game.format, (counts.get(game.format) || 0) + 1);
   }
   return counts;
 }

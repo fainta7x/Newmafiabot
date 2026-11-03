@@ -1140,3 +1140,9 @@ The earlier six «blocks» and the minimum of 5 games together are replaced by t
 - **Black block stays** (owner, 2026-11-03): when you are **mafia** — top-3 who votes for you (trusts you least) and top-3 who votes together with you; when you are **the don** — the same two top-3 lists (who votes with you, who votes for you).
 - **Layout** (owner, 2026-11-03): not one long column — the lists are chosen with a switch, the page should look organic and good.
 - **Visibility** (owner, 2026-11-02): only the player himself sees his statistic; the organizer can view the full statistic of every player.
+
+## Judge of a tournament game (owner, 2026-11-03)
+
+- In a tournament with **one table** the tournament's judge conducts **every** game of it.
+- With **two tables** a judge is bound to a table. A table is not stored yet: the judge set on the game is the table's judge; a game without its own judge belongs to the tournament's judge.
+- One rule for every reader (who may open a game with judge access, the judge's «Мои игры», «судил N игр», achievements): the «Игра» layer (`gameService.ts`).

@@ -19,6 +19,7 @@ const seed = async (clubStatus = 'draft', tournamentStatus = 'active') => {
     VALUES (7,NULL,1,'2026-11-03','red','',?,'[]',?)`, [JSON.stringify({ kind: 'club_evening_protocol', protocol: { status: clubStatus } }), now]);
   await db.run(`INSERT INTO tournaments (id,title,date,status,created_at,updated_at) VALUES ('t1','Турнир','2026-11-03','active',?,?)`, [now, now]);
   await db.run(`INSERT INTO tournament_games (id,tournament_id,game_number,status) VALUES ('tg1','t1',1,?)`, [tournamentStatus]);
+  if (tournamentStatus === 'completed') await db.run(`INSERT INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES ('pr1','tg1','completed','red','[]',?,?)`, [now, now]);
   return db;
 };
 

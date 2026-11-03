@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { getGame, listEventGames } from '../server/services/gameService.ts';
+import { getGame, listEventGames, listGamesJudgedBy, listPlayerGameResults } from '../server/services/gameService.ts';
 import { gameKey, parseGameKey, isFinishedGameStatus } from '../shared/game.ts';
 
 // «Игра» — one entity for every game (owner, 2026-11-03; docs/ARCHITECTURE_REVIEW_2026-11-03.md, step 1).
@@ -31,6 +31,7 @@ const seed = async () => {
   await db.run(`INSERT INTO tournament_participants (id,tournament_id,player_id,display_name,participant_number) VALUES ('tp1','t1','p1','Богданчик',1),('tp2','t1','p2','Матроскина',2)`);
   await db.run(`INSERT INTO tournament_games (id,tournament_id,game_number,status,winner_team) VALUES ('tg1','t1',1,'completed','black'),('tg2','t1',2,'active',NULL),('tg3','t1',3,'planned',NULL)`);
   await db.run(`INSERT INTO tournament_game_seats (id,game_id,participant_id,seat_number,role) VALUES ('s1','tg1','tp2',2,'don'),('s2','tg1','tp1',1,'sheriff')`);
+  await db.run(`INSERT INTO tournament_game_protocols (id,game_id,status,winner_team,best_move_seats_json,created_at,updated_at) VALUES ('pr1','tg1','completed','black','[]',?,?)`, [now, now]);
   return db;
 };
 
@@ -69,6 +70,31 @@ describe('one «Игра» over both tables', () => {
     expect((await listEventGames(db, 'tournament', 't1')).map((g) => g.key)).toEqual(['tournament:tg1', 'tournament:tg2', 'tournament:tg3']);
     expect(await getGame(db, 'club:999')).toBeNull();
     expect(await getGame(db, 'nonsense')).toBeNull();
+  });
+
+  it('one rule for every reader: a cancelled evening wins over a protocol; a tournament game needs its protocol completed; the tournament judge counts', async () => {
+    const db = await seed();
+    await db.run(`UPDATE games SET protocol_text = ? WHERE id = 5`, [protocol('completed')]);
+    expect((await getGame(db, 'club:5'))?.status).toBe('cancelled');
+    await db.run(`INSERT INTO tournament_games (id,tournament_id,game_number,status,winner_team) VALUES ('tg4','t1',4,'completed','red')`);
+    expect((await getGame(db, 'tournament:tg4'))?.status).toBe('running');
+    await db.run(`UPDATE tournaments SET judge_player_id = 'p9' WHERE id = 't1'`).catch(() => {});
+    const judged = await listGamesJudgedBy(db, 'p9');
+    expect(judged.map((g) => g.key).sort()).toEqual(['tournament:tg1', 'tournament:tg2', 'tournament:tg3', 'tournament:tg4']);
+  });
+
+  it('a player\'s games of every format with that player\'s result, picked by the player', async () => {
+    const db = await seed();
+    await db.run(`INSERT INTO tournament_game_player_results (id,game_id,participant_id,exit_type,regular_fouls) VALUES ('r1','tg1','tp2','voted_day',2)`).catch(async () => {
+      await db.run(`INSERT INTO tournament_game_player_results (id,game_id,participant_id,exit_type,regular_fouls,minor_technical_fouls,major_technical_fouls,technical_fouls,judge_bonus,protocol_bonus,penalty_points,disciplinary_penalty_points,ci_points) VALUES ('r1','tg1','tp2','voted_day',2,0,0,0,0,0,0,0,0)`);
+    });
+    const results = await listPlayerGameResults(db, 'p2');
+    expect(results.map((r) => r.game.key).sort()).toEqual(['club:1', 'club:2', 'club:3', 'club:4', 'club:5', 'tournament:tg1']);
+    const tournament = results.find((r) => r.game.key === 'tournament:tg1')!;
+    expect(tournament.result).toMatchObject({ seat: 2, role: 'don', exitType: 'voted_day', regularFouls: 2 });
+    expect(tournament.game).toMatchObject({ eventTitle: 'Турнир', status: 'completed' });
+    expect(results.find((r) => r.game.key === 'club:1')!.result).toMatchObject({ seat: 2, role: 'mafia', nickname: 'Матроскина' });
+    expect(await listPlayerGameResults(db, 'nobody')).toEqual([]);
   });
 
   it('keys and statuses', () => {

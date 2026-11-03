@@ -1,7 +1,8 @@
 import { loadPlayerTournamentAwards } from './tournamentAwardsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
-import { normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
-import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import type { EveningFormat } from '../../lib/eveningFormat.ts';
+import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
+import { listPlayerGameResults } from './gameService.ts';
 
 export type PlayerGameSource = 'club' | 'tournament';
 export type PlayerGameTeam = 'red' | 'black' | null;
@@ -63,14 +64,6 @@ export interface PlayerGameProfileStats {
   };
 }
 
-const safeJsonParse = <T>(value: unknown, fallback: T): T => {
-  if (typeof value !== 'string' || !value.trim()) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-};
 
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
@@ -110,135 +103,55 @@ export const buildPlayerProfileStats = (history: PlayerGameHistoryItem[]): Playe
   };
 };
 
+/**
+ * A player's games and results through the one «Игра» layer (docs/ARCHITECTURE_REVIEW_2026-11-03.md): every format, one
+ * result shape. «completed» is the layer's rule (a tournament game with its protocol completed). Archived games and games
+ * of a cancelled evening stay out of the history, as before.
+ */
 export const loadPlayerGameProfile = async (db: any, playerId: string) => {
-  const clubRows = await db.all(`
-    SELECT g.id, g.global_game_number, g.game_date, g.winner_team, g.judge_name, g.protocol_text,
-           g.evening_id, e.title AS evening_title, e.starts_at AS evening_date, e.format AS evening_format,
-           et.name AS table_name
-      FROM games g
- LEFT JOIN game_evenings e ON e.id = g.evening_id
- LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-     WHERE g.evening_id IS NOT NULL
-       AND g.archived_at IS NULL
-       AND g.protocol_text IS NOT NULL
-       AND COALESCE(e.status, '') <> 'cancelled'
-  ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC, g.id DESC
-  `);
-
   const clubGames: PlayerGameHistoryItem[] = [];
-  for (const row of clubRows) {
-    const payload = safeJsonParse<any>(row.protocol_text, null);
-    if (!payload || payload.kind !== 'club_evening_protocol' || !Array.isArray(payload.player_results)) continue;
-    const result = payload.player_results.find((item: any) => String(item.player_id || '') === String(playerId));
-    if (!result) continue;
-
-    const protocol = payload.protocol || {};
+  const tournamentGames: PlayerGameHistoryItem[] = [];
+  for (const { game, result } of await listPlayerGameResults(db, String(playerId))) {
+    if (game.status === 'archived' || (game.storage === 'club' && game.status === 'cancelled')) continue;
     const role = normalizeGameRole(result.role);
     const team = gameTeamOfRole(role);
-    const winner = normalizeWinnerTeam(protocol.winner_team || row.winner_team);
-    const status = protocol.status === 'completed' ? 'completed' : 'draft';
-    const bestMove = Array.isArray(protocol.best_moves)
-      ? protocol.best_moves.find((item: any) => String(item.participant_id || '') === String(result.participant_id || ''))
-      : null;
-
-    clubGames.push({
-      id: `club:${row.id}`,
-      source: 'club',
-      evening_id: row.evening_id ? String(row.evening_id) : null,
-      tournament_id: null,
-      evening_format: normalizeEveningFormat(row.evening_format),
-      title: row.evening_title || 'Клубный вечер',
-      date: row.evening_date || row.game_date || null,
-      game_number: numberOrZero(row.global_game_number),
-      global_game_number: row.global_game_number == null ? null : numberOrZero(row.global_game_number),
-      table_name: row.table_name || null,
-      judge_name: row.judge_name || null,
-      seat_number: numberOrZero(result.seat_number),
+    const winner = game.winner;
+    const completed = game.status === 'completed';
+    const status = completed ? 'completed' : game.storage === 'club' ? 'draft' : game.status === 'running' ? 'active' : game.status;
+    const item: PlayerGameHistoryItem = {
+      id: game.key,
+      source: game.storage,
+      evening_id: game.eventKind === 'evening' ? game.eventId : null,
+      tournament_id: game.eventKind === 'tournament' ? game.eventId : null,
+      evening_format: game.format,
+      title: game.eventTitle || (game.storage === 'club' ? 'Клубный вечер' : 'Турнир'),
+      date: game.date,
+      game_number: numberOrZero(game.number),
+      global_game_number: game.storage === 'club' && game.number != null ? numberOrZero(game.number) : null,
+      table_name: game.tableName,
+      judge_name: game.judgeName,
+      seat_number: result.seat,
       role,
       team,
       winner_team: winner,
       status,
-      won: status === 'completed' && team && winner ? team === winner : null,
-      exit_type: result.exit_type || null,
-      regular_fouls: numberOrZero(result.regular_fouls),
-      minor_technical_fouls: numberOrZero(result.minor_technical_fouls),
-      major_technical_fouls: numberOrZero(result.major_technical_fouls),
-      judge_bonus: numberOrZero(result.judge_bonus),
-      protocol_bonus: numberOrZero(result.protocol_bonus),
-      ci_points: numberOrZero(result.ci_points),
-      penalty_points: numberOrZero(result.penalty_points),
-      disciplinary_penalty_points: numberOrZero(result.disciplinary_penalty_points),
-      best_move: Boolean(bestMove),
-      best_move_source: bestMove?.source === 'first_killed' || bestMove?.source === 'zero_round_voted' ? bestMove.source : null,
-      first_killed: String(protocol.first_killed_participant_id || '') === String(result.participant_id || ''),
-      zero_round_voted: String(protocol.zero_round_voted_participant_id || '') === String(result.participant_id || ''),
-    });
+      won: completed && team && winner ? team === winner : null,
+      exit_type: result.exitType,
+      regular_fouls: result.regularFouls,
+      minor_technical_fouls: result.minorTechnicalFouls,
+      major_technical_fouls: result.majorTechnicalFouls,
+      judge_bonus: result.judgeBonus,
+      protocol_bonus: result.protocolBonus,
+      ci_points: result.ciPoints,
+      penalty_points: result.penaltyPoints,
+      disciplinary_penalty_points: result.disciplinaryPenaltyPoints,
+      best_move: result.bestMove,
+      best_move_source: result.bestMoveSource,
+      first_killed: result.firstKilled,
+      zero_round_voted: result.zeroRoundVoted,
+    } as PlayerGameHistoryItem;
+    (game.storage === 'club' ? clubGames : tournamentGames).push(item);
   }
-
-  const tournamentRows = await db.all(`
-    SELECT t.id AS tournament_id, t.title AS tournament_title, t.date AS tournament_date,
-           tg.id AS game_id, tg.game_number, tg.status AS game_status, tg.winner_team,
-           tg.judge_name, tg.completed_at,
-           tp.id AS participant_id,
-           tgs.seat_number, tgs.role,
-           tgpr.exit_type, tgpr.regular_fouls, tgpr.minor_technical_fouls,
-           tgpr.major_technical_fouls, tgpr.judge_bonus, tgpr.protocol_bonus,
-           tgpr.ci_points, tgpr.penalty_points, tgpr.disciplinary_penalty_points,
-           tgp.first_killed_participant_id, tgp.zero_round_voted_participant_id,
-           tgbm.source AS best_move_source
-      FROM tournament_participants tp
-      JOIN tournaments t ON t.id = tp.tournament_id
-      JOIN tournament_game_seats tgs ON tgs.participant_id = tp.id
-      JOIN tournament_games tg ON tg.id = tgs.game_id
- LEFT JOIN tournament_game_player_results tgpr ON tgpr.game_id = tg.id AND tgpr.participant_id = tp.id
- LEFT JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
- LEFT JOIN tournament_game_best_moves tgbm ON tgbm.game_id = tg.id AND tgbm.participant_id = tp.id
-     WHERE tp.player_id = ?
-  ORDER BY t.date DESC, tg.game_number DESC
-  `, [playerId]);
-
-  const tournamentGames: PlayerGameHistoryItem[] = tournamentRows.map((row: any) => {
-    const role = normalizeGameRole(row.role);
-    const team = gameTeamOfRole(role);
-    const winner = normalizeWinnerTeam(row.winner_team);
-    const status = row.game_status === 'completed' ? 'completed' : row.game_status || 'planned';
-    const bestMoveSource = row.best_move_source === 'first_killed' || row.best_move_source === 'zero_round_voted'
-      ? row.best_move_source
-      : null;
-
-    return {
-      id: `tournament:${row.game_id}`,
-      source: 'tournament' as const,
-      evening_id: null,
-      tournament_id: String(row.tournament_id),
-      evening_format: 'TOURNAMENT' as const,
-      title: row.tournament_title || 'Турнир',
-      date: row.completed_at || row.tournament_date || null,
-      game_number: numberOrZero(row.game_number),
-      global_game_number: null,
-      table_name: null,
-      judge_name: row.judge_name || null,
-      seat_number: numberOrZero(row.seat_number),
-      role,
-      team,
-      winner_team: winner,
-      status,
-      won: status === 'completed' && team && winner ? team === winner : null,
-      exit_type: row.exit_type || null,
-      regular_fouls: numberOrZero(row.regular_fouls),
-      minor_technical_fouls: numberOrZero(row.minor_technical_fouls),
-      major_technical_fouls: numberOrZero(row.major_technical_fouls),
-      judge_bonus: numberOrZero(row.judge_bonus),
-      protocol_bonus: numberOrZero(row.protocol_bonus),
-      ci_points: numberOrZero(row.ci_points),
-      penalty_points: numberOrZero(row.penalty_points),
-      disciplinary_penalty_points: numberOrZero(row.disciplinary_penalty_points),
-      best_move: Boolean(bestMoveSource),
-      best_move_source: bestMoveSource,
-      first_killed: String(row.first_killed_participant_id || '') === String(row.participant_id || ''),
-      zero_round_voted: String(row.zero_round_voted_participant_id || '') === String(row.participant_id || ''),
-    };
-  });
 
   const allGames = [...clubGames, ...tournamentGames].sort((a, b) => {
     const aTime = a.date ? new Date(a.date).getTime() : 0;

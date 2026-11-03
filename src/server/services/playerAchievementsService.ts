@@ -11,6 +11,7 @@ import {
   type AchievementRarity,
 } from '../../lib/achievementCatalog.ts';
 import { gameTeamOfRole, normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
+import { listGamesJudgedBy } from './gameService.ts';
 
 export interface AchievementStats {
   stories?: Record<string, StoryResult>;
@@ -223,30 +224,8 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     if (numberOrZero(row.regular_fouls) === 0 && technical === 0) stats.perfectGames += 1;
   }
 
-  const judgedClubRows = await db.all(`
-    SELECT g.id, g.protocol_text, e.status AS evening_status
-      FROM games g
- LEFT JOIN game_evenings e ON e.id = g.evening_id
-     WHERE g.judge_player_id = ? AND g.archived_at IS NULL
-       AND (e.status IS NULL OR e.status != 'cancelled')
-  `, [playerId]);
-  const judged = new Set<string>();
-  for (const row of judgedClubRows) {
-    const payload = safeJsonParse<any>(row.protocol_text, null);
-    if (isCompletedClubGame(payload)) judged.add(`club:${row.id}`);
-  }
-  // Older databases have no tournament-level judge yet; then only the per-game judge counts.
-  const tournamentJudge = (await db.all('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')
-    ? 'COALESCE(tg.judge_player_id, t.judge_player_id)' : 'tg.judge_player_id';
-  const judgedTournamentRows = await db.all(`
-    SELECT tg.id
-      FROM tournament_games tg
-      JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
-      JOIN tournaments t ON t.id = tg.tournament_id
-     -- Managed tournament evenings keep the judge on the tournament; a per-game judge overrides it.
-     WHERE ${tournamentJudge} = ? AND tg.status = 'completed' AND tgp.status = 'completed'
-  `, [playerId]);
-  for (const row of judgedTournamentRows) judged.add(`tournament:${row.id}`);
+  // Every completed game this player judged, of every format — the one «Игра» layer owns the judge and «completed» rules.
+  const judged = new Set((await listGamesJudgedBy(db, playerId)).filter((game) => game.status === 'completed').map((game) => game.key));
   stats.judgedGames = judged.size;
 
   // Closed evenings where this player was the assigned organizer.

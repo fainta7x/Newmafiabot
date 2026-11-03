@@ -110,6 +110,10 @@ export async function openVirtualRoleDeal(db: DatabaseWrapper, gameId: number) {
   await ensureVirtualRoleDealSchema(db);
   return db.transaction(async (tx) => {
     const { seats } = await gameContext(tx, gameId);
+    // Opening an existing deal is idempotent. Only the explicit reset action
+    // may reshuffle; otherwise a reconnect could silently erase paid draws.
+    const existing = await tx.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id=?', [gameId]);
+    if (existing) return visible(await readState(tx, gameId));
     const state: State = { version: 0, deck: shuffledDeck(seats.length), history: [], pending: null };
     await writeState(tx, gameId, state);
     return visible(state);
@@ -201,6 +205,7 @@ async function buyVirtualRoleInner(db: DatabaseWrapper, gameId: number, seat: nu
     if (state.pending) reject('Сначала подтвердите открытую карту');
     if (!context.seats.includes(seat) || state.history.some((entry) => entry.seat === seat)) reject('Место уже занято');
     const reserved = await reservedRolesBySeat(tx, gameId, context.playerBySeat);
+    if (reserved.has(seat)) reject('На это место уже оформлена покупка роли');
     const protectedCount = [...reserved.values()].filter((reservedRole) => reservedRole === role).length;
     const available = state.deck.filter((entry) => entry.role === role);
     if (available.length <= protectedCount) return reject('Роль недоступна для покупки в текущей раздаче');

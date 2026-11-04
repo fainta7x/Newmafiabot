@@ -69,7 +69,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
@@ -458,7 +458,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
     if (mode === 'club' && zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);
-    const fixedTag = (item: ContributionItem) => item.kind === 'elo_tag_revealed_to_black' || item.kind === 'elo_tag_killed_sheriff_zero';
+    const fixedTag = (item: ContributionItem) => item.kind === 'elo_tag_false_sheriff_red_sheriff' || item.kind === 'elo_tag_revealed_to_black' || item.kind === 'elo_tag_killed_sheriff_zero';
     const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' || fixedTag(item) ? 0 : Math.max(0, item.points)), 0);
     if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const positivePoints = Math.min(W.positivePool, pluses) + items.filter((item) => item.kind === 'streak_correct').reduce((sum, item) => sum + item.points, 0);
@@ -516,6 +516,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const unvoted = of('unvoted_round');
   if (unvoted.length) lines.push(`Кругов, где за него никто не голосовал: ${unvoted.length}, ${signedElo(elo(unvoted.reduce((sum, item) => sum + item.points, 0)))}`);
   for (const item of of('split_break_red')) lines.push(`Сломал попил красным: ${signedElo(elo(item.points))}`);
+  for (const item of of('elo_tag_false_sheriff_red_sheriff')) lines.push(`${ELO_TAGS.false_sheriff_red_sheriff.label}: ${signedElo(elo(item.points))}`);
   for (const item of of('elo_tag_revealed_to_black')) lines.push(`${ELO_TAGS.revealed_to_black.label}: ${signedElo(elo(item.points))}`);
   for (const item of of('elo_tag_killed_sheriff_zero')) lines.push(`${ELO_TAGS.killed_sheriff_zero.label}: ${signedElo(elo(item.points))}`);
   for (const item of of('raise_defeat_black')) lines.push(`Красные подняли руки за подъём, после которого проиграли: ${signedElo(elo(item.points))}`);

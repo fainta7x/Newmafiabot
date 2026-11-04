@@ -117,8 +117,8 @@ interface PlayerActionOverlayProps {
   onSetAnnouncedCheck?: (slot: number, target: number, color: RevealColor) => void;
   onRemoveAnnouncedCheck?: (slot: number, target: number) => void;
   /** Elo tags of the judge (owner, 2026-11-03): «Вскрылся чёрному» −10 on this circle, «Убил шерифа в нуле» +10. */
-  eloTags?: Array<'revealed_to_black' | 'killed_sheriff_zero'>;
-  onToggleEloTag?: (slot: number, tag: 'revealed_to_black' | 'killed_sheriff_zero') => void;
+  eloTags?: Array<'revealed_to_black' | 'killed_sheriff_zero' | 'false_sheriff_red_sheriff'>;
+  onToggleEloTag?: (slot: number, tag: 'revealed_to_black' | 'killed_sheriff_zero' | 'false_sheriff_red_sheriff') => void;
 }
 
 export function PlayerActionOverlay({
@@ -229,9 +229,9 @@ export function PlayerActionOverlay({
 
         {mode === 'standard' && onToggleEloTag && (
           <div data-testid="live-player-elo-tags" className="grid grid-cols-2 gap-2">
-            {([['revealed_to_black', 'Вскрылся чёрному · −10'], ['killed_sheriff_zero', 'Убил шерифа в нуле · +10']] as const).map(([tag, label]) => (
+            {([['false_sheriff_red_sheriff', 'Вскрылся шерифом с шерифом красным · −20'], ['revealed_to_black', 'Вскрылся чёрному · −10'], ['killed_sheriff_zero', 'Убил шерифа в нуле · +10']] as const).map(([tag, label]) => (
               <button key={tag} type="button" data-testid={`live-player-tag-${tag}`} aria-pressed={eloTags.includes(tag)} onClick={() => onToggleEloTag(player.slot_num, tag)}
-                className={`min-h-12 rounded-xl border px-2 text-xs font-black ${eloTags.includes(tag) ? (tag === 'revealed_to_black' ? 'border-rose-300 bg-rose-500/30 text-white' : 'border-emerald-300 bg-emerald-500/30 text-white') : 'border-slate-700 bg-slate-950 text-slate-200'}`}>{label}</button>
+                className={`min-h-12 rounded-xl border px-2 text-xs font-black ${eloTags.includes(tag) ? (tag !== 'killed_sheriff_zero' ? 'border-rose-300 bg-rose-500/30 text-white' : 'border-emerald-300 bg-emerald-500/30 text-white') : 'border-slate-700 bg-slate-950 text-slate-200'}`}>{label}</button>
             ))}
           </div>
         )}

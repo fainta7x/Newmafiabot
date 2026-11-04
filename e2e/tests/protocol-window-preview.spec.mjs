@@ -159,3 +159,23 @@ for (const width of [360, 390]) test(`confirmed club game shows its Elo blank at
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await blank.screenshot({ path: info.outputPath(`elo-blank-${width}.png`) });
 });
+
+for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900], [1920, 1089]]) {
+  test(`player Elo tags are editable at ${width}x${height}`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/e2e/protocol-window.html?draft=1');
+    await page.getByRole('button', { name: /Игрок 1 .*открыть/ }).click();
+    const tags = page.getByTestId('protocol-player-tags');
+    const tag = tags.getByRole('button', { name: /Вскрылся шерифом с шерифом красным/ });
+    await tag.click();
+    await expect(tag).toHaveAttribute('aria-pressed', 'true');
+    const { auditScreen } = await import('./support/layoutAudit.mjs');
+    expect(await page.evaluate(auditScreen)).toEqual([]);
+    await page.screenshot({ path: info.outputPath(`player-tags-${width}.png`) });
+    await tag.click();
+    await expect(tag).toHaveAttribute('aria-pressed', 'false');
+    await expect(tags.getByRole('button', { name: /Вскрылся чёрному/ })).toBeVisible();
+    await expect(tags.getByRole('button', { name: /Убил шерифа в нуле/ })).toBeVisible();
+    await expect(tags.getByRole('button', { name: /Сломал попил красным/ })).toBeVisible();
+  });
+}

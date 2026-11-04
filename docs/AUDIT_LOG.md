@@ -1,3 +1,11 @@
+## 2026-11-04 — аудит всей цепочки Elo (по запросу владельца)
+
+Область: правила → загрузчики клуб/турнир → командная часть → действия/лимиты/фиксированные штрафы → история и бланк. Production writes запрещены. 132 существующих теста прошли; это не доказательство полноты.
+- Confirmed: playerContribution.ts: бонус чёрным за проигрышный подъём проверяет raiseVoters.size, не наличие красной руки.
+- Confirmed: eloExplanation.ts: missDelta объединяет промах/ручные теги/подъём, но подписан только как промах.
+- Confirmed: eloRatingService.ts excludes lifecycle_status archived from known IDs, while playerEloHistoryService includes it; a completed historical game then makes rebuild throw, though history succeeds.
+- Access: ORGANIZER_PASSWORD и ключ снимка отсутствуют в текущем окружении; актуальные протоколы не прочитаны. Старый августовский bootstrap не выдаётся за текущую базу.
+
 ## 2026-11-04 — теги в карточке игрока
 
 - Fixed in candidate: PlayersView.tsx: карточка протокола не содержит судейских Elo-тегов, они доступны лишь в круге. Добавить существующие теги и слом попила в карточку с выбором круга.

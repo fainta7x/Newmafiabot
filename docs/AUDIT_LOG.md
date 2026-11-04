@@ -4,7 +4,7 @@
 - Confirmed: playerContribution.ts: бонус чёрным за проигрышный подъём проверяет raiseVoters.size, не наличие красной руки.
 - Confirmed: eloExplanation.ts: missDelta объединяет промах/ручные теги/подъём, но подписан только как промах.
 - Confirmed: eloRatingService.ts excludes lifecycle_status archived from known IDs, while playerEloHistoryService includes it; a completed historical game then makes rebuild throw, though history succeeds.
-- Access: ORGANIZER_PASSWORD и ключ снимка отсутствуют в текущем окружении; актуальные протоколы не прочитаны. Старый августовский bootstrap не выдаётся за текущую базу.
+- Production read: после разрешённого API-входа прочитаны GET игроков/игр, два турнирных backup/standings, 32 Elo-бланка. 50 игр/40 итоговых рейтингов/315 строк бланков совпали с локальным расчётом. A1/A2 не проявились; неполнота старой хронологии/цветовых протоколов зафиксирована в отчёте. Записей в production не было; секреты/выгрузки не публикуются.
 
 ## 2026-11-04 — теги в карточке игрока
 

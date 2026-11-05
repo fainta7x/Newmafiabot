@@ -256,7 +256,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           <>
             <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
             <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
-            <TournamentDetailViewBase key={`games-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
+            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
             {telegramSection}
             {judgeSection}
           </>
@@ -264,7 +264,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
         {currentStep === 'results' ? (
           <>
             <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
-            <TournamentDetailViewBase key={`results-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
+            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
             {telegramSection}
           </>
         ) : null}

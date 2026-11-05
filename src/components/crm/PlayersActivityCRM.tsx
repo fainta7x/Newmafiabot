@@ -88,8 +88,10 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
     }
   }, []);
 
-  const loadPlayers = useCallback(async () => {
-    const requestId = ++requestSeq.current; setLoading(true); setListError(null);
+  const loadPlayers = useCallback(async (background = false) => {
+    const requestId = ++requestSeq.current;
+    if (!background) setLoading(true);
+    setListError(null);
     try {
       const result = await api.getPlayers(buildParams());
       if (requestId !== requestSeq.current) return;
@@ -129,7 +131,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
     event.preventDefault(); if (!newNickname.trim() || addSaving) return; setAddSaving(true); setAddError(null);
     try {
       const created = await api.createPlayer({ nickname: newNickname.trim(), full_name: newFullName.trim() || null, phone: newPhone.trim() || null, telegram_username: newTgUsername.trim().replace('@', '') || null, source: 'manual', contact_status: 'normal' });
-      setShowAddModal(false); setNewNickname(''); setNewFullName(''); setNewPhone(''); setNewTgUsername(''); setLocalPlayerId(created.id); void loadPlayers(); onCrmChanged?.();
+      setShowAddModal(false); setNewNickname(''); setNewFullName(''); setNewPhone(''); setNewTgUsername(''); setLocalPlayerId(created.id); void loadPlayers(true); onCrmChanged?.();
     } catch (error: any) { setAddError(error?.message || 'Не удалось создать игрока'); } finally { setAddSaving(false); }
   };
 
@@ -179,7 +181,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
 
       <MobileSheet open={showAddModal} onClose={() => setShowAddModal(false)} title="Новый игрок" subtitle="Для начала достаточно никнейма. Остальное можно заполнить позже." widthClass="sm:max-w-md" footer={<button type="submit" form="focused-new-player-form" disabled={!newNickname.trim() || addSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{addSaving ? 'Сохраняем…' : 'Добавить игрока'}</button>}><form id="focused-new-player-form" onSubmit={handleCreatePlayer} className="space-y-3">{addError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div> : null}<input value={newNickname} onChange={(event) => setNewNickname(event.target.value)} placeholder="Никнейм *" className="mobile-field" /><input value={newFullName} onChange={(event) => setNewFullName(event.target.value)} placeholder="Имя — необязательно" className="mobile-field" /><input value={newTgUsername} onChange={(event) => setNewTgUsername(event.target.value)} placeholder="Telegram" className="mobile-field" /><input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Телефон" className="mobile-field" /></form></MobileSheet>
 
-      {selectedCardPlayerId ? <div className="hidden" aria-hidden="true"><PlayersCRM evenings={evenings} onOpenEvening={onOpenEvening} selectedPlayerId={selectedCardPlayerId} onClosePlayerCard={handleCardClose} onCrmChanged={() => { void loadPlayers(); onCrmChanged?.(); }} /></div> : null}
+      {selectedCardPlayerId ? <div className="hidden" aria-hidden="true"><PlayersCRM evenings={evenings} onOpenEvening={onOpenEvening} selectedPlayerId={selectedCardPlayerId} onClosePlayerCard={handleCardClose} onCrmChanged={() => { void loadPlayers(true); onCrmChanged?.(); }} /></div> : null}
     </div>
   );
 };

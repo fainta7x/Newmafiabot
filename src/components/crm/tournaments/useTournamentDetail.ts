@@ -5,7 +5,7 @@ import { api, type Tournament } from '../../../lib/api.ts';
  * Loads one tournament for its card: the first load shows the loading screen, later silent refreshes keep the card on
  * screen and only report a failure, and the card opens on the game that is being played (or the next one to play).
  */
-export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamentId: string; onSilentError: (message: string) => void }) => {
+export const useTournamentDetail = ({ tournamentId, revision = 0, onSilentError }: { tournamentId: string; revision?: number; onSilentError: (message: string) => void }) => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
@@ -17,7 +17,7 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
   useEffect(() => {
     void loadDetail();
     return () => { requestSequence.current += 1; };
-  }, [tournamentId, refreshTrigger]);
+  }, [tournamentId, refreshTrigger, revision]);
 
   // The card opens on the game that is being played (or the next one to play), not on game 1 (audit 2026-10-04).
   useEffect(() => {
@@ -67,5 +67,5 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
     if (id != null) try { sessionStorage.setItem(`tournament:${tournamentId}:game`, String(id)); } catch { /* optional view memory */ }
   };
 
-  return { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx: selectGame, refreshTrigger, refresh: () => setRefreshTrigger((prev) => prev + 1), loadDetail };
+  return { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx: selectGame, refreshTrigger: refreshTrigger + revision, refresh: () => setRefreshTrigger((prev) => prev + 1), loadDetail };
 };

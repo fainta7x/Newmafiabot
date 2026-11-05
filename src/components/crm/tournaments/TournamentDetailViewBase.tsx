@@ -28,6 +28,7 @@ type TournamentTab = 'organization' | 'games' | 'standings' | 'nominations';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
+  revision?: number;
   onBack: () => void;
   /** Step screen of a tournament with registration: its own header, and only this step's tabs. */
   hideHeader?: boolean;
@@ -50,13 +51,14 @@ const readTournamentTab = (id: string, tabs: TournamentTab[]): TournamentTab => 
 
 export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   tournamentId,
+  revision,
   onBack,
   hideHeader = false,
   tabs = ALL_TABS,
 }) => {
   // The card's own message line is owned by the actions below; a failed silent refresh reports through it.
   const reportRef = useRef<(message: string) => void>(() => undefined);
-  const { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, refresh, loadDetail } = useTournamentDetail({ tournamentId, onSilentError: (message) => reportRef.current(message) });
+  const { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, refresh, loadDetail } = useTournamentDetail({ tournamentId, revision, onSilentError: (message) => reportRef.current(message) });
   const [tabState, setTabState] = useState(() => ({ id: tournamentId, tab: readTournamentTab(tournamentId, tabs) }));
   const activeTab = tabState.id === tournamentId && tabs.includes(tabState.tab) ? tabState.tab : readTournamentTab(tournamentId, tabs);
   const setActiveTab = (tab: TournamentTab) => {

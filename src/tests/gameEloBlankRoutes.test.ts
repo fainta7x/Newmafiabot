@@ -66,15 +66,13 @@ describe('Elo breakdown in the in-app protocols', () => {
     const response = await request(app).get(`/api/games/${gameId}/elo-blank`).set('Cookie', `organizer_token=${generateOrganizerToken()}`);
     expect(response.status).toBe(200);
     expect(response.body.seats[1].lines).toEqual(expect.arrayContaining([
-      'За победу: +45 Эло',
-      'При равном столе: +35 Эло · с учётом силы команд: +45 Эло',
+      'За победу +45 (За победу +35, за сложность +10)',
       'Нулевой круг',
       'Семёрка',
     ]));
     expect(response.body.seats[1].lines.filter((line: string) => line.startsWith('Сломал попил красным'))).toHaveLength(2);
     const image = gameBlankSvg((await loadGameBlank(db, gameId))!);
-    expect(image).toContain('За победу: +45 Эло');
-    expect(image).toContain('При равном столе: +35 Эло');
+    expect(image).toContain('За победу +45 (За победу +35, за сложность +10)');
     expect(image).toContain('Семёрка');
   });
 

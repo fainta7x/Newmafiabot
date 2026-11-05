@@ -141,7 +141,7 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
         lines.push(`Голос в красного №${item.seat}: ${signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT)} Эло${reason ? ` · ${reason}` : ''}`);
       }
       if (item.kind === 'streak_correct' || item.kind === 'streak_wrong') {
-        lines.push(`${item.kind === 'streak_correct' ? 'Серия верных решений' : 'Серия ошибок'} · №${item.seat}: ${signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT)}`);
+        lines.push(`${item.kind === 'streak_correct' ? 'Верное решение' : 'Ошибка'} №${item.step} подряд: ${points}${item.critical ? ' (критический круг ×2)' : ''}`);
       }
     }
     const title = round != null ? circleTitle(round - 1, protocol, tableSize) : 'Начисления без привязки к кругу';

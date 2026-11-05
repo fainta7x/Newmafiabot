@@ -4,7 +4,7 @@ import type { StatGame, StatRole } from './gameStatistics.ts';
 import { ELO_TAGS, eloTagMarks, sanitizeLiveGameEvents, splitBreakMarks, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../shared/gameRoles.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../shared/eloWeights.ts';
-import { decisionStreakMultipliers, type StreakDecision } from './eloDecisionStreak.ts';
+import { decisionStreakSteps, type StreakDecision } from './eloDecisionStreak.ts';
 import { missedShotNights, MISSED_SHOT_ELO, SPLIT_BREAK_RED_ELO, RAISE_DEFEAT_ELO, RAISE_DEFEAT_BLACK_BONUS_ELO } from './eloMissPenalty.ts';
 import { allocateFindCredit, bestMoveBlackCredits, type FindCreditCandidate } from './eloFindCredit.ts';
 
@@ -74,7 +74,7 @@ export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'w
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number; round?: number;
-  /** Series lines: which decision in a row (2 or 3 = third and later) and what that decision was. */
+  /** Series lines: which decision in a row and what that decision was. */
   step?: number; source?: ContributionKind;
   /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
   stayed?: boolean; votedOut?: boolean;
@@ -417,10 +417,15 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       // Top-ups preserve base credit but repeating the same find cannot extend or amplify the series.
       const seriesDecisions = decisions.map((decision) => ({ ...decision, items: decision.items.filter((item) => item.points < 0 || (!credit.awards.has(item) && item.points > 0) || credit.newDecisions.has(item)) }));
       // Owner, 2026-10-26: the first killed is rated by his best move and his will, without a series bonus.
-      const factors = firstKilled ? new Map<ContributionItem, number>() : decisionStreakMultipliers(seriesDecisions);
-      for (const [item, factor] of factors) {
-        const extra = item.points * (factor - 1);
-        if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, round: item.round, step: factor >= 1.5 ? 3 : 2, source: item.kind });
+      const steps = firstKilled ? new Map<ContributionItem, number>() : decisionStreakSteps(seriesDecisions);
+      const extraByItem = new Map<ContributionItem, number>();
+      for (const [item, step] of steps) {
+        if (step === 1) continue;
+        const sign = Math.sign(item.points);
+        const criticalFactor = item.kind === 'vote_red' && item.critical ? W.criticalFactor : 1;
+        const extra = sign * (step - 1) * 2 * criticalFactor / ELO_PERSONAL_POINT_WEIGHT;
+        extraByItem.set(item, extra);
+        items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, round: item.round, step, source: item.kind, critical: item.critical });
       }
       // The runs themselves, for the game blank: which decisions came in a row (owner, 2026-10-26).
       if (!firstKilled) {
@@ -430,7 +435,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           if (!decision.items.length) continue;
           if (decision.seq === null || !run || run.sign !== decision.sign) { close(); run = { sign: decision.sign, labels: [], points: 0 }; }
           run!.labels.push(decisionLabel(decision.items[0]));
-          for (const item of decision.items) run!.points += item.points * ((factors.get(item) ?? 1) - 1);
+          for (const item of decision.items) run!.points += extraByItem.get(item) ?? 0;
         }
         close();
       }

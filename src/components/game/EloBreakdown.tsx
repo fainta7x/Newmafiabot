@@ -19,9 +19,9 @@ export function EloChange({ delta, after }: { delta: number; after: number | nul
 export function EloBreakdownLines({ lines, contribution, testId }: { lines: string[]; contribution: number | null | undefined; testId?: string }) {
   if (!lines.length) return null;
   return (
-    <ul data-testid={testId} className="mt-2 min-w-0 space-y-0.5 border-t border-white/[0.06] pt-2 text-[11px] leading-4 text-white/60">
+    <ul data-testid={testId} className="mt-3 min-w-0 space-y-2 border-t border-white/[0.09] pt-3 text-[13px] leading-[1.55] text-white/75">
       {lines.map((line, index) => (
-        <li key={`${index}:${line}`} className={`break-words ${line.startsWith('За действия в игре') ? `font-semibold ${tone(contribution)}` : ''}`}>{line}</li>
+        <li key={`${index}:${line}`} className={`min-w-0 whitespace-normal break-words rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2.5 ${line.startsWith('За действия в игре') ? `font-semibold ${tone(contribution)}` : ''} ${line.includes('×2 за критический круг') ? 'border-amber-200/20 bg-amber-200/[0.06] text-white' : ''}`}>{line}</li>
       ))}
     </ul>
   );

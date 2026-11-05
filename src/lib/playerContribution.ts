@@ -558,7 +558,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
  * base colour mistake (+ elimination factor), streak, then critical ×2.
  * The streak items are bookkeeping and must not look like another separate penalty.
  */
-export const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong'): string[] => {
+export const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong', includeCircle = true): string[] => {
   return items.filter((item) => item.kind === kind).map((item) => {
     const multiplier = item.critical ? CONTRIBUTION_WEIGHTS.criticalFactor : 1;
     const base = item.points / multiplier - (kind === 'will_wrong' ? item.willSeriesExtra ?? 0 : 0);
@@ -571,7 +571,7 @@ export const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will
     const total = beforeCritical * multiplier;
     const tableNames: Record<number, string> = { 9: 'Девятка', 7: 'Семёрка', 5: 'Пятёрка', 3: 'Тройка' };
     const circle = item.tableSize && tableNames[item.tableSize] ? tableNames[item.tableSize] : item.round != null ? `Круг ${item.round}` : '';
-    const context = circle ? `${circle} · ` : '';
+    const context = includeCircle && circle ? `${circle} · ` : '';
     const action = kind === 'vote_red'
       ? `Голос в красного №${item.seat}${item.votedOut ? ', которого вывели' : ''}`
       : `Завещание: назвал №${item.seat} чёрным${item.votedOut ? ', стол вывел красного' : ''}`;

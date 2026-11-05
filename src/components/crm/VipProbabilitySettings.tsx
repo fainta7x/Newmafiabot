@@ -122,6 +122,9 @@ export default function VipProbabilitySettings() {
         <label htmlFor="vip-rule-percent" className="flex justify-between gap-2 text-xs text-white/70">
           <span>Шанс</span><strong className="text-white">{draft.percent}%</strong>
         </label>
+        <label className="flex items-center gap-2 text-xs text-white/70">Шанс срабатывания
+          <input type="number" min={0} max={100} step={1} aria-label="Шанс срабатывания" className="ml-auto min-h-11 w-20 rounded-xl border border-white/15 bg-[#202126] px-2 text-center text-sm text-white" value={draft.percent} onChange={e=>change("percent",Math.max(0,Math.min(100,Number(e.target.value))))} />
+        </label>
         <p className="text-[11px] text-white/50">50% — обычная раздача, 100% — всегда, 0% — никогда.</p>
         <input id="vip-rule-percent" type="range" min={0} max={100} step={1} className="w-full accent-white"
           value={draft.percent} onChange={e=>change('percent',Number(e.target.value))}/>

@@ -361,7 +361,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           if (target !== me.seat && voting.seq != null) {
-            const authors = willHistory.get(target)?.findLast((entry) => entry.seq < voting.seq!)?.authors;
+            const authors = willHistory.get(target)?.filter((entry) => entry.seq < voting.seq!).at(-1)?.authors;
             if (authors && authors.length > 1) voteReliefs.set(item, authors);
           }
           // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.
@@ -557,7 +557,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], streaks: StreakRun[] = []): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
-    ? [of('black_checked_first_night').length ? `Шериф проверил чёрным в первую ночь: ${signedElo(elo(W.blackCheckedFirstNight))}` : null, of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
+    ? [of('black_checked_first_night').length ? `Шериф проверил чёрным в первую ночь: ${signedElo(elo(of('black_checked_first_night')[0].points))}` : null, of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
       group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),

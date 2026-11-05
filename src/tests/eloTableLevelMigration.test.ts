@@ -35,6 +35,10 @@ describe('table level uses unstretched distances (owner, 2026-10-24)', () => {
   it('rebuilds the ratings once', async () => {
     const db = createDatabaseConnection(':memory:'); opened.push(db);
     await ensureEloSeedSchema(db);
+    await db.run(
+      'INSERT INTO migration_history (id, migration_name, status, details_json, executed_at) VALUES (?, ?, ?, ?, ?)',
+      ['previous-elo-version', '2026-10-elo-find-credit-v4', 'completed', '{}', new Date().toISOString()],
+    );
     expect(await applyEloTableLevelMigration(db)).toEqual({ applied: true });
     expect(await applyEloTableLevelMigration(db)).toEqual({ applied: false });
   });

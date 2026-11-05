@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { winnerRemarkTarget, winnerTableMessage } from './protocolReview';
 import { AlertTriangle, ChevronDown, UserRoundCog } from 'lucide-react';
 import { api as backend, type Player } from '../../../lib/api';
-import { clubGamesApi } from '../../../lib/clubGamesApi';
 import { describeLiveGameEvents } from '../../../lib/liveGameEventText';
 import { Btn, Card, Chip, Eyebrow, cx } from './ui';
 import type { ProtocolApi } from './types';
@@ -13,6 +12,7 @@ type Props = { api: ProtocolApi };
 type WinnerProps = Props & { onGoto?: (tab: 'game', target: { circle: number; anchor: 'night' }) => void };
 
 const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
+  const canReplaceGuest = Boolean(api.replaceGuest);
   const guests = useMemo(() => api.results.filter((player) => !String(player.player_id || '').trim() || Boolean((player as any).guest_placeholder_id)).slice().sort((a, b) => a.seat_number - b.seat_number), [api.results]);
   const occupied = useMemo(() => new Set(api.results.map((player) => String(player.player_id || '').trim()).filter(Boolean)), [api.results]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -23,11 +23,11 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!guests.length) return;
+    if (!guests.length || !canReplaceGuest) return;
     let cancelled = false;
     void backend.getPlayers().then((list) => { if (!cancelled) setPlayers(list); }).catch(() => { if (!cancelled) setPlayers([]); });
     return () => { cancelled = true; };
-  }, [guests.length]);
+  }, [guests.length, canReplaceGuest]);
 
   const visible = useMemo(() => {
     const text = query.trim().toLocaleLowerCase('ru-RU');
@@ -37,21 +37,21 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
       .slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')).slice(0, 8);
   }, [players, occupied, query]);
 
-  if (!guests.length) return null;
+  if (!guests.length || !api.replaceGuest) return null;
   const guest = guests.find((player) => player.seat_number === seat) || null;
   const replacement = players.find((player) => String(player.id) === chosen) || null;
 
   const apply = async () => {
-    if (!guest || !replacement || busy) return;
+    if (!guest || !replacement || busy || !api.replaceGuest) return;
     if (!window.confirm(`Заменить гостя #${guest.seat_number} ${guest.display_name || 'Гость без профиля'} на ${replacement.nickname}? Роль, фолы, голосования и выход останутся на месте.`)) return;
-    const gameId = Number(api.protocol.game_id);
-    if (!Number.isInteger(gameId) || gameId <= 0) { setError('Не удалось найти игру для замены гостя.'); return; }
     setBusy(true); setError(null);
     try {
-      await clubGamesApi.repairSeatIdentity(gameId, { seat_number: guest.seat_number, replacement_player_id: replacement.id });
-      window.location.reload();
+      await api.replaceGuest(guest.seat_number, replacement.id);
+      setSeat(null);
+      setChosen('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось заменить гостя');
+    } finally {
       setBusy(false);
     }
   };

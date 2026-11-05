@@ -148,6 +148,25 @@ describe('CRM Today overview', () => {
 });
 
 describe('OrganizerCommandCenter payment freshness', () => {
+  it('keeps the other debt row mounted when a payment refreshes Today', async () => {
+    const first = debtsFor(300).debtors[0] as { player_id: string; nickname: string };
+    const remaining = { ...first, player_id: 'other', nickname: 'Другой игрок' };
+    debtsBody = { debtors: [first, remaining] };
+    const read = withClubOrder(() => jsonResponse(responseBody()));
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/crm/debts/millourt/paid')) {
+        debtsBody = { debtors: [remaining] };
+        return jsonResponse({ ok: true });
+      }
+      return read(input, init);
+    });
+    render(<OrganizerCommandCenter {...props} />);
+    const row = (await screen.findByRole('button', { name: 'Другой игрок' })).closest('[data-testid="debt-row"]');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Оплачено' })[0]);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Millourt' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Другой игрок' }).closest('[data-testid="debt-row"]')).toBe(row);
+  });
+
   it('uses no-store and lets only the latest parallel response update CRM payments', async () => {
     let resolveSlow!: (value: Response) => void;
     const slow = new Promise<Response>((resolve) => { resolveSlow = resolve; });

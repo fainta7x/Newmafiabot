@@ -75,15 +75,15 @@ export const TelegramCRM: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true); setError(null);
+  const load = async (initial = true) => {
+    if (initial) setLoading(true); setError(null);
     try {
       const body = await request('/api/telegram-settings');
       const rows = (body?.destinations || []) as Destination[];
       setDestinations(rows);
       setOrganizerNotifications(body?.organizer_notifications || null);
       setRuntimeMonitor(body?.runtime_monitor || null);
-      setDrafts(Object.fromEntries(rows.map((item) => [item.id, {
+      if (initial) setDrafts(Object.fromEntries(rows.map((item) => [item.id, {
         chat_id: item.chat_id || '',
         topic_id: item.topic_id ? String(item.topic_id) : '',
         invite_url: item.invite_url || '',
@@ -140,7 +140,7 @@ export const TelegramCRM: React.FC = () => {
     try {
       const result = await request('/api/telegram-settings/actions/test-notification', { method: 'POST' });
       setMessage(`Тест для организаторов поставлен в очередь: ${Number(result?.queued || 0)} получ.`);
-      await load();
+      await load(false);
     } catch (err: any) {
       setError(err?.message || 'Не удалось поставить тестовое уведомление в очередь');
     } finally { setBusy(null); }
@@ -175,7 +175,7 @@ export const TelegramCRM: React.FC = () => {
     try {
       const result = await request('/api/telegram-settings/actions/sync-public', { method: 'POST' });
       setMessage(result?.skipped ? 'Публичный канал пока выключен.' : 'Закреплённое сообщение обновлено.');
-      await load();
+      await load(false);
     } catch (err: any) {
       setError(err?.message || 'Не удалось обновить публичный маршрутизатор');
     } finally { setBusy(null); }

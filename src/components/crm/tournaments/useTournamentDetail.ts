@@ -11,10 +11,12 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
   const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
   const autoSelectedGameRef = useRef<string | null>(null);
+  const requestSequence = useRef(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    loadDetail();
+    void loadDetail();
+    return () => { requestSequence.current += 1; };
   }, [tournamentId, refreshTrigger]);
 
   // The card opens on the game that is being played (or the next one to play), not on game 1 (audit 2026-10-04).
@@ -31,16 +33,19 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
   }, [tournament, tournamentId]);
 
   const loadDetail = async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
+    const silent = opts?.silent ?? (String(tournament?.id) === tournamentId);
+    const request = ++requestSequence.current;
     if (!silent) {
       setLoading(true);
       setLoadError(null);
     }
     try {
       const data = await api.getTournament(tournamentId);
+      if (request !== requestSequence.current) return;
       setTournament(data);
       setLoadError(null);
     } catch (err: any) {
+      if (request !== requestSequence.current) return;
       const message = err?.message || 'Ошибка загрузки турнира';
       if (silent && tournament) {
         onSilentError(message);
@@ -52,9 +57,7 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
         });
       }
     } finally {
-      if (!silent) {
-        setLoading(false);
-      }
+      if (request === requestSequence.current) setLoading(false);
     }
   };
 

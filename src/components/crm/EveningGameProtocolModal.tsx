@@ -84,11 +84,29 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     await save(draft, playerResults, { replaceEditor: true });
   };
 
+  const replaceGuest = async (seat: number, playerId: string) => {
+    if (protocol.status !== 'completed' && !(await autosave.flush())) {
+      throw new Error('Сначала сохрани изменения протокола.');
+    }
+    const updated = await clubGamesApi.repairSeatIdentity(game.id, { seat_number: seat, replacement_player_id: playerId });
+    if (updated.club_protocol) {
+      const { protocol: nextProtocol, player_results: nextResults } = updated.club_protocol;
+      const repaired = repairLegacyClubProtocol(nextProtocol, nextResults);
+      autosave.markSaved(nextProtocol, nextResults);
+      setProtocol(repaired.protocol);
+      setPlayerResults(nextResults);
+      setBaseline({ protocol: repaired.protocol, results: nextResults });
+      setRepairNotes(describeLegacyRepairs(repaired.repairs));
+    }
+    onUpdated(updated);
+  };
+
   if (!isOpen) return null;
 
   const api: ProtocolApi = {
     protocol, results: playerResults, locked: protocol.status === 'completed', tableSize: playerResults.length, zeroRoundRule: protocol.zero_round_rule ?? 'tournament',
     ...editing.members,
+    replaceGuest,
   };
   const saveLabel = saveState === 'saving' ? { label: 'Сохраняем…', tone: 'neutral' as const }
     : saveState === 'unsaved' ? { label: 'Есть несохранённые изменения', tone: 'warn' as const }

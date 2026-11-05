@@ -1,3 +1,4 @@
+import { circleTitle } from '../../lib/circleTitle.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import fs from 'node:fs';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -102,7 +103,7 @@ const signedEloValue = (n: number) => {
   return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)}`;
 };
 
-function roundContributionLines(contribution: SeatContribution): string[] {
+function roundContributionLines(contribution: SeatContribution, protocol: Parameters<typeof circleTitle>[1], tableSize: number): string[] {
   const groups = new Map<number | undefined, SeatContribution['items']>();
   for (const item of contribution.items) {
     const round = item.round ?? (item.kind === 'shot_miss' ? undefined : item.night);
@@ -121,7 +122,7 @@ function roundContributionLines(contribution: SeatContribution): string[] {
         lines.push(`${item.kind === 'streak_correct' ? 'Серия верных решений' : 'Серия ошибок'} · №${item.seat}: ${signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT)}`);
       }
     }
-    const title = round === 1 ? 'Нулевой круг' : round != null ? `Круг ${round - 1}` : 'За игру / круг не указан';
+    const title = round != null ? circleTitle(round - 1, protocol, tableSize) : 'Начисления без привязки к кругу';
     return lines.length ? [title, ...lines] : [];
   });
 }
@@ -141,16 +142,18 @@ export function seatEloOfGame(envelope: any, event: PlayerEloHistoryEvent | null
   const equalResult = RESULT_WEIGHT * ((elo.won ? 1 : 0) - equalChance);
   const teamResultLines = [
     `${elo.won ? 'За победу' : 'За поражение'}: ${signedEloValue(elo.modifiedResultDelta)} Эло`,
-    `Шанс своей команды: ${roundToTwo(elo.expectedTeamResult * 100)}% · при равной силе: ${Math.round(equalChance * 100)}%`,
-    `Сила стола: ${signedEloValue(equalResult)} → ${signedEloValue(elo.resultDelta)} Эло · поправка ${signedEloValue(elo.resultDelta - equalResult)}`,
-    `Коэффициент игрока относительно союзников: ×${Number(elo.carryModifier.toFixed(4))} · итог ${signedEloValue(elo.modifiedResultDelta)} Эло`,
+    `Шанс команды перед игрой: ${roundToTwo(elo.expectedTeamResult * 100)}% · при равном столе: ${Math.round(equalChance * 100)}%`,
+    `При равном столе: ${signedEloValue(equalResult)} Эло · с учётом силы команд: ${signedEloValue(elo.resultDelta)} Эло`,
+    elo.carryModifier === 1
+      ? 'Поправка за разницу с союзниками: нет'
+      : `Поправка за разницу с союзниками: ${signedEloValue(elo.resultDelta)} × ${Number(elo.carryModifier.toFixed(4))} = ${signedEloValue(elo.modifiedResultDelta)} Эло`,
   ];
   return {
     eloDelta: Math.round(Number(elo.totalDelta || 0)),
     eloAfter: Math.round(Number(elo.eloAfter || 0)),
     eloContribution: roundToTwo(contributionDelta),
     teamResultLines,
-    roundLines: contribution ? roundContributionLines(contribution) : undefined,
+    roundLines: contribution ? roundContributionLines(contribution, protocol, results.length) : undefined,
     eloFixedDelta: elo.missDelta,
     eloPersonalBonus: Number(elo.personalDelta || 0),
     personalLines: personalBonusLines(protocol, result, results),
@@ -169,7 +172,7 @@ export function seatEloLines(seat: SeatElo): string[] {
   const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
   const lines: string[] = [...(seat.teamResultLines || []), ...(seat.personalLines || [])];
   if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
-  if (seat.eloFixedDelta) lines.push(`Фиксированные начисления и штрафы: ${signedEloValue(seat.eloFixedDelta)} Эло`);
+  if (seat.eloFixedDelta) lines.push(`Бонусы и штрафы вне лимита: ${signedEloValue(seat.eloFixedDelta)} Эло`);
   lines.push(...(seat.roundLines ?? seat.contributionLines));
   if (Math.round(seat.eloContributionCap || 0)) lines.push(`Срезано пределом действий (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
   if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Поправка по личным пределам (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);

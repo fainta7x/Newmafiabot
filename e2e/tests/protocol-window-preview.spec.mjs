@@ -105,7 +105,7 @@ for (const [width, height] of sizes) {
     await expect(page.getByText(/Вы изменили · /)).toBeVisible();
     await check('overview with changes');
     await page.screenshot({ path: testInfo.outputPath(`protocol-changes-${width}.png`) });
-    await page.getByRole('button', { name: /Вернуть: Девятка|Вернуть: Круг 1/ }).click();
+    await page.getByRole('button', { name: /Вернуть: Девятка|Вернуть: Круг неизвестен/ }).click();
     await expect(page.getByText(/Вы изменили/)).toHaveCount(0);
 
     await place(page, width, 'Протокол').click();

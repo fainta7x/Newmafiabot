@@ -131,7 +131,7 @@ describe('protocol window: owner corrections 2026-10-26', () => {
     expect(circleTitle(3, { ...corrected, shots: [corrected.shots[0], corrected.shots[1], { night_number: 3, target_seat: 7, result: 'killed' }] })).toBe('Семёрка после оставления при 8');
     // A judge's removal is placed in time only by the chronology.
     expect(circleTitle(3, { ...corrected, events: [...corrected.events, exit(3, 6, 'removed')] })).toBe('Семёрка после оставления при 8 и двух промахов');
-    expect(circleTitle(2, { events: [] } as any)).toBe('Круг 2');
+    expect(circleTitle(2, { events: [] } as any)).toBe('Круг неизвестен');
   });
   it('the check answer follows the real role', () => {
     expect([checkAnswerOf('sheriff', 'don'), checkAnswerOf('sheriff', 'citizen'), checkAnswerOf('don', 'sheriff'), checkAnswerOf('don', 'mafia')]).toEqual(['black', 'red', 'sheriff', 'not_sheriff']);

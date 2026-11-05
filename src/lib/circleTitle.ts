@@ -10,7 +10,7 @@ const MISSES_IN_WORDS: Record<number, string> = { 2: 'двух', 3: 'трёх', 
 /**
  * The circle's name by how many players sit at the table (owner, 2026-10-26; BUSINESS_RULES «Names of the circles»):
  * «Нулевой круг», «Девятка», «Восьмёрка после промаха», «Восьмёрка после оставления при 8 и двух промахов» … Without a chronology the
- * number of players is unknown, so an old game keeps «Круг N».
+ * number of players is unknown, so the title explains that the circle is unknown.
  * Who left comes from the protocol itself — its votings and shots — so a corrected protocol renames the circles that follow
  * (owner, 2026-10-27: game №20 kept «Семёрка» after the vote that put №3 out was corrected to «everybody stayed»). Only a
  * judge's removal, which the protocol does not place in time, is read from the chronology.
@@ -22,8 +22,8 @@ export const circleTitle = (
 ) => {
   if (index === 0) return 'Нулевой круг';
   const events = Array.isArray(protocol?.events) ? protocol!.events : [];
-  // Only a game without any chronology keeps «Круг N»; with one, a circle where nobody has left yet is the «Десятка» (owner: official names everywhere).
-  if (!events.length) return `Круг ${index}`;
+  // A day index cannot tell us how many players were at the table.
+  if (!events.length) return 'Круг неизвестен';
   const votes = Array.isArray(protocol?.votes) ? (protocol!.votes as unknown as VotingRound[]) : null;
   const shots = Array.isArray(protocol?.shots) ? protocol!.shots : null;
   // A cancelled exit («restored») gives the seat back.
@@ -46,7 +46,8 @@ export const circleTitle = (
     for (const event of journalOut.values()) if (event.value === 'removed' && event.round <= circle) out.add(Number(event.seat));
     return tableSize - out.size;
   };
-  const name = TABLE_NAMES[atTableAt(index)] || `Круг ${index}`;
+  const name = TABLE_NAMES[atTableAt(index)];
+  if (!name) return 'Круг неизвестен';
   const dayOut = votedOutOnDay(index - 1).length;
   // Nobody left on the previous day (a split with everybody staying, or nobody nominated): «оставление» (owner, 2026-10-27).
   const stayed = dayOut === 0 && index > 1;

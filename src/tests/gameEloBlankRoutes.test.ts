@@ -52,6 +52,11 @@ describe('Elo breakdown in the in-app protocols', () => {
     const { db, app, gameId } = await setup();
     const row = await db.get<{ protocol_text: string }>('SELECT protocol_text FROM games WHERE id = ?', [gameId]);
     const envelope = JSON.parse(row!.protocol_text);
+    envelope.protocol.shots = [
+      { night_number: 1, target_seat: 5, result: 'killed' },
+      { night_number: 2, target_seat: 6, result: 'killed' },
+    ];
+    envelope.protocol.votes = [{ day_number: 1, outcome: 'single_eliminated', eliminated_seats: [7] }];
     envelope.protocol.events = [
       { kind: 'split_break', seat: 2, round: 1 },
       { kind: 'split_break', seat: 2, round: 3 },
@@ -62,15 +67,15 @@ describe('Elo breakdown in the in-app protocols', () => {
     expect(response.status).toBe(200);
     expect(response.body.seats[1].lines).toEqual(expect.arrayContaining([
       'За победу: +45 Эло',
-      'Сила стола: +35 → +45 Эло · поправка +10',
+      'При равном столе: +35 Эло · с учётом силы команд: +45 Эло',
       'Нулевой круг',
-      'Круг 2',
+      'Семёрка',
     ]));
     expect(response.body.seats[1].lines.filter((line: string) => line.startsWith('Сломал попил красным'))).toHaveLength(2);
     const image = gameBlankSvg((await loadGameBlank(db, gameId))!);
     expect(image).toContain('За победу: +45 Эло');
-    expect(image).toContain('Сила стола: +35 → +45 Эло');
-    expect(image).toContain('Круг 2');
+    expect(image).toContain('При равном столе: +35 Эло');
+    expect(image).toContain('Семёрка');
   });
 
   it('the organizer\'s protocol window reads the same blank; a player cannot', async () => {

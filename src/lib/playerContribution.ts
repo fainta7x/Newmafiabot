@@ -79,6 +79,8 @@ export interface ContributionItem {
   /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
   stayed?: boolean; votedOut?: boolean;
   firstKilledWill?: boolean;
+  /** Number of players alive at this vote, for labels such as «пятёрка». */
+  tableSize?: number;
   willSeriesExtra?: number;
   willAuthors?: number[];
   willColor?: 'red' | 'black' | 'sheriff';
@@ -359,7 +361,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
             const decided = votedOut && [...counts].some(([seat, count]) => blackRole(roleOf.get(seat)) && count === mine - 1);
             if (!decided) continue;
           }
-          const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
+          const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, tableSize: voting.alive?.size, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           if (target !== me.seat && voting.seq != null) {
             const authors = willHistory.get(target)?.filter((entry) => entry.seq < voting.seq!).at(-1)?.authors;
@@ -567,7 +569,9 @@ const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong'
       .reduce((sum, part) => sum + part.points, 0) / multiplier : 0;
     const beforeCritical = base + ownSeries + streak + relief;
     const total = beforeCritical * multiplier;
-    const context = item.round == null ? '' : `Круг ${item.round} · `;
+    const tableNames: Record<number, string> = { 9: 'Девятка', 7: 'Семёрка', 5: 'Пятёрка', 3: 'Тройка' };
+    const circle = item.tableSize && tableNames[item.tableSize] ? tableNames[item.tableSize] : item.round != null ? `Круг ${item.round}` : '';
+    const context = circle ? `${circle} · ` : '';
     const action = kind === 'vote_red'
       ? `Голос в красного №${item.seat}${item.votedOut ? ', которого вывели' : ''}`
       : `Завещание: назвал №${item.seat} чёрным${item.votedOut ? ', стол вывел красного' : ''}`;

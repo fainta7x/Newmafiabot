@@ -574,7 +574,7 @@ export const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will
     const context = includeCircle && circle ? `${circle} · ` : '';
     const action = kind === 'vote_red'
       ? `Голос в красного №${item.seat}${item.votedOut ? ', которого вывели' : ''}`
-      : `Завещание: назвал №${item.seat} чёрным${item.votedOut ? ', стол вывел красного' : ''}`;
+      : `Завещание: назвал №${item.seat} ${item.willColor === 'red' ? 'красным' : item.willColor === 'black' ? 'чёрным' : item.willColor === 'sheriff' ? 'шерифом' : 'неверным цветом'}${item.votedOut ? ', стол вывел красного' : ''}`;
     const components = [`${signedElo(elo(base))} за ${kind === 'vote_red' ? 'голос' : 'завещание'}`];
     if (ownSeries) components.push(`${signedElo(elo(ownSeries))} за повтор ошибочного завещания`);
     if (streak) components.push(`${signedElo(elo(streak))} за серию ошибок`);

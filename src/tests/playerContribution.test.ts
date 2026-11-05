@@ -75,14 +75,18 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
     ]);
     expect(lines).toEqual([
       'Голосовал в чёрных №10, №1: +16',
-      'Голосовал в красных №2: −8',
+      'Голос в красного №2: (−4 за голос) ×2 за критический круг = −8',
       'В завещании угадал №8: +12',
-      'В завещании ошибся в №5: −16',
+      'Завещание: назвал №5 чёрным: −16',
     ]);
   });
 
-  it('a repeated vote for the same red is written once with the count', () => {
-    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual(['Голосовал в красных №4 (2 раза), №3: −12']);
+  it('keeps separate voting decisions rather than hiding the sequence in one total', () => {
+    expect(contributionBreakdown('citizen', [{ kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 4, points: -0.1 }, { kind: 'vote_red', seat: 3, points: -0.1 }])).toEqual([
+      'Голос в красного №4: −4',
+      'Голос в красного №4: −4',
+      'Голос в красного №3: −4',
+    ]);
   });
 
   it('a black reads by the wills of the dead', () => {

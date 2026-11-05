@@ -112,4 +112,33 @@ test.describe('Organizer events mobile workflow', () => {
     await expect(future.getByTestId('crm-evening-overdue')).toHaveCount(0);
     await expectNoHorizontalOverflow(page, 'future event edge cases');
   });
+  test('requires a deliberate date and a second confirmation before creating an evening', async ({ page }) => {
+    await page.goto('/e2e/crm-evenings.html');
+    await page.getByTestId('crm-new-evening').click();
+    const date = page.getByTestId('evening-create-date');
+    const time = page.getByTestId('evening-create-time');
+    await expect(date).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Проверить дату' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Ближайшая пятница' }).click();
+    await expect(date).not.toHaveValue('');
+    await expect(time).toHaveValue('19:00');
+    await page.getByRole('button', { name: 'Проверить дату' }).click();
+    await expect(page.getByTestId('evening-create-confirmation')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Да, создать вечер' })).toBeEnabled();
+    await time.fill('21:00');
+    await expect(page.getByTestId('evening-create-confirmation')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Проверить дату' })).toBeVisible();
+    await expect(page.getByTestId('evening-date-summary')).toContainText('21:00');
+    await expectNoHorizontalOverflow(page, 'new evening date review');
+  });
+
+  test('the next Friday shortcut opens date review instead of creating directly', async ({ page }) => {
+    await page.goto('/e2e/crm-evenings.html');
+    await page.getByRole('navigation', { name: 'Период событий' }).getByRole('button', { name: /Будущее/ }).click();
+    await page.getByRole('button', { name: '+ След. пятница' }).click();
+    await expect(page.getByTestId('evening-create-date')).not.toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Проверить дату' })).toBeVisible();
+    await expect(page.getByTestId('evening-create-confirmation')).toHaveCount(0);
+  });
+
 });

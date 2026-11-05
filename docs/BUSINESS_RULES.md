@@ -826,6 +826,9 @@ Form points are retained (owner: «просто нужно пояснить по
 
 ## Elo / rating principles
 
+**Пояснения в бланке, уточнение владельца 2026-11-05 (актуальнее старых описаний серии ниже):** Для голосования/ошибки в завещании сначала показываем базовую стоимость действия, затем добавку/смягчение за серию или предыдущие завещания, и **только после сложения умножаем на ×2 за критический круг**. Пример пятёрки: голос в красного, которого вывели, −8; вторая ошибка подряд −2; итого (−8 − 2) × 2 = −20. Не показываем −16 за голос и отдельно −4 за стрик: это математически равно, но затрудняет чтение и создаёт видимость двух независимых штрафов. Отображать один итог по голосованию с объяснением компонентов, а в редакторе протокола — раздельные читаемые строки внутри подписанных кругов. Это **уточнение отображения**, не изменение итоговых начислений. В текущем коде добавка к серии — 2 Эло за каждый шаг сверх первого, а не старый множитель 1/1.25/1.5 из исторических пунктов 2026-10-26.
+
+
 ### Approved corrections — owner, 2026-10-26 (supersedes earlier overlapping prices and caps)
 
 - One red player earns at most8 base Elo per black across eligible votes, checks, LH and wills. A half-find4 can be topped up by4; a full find8 cannot be paid again by a later check. LH keeps4/12/24; its credits per correctly named black are4/6/8, so the same1/2/3 targets in LH and will total8/16/24. Existing source eligibility stays: the sheriff's own later vote/will for a checked black remains neutral. An ordinary will with any wrong colour earns no positive top-ups; PU keeps the colour exception.

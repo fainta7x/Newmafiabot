@@ -393,7 +393,12 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       // borrow an arbitrary mark order to extend a cross-action streak.
       if ((!wrong.length || firstKilled) && right.length) decisions.push({ seq: wrong.length ? null : willSeq, sign: 1, items: right });
       if (wrong.length) decisions.push({ seq: firstKilled && right.length ? null : willSeq, sign: -1, items: wrong });
-      const credit = allocateFindCredit(finds, bestMoveBlackCredits(protocol, participantId, results));
+      const priorCredit = bestMoveBlackCredits(protocol, participantId, results);
+      // A recorded sheriff check and the subsequent elimination earn their own credit.
+      for (const { item, target } of finds) {
+        if (item.kind === 'check_black') priorCredit.delete(target);
+      }
+      const credit = allocateFindCredit(finds, priorCredit);
       for (const [item, value] of credit.awards) {
         item.points = value;
         if (value < 1e-10 && item.kind === 'will_right') item.kind = 'will_already';

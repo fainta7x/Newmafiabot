@@ -96,7 +96,7 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
   it('starts with the Elo and keeps every line short', () => {
     const seat: any = { eloContribution: 12, contributionLines: [Array.from({ length: 8 }, (_, i) => `угадал №${i + 1} +8`).join(' · ')] };
     const lines = contributionTextLines(seat);
-    expect(lines[0]).toBe('За действия в игре: +12 Эло');
+    expect(lines[0]).toBe('Итого за действия: +12 Эло');
     expect(lines.length).toBeGreaterThan(2);
     expect(lines.every((line) => line.length <= 74)).toBe(true);
   });
@@ -371,7 +371,7 @@ describe('agreed split («попил») and a black already paid by a vote (owne
 describe('a black who left by a split is one credit with the check (owner, 2026-11-02: «максимум 2 начисления, не +12»)', () => {
   it('a sheriff who checked a black who then left by a split earns that black once: +4 (check) +4 (left), not +12', () => {
     const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
-    const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: index === 7 ? 'voted_day' : 'alive' }));
+    const results = roles.map((role, index) => ({ seat_number: index + 1, role, player_id: `p${index + 1}`, participant_id: `p${index + 1}`, color_protocol: [] as any[], exit_type: index === 7 ? 'voted_day' : 'alive' }));
     const events = [
       { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
       { seq: 2, at: 'x', round: 1, phase: 'night', kind: 'sheriff_check', target: 8, value: 'black' },
@@ -381,10 +381,12 @@ describe('a black who left by a split is one credit with the check (owner, 2026-
       { seq: 5, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 8, value: 'voted_day' },
       { seq: 6, at: 'x', round: 3, phase: 'night', kind: 'game_end', value: 'red' },
     ];
-    const protocol = { winner_team: 'red', events, votes: [{ round_number: 1, day_number: 0 }, { round_number: 2, day_number: 1, no_scoring: true, eliminated_seats: [8] }] };
+    const protocol = { best_moves: [{ participant_id: 'p1', seat_numbers: [8] }], winner_team: 'red', events, votes: [{ round_number: 1, day_number: 0 }, { round_number: 2, day_number: 1, no_scoring: true, eliminated_seats: [8] }] };
     const sheriff = gameContribution({ protocol, player_results: results }).find((item) => item.seat === 1)!;
     const forBlack8 = sheriff.items.filter((item) => item.seat === 8 && ['check_black', 'check_voted_out', 'split_outcome', 'found_black'].includes(item.kind));
     const total = forBlack8.reduce((sum, item) => sum + item.points, 0);
+    expect(forBlack8.find((item) => item.kind === 'check_black')?.points).toBeCloseTo(0.1);
+    expect(forBlack8.find((item) => item.kind === 'check_voted_out')?.points).toBeCloseTo(0.1);
     expect(total * 40).toBeCloseTo(8, 6);
     expect(forBlack8.filter((item) => item.points > 1e-10).length).toBeLessThanOrEqual(2);
   });

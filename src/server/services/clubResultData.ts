@@ -114,6 +114,9 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
   return [...groups].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)).flatMap(([round, items]) => {
     const lines = contributionBreakdown(contribution.role, items.filter((item) => item.kind !== 'vote_red' && item.points !== 0));
     for (const item of items) {
+      if (!item.points && item.kind === 'check_black') {
+        lines.push(`Проверкой нашёл чёрного №${item.seat}: 0 Эло (баллы за него уже учтены)`);
+      }
       if (!item.points) continue;
       if (item.kind === 'vote_red') {
         const reason = [item.votedOut && 'красного вывели', item.critical && 'критический круг'].filter(Boolean).join(' · ');
@@ -175,8 +178,9 @@ export function seatEloOfGame(envelope: any, event: PlayerEloHistoryEvent | null
 export function seatEloLines(seat: SeatElo): string[] {
   const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
   const lines: string[] = [...(seat.teamResultLines || []), ...(seat.personalLines || [])];
-  if (Math.round(seat.eloContribution || 0)) lines.push(`За действия в игре: ${value(seat.eloContribution || 0)} Эло`);
-  if (seat.eloFixedDelta) lines.push(`Бонусы и штрафы: ${signedEloValue(seat.eloFixedDelta)} Эло`);
+  const actionsTotal = (seat.eloContribution || 0) + (seat.eloFixedDelta || 0);
+  if (Math.round(actionsTotal) || seat.roundLines?.length) lines.push(`Итого за действия: ${value(actionsTotal)} Эло`);
+  if (seat.eloFixedDelta && !seat.roundLines?.length) lines.push(`Из них отдельные бонусы и штрафы: ${signedEloValue(seat.eloFixedDelta)} Эло`);
   lines.push(...(seat.roundLines ?? seat.contributionLines));
   if (Math.round(seat.eloContributionCap || 0)) lines.push(`Лимит баллов за действия (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
   if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Лимит личных баллов (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);

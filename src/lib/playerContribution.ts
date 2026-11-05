@@ -277,6 +277,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       }
     }
   }
+  const redRaiseVoters = [...raiseVoters].filter((seat) => redRole(roleOf.get(seat)));
   if (protocol.zero_round_rule !== 'club' && breaker && victim && breaker !== victim && roleOf.get(breaker) && roleOf.get(victim)) {
     const into = roleOf.get(victim) === 'sheriff' ? 'Sheriff' : blackRole(roleOf.get(victim)) ? 'Black' : 'Red';
     const [forBreaker, forVictim] = W.zeroBreak[`${blackRole(roleOf.get(breaker)) ? 'black' : 'red'}Into${into}` as keyof typeof W.zeroBreak];
@@ -521,7 +522,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       if (raiseVoters.has(me.seat)) items.push({ kind: 'raise_defeat', seat: me.seat, round: raiseRound, points: -RAISE_DEFEAT_ELO / ELO_PERSONAL_POINT_WEIGHT });
     }
     // The blacks who sat at the table during that raise are paid +10 Elo (owner, 2026-11-01), only when red hands were really recorded.
-    if (mode === 'club' && blackRole(me.role) && raiseVoters.size && (raiseTable ? raiseTable.has(me.seat) : me.exitType === 'alive')) {
+    if (mode === 'club' && blackRole(me.role) && redRaiseVoters.length && (raiseTable ? raiseTable.has(me.seat) : me.exitType === 'alive')) {
       items.push({ kind: 'raise_defeat_black', seat: me.seat, round: raiseRound, points: RAISE_DEFEAT_BLACK_BONUS_ELO / ELO_PERSONAL_POINT_WEIGHT });
     }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.

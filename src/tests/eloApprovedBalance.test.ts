@@ -70,7 +70,7 @@ describe('positive rewards first, actual misses after all personal limits', () =
     const after = calculateCanonicalEloGame(players.map((p, i) => ({ ...p, missPenaltyElo: i === 7 ? 12 : 0 })), 'red')[7];
     close(after.totalDelta - before.totalDelta, -12);
     close(after.missDelta!, -12);
-    assert.ok(explainEloDelta({ ...after, won: false }).details.some((line) => line.includes('отдельный штраф за промах −12')));
+    assert.ok(explainEloDelta({ ...after, won: false }).details.some((line) => line.includes('отдельные бонусы и штрафы −12')));
   });
   it('keeps a miss separate from the automatic contribution and discipline', () => {
     const players = rows();

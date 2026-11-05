@@ -3,7 +3,7 @@ import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { gameContribution, contributionBreakdown } from '../lib/playerContribution.ts';
 import { validateShots } from '../lib/protocolConsistency.ts';
-import { decisionStreakMultipliers } from '../lib/eloDecisionStreak.ts';
+import { decisionStreakSteps } from '../lib/eloDecisionStreak.ts';
 
 const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
 const players = () => roles.map((role, i) => ({ seat_number: i + 1, participant_id: `p${i + 1}`, player_id: `p${i + 1}`, role, exit_type: 'alive', color_protocol: [] as Array<{ mark: string; seat_numbers: number[] }> }));
@@ -91,11 +91,64 @@ describe('in-game streaks of confirmed decisions', () => {
     close(me.points, 0.2);
     assert.deepEqual(me.items.map((item) => item.kind).sort(), ['check_black', 'check_voted_out', 'obvious_black']);
   });
-  it('opposite decisions reset, and the multiplier never exceeds 1.5', () => {
+  it('charges −8, −6, −12 and −28 across four wrong votes ending on a critical circle', () => {
+    const exit = (round: number, seat: number, night = false) =>
+      event(round, 'exit', { seat, value: night ? 'killed' : 'voted_day', phase: night ? 'night' : 'day_voting' });
+    const vote = (round: number, target: number, eliminated: number) => [
+      event(round, 'vote', { seat: 1, target, value: 1 }),
+      event(round, 'vote_round_result', { value: '1:single_eliminated' }),
+      exit(round, eliminated),
+    ];
+    const events = sequence([
+      event(1, 'game_start', { phase: 'zero_night' }), exit(1, 7, true),
+      ...vote(2, 2, 2), exit(2, 10, true),
+      ...vote(3, 3, 8), exit(3, 3, true),
+      ...vote(4, 4, 4), exit(4, 5, true),
+      ...vote(5, 6, 6), event(5, 'game_end', { value: 'black' }),
+    ]);
+    const { items } = score(players(), { events, winner_team: 'black' }, 1);
+    const totals = [2, 3, 4, 5].map((round) => items
+      .filter((item) => item.round === round && ['vote_red', 'streak_wrong'].includes(item.kind))
+      .reduce((sum, item) => sum + item.points * 40, 0));
+    assert.deepEqual(totals, [-8, -6, -12, -28]);
+  });
+
+  it('applies will streak relief before critical doubling and both doublings to the second author', () => {
+    const rows = players();
+    rows[6].role = 'mafia';
+    rows[8].role = 'citizen';
+    rows[0].color_protocol = [{ mark: 'black', seat_numbers: [9] }];
+    rows[1].color_protocol = [{ mark: 'black', seat_numbers: [9] }];
+    const exit = (round: number, seat: number, night = false) =>
+      event(round, 'exit', { seat, value: night ? 'killed' : 'voted_day', phase: night ? 'night' : 'day_voting' });
+    const vote = (round: number, eliminated: number) => [
+      event(round, 'vote', { seat: 5, target: 9, value: 1 }),
+      event(round, 'vote_round_result', { value: '1:single_eliminated' }),
+      exit(round, eliminated),
+    ];
+    const protocol = { winner_team: 'black', first_killed_participant_id: 'p1', events: sequence([
+      event(1, 'game_start', { phase: 'zero_night' }), exit(1, 1, true),
+      ...vote(2, 3), exit(2, 2, true), ...vote(3, 9), event(3, 'game_end', { value: 'black' }),
+    ]) };
+    const voter = score(rows, protocol, 5);
+    const roundPoints = (round: number) => voter.items.filter((item) => item.round === round)
+      .reduce((sum, item) => sum + item.points * 40, 0);
+    close(roundPoints(2), -4);
+    close(roundPoints(3), -16);
+    close(voter.negativePoints * 40, -20);
+    close(voter.positivePoints, 0);
+    close(score(rows, protocol, 1).points * 40, -8);
+    close(score(rows, protocol, 2).points * 40, -20);
+
+    rows[1].color_protocol = [{ mark: 'red', seat_numbers: [9] }];
+    assert.ok(!score(rows, protocol, 5).items.some((item) => item.kind === 'will_vote_relief'));
+  });
+
+  it('opposite decisions reset, and the steps keep growing', () => {
     const objects = Array.from({ length: 8 }, () => ({}));
-    const factors = decisionStreakMultipliers(objects.map((item, i) => ({ seq: i + 1, sign: (i === 3 ? -1 : 1) as 1 | -1, items: [item] })));
-    assert.deepEqual(objects.map((item) => factors.get(item)), [1, 1.25, 1.5, 1, 1, 1.25, 1.5, 1.5]);
-    assert.equal(decisionStreakMultipliers([{ seq: 1, sign: 1, items: [objects[0]] }]).get(objects[0]), 1);
+    const factors = decisionStreakSteps(objects.map((item, i) => ({ seq: i + 1, sign: (i === 3 ? -1 : 1) as 1 | -1, items: [item] })));
+    assert.deepEqual(objects.map((item) => factors.get(item)), [1, 2, 3, 1, 1, 2, 3, 4]);
+    assert.equal(decisionStreakSteps([{ seq: 1, sign: 1, items: [objects[0]] }]).get(objects[0]), 1);
   });
   it('does not invent a cross-action series in a partial history', () => {
     const events = sequence([event(2, 'vote', { seat: 1, target: 8 }), event(2, 'vote_round_result', { value: '1:single_eliminated' }), event(2, 'exit', { seat: 8, value: 'voted_day' }), event(3, 'vote', { seat: 1, target: 9 }), event(3, 'vote_round_result', { value: '1:single_eliminated' }), event(3, 'exit', { seat: 9, value: 'voted_day' })]);
@@ -106,9 +159,9 @@ describe('in-game streaks of confirmed decisions', () => {
 describe('a series spans different moments of the game (owner, 2026-10-26)', () => {
   it('a will with three right colours is one step; the decision after it is the second step', () => {
     const will = [{}, {}, {}]; const vote = {};
-    const factors = decisionStreakMultipliers([{ seq: 1, sign: 1, items: will }, { seq: 2, sign: 1, items: [vote] }]);
-    assert.deepEqual(will.map((item) => factors.get(item)), [1, 1, 1]);
-    assert.equal(factors.get(vote), 1.25);
+    const factors = decisionStreakSteps([{ seq: 1, sign: 1, items: will }, { seq: 2, sign: 1, items: [vote] }]);
+    assert.deepEqual(will.map((item) => factors.get(item)), [1, undefined, undefined]);
+    assert.equal(factors.get(vote), 2);
   });
 });
 

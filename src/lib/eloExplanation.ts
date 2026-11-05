@@ -15,7 +15,7 @@ export function explainEloDelta(row: ExplainedEloDelta) {
     { label: 'личные бонусы', value: row.personalDelta },
     { label: 'действия в игре', value: row.contributionDelta ?? 0 },
     { label: 'ограничение личной части', value: row.personalCapDelta ?? 0 },
-    { label: 'отдельный штраф за промах', value: row.missDelta ?? 0 },
+    { label: 'отдельные бонусы и штрафы', value: row.missDelta ?? 0 },
     { label: 'дисциплина', value: row.disciplinaryDelta ?? 0 },
   ];
   const kept = terms.filter((term, index) => index === 0 || Math.abs(term.value) >= 0.005);

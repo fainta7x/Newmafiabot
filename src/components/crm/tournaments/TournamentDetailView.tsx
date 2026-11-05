@@ -124,7 +124,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
       if (!response.ok) throw new Error(body.error || body.message || 'Не удалось обновить Telegram');
       const actions = Array.isArray(body?.results) ? body.results : [];
       const skipped = actions.length && actions.every((item: any) => item.action === 'skipped');
-      setTelegramMessage(skipped
+      setTelegramMessage(body.announcementPhoto === 'updated'
+        ? 'Картинка и состав в анонсе турнира обновлены.'
+        : skipped
         ? 'Закрытый канал пока не включён в «Ещё → Telegram». Сначала настрой его там.'
         : tournament?.status === 'completed'
           ? 'Пост турнира в Telegram закрыт и обновлён.'

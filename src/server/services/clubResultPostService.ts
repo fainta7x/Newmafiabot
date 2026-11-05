@@ -1,3 +1,4 @@
+import { TOURNAMENT_PLAYER_CAPACITY } from './tournamentEveningService.ts';
 import { importLegacyPublicationHolds } from './publicationDeliveryService.ts';
 import { sendPublicTelegram } from './publicationTelegramService.ts';
 import { type PublicationContext, type PublicationResult, ensurePublicationDeliverySchema } from './publicationDeliveryService.ts';
@@ -608,26 +609,59 @@ export const TOURNAMENT_ANNOUNCE_HOURS = 36;
 // The club's Twitch channel (owner, 2026-10-02: chagintv); TWITCH_CHANNEL_URL overrides it.
 const broadcastLink = () => String(process.env.TWITCH_CHANNEL_URL || 'https://www.twitch.tv/chagintv').trim().replace(/\/$/, '');
 
+function tournamentAnnouncementMedia(announcement: NonNullable<Awaited<ReturnType<typeof loadTournamentAnnouncement>>>) {
+  const link = broadcastLink();
+  const caption = [
+    `🏆 Турнир «${announcement.title}» — ${announcement.dateLabel}${announcement.timeLabel ? `, начало в ${announcement.timeLabel}` : ''}!`,
+    announcement.venue ? `📍 ${announcement.venue}` : '',
+    announcement.judge ? `⚖️ Главный судья: ${announcement.judge}` : '',
+    `📺 Прямой эфир со старта игр${announcement.timeLabel ? ` (с ${announcement.timeLabel})` : ''}${link ? `: ${link}` : ' — на Twitch клуба'}`,
+    '',
+    `Играют (${announcement.players.length}): ${announcement.players.map((player) => player.nickname).join(', ')}`,
+    '',
+    'Приходите болеть за любимчиков и смотрите в эфире! 🖤',
+  ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').slice(0, 1020);
+  return { caption, photo: renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба')) };
+}
+
+export async function syncTournamentAnnouncementPhoto(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
+  await ensureClubResultPostSchema(db);
+  const key = `tournament-announce:${tournamentId}`;
+  const post = await db.get<{ status: string }>('SELECT status FROM club_result_posts WHERE post_key = ?', [key]);
+  if (post?.status !== 'sent') return 'not_published';
+  const delivery = await db.get<{ target: string; result: string }>(
+    "SELECT target, result FROM publication_deliveries WHERE delivery_key = ? AND status = 'accepted'",
+    ['club:' + key],
+  );
+  const chatId = delivery && JSON.parse(delivery.target)?.chat_id;
+  const messageId = delivery && JSON.parse(delivery.result)?.ids?.[0];
+  if (!chatId || !messageId) throw new Error('У старого анонса не сохранился номер сообщения. Картинку нужно заменить в Telegram.');
+  const announcement = await loadTournamentAnnouncement(db, tournamentId);
+  if (!announcement?.players.length) throw new Error('В турнире нет подтверждённых участников');
+  const { caption, photo } = tournamentAnnouncementMedia(announcement);
+  const result = await sendPublicTelegram(db, {
+    method: 'editMessageMedia',
+    fields: { chat_id: chatId, message_id: messageId, media: { type: 'photo', media: 'attach://photo', caption } },
+    photos: [{ data: photo.toString('base64'), mime: 'image/png', name: 'tournament.png', field: 'photo' }],
+  }, fetchImpl);
+  if (!result.ok && !result.error?.includes('message is not modified')) throw new Error(result.error || 'Telegram не обновил картинку анонса');
+  return 'updated';
+}
+
 export async function postTournamentAnnouncement(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
   await ensureClubResultPostSchema(db);
   const key = `tournament-announce:${tournamentId}`;
   const announcement = await loadTournamentAnnouncement(db, tournamentId);
-  // Without a confirmed roster there is nothing to announce yet; the scan tries again later.
-  if (!announcement?.players.length) return false;
+  const tournament = await db.get<{ tournament_evening_flow: number; published_at: string | null }>(
+    'SELECT tournament_evening_flow, published_at FROM tournaments WHERE id = ?', [tournamentId],
+  );
+  // Managed tournaments may have confirmed registrations while still being prepared.
+  if (!announcement || announcement.players.length < TOURNAMENT_PLAYER_CAPACITY) return false;
+  if (tournament?.tournament_evening_flow && !tournament.published_at) return false;
   if (!(await claim(db, key, 'tournament-announce', '', null))) return false;
   try {
-    const link = broadcastLink();
-    const caption = [
-      `🏆 Турнир «${announcement.title}» — ${announcement.dateLabel}${announcement.timeLabel ? `, начало в ${announcement.timeLabel}` : ''}!`,
-      announcement.venue ? `📍 ${announcement.venue}` : '',
-      announcement.judge ? `⚖️ Главный судья: ${announcement.judge}` : '',
-      `📺 Прямой эфир со старта игр${announcement.timeLabel ? ` (с ${announcement.timeLabel})` : ''}${link ? `: ${link}` : ' — на Twitch клуба'}`,
-      '',
-      `Играют (${announcement.players.length}): ${announcement.players.map((player) => player.nickname).join(', ')}`,
-      '',
-      'Приходите болеть за любимчиков и смотрите в эфире! 🖤',
-    ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').slice(0, 1020);
-    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба'))], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const { caption, photo } = tournamentAnnouncementMedia(announcement);
+    const result = await sendPhotos(db, 'TOURNAMENT', [photo], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {

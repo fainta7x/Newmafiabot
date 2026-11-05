@@ -3,7 +3,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { loadTournamentAnnouncement } from '../server/services/clubResultData.ts';
 import { tournamentAnnounceSvg, renderPng } from '../server/services/clubResultImages.ts';
-import { postTournamentAnnouncement, runClubResultPosts } from '../server/services/clubResultPostService.ts';
+import { postTournamentAnnouncement, runClubResultPosts, syncTournamentAnnouncementPhoto } from '../server/services/clubResultPostService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
@@ -48,6 +48,33 @@ describe('tournament announcement', () => {
     expect(caption).toContain('Игрок 10');
     expect(await postTournamentAnnouncement(db, 't1', fetchImpl)).toBe(false);
     expect(calls).toHaveLength(1);
+  });
+
+  it('waits for publication and a full roster, then replaces the same photo on sync', async () => {
+    const db = await setup('2026-10-03T08:00:00.000Z');
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ ok: true, result: { message_id: 100 } })));
+    await db.run("UPDATE tournaments SET tournament_evening_flow = 1 WHERE id = 't1'");
+    expect(await postTournamentAnnouncement(db, 't1', fetchImpl)).toBe(false);
+    await db.run("UPDATE tournaments SET published_at = date WHERE id = 't1'");
+    await db.run("UPDATE tournament_registrations SET status = 'reserve' WHERE id = 'r10'");
+    expect(await postTournamentAnnouncement(db, 't1', fetchImpl)).toBe(false);
+    expect(await syncTournamentAnnouncementPhoto(db, 't1', fetchImpl)).toBe('not_published');
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    await db.run("UPDATE tournament_registrations SET status = 'confirmed' WHERE id = 'r10'");
+    expect(await postTournamentAnnouncement(db, 't1', fetchImpl)).toBe(true);
+    await db.run("UPDATE players SET nickname = 'Новый ник' WHERE id = 'p10'");
+    await db.run("UPDATE telegram_destinations SET chat_id = '-100601' WHERE id = 'rating'");
+    expect(await syncTournamentAnnouncementPhoto(db, 't1', fetchImpl)).toBe('updated');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const [url, request] = fetchImpl.mock.calls[1];
+    const form = request?.body as FormData;
+    expect(url).toContain('/editMessageMedia');
+    expect(form.get('chat_id')).toBe('-100600');
+    expect(form.get('message_id')).toBe('100');
+    expect(String(form.get('media'))).toContain('Новый ник');
+    expect(form.get('photo')).toBeInstanceOf(Blob);
   });
 
   it('goes out from the worker scan only within 36 hours of the start', async () => {

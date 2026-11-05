@@ -6,7 +6,7 @@ import { oncePerDatabase } from './oncePerDatabase.ts';
 export const NOVICE_GROUP_CHAT_ID = '-1003925510303';
 export const NOVICE_GROUP_TOPIC_ID = 128;
 
-export const TELEGRAM_DESTINATION_IDS = ['public', 'novice', 'club', 'rating'] as const;
+export const TELEGRAM_DESTINATION_IDS = ['public', 'novice', 'club', 'rating', 'novice_chat', 'club_chat', 'rating_chat'] as const;
 export type TelegramDestinationId = (typeof TELEGRAM_DESTINATION_IDS)[number];
 
 const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; description: string }> = [
@@ -30,6 +30,9 @@ const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; des
     name: 'Рейтинг и турниры',
     description: 'Закрытый канал допущенных игроков. RATING и TOURNAMENT.',
   },
+  { id: 'novice_chat', name: 'Новички · чат', description: 'Итоги, голосования и MVP вечеров новичков.' },
+  { id: 'club_chat', name: 'Обычные вечера · Чатик', description: 'Итоги, голосования и MVP обычных вечеров.' },
+  { id: 'rating_chat', name: 'Рейтинг и турниры · чат', description: 'Итоги, голосования и MVP рейтинговых вечеров и турниров.' },
 ];
 
 const eveningOutboxUpsertSql = (entityExpression: string) => `

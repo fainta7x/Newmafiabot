@@ -20,7 +20,7 @@ async function setup(published: boolean) {
   await createApp(db);
   const now = new Date().toISOString();
   await db.run(`INSERT INTO tournaments (id,title,date,venue,status,public_token,results_published_at,created_at,updated_at) VALUES ('t1','Турнир Богдана #2',?,'Суп с Котом','completed',?,?,?,?)`, ['2026-10-03T08:00:00.000Z', published ? 'tok' : null, published ? now : null, now, now]);
-  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('rating','Рейтинг','-100600',9,1,?,?)`, [now, now]);
+  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('rating_chat','Рейтинг','-100600',9,1,?,?)`, [now, now]);
   await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('public','Канал','-100700',NULL,1,?,?)`, [now, now]);
   return db;
 }

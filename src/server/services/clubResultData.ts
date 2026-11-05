@@ -655,10 +655,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     const average = (item: Tally) => stat(item).effect / stat(item).games;
     const best = candidates.sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games)[0];
     const fact = roleFactLine(role, stat(best).facts);
-    // A fact says what the player did, so the average beside it would only be noise; without one the plain effect stays, and a single
-    // game is not «averaged» (owner, 2026-11-02: «+2 в среднем за 1 игру» meant nothing).
-    const plain = stat(best).games === 1 ? 'за игру' : `в среднем за ${stat(best).games} ${gamesWord(stat(best).games)}`;
-    return { role, player: person(best, fact ? '' : signed(average(best)), fact || plain) };
+    return { role, player: person(best, '', fact || '') };
   });
 
   return {
@@ -845,12 +842,13 @@ export type TournamentAnnouncement = {
   timeLabel: string;
   venue: string | null;
   judge: string | null;
+  judgeAvatar?: string | null;
   players: Array<{ playerId: string; nickname: string; avatar: string | null }>;
 };
 
 /** Everything the tournament announcement shows: the confirmed roster with photos, the judge, the start. */
 export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournamentId: string): Promise<TournamentAnnouncement | null> {
-  const tournament = await db.get<any>('SELECT id, title, date, venue, chief_judge_name FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
+  const tournament = await db.get<any>('SELECT id, title, date, venue, chief_judge_name, judge_player_id FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
   if (!tournament) return null;
   let rows = await db.all<any>(
     `SELECT r.player_id, p.nickname FROM tournament_registrations r JOIN players p ON p.id = r.player_id
@@ -864,7 +862,8 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
       [tournamentId],
     ).catch(() => []);
   }
-  const avatars = await loadAvatars(db, rows.map((row: any) => String(row.player_id)));
+  const judgeId = String(tournament.judge_player_id || '');
+  const avatars = await loadAvatars(db, [...rows.map((row: any) => String(row.player_id)), judgeId].filter(Boolean));
   const time = new Date(String(tournament.date)).getTime();
   return {
     tournamentId,
@@ -874,6 +873,7 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
     timeLabel: Number.isFinite(time) ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(time) : '',
     venue: tournament.venue ? String(tournament.venue) : null,
     judge: tournament.chief_judge_name ? String(tournament.chief_judge_name) : null,
+    judgeAvatar: avatars.get(judgeId) || null,
     players: rows.map((row: any) => ({ playerId: String(row.player_id), nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null })),
   };
 }

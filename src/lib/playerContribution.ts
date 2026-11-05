@@ -1,3 +1,4 @@
+import { finalRevealsOfEvents } from './revealStats.ts';
 import { gameActionFacts, redRole, blackRole } from './gameActionFacts.ts';
 import type { StatGame, StatRole } from './gameStatistics.ts';
 import { ELO_TAGS, eloTagMarks, sanitizeLiveGameEvents, splitBreakMarks, zeroRoundBreakerSeat } from '../shared/liveGameEvents.ts';
@@ -45,7 +46,7 @@ export const CONTRIBUTION_WEIGHTS = {
    * Owner, 2026-10-26: a black named black in a will −4 (was −8): at most four wills, so with the early exit (−8 for a black
    * voted out at the девятка) the worst a black loses to good red play is −24, the mirror of the red pool.
    */
-  blackNamedRed: 0.2, blackNamedBlack: -0.1, blackNotNamed: 0.1, blackOutAtNine: -0.2,
+  blackNamedRed: 0.2, blackNamedBlack: -0.1, blackNotNamed: 0.1, blackOutAtNine: -0.1, blackCheckedFirstNight: -0.1,
   /** Owner, 2026-11-02: a black earns +2 Elo for every day circle in which nobody voted for him (he sat at the table all of it). */
   blackUnvotedRound: 2 / ELO_PERSONAL_POINT_WEIGHT,
   /**
@@ -69,7 +70,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number; round?: number;
@@ -270,6 +271,11 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     const alive = out ? facts.atSeq.get(out.seq)?.size : undefined;
     return Boolean(out && out.round > 1 && seats.length === 10 && alive === 9);
   };
+  const reveals = finalRevealsOfEvents(facts.events);
+  const firstNightSequences = new Set(facts.events.filter((event) => event.round === 1).map((event) => event.seq));
+  const firstNightSheriffTargets = new Set(facts.checks
+    .filter((check) => check.kind === 'sheriff' && firstNightSequences.has(check.seq))
+    .map((check) => check.target));
   return seats.map((me) => {
     const items: ContributionItem[] = [];
     const streaks: StreakRun[] = [];
@@ -429,6 +435,9 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
         close();
       }
     } else if (blackRole(me.role)) {
+      if (mode === 'club' && firstNightSheriffTargets.has(me.seat) && !reveals.has(me.seat)) {
+        items.push({ kind: 'black_checked_first_night', seat: me.seat, round: 1, points: W.blackCheckedFirstNight });
+      }
       if (mode === 'club' && outAtNine(me.seat)) items.push({ kind: 'out_at_nine', seat: me.seat, round: facts.events.find((event) => event.seq === votedOutAt.get(me.seat))?.round, points: W.blackOutAtNine });
       if (mode === 'club') {
         // Day circles the facts keep (after the zero circle, one player left): any ballot for this black in any of its votings spoils it.
@@ -506,7 +515,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
 export function contributionBreakdown(role: StatRole | null, items: ContributionItem[], streaks: StreakRun[] = []): string[] {
   const of = (kind: ContributionKind) => items.filter((item) => item.kind === kind);
   const lines = blackRole(role)
-    ? [of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
+    ? [of('black_checked_first_night').length ? `Шериф проверил чёрным в первую ночь: ${signedElo(elo(W.blackCheckedFirstNight))}` : null, of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
       group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),

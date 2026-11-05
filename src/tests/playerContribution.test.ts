@@ -481,13 +481,23 @@ describe('a broken zero-round split and the early exit of a black (owner, 2026-1
   it('the club setting keeps the player at the table, so the break costs nothing', () => {
     expect([game(2, 3, 'club')(2), game(2, 3, 'club')(3)]).toEqual([0, 0]);
   });
-  it('a black voted out at the девятка loses 8; later — nothing', () => {
+  it('a black voted out at the девятка loses 4; later — nothing', () => {
     const player_results = roles.map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, exit_type: 'alive', color_protocol: [] }));
     const ev = (seq: number, round: number, phase: string, kind: string, seat?: number, value?: string) => ({ seq, at: 'x', round, phase, kind, seat, value });
     const atNine = [ev(1, 1, 'zero_night', 'game_start'), ev(2, 1, 'night', 'exit', 2, 'killed'), ev(3, 2, 'day_voting', 'exit', 8, 'voted_day')];
     const atEight = [...atNine.slice(0, 2), ev(3, 2, 'day_voting', 'exit', 3, 'voted_day'), ev(4, 2, 'night', 'exit', 4, 'killed'), ev(5, 3, 'day_voting', 'exit', 8, 'voted_day')];
     const of = (events: any[]) => gameContribution({ protocol: { winner_team: 'red', events }, player_results }).find((item) => item.seat === 8)!;
-    expect(Math.round(of(atNine).points * 40)).toBe(-8);
+    expect(Math.round(of(atNine).points * 40)).toBe(-4);
+    const firstNight = [
+      { ...ev(10, 1, 'night', 'sheriff_check', undefined, 'black'), target: 8 },
+      ev(11, 1, 'night', 'night_step', undefined, 'morning'),
+    ];
+    const withCheck = (events: any[]) => of([
+      ...events.slice(0, 2), ...firstNight, ...events.slice(2).map((event) => ({ ...event, seq: event.seq + 20 })),
+    ]);
+    expect(withCheck(atNine).items.filter((item) => ['black_checked_first_night', 'out_at_nine'].includes(item.kind)).map((item) => item.points * 40)).toEqual([-4, -4]);
+    expect(withCheck(atEight).items.filter((item) => ['black_checked_first_night', 'out_at_nine'].includes(item.kind)).map((item) => item.points * 40)).toEqual([-4]);
+    expect(withCheck([...atEight, ev(4, 2, 'day', 'reveal', 8)]).items.some((item) => item.kind === 'black_checked_first_night')).toBe(false);
     expect(of(atEight).items.some((item) => item.kind === 'out_at_nine')).toBe(false);
   });
 });

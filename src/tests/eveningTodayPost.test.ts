@@ -252,15 +252,14 @@ describe('«Сегодня играем» post', () => {
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:01:00Z'), fetchImpl)).toBe(0);
   });
 
-  it('at 17:00 Moscow cancels by itself when no game has a full table and the evening is under the minimum', async () => {
+  it('at 17:00 Moscow cancels by itself when no game has a full table and skips a cancellation post if no announcement went out', async () => {
     const db = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
     const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:00:00Z'), fetchImpl)).toBe(1);
     expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('cancelled');
-    expect(calls).toHaveLength(1);
-    expect(calls[0].text).toContain('отменяется');
+    expect(calls).toHaveLength(0);
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:01:00Z'), fetchImpl)).toBe(0);
   });
 

@@ -15,7 +15,7 @@ async function setup(status = 'active') {
   await createApp(db);
   const stamp = new Date().toISOString();
   await db.run(`INSERT INTO tournaments (id,title,date,status,chief_judge_name,created_at,updated_at) VALUES ('t','Кубок',?,?,'Чагин',?,?)`, [START, status, stamp, stamp]);
-  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('rating','Рейтинг','-100600',9,1,?,?)`, [stamp, stamp]);
+  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('rating_chat','Рейтинг','-100600',9,1,?,?)`, [stamp, stamp]);
   for (let i = 1; i <= 10; i += 1) {
     await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', [`p${i}`, `Игрок ${i}`, stamp, stamp]);
     await db.run("INSERT INTO tournament_participants (id,tournament_id,player_id,display_name,participant_number) VALUES (?,?,?,?,?)", [`pt${i}`, 't', `p${i}`, `Игрок ${i}`, i]);
@@ -82,7 +82,7 @@ describe('tournament game results and seat messages', () => {
 
   it('still sends the seat messages when the result post cannot go out', async () => {
     const db = await setup();
-    await db.run("UPDATE telegram_destinations SET active = 0 WHERE id = 'rating'");
+    await db.run("UPDATE telegram_destinations SET active = 0 WHERE id = 'rating_chat'");
     const done = new Date('2026-10-03T09:00:00.000Z');
     await switchOn(db);
     await addGame(db, 1, 'completed', done.toISOString());

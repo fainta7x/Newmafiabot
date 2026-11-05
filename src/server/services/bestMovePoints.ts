@@ -34,11 +34,15 @@ const bestMovePointsOfSeats = (seatNumbers: unknown, results: any[]): number => 
  * are read when the protocol has no list.
  */
 export function clubBestMovePointsForParticipant(protocol: any, participantId: string, results: any[]): number {
-  if (!participantId) return 0;
-  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
-  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
-  if (relevant.length) return relevant.reduce((sum: number, move: any) => sum + bestMovePointsOfSeats(move?.seat_numbers, results), 0);
-  if (String(protocol?.best_move_participant_id || '') === participantId) return bestMovePointsOfSeats(protocol?.best_move_seats, results);
-  return 0;
+  return clubBestMoveSeatsForParticipant(protocol, participantId)
+    .reduce((sum, seats) => sum + bestMovePointsOfSeats(seats, results), 0);
 }
 
+export function clubBestMoveSeatsForParticipant(protocol: any, participantId: string): number[][] {
+  if (!participantId) return [];
+  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
+  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
+  const lists = relevant.length ? relevant.map((move: any) => move?.seat_numbers)
+    : String(protocol?.best_move_participant_id || '') === participantId ? [protocol?.best_move_seats] : [];
+  return lists.filter(Array.isArray).map((seats: unknown[]) => seats.map(Number));
+}

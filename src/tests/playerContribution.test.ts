@@ -234,7 +234,7 @@ describe('personal bonuses on the game blank are named by source (owner, 2026-10
   it('shows the best move, the judge bonus and Ci in whole Elo', () => {
     const results = [{ seat_number: 1, role: 'citizen', participant_id: 'a', judge_bonus: 0.3, protocol_bonus: 0.8, ci_points: 0.2 }, { seat_number: 8, role: 'mafia' }, { seat_number: 9, role: 'mafia' }];
     const protocol = { best_moves: [{ participant_id: 'a', seat_numbers: [8, 9, 2] }] };
-    expect(personalBonusLines(protocol, results[0], results)).toEqual(['Лучший ход: +12 Эло', 'Бонус судьи: +12 Эло', 'Компенсация первому убитому: +8 Эло']);
+    expect(personalBonusLines(protocol, results[0], results)).toEqual(['Лучший ход: +12 Эло (№8, №9, №2 — угадал №8, №9)', 'Бонус судьи: +12 Эло', 'Компенсация первому убитому: +8 Эло']);
   });
 });
 
@@ -366,6 +366,24 @@ describe('agreed split («попил») and a black already paid by a vote (owne
     expect(me.items.some((item) => item.kind === 'will_right')).toBe(false);
     expect(me.items.some((item) => item.kind === 'will_already')).toBe(true);
   });
+});
+
+it('does not reward a checked black omitted from the sheriff will', () => {
+  const results = [
+    { seat_number: 3, role: 'sheriff', exit_type: 'killed', color_protocol: [{ mark: 'red', seat_numbers: [7] }] },
+    { seat_number: 7, role: 'citizen', exit_type: 'alive' },
+    { seat_number: 8, role: 'mafia', exit_type: 'alive' },
+    { seat_number: 9, role: 'mafia', exit_type: 'alive' },
+  ];
+  const events = [
+    { at: 'x', seq: 1, round: 1, phase: 'zero_night', kind: 'game_start' },
+    { at: 'x', seq: 2, round: 1, phase: 'night', kind: 'sheriff_check', target: 8, value: 'black' },
+    { at: 'x', seq: 3, round: 1, phase: 'night', kind: 'night_step', value: 'morning' },
+    { at: 'x', seq: 4, round: 2, phase: 'night', kind: 'exit', seat: 3, value: 'killed' },
+  ];
+  const scores = gameContribution({ protocol: { winner_team: 'red', events }, player_results: results });
+  expect(scores.find((score) => score.seat === 8)?.items.some((item) => item.kind === 'not_named')).toBe(false);
+  expect(scores.find((score) => score.seat === 9)?.items.some((item) => item.kind === 'not_named')).toBe(true);
 });
 
 describe('a black who left by a split is one credit with the check (owner, 2026-11-02: «максимум 2 начисления, не +12»)', () => {

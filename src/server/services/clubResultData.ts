@@ -11,7 +11,7 @@ import { gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { contributionBreakdown, gameContribution, type SeatContribution } from '../../lib/playerContribution.ts';
 import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP, RED_EQUAL_EXPECTATION, RESULT_WEIGHT } from './eloRatingService.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
-import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
+import { clubBestMovePointsForParticipant, clubBestMoveSeatsForParticipant } from './bestMovePoints.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -72,7 +72,16 @@ export function personalBonusLines(protocol: any, result: any, results: any[]): 
   const signed = (n: number) => `${n > 0 ? '+' : '−'}${Math.abs(n)}`;
   const lines: string[] = [];
   const bestMove = value(clubBestMovePointsForParticipant(protocol, String(result?.participant_id || ''), results));
-  if (bestMove) lines.push(`Лучший ход: ${signed(bestMove)} Эло`);
+  if (bestMove) {
+    const blackSeats = new Set(results.filter((row) => ['mafia', 'don'].includes(normalizeGameRole(row.role) || '')).map((row) => Number(row.seat_number)));
+    const describe = (seats: number[]) => seats.map((seat) => `№${seat}`).join(', ');
+    const moves = clubBestMoveSeatsForParticipant(protocol, String(result?.participant_id || ''));
+    const detail = moves.map((seats) => {
+      const guessed = seats.filter((seat) => blackSeats.has(seat));
+      return `${describe(seats)} — ${guessed.length ? 'угадал ' + describe(guessed) : 'без попаданий'}`;
+    }).join(' / ');
+    lines.push(`Лучший ход: ${signed(bestMove)} Эло (${detail})`);
+  }
   const judge = value(Number(result?.judge_bonus || 0));
   if (judge) lines.push(`Бонус судьи: ${signed(judge)} Эло`);
   const ci = value(Number(result?.ci_points || 0));
@@ -112,12 +121,21 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
     groups.set(round, group);
   }
   return [...groups].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)).flatMap(([round, items]) => {
-    const lines = contributionBreakdown(contribution.role, items.filter((item) => item.kind !== 'vote_red' && item.points !== 0));
+    const detailed = new Set(['check_black', 'check_voted_out', 'will_right', 'will_wrong', 'vote_red']);
+    const lines = contributionBreakdown(contribution.role, items.filter((item) => !detailed.has(item.kind) && item.points !== 0));
     for (const item of items) {
       if (!item.points && item.kind === 'check_black') {
         lines.push(`Чёрная проверка №${item.seat}: 0 Эло (уже учтена)`);
       }
       if (!item.points) continue;
+      const points = signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT);
+      if (item.kind === 'check_black') lines.push(`Чёрная проверка: ${points} (проверил №${item.seat})`);
+      if (item.kind === 'check_voted_out') lines.push(`Стол вывел проверенного чёрного: ${points} (ушёл №${item.seat})`);
+      if (item.kind === 'will_right' || item.kind === 'will_wrong') {
+        const label = `В завещании${item.firstKilledWill ? ' ПУ' : ''} ${item.kind === 'will_right' ? 'правильно' : 'неправильно'}`;
+        const color = item.willColor ? ` назвал ${item.willColor === 'red' ? 'красным' : item.willColor === 'black' ? 'чёрным' : 'шерифом'}` : '';
+        lines.push(`${label}: ${points} (№${item.seat}${color}${item.votedOut ? ', стол его вывел' : ''})`);
+      }
       if (item.kind === 'vote_red') {
         const reason = [item.votedOut && 'красного вывели', item.critical && 'критический круг'].filter(Boolean).join(' · ');
         lines.push(`Голос в красного №${item.seat}: ${signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT)} Эло${reason ? ` · ${reason}` : ''}`);

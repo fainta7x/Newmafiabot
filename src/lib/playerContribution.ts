@@ -77,6 +77,8 @@ export interface ContributionItem {
   step?: number; source?: ContributionKind;
   /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
   stayed?: boolean; votedOut?: boolean;
+  firstKilledWill?: boolean;
+  willColor?: 'red' | 'black' | 'sheriff';
 }
 /** A run of two or more decisions of the same sign in a row, in game order, with the extra it earned. */
 export interface StreakRun { sign: 1 | -1; labels: string[]; points: number }
@@ -339,29 +341,32 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       for (const [seat, round] of obvious) items.push({ kind: 'obvious_black', seat, round, points: 0 });
       const will: ContributionItem[] = [];
       for (const seat of colorsBySeat.get(me.seat)!.red) {
-        if (redRole(roleOf.get(seat))) will.push({ kind: 'will_right', seat, points: W.colorRight.red });
-        else if (blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
+        if (redRole(roleOf.get(seat))) will.push({ kind: 'will_right', seat, willColor: 'red', points: W.colorRight.red });
+        else if (blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, willColor: 'red', points: W.colorWrong.calledRed });
       }
       for (const seat of colorsBySeat.get(me.seat)!.black) {
         // Owner, 2026-10-26: a black this red already found with his vote earns once — the will does not pay for him again.
-        if (blackRole(roleOf.get(seat))) will.push(checkedRound.has(seat) ? { kind: 'will_already', seat, points: 0 } : { kind: 'will_right', seat, points: W.colorRight.black });
+        if (blackRole(roleOf.get(seat))) will.push(checkedRound.has(seat) ? { kind: 'will_already', seat, points: 0 } : { kind: 'will_right', seat, willColor: 'black', points: W.colorRight.black });
         else if (redRole(roleOf.get(seat))) {
           // Owner, 2026-10-26: when the table then voted this red out, it played by the will — the error costs twice.
           const out = votedOutAt.get(seat); const willAt = killedEvent(me.seat)?.seq;
           const followed = facts.full && out != null && willAt != null && out > willAt;
-          will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledBlack * (followed ? W.willFollowedFactor : 1), votedOut: followed });
+          will.push({ kind: 'will_wrong', seat, willColor: 'black', points: W.colorWrong.calledBlack * (followed ? W.willFollowedFactor : 1), votedOut: followed });
         }
       }
       // A sheriff label on a black is still a wrong red colour; compatible red+sheriff labels count once.
       for (const seat of colorsBySeat.get(me.seat)!.sheriff) {
-        if (!colorsBySeat.get(me.seat)!.red.has(seat) && blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, points: W.colorWrong.calledRed });
+        if (!colorsBySeat.get(me.seat)!.red.has(seat) && blackRole(roleOf.get(seat))) will.push({ kind: 'will_wrong', seat, willColor: 'sheriff', points: W.colorWrong.calledRed });
       }
       const result = results.find((row) => Number(row?.seat_number) === me.seat);
       const markedFirstKilled = String(protocol.first_killed_participant_id || '') === String(result?.participant_id || '')
         && Boolean(protocol.first_killed_participant_id);
       const firstKilledSeat = facts.events.filter((event) => event.kind === 'first_killed').at(-1)?.seat;
       const firstKilled = Object.hasOwn(protocol, 'first_killed_participant_id') ? markedFirstKilled : firstKilledSeat === me.seat;
-      for (const item of will) item.round = killedEvent(me.seat)?.round;
+      for (const item of will) {
+        item.round = killedEvent(me.seat)?.round;
+        item.firstKilledWill = firstKilled;
+      }
       const wrong = will.filter((item) => item.kind === 'will_wrong');
       const right = will.filter((item) => item.kind === 'will_right');
       if (wrong.length && !firstKilled) {
@@ -447,7 +452,12 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           || colors.conflicts.has(me.seat) || !wasAliveForWill(me, other)) continue;
         if (colors.red.has(me.seat) || colors.sheriff.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNamedRed });
         else if (colors.black.has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNamedBlack });
-        else items.push({ kind: 'not_named', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNotNamed });
+        else {
+          const death = killedEvent(other.seat);
+          const alreadyChecked = mode === 'club' && other.role === 'sheriff' && facts.checks.some((check) =>
+            check.kind === 'sheriff' && check.target === me.seat && (!death || check.seq < death.seq));
+          if (!alreadyChecked) items.push({ kind: 'not_named', seat: other.seat, round: death?.round, points: W.blackNotNamed });
+        }
       }
     }
     // Elo tags of the judge (owner, 2026-11-03): fixed −10 / +10 after every personal limit, any role.

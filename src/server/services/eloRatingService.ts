@@ -68,7 +68,7 @@ const numeric = (value: unknown) => {
  * Expectation and protection use their own documented level distances.
  */
 export const ELO_SCALE = 5;
-const RESULT_WEIGHT = 10 * ELO_SCALE;
+export const RESULT_WEIGHT = 10 * ELO_SCALE;
 const PERSONAL_POINT_WEIGHT = ELO_PERSONAL_POINT_WEIGHT;
 export const PERSONAL_CAP_ELO = ELO_PERSONAL_CAP;
 /**

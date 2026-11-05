@@ -59,12 +59,12 @@ function seatEvents(seat: BlankSeat) {
 const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
-  // The lines are shared with the in-app protocols (`seatEloLines`); here a long one breaks at «·» so it never leaves the card.
+  // The lines are shared with the in-app protocols (`seatEloLines`); here a long one wraps at spaces so it never leaves the card.
   const lines: string[] = [];
   for (const line of seatEloLines(seat)) {
     let current = '';
-    for (const piece of line.split(' · ')) {
-      const next = current ? `${current} · ${piece}` : piece;
+    for (const piece of line.split(/\s+/)) {
+      const next = current ? `${current} ${piece}` : piece;
       if (next.length > CONTRIBUTION_CHARS && current) { lines.push(current); current = piece; } else current = next;
     }
     if (current) lines.push(current);

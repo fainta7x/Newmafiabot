@@ -72,7 +72,7 @@ export const CONTRIBUTION_WEIGHTS = {
 export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
-  kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number;
+  kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number; round?: number;
   /** Series lines: which decision in a row (2 or 3 = third and later) and what that decision was. */
   step?: number; source?: ContributionKind;
   /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
@@ -176,7 +176,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     // A revote may be recorded by its totals only; the split is one decision of the day, so use the day's known voters.
     if (!voters.size) voters = new Set((facts.circles.find((circle) => circle.round === round)?.votings || []).flatMap((item) => item.votes.flatMap((ballot) => ballot.voters)));
     const left: number[] = Array.isArray(protocolRound?.eliminated_seats) ? protocolRound.eliminated_seats.map(Number) : [];
-    return { voters, left };
+    return { voters, left, round };
   });
   // Old protocols bypassed the new validation. Ignore self marks and contradictory evidence in a rebuild too.
   const colorsBySeat = new Map(seats.map((item) => {
@@ -237,6 +237,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
   for (const mark of splitBreakMarks(protocol.events)) if (redRole(roleOf.get(mark.seat))) redSplitBreaks.push(mark);
   // The last raise before the end of a game the reds lost: each red who raised a hand for it is cut (only where the hands were recorded).
   const raiseVoters = new Set<number>();
+  let raiseRound: number | undefined;
   let raiseTable: ReadonlySet<number> | undefined;
   if (protocol.winner_team === 'black') {
     const voteRounds = Array.isArray(protocol?.votes) ? protocol.votes : [];
@@ -245,6 +246,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     const lastDay = voteRounds.reduce((max: number, round: any) => Math.max(max, Number(round?.day_number ?? 0)), 0);
     if (lastRaise && Number(lastRaise.day_number ?? 0) === lastDay) {
       const handsRound = Number(lastRaise.day_number ?? 0) + 1;
+      raiseRound = handsRound;
       for (const event of facts.events) {
         if (event.round !== handsRound || !event.seat) continue;
         if (event.kind === 'table_vote') { if (!raiseVoters.size && raiseTable === undefined) raiseTable = facts.atSeq.get(event.seq); raiseVoters.add(event.seat); }
@@ -255,8 +257,8 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
   if (protocol.zero_round_rule !== 'club' && breaker && victim && breaker !== victim && roleOf.get(breaker) && roleOf.get(victim)) {
     const into = roleOf.get(victim) === 'sheriff' ? 'Sheriff' : blackRole(roleOf.get(victim)) ? 'Black' : 'Red';
     const [forBreaker, forVictim] = W.zeroBreak[`${blackRole(roleOf.get(breaker)) ? 'black' : 'red'}Into${into}` as keyof typeof W.zeroBreak];
-    if (forBreaker) zeroBreak.set(breaker, { kind: 'zero_break', seat: victim, points: forBreaker });
-    if (forVictim) zeroBreak.set(victim, { kind: 'zero_broken_into', seat: breaker, points: forVictim });
+    if (forBreaker) zeroBreak.set(breaker, { kind: 'zero_break', round: 1, seat: victim, points: forBreaker });
+    if (forVictim) zeroBreak.set(victim, { kind: 'zero_broken_into', round: 1, seat: breaker, points: forVictim });
   }
   // The девятка: a voting with nine players at the table, after the zero circle.
   const outAtNine = (seat: number) => {
@@ -274,7 +276,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       const finds: FindCreditCandidate<ContributionItem>[] = [];
       const participantId = String(results.find((row) => Number(row?.seat_number) === me.seat)?.participant_id || '');
       const found = new Map<number, ContributionItem>();
-      const obvious = new Set<number>();
+      const obvious = new Map<number, number>();
       const isObviousToTable = obviousBlacksFor(me.seat, facts, roleOf);
       // Owner, 2026-10-26: a black the sheriff checked himself is paid by the check (+4) and by the table voting him out (+4);
       // his own vote for that black and naming him in the will earn nothing more. A check at night of a round is known from the
@@ -294,11 +296,11 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           if (blackRole(roleOf.get(seat))) {
             // Owner, 2026-11-02: a black who left by a split is the same «заголосованный чёрный» as any other — one credit slot per black
             // (8 Elo at most), shared with the check, the vote and the will. It used to be added on top (+12 for a checked black).
-            const out: ContributionItem = { kind: 'split_outcome', seat, points: W.splitBlackOut };
+            const out: ContributionItem = { kind: 'split_outcome', seat, round: split.round, points: W.splitBlackOut };
             items.push(out);
             finds.push({ item: out, target: seat, value: W.splitBlackOut, seq: votedOutAt.get(seat) ?? null, ownDecision: false });
           }
-          else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, points: W.splitRedOut });
+          else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, round: split.round, points: W.splitRedOut });
         }
       }
       for (const voting of mode === 'club' ? facts.votings.filter((item) => item.outcome === 'single_eliminated' && !splits.has(`${item.round}:${item.number}`)) : []) {
@@ -306,11 +308,11 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
         if (!target) continue;
         const critical = voting.critical === true;
         if (blackRole(roleOf.get(target))) {
-          if (isObvious(target, voting.round)) { if (!found.has(target)) obvious.add(target); }
+          if (isObvious(target, voting.round)) { if (!found.has(target)) obvious.set(target, voting.round); }
           else if (!found.has(target)) {
             // Owner, 2026-10-26: a vote for a black the table never voted out may be random — it earns half.
             const stayed = !votedOutSeats.has(target);
-            const item: ContributionItem = { kind: 'found_black', seat: target, points: stayed ? W.foundBlack / 2 : W.foundBlack, stayed };
+            const item: ContributionItem = { kind: 'found_black', seat: target, round: voting.round, points: stayed ? W.foundBlack / 2 : W.foundBlack, stayed };
             found.set(target, item); obvious.delete(target);
             finds.push({ item, target, value: item.points, seq: voting.seq ?? null, ownDecision: true });
             if (facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: 1, items: [item] });
@@ -327,14 +329,14 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
             const decided = votedOut && [...counts].some(([seat, count]) => blackRole(roleOf.get(seat)) && count === mine - 1);
             if (!decided) continue;
           }
-          const item: ContributionItem = { kind: 'vote_red', seat: target, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
+          const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.
           if (target !== me.seat && facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: -1, items: [item] });
         }
       }
       items.push(...found.values());
-      for (const seat of obvious) items.push({ kind: 'obvious_black', seat, points: 0 });
+      for (const [seat, round] of obvious) items.push({ kind: 'obvious_black', seat, round, points: 0 });
       const will: ContributionItem[] = [];
       for (const seat of colorsBySeat.get(me.seat)!.red) {
         if (redRole(roleOf.get(seat))) will.push({ kind: 'will_right', seat, points: W.colorRight.red });
@@ -359,22 +361,23 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
         && Boolean(protocol.first_killed_participant_id);
       const firstKilledSeat = facts.events.filter((event) => event.kind === 'first_killed').at(-1)?.seat;
       const firstKilled = Object.hasOwn(protocol, 'first_killed_participant_id') ? markedFirstKilled : firstKilledSeat === me.seat;
+      for (const item of will) item.round = killedEvent(me.seat)?.round;
       const wrong = will.filter((item) => item.kind === 'will_wrong');
       const right = will.filter((item) => item.kind === 'will_right');
       if (wrong.length && !firstKilled) {
         items.push(...wrong);
-        if (right.length) items.push({ kind: 'will_blocked', seat: me.seat, points: 0 });
+        if (right.length) items.push({ kind: 'will_blocked', seat: me.seat, round: killedEvent(me.seat)?.round, points: 0 });
       } else items.push(...will);
       if (mode === 'club' && me.role === 'sheriff') {
         const checkedTargets = new Set<number>();
         for (const check of facts.checks) if (check.kind === 'sheriff' && blackRole(roleOf.get(check.target))) {
           // A repeated check of the same black pays nothing again (+4 and +4 per black in all).
           if (checkedTargets.has(check.target)) continue;
-          const item: ContributionItem = { kind: 'check_black', seat: check.target, points: W.sheriffFoundBlack };
+          const item: ContributionItem = { kind: 'check_black', seat: check.target, round: roundOfSeq.get(check.seq), points: W.sheriffFoundBlack };
           items.push(item);
           finds.push({ item, target: check.target, value: W.sheriffFoundBlack, seq: check.seq, ownDecision: true });
           if (votedOutSeats.has(check.target)) {
-            const out: ContributionItem = { kind: 'check_voted_out', seat: check.target, points: W.sheriffCheckedVotedOut };
+            const out: ContributionItem = { kind: 'check_voted_out', seat: check.target, round: roundOfSeq.get(votedOutAt.get(check.target) ?? -1), points: W.sheriffCheckedVotedOut };
             items.push(out);
             finds.push({ item: out, target: check.target, value: W.sheriffFoundBlack + W.sheriffCheckedVotedOut, seq: votedOutAt.get(check.target) ?? null, ownDecision: false });
           }
@@ -401,7 +404,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       const factors = firstKilled ? new Map<ContributionItem, number>() : decisionStreakMultipliers(seriesDecisions);
       for (const [item, factor] of factors) {
         const extra = item.points * (factor - 1);
-        if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, step: factor >= 1.5 ? 3 : 2, source: item.kind });
+        if (Math.abs(extra) > 1e-10) items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, round: item.round, step: factor >= 1.5 ? 3 : 2, source: item.kind });
       }
       // The runs themselves, for the game blank: which decisions came in a row (owner, 2026-10-26).
       if (!firstKilled) {
@@ -416,7 +419,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
         close();
       }
     } else if (blackRole(me.role)) {
-      if (mode === 'club' && outAtNine(me.seat)) items.push({ kind: 'out_at_nine', seat: me.seat, points: W.blackOutAtNine });
+      if (mode === 'club' && outAtNine(me.seat)) items.push({ kind: 'out_at_nine', seat: me.seat, round: facts.events.find((event) => event.seq === votedOutAt.get(me.seat))?.round, points: W.blackOutAtNine });
       if (mode === 'club') {
         // Day circles the facts keep (after the zero circle, one player left): any ballot for this black in any of its votings spoils it.
         const rounds = new Map<number, boolean>();
@@ -431,15 +434,15 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       if (mode === 'club' && me.role === 'don') {
         const roundOfSeq = new Map(facts.events.map((event) => [event.seq, event.round]));
         const found = facts.checks.find((check) => check.kind === 'don' && roleOf.get(check.target) === 'sheriff' && roundOfSeq.get(check.seq) === 1);
-        if (found) items.push({ kind: 'don_found_sheriff', seat: found.target, points: W.donFoundSheriffFirstNight });
+        if (found) items.push({ kind: 'don_found_sheriff', seat: found.target, round: 1, points: W.donFoundSheriffFirstNight });
       }
       for (const other of seats.filter((item) => redRole(item.role) && item.colors.length)) {
         const colors = colorsBySeat.get(other.seat)!;
         if ((other.exitType !== 'killed' && !killedEvent(other.seat)) || !colors.mentioned.size
           || colors.conflicts.has(me.seat) || !wasAliveForWill(me, other)) continue;
-        if (colors.red.has(me.seat) || colors.sheriff.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, points: W.blackNamedRed });
-        else if (colors.black.has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, points: W.blackNamedBlack });
-        else items.push({ kind: 'not_named', seat: other.seat, points: W.blackNotNamed });
+        if (colors.red.has(me.seat) || colors.sheriff.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNamedRed });
+        else if (colors.black.has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNamedBlack });
+        else items.push({ kind: 'not_named', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNotNamed });
       }
     }
     // Elo tags of the judge (owner, 2026-11-03): fixed −10 / +10 after every personal limit, any role.
@@ -450,11 +453,11 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     }
     if (mode === 'club' && redRole(me.role)) {
       for (const mark of redSplitBreaks.filter((entry) => entry.seat === me.seat)) items.push({ kind: 'split_break_red', seat: me.seat, night: mark.round, points: -SPLIT_BREAK_RED_ELO / ELO_PERSONAL_POINT_WEIGHT });
-      if (raiseVoters.has(me.seat)) items.push({ kind: 'raise_defeat', seat: me.seat, points: -RAISE_DEFEAT_ELO / ELO_PERSONAL_POINT_WEIGHT });
+      if (raiseVoters.has(me.seat)) items.push({ kind: 'raise_defeat', seat: me.seat, round: raiseRound, points: -RAISE_DEFEAT_ELO / ELO_PERSONAL_POINT_WEIGHT });
     }
     // The blacks who sat at the table during that raise are paid +10 Elo (owner, 2026-11-01), only when red hands were really recorded.
     if (mode === 'club' && blackRole(me.role) && raiseVoters.size && (raiseTable ? raiseTable.has(me.seat) : me.exitType === 'alive')) {
-      items.push({ kind: 'raise_defeat_black', seat: me.seat, points: RAISE_DEFEAT_BLACK_BONUS_ELO / ELO_PERSONAL_POINT_WEIGHT });
+      items.push({ kind: 'raise_defeat_black', seat: me.seat, round: raiseRound, points: RAISE_DEFEAT_BLACK_BONUS_ELO / ELO_PERSONAL_POINT_WEIGHT });
     }
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
     if (mode === 'club' && zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);

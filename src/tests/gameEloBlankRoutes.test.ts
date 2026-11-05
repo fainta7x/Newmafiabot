@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
+import { gameBlankSvg } from '../server/services/clubResultImages.ts';
 import { loadGameBlank, seatEloLines } from '../server/services/clubResultData.ts';
 
 // The in-app protocols show the Elo breakdown of the club's result blank (owner, 2026-10-27: «в таком формате… всё
@@ -45,6 +46,31 @@ describe('Elo breakdown in the in-app protocols', () => {
     expect(response.body.game.elo_table).toEqual(blank!.table);
     expect(response.body.players.map((player: any) => player.elo_lines)).toEqual(blank!.seats.map((seat) => seatEloLines(seat)));
     expect(response.body.players[1].elo_lines.some((line: string) => line.startsWith('Лучший ход:'))).toBe(true);
+  });
+
+  it('shows the team adjustment and dated penalties in both the protocol and the chat image', async () => {
+    const { db, app, gameId } = await setup();
+    const row = await db.get<{ protocol_text: string }>('SELECT protocol_text FROM games WHERE id = ?', [gameId]);
+    const envelope = JSON.parse(row!.protocol_text);
+    envelope.protocol.events = [
+      { kind: 'split_break', seat: 2, round: 1 },
+      { kind: 'split_break', seat: 2, round: 3 },
+    ];
+    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(envelope), gameId]);
+    await db.run("UPDATE players SET elo_seed = 1800 WHERE id IN ('h', 'i', 'j')");
+    const response = await request(app).get(`/api/games/${gameId}/elo-blank`).set('Cookie', `organizer_token=${generateOrganizerToken()}`);
+    expect(response.status).toBe(200);
+    expect(response.body.seats[1].lines).toEqual(expect.arrayContaining([
+      'За победу: +45 Эло',
+      'Сила стола: +35 → +45 Эло · поправка +10',
+      'Нулевой круг',
+      'Круг 2',
+    ]));
+    expect(response.body.seats[1].lines.filter((line: string) => line.startsWith('Сломал попил красным'))).toHaveLength(2);
+    const image = gameBlankSvg((await loadGameBlank(db, gameId))!);
+    expect(image).toContain('За победу: +45 Эло');
+    expect(image).toContain('Сила стола: +35 → +45 Эло');
+    expect(image).toContain('Круг 2');
   });
 
   it('the organizer\'s protocol window reads the same blank; a player cannot', async () => {

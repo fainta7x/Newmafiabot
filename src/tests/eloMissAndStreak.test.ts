@@ -251,6 +251,8 @@ describe('multi-exit table raise Elo: only recorded hands earn +6/-3', () => {
     const parts = result.items.filter((item) => item.kind === 'raise_outcome');
     assert.deepEqual(parts.map((item) => Math.round(item.points * 40)), [6, 6, -3]);
     close(parts.reduce((sum, item) => sum + item.points * 40, 0), 9);
+    assert.ok(contributionBreakdown(result.role, result.items).some((line) =>
+      line.includes('чёрный №8 +6, чёрный №9 +6, красный №2 −3 · итого +9')));
     assert.equal(result.items.filter((item) => item.kind === 'split_outcome').length, 0);
     assert.equal(deltas([8, 9, 2]).find((row) => row.seat === 3)!.items.some((item) => item.kind === 'raise_outcome'), false);
   });
@@ -260,6 +262,8 @@ describe('multi-exit table raise Elo: only recorded hands earn +6/-3', () => {
     const parts = result.items.filter((item) => item.kind === 'raise_outcome');
     assert.deepEqual(parts.map((item) => Math.round(item.points * 40)), [6, -3, -3]);
     close(parts.reduce((sum, item) => sum + item.points * 40, 0), 0);
+    assert.ok(contributionBreakdown(result.role, result.items).some((line) =>
+      line.includes('чёрный №8 +6, красный №2 −3, красный №3 −3 · итого 0')));
   });
 
   it('never invents a raised hand and excludes a retracted hand', () => {

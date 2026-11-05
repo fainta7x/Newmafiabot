@@ -8,6 +8,8 @@ import {
   getTelegramDispatchJob,
 } from '../services/telegramSyncOutboxService.ts';
 
+import { syncTournamentAnnouncementPhoto } from '../services/clubResultPostService.ts';
+
 const router = Router();
 
 // Registration/fee/calendar metadata extends the canonical tournament entity. Mount it
@@ -61,7 +63,8 @@ router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
     await enqueueTelegramTournamentSync(db, String(req.params.id));
     const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
     const queued = Boolean(await getTelegramDispatchJob(db, 'tournament', String(req.params.id)));
-    return res.json({ success: true, queued, drain });
+    const announcementPhoto = await syncTournamentAnnouncementPhoto(db, String(req.params.id));
+    return res.json({ success: true, queued, drain, announcementPhoto });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось поставить публикацию турнира в очередь' });
   }

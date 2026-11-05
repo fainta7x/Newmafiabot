@@ -97,13 +97,13 @@ export default function VipProbabilitySettings() {
       </div>)}
     </div>}
     <div className="grid gap-2 sm:grid-cols-2">
-      <label className="text-xs text-white/60">Игрок
-        <select className={field} value={draft.playerId} onChange={e=>change('playerId',e.target.value)}>
+      <label htmlFor="vip-rule-player" className="text-xs text-white/60">Игрок
+        <select id="vip-rule-player" aria-label="Игрок" className={field} value={draft.playerId} onChange={e=>change('playerId',e.target.value)}>
           <option value="">Выбрать</option>{players.map(p=><option key={p.id} value={p.id}>{p.nickname}</option>)}
         </select>
       </label>
-      <label className="text-xs text-white/60">Условие
-        <select className={field} value={draft.kind} onChange={e=>change('kind',e.target.value as Kind)}>
+      <label htmlFor="vip-rule-kind" className="text-xs text-white/60">Условие
+        <select id="vip-rule-kind" aria-label="Условие" className={field} value={draft.kind} onChange={e=>change('kind',e.target.value as Kind)}>
           {(Object.keys(labels) as Kind[]).map(kind=><option key={kind} value={kind}>{labels[kind]}</option>)}
         </select>
       </label>

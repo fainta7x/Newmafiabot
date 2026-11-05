@@ -113,6 +113,37 @@ describe('in-game streaks of confirmed decisions', () => {
     assert.deepEqual(totals, [-8, -6, -12, -28]);
   });
 
+  it('applies will streak relief before critical doubling and both doublings to the second author', () => {
+    const rows = players();
+    rows[6].role = 'mafia';
+    rows[8].role = 'citizen';
+    rows[0].color_protocol = [{ mark: 'black', seat_numbers: [9] }];
+    rows[1].color_protocol = [{ mark: 'black', seat_numbers: [9] }];
+    const exit = (round: number, seat: number, night = false) =>
+      event(round, 'exit', { seat, value: night ? 'killed' : 'voted_day', phase: night ? 'night' : 'day_voting' });
+    const vote = (round: number, eliminated: number) => [
+      event(round, 'vote', { seat: 5, target: 9, value: 1 }),
+      event(round, 'vote_round_result', { value: '1:single_eliminated' }),
+      exit(round, eliminated),
+    ];
+    const protocol = { winner_team: 'black', first_killed_participant_id: 'p1', events: sequence([
+      event(1, 'game_start', { phase: 'zero_night' }), exit(1, 1, true),
+      ...vote(2, 3), exit(2, 2, true), ...vote(3, 9), event(3, 'game_end', { value: 'black' }),
+    ]) };
+    const voter = score(rows, protocol, 5);
+    const roundPoints = (round: number) => voter.items.filter((item) => item.round === round)
+      .reduce((sum, item) => sum + item.points * 40, 0);
+    close(roundPoints(2), -4);
+    close(roundPoints(3), -16);
+    close(voter.negativePoints * 40, -20);
+    close(voter.positivePoints, 0);
+    close(score(rows, protocol, 1).points * 40, -8);
+    close(score(rows, protocol, 2).points * 40, -20);
+
+    rows[1].color_protocol = [{ mark: 'red', seat_numbers: [9] }];
+    assert.ok(!score(rows, protocol, 5).items.some((item) => item.kind === 'will_vote_relief'));
+  });
+
   it('opposite decisions reset, and the steps keep growing', () => {
     const objects = Array.from({ length: 8 }, () => ({}));
     const factors = decisionStreakSteps(objects.map((item, i) => ({ seq: i + 1, sign: (i === 3 ? -1 : 1) as 1 | -1, items: [item] })));

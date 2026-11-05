@@ -70,7 +70,7 @@ export const CONTRIBUTION_WEIGHTS = {
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'will_vote_relief' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number; round?: number;
@@ -79,6 +79,8 @@ export interface ContributionItem {
   /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
   stayed?: boolean; votedOut?: boolean;
   firstKilledWill?: boolean;
+  willSeriesExtra?: number;
+  willAuthors?: number[];
   willColor?: 'red' | 'black' | 'sheriff';
 }
 /** A run of two or more decisions of the same sign in a row, in game order, with the extra it earned. */
@@ -227,6 +229,24 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
   }
   const votedOutSeats = new Set<number>(seats.filter((item) => item.exitType === 'voted_day' && (!facts.full || votedOutAt.has(item.seat))).map((item) => item.seat));
   for (const seat of votedOutAt.keys()) votedOutSeats.add(seat);
+  // A contradictory colour about the same target resets its will streak; omitted targets are neutral.
+  const willHistory = new Map<number, Array<{ author: number; seq: number; wrong: boolean; authors: number[] }>>();
+  const criticalRounds = new Set(facts.votings.filter((vote) => vote.critical).map((vote) => vote.round));
+  if (mode === 'club' && facts.full) {
+    for (const death of [...deaths.values()].sort((a, b) => a.seq - b.seq)) {
+      if (!death.seat || !redRole(roleOf.get(death.seat))) continue;
+      const colors = colorsBySeat.get(death.seat);
+      if (!colors) continue;
+      for (const target of colors.mentioned) {
+        if (!redRole(roleOf.get(target)) || !facts.atSeq.get(death.seq)?.has(target)) continue;
+        const history = willHistory.get(target) ?? [];
+        const wrong = colors.black.has(target);
+        const authors = wrong ? [...(history.at(-1)?.authors ?? []), death.seat] : [];
+        history.push({ author: death.seat, seq: death.seq, wrong, authors });
+        willHistory.set(target, history);
+      }
+    }
+  }
   // A broken zero-round split: only with the judge's explicit mark of the breaker (never guessed from the votes), and only
   // under the tournament setting, where the player really leaves the table (owner, 2026-10-26; the club setting keeps him).
   const breaker = zeroRoundBreakerSeat(protocol.events);
@@ -311,6 +331,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, round: split.round, points: W.splitRedOut });
         }
       }
+      const voteReliefs = new Map<ContributionItem, number[]>();
       for (const voting of mode === 'club' ? facts.votings.filter((item) => item.outcome === 'single_eliminated' && !splits.has(`${item.round}:${item.number}`)) : []) {
         const target = voting.votes.get(me.seat);
         if (!target) continue;
@@ -339,6 +360,10 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           }
           const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
+          if (target !== me.seat && voting.seq != null) {
+            const authors = willHistory.get(target)?.findLast((entry) => entry.seq < voting.seq!)?.authors;
+            if (authors && authors.length > 1) voteReliefs.set(item, authors);
+          }
           // Preserve existing base scoring; a self-vote does not establish a colour-reading streak.
           if (target !== me.seat && facts.full && voting.seq != null) decisions.push({ seq: voting.seq, sign: -1, items: [item] });
         }
@@ -357,7 +382,12 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
           // Owner, 2026-10-26: when the table then voted this red out, it played by the will — the error costs twice.
           const out = votedOutAt.get(seat); const willAt = killedEvent(me.seat)?.seq;
           const followed = facts.full && out != null && willAt != null && out > willAt;
-          will.push({ kind: 'will_wrong', seat, willColor: 'black', points: W.colorWrong.calledBlack * (followed ? W.willFollowedFactor : 1), votedOut: followed });
+          const series = willHistory.get(seat)?.find((entry) => entry.author === me.seat && entry.wrong);
+          const willSeriesExtra = -Math.max(0, (series?.authors.length ?? 1) - 1) * 2 / ELO_PERSONAL_POINT_WEIGHT;
+          const critical = series != null && criticalRounds.has((killedEvent(me.seat)?.round ?? -2) + 1);
+          const points = (W.colorWrong.calledBlack * (followed ? W.willFollowedFactor : 1) + willSeriesExtra)
+            * (critical ? W.criticalFactor : 1);
+          will.push({ kind: 'will_wrong', seat, willColor: 'black', points, votedOut: followed, willSeriesExtra, critical });
         }
       }
       // A sheriff label on a black is still a wrong red colour; compatible red+sheriff labels count once.
@@ -422,10 +452,16 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       for (const [item, step] of steps) {
         if (step === 1) continue;
         const sign = Math.sign(item.points);
-        const criticalFactor = item.kind === 'vote_red' && item.critical ? W.criticalFactor : 1;
+        const criticalFactor = item.critical ? W.criticalFactor : 1;
         const extra = sign * (step - 1) * 2 * criticalFactor / ELO_PERSONAL_POINT_WEIGHT;
         extraByItem.set(item, extra);
         items.push({ kind: extra > 0 ? 'streak_correct' : 'streak_wrong', seat: item.seat, points: extra, round: item.round, step, source: item.kind, critical: item.critical });
+      }
+      for (const [vote, authors] of voteReliefs) {
+        const factor = vote.critical ? W.criticalFactor : 1;
+        const relief = (authors.length - 1) * 2 * factor / ELO_PERSONAL_POINT_WEIGHT;
+        const points = Math.min(relief, -(vote.points + (extraByItem.get(vote) ?? 0)));
+        if (points > 0) items.push({ kind: 'will_vote_relief', seat: vote.seat, round: vote.round, points, critical: vote.critical, willAuthors: authors });
       }
       // The runs themselves, for the game blank: which decisions came in a row (owner, 2026-10-26).
       if (!firstKilled) {
@@ -491,16 +527,17 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     // Owner, 2026-10-26: the series may go over the pool — that is its point.
     if (mode === 'club' && zeroBreak.has(me.seat)) items.push(zeroBreak.get(me.seat)!);
     const fixedTag = (item: ContributionItem) => item.kind === 'elo_tag_false_sheriff_red_sheriff' || item.kind === 'elo_tag_revealed_to_black' || item.kind === 'elo_tag_killed_sheriff_zero';
-    const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' || fixedTag(item) ? 0 : Math.max(0, item.points)), 0);
+    const pluses = items.reduce((sum, item) => sum + (item.kind === 'streak_correct' || item.kind === 'will_vote_relief' || fixedTag(item) ? 0 : Math.max(0, item.points)), 0);
     if (pluses > W.positivePool + 1e-10) items.push({ kind: 'pool_cap', seat: me.seat, points: W.positivePool - pluses });
     const positivePoints = Math.min(W.positivePool, pluses) + items.filter((item) => item.kind === 'streak_correct').reduce((sum, item) => sum + item.points, 0);
     const negativePoints = items.filter((item) => item.points < 0 && item.kind !== 'pool_cap' && item.kind !== 'shot_miss' && item.kind !== 'split_break_red' && item.kind !== 'raise_defeat' && !fixedTag(item)).reduce((sum, item) => sum + item.points, 0);
+    const willRelief = items.filter((item) => item.kind === 'will_vote_relief').reduce((sum, item) => sum + item.points, 0);
     // Fixed cuts after all personal limits: a miss, a red who broke a split, a red who raised for the lost game.
     const missPenaltyElo = items.filter((item) => item.kind === 'shot_miss').length * MISSED_SHOT_ELO
       + items.filter((item) => item.kind === 'split_break_red').length * SPLIT_BREAK_RED_ELO
       + items.filter((item) => item.kind === 'raise_defeat').length * RAISE_DEFEAT_ELO
       - items.filter(fixedTag).reduce((sum, item) => sum + item.points * ELO_PERSONAL_POINT_WEIGHT, 0);
-    return { seat: me.seat, role: me.role, points: positivePoints + negativePoints, positivePoints, negativePoints, missPenaltyElo, items, streaks };
+    return { seat: me.seat, role: me.role, points: positivePoints + negativePoints + willRelief, positivePoints, negativePoints: negativePoints + willRelief, missPenaltyElo, items, streaks };
   });
 }
 

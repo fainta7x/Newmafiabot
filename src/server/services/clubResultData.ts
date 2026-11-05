@@ -134,7 +134,10 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
       if (item.kind === 'will_right' || item.kind === 'will_wrong') {
         const label = `В завещании${item.firstKilledWill ? ' ПУ' : ''} ${item.kind === 'will_right' ? 'правильно' : 'неправильно'}`;
         const color = item.willColor ? ` назвал ${item.willColor === 'red' ? 'красным' : item.willColor === 'black' ? 'чёрным' : 'шерифом'}` : '';
-        lines.push(`${label}: ${points} (№${item.seat}${color}${item.votedOut ? ', стол его вывел' : ''})`);
+        lines.push(`${label}: ${points} (№${item.seat}${color}${item.votedOut ? ', стол его вывел ×2' : ''}${item.willSeriesExtra ? ', серия ' + signedEloValue(item.willSeriesExtra * ELO_PERSONAL_POINT_WEIGHT) : ''}${item.critical ? ', критика ×2' : ''})`);
+      }
+      if (item.kind === 'will_vote_relief') {
+        lines.push(`Смягчение голоса в №${item.seat}: ${points} (завещания ${item.willAuthors?.map((seat) => `№${seat}`).join(', ')}${item.critical ? ', критика ×2' : ''})`);
       }
       if (item.kind === 'vote_red') {
         const reason = [item.votedOut && 'красного вывели', item.critical && 'критический круг'].filter(Boolean).join(' · ');

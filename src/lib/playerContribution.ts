@@ -585,6 +585,20 @@ const seatNumbers = (items: ContributionItem[]) => {
 };
 const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seatNumbers(items)}: ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
 
+const raiseOutcomeLines = (items: ContributionItem[]): string[] => {
+  const byRound = new Map<number | undefined, ContributionItem[]>();
+  for (const item of items) {
+    const group = byRound.get(item.round) ?? [];
+    group.push(item);
+    byRound.set(item.round, group);
+  }
+  return [...byRound].map(([, group]) => {
+    const details = group.map((item) => `${item.points >= 0 ? 'чёрный' : 'красный'} №${item.seat} ${signedElo(elo(item.points))}`).join(', ');
+    return `Подъём, поднял руку: ${details} · итого ${signedElo(elo(group.reduce((sum, item) => sum + item.points, 0)))}`;
+  });
+};
+
+
 /**
  * Show the arithmetic of each mistaken red decision in the same order as it is charged:
  * base colour mistake (+ elimination factor), streak, then critical ×2.
@@ -627,8 +641,7 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const lines = blackRole(role)
     ? [of('black_checked_first_night').length ? `Шериф проверил чёрным в первую ночь: ${signedElo(elo(of('black_checked_first_night')[0].points))}` : null, of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
-      group('Поднял руку за подъём — вышел чёрный', of('raise_outcome').filter((item) => item.points > 0)),
-      group('Поднял руку за подъём — вышел красный', of('raise_outcome').filter((item) => item.points < 0)),
+      ...raiseOutcomeLines(of('raise_outcome')),
       group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),
       group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),

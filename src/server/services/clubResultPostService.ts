@@ -64,7 +64,7 @@ export async function ensureClubResultPostSchema(db: DatabaseWrapper) {
 
 export const clubResultDestination = (format: unknown) => {
   const normalized = normalizeEveningFormat(format);
-  return normalized === 'NOVICE' ? 'novice' : normalized === 'CASUAL' ? 'club' : 'rating';
+  return normalized === 'NOVICE' ? 'novice_chat' : normalized === 'CASUAL' ? 'club_chat' : 'rating_chat';
 };
 
 /** One picture, or an album (the evening summary with the season table) in one message. */
@@ -334,7 +334,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   if (!(await claim(db, key, 'public-season', null as any, null))) return false;
   try {
     const caption = `🏆 Таблица сезона на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
-    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'club', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'club_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -370,7 +370,7 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
       lines.push(`№${game.number} ${game.role ? ROLE_LABELS[game.role] || game.role : 'роль не указана'} — ${game.won ? 'победа' : 'поражение'}`);
     }
     if (evening.scored && player.points != null) {
-      lines.push(`Баллы за вечер: ${comma(player.points)} · в среднем ${comma(player.points / player.games.length)}`);
+      lines.push(`Баллы за вечер: ${comma(player.points)}`);
     }
     if (player.eloDelta != null) lines.push(`Эло: ${comma(Math.round(player.eloDelta))} · теперь ${Math.round(player.eloAfter || 0)}`);
     lines.push('🏆 Кто сыграл лучше всех? Отдай свой голос за «MVP вечера»: кнопками в следующем сообщении или в приложении (Клуб → Истории), голосование открыто 3 дня.');
@@ -691,7 +691,7 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
     const blank = await loadTournamentGameBlank(db, tournamentGameId);
     if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра турнира не завершена' }); return false; }
     const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
-    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -732,8 +732,8 @@ export const tournamentResultsText = (title: string, dateLabel: string, rows: Ar
   return lines.join('\n');
 };
 
-const TOURNAMENT_RESULTS_DESTINATIONS = ['rating'] as const;
-const tournamentResultsKey = (tournamentId: string, destination: string) => `tournament-results:${tournamentId}:${destination}`;
+const TOURNAMENT_RESULTS_DESTINATIONS = ['rating_chat'] as const;
+const tournamentResultsKey = (tournamentId: string, destination: string) => `tournament-results:${tournamentId}:${destination === 'rating_chat' ? 'rating' : destination}`;
 
 /**
  * The official results of a tournament go to the rating group only (owner, 2026-11-02: the entry channel «Анонсы» is for announcements; before that, 2026-10-05, they also went there) once the organizer has published them. Each destination is claimed on its own, so a retry never posts twice.

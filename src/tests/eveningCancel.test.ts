@@ -63,9 +63,10 @@ describe('cancelling an evening from «Закрытие»', () => {
 
   it('cancels a running evening without games (owner, 2026-10-24) and refuses a settled one', async () => {
     const db = await setup();
-    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 })) as unknown as typeof fetch;
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }));
     await db.run("UPDATE game_evenings SET status = 'active' WHERE id = 'club'");
     await cancelEveningByOrganizer(db, 'club', { text: 'Не собрались' }, fetchImpl);
+    expect(fetchImpl).not.toHaveBeenCalled();
     expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'club'")).status).toBe('cancelled');
     await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'nov'", [new Date().toISOString()]);
     await expect(cancelEveningByOrganizer(db, 'nov', {}, fetchImpl)).rejects.toMatchObject({ statusCode: 409 });

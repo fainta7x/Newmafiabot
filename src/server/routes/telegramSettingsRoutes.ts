@@ -17,7 +17,7 @@ import {
 const router = Router();
 router.use(requireOrganizerAuth);
 
-const destinationOrder = ['public', 'novice', 'club', 'rating'];
+const destinationOrder = ['public', 'novice', 'novice_chat', 'club', 'club_chat', 'rating', 'rating_chat'];
 
 const sanitizeChatId = (value: unknown): string | null => {
   if (value == null) return null;

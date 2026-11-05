@@ -4,7 +4,7 @@ import { PostTemplatesCard } from './PostTemplatesCard.tsx';
 import { ClubDigestCard } from './ClubDigestCard.tsx';
 import { CheckCircle2, RefreshCw, Send, TestTube2 } from 'lucide-react';
 
-type DestinationId = 'public' | 'novice' | 'club' | 'rating';
+type DestinationId = 'public' | 'novice' | 'club' | 'rating' | 'novice_chat' | 'club_chat' | 'rating_chat';
 
 type Destination = {
   id: DestinationId;
@@ -45,6 +45,9 @@ const meta: Record<DestinationId, { eyebrow: string; route: string; topic: boole
   novice: { eyebrow: 'Новички', route: 'NOVICE → тема «Анонсы игр»', topic: true },
   club: { eyebrow: 'Основной клуб', route: 'CASUAL → тема «Запись на игровой вечер»', topic: true },
   rating: { eyebrow: 'Закрытый доступ', route: 'RATING + TOURNAMENT', topic: false },
+  novice_chat: { eyebrow: 'Новички', route: 'Итоги и MVP → чат группы новичков', topic: true },
+  club_chat: { eyebrow: 'Основной клуб', route: 'Итоги и MVP → тема «Чатик»', topic: true },
+  rating_chat: { eyebrow: 'Рейтинг и турниры', route: 'Итоги и MVP → чат рейтинга и турниров', topic: true },
 };
 
 const request = async (url: string, options?: RequestInit) => {

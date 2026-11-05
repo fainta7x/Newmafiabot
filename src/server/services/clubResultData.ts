@@ -112,7 +112,7 @@ const signedEloValue = (n: number) => {
   return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)}`;
 };
 
-function roundContributionLines(contribution: SeatContribution, protocol: Parameters<typeof circleTitle>[1], tableSize: number): string[] {
+export function roundContributionLines(contribution: SeatContribution, protocol: Parameters<typeof circleTitle>[1], tableSize: number): string[] {
   const groups = new Map<number | undefined, SeatContribution['items']>();
   for (const item of contribution.items) {
     const round = item.round ?? (item.kind === 'shot_miss' ? undefined : item.night);
@@ -125,7 +125,7 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
     const lines = contributionBreakdown(contribution.role, items.filter((item) => !detailed.has(item.kind) && item.points !== 0));
     // Explain each wrong vote/will with the base, series and finally the critical ×2.
     // Do not show the pre-multiplied vote and the series as unrelated penalties.
-    lines.push(...mistakeLines(items, 'vote_red'), ...mistakeLines(items, 'will_wrong'));
+    lines.push(...mistakeLines(items, 'vote_red', false), ...mistakeLines(items, 'will_wrong', false));
     for (const item of items) {
       if (!item.points && item.kind === 'check_black') {
         lines.push(`Чёрная проверка №${item.seat}: 0 Эло (уже учтена)`);

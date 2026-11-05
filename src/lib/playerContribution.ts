@@ -552,6 +552,37 @@ const seatNumbers = (items: ContributionItem[]) => {
 const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seatNumbers(items)}: ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
 
 /**
+ * Show the arithmetic of each mistaken red decision in the same order as it is charged:
+ * base colour mistake (+ elimination factor), streak, then critical ×2.
+ * The streak items are bookkeeping and must not look like another separate penalty.
+ */
+const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong'): string[] => {
+  return items.filter((item) => item.kind === kind).map((item) => {
+    const multiplier = item.critical ? CONTRIBUTION_WEIGHTS.criticalFactor : 1;
+    const base = item.points / multiplier - (kind === 'will_wrong' ? item.willSeriesExtra ?? 0 : 0);
+    const ownSeries = kind === 'will_wrong' ? item.willSeriesExtra ?? 0 : 0;
+    const streak = items.filter((part) => part.kind === 'streak_wrong' && part.source === kind && part.seat === item.seat && part.round === item.round)
+      .reduce((sum, part) => sum + part.points, 0) / multiplier;
+    const relief = kind === 'vote_red' ? items.filter((part) => part.kind === 'will_vote_relief' && part.seat === item.seat && part.round === item.round)
+      .reduce((sum, part) => sum + part.points, 0) / multiplier : 0;
+    const beforeCritical = base + ownSeries + streak + relief;
+    const total = beforeCritical * multiplier;
+    const context = item.round == null ? '' : `Круг ${item.round} · `;
+    const action = kind === 'vote_red'
+      ? `Голос в красного №${item.seat}${item.votedOut ? ', которого вывели' : ''}`
+      : `Завещание: назвал №${item.seat} чёрным${item.votedOut ? ', стол вывел красного' : ''}`;
+    const components = [`${signedElo(elo(base))} за ${kind === 'vote_red' ? 'голос' : 'завещание'}`];
+    if (ownSeries) components.push(`${signedElo(elo(ownSeries))} за повтор ошибочного завещания`);
+    if (streak) components.push(`${signedElo(elo(streak))} за серию ошибок`);
+    if (relief) components.push(`${signedElo(elo(relief))} смягчение по завещаниям`);
+    const maths = components.length > 1 || item.critical
+      ? `(${components.join(', ')})${item.critical ? ' ×2 за критический круг' : ''} = ${signedElo(elo(total))}`
+      : signedElo(elo(total));
+    return `${context}${action}: ${maths}`;
+  });
+};
+
+/**
  * The breakdown of a seat's contribution in short plain words and Elo (owner, 2026-10-25: «попроще и попонятнее»), one
  * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +4»; caps are shown separately by the game blank.
  */
@@ -565,12 +596,10 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),
       group('Голосовал в чёрных, которых не вывели (половина)', of('found_black').filter((item) => item.stayed)),
       of('obvious_black').length ? `Голосовал в уже известных чёрных ${seatNumbers(of('obvious_black'))} — без баллов` : null,
-      group('Голосовал в красных', of('vote_red').filter((item) => !item.votedOut)),
-      group('Голосовал в красных, которых вывели (×2)', of('vote_red').filter((item) => item.votedOut)),
+      ...mistakeLines(items, 'vote_red'),
       group('В завещании угадал', of('will_right')),
       of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан` : null,
-      group('В завещании ошибся в', of('will_wrong').filter((item) => !item.votedOut)),
-      group('В завещании назвал чёрным красного, стол его вывел (×2)', of('will_wrong').filter((item) => item.votedOut)),
+      ...mistakeLines(items, 'will_wrong'),
       group('Чёрная проверка', of('check_black')),
       group('Стол вывел проверенного чёрного', of('check_voted_out')),
     ];
@@ -578,8 +607,14 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   for (const item of of('zero_broken_into')) lines.unshift(`В нуле в него сломал попил №${item.seat}: ${signedElo(elo(item.points))}`);
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
   // The series in plain words: which decisions came in a row and what the run added (owner, 2026-10-26).
-  for (const run of streaks) {
+  // A red-vote/will streak is already included beside that action above. Never charge it a
+  // second time in the explanation. Keep legacy runs only if itemized series data is absent.
+  const itemizedStreaks = of('streak_correct').length + of('streak_wrong').length;
+  if (!itemizedStreaks) for (const run of streaks) {
     lines.push(`${run.sign > 0 ? 'Верно подряд' : 'Ошибки подряд'}: ${run.labels.join(' → ')}: ${signedElo(elo(run.points))}`);
+  }
+  for (const item of [...of('streak_correct'), ...of('streak_wrong')].filter((entry) => entry.source !== 'vote_red' && entry.source !== 'will_wrong')) {
+    lines.push(`Серия ${item.points > 0 ? 'верных решений' : 'ошибок'} · №${item.seat}: ${signedElo(elo(item.points))}`);
   }
   const pool = of('pool_cap');
   if (pool.length) lines.push(`Больше +${elo(CONTRIBUTION_WEIGHTS.positivePool)} за игру не набрать: ${signedElo(elo(pool[0].points))}`);

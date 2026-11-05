@@ -28,6 +28,10 @@ jobs:
     name: Mobile preview and screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,12 +59,12 @@ jobs:
         run: node scripts/buildUiPreview.mjs
       - name: Check mobile screens
         if: steps.scope.outputs.preview_skip != 'true'
-        run: npx playwright test --config playwright-preview.config.mjs
+        run: npx playwright test --config playwright-preview.config.mjs --shard=${{ matrix.shard }}/3
         working-directory: e2e
         env:
           UI_PREVIEW_SPECS: ${{ steps.scope.outputs.preview_specs }}
       - name: Save web preview
-        if: always()
+        if: always() && matrix.shard == 1
         uses: actions/upload-artifact@v4
         with:
           name: ui-preview-site
@@ -70,7 +74,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-preview-evidence
+          name: ui-preview-evidence-${{ matrix.shard }}
           path: e2e/preview-results
           retention-days: 14
 

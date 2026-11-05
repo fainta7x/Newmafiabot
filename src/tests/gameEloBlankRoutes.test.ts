@@ -38,6 +38,21 @@ async function setup() {
 }
 
 describe('Elo breakdown in the in-app protocols', () => {
+  it('shows the team result and one personal total before the individual reasons', () => {
+    const actions = [
+      'Чёрная проверка №8: +4',
+      'Стол вывел проверенного чёрного №8: +4',
+      'В завещании угадал №7: +2',
+      'В завещании ошибся в №3, №5: −8',
+      'Вскрылся чёрному: −10',
+    ];
+    expect(seatEloLines({
+      eloDelta: 31, eloAfter: 1031, eloContribution: 2, eloPersonalBonus: 4, eloFixedDelta: -10,
+      teamResultLines: ['За победу +35'], personalLines: ['Лучший ход: +4 Эло'],
+      contributionLines: actions, roundLines: actions,
+    })).toEqual(['За победу +35', 'Личный итог: −4 Эло', 'Лучший ход: +4 Эло', ...actions]);
+  });
+
   it('the player\'s game page carries the team strength and every seat\'s blank lines', async () => {
     const { db, app, gameId } = await setup();
     const blank = await loadGameBlank(db, gameId);

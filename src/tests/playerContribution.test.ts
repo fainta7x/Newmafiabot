@@ -96,7 +96,7 @@ describe('contribution breakdown on the game blank, in plain words and Elo', () 
   it('starts with the Elo and keeps every line short', () => {
     const seat: any = { eloContribution: 12, contributionLines: [Array.from({ length: 8 }, (_, i) => `угадал №${i + 1} +8`).join(' · ')] };
     const lines = contributionTextLines(seat);
-    expect(lines[0]).toBe('Итого за действия: +12 Эло');
+    expect(lines[0]).toBe('Личный итог: +12 Эло');
     expect(lines.length).toBeGreaterThan(2);
     expect(lines.every((line) => line.length <= 74)).toBe(true);
   });

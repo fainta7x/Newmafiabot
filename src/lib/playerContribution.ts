@@ -509,8 +509,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
       of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан` : null,
       group('В завещании ошибся в', of('will_wrong').filter((item) => !item.votedOut)),
       group('В завещании назвал чёрным красного, стол его вывел (×2)', of('will_wrong').filter((item) => item.votedOut)),
-      group('Проверкой нашёл чёрного', of('check_black')),
-      group('Проверенного чёрного вывел стол', of('check_voted_out')),
+      group('Чёрная проверка', of('check_black')),
+      group('Стол вывел проверенного чёрного', of('check_voted_out')),
     ];
   for (const item of of('zero_break')) lines.unshift(`Сломал попил в нуле в №${item.seat}: ${signedElo(elo(item.points))}`);
   for (const item of of('zero_broken_into')) lines.unshift(`В нуле в него сломал попил №${item.seat}: ${signedElo(elo(item.points))}`);

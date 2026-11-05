@@ -10,7 +10,7 @@ import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHis
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
 import { contributionBreakdown, gameContribution, type SeatContribution } from '../../lib/playerContribution.ts';
 import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP, RED_EQUAL_EXPECTATION, RESULT_WEIGHT } from './eloRatingService.ts';
-import { ELO_CONTRIBUTION_CAP, ELO_PERSONAL_CAP, ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
+import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
 import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
@@ -115,7 +115,7 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
     const lines = contributionBreakdown(contribution.role, items.filter((item) => item.kind !== 'vote_red' && item.points !== 0));
     for (const item of items) {
       if (!item.points && item.kind === 'check_black') {
-        lines.push(`Проверкой нашёл чёрного №${item.seat}: 0 Эло (баллы за него уже учтены)`);
+        lines.push(`Чёрная проверка №${item.seat}: 0 Эло (уже учтена)`);
       }
       if (!item.points) continue;
       if (item.kind === 'vote_red') {
@@ -171,20 +171,23 @@ export function seatEloOfGame(envelope: any, event: PlayerEloHistoryEvent | null
   };
 }
 
-/**
- * Every Elo line under a seat, in the order of the result blank (owner, 2026-10-25/27: the in-app protocols show the same
- * breakdown as the chat pictures): personal bonuses, «За действия в игре», each kind of action, the caps and discipline.
- */
+/** Shared order for the protocol and chat card: team result, personal total, then its itemized breakdown. */
 export function seatEloLines(seat: SeatElo): string[] {
-  const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
-  const lines: string[] = [...(seat.teamResultLines || []), ...(seat.personalLines || [])];
-  const actionsTotal = (seat.eloContribution || 0) + (seat.eloFixedDelta || 0);
-  if (Math.round(actionsTotal) || seat.roundLines?.length) lines.push(`Итого за действия: ${value(actionsTotal)} Эло`);
-  if (seat.eloFixedDelta && !seat.roundLines?.length) lines.push(`Из них отдельные бонусы и штрафы: ${signedEloValue(seat.eloFixedDelta)} Эло`);
-  lines.push(...(seat.roundLines ?? seat.contributionLines));
-  if (Math.round(seat.eloContributionCap || 0)) lines.push(`Лимит баллов за действия (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
-  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Лимит личных баллов (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
-  if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
+  const details = [
+    ...(seat.personalLines || []),
+    ...(seat.roundLines ?? seat.contributionLines),
+  ];
+  if (seat.eloFixedDelta && !seat.roundLines?.length) details.push(`Отдельные бонусы и штрафы: ${signedEloValue(seat.eloFixedDelta)} Эло`);
+  if (Math.round(seat.eloContributionCap || 0)) details.push(`После лимита за действия: ${signedEloValue(seat.eloContributionCap || 0)} Эло`);
+  if (Math.round(seat.eloPersonalCap || 0)) details.push(`После лимита личных баллов: ${signedEloValue(seat.eloPersonalCap || 0)} Эло`);
+  if (seat.eloDiscipline) details.push(`За нарушения: ${signedEloValue(seat.eloDiscipline)} Эло`);
+
+  const personalTotal = (seat.eloContribution || 0) + (seat.eloPersonalBonus || 0)
+    + (seat.eloFixedDelta || 0) + (seat.eloPersonalCap || 0) + (seat.eloDiscipline || 0);
+  const lines = [...(seat.teamResultLines || [])];
+  if (Math.round(personalTotal) || details.length) {
+    lines.push(`Личный итог: ${signedEloValue(personalTotal)} Эло`, ...details);
+  }
   return lines;
 }
 

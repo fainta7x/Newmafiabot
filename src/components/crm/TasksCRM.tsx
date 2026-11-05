@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   CalendarDays,
@@ -46,6 +46,8 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
   const [loadError, setLoadError] = useState<string | null>(null);
   // The home «Задачи» tile counts every open task, so the list opens on the same set (not only today's).
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const currentFilter = useRef(filterMode);
+  const requestSequence = useRef(0);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');
@@ -64,8 +66,10 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
     void loadTasks();
   }, [filterMode]);
 
-  const loadTasks = async () => {
-    setLoading(true);
+  const loadTasks = async (background = false) => {
+    const request = ++requestSequence.current;
+    const filterMode = currentFilter.current;
+    if (!background) setLoading(true);
     setLoadError(null);
     try {
       const params: Record<string, string | boolean> = {};
@@ -76,11 +80,12 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
       }
       if (filterMode === 'overdue') params.overdue = true;
       if (filterMode === 'done') params.status = 'done';
-      setTasks(await api.getTasks(params));
+      const rows = await api.getTasks(params);
+      if (request === requestSequence.current && filterMode === currentFilter.current) setTasks(rows);
     } catch (err: any) {
-      setLoadError(err.message || 'Не удалось загрузить задачи');
+      if (request === requestSequence.current && filterMode === currentFilter.current) setLoadError(err.message || 'Не удалось загрузить задачи');
     } finally {
-      setLoading(false);
+      if (request === requestSequence.current) setLoading(false);
     }
   };
 
@@ -88,7 +93,7 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
     setBusyTaskId(task.id);
     try {
       await api.updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' });
-      await loadTasks();
+      await loadTasks(true);
     } catch (err: any) {
       setLoadError(err.message || 'Не удалось изменить статус задачи');
     } finally {
@@ -102,7 +107,7 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
     try {
       await api.deleteTask(deleteTarget.id);
       setDeleteTarget(null);
-      await loadTasks();
+      await loadTasks(true);
     } catch (err: any) {
       setLoadError(err.message || 'Не удалось удалить задачу');
       setDeleteTarget(null);
@@ -139,7 +144,7 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
       });
       setShowCreateModal(false);
       resetCreateForm();
-      await loadTasks();
+      await loadTasks(true);
     } catch (err: any) {
       setFormError(err.message || 'Не удалось создать задачу');
     } finally {
@@ -171,7 +176,7 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
               <button
                 key={filter.id}
                 type="button"
-                onClick={() => setFilterMode(filter.id)}
+                onClick={() => { currentFilter.current = filter.id; setFilterMode(filter.id); }}
                 className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold transition ${
                   filterMode === filter.id
                     ? 'border-accent bg-accent-soft text-text-primary'

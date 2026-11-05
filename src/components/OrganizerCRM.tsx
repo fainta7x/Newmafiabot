@@ -337,6 +337,9 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       </header>
 
       <main className="mx-auto w-full max-w-3xl lg:max-w-6xl 2xl:max-w-[1640px] flex-1 px-3 pt-2.5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 md:pb-8">
+        {loadError && isOrganizer && crmOverview ? (
+          <p role="alert" className="mb-3 rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{loadError}</p>
+        ) : null}
         {loading ? (
           <div className="flex min-h-[48vh] flex-col items-center justify-center gap-3 text-center">
             <RefreshCw className="h-6 w-6 animate-spin text-accent" />
@@ -345,7 +348,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <p className="mt-1 text-[12px] text-text-secondary">Игроки, события и очередь действий появятся одновременно</p>
             </div>
           </div>
-        ) : loadError && isOrganizer ? (
+        ) : loadError && isOrganizer && !crmOverview ? (
           <div className="flex min-h-[48vh] items-center justify-center">
             <div className="w-full max-w-sm rounded-[20px] border border-danger/30 bg-danger-soft p-5 text-center">
               <h2 className="text-[16px] font-bold">Не удалось загрузить кабинет организатора</h2>

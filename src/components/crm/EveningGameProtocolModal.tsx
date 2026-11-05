@@ -43,6 +43,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     judge_notes: null,
   } as TournamentGameProtocolData));
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>(source?.player_results || []);
+  const [eloRefreshVersion, setEloRefreshVersion] = useState(0);
   // The protocol as it was when the window opened: «Вы изменили» is the difference from it.
   const [baseline, setBaseline] = useState<ProtocolState | null>(() => (repairedSource && source ? { protocol: repairedSource.protocol, results: source.player_results } : null));
   // The club and the tournament protocol share one autosave (architecture programme, 2026-10-26).
@@ -84,11 +85,30 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     await save(draft, playerResults, { replaceEditor: true });
   };
 
+  const replaceGuest = async (seat: number, playerId: string) => {
+    if (protocol.status !== 'completed' && !(await autosave.flush())) {
+      throw new Error('Сначала сохрани изменения протокола.');
+    }
+    const updated = await clubGamesApi.repairSeatIdentity(game.id, { seat_number: seat, replacement_player_id: playerId });
+    if (updated.club_protocol) {
+      const { protocol: nextProtocol, player_results: nextResults } = updated.club_protocol;
+      const repaired = repairLegacyClubProtocol(nextProtocol, nextResults);
+      autosave.markSaved(nextProtocol, nextResults);
+      setProtocol(repaired.protocol);
+      setPlayerResults(nextResults);
+      setBaseline({ protocol: repaired.protocol, results: nextResults });
+      setRepairNotes(describeLegacyRepairs(repaired.repairs));
+    }
+    setEloRefreshVersion((version) => version + 1);
+    onUpdated(updated);
+  };
+
   if (!isOpen) return null;
 
   const api: ProtocolApi = {
     protocol, results: playerResults, locked: protocol.status === 'completed', tableSize: playerResults.length, zeroRoundRule: protocol.zero_round_rule ?? 'tournament',
     ...editing.members,
+    replaceGuest,
   };
   const saveLabel = saveState === 'saving' ? { label: 'Сохраняем…', tone: 'neutral' as const }
     : saveState === 'unsaved' ? { label: 'Есть несохранённые изменения', tone: 'warn' as const }
@@ -114,7 +134,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       onReopen={reopenDraft}
       onClose={() => void close()}
       resetKey={`${game.id}:${isOpen}`}
-      resultExtra={protocol.status === 'completed' ? <EloBlankSection gameId={game.id} version={String(protocol.updated_at || protocol.completed_at || '')} /> : null}
+      resultExtra={protocol.status === 'completed' ? <EloBlankSection gameId={game.id} version={`${String(protocol.updated_at || protocol.completed_at || '')}:${eloRefreshVersion}`} /> : null}
     />
   );
 };

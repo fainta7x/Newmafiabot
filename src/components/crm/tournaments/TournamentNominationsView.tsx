@@ -1,5 +1,5 @@
 import { countGames } from '../../../lib/russianPlural';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Award, ChevronDown, ChevronUp, Crown, RefreshCw, Shield, Trophy, UserCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../../lib/api.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
@@ -19,22 +19,33 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  const loadedTournament = useRef<string | null>(null);
+  const requestSequence = useRef(0);
+
   const load = async (manual = false) => {
     manual ? setRefreshing(true) : setLoading(true);
+    const request = ++requestSequence.current;
     setError(null);
     try {
       const response = await api.getTournamentNominations(tournamentId);
+      if (request !== requestSequence.current) return;
+      loadedTournament.current = tournamentId;
       setNominations(response.nominations || []);
       setProvisional(response.provisional);
     } catch (err: any) {
-      setError(err.message || 'Не удалось рассчитать номинации турнира');
+      if (request === requestSequence.current) setError(err.message || 'Не удалось рассчитать номинации турнира');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (request === requestSequence.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
-  useEffect(() => { void load(); }, [tournamentId, refreshTrigger]);
+  useEffect(() => {
+    void load(loadedTournament.current === tournamentId);
+    return () => { requestSequence.current += 1; };
+  }, [tournamentId, refreshTrigger]);
 
   const icon = (category: string) => {
     if (category === 'mvp') return <Crown className="w-5 h-5 text-amber-400" />;

@@ -126,7 +126,7 @@ export const BettingAdminCRM: React.FC = () => {
     finally { setBusy(null); }
   };
 
-  if (loading) return <div className="flex min-h-[40vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
+  if (loading && !data) return <div className="flex min-h-[40vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">

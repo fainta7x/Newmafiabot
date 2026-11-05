@@ -7,5 +7,5 @@ export const TABLE_NAMES: Record<number, string> = { 10: 'Десятка', 9: '�
 /** Circle name for the live game: `index` is 0 for the zero circle, `tableSize` the players alive at the start of the circle. */
 export const circleNameByTableSize = (index: number, tableSize: number | null | undefined): string => {
   if (index <= 0) return 'Нулевой круг';
-  return (tableSize != null && TABLE_NAMES[tableSize]) || `Круг ${index}`;
+  return (tableSize != null && TABLE_NAMES[tableSize]) || 'Круг неизвестен';
 };

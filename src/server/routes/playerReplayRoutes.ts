@@ -108,6 +108,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
           : Array.isArray(payload.voting_rounds) ? payload.voting_rounds
             : [];
 
+    const engineEvents = sanitizeLiveGameEvents(protocol.events);
     const events: Array<any> = [];
     rawRounds.forEach((round: any, index: number) => {
       const number = Number(round.number ?? round.round ?? round.round_number ?? index + 1);
@@ -126,15 +127,14 @@ router.get('/games/:gameKey/replay', async (req, res) => {
 
     // Games played in the Live Game engine keep a chronology (`protocol.events`) instead of ready-made rounds: fold it
     // circle by circle. Without this the replay of such a game held nothing but the final line.
-    const engineEvents = events.length ? [] : sanitizeLiveGameEvents(protocol.events);
-    if (engineEvents.length) {
+    if (!events.length && engineEvents.length) {
       const seatName = (seat: number | null | undefined) => (seat ? String(nameOf(seat)) : '—');
       const EXIT_LABEL: Record<string, string> = { killed: 'Убит', night_kill: 'Убит', voted_day: 'Заголосован', voted_zero_round: 'Заголосован', removed: 'Удалён' };
       const OUTCOME_LABEL: Record<string, string> = { single_eliminated: 'выбывает один', tie_revote: 'ничья — переголосование', all_tied_eliminated: 'выбывают все спорные', no_elimination: 'никто не выбывает' };
       for (const circle of buildGameAnalysis(engineEvents).circles) {
         const number = circle.round <= 1 ? 0 : circle.round - 1;
         const key = `c${circle.round}`;
-        events.push({ id: `${key}:round`, type: 'round', round: number, title: circle.round <= 1 ? 'Нулевой круг и первая ночь' : `Круг ${number}`, text: circle.round <= 1 ? 'Начало игры' : 'Дневная фаза' });
+        events.push({ id: `${key}:round`, type: 'round', round: number, title: circle.round <= 1 ? 'Нулевой круг и первая ночь' : circleTitle(number, { ...protocol, events: engineEvents }), text: circle.round <= 1 ? 'Начало игры' : 'Дневная фаза' });
         if (circle.nominations.length) events.push({ id: `${key}:nominations`, type: 'nominations', round: number, title: 'Выставлены', text: circle.nominations.map((item) => seatName(item.seat)).join(', '), players: circle.nominations.map((item) => seatName(item.seat)) });
         for (const reveal of circle.reveals) {
           const checks = reveal.checks.map((check) => `${seatName(check.target)} — ${check.color === 'red' ? 'красный' : 'чёрный'}`).join('; ');

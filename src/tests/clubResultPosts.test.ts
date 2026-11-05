@@ -6,7 +6,7 @@ import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from '../s
 import { ensureClubResultPostSchema, queueEveningPlayerCards, runClubResultPosts } from '../server/services/clubResultPostService.ts';
 
 const opened: DatabaseWrapper[] = [];
-afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
+afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 
 const PLAYERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 const ROLES = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
@@ -433,6 +433,8 @@ describe('the entry channel', () => {
   });
 
   it('the running seasons go to the club chat, not to the entry channel, once a week on Monday afternoon', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-05T10:00:00Z'));
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addPublic(db);

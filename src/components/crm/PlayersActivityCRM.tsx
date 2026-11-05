@@ -64,8 +64,8 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
     return params;
   }, [advancedSegment, contactStatusFilter, debouncedSearch]);
 
-  const loadProfileSummary = useCallback(async () => {
-    setProfileSummaryState('loading');
+  const loadProfileSummary = useCallback(async (background = false) => {
+    if (!background) setProfileSummaryState('loading');
     // Birthdays are optional. Their failure must not masquerade as missing profile data.
     const [summaryResult, birthdaysResult] = await Promise.allSettled([
       fetch('/api/players/profile-integrity/summary', { credentials: 'include' }),
@@ -96,7 +96,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
       const result = await api.getPlayers(buildParams());
       if (requestId !== requestSeq.current) return;
       setPlayers([...result].sort(byLastVisit));
-      void loadProfileSummary();
+      void loadProfileSummary(background);
     } catch (error: any) { if (requestId !== requestSeq.current) return; setListError(error?.message || 'Не удалось загрузить игроков'); }
     finally { if (requestId === requestSeq.current) setLoading(false); }
   }, [buildParams, loadProfileSummary]);

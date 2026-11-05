@@ -531,7 +531,7 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
               <div className="flex flex-wrap gap-1.5" role="group" aria-label={ELO_TAGS[tag].label}>
                 {api.results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player) => (
                   <button key={player.participant_id} type="button" disabled={api.locked} aria-pressed={marked.has(player.seat_number)} onClick={() => api.setEvents((list: LiveGameEvent[]) => toggleEloTagEvent(list, tag, circle.index, player.seat_number))}
-                    className={`min-h-10 rounded-lg border px-2.5 text-[12px] font-semibold ${marked.has(player.seat_number) ? 'border-white bg-white text-black' : 'border-white/12 bg-[#111216] text-white/80'}`}>#{player.seat_number}</button>
+                    className={`min-h-11 rounded-lg border px-2.5 text-[12px] font-semibold ${marked.has(player.seat_number) ? 'border-white bg-white text-black' : 'border-white/12 bg-[#111216] text-white/80'}`}>#{player.seat_number}</button>
                 ))}
               </div>
             </div>

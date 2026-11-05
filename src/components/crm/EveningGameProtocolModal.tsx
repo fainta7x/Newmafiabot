@@ -43,6 +43,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     judge_notes: null,
   } as TournamentGameProtocolData));
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>(source?.player_results || []);
+  const [eloRefreshVersion, setEloRefreshVersion] = useState(0);
   // The protocol as it was when the window opened: «Вы изменили» is the difference from it.
   const [baseline, setBaseline] = useState<ProtocolState | null>(() => (repairedSource && source ? { protocol: repairedSource.protocol, results: source.player_results } : null));
   // The club and the tournament protocol share one autosave (architecture programme, 2026-10-26).
@@ -98,6 +99,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       setBaseline({ protocol: repaired.protocol, results: nextResults });
       setRepairNotes(describeLegacyRepairs(repaired.repairs));
     }
+    setEloRefreshVersion((version) => version + 1);
     onUpdated(updated);
   };
 
@@ -132,7 +134,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       onReopen={reopenDraft}
       onClose={() => void close()}
       resetKey={`${game.id}:${isOpen}`}
-      resultExtra={protocol.status === 'completed' ? <EloBlankSection gameId={game.id} version={String(protocol.updated_at || protocol.completed_at || '')} /> : null}
+      resultExtra={protocol.status === 'completed' ? <EloBlankSection gameId={game.id} version={`${String(protocol.updated_at || protocol.completed_at || '')}:${eloRefreshVersion}`} /> : null}
     />
   );
 };

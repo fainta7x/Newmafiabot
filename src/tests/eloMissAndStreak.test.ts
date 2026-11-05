@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { gameContribution, contributionBreakdown } from '../lib/playerContribution.ts';
 import { validateShots } from '../lib/protocolConsistency.ts';
 import { decisionStreakSteps } from '../lib/eloDecisionStreak.ts';
+import { roundContributionLines } from '../server/services/clubResultData.ts';
 
 const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
 const players = () => roles.map((role, i) => ({ seat_number: i + 1, participant_id: `p${i + 1}`, player_id: `p${i + 1}`, role, exit_type: 'alive', color_protocol: [] as Array<{ mark: string; seat_numbers: number[] }> }));
@@ -203,4 +204,18 @@ describe('human-readable protocol Elo on the five-player critical vote', () => {
       line.includes('−2 за повтор ошибочного завещания') &&
       line.includes('×2 за критический круг = −20')), lines.join('\n'));
   });
+  it('shows the same combined arithmetic in the actual protocol blank, without a second error line', () => {
+    const items = [
+      { kind: 'found_black' as const, seat: 8, round: 2, points: 0.2 },
+      { kind: 'vote_red' as const, seat: 4, round: 3, tableSize: 7, points: -0.2, votedOut: true },
+      { kind: 'vote_red' as const, seat: 5, round: 4, tableSize: 5, points: -0.4, votedOut: true, critical: true },
+      { kind: 'streak_wrong' as const, seat: 5, round: 4, points: -0.1, critical: true, step: 2, source: 'vote_red' as const },
+    ];
+    const lines = roundContributionLines({ role: 'citizen', items, streaks: [], points: -0.5,
+      seat: 1, positivePoints: 0.2, negativePoints: -0.7, missPenaltyElo: 0 } as any, {}, 10);
+    assert.ok(lines.includes('Голос в красного №5, которого вывели: (−8 за голос, −2 за серию ошибок) ×2 за критический круг = −20'), lines.join('\\n'));
+    assert.equal(lines.filter((line) => line.startsWith('Голос в красного №5')).length, 1);
+    assert.ok(!lines.some((line) => line.startsWith('Ошибка №2 подряд')), lines.join('\\n'));
+  });
+
 });

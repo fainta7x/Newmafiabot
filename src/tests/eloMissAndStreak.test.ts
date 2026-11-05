@@ -219,3 +219,71 @@ describe('human-readable protocol Elo on the five-player critical vote', () => {
   });
 
 });
+
+
+describe('multi-exit table raise Elo: only recorded hands earn +6/-3', () => {
+  const makeRaise = (left: number[], handSeats = [1], noScoring = true) => {
+    const actions = [
+      event(1, 'game_start', { phase: 'zero_night' }),
+      ...handSeats.map((seat) => event(2, 'table_vote', { seat })),
+      event(2, 'vote_round_result', { value: '1:all_tied_eliminated' }),
+      ...left.map((seat) => event(2, 'exit', { seat, value: 'voted_day' })),
+      event(3, 'game_end', { value: 'red' }),
+    ];
+    const rows = players();
+    for (const seat of left) rows[seat - 1].exit_type = 'voted_day';
+    return {
+      rows,
+      protocol: {
+        winner_team: 'red',
+        events: sequence(actions),
+        votes: [{ day_number: 1, round_number: 2, outcome: 'all_tied_eliminated', no_scoring: noScoring, eliminated_seats: left }],
+      },
+    };
+  };
+  const deltas = (left: number[], handSeats = [1], noScoring = true) => {
+    const { rows, protocol } = makeRaise(left, handSeats, noScoring);
+    return gameContribution({ protocol, player_results: rows });
+  };
+
+  it('two black and one red leave: +6 +6 -3 = +9 for the red hand raiser', () => {
+    const result = deltas([8, 9, 2]).find((row) => row.seat === 1)!;
+    const parts = result.items.filter((item) => item.kind === 'raise_outcome');
+    assert.deepEqual(parts.map((item) => Math.round(item.points * 40)), [6, 6, -3]);
+    close(parts.reduce((sum, item) => sum + item.points * 40, 0), 9);
+    assert.equal(result.items.filter((item) => item.kind === 'split_outcome').length, 0);
+    assert.equal(deltas([8, 9, 2]).find((row) => row.seat === 3)!.items.some((item) => item.kind === 'raise_outcome'), false);
+  });
+
+  it('one black and two red leave: +6 -3 -3 = 0', () => {
+    const result = deltas([8, 2, 3], [1], false).find((row) => row.seat === 1)!;
+    const parts = result.items.filter((item) => item.kind === 'raise_outcome');
+    assert.deepEqual(parts.map((item) => Math.round(item.points * 40)), [6, -3, -3]);
+    close(parts.reduce((sum, item) => sum + item.points * 40, 0), 0);
+  });
+
+  it('never invents a raised hand and excludes a retracted hand', () => {
+    const none = deltas([8, 9, 2], []);
+    assert.equal(none.some((row) => row.items.some((item) => item.kind === 'raise_outcome')), false);
+    const { rows, protocol } = makeRaise([8, 9, 2], [1]);
+    protocol.events.splice(2, 0, event(2, 'table_vote_removed', { seat: 1 }));
+    protocol.events = sequence(protocol.events);
+    const undone = gameContribution({ protocol, player_results: rows });
+    assert.equal(undone.find((row) => row.seat === 1)!.items.some((item) => item.kind === 'raise_outcome'), false);
+  });
+
+  it('does not score a mere agreed no-scoring vote as a multi-exit raise', () => {
+    const rows = players();
+    const protocol = {
+      winner_team: 'red',
+      events: sequence([event(1, 'game_start', { phase: 'zero_night' }),
+        event(2, 'vote', { seat: 1, target: 8, value: 1 }),
+        event(2, 'vote_round_result', { value: '1:single_eliminated' }),
+        event(2, 'exit', { seat: 8, value: 'voted_day' })]),
+      votes: [{ day_number: 1, round_number: 2, outcome: 'single_eliminated', no_scoring: true, eliminated_seats: [8] }],
+    };
+    const item = gameContribution({ protocol, player_results: rows }).find((row) => row.seat === 1)!;
+    assert.equal(item.items.some((part) => part.kind === 'raise_outcome'), false);
+    assert.ok(item.items.some((part) => part.kind === 'split_outcome'));
+  });
+});

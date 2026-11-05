@@ -558,7 +558,7 @@ const group = (label: string, items: ContributionItem[]) => (items.length ? `${l
  * base colour mistake (+ elimination factor), streak, then critical ×2.
  * The streak items are bookkeeping and must not look like another separate penalty.
  */
-const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong'): string[] => {
+export const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong'): string[] => {
   return items.filter((item) => item.kind === kind).map((item) => {
     const multiplier = item.critical ? CONTRIBUTION_WEIGHTS.criticalFactor : 1;
     const base = item.points / multiplier - (kind === 'will_wrong' ? item.willSeriesExtra ?? 0 : 0);

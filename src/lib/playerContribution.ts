@@ -66,11 +66,13 @@ export const CONTRIBUTION_WEIGHTS = {
    * in three of the players there): +4 × 3/5 ≈ −2.
    */
   splitBlackOut: 0.1, splitRedOut: -0.05,
+  /** A confirmed multi-exit table raise: +6 for each black and -3 for each red, for red hand raisers only. */
+  raiseBlackOut: 6 / ELO_PERSONAL_POINT_WEIGHT, raiseRedOut: -3 / ELO_PERSONAL_POINT_WEIGHT,
   /** A vote for a red who left in that very voting costs twice. */
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'will_vote_relief' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'will_vote_relief' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'raise_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number; round?: number;
@@ -183,7 +185,24 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     // A revote may be recorded by its totals only; the split is one decision of the day, so use the day's known voters.
     if (!voters.size) voters = new Set((facts.circles.find((circle) => circle.round === round)?.votings || []).flatMap((item) => item.votes.flatMap((ballot) => ballot.voters)));
     const left: number[] = Array.isArray(protocolRound?.eliminated_seats) ? protocolRound.eliminated_seats.map(Number) : [];
-    return { voters, left, round };
+    return { voters, left, round, outcome: protocolRound?.outcome };
+
+  });
+  // The actual raised hands (table_vote), not ordinary voting ballots, determine who
+  // earns a multi-exit split. With missing hand records, we must not invent participants.
+  const raiseResults = (Array.isArray(protocol?.votes) ? protocol.votes : [])
+    .slice().sort((a: any, b: any) => Number(a?.round_number) - Number(b?.round_number));
+  const raisedByDay = new Map<number, number>();
+  const confirmedRaises = raiseResults.flatMap((vote: any) => {
+    const day = Number(vote?.day_number ?? 0);
+    const number = (raisedByDay.get(day) ?? 0) + 1;
+    raisedByDay.set(day, number);
+    const left = [...new Set<number>((Array.isArray(vote?.eliminated_seats) ? vote.eliminated_seats : [])
+      .map(Number).filter((seat: number) => roleOf.has(seat)))];
+    if (day <= 0 || vote?.outcome !== 'all_tied_eliminated' || left.length < 2) return [];
+    const voting = facts.circles.find((circle) => circle.round === day + 1)?.votings.find((item) => item.number === number);
+    const hands = new Set<number>((voting?.tableVoters ?? []).filter((seat: number) => roleOf.has(seat)));
+    return [{ round: day + 1, left, hands }];
   });
   // Old protocols bypassed the new validation. Ignore self marks and contradictory evidence in a rebuild too.
   const colorsBySeat = new Map(seats.map((item) => {
@@ -322,7 +341,8 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       // Owner, 2026-10-26: in a voting tagged «без оценок» only the colour of whoever left counts — one player or several
       // («с подъёмом») — the same for every red who voted in it.
       for (const split of mode === 'club' ? splitResults : []) {
-        if (!split.voters.has(me.seat)) continue;
+        // A confirmed raise is scored from recorded table hands separately below.
+        if (split.outcome === 'all_tied_eliminated' || !split.voters.has(me.seat)) continue;
         for (const seat of split.left) {
           if (blackRole(roleOf.get(seat))) {
             // Owner, 2026-11-02: a black who left by a split is the same «заголосованный чёрный» as any other — one credit slot per black
@@ -332,6 +352,18 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
             finds.push({ item: out, target: seat, value: W.splitBlackOut, seq: votedOutAt.get(seat) ?? null, ownDecision: false });
           }
           else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, round: split.round, points: W.splitRedOut });
+        }
+      }
+      for (const raise of mode === 'club' ? confirmedRaises : []) {
+        if (!raise.hands.has(me.seat)) continue;
+        for (const seat of raise.left) {
+          if (blackRole(roleOf.get(seat))) {
+            const out: ContributionItem = { kind: 'raise_outcome', seat, round: raise.round, points: W.raiseBlackOut };
+            items.push(out);
+            finds.push({ item: out, target: seat, value: W.raiseBlackOut, seq: votedOutAt.get(seat) ?? null, ownDecision: false });
+          } else if (redRole(roleOf.get(seat))) {
+            items.push({ kind: 'raise_outcome', seat, round: raise.round, points: W.raiseRedOut });
+          }
         }
       }
       const voteReliefs = new Map<ContributionItem, number[]>();
@@ -595,6 +627,8 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const lines = blackRole(role)
     ? [of('black_checked_first_night').length ? `Шериф проверил чёрным в первую ночь: ${signedElo(elo(of('black_checked_first_night')[0].points))}` : null, of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
+      group('Поднял руку за подъём — вышел чёрный', of('raise_outcome').filter((item) => item.points > 0)),
+      group('Поднял руку за подъём — вышел красный', of('raise_outcome').filter((item) => item.points < 0)),
       group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),
       group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),

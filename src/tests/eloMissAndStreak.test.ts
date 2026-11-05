@@ -174,3 +174,33 @@ describe('the series line says which decision in a row and what it was (owner, 2
   });
 });
 
+
+describe('human-readable protocol Elo on the five-player critical vote', () => {
+  it('shows the base vote and streak first, then applies the critical ×2 once', () => {
+    const items = [
+      { kind: 'found_black' as const, seat: 8, round: 2, points: 0.2 },
+      { kind: 'vote_red' as const, seat: 4, round: 3, tableSize: 7, points: -0.2, votedOut: true },
+      { kind: 'vote_red' as const, seat: 5, round: 4, tableSize: 5, points: -0.4, votedOut: true, critical: true },
+      { kind: 'streak_wrong' as const, seat: 5, round: 4, points: -0.1, critical: true, step: 2, source: 'vote_red' as const },
+    ];
+    const lines = contributionBreakdown('citizen', items);
+    assert.ok(lines.some((line) => line.includes('Голосовал в чёрных №8: +8')));
+    assert.ok(lines.some((line) => line.includes('Семёрка') && line.includes('−8')));
+    const five = lines.find((line) => line.includes('Пятёрка')) || '';
+    assert.ok(five.includes('Голос в красного №5, которого вывели'), five);
+    assert.ok(five.includes('(−8 за голос, −2 за серию ошибок) ×2 за критический круг = −20'), five);
+    assert.ok(!lines.some((line) => line.startsWith('Ошибки подряд')), lines.join('\n'));
+    close(items.reduce((sum, item) => sum + item.points * 40, 0), -20);
+  });
+
+  it('uses the same base → will-streak → critical order for a wrong will', () => {
+    const items = [
+      { kind: 'will_wrong' as const, seat: 9, round: 3, points: -0.5, critical: true,
+        willSeriesExtra: -0.05, votedOut: true, willColor: 'black' as const },
+    ];
+    const lines = contributionBreakdown('citizen', items);
+    assert.ok(lines.some((line) => line.includes('−8 за завещание') &&
+      line.includes('−2 за повтор ошибочного завещания') &&
+      line.includes('×2 за критический круг = −20')), lines.join('\n'));
+  });
+});

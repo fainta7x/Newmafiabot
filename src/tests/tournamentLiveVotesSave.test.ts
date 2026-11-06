@@ -139,7 +139,7 @@ describe('tournament Live Engine persistence audit: draft retries, finalization 
       saved = { protocol: response.body.protocol, player_results: response.body.player_results, live_seat_bindings: saved.live_seat_bindings };
       expect(saved.player_results).toHaveLength(10);
       expect(saved.player_results.map((row: any) => row.participant_id)).toEqual(participantIds);
-      expect(saved.protocol.events.map((ev: any) => ev.kind)).toEqual(events.map((ev) => ev.kind));
+      expect((saved.protocol.events || []).map((ev: any) => ev.kind)).toEqual(events.map((ev) => ev.kind));
     }
     const count = await db.get<any>('SELECT COUNT(*) AS n FROM tournament_game_player_results WHERE game_id = ?', [gameId]);
     expect(count.n).toBe(10);

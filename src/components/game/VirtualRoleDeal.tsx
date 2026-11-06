@@ -22,6 +22,7 @@ type Props = {
   serverGameId?: number;
   /** Local tournament draw checkpoint, scoped to an exact game ID. Never used by server-backed club deals. */
   persistenceKey?: string;
+  persistenceRosterToken?: string;
   /** Tournament role draws must never sell or preassign a role. */
   allowRolePurchase?: boolean;
   /** Seconds a player has to take a card before it can be opened (owner, 2026-11-01); 0 switches the wait off. */
@@ -66,11 +67,11 @@ const configuredCardSeconds = (): number => {
 };
 const BUY_ROLES: GameRole[] = ['citizen', 'mafia', 'sheriff', 'don'];
 
-export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, persistenceKey, allowRolePurchase = true, cardSeconds, finishLabel='Все роли выданы — начать игру' }: Props) {
+export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, persistenceKey, persistenceRosterToken, allowRolePurchase = true, cardSeconds, finishLabel='Все роли выданы — начать игру' }: Props) {
   const waitSeconds = cardSeconds ?? configuredCardSeconds();
   const orderedSeats = useMemo(() => [...seats].sort((a, b) => a.seat_number - b.seat_number), [seats]);
   const size = orderedSeats.length;
-  const restored = useMemo(() => !serverGameId && persistenceKey ? loadTournamentDealState(persistenceKey, orderedSeats.map((seat) => seat.seat_number)) : null, [serverGameId, persistenceKey]);
+  const restored = useMemo(() => !serverGameId && persistenceKey ? loadTournamentDealState(persistenceKey, orderedSeats.map((seat) => seat.seat_number), persistenceRosterToken) : null, [serverGameId, persistenceKey, persistenceRosterToken]);
   // The component is only mounted once the confirmed roster has a supported size.
   const [deck, setDeck] = useState<Card[]>(() => serverGameId ? [] : restored?.deck || makeDeck(size));
   const [history, setHistory] = useState<(Drawn & { previousDeck: Card[] })[]>(() => restored?.history || []);
@@ -101,10 +102,10 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   // the first effect cannot clobber it with a new random deck.
   useEffect(() => {
     if (serverGameId || !persistenceKey) return;
-    if (!saveTournamentDealState(persistenceKey, { deck, history, layout, seat, selectedId, showRole, started, go }, orderedSeats.map((entry) => entry.seat_number))) {
+    if (!saveTournamentDealState(persistenceKey, { deck, history, layout, seat, selectedId, showRole, started, go }, orderedSeats.map((entry) => entry.seat_number), persistenceRosterToken)) {
       setError('Не удалось сохранить промежуточную раздачу на устройстве. Не обновляйте страницу до завершения.');
     }
-  }, [serverGameId, persistenceKey, deck, history, layout, seat, selectedId, showRole, started, go]);
+  }, [serverGameId, persistenceKey, persistenceRosterToken, deck, history, layout, seat, selectedId, showRole, started, go]);
   const playerOfSeat = useContext(DealSeatPlayersContext);
   useEffect(()=>()=>{requestJudgeGameMusicStop();},[]);
   useEffect(() => {

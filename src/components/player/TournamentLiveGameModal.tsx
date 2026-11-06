@@ -128,7 +128,10 @@ export const mapEngineResult = (
     judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Перед финальным подтверждением стоит проверить журнал голосований и ночей.'].filter(Boolean).join('\n') || null,
   };
 
-  return { protocol, player_results: playerResults };
+  // Optimistic seat-to-participant guard: CRM seating can change between the fresh GET
+  // and our PUT. The server rejects that race rather than attributing actions to someone else.
+  const live_seat_bindings = previousResults.map((row) => ({ seat_number: Number(row.seat_number), participant_id: String(row.participant_id) }));
+  return { protocol, player_results: playerResults, live_seat_bindings };
 };
 
 /** Never save to a stale seating snapshot when the CRM request failed or returned incomplete data. */

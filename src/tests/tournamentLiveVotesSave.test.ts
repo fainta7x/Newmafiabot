@@ -95,6 +95,30 @@ describe('saving a finished live tournament game with votes from several days', 
 
 
 describe('tournament Live Engine persistence audit: draft retries, finalization and checkpoint cleanup', () => {
+
+  it('returns 409 if someone swaps CRM seats between the Live Engine GET and PUT, without touching the protocol', async () => {
+    const url = `/api/tournaments/${tournamentId}/games/${gameId}/protocol`;
+    const loaded = await request(app).get(url).set('Cookie', cookie).expect(200);
+    const mapped = mapEngineResult(loaded.body.protocol, loaded.body.player_results, {
+      winning_team: 'Красные', slots: [{ slot_num: 1, exit_reason: 'killed', alive: false }],
+      protocol_markers: { firstKilledSlot: 1 }, votes: [], shots: [],
+    });
+    const initial = loaded.body.player_results.slice(0, 2);
+    await db.run(`UPDATE tournament_game_seats SET participant_id = CASE
+      WHEN seat_number = 1 THEN ?
+      WHEN seat_number = 2 THEN ?
+      ELSE participant_id END
+      WHERE game_id = ?`, [initial[1].participant_id, initial[0].participant_id, gameId]);
+    const rejected = await request(app).put(url).set('Cookie', cookie).send(mapped);
+    expect(rejected.status).toBe(409);
+    expect(rejected.body.error).toContain('Рассадка');
+    const protocol = await db.get<any>('SELECT id FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+    expect(protocol).toBeUndefined();
+    const results = await db.get<any>('SELECT COUNT(*) AS count FROM tournament_game_player_results WHERE game_id = ?', [gameId]);
+    expect(results.count).toBe(0);
+  });
+
+
   it('survives 30 sequential draft saves without losing seats, roles, events or duplicating player results', async () => {
     const url = `/api/tournaments/${tournamentId}/games/${gameId}/protocol`;
     const initial = await request(app).get(url).set('Cookie', cookie).expect(200);

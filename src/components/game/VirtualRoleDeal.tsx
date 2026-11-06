@@ -22,6 +22,8 @@ type Props = {
   serverGameId?: number;
   /** Local tournament draw checkpoint, scoped to an exact game ID. Never used by server-backed club deals. */
   persistenceKey?: string;
+  /** Tournament role draws must never sell or preassign a role. */
+  allowRolePurchase?: boolean;
   /** Seconds a player has to take a card before it can be opened (owner, 2026-11-01); 0 switches the wait off. */
   cardSeconds?: number;
 };
@@ -64,7 +66,7 @@ const configuredCardSeconds = (): number => {
 };
 const BUY_ROLES: GameRole[] = ['citizen', 'mafia', 'sheriff', 'don'];
 
-export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, persistenceKey, cardSeconds, finishLabel='Все роли выданы — начать игру' }: Props) {
+export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, persistenceKey, allowRolePurchase = true, cardSeconds, finishLabel='Все роли выданы — начать игру' }: Props) {
   const waitSeconds = cardSeconds ?? configuredCardSeconds();
   const orderedSeats = useMemo(() => [...seats].sort((a, b) => a.seat_number - b.seat_number), [seats]);
   const size = orderedSeats.length;
@@ -99,7 +101,9 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   // the first effect cannot clobber it with a new random deck.
   useEffect(() => {
     if (serverGameId || !persistenceKey) return;
-    saveTournamentDealState(persistenceKey, { deck, history, layout, seat, selectedId, showRole, started, go }, orderedSeats.map((entry) => entry.seat_number));
+    if (!saveTournamentDealState(persistenceKey, { deck, history, layout, seat, selectedId, showRole, started, go }, orderedSeats.map((entry) => entry.seat_number))) {
+      setError('Не удалось сохранить промежуточную раздачу на устройстве. Не обновляйте страницу до завершения.');
+    }
   }, [serverGameId, persistenceKey, deck, history, layout, seat, selectedId, showRole, started, go]);
   const playerOfSeat = useContext(DealSeatPlayersContext);
   useEffect(()=>()=>{requestJudgeGameMusicStop();},[]);
@@ -167,13 +171,17 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   }, [started, complete, loaded, active, turnStartedAt, go, history.length]);
   useEffect(() => {
     if (!started || !waiting || !timeUp || turnStartedAt === null || showRole || selectedId || busy || !deck.length) return;
-    void revealCard(deck[Math.floor(Math.random() * deck.length)].id);
+    const array = new Uint32Array(1);
+    const max = deck.length;
+    const limit = Math.floor(4294967296 / max) * max;
+    do { crypto.getRandomValues(array); } while (array[0] >= limit);
+    void revealCard(deck[array[0] % max].id);
   }, [started, waiting, timeUp, turnStartedAt, showRole, selectedId, busy, deck]);
   const dealt: Partial<Record<GameRole, number>> = {};
   for (const entry of history) dealt[entry.role] = (dealt[entry.role] ?? 0) + 1;
   const roleLeft = (role: GameRole) => (isSupportedTableSize(size) ? tableRoleCounts(size)[role] ?? 0 : 0) - (dealt[role] ?? 0);
   const buyRole = async (role: GameRole) => {
-    if (active === undefined || busy || showRole || roleLeft(role) < 1) return;
+    if (!allowRolePurchase || active === undefined || busy || showRole || roleLeft(role) < 1) return;
     setBusy(true);
     try {
       let seatPlayerNote = '';
@@ -337,8 +345,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
         {!started ? <div className="space-y-3">
           <p className="text-sm leading-6">Карты уже перемешаны. Каждый игрок по очереди выбирает карту за {waitSeconds} с и видит свою роль.</p>
           {/* Owner, 2026-11-03: a bought role is marked before the deal starts. */}
-          {!serverGameId && <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>}
-          {!serverGameId && buying && (
+          {!serverGameId && allowRolePurchase && <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>}
+          {!serverGameId && allowRolePurchase && buying && (
             <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
               <div className="deal-seats" aria-label="Кто покупает">
                 {orderedSeats.map((player) => seatTile(player, { disabled: assigned.has(player.seat_number) || busy, onClick: () => setSeat(player.seat_number) }))}

@@ -155,7 +155,9 @@ for (const width of [360, 390]) test(`confirmed club game shows its Elo blank at
   await blank.scrollIntoViewIfNeeded();
   await expect(page.getByTestId('protocol-elo-table')).toContainText('шанс красных 30%');
   await expect(page.locator('[data-testid^="protocol-elo-seat-"]')).toHaveCount(10);
-  await expect(page.getByTestId('protocol-elo-seat-1')).toContainText('Голосовал в чёрных №10, №1: +16');
+  const eloSeat = page.getByTestId('protocol-elo-seat-1');
+  await expect(eloSeat.getByText('Голосовал в чёрных №10, №1', { exact: true })).toBeVisible();
+  await expect(eloSeat.getByText('+16', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await blank.screenshot({ path: info.outputPath(`elo-blank-${width}.png`) });
 });

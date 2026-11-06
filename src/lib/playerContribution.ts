@@ -66,11 +66,13 @@ export const CONTRIBUTION_WEIGHTS = {
    * in three of the players there): +4 × 3/5 ≈ −2.
    */
   splitBlackOut: 0.1, splitRedOut: -0.05,
+  /** A confirmed multi-exit table raise: +6 for each black and -3 for each red, for red hand raisers only. */
+  raiseBlackOut: 6 / ELO_PERSONAL_POINT_WEIGHT, raiseRedOut: -3 / ELO_PERSONAL_POINT_WEIGHT,
   /** A vote for a red who left in that very voting costs twice. */
   votedOutRedFactor: 2,
 } as const;
 
-export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'will_vote_relief' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'unvoted_round';
+export type ContributionKind = 'found_black' | 'obvious_black' | 'vote_red' | 'will_right' | 'will_wrong' | 'will_vote_relief' | 'check_black' | 'named_red' | 'named_black' | 'not_named' | 'will_blocked' | 'streak_correct' | 'streak_wrong' | 'shot_miss' | 'split_break_red' | 'elo_tag_false_sheriff_red_sheriff' | 'elo_tag_revealed_to_black' | 'elo_tag_killed_sheriff_zero' | 'raise_defeat' | 'raise_defeat_black' | 'don_found_sheriff' | 'pool_cap' | 'check_voted_out' | 'black_checked_first_night' | 'out_at_nine' | 'zero_break' | 'zero_broken_into' | 'will_already' | 'split_outcome' | 'raise_outcome' | 'unvoted_round';
 /** One line of the breakdown: what the player did, about which seat, and its points. */
 export interface ContributionItem {
   kind: ContributionKind; seat: number; points: number; critical?: boolean; night?: number; round?: number;
@@ -79,6 +81,8 @@ export interface ContributionItem {
   /** found_black: the black was never voted out, so the vote earns half; vote_red: that red left in this voting. */
   stayed?: boolean; votedOut?: boolean;
   firstKilledWill?: boolean;
+  /** Number of players alive at this vote, for labels such as «пятёрка». */
+  tableSize?: number;
   willSeriesExtra?: number;
   willAuthors?: number[];
   willColor?: 'red' | 'black' | 'sheriff';
@@ -181,7 +185,24 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
     // A revote may be recorded by its totals only; the split is one decision of the day, so use the day's known voters.
     if (!voters.size) voters = new Set((facts.circles.find((circle) => circle.round === round)?.votings || []).flatMap((item) => item.votes.flatMap((ballot) => ballot.voters)));
     const left: number[] = Array.isArray(protocolRound?.eliminated_seats) ? protocolRound.eliminated_seats.map(Number) : [];
-    return { voters, left, round };
+    return { voters, left, round, outcome: protocolRound?.outcome };
+
+  });
+  // The actual raised hands (table_vote), not ordinary voting ballots, determine who
+  // earns a multi-exit split. With missing hand records, we must not invent participants.
+  const raiseResults = (Array.isArray(protocol?.votes) ? protocol.votes : [])
+    .slice().sort((a: any, b: any) => Number(a?.round_number) - Number(b?.round_number));
+  const raisedByDay = new Map<number, number>();
+  const confirmedRaises = raiseResults.flatMap((vote: any) => {
+    const day = Number(vote?.day_number ?? 0);
+    const number = (raisedByDay.get(day) ?? 0) + 1;
+    raisedByDay.set(day, number);
+    const left = [...new Set<number>((Array.isArray(vote?.eliminated_seats) ? vote.eliminated_seats : [])
+      .map(Number).filter((seat: number) => roleOf.has(seat)))];
+    if (day <= 0 || vote?.outcome !== 'all_tied_eliminated' || left.length < 2) return [];
+    const voting = facts.circles.find((circle) => circle.round === day + 1)?.votings.find((item) => item.number === number);
+    const hands = new Set<number>((voting?.tableVoters ?? []).filter((seat: number) => roleOf.has(seat)));
+    return [{ round: day + 1, left, hands }];
   });
   // Old protocols bypassed the new validation. Ignore self marks and contradictory evidence in a rebuild too.
   const colorsBySeat = new Map(seats.map((item) => {
@@ -320,7 +341,8 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       // Owner, 2026-10-26: in a voting tagged «без оценок» only the colour of whoever left counts — one player or several
       // («с подъёмом») — the same for every red who voted in it.
       for (const split of mode === 'club' ? splitResults : []) {
-        if (!split.voters.has(me.seat)) continue;
+        // A confirmed raise is scored from recorded table hands separately below.
+        if (split.outcome === 'all_tied_eliminated' || !split.voters.has(me.seat)) continue;
         for (const seat of split.left) {
           if (blackRole(roleOf.get(seat))) {
             // Owner, 2026-11-02: a black who left by a split is the same «заголосованный чёрный» as any other — one credit slot per black
@@ -330,6 +352,18 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
             finds.push({ item: out, target: seat, value: W.splitBlackOut, seq: votedOutAt.get(seat) ?? null, ownDecision: false });
           }
           else if (redRole(roleOf.get(seat))) items.push({ kind: 'split_outcome', seat, round: split.round, points: W.splitRedOut });
+        }
+      }
+      for (const raise of mode === 'club' ? confirmedRaises : []) {
+        if (!raise.hands.has(me.seat)) continue;
+        for (const seat of raise.left) {
+          if (blackRole(roleOf.get(seat))) {
+            const out: ContributionItem = { kind: 'raise_outcome', seat, round: raise.round, points: W.raiseBlackOut };
+            items.push(out);
+            finds.push({ item: out, target: seat, value: W.raiseBlackOut, seq: votedOutAt.get(seat) ?? null, ownDecision: false });
+          } else if (redRole(roleOf.get(seat))) {
+            items.push({ kind: 'raise_outcome', seat, round: raise.round, points: W.raiseRedOut });
+          }
         }
       }
       const voteReliefs = new Map<ContributionItem, number[]>();
@@ -359,7 +393,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
             const decided = votedOut && [...counts].some(([seat, count]) => blackRole(roleOf.get(seat)) && count === mine - 1);
             if (!decided) continue;
           }
-          const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
+          const item: ContributionItem = { kind: 'vote_red', seat: target, round: voting.round, tableSize: voting.alive?.size, points: W.voteRed * (critical ? W.criticalFactor : 1) * (votedOut ? W.votedOutRedFactor : 1), critical, votedOut };
           items.push(item);
           if (target !== me.seat && voting.seq != null) {
             const authors = willHistory.get(target)?.filter((entry) => entry.seq < voting.seq!).at(-1)?.authors;
@@ -551,6 +585,53 @@ const seatNumbers = (items: ContributionItem[]) => {
 };
 const group = (label: string, items: ContributionItem[]) => (items.length ? `${label} ${seatNumbers(items)}: ${signedElo(elo(items.reduce((sum, item) => sum + item.points, 0)))}` : null);
 
+const raiseOutcomeLines = (items: ContributionItem[]): string[] => {
+  const byRound = new Map<number | undefined, ContributionItem[]>();
+  for (const item of items) {
+    const group = byRound.get(item.round) ?? [];
+    group.push(item);
+    byRound.set(item.round, group);
+  }
+  return [...byRound].map(([, group]) => {
+    const details = group.map((item) => `${item.points >= 0 ? 'чёрный' : 'красный'} №${item.seat} ${signedElo(elo(item.points))}`).join(', ');
+    return `Подъём, поднял руку: ${details} · итого ${signedElo(elo(group.reduce((sum, item) => sum + item.points, 0)))}`;
+  });
+};
+
+
+/**
+ * Show the arithmetic of each mistaken red decision in the same order as it is charged:
+ * base colour mistake (+ elimination factor), streak, then critical ×2.
+ * The streak items are bookkeeping and must not look like another separate penalty.
+ */
+export const mistakeLines = (items: ContributionItem[], kind: 'vote_red' | 'will_wrong', includeCircle = true): string[] => {
+  return items.filter((item) => item.kind === kind).map((item) => {
+    const multiplier = item.critical ? CONTRIBUTION_WEIGHTS.criticalFactor : 1;
+    const base = item.points / multiplier - (kind === 'will_wrong' ? item.willSeriesExtra ?? 0 : 0);
+    const ownSeries = kind === 'will_wrong' ? item.willSeriesExtra ?? 0 : 0;
+    const streak = items.filter((part) => part.kind === 'streak_wrong' && part.source === kind && part.seat === item.seat && part.round === item.round)
+      .reduce((sum, part) => sum + part.points, 0) / multiplier;
+    const relief = kind === 'vote_red' ? items.filter((part) => part.kind === 'will_vote_relief' && part.seat === item.seat && part.round === item.round)
+      .reduce((sum, part) => sum + part.points, 0) / multiplier : 0;
+    const beforeCritical = base + ownSeries + streak + relief;
+    const total = beforeCritical * multiplier;
+    const tableNames: Record<number, string> = { 9: 'Девятка', 7: 'Семёрка', 5: 'Пятёрка', 3: 'Тройка' };
+    const circle = item.tableSize && tableNames[item.tableSize] ? tableNames[item.tableSize] : item.round != null ? `Круг ${item.round}` : '';
+    const context = includeCircle && circle ? `${circle} · ` : '';
+    const action = kind === 'vote_red'
+      ? `Голос в красного №${item.seat}${item.votedOut ? ', которого вывели' : ''}`
+      : `Завещание: назвал №${item.seat} ${item.willColor === 'red' ? 'красным' : item.willColor === 'black' ? 'чёрным' : item.willColor === 'sheriff' ? 'шерифом' : 'неверным цветом'}${item.votedOut ? ', стол вывел красного' : ''}`;
+    const components = [`${signedElo(elo(base))} за ${kind === 'vote_red' ? 'голос' : 'завещание'}`];
+    if (ownSeries) components.push(`${signedElo(elo(ownSeries))} за повтор ошибочного завещания`);
+    if (streak) components.push(`${signedElo(elo(streak))} за серию ошибок`);
+    if (relief) components.push(`${signedElo(elo(relief))} смягчение по завещаниям`);
+    const maths = components.length > 1 || item.critical
+      ? `(${components.join(', ')})${item.critical ? ' ×2 за критический круг' : ''} = ${signedElo(elo(total))}`
+      : signedElo(elo(total));
+    return `${context}${action}: ${maths}`;
+  });
+};
+
 /**
  * The breakdown of a seat's contribution in short plain words and Elo (owner, 2026-10-25: «попроще и попонятнее»), one
  * line per kind of action, e.g. «Голосовал в чёрных №10, №1: +4»; caps are shown separately by the game blank.
@@ -560,17 +641,16 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   const lines = blackRole(role)
     ? [of('black_checked_first_night').length ? `Шериф проверил чёрным в первую ночь: ${signedElo(elo(of('black_checked_first_night')[0].points))}` : null, of('out_at_nine').length ? `Ушёл на девятке: ${signedElo(elo(of('out_at_nine')[0].points))}` : null, group('Проверкой в первую ночь нашёл шерифа', of('don_found_sheriff')), group('Записан красным у', of('named_red')), group('Записан чёрным у', of('named_black')), group('Не записан у', of('not_named'))]
     : [
+      ...raiseOutcomeLines(of('raise_outcome')),
       group('Попил, ушёл чёрный', of('split_outcome').filter((item) => item.points > 0)),
       group('Попил, ушёл красный', of('split_outcome').filter((item) => item.points < 0)),
       group('Голосовал в чёрных', of('found_black').filter((item) => !item.stayed)),
       group('Голосовал в чёрных, которых не вывели (половина)', of('found_black').filter((item) => item.stayed)),
       of('obvious_black').length ? `Голосовал в уже известных чёрных ${seatNumbers(of('obvious_black'))} — без баллов` : null,
-      group('Голосовал в красных', of('vote_red').filter((item) => !item.votedOut)),
-      group('Голосовал в красных, которых вывели (×2)', of('vote_red').filter((item) => item.votedOut)),
+      ...mistakeLines(items, 'vote_red'),
       group('В завещании угадал', of('will_right')),
       of('will_already').length ? `В завещании снова назвал ${seatNumbers(of('will_already'))} — уже засчитан` : null,
-      group('В завещании ошибся в', of('will_wrong').filter((item) => !item.votedOut)),
-      group('В завещании назвал чёрным красного, стол его вывел (×2)', of('will_wrong').filter((item) => item.votedOut)),
+      ...mistakeLines(items, 'will_wrong'),
       group('Чёрная проверка', of('check_black')),
       group('Стол вывел проверенного чёрного', of('check_voted_out')),
     ];
@@ -578,8 +658,14 @@ export function contributionBreakdown(role: StatRole | null, items: Contribution
   for (const item of of('zero_broken_into')) lines.unshift(`В нуле в него сломал попил №${item.seat}: ${signedElo(elo(item.points))}`);
   if (of('will_blocked').length) lines.push('Завещание с ошибкой: за верные цвета плюсов нет');
   // The series in plain words: which decisions came in a row and what the run added (owner, 2026-10-26).
-  for (const run of streaks) {
+  // A red-vote/will streak is already included beside that action above. Never charge it a
+  // second time in the explanation. Keep legacy runs only if itemized series data is absent.
+  const itemizedStreaks = of('streak_correct').length + of('streak_wrong').length;
+  if (!itemizedStreaks) for (const run of streaks) {
     lines.push(`${run.sign > 0 ? 'Верно подряд' : 'Ошибки подряд'}: ${run.labels.join(' → ')}: ${signedElo(elo(run.points))}`);
+  }
+  for (const item of [...of('streak_correct'), ...of('streak_wrong')].filter((entry) => entry.source !== 'vote_red' && entry.source !== 'will_wrong')) {
+    lines.push(`Серия ${item.points > 0 ? 'верных решений' : 'ошибок'} · №${item.seat}: ${signedElo(elo(item.points))}`);
   }
   const pool = of('pool_cap');
   if (pool.length) lines.push(`Больше +${elo(CONTRIBUTION_WEIGHTS.positivePool)} за игру не набрать: ${signedElo(elo(pool[0].points))}`);

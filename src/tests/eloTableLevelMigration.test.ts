@@ -37,9 +37,11 @@ describe('table level uses unstretched distances (owner, 2026-10-24)', () => {
     await ensureEloSeedSchema(db);
     await db.run(
       'INSERT INTO migration_history (id, migration_name, status, details_json, executed_at) VALUES (?, ?, ?, ?, ?)',
-      ['previous-elo-version', '2026-10-elo-find-credit-v4', 'completed', '{}', new Date().toISOString()],
+      ['previous-elo-version', '2026-11-elo-will-streak-v5', 'completed', '{}', new Date().toISOString()],
     );
     expect(await applyEloTableLevelMigration(db)).toEqual({ applied: true });
+    const marker = await db.get<{ status: string }>("SELECT status FROM migration_history WHERE migration_name = '2026-11-elo-multi-raise-v6'");
+    expect(marker?.status).toBe('completed');
     expect(await applyEloTableLevelMigration(db)).toEqual({ applied: false });
   });
 });

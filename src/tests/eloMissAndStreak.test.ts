@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { gameContribution, contributionBreakdown } from '../lib/playerContribution.ts';
 import { validateShots } from '../lib/protocolConsistency.ts';
 import { decisionStreakSteps } from '../lib/eloDecisionStreak.ts';
+import { roundContributionLines } from '../server/services/clubResultData.ts';
 
 const roles = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
 const players = () => roles.map((role, i) => ({ seat_number: i + 1, participant_id: `p${i + 1}`, player_id: `p${i + 1}`, role, exit_type: 'alive', color_protocol: [] as Array<{ mark: string; seat_numbers: number[] }> }));
@@ -174,3 +175,119 @@ describe('the series line says which decision in a row and what it was (owner, 2
   });
 });
 
+
+describe('human-readable protocol Elo on the five-player critical vote', () => {
+  it('shows the base vote and streak first, then applies the critical ×2 once', () => {
+    const items = [
+      { kind: 'found_black' as const, seat: 8, round: 2, points: 0.2 },
+      { kind: 'vote_red' as const, seat: 4, round: 3, tableSize: 7, points: -0.2, votedOut: true },
+      { kind: 'vote_red' as const, seat: 5, round: 4, tableSize: 5, points: -0.4, votedOut: true, critical: true },
+      { kind: 'streak_wrong' as const, seat: 5, round: 4, points: -0.1, critical: true, step: 2, source: 'vote_red' as const },
+    ];
+    const lines = contributionBreakdown('citizen', items);
+    assert.ok(lines.some((line) => line.includes('Голосовал в чёрных №8: +8')));
+    assert.ok(lines.some((line) => line.includes('Семёрка') && line.includes('−8')));
+    const five = lines.find((line) => line.includes('Пятёрка')) || '';
+    assert.ok(five.includes('Голос в красного №5, которого вывели'), five);
+    assert.ok(five.includes('(−8 за голос, −2 за серию ошибок) ×2 за критический круг = −20'), five);
+    assert.ok(!lines.some((line) => line.startsWith('Ошибки подряд')), lines.join('\n'));
+    close(items.reduce((sum, item) => sum + item.points * 40, 0), -20);
+  });
+
+  it('uses the same base → will-streak → critical order for a wrong will', () => {
+    const items = [
+      { kind: 'will_wrong' as const, seat: 9, round: 3, points: -0.5, critical: true,
+        willSeriesExtra: -0.05, votedOut: true, willColor: 'black' as const },
+    ];
+    const lines = contributionBreakdown('citizen', items);
+    assert.ok(lines.some((line) => line.includes('−8 за завещание') &&
+      line.includes('−2 за повтор ошибочного завещания') &&
+      line.includes('×2 за критический круг = −20')), lines.join('\n'));
+  });
+  it('shows the same combined arithmetic in the actual protocol blank, without a second error line', () => {
+    const items = [
+      { kind: 'found_black' as const, seat: 8, round: 2, points: 0.2 },
+      { kind: 'vote_red' as const, seat: 4, round: 3, tableSize: 7, points: -0.2, votedOut: true },
+      { kind: 'vote_red' as const, seat: 5, round: 4, tableSize: 5, points: -0.4, votedOut: true, critical: true },
+      { kind: 'streak_wrong' as const, seat: 5, round: 4, points: -0.1, critical: true, step: 2, source: 'vote_red' as const },
+    ];
+    const lines = roundContributionLines({ role: 'citizen', items, streaks: [], points: -0.5,
+      seat: 1, positivePoints: 0.2, negativePoints: -0.7, missPenaltyElo: 0 } as any, {}, 10);
+    assert.ok(lines.includes('Голос в красного №5, которого вывели: (−8 за голос, −2 за серию ошибок) ×2 за критический круг = −20'), lines.join('\\n'));
+    assert.equal(lines.filter((line) => line.startsWith('Голос в красного №5')).length, 1);
+    assert.ok(!lines.some((line) => line.startsWith('Ошибка №2 подряд')), lines.join('\\n'));
+  });
+
+});
+
+
+describe('multi-exit table raise Elo: only recorded hands earn +6/-3', () => {
+  const makeRaise = (left: number[], handSeats = [1], noScoring = true) => {
+    const actions = [
+      event(1, 'game_start', { phase: 'zero_night' }),
+      ...handSeats.map((seat) => event(2, 'table_vote', { seat })),
+      event(2, 'vote_round_result', { value: '1:all_tied_eliminated' }),
+      ...left.map((seat) => event(2, 'exit', { seat, value: 'voted_day' })),
+      event(3, 'game_end', { value: 'red' }),
+    ];
+    const rows = players();
+    for (const seat of left) rows[seat - 1].exit_type = 'voted_day';
+    return {
+      rows,
+      protocol: {
+        winner_team: 'red',
+        events: sequence(actions),
+        votes: [{ day_number: 1, round_number: 2, outcome: 'all_tied_eliminated', no_scoring: noScoring, eliminated_seats: left }],
+      },
+    };
+  };
+  const deltas = (left: number[], handSeats = [1], noScoring = true) => {
+    const { rows, protocol } = makeRaise(left, handSeats, noScoring);
+    return gameContribution({ protocol, player_results: rows });
+  };
+
+  it('two black and one red leave: +6 +6 -3 = +9 for the red hand raiser', () => {
+    const result = deltas([8, 9, 2]).find((row) => row.seat === 1)!;
+    const parts = result.items.filter((item) => item.kind === 'raise_outcome');
+    assert.deepEqual(parts.map((item) => Math.round(item.points * 40)), [6, 6, -3]);
+    close(parts.reduce((sum, item) => sum + item.points * 40, 0), 9);
+    assert.ok(contributionBreakdown(result.role, result.items).some((line) =>
+      line.includes('чёрный №8 +6, чёрный №9 +6, красный №2 −3 · итого +9')));
+    assert.equal(result.items.filter((item) => item.kind === 'split_outcome').length, 0);
+    assert.equal(deltas([8, 9, 2]).find((row) => row.seat === 3)!.items.some((item) => item.kind === 'raise_outcome'), false);
+  });
+
+  it('one black and two red leave: +6 -3 -3 = 0', () => {
+    const result = deltas([8, 2, 3], [1], false).find((row) => row.seat === 1)!;
+    const parts = result.items.filter((item) => item.kind === 'raise_outcome');
+    assert.deepEqual(parts.map((item) => Math.round(item.points * 40)), [6, -3, -3]);
+    close(parts.reduce((sum, item) => sum + item.points * 40, 0), 0);
+    assert.ok(contributionBreakdown(result.role, result.items).some((line) =>
+      line.includes('чёрный №8 +6, красный №2 −3, красный №3 −3 · итого 0')));
+  });
+
+  it('never invents a raised hand and excludes a retracted hand', () => {
+    const none = deltas([8, 9, 2], []);
+    assert.equal(none.some((row) => row.items.some((item) => item.kind === 'raise_outcome')), false);
+    const { rows, protocol } = makeRaise([8, 9, 2], [1]);
+    protocol.events.splice(2, 0, event(2, 'table_vote_removed', { seat: 1 }));
+    protocol.events = sequence(protocol.events);
+    const undone = gameContribution({ protocol, player_results: rows });
+    assert.equal(undone.find((row) => row.seat === 1)!.items.some((item) => item.kind === 'raise_outcome'), false);
+  });
+
+  it('does not score a mere agreed no-scoring vote as a multi-exit raise', () => {
+    const rows = players();
+    const protocol = {
+      winner_team: 'red',
+      events: sequence([event(1, 'game_start', { phase: 'zero_night' }),
+        event(2, 'vote', { seat: 1, target: 8, value: 1 }),
+        event(2, 'vote_round_result', { value: '1:single_eliminated' }),
+        event(2, 'exit', { seat: 8, value: 'voted_day' })]),
+      votes: [{ day_number: 1, round_number: 2, outcome: 'single_eliminated', no_scoring: true, eliminated_seats: [8] }],
+    };
+    const item = gameContribution({ protocol, player_results: rows }).find((row) => row.seat === 1)!;
+    assert.equal(item.items.some((part) => part.kind === 'raise_outcome'), false);
+    assert.ok(item.items.some((part) => part.kind === 'split_outcome'));
+  });
+});

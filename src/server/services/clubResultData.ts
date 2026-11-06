@@ -8,7 +8,7 @@ import { roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
-import { contributionBreakdown, gameContribution, type SeatContribution } from '../../lib/playerContribution.ts';
+import { contributionBreakdown, gameContribution, mistakeLines, type SeatContribution } from '../../lib/playerContribution.ts';
 import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP, RED_EQUAL_EXPECTATION, RESULT_WEIGHT } from './eloRatingService.ts';
 import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
 import { clubBestMovePointsForParticipant, clubBestMoveSeatsForParticipant } from './bestMovePoints.ts';
@@ -112,7 +112,7 @@ const signedEloValue = (n: number) => {
   return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)}`;
 };
 
-function roundContributionLines(contribution: SeatContribution, protocol: Parameters<typeof circleTitle>[1], tableSize: number): string[] {
+export function roundContributionLines(contribution: SeatContribution, protocol: Parameters<typeof circleTitle>[1], tableSize: number): string[] {
   const groups = new Map<number | undefined, SeatContribution['items']>();
   for (const item of contribution.items) {
     const round = item.round ?? (item.kind === 'shot_miss' ? undefined : item.night);
@@ -121,8 +121,11 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
     groups.set(round, group);
   }
   return [...groups].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)).flatMap(([round, items]) => {
-    const detailed = new Set(['check_black', 'check_voted_out', 'will_right', 'will_wrong', 'vote_red']);
+    const detailed = new Set(['check_black', 'check_voted_out', 'will_right', 'will_wrong', 'vote_red', 'streak_correct', 'streak_wrong', 'will_vote_relief']);
     const lines = contributionBreakdown(contribution.role, items.filter((item) => !detailed.has(item.kind) && item.points !== 0));
+    // Explain each wrong vote/will with the base, series and finally the critical ×2.
+    // Do not show the pre-multiplied vote and the series as unrelated penalties.
+    lines.push(...mistakeLines(items, 'vote_red', false), ...mistakeLines(items, 'will_wrong', false));
     for (const item of items) {
       if (!item.points && item.kind === 'check_black') {
         lines.push(`Чёрная проверка №${item.seat}: 0 Эло (уже учтена)`);
@@ -131,20 +134,13 @@ function roundContributionLines(contribution: SeatContribution, protocol: Parame
       const points = signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT);
       if (item.kind === 'check_black') lines.push(`Чёрная проверка: ${points} (проверил №${item.seat})`);
       if (item.kind === 'check_voted_out') lines.push(`Стол вывел проверенного чёрного: ${points} (ушёл №${item.seat})`);
-      if (item.kind === 'will_right' || item.kind === 'will_wrong') {
-        const label = `В завещании${item.firstKilledWill ? ' ПУ' : ''} ${item.kind === 'will_right' ? 'правильно' : 'неправильно'}`;
+      if (item.kind === 'will_right') {
         const color = item.willColor ? ` назвал ${item.willColor === 'red' ? 'красным' : item.willColor === 'black' ? 'чёрным' : 'шерифом'}` : '';
-        lines.push(`${label}: ${points} (№${item.seat}${color}${item.votedOut ? ', стол его вывел ×2' : ''}${item.willSeriesExtra ? ', серия ' + signedEloValue(item.willSeriesExtra * ELO_PERSONAL_POINT_WEIGHT) : ''}${item.critical ? ', критика ×2' : ''})`);
+        lines.push(`В завещании${item.firstKilledWill ? ' ПУ' : ''} правильно: ${points} (№${item.seat}${color})`);
       }
-      if (item.kind === 'will_vote_relief') {
-        lines.push(`Смягчение голоса в №${item.seat}: ${points} (завещания ${item.willAuthors?.map((seat) => `№${seat}`).join(', ')}${item.critical ? ', критика ×2' : ''})`);
-      }
-      if (item.kind === 'vote_red') {
-        const reason = [item.votedOut && 'красного вывели', item.critical && 'критический круг'].filter(Boolean).join(' · ');
-        lines.push(`Голос в красного №${item.seat}: ${signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT)} Эло${reason ? ` · ${reason}` : ''}`);
-      }
-      if (item.kind === 'streak_correct' || item.kind === 'streak_wrong') {
-        lines.push(`${item.kind === 'streak_correct' ? 'Верное решение' : 'Ошибка'} №${item.step} подряд: ${points}${item.critical ? ' (критический круг ×2)' : ''}`);
+      if ((item.kind === 'streak_correct' || item.kind === 'streak_wrong')
+        && item.source !== 'vote_red' && item.source !== 'will_wrong') {
+        lines.push(`Серия ${item.points > 0 ? 'верных решений' : 'ошибок'} · решение №${item.step ?? '?'} подряд: ${points}`);
       }
     }
     const title = round != null ? circleTitle(round - 1, protocol, tableSize) : 'Начисления без привязки к кругу';

@@ -136,7 +136,7 @@ describe('tournament Live Engine persistence audit: draft retries, finalization 
       saved.protocol.judge_notes = `Автосохранение №${attempt}`;
       const response = await request(app).put(url).set('Cookie', cookie).send(saved);
       expect(response.status).toBe(200);
-      saved = { protocol: response.body.protocol, player_results: response.body.player_results };
+      saved = { protocol: response.body.protocol, player_results: response.body.player_results, live_seat_bindings: saved.live_seat_bindings };
       expect(saved.player_results).toHaveLength(10);
       expect(saved.player_results.map((row: any) => row.participant_id)).toEqual(participantIds);
       expect(saved.protocol.events.map((ev: any) => ev.kind)).toEqual(events.map((ev) => ev.kind));

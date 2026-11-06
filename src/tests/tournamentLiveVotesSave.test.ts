@@ -112,7 +112,7 @@ describe('tournament Live Engine persistence audit: draft retries, finalization 
     expect(rejected.status).toBe(409);
     expect(rejected.body.error).toContain('Рассадка');
     const protocol = await db.get<any>('SELECT id FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
-    expect(protocol).toBeUndefined();
+    expect(protocol).toBeNull();
     const results = await db.get<any>('SELECT COUNT(*) AS count FROM tournament_game_player_results WHERE game_id = ?', [gameId]);
     expect(results.count).toBe(0);
   });

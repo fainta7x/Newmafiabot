@@ -129,7 +129,17 @@ if (mode === 'deal') {
   playerResults.forEach(row => { (row as {role: string}).role = ''; });
 }
 
+if (mode === 'offline-retry') {
+  localStorage.setItem('mafia_live_pending_save:tournament:game-e2e', JSON.stringify({
+    winning_team: 'Красные',
+    slots: activePlayers,
+    votes: [], shots: [],
+    protocol_evidence: { votes: [], shots: [], events: [] },
+  }));
+}
+
 let protocolReads = 0;
+let protocolPuts = 0;
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -142,9 +152,15 @@ window.fetch = async (input, init) => {
   }
   if (url.pathname === '/api/tournaments/tournament-e2e/games/game-e2e/protocol') {
     if (String(init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase() === 'PUT') {
+      protocolPuts += 1;
+      (window as any).__tournamentProtocolPuts = protocolPuts;
+      (window as any).__tournamentProtocolLastBody = JSON.parse(String(init?.body || '{}'));
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     protocolReads += 1;
+    if (mode === 'offline-retry' && protocolReads === 2) {
+      return Response.json({ error: 'Временный разрыв связи с CRM' }, { status: 503 });
+    }
     const observedResults = mode === 'role-correction' && protocolReads > 1
       ? playerResults.map((row, index) => index < 2 ? { ...row, role: index === 0 ? 'mafia' : 'citizen', team: index === 0 ? 'black' : 'red' } : row)
       : playerResults;

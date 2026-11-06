@@ -55,7 +55,7 @@ describe('tournament virtual deal checkpoints', () => {
     expect(validTournamentDealState(state, seats)).toBe(true);
     expect(validTournamentDealState({ ...state, deck: state.deck.slice(1) }, seats)).toBe(false);
     expect(validTournamentDealState({ ...state, layout: [...state.layout.slice(0, 9), state.layout[0]] }, seats)).toBe(false);
-    expect(validTournamentDealState({ ...state, history: [{ ...state.history[0], seat: 4 }, ...state.history.slice(1)] }, seats)).toBe(false);
+    expect(validTournamentDealState({ ...state, history: [{ ...state.history[0], seat: 2 }, ...state.history.slice(1)] }, seats)).toBe(false);
     expect(validTournamentDealState({ ...state, deck: state.deck.map((card) => ({ ...card, role: 'citizen' })) }, seats)).toBe(false);
     expect(validTournamentDealState({ ...state, selectedId: 'unknown' }, seats)).toBe(false);
     expect(saveTournamentDealState('invalid', { ...state, deck: [] }, seats)).toBe(false);

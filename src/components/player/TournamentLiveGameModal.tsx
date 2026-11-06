@@ -104,10 +104,13 @@ export const mapEngineResult = (
     } as PlayerResultData;
   });
 
+  const winner = normalizeWinnerTeam(gameData?.winning_team);
+  if (!winner) throw new Error('Движок не передал победившую команду. Результат не сохранён; проверьте завершение игры.');
+
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'draft',
-    winner_team: (normalizeWinnerTeam(gameData?.winning_team) ?? 'black'),
+    winner_team: winner,
     end_reason: (gameData?.end_reason || 'normal') as any,
     ppk_culprit_participant_id: gameData?.end_reason === 'ppk' ? (ppkPlayer?.participant_id || null) : null,
     first_killed_participant_id: firstKilled?.participant_id || null,
@@ -128,10 +131,34 @@ export const mapEngineResult = (
   return { protocol, player_results: playerResults };
 };
 
+/** Never save to a stale seating snapshot when the CRM request failed or returned incomplete data. */
+export const requireFreshTournamentLivePayload = async (
+  load: () => Promise<TournamentLivePayload>,
+): Promise<TournamentLivePayload> => {
+  let current: TournamentLivePayload;
+  try {
+    current = await load();
+  } catch {
+    throw new Error('Не удалось получить актуальный состав игры из CRM. Результат сохранён на устройстве — повторите сохранение при восстановлении связи.');
+  }
+  const seats = current.player_results || [];
+  const participantIds = seats.map((seat) => String(seat.participant_id || ''));
+  const numbers = seats.map((seat) => Number(seat.seat_number));
+  if (seats.length !== 10 || new Set(numbers).size !== 10
+      || numbers.some((number) => !Number.isInteger(number) || number < 1 || number > 10)
+      || participantIds.some((id) => !id) || new Set(participantIds).size !== 10) {
+    throw new Error('CRM вернула неполный или неоднозначный состав турнира. Результат не отправлен — обновите данные и повторите.');
+  }
+  if (current.protocol?.status === 'completed' || current.game?.status === 'completed') {
+    throw new Error('Игра уже завершена в CRM. Повторная запись запрещена; откройте сохранённый протокол.');
+  }
+  return current;
+};
+
 type TournamentLivePayload = {
   protocol: TournamentGameProtocolData;
   player_results: PlayerResultData[];
-  game: { game_number?: number | null } | null;
+  game: { game_number?: number | null; status?: string | null } | null;
 };
 
 /** Seats whose player differs between two loads of the game (seats changed in the CRM while the game runs). */
@@ -174,6 +201,7 @@ function TournamentLiveGameModalBody({
   const [payload, setPayload] = useState<TournamentLivePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
@@ -368,15 +396,16 @@ function TournamentLiveGameModalBody({
   // Hands the finished game over to the tournament protocol. The result is kept, so a failed save can be retried
   // or the protocol can be filled by hand — the engine itself cannot finish the game a second time.
   const saveFinishedGame = async (gameData: any) => {
-    if (!payload) return;
-    // The result is mapped by seat: take the seating as it is now, so a seat fixed in the CRM during the game
-    // gives that seat's result to the player who really sat there.
-    const current = await loadLivePayload().catch(() => payload);
+    if (!payload || savingRef.current || !gameData) return;
+    savingRef.current = true;
+    // Preserve the finished game *before* any network request. A disconnected judge must not
+    // lose the game or accidentally assign its result to the old CRM seating.
     finishedGameRef.current = gameData;
     try { localStorage.setItem(pendingSaveKey, JSON.stringify(gameData)); } catch { /* storage may be blocked */ }
     setSaving(true);
     setError(null);
     try {
+      const current = await requireFreshTournamentLivePayload(loadLivePayload);
       const now = new Date().toISOString();
       const evidence = gameData.protocol_evidence || evidenceRef.current;
       const events = buildFinalChronology({
@@ -392,7 +421,6 @@ function TournamentLiveGameModalBody({
         shots: evidence.shots,
         events,
       });
-      // The colour protocols the judge filled in for the killed players go into the protocol (as in the club evening).
       next.player_results = applyStoredDeathProtocolsToResults(next.player_results);
       await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'PUT', next, 'Не удалось перенести результат в турнирный протокол');
       try { localStorage.removeItem(evidenceKey); } catch {}
@@ -403,6 +431,7 @@ function TournamentLiveGameModalBody({
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить результат игры');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

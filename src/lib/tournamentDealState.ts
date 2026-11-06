@@ -12,6 +12,7 @@ export type TournamentDealState = {
   showRole: boolean;
   started: boolean;
   go: boolean;
+  rosterToken?: string;
 };
 
 export const tournamentDealKey = (tournamentId: string, gameId: string) =>
@@ -47,12 +48,12 @@ export const validTournamentDealState = (value: any, seats: number[]): value is 
   return (Object.keys(counts) as GameRole[]).every((role) => allRoles.filter((r) => r === role).length === counts[role]);
 };
 
-export const loadTournamentDealState = (key: string, seats: number[]): TournamentDealState | null => {
+export const loadTournamentDealState = (key: string, seats: number[], rosterToken?: string): TournamentDealState | null => {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const value = JSON.parse(raw);
-    if (!validTournamentDealState(value, seats)) {
+    if (!validTournamentDealState(value, seats) || (rosterToken && value.rosterToken !== rosterToken)) {
       // Don't override suspect evidence: a judge may still need it for recovery.
       return null;
     }
@@ -60,9 +61,9 @@ export const loadTournamentDealState = (key: string, seats: number[]): Tournamen
   } catch { return null; }
 };
 
-export const saveTournamentDealState = (key: string, state: TournamentDealState, seats: number[]) => {
+export const saveTournamentDealState = (key: string, state: TournamentDealState, seats: number[], rosterToken?: string) => {
   if (!validTournamentDealState(state, seats)) return false;
-  try { localStorage.setItem(key, JSON.stringify(state)); return true; }
+  try { localStorage.setItem(key, JSON.stringify({ ...state, rosterToken })); return true; }
   catch { return false; }
 };
 

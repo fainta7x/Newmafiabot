@@ -99,3 +99,23 @@ test('tournament random timeout reveals a card without duplicating a turn', asyn
   expect(saved.history).toHaveLength(1);
   expect(new Set(saved.history.map((item) => item.cardId)).size).toBe(1);
 });
+
+test('reloading after the role is revealed keeps that very card for confirmation', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('role_deal_card_seconds', '0'));
+  await page.goto('/e2e/tournament-live-game.html?mode=deal');
+  await page.getByTestId('tournament-start-virtual-deal').click();
+  const deal = page.getByTestId('virtual-role-deal');
+  await deal.getByRole('button', { name: 'Начать раздачу' }).click();
+  await deal.getByTestId('virtual-deal-go').click();
+  await deal.getByRole('button', { name: /^Карта №/ }).first().click();
+  const roleBefore = await deal.locator('.deal-face').getAttribute('aria-label');
+  const key = 'mafia_tournament_virtual_deal:tournament-e2e:game-e2e';
+  const cardBefore = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).selectedId, key);
+  await page.reload();
+  await expect(deal).toBeVisible();
+  await expect(deal.locator('.deal-face')).toHaveAttribute('aria-label', roleBefore);
+  const cardAfter = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).selectedId, key);
+  expect(cardAfter).toBe(cardBefore);
+  await deal.getByTestId('virtual-deal-next-player').click();
+  await expect(deal).toContainText('Выдано 1 из 10');
+});

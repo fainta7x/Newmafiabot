@@ -224,6 +224,7 @@ for (const width of [360, 1440]) {
   test(`tournament Live Engine keeps finished result through CRM outage and retries at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
     await page.goto('/e2e/tournament-live-game.html?mode=offline-retry');
+    await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     const error = page.getByTestId('tournament-live-error');
     await expect(error).toContainText('не успел сохраниться');
     const retry = page.getByRole('button', { name: 'Повторить сохранение' });

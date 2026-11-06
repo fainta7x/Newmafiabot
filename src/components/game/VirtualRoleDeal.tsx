@@ -168,8 +168,13 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   useEffect(() => () => writeDealBroadcast(null), []);
   useEffect(() => {
     if (!started || complete || !loaded || active === undefined || turnStartedAt !== null || (!go && history.length === 0)) return;
-    startTurn();
-  }, [started, complete, loaded, active, turnStartedAt, go, history.length]);
+    if (showRole && selectedId) {
+      // Recovery of a revealed card must not silently discard that player's role.
+      const at = Date.now();
+      setNow(at);
+      setTurnStart({ key: turnKey, at });
+    } else startTurn();
+  }, [started, complete, loaded, active, turnStartedAt, go, history.length, selectedId, showRole]);
   useEffect(() => {
     if (!started || !waiting || !timeUp || turnStartedAt === null || showRole || selectedId || busy || !deck.length) return;
     const array = new Uint32Array(1);

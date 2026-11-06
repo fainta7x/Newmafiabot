@@ -4,6 +4,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import { mapEngineResult } from '../components/player/TournamentLiveGameModal.tsx';
+import { saveLiveGameCheckpoint, loadLiveGameCheckpoint } from '../server/services/liveGameCheckpointService.ts';
 
 let app: any;
 let db: DatabaseWrapper;
@@ -92,3 +93,56 @@ describe('saving a finished live tournament game with votes from several days', 
   });
 });
 
+
+describe('tournament Live Engine persistence audit: draft retries, finalization and checkpoint cleanup', () => {
+  it('survives 30 sequential draft saves without losing seats, roles, events or duplicating player results', async () => {
+    const url = `/api/tournaments/${tournamentId}/games/${gameId}/protocol`;
+    const initial = await request(app).get(url).set('Cookie', cookie).expect(200);
+    const events = [
+      { seq: 1, at: '2026-11-06T10:00:00.000Z', round: 1, phase: 'zero_night', kind: 'game_start' },
+      { seq: 2, at: '2026-11-06T10:01:00.000Z', round: 2, phase: 'day_speeches', kind: 'nomination', seat: 4, by: 1 },
+      { seq: 3, at: '2026-11-06T10:02:00.000Z', round: 2, phase: 'day_voting', kind: 'vote', seat: 1, target: 4, value: 1 },
+      { seq: 4, at: '2026-11-06T10:03:00.000Z', round: 2, phase: 'night', kind: 'shot_target', target: 6 },
+    ];
+    let saved = mapEngineResult(initial.body.protocol, initial.body.player_results, {
+      winning_team: 'Красные', slots: [], votes: [], shots: [], events,
+    });
+    const participantIds = initial.body.player_results.map((row: any) => row.participant_id);
+    for (let attempt = 0; attempt < 30; attempt++) {
+      saved.protocol.judge_notes = `Автосохранение №${attempt}`;
+      const response = await request(app).put(url).set('Cookie', cookie).send(saved);
+      expect(response.status).toBe(200);
+      saved = { protocol: response.body.protocol, player_results: response.body.player_results };
+      expect(saved.player_results).toHaveLength(10);
+      expect(saved.player_results.map((row: any) => row.participant_id)).toEqual(participantIds);
+      expect(saved.protocol.events.map((ev: any) => ev.kind)).toEqual(events.map((ev) => ev.kind));
+    }
+    const count = await db.get<any>('SELECT COUNT(*) AS n FROM tournament_game_player_results WHERE game_id = ?', [gameId]);
+    expect(count.n).toBe(10);
+    const reread = await request(app).get(url).set('Cookie', cookie).expect(200);
+    expect(reread.body.protocol.judge_notes).toBe('Автосохранение №29');
+    expect(reread.body.protocol.events).toHaveLength(4);
+
+    // A live checkpoint belongs to the running game and must disappear only after completion.
+    const checkpoint = {
+      session: JSON.stringify({ phase: 'day_voting', roundNumber: 2, activePlayers: [{ slot_num: 1 }] }),
+      evidence: JSON.stringify({ votes: [], shots: [], events }),
+    };
+    expect(await saveLiveGameCheckpoint(db, `tournament:${gameId}`, checkpoint)).toBe('saved');
+    expect(await loadLiveGameCheckpoint(db, `tournament:${gameId}`)).not.toBeNull();
+    const completed = await request(app).post(`${url}/complete`).set('Cookie', cookie).send(saved);
+    expect(completed.status).toBe(200);
+    expect(completed.body.protocol.status).toBe('completed');
+    expect(completed.body.game.status).toBe('completed');
+    expect(await loadLiveGameCheckpoint(db, `tournament:${gameId}`)).toBeNull();
+
+    // A stale judge tab cannot overwrite completed results with a late PUT.
+    const lateSave = await request(app).put(url).set('Cookie', cookie).send({
+      protocol: { ...saved.protocol, winner_team: 'black' }, player_results: saved.player_results,
+    });
+    expect(lateSave.status).toBe(400);
+    const rereadCompleted = await request(app).get(url).set('Cookie', cookie).expect(200);
+    expect(rereadCompleted.body.protocol.winner_team).toBe('red');
+    expect((await db.get<any>('SELECT COUNT(*) AS n FROM tournament_game_player_results WHERE game_id = ?', [gameId])).n).toBe(10);
+  }, 60_000);
+});

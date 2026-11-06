@@ -214,11 +214,12 @@ function TournamentLiveGameModalBody({
   useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
   const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
   const dealKey = tournamentDealKey(tournamentId, gameId);
+  const dealRosterToken = (rows: PlayerResultData[]) => rows.slice().sort((a,b) => a.seat_number - b.seat_number).map((row) => `${row.seat_number}:${row.participant_id}`).join('|');
   useEffect(() => {
     if (!payload || virtualSeats || livePhase !== 'setup') return;
     if (completeLiveRoleAssignments(payload.player_results)) return;
     const seats = payload.player_results.slice().sort((a, b) => a.seat_number - b.seat_number);
-    if (loadTournamentDealState(dealKey, seats.map((seat) => Number(seat.seat_number)))) setVirtualSeats(seats);
+    if (loadTournamentDealState(dealKey, seats.map((seat) => Number(seat.seat_number)), dealRosterToken(seats))) setVirtualSeats(seats);
   }, [payload, dealKey, livePhase, virtualSeats]);
 
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -574,7 +575,7 @@ function TournamentLiveGameModalBody({
       {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 ? <div className="mx-4 my-2">
         <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number))} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
       </div>:null}
-      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal persistenceKey={dealKey} allowRolePurchase={false} seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
+      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal persistenceKey={dealKey} persistenceRosterToken={dealRosterToken(virtualSeats)} allowRolePurchase={false} seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
         const fresh=await loadLivePayload();
         const identity=(rows:PlayerResultData[])=>JSON.stringify(rows.slice().sort((a,b)=>a.seat_number-b.seat_number).map(p=>[p.seat_number,p.participant_id,p.player_id]));
         if(identity(fresh.player_results)!==identity(virtualSeats))throw new Error('Состав игры изменился. Закройте раздачу и проверьте игроков.');

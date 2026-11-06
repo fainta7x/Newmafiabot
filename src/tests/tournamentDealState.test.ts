@@ -62,6 +62,16 @@ describe('tournament virtual deal checkpoints', () => {
     expect(localStorage.getItem('invalid')).toBeNull();
   });
 
+  it('refuses to resume cards if an organizer changed who occupies a seat', () => {
+    const key = tournamentDealKey('tournament-a', 'game-1');
+    const original = seats.map((seat) => `${seat}:participant-${seat}`).join('|');
+    const swapped = seats.map((seat) => `${seat}:participant-${seat === 1 ? 2 : seat === 2 ? 1 : seat}`).join('|');
+    expect(saveTournamentDealState(key, afterThree(), seats, original)).toBe(true);
+    expect(loadTournamentDealState(key, seats, original)?.history).toHaveLength(3);
+    expect(loadTournamentDealState(key, seats, swapped)).toBeNull();
+    expect(localStorage.getItem(key)).not.toBeNull();
+  });
+
   it('never treats a corrupt or cross-game checkpoint as a valid draw', () => {
     const key = tournamentDealKey('a', 'g');
     localStorage.setItem(key, '{"deck":"broken"}');

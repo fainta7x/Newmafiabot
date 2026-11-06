@@ -103,12 +103,11 @@ describe('tournament Live Engine persistence audit: draft retries, finalization 
       winning_team: 'Красные', slots: [{ slot_num: 1, exit_reason: 'killed', alive: false }],
       protocol_markers: { firstKilledSlot: 1 }, votes: [], shots: [],
     });
-    const initial = loaded.body.player_results.slice(0, 2);
-    await db.run(`UPDATE tournament_game_seats SET participant_id = CASE
-      WHEN seat_number = 1 THEN ?
-      WHEN seat_number = 2 THEN ?
-      ELSE participant_id END
-      WHERE game_id = ?`, [initial[1].participant_id, initial[0].participant_id, gameId]);
+    const swap = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/swap-seats`)
+      .set('Cookie', cookie)
+      .send({ seat_number_1: 1, seat_number_2: 2 });
+    expect(swap.status).toBe(200);
     const rejected = await request(app).put(url).set('Cookie', cookie).send(mapped);
     expect(rejected.status).toBe(409);
     expect(rejected.body.error).toContain('Рассадка');

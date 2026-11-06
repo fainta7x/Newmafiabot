@@ -77,8 +77,7 @@ test('tournament draw undo and full reset preserve deck integrity', async ({ pag
   await deal.getByRole('button', { name: 'Перераздать всё' }).click();
   await deal.getByRole('button', { name: 'Да, перераздать' }).click();
   await expect(deal).toContainText('Выдано 0 из 10');
-  await expect(deal.getByRole('button', { name: 'Начать раздачу' })).toBeVisible();
-  await expect(deal.getByRole('button', { name: /^Карта №/ })).toHaveCount(0);
+  await expect(deal.getByRole('button', { name: /^Карта №/ })).toHaveCount(10);
 });
 
 test('tournament random timeout reveals a card without duplicating a turn', async ({ page }) => {

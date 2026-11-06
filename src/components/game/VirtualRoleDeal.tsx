@@ -300,8 +300,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
       }
       setSeat(orderedSeats[0].seat_number);
       setTurnStart(null);
-      setGo(false);
-      setStarted(false);
+      // A reset during an active draw presents the newly shuffled deck immediately,
+      // instead of unexpectedly returning the judge to the intro screen.
       setBuying(false);
       autoFinished.current = false;
       setResetConfirm(false);

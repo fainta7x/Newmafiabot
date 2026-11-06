@@ -170,3 +170,57 @@ describe('tournament Live Engine persistence audit: draft retries, finalization 
     expect((await db.get<any>('SELECT COUNT(*) AS n FROM tournament_game_player_results WHERE game_id = ?', [gameId])).n).toBe(10);
   }, 60_000);
 });
+
+describe('full tournament-distance Live Engine-to-protocol regression', () => {
+  it('conducts 10 games, persists 100 seat results, rotates winning sides and never duplicates completed records', async () => {
+    const games = await db.all<any>('SELECT id, game_number, status FROM tournament_games WHERE tournament_id = ? ORDER BY game_number', [tournamentId]);
+    expect(games).toHaveLength(10);
+    for (const [index, game] of games.entries()) {
+      const roles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don']
+        .map((role, i) => ({ seat_number: i + 1, role }));
+      if (index > 0) {
+        const roleRes = await request(app).patch(`/api/tournaments/${tournamentId}/games/${game.id}/roles`)
+          .set('Cookie', cookie).send({ roles });
+        expect(roleRes.status).toBe(200);
+        const start = await request(app).post(`/api/tournaments/${tournamentId}/games/${game.id}/start`).set('Cookie', cookie);
+        expect(start.status).toBe(200);
+      }
+      const url = `/api/tournaments/${tournamentId}/games/${game.id}/protocol`;
+      const loaded = await request(app).get(url).set('Cookie', cookie).expect(200);
+      const winner = index % 2 === 0 ? 'Красные' : 'Чёрные';
+      const winnerCode = index % 2 === 0 ? 'red' : 'black';
+      const mapped = mapEngineResult(loaded.body.protocol, loaded.body.player_results, {
+        winning_team: winner,
+        slots: loaded.body.player_results.map((player: any) => ({
+          slot_num: player.seat_number, role: player.role, alive: true, fouls: index % 3,
+        })),
+        votes: [], shots: [],
+        events: [
+          { seq: 1, at: '2026-11-06T10:00:00.000Z', round: 1, phase: 'zero_night', kind: 'game_start' },
+          { seq: 2, at: '2026-11-06T11:00:00.000Z', round: 2, phase: 'day_speeches', kind: 'game_end', value: winnerCode },
+        ],
+      });
+      expect((await request(app).put(url).set('Cookie', cookie).send(mapped)).status).toBe(200);
+      const reloaded = await request(app).get(url).set('Cookie', cookie).expect(200);
+      expect(reloaded.body.protocol.events).toHaveLength(2);
+      expect(reloaded.body.player_results).toHaveLength(10);
+      expect(reloaded.body.player_results.every((row: any) => row.regular_fouls === index % 3)).toBe(true);
+      const completed = await request(app).post(`${url}/complete`).set('Cookie', cookie).send({
+        protocol: reloaded.body.protocol,
+        player_results: reloaded.body.player_results,
+      });
+      expect(completed.status).toBe(200);
+      expect(completed.body.game.status).toBe('completed');
+      expect(completed.body.protocol.winner_team).toBe(winnerCode);
+    }
+    const totals = await db.get<any>(`SELECT
+      (SELECT COUNT(*) FROM tournament_games WHERE tournament_id = ? AND status = 'completed') AS games,
+      (SELECT COUNT(*) FROM tournament_game_player_results WHERE game_id IN (SELECT id FROM tournament_games WHERE tournament_id = ?)) AS results,
+      (SELECT COUNT(*) FROM tournament_game_protocols WHERE game_id IN (SELECT id FROM tournament_games WHERE tournament_id = ?) AND status = 'completed') AS protocols`,
+      [tournamentId, tournamentId, tournamentId]);
+    expect(totals).toMatchObject({ games: 10, results: 100, protocols: 10 });
+    const check = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', cookie).expect(200);
+    expect(check.body.games).toHaveLength(10);
+    expect(check.body.games.every((game: any) => game.status === 'completed')).toBe(true);
+  }, 120_000);
+});

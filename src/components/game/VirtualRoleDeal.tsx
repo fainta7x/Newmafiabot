@@ -10,6 +10,7 @@ import './virtualRoleDeal.css';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { clubGamesApi, type VirtualDealSnapshot } from '../../lib/clubGamesApi.ts';
+import { loadTournamentDealState, saveTournamentDealState, clearTournamentDealState } from '../../lib/tournamentDealState.ts';
 
 type Seat = { seat_number: number; nickname: string };
 type Drawn = { seat: number; cardId: string; role: GameRole };
@@ -19,6 +20,11 @@ type Props = {
   onComplete: (assignments: Record<number, GameRole>) => void | Promise<void>;
   finishLabel?: string;
   serverGameId?: number;
+  /** Local tournament draw checkpoint, scoped to an exact game ID. Never used by server-backed club deals. */
+  persistenceKey?: string;
+  persistenceRosterToken?: string;
+  /** Tournament role draws must never sell or preassign a role. */
+  allowRolePurchase?: boolean;
   /** Seconds a player has to take a card before it can be opened (owner, 2026-11-01); 0 switches the wait off. */
   cardSeconds?: number;
 };
@@ -61,24 +67,25 @@ const configuredCardSeconds = (): number => {
 };
 const BUY_ROLES: GameRole[] = ['citizen', 'mafia', 'sheriff', 'don'];
 
-export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, cardSeconds, finishLabel='Все роли выданы — начать игру' }: Props) {
+export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGameId, persistenceKey, persistenceRosterToken, allowRolePurchase = true, cardSeconds, finishLabel='Все роли выданы — начать игру' }: Props) {
   const waitSeconds = cardSeconds ?? configuredCardSeconds();
   const orderedSeats = useMemo(() => [...seats].sort((a, b) => a.seat_number - b.seat_number), [seats]);
   const size = orderedSeats.length;
+  const restored = useMemo(() => !serverGameId && persistenceKey ? loadTournamentDealState(persistenceKey, orderedSeats.map((seat) => seat.seat_number), persistenceRosterToken) : null, [serverGameId, persistenceKey, persistenceRosterToken]);
   // The component is only mounted once the confirmed roster has a supported size.
-  const [deck, setDeck] = useState<Card[]>(() => serverGameId ? [] : makeDeck(size));
-  const [history, setHistory] = useState<(Drawn & { previousDeck: Card[] })[]>([]);
-  const [seat, setSeat] = useState<number>(() => orderedSeats[0]?.seat_number ?? 1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deck, setDeck] = useState<Card[]>(() => serverGameId ? [] : restored?.deck || makeDeck(size));
+  const [history, setHistory] = useState<(Drawn & { previousDeck: Card[] })[]>(() => restored?.history || []);
+  const [seat, setSeat] = useState<number>(() => restored?.seat ?? orderedSeats[0]?.seat_number ?? 1);
+  const [selectedId, setSelectedId] = useState<string | null>(() => restored?.selectedId || null);
   const [version, setVersion] = useState(0);
   const [loaded, setLoaded] = useState(!serverGameId);
   const [busy, setBusy] = useState(false);
   const [revealedRole, setRevealedRole] = useState<GameRole | null>(null);
   const openPromise = useRef<ReturnType<typeof clubGamesApi.roleDealOpen> | null>(null);
-  const [showRole, setShowRole] = useState(false);
+  const [showRole, setShowRole] = useState(() => restored?.showRole || false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [closeConfirm,setCloseConfirm]=useState(false);
-  const [started,setStarted]=useState(false);
+  const [started,setStarted]=useState(() => restored?.started || false);
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -86,11 +93,19 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   // the program opened a random card for him at once (owner, 2026-11-03: «не выдаёт карту после первой»).
   const [turnStart,setTurnStart]=useState<{ key: string; at: number }|null>(null);
   // «Стартуем» (owner, 2026-11-03): the first player's turn opens only on the judge's tap; later turns open by themselves.
-  const [go,setGo]=useState(false);
+  const [go,setGo]=useState(() => restored?.go || false);
   const [now,setNow]=useState(()=>Date.now());
   const [buying,setBuying]=useState(false);
   // Where each card lies on the table: taken cards leave a faded place (owner-approved deal design, 2026-11-03).
-  const [layout, setLayout] = useState<string[]>(() => deck.map((card) => card.id));
+  const [layout, setLayout] = useState<string[]>(() => restored?.layout || deck.map((card) => card.id));
+  // Store after every committed state change. Restored state is loaded by initializers so
+  // the first effect cannot clobber it with a new random deck.
+  useEffect(() => {
+    if (serverGameId || !persistenceKey) return;
+    if (!saveTournamentDealState(persistenceKey, { deck, history, layout, seat, selectedId, showRole, started, go }, orderedSeats.map((entry) => entry.seat_number), persistenceRosterToken)) {
+      setError('Не удалось сохранить промежуточную раздачу на устройстве. Не обновляйте страницу до завершения.');
+    }
+  }, [serverGameId, persistenceKey, persistenceRosterToken, deck, history, layout, seat, selectedId, showRole, started, go]);
   const playerOfSeat = useContext(DealSeatPlayersContext);
   useEffect(()=>()=>{requestJudgeGameMusicStop();},[]);
   useEffect(() => {
@@ -153,17 +168,26 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
   useEffect(() => () => writeDealBroadcast(null), []);
   useEffect(() => {
     if (!started || complete || !loaded || active === undefined || turnStartedAt !== null || (!go && history.length === 0)) return;
-    startTurn();
-  }, [started, complete, loaded, active, turnStartedAt, go, history.length]);
+    if (showRole && selectedId) {
+      // Recovery of a revealed card must not silently discard that player's role.
+      const at = Date.now();
+      setNow(at);
+      setTurnStart({ key: turnKey, at });
+    } else startTurn();
+  }, [started, complete, loaded, active, turnStartedAt, go, history.length, selectedId, showRole]);
   useEffect(() => {
     if (!started || !waiting || !timeUp || turnStartedAt === null || showRole || selectedId || busy || !deck.length) return;
-    void revealCard(deck[Math.floor(Math.random() * deck.length)].id);
+    const array = new Uint32Array(1);
+    const max = deck.length;
+    const limit = Math.floor(4294967296 / max) * max;
+    do { crypto.getRandomValues(array); } while (array[0] >= limit);
+    void revealCard(deck[array[0] % max].id);
   }, [started, waiting, timeUp, turnStartedAt, showRole, selectedId, busy, deck]);
   const dealt: Partial<Record<GameRole, number>> = {};
   for (const entry of history) dealt[entry.role] = (dealt[entry.role] ?? 0) + 1;
   const roleLeft = (role: GameRole) => (isSupportedTableSize(size) ? tableRoleCounts(size)[role] ?? 0 : 0) - (dealt[role] ?? 0);
   const buyRole = async (role: GameRole) => {
-    if (active === undefined || busy || showRole || roleLeft(role) < 1) return;
+    if (!allowRolePurchase || active === undefined || busy || showRole || roleLeft(role) < 1) return;
     setBusy(true);
     try {
       let seatPlayerNote = '';
@@ -275,15 +299,20 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
         setShowRole(false);
       }
       setSeat(orderedSeats[0].seat_number);
+      setTurnStart(null);
+      // A reset during an active draw presents the newly shuffled deck immediately,
+      // instead of unexpectedly returning the judge to the intro screen.
+      setBuying(false);
+      autoFinished.current = false;
       setResetConfirm(false);
       setError('');
     } catch { setError('Не удалось перераздать карты. Повторите попытку.'); }
     finally { setBusy(false); }
   };
-  const close=()=>{requestJudgeGameMusicStop();onCancel();};
+  const close=()=>{if(persistenceKey)clearTournamentDealState(persistenceKey);requestJudgeGameMusicStop();onCancel();};
   const finish=async()=>{
     if(saving||!complete)return;setSaving(true);setError('');
-    try{await onComplete(assignments);requestJudgeGameMusicStop();}catch(error:any){setError(error?.message||'Не удалось сохранить роли');}finally{setSaving(false);}
+    try{await onComplete(assignments);if(persistenceKey)clearTournamentDealState(persistenceKey);requestJudgeGameMusicStop();}catch(error:any){setError(error?.message||'Не удалось сохранить роли');}finally{setSaving(false);}
   };
   // The last card confirmed → straight into the game; the button stays for a retry if saving failed.
   const autoFinished = useRef(false);
@@ -322,8 +351,8 @@ export default function VirtualRoleDeal({ seats, onCancel, onComplete, serverGam
         {!started ? <div className="space-y-3">
           <p className="text-sm leading-6">Карты уже перемешаны. Каждый игрок по очереди выбирает карту за {waitSeconds} с и видит свою роль.</p>
           {/* Owner, 2026-11-03: a bought role is marked before the deal starts. */}
-          {!serverGameId && <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>}
-          {!serverGameId && buying && (
+          {!serverGameId && allowRolePurchase && <button type="button" data-testid="virtual-deal-buy-role" disabled={!loaded || busy} onClick={() => setBuying((value) => !value)} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold">Покупка роли</button>}
+          {!serverGameId && allowRolePurchase && buying && (
             <div data-testid="virtual-deal-buy-panel" role="group" aria-label="Покупка роли" className="space-y-2 rounded-xl border border-white/15 bg-black/20 p-2.5">
               <div className="deal-seats" aria-label="Кто покупает">
                 {orderedSeats.map((player) => seatTile(player, { disabled: assigned.has(player.seat_number) || busy, onClick: () => setSeat(player.seat_number) }))}

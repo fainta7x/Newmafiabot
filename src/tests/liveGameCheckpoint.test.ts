@@ -5,6 +5,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { clearLiveGameCheckpoint, ensureLiveGameCheckpointSchema, loadLiveGameCheckpoint, normalizeCheckpoint, saveLiveGameCheckpoint } from '../server/services/liveGameCheckpointService.ts';
 import { readDeviceSession, readLiveGameCheckpoint, writeLiveGameCheckpoint } from '../lib/liveGameCheckpoint.ts';
 import { clubLiveEvidenceKey, clubLiveSessionKey } from '../lib/liveClubSession.ts';
+import { beginTournamentDeathProtocolScope, readStoredDeathProtocols, storeDeathProtocol, tournamentDeathProtocolKey } from '../lib/liveDeathProtocol.ts';
 
 // «Продолжить игру» for ANY game through the one «Игра» layer (owner, 2026-11-03).
 const opened: DatabaseWrapper[] = [];
@@ -69,5 +70,42 @@ describe('device side — any game', () => {
     writeLiveGameCheckpoint('tournament:tg1', { session: session({ sessionKey: 'tournament:tg1' }), evidence: '{"votes":[1]}' });
     expect(readDeviceSession('tournament:tg1')?.roundNumber).toBe(2);
     expect(localStorage.getItem('mafia_live_session:tournament:tg1:protocol')).toBe('{"votes":[1]}');
+  });
+});
+
+describe('tournament killed-player will isolation', () => {
+  it('does not carry one tournament game death protocol into the next game', () => {
+    localStorage.setItem('mafia_live_session', session({ sessionKey: 'tournament:g1' }));
+    storeDeathProtocol(2, { red: [1], black: [8], sheriff: [] });
+    const first = beginTournamentDeathProtocolScope('g1');
+    first.sync();
+    first.stop();
+    expect(JSON.parse(localStorage.getItem(tournamentDeathProtocolKey('g1')) || '{}')[2].black).toEqual([8]);
+    expect(readStoredDeathProtocols()).toEqual({});
+
+    localStorage.setItem('mafia_live_session', session({ sessionKey: 'tournament:g2' }));
+    const second = beginTournamentDeathProtocolScope('g2');
+    expect(readStoredDeathProtocols()).toEqual({});
+    storeDeathProtocol(3, { red: [5], black: [9], sheriff: [] });
+    second.sync();
+    second.stop();
+
+    localStorage.setItem('mafia_live_session', session({ sessionKey: 'tournament:g1' }));
+    const recovered = beginTournamentDeathProtocolScope('g1');
+    expect(readStoredDeathProtocols()[2].black).toEqual([8]);
+    expect(readStoredDeathProtocols()[3]).toBeUndefined();
+    recovered.stop();
+    const restoredSecond = beginTournamentDeathProtocolScope('g2');
+    expect(readStoredDeathProtocols()[3].black).toEqual([9]);
+    expect(readStoredDeathProtocols()[2]).toBeUndefined();
+    restoredSecond.stop();
+  });
+
+  it('never imports a legacy will from an unrelated game', () => {
+    localStorage.setItem('mafia_live_session', session({ sessionKey: 'tournament:old' }));
+    storeDeathProtocol(1, { red: [2], black: [], sheriff: [] });
+    const next = beginTournamentDeathProtocolScope('new');
+    expect(readStoredDeathProtocols()).toEqual({});
+    next.stop();
   });
 });

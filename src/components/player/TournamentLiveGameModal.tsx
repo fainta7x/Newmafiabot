@@ -16,7 +16,7 @@ import {
   mergeBroadcastDayVotes,
   type LiveBroadcastDayVote,
 } from '../../lib/liveBroadcast.ts';
-import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols, readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
+import { applyStoredDeathProtocolsToResults, beginTournamentDeathProtocolScope, clearStoredDeathProtocols, readStoredDeathProtocols, tournamentDeathProtocolKey } from '../../lib/liveDeathProtocol.ts';
 import { buildFinalChronology } from '../../lib/liveGameEventLog.ts';
 import {
   LEGACY_LIVE_SESSION_KEY,
@@ -222,6 +222,14 @@ function TournamentLiveGameModalBody({
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
   const lastSnapshotRef = useRef<any>(null);
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
+  // The death-protocol overlay still reads the legacy global key. Keep it scoped to
+  // this tournament game across reloads and while switching between different games.
+  useEffect(() => {
+    const scope = beginTournamentDeathProtocolScope(gameId);
+    const interval = window.setInterval(scope.sync, 75);
+    return () => { window.clearInterval(interval); scope.stop(); };
+  }, [gameId]);
+
   const loadLivePayload = async (): Promise<TournamentLivePayload> => {
     const body = await getJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'Не удалось загрузить турнирный протокол');
     return { protocol: body.protocol, player_results: body.player_results || [], game: body.game || null };
@@ -428,6 +436,7 @@ function TournamentLiveGameModalBody({
       await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'PUT', next, 'Не удалось перенести результат в турнирный протокол');
       try { localStorage.removeItem(evidenceKey); } catch {}
       clearStoredDeathProtocols();
+      try { localStorage.removeItem(tournamentDeathProtocolKey(gameId)); } catch {}
       finishedGameRef.current = null;
       try { localStorage.removeItem(pendingSaveKey); } catch {}
       setReviewMode(true);

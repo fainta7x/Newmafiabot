@@ -662,20 +662,8 @@ export async function postTournamentAnnouncement(db: DatabaseWrapper, tournament
   if (tournament?.tournament_evening_flow && !tournament.published_at) return false;
   if (!(await claim(db, key, 'tournament-announce', '', null))) return false;
   try {
-    const link = broadcastLink();
-    const caption = [
-      `🏆 Турнир «${announcement.title}» — ${announcement.dateLabel}${announcement.timeLabel ? `, начало в ${announcement.timeLabel}` : ''}!`,
-      announcement.venue ? `📍 ${announcement.venue}` : '',
-      announcement.judge ? `⚖️ Главный судья: ${announcement.judge}` : '',
-      `📺 Прямой эфир со старта игр${announcement.timeLabel ? ` (с ${announcement.timeLabel})` : ''}${link ? `: ${link}` : ' — на Twitch клуба'}`,
-      '',
-      `Играют (${announcement.players.length}): ${announcement.players.map((player) => player.nickname).join(', ')}`,
-      '',
-      'Приходите болеть за любимчиков и смотрите в эфире! 🖤',
-    ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').slice(0, 1020);
-    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба'))], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' }, true);
     const { caption, photo } = tournamentAnnouncementMedia(announcement);
-    const result = await sendPhotos(db, 'TOURNAMENT', [photo], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, 'TOURNAMENT', [photo], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' }, true);
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {

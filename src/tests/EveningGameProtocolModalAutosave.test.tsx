@@ -178,6 +178,8 @@ describe('undoing a PPK and a judge removal', () => {
     go('Протокол');
     openPlayer(3);
     fireEvent.click(sheet().getByRole('button', { name: 'Удалить судьёй' }));
+    // «Когда удалён?» (owner, 2026-11-07): the removal is tied to a circle and a moment.
+    fireEvent.click(sheet().getByRole('button', { name: 'Записать удаление' }));
     fireEvent.click(sheet().getByRole('button', { name: 'Отменить удаление' }));
     await settle();
     const saved = save.mock.calls.at(-1)![1];

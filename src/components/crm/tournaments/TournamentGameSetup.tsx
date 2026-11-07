@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shield, Crown, Skull, User, ArrowLeftRight, Play, Edit2 } from 'lucide-react';
 import PhysicalRoleDeal, { type PhysicalRole } from '../../game/PhysicalRoleDeal.tsx';
+import VirtualRoleDeal from '../../game/VirtualRoleDeal.tsx';
 import { TournamentGame, TournamentGameSeat } from '../../../lib/api';
 import { api } from '../../../lib/api';
 
@@ -44,6 +45,8 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
   const [mafiaSeats, setMafiaSeats] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [showPhysicalDeal, setShowPhysicalDeal] = useState(false);
+  // The virtual deal right where a tournament game is started (owner, 2026-11-07: «в CRM не вижу, где запуск с виртуальной раздачи»).
+  const [showVirtualDeal, setShowVirtualDeal] = useState(false);
 
   useEffect(() => {
     let sSeat: number | null = null;
@@ -137,6 +140,20 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
     }
   };
 
+  const startWithRoles = async (rolesBySeat: Record<number, string>) => {
+    if (tournamentStatus !== 'active') { setFeedbackMsg({ type: 'error', text: 'Запуск игры разрешён только в активном турнире. Запустите турнир вверху.' }); return; }
+    if (isAnotherGameActive) { setFeedbackMsg({ type: 'error', text: `Сначала завершите активную Игру №${activeGameNumber}` }); return; }
+    setSaving(true); setFeedbackMsg(null);
+    try {
+      await api.updateGameRoles(tournamentId, game.id, (game.seats || []).map((seat: TournamentGameSeat) => ({ seat_number: seat.seat_number, role: rolesBySeat[seat.seat_number] || 'citizen' })));
+      await api.startTournamentGame(tournamentId, game.id);
+      onGameStarted(game.id);
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка сохранения ролей или запуска игры' });
+      throw err;
+    } finally { setSaving(false); }
+  };
+
   const handleSaveAndStart = async () => {
     if (!isComplete) {
       setFeedbackMsg({ type: 'error', text: 'Выберите Шерифа, Дона и двух игроков Мафии. Остальные станут мирными автоматически.' });
@@ -193,6 +210,19 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
           </button>
         )}
       </div>
+
+      {canEditJudgeAndRoles && (
+        <button type="button" data-testid="tournament-setup-virtual-deal" disabled={tournamentStatus !== 'active' || isAnotherGameActive} onClick={() => setShowVirtualDeal(true)}
+          className="w-full rounded-2xl border border-white/25 bg-white/10 p-3 text-left transition-all hover:bg-white/15 disabled:opacity-50">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-black text-white">🂠 Раздать виртуальные карты и запустить игру</div>
+              <div className="mt-1 text-[11px] leading-4 text-white/55">{tournamentStatus !== 'active' ? 'Сначала нажмите «Запустить турнир» вверху' : isAnotherGameActive ? `Сначала завершите игру №${activeGameNumber}` : `Игроки по очереди выбирают карту на экране; после последней карты игра №${game.game_number} запускается сама`}</div>
+            </div>
+            <span className="text-xl text-white/60">›</span>
+          </div>
+        </button>
+      )}
 
       {canEditJudgeAndRoles && (
         <button
@@ -278,6 +308,21 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
           {saving ? <span>Сохранение и запуск...</span> : <><Play className="w-4 h-4 fill-current shrink-0" /><span>Сохранить роли и запустить игру №{game.game_number}</span></>}
         </button>
       </div>
+
+      {showVirtualDeal && (
+        <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/80 p-3">
+          <div className="mx-auto max-w-md">
+            <VirtualRoleDeal
+              seats={sortedSeats.map((seat) => ({ seat_number: seat.seat_number, nickname: seat.display_name || `Игрок ${seat.seat_number}` }))}
+              allowRolePurchase={false}
+              persistenceKey={`tournament-setup:${tournamentId}:${game.id}`}
+              finishLabel="Сохранить роли и запустить игру"
+              onCancel={() => setShowVirtualDeal(false)}
+              onComplete={async (assignments) => { await startWithRoles(assignments as Record<number, string>); setShowVirtualDeal(false); }}
+            />
+          </div>
+        </div>
+      )}
 
       {showPhysicalDeal && (
         <PhysicalRoleDeal

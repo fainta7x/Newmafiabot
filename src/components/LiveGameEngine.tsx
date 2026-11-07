@@ -1576,8 +1576,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       return;
     }
     if (phase === 'night') {
-      if (postNightStage !== 'none' || !player.alive) return;
+      if (postNightStage !== 'none') return;
+      // Only the shot needs a living player: the Don and the Sheriff may check a player who has already left the table (owner, 2026-11-07).
       if (nightSubPhase === 'shooting') {
+        if (!player.alive) return;
         saveSnapshot();
         setNightMiss(null);
         setShotPlayerSlot((value) => toggleNightShotTarget(value, slot));

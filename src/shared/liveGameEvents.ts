@@ -31,6 +31,7 @@ export type LiveGameEventKind =
   | 'zero_round_voted'
   | 'zero_round_break'
   | 'split_break'
+  | 'elo_tag'
   | 'best_move'
   | 'reveal'
   | 'reveal_removed'
@@ -111,6 +112,26 @@ export const splitBreakMarks = (events: ReadonlyArray<Pick<LiveGameEvent, 'kind'
     if (event.kind === 'split_break' && event.round >= 1) byRound.set(event.round, cleanSeat(event.seat));
   }
   return [...byRound].filter((entry): entry is [number, number] => entry[1] !== null).map(([round, seat]) => ({ round, seat }));
+};
+
+/**
+ * Elo tags the judge puts on a player (owner, 2026-11-03, like «сломал попил»): «Вскрылся чёрному» (−10 Elo, any circle) and
+ * «Убил шерифа в нуле» (+10 Elo, the zero circle). Event `elo_tag`: `value` is the tag, «<tag>:off» takes it back; the latest
+ * event of a (tag, circle, seat) wins.
+ */
+export const ELO_TAGS = { false_sheriff_red_sheriff: { label: 'Вскрылся шерифом с шерифом красным', elo: -20 }, revealed_to_black: { label: 'Вскрылся чёрному', elo: -10 }, killed_sheriff_zero: { label: 'Убил шерифа в нуле', elo: 10 } } as const;
+export type EloTag = keyof typeof ELO_TAGS;
+export const isEloTag = (value: unknown): value is EloTag => typeof value === 'string' && value in ELO_TAGS;
+export const eloTagMarks = (events: ReadonlyArray<Pick<LiveGameEvent, 'kind' | 'round' | 'seat' | 'value'>> | null | undefined): Array<{ tag: EloTag; round: number; seat: number }> => {
+  const state = new Map<string, boolean>();
+  for (const event of events || []) {
+    if (event.kind !== 'elo_tag' || !(event.round >= 1)) continue;
+    const seat = cleanSeat(event.seat);
+    const [tag, off] = String(event.value ?? '').split(':');
+    if (seat === null || !isEloTag(tag)) continue;
+    state.set(`${tag}|${event.round}|${seat}`, off !== 'off');
+  }
+  return [...state].filter(([, on]) => on).map(([key]) => { const [tag, round, seat] = key.split('|'); return { tag: tag as EloTag, round: Number(round), seat: Number(seat) }; });
 };
 
 /**

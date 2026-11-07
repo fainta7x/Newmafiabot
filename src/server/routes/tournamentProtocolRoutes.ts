@@ -170,7 +170,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
   const db = req.db as DatabaseWrapper;
   const tournamentId = String(req.params.tournamentId);
   const gameId = String(req.params.gameId);
-  const { protocol, player_results } = req.body;
+  const { protocol, player_results, live_seat_bindings } = req.body;
 
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -197,6 +197,22 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 
     const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
     const allParticipantIds = seats.map((s) => s.participant_id);
+    // The Live Engine saves a seat-indexed result. Reject a roster change that occurs
+    // after its final GET but before this PUT. The manual protocol editor omits this
+    // optional guard because it supports deliberate participant corrections.
+    if (live_seat_bindings !== undefined) {
+      const expected = seats.map((seat: any) => [Number(seat.seat_number), String(seat.participant_id)] as const);
+      const sent = Array.isArray(live_seat_bindings)
+        ? live_seat_bindings.map((seat: any) => [Number(seat?.seat_number), String(seat?.participant_id || '')] as const)
+        : [];
+      if (sent.length !== expected.length
+        || new Set(sent.map(([number]: readonly [number, string]) => number)).size !== expected.length
+        || sent.some(([number, participant]: readonly [number, string]) =>
+          !expected.some(([currentNumber, currentParticipant]) => number === currentNumber && participant === currentParticipant))) {
+        return res.status(409).json({ error: 'Рассадка игры изменилась в CRM во время сохранения. Результат не записан. Повторите сохранение с актуальным составом.' });
+      }
+    }
+
 
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
     if ((existingProtocol && existingProtocol.status === 'completed') || game.status === 'completed') {

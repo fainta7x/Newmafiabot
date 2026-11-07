@@ -1,5 +1,5 @@
 import { round2 } from '../../../shared/numbers.ts';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Gamepad2, Image as ImageIcon } from 'lucide-react';
 import { api, TournamentStandingItem, Tournament } from '../../../lib/api.ts';
 import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
@@ -30,9 +30,13 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
   // Expanded games breakdown state (both mobile and desktop)
   const [expandedGamesId, setExpandedGamesId] = useState<string | null>(null);
 
+  const loadedTournament = useRef<string | null>(null);
+  const requestSequence = useRef(0);
+
   const fetchStandings = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     else setLoading(true);
+    const request = ++requestSequence.current;
     setError(null);
 
     try {
@@ -40,20 +44,25 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
         api.getTournamentStandings(tournamentId),
         api.getTournament(tournamentId),
       ]);
+      if (request !== requestSequence.current) return;
+      loadedTournament.current = tournamentId;
       setCompletedGamesCount(res.completed_games_count ?? 0);
       setStandings(res.standings || []);
       setTieRequiresDraw(res.tie_requires_draw ?? false);
       setTournament(tRes);
     } catch (err: any) {
-      setError(err.message || 'Не удалось загрузить турнирную таблицу');
+      if (request === requestSequence.current) setError(err.message || 'Не удалось загрузить турнирную таблицу');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (request === requestSequence.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchStandings();
+    void fetchStandings(loadedTournament.current === tournamentId);
+    return () => { requestSequence.current += 1; };
   }, [tournamentId, refreshTrigger]);
 
   const toggleExpandRow = (id: string) => {

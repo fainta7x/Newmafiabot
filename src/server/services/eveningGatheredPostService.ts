@@ -1,5 +1,4 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { createVkWallPost, getVkDestinations, vkApi } from './vkPublishingService.ts';
 
 /**
@@ -61,14 +60,14 @@ export const defaultGatheredCaption = (evening: any, attended: number) => {
   return `📸 Мы собрались! ${String(evening.title || 'Игровой вечер')} начинается.${people}`;
 };
 
-const telegramDestinationFor = (format: string) => (format === 'NOVICE' ? 'novice' : format === 'CASUAL' ? 'club' : 'rating');
+import { clubResultDestination } from './clubResultPostService.ts';
 
 async function publishTelegram(db: DatabaseWrapper, evening: any, photo: Buffer, mime: string, caption: string, fetchImpl: typeof fetch) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { status: 'failed', error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(
-    'SELECT chat_id, topic_id FROM telegram_destinations WHERE id = ? LIMIT 1',
-    [telegramDestinationFor(normalizeEveningFormat(evening.format))],
+    'SELECT chat_id, topic_id FROM telegram_destinations WHERE id = ? AND active = 1 LIMIT 1',
+    [clubResultDestination(evening.format)],
   ).catch(() => null);
   if (!destination?.chat_id) return { status: 'failed', error: 'Не настроена Telegram-группа для этого вечера' };
   const form = new FormData();

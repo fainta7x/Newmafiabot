@@ -31,6 +31,7 @@ export type LiveEventSnapshot = {
     bestMoveSeats?: number[];
     zeroRoundBreakerSlot?: number | null;
     splitBreakTags?: Record<string, number>;
+    eloTags?: Array<{ tag: string; round: number; seat: number }>;
   };
   activePlayers?: Array<{
     slot_num?: number;
@@ -172,6 +173,12 @@ export const deriveLiveGameEvents = (
     if (now === seatOrNull(previousMarkers?.splitBreakTags?.[key])) continue;
     push(now === null ? { kind: 'split_break', round: Number(key) } : { kind: 'split_break', round: Number(key), seat: now });
   }
+  // Elo tags: one event per tag put on or taken off.
+  const tagKey = (item: { tag: string; round: number; seat: number }) => `${item.tag}|${item.round}|${item.seat}`;
+  const nowTags = new Map((markers?.eloTags || []).map((item) => [tagKey(item), item]));
+  const beforeTags = new Map((previousMarkers?.eloTags || []).map((item) => [tagKey(item), item]));
+  for (const [key, item] of nowTags) if (!beforeTags.has(key)) push({ kind: 'elo_tag', round: item.round, seat: item.seat, value: item.tag });
+  for (const [key, item] of beforeTags) if (!nowTags.has(key)) push({ kind: 'elo_tag', round: item.round, seat: item.seat, value: `${item.tag}:off` });
   const bestMoveSeats = markers?.bestMoveSeats || [];
   if (bestMoveSeats.length && bestMoveSeats.join(',') !== (previousMarkers?.bestMoveSeats || []).join(',')) {
     push({ kind: 'best_move', seat: seatOrNull(markers?.bestMoveSourceSlot), value: bestMoveSeats.join(',') });

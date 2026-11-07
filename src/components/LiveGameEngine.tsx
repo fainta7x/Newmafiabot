@@ -117,6 +117,7 @@ import {
   registerZeroRoundVoted,
   setZeroRoundBreaker,
   setSplitBreakTag,
+  toggleEloTag,
   setBestMove,
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
@@ -2070,6 +2071,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onRestorePlayer={restorePlayer}
         reveal={actionPlayerSlot === null ? null : reveals.find((item) => item.seat === actionPlayerSlot) ?? null}
         seats={activePlayers.map((player) => player.slot_num)}
+        eloTags={actionPlayerSlot === null ? [] : (protocolMarkers.eloTags || []).filter((item) => item.seat === actionPlayerSlot && (item.tag === 'killed_sheriff_zero' ? item.round === 1 : item.round === roundNumber)).map((item) => item.tag)}
+        onToggleEloTag={(slot, tag) => setProtocolMarkers((previous) => toggleEloTag(previous, tag, tag === 'killed_sheriff_zero' ? 1 : roundNumber, slot))}
         onReveal={handleAddReveal}
         onRemoveReveal={handleRemoveReveal}
         onSetAnnouncedCheck={handleSetAnnouncedCheck}

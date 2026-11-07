@@ -16,13 +16,26 @@ export function EloChange({ delta, after }: { delta: number; after: number | nul
 }
 
 /** Every line of the breakdown; «За действия в игре» is coloured by its sign. */
-export function EloBreakdownLines({ lines, contribution, testId }: { lines: string[]; contribution: number | null | undefined; testId?: string }) {
+export function EloBreakdownLines({ lines, contribution, testId, spacious = false }: { lines: string[]; contribution: number | null | undefined; testId?: string; spacious?: boolean }) {
   if (!lines.length) return null;
   return (
-    <ul data-testid={testId} className="mt-2 min-w-0 space-y-0.5 border-t border-white/[0.06] pt-2 text-[11px] leading-4 text-white/60">
-      {lines.map((line, index) => (
-        <li key={`${index}:${line}`} className={`break-words ${line.startsWith('За действия в игре') ? `font-semibold ${tone(contribution)}` : ''}`}>{line}</li>
-      ))}
+    <ul data-testid={testId} className={spacious
+      ? "mt-3 min-w-0 space-y-2 border-t border-white/[0.09] pt-3 text-[13px] leading-[1.55] text-white/75"
+      : "mt-2 min-w-0 space-y-0.5 border-t border-white/[0.06] pt-2 text-[11px] leading-4 text-white/60"}>
+      {lines.map((line, index) => {
+        const split = spacious ? line.indexOf(': ') : -1;
+        const isRoundHeading = spacious && /^(Нулевой круг|Девятка|Восьмёрка|Семёрка|Шестёрка|Пятёрка|Четвёрка|Тройка|Двойка|Круг неизвестен|Начисления без привязки к кругу)/.test(line);
+        return (
+          <li key={`${index}:${line}`} className={`min-w-0 whitespace-normal break-words ${spacious ? isRoundHeading ? 'mt-4 border-t border-white/[0.12] px-1 pt-3 text-[14px] font-bold text-white' : 'rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2.5' : ''} ${line.startsWith('За действия в игре') ? `font-semibold ${tone(contribution)}` : ''} ${spacious && line.includes('×2 за критический круг') ? 'border-amber-200/20 bg-amber-200/[0.06] text-white' : ''}`}>
+            {split >= 0 ? (
+              <>
+                <span className="block font-semibold text-white/90">{line.slice(0, split)}</span>
+                <span className="mt-1 block">{line.slice(split + 2)}</span>
+              </>
+            ) : line}
+          </li>
+        );
+      })}
     </ul>
   );
 }

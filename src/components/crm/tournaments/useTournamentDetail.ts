@@ -5,17 +5,19 @@ import { api, type Tournament } from '../../../lib/api.ts';
  * Loads one tournament for its card: the first load shows the loading screen, later silent refreshes keep the card on
  * screen and only report a failure, and the card opens on the game that is being played (or the next one to play).
  */
-export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamentId: string; onSilentError: (message: string) => void }) => {
+export const useTournamentDetail = ({ tournamentId, revision = 0, onSilentError }: { tournamentId: string; revision?: number; onSilentError: (message: string) => void }) => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
   const autoSelectedGameRef = useRef<string | null>(null);
+  const requestSequence = useRef(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    loadDetail();
-  }, [tournamentId, refreshTrigger]);
+    void loadDetail();
+    return () => { requestSequence.current += 1; };
+  }, [tournamentId, refreshTrigger, revision]);
 
   // The card opens on the game that is being played (or the next one to play), not on game 1 (audit 2026-10-04).
   useEffect(() => {
@@ -31,16 +33,19 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
   }, [tournament, tournamentId]);
 
   const loadDetail = async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
+    const silent = opts?.silent ?? (String(tournament?.id) === tournamentId);
+    const request = ++requestSequence.current;
     if (!silent) {
       setLoading(true);
       setLoadError(null);
     }
     try {
       const data = await api.getTournament(tournamentId);
+      if (request !== requestSequence.current) return;
       setTournament(data);
       setLoadError(null);
     } catch (err: any) {
+      if (request !== requestSequence.current) return;
       const message = err?.message || 'Ошибка загрузки турнира';
       if (silent && tournament) {
         onSilentError(message);
@@ -52,9 +57,7 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
         });
       }
     } finally {
-      if (!silent) {
-        setLoading(false);
-      }
+      if (request === requestSequence.current) setLoading(false);
     }
   };
 
@@ -64,5 +67,5 @@ export const useTournamentDetail = ({ tournamentId, onSilentError }: { tournamen
     if (id != null) try { sessionStorage.setItem(`tournament:${tournamentId}:game`, String(id)); } catch { /* optional view memory */ }
   };
 
-  return { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx: selectGame, refreshTrigger, refresh: () => setRefreshTrigger((prev) => prev + 1), loadDetail };
+  return { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx: selectGame, refreshTrigger: refreshTrigger + revision, refresh: () => setRefreshTrigger((prev) => prev + 1), loadDetail };
 };

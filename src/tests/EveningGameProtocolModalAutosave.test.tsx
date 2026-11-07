@@ -216,11 +216,11 @@ describe('taking back a voting change', () => {
     vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(game);
     go('Ход игры');
-    fireEvent.click(screen.getByRole('tab', { name: /Круг 1/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Круг неизвестен/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить результат' }));
     go('Протокол');
     expect(screen.getByText(/Вы изменили · 2/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Вернуть: Круг 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Вернуть: Круг неизвестен/ }));
     expect(screen.queryByText(/Вы изменили/)).toBeNull();
     await settle();
   });

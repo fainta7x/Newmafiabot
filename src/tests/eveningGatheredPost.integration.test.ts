@@ -16,7 +16,7 @@ async function setup(status = 'active') {
   const now = new Date().toISOString();
   await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
     VALUES ('g1','Пятница',?,'Europe/Moscow','CASUAL',?,20,100,?,?)`, [now, status, now, now]);
-  await db.run("UPDATE telegram_destinations SET chat_id = '-1001', topic_id = 7 WHERE id = 'club'");
+  await db.run("UPDATE telegram_destinations SET chat_id = '-1001', topic_id = 7, active = 1 WHERE id = 'club_chat'");
   return { db, app };
 }
 

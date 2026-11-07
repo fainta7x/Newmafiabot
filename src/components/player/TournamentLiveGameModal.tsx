@@ -1,4 +1,5 @@
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
+import { loadTournamentDealState, tournamentDealKey } from '../../lib/tournamentDealState.ts';
 import { completeLiveRosterIdentity } from '../../lib/liveRosterCorrections.ts';
 import { completeLiveRoleAssignments } from '../../lib/liveRoleCorrections.ts';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume.ts';
@@ -16,7 +17,7 @@ import {
   mergeBroadcastDayVotes,
   type LiveBroadcastDayVote,
 } from '../../lib/liveBroadcast.ts';
-import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols, readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
+import { applyStoredDeathProtocolsToResults, beginTournamentDeathProtocolScope, clearStoredDeathProtocols, readStoredDeathProtocols, tournamentDeathProtocolKey } from '../../lib/liveDeathProtocol.ts';
 import { buildFinalChronology } from '../../lib/liveGameEventLog.ts';
 import {
   LEGACY_LIVE_SESSION_KEY,
@@ -31,6 +32,9 @@ import { useLiveGameCheckpoint } from '../game/useLiveGameCheckpoint';
 import { LiveGameContinueGate } from '../game/LiveGameContinueGate';
 import { gameKey } from '../../shared/game';
 import { DealSeatPlayersContext } from '../game/dealSeatPlayers';
+import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext';
+import { NumbersAutoOpenContext } from '../LiveGameEngine/numbersAutoOpenContext.ts';
+import { PlayerAvatar } from '../ui/PlayerAvatar';
 
 const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | null | undefined): LegacyPlayer[] => {
   const players: LegacyPlayer[] = results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player, index) => ({
@@ -104,10 +108,13 @@ export const mapEngineResult = (
     } as PlayerResultData;
   });
 
+  const winner = normalizeWinnerTeam(gameData?.winning_team);
+  if (!winner) throw new Error('Движок не передал победившую команду. Результат не сохранён; проверьте завершение игры.');
+
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
     status: 'draft',
-    winner_team: (normalizeWinnerTeam(gameData?.winning_team) ?? 'black'),
+    winner_team: winner,
     end_reason: (gameData?.end_reason || 'normal') as any,
     ppk_culprit_participant_id: gameData?.end_reason === 'ppk' ? (ppkPlayer?.participant_id || null) : null,
     first_killed_participant_id: firstKilled?.participant_id || null,
@@ -125,13 +132,40 @@ export const mapEngineResult = (
     judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Перед финальным подтверждением стоит проверить журнал голосований и ночей.'].filter(Boolean).join('\n') || null,
   };
 
-  return { protocol, player_results: playerResults };
+  // Optimistic seat-to-participant guard: CRM seating can change between the fresh GET
+  // and our PUT. The server rejects that race rather than attributing actions to someone else.
+  const live_seat_bindings = previousResults.map((row) => ({ seat_number: Number(row.seat_number), participant_id: String(row.participant_id) }));
+  return { protocol, player_results: playerResults, live_seat_bindings };
+};
+
+/** Never save to a stale seating snapshot when the CRM request failed or returned incomplete data. */
+export const requireFreshTournamentLivePayload = async (
+  load: () => Promise<TournamentLivePayload>,
+): Promise<TournamentLivePayload> => {
+  let current: TournamentLivePayload;
+  try {
+    current = await load();
+  } catch {
+    throw new Error('Не удалось получить актуальный состав игры из CRM. Результат сохранён на устройстве — повторите сохранение при восстановлении связи.');
+  }
+  const seats = current.player_results || [];
+  const participantIds = seats.map((seat) => String(seat.participant_id || ''));
+  const numbers = seats.map((seat) => Number(seat.seat_number));
+  if (seats.length !== 10 || new Set(numbers).size !== 10
+      || numbers.some((number) => !Number.isInteger(number) || number < 1 || number > 10)
+      || participantIds.some((id) => !id) || new Set(participantIds).size !== 10) {
+    throw new Error('CRM вернула неполный или неоднозначный состав турнира. Результат не отправлен — обновите данные и повторите.');
+  }
+  if (current.protocol?.status === 'completed' || current.game?.status === 'completed') {
+    throw new Error('Игра уже завершена в CRM. Повторная запись запрещена; откройте сохранённый протокол.');
+  }
+  return current;
 };
 
 type TournamentLivePayload = {
   protocol: TournamentGameProtocolData;
   player_results: PlayerResultData[];
-  game: { game_number?: number | null } | null;
+  game: { game_number?: number | null; status?: string | null } | null;
 };
 
 /** Seats whose player differs between two loads of the game (seats changed in the CRM while the game runs). */
@@ -174,6 +208,7 @@ function TournamentLiveGameModalBody({
   const [payload, setPayload] = useState<TournamentLivePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
@@ -181,6 +216,15 @@ function TournamentLiveGameModalBody({
   // «Продолжить игру»: the server keeps a copy of this game's session for another device (one mechanism for every game).
   useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
   const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
+  const dealKey = tournamentDealKey(tournamentId, gameId);
+  const dealRosterToken = (rows: PlayerResultData[]) => rows.slice().sort((a,b) => a.seat_number - b.seat_number).map((row) => `${row.seat_number}:${row.participant_id}`).join('|');
+  useEffect(() => {
+    if (!payload || virtualSeats || livePhase !== 'setup') return;
+    if (completeLiveRoleAssignments(payload.player_results)) return;
+    const seats = payload.player_results.slice().sort((a, b) => a.seat_number - b.seat_number);
+    if (loadTournamentDealState(dealKey, seats.map((seat) => Number(seat.seat_number)), dealRosterToken(seats))) setVirtualSeats(seats);
+  }, [payload, dealKey, livePhase, virtualSeats]);
+
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
   const [movedSeats, setMovedSeats] = useState<number[]>([]);
@@ -191,6 +235,14 @@ function TournamentLiveGameModalBody({
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
   const lastSnapshotRef = useRef<any>(null);
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
+  // The death-protocol overlay still reads the legacy global key. Keep it scoped to
+  // this tournament game across reloads and while switching between different games.
+  useEffect(() => {
+    const scope = beginTournamentDeathProtocolScope(gameId);
+    const interval = window.setInterval(scope.sync, 75);
+    return () => { window.clearInterval(interval); scope.stop(); };
+  }, [gameId]);
+
   const loadLivePayload = async (): Promise<TournamentLivePayload> => {
     const body = await getJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'Не удалось загрузить турнирный протокол');
     return { protocol: body.protocol, player_results: body.player_results || [], game: body.game || null };
@@ -351,6 +403,19 @@ function TournamentLiveGameModalBody({
     if (!response.ok) throw new Error('Tournament broadcast state rejected');
   });
 
+  // The same seat cards as an evening game (owner, 2026-11-07: «live engine турнира другой, не современный»): avatar and nickname
+  // inside each card, the evening seat grid.
+  const seatIdentity = useMemo(() => (slot: number) => {
+    const player = (latestRoleResults || payload?.player_results || []).find((item) => Number(item.seat_number) === slot);
+    if (!player) return null;
+    return (
+      <>
+        <PlayerAvatar playerId={player.player_id ?? null} nickname={player.display_name || `Игрок ${slot}`} size="xl" forceStoredLookup className="live-seat-id__avatar" />
+        <span className="live-seat-id__name" title={player.display_name || ''}>{player.display_name || `Игрок ${slot}`}</span>
+      </>
+    );
+  }, [latestRoleResults, payload]);
+
   const finishedGameRef = useRef<any>(null);
   // The finished result is kept in the browser until it is saved: if the app is reloaded after a failed save, the judge
   // can still retry instead of losing the whole game (engine audit, 2026-10-04).
@@ -368,15 +433,16 @@ function TournamentLiveGameModalBody({
   // Hands the finished game over to the tournament protocol. The result is kept, so a failed save can be retried
   // or the protocol can be filled by hand — the engine itself cannot finish the game a second time.
   const saveFinishedGame = async (gameData: any) => {
-    if (!payload) return;
-    // The result is mapped by seat: take the seating as it is now, so a seat fixed in the CRM during the game
-    // gives that seat's result to the player who really sat there.
-    const current = await loadLivePayload().catch(() => payload);
+    if (!payload || savingRef.current || !gameData) return;
+    savingRef.current = true;
+    // Preserve the finished game *before* any network request. A disconnected judge must not
+    // lose the game or accidentally assign its result to the old CRM seating.
     finishedGameRef.current = gameData;
     try { localStorage.setItem(pendingSaveKey, JSON.stringify(gameData)); } catch { /* storage may be blocked */ }
     setSaving(true);
     setError(null);
     try {
+      const current = await requireFreshTournamentLivePayload(loadLivePayload);
       const now = new Date().toISOString();
       const evidence = gameData.protocol_evidence || evidenceRef.current;
       const events = buildFinalChronology({
@@ -392,17 +458,18 @@ function TournamentLiveGameModalBody({
         shots: evidence.shots,
         events,
       });
-      // The colour protocols the judge filled in for the killed players go into the protocol (as in the club evening).
       next.player_results = applyStoredDeathProtocolsToResults(next.player_results);
       await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'PUT', next, 'Не удалось перенести результат в турнирный протокол');
       try { localStorage.removeItem(evidenceKey); } catch {}
       clearStoredDeathProtocols();
+      try { localStorage.removeItem(tournamentDeathProtocolKey(gameId)); } catch {}
       finishedGameRef.current = null;
       try { localStorage.removeItem(pendingSaveKey); } catch {}
       setReviewMode(true);
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить результат игры');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -524,7 +591,7 @@ function TournamentLiveGameModalBody({
       {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 ? <div className="mx-4 my-2">
         <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number))} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
       </div>:null}
-      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
+      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal persistenceKey={dealKey} persistenceRosterToken={dealRosterToken(virtualSeats)} allowRolePurchase={false} seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
         const fresh=await loadLivePayload();
         const identity=(rows:PlayerResultData[])=>JSON.stringify(rows.slice().sort((a,b)=>a.seat_number-b.seat_number).map(p=>[p.seat_number,p.participant_id,p.player_id]));
         if(identity(fresh.player_results)!==identity(virtualSeats))throw new Error('Состав игры изменился. Закройте раздачу и проверьте игроков.');
@@ -534,7 +601,9 @@ function TournamentLiveGameModalBody({
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (
-        <div className="tournament-live-shell evening-live-engine-shell">
+        <div className="tournament-live-shell evening-live-engine-shell evening-live-seatgrid">
+          <NumbersAutoOpenContext.Provider value={true}>
+          <SeatIdentityContext.Provider value={seatIdentity}>
           <LiveGameEngine
             players={legacyPlayers}
             initialJudgeId={10001}
@@ -553,6 +622,8 @@ function TournamentLiveGameModalBody({
             onRolesHiddenChange={setRolesHidden}
             onGameFinished={(gameData) => { void saveFinishedGame(gameData); }}
           />
+          </SeatIdentityContext.Provider>
+          </NumbersAutoOpenContext.Provider>
         </div>
       ) : null}
     </div>

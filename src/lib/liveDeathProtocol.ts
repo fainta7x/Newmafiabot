@@ -60,6 +60,38 @@ export const storeDeathProtocol = (slot: number, value: DeathProtocolSelection) 
   try { setItemFreeingSpace(STORAGE_KEY, JSON.stringify(current), getActiveClubLiveGameId()); } catch {}
 };
 
+/** Tournament Live Engine uses the legacy global death-protocol panel. Scope its
+ * contents to the current game when the window opens/closes to prevent a killed
+ * player's will from contaminating the next tournament game. */
+export const tournamentDeathProtocolKey = (gameId: string) =>
+  `mafia_live_session:tournament:${gameId}:death-protocols`;
+
+export const beginTournamentDeathProtocolScope = (gameId: string) => {
+  const key = tournamentDeathProtocolKey(gameId);
+  const legacySession = (() => {
+    try { return JSON.parse(localStorage.getItem('mafia_live_session') || 'null'); }
+    catch { return null; }
+  })();
+  const scoped = localStorage.getItem(key);
+  const legacy = localStorage.getItem(STORAGE_KEY);
+  if (scoped) localStorage.setItem(STORAGE_KEY, scoped);
+  else if (legacy && legacySession?.sessionKey === `tournament:${gameId}`) {
+    // Upgrade an already-running game from an older build without losing its will.
+    localStorage.setItem(key, legacy);
+  } else localStorage.removeItem(STORAGE_KEY);
+
+  const sync = () => {
+    const current = localStorage.getItem(STORAGE_KEY);
+    if (current) localStorage.setItem(key, current);
+    else localStorage.removeItem(key);
+  };
+  const stop = () => {
+    sync();
+    localStorage.removeItem(STORAGE_KEY);
+  };
+  return { sync, stop, key };
+};
+
 export const clearStoredDeathProtocols = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 };

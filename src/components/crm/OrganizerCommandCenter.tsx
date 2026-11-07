@@ -275,7 +275,7 @@ export default function OrganizerCommandCenter({
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
 
     {/* Debts first (owner, 2026-10-12): money owed is the top priority of the day. */}
-    <OrganizerDebtsPanel enabled={paymentsFresh} refreshKey={orderRefresh} onOpenPlayer={onOpenPlayer} onChanged={() => void refreshAll()} onCount={setDebtorCount} />
+    <OrganizerDebtsPanel enabled={paymentsFresh} refreshKey={orderRefresh} onOpenPlayer={onOpenPlayer} onChanged={() => { void load({ silent: true }); void onRefresh?.(); }} onCount={setDebtorCount} />
 
     {/* A past game left in draft counts nowhere (owner, 2026-10-27, game №17). */}
     {data?.unfinished_games?.length ? <section data-testid="unfinished-games" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">

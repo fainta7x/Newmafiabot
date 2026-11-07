@@ -1,6 +1,6 @@
 import { circleTitle } from './circleTitle.ts';
 import { GAME_ROLES, normalizeGameRole } from '../shared/gameRoles.ts';
-import type { LiveGameEvent } from '../shared/liveGameEvents';
+import { ELO_TAGS, isEloTag, type LiveGameEvent } from '../shared/liveGameEvents';
 
 const PHASES: Record<string, string> = {
   zero_night: 'Нулевая ночь',
@@ -85,6 +85,7 @@ export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: n
       case 'zero_round_break': text = event.seat ? `Сломал попил в нулевом круге: ${seat}` : 'Отметка «сломал попил» снята'; break;
       case 'best_move': text = `ЛХ ${seat}: ${value.split(',').map((n) => `#${n}`).join(', ')}`; break;
       case 'ppk': text = `ППК: ${seat}`; break;
+      case 'elo_tag': { const [tag, off] = value.split(':'); text = isEloTag(tag) ? `${ELO_TAGS[tag].label}: ${seat}${off === 'off' ? ' — снято' : ''}` : ''; break; }
       case 'death_protocol': {
         const parts = value.split('|').map((part) => part.split(':')).filter(([, seats]) => seats);
         const label: Record<string, string> = { red: 'красные', black: 'чёрные', sheriff: 'шериф' };

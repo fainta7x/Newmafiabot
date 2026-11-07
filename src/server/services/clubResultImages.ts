@@ -59,12 +59,12 @@ function seatEvents(seat: BlankSeat) {
 const CONTRIBUTION_LINE = 26;
 const CONTRIBUTION_CHARS = 74;
 export function contributionTextLines(seat: BlankSeat): string[] {
-  // The lines are shared with the in-app protocols (`seatEloLines`); here a long one breaks at «·» so it never leaves the card.
+  // The lines are shared with the in-app protocols (`seatEloLines`); here a long one wraps at spaces so it never leaves the card.
   const lines: string[] = [];
   for (const line of seatEloLines(seat)) {
     let current = '';
-    for (const piece of line.split(' · ')) {
-      const next = current ? `${current} · ${piece}` : piece;
+    for (const piece of line.split(/\s+/)) {
+      const next = current ? `${current} ${piece}` : piece;
       if (next.length > CONTRIBUTION_CHARS && current) { lines.push(current); current = piece; } else current = next;
     }
     if (current) lines.push(current);
@@ -142,14 +142,12 @@ function personRow(x: number, y: number, width: number, label: string, person: S
 
 export function eveningSummarySvg(summary: EveningSummary) {
   clipCounter = 0;
-  const leaders = summary.scored ? summary.bestAverage : summary.mostWins;
-  const leadersTitle = summary.scored ? 'ЛУЧШИЙ СРЕДНИЙ БАЛЛ' : 'БОЛЬШЕ ВСЕХ ПОБЕД';
-  const secondary = summary.scored ? summary.mostWins : [];
+  const leaders = summary.mostWins;
+  const leadersTitle = 'БОЛЬШЕ ВСЕХ ПОБЕД';
   const top = 340;
   const leadersHeight = 70 + Math.max(1, leaders.length) * 104;
-  const secondaryHeight = secondary.length ? 70 + secondary.length * 104 : 0;
   const eloHeight = summary.eloGain.length ? 70 + summary.eloGain.length * 104 : 0;
-  const rolesTop = top + leadersHeight + secondaryHeight + eloHeight + 30;
+  const rolesTop = top + leadersHeight + eloHeight + 30;
   const height = rolesTop + 2 * 150 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
   const medal = [C.gold, C.silver, C.bronze];
 
@@ -187,8 +185,7 @@ export function eveningSummarySvg(summary: EveningSummary) {
   ${stat(M + 200, 'КРАСНЫЕ : ЧЁРНЫЕ', `${summary.redWins} : ${summary.blackWins}`, C.warmText)}
   ${stat(M + 560, 'ИГРОКОВ', String(summary.players), C.warmText)}
   ${list(leadersTitle, leaders, top)}
-  ${secondary.length ? list('БОЛЬШЕ ВСЕХ ПОБЕД', secondary, top + leadersHeight) : ''}
-  ${summary.eloGain.length ? list('РОСТ ЭЛО ЗА ВЕЧЕР', summary.eloGain, top + leadersHeight + secondaryHeight) : ''}
+  ${summary.eloGain.length ? list('РОСТ ЭЛО ЗА ВЕЧЕР', summary.eloGain, top + leadersHeight) : ''}
   <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
   ${roleCells}
   ${renderNoirExportFooter(W, height, summary.scored ? 'средний балл = сумма баллов / число игр' : 'клубный вечер')}
@@ -219,7 +216,9 @@ export function tournamentAnnounceSvg(announcement: TournamentAnnouncement, broa
   ${renderNoirExportBrandHeader('ТУРНИР')}
   <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(announcement.title, 28))}</text>
   <text x="${M}" y="208" font-size="26" font-weight="500" fill="${C.mutedText}">${esc(`${announcement.dateLabel}${announcement.timeLabel ? ` · начало в ${announcement.timeLabel}` : ''}${announcement.venue ? ` · ${announcement.venue}` : ''}`)}</text>
-  ${info(M, 'ГЛАВНЫЙ СУДЬЯ', announcement.judge || 'уточняется')}
+  <text x="${M}" y="266" font-size="16" font-weight="700" letter-spacing="2" fill="${C.subduedText}">ГЛАВНЫЙ СУДЬЯ</text>
+  ${announcement.judge ? avatar(M, 280, 56, announcement.judge, announcement.judgeAvatar || null) : ''}
+  <text x="${M + (announcement.judge ? 70 : 0)}" y="316" font-size="28" font-weight="700" fill="${C.warmText}">${esc(clip(announcement.judge || 'уточняется', 16))}</text>
   ${info(M + 360, 'ПРЯМОЙ ЭФИР', broadcastLabel)}
   <text x="${M}" y="${top + 36}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">УЧАСТНИКИ · ${announcement.players.length}</text>
   ${cells || `<text x="${M}" y="${top + 100}" font-size="24" fill="${C.subduedText}">Состав уточняется</text>`}

@@ -74,6 +74,15 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
     void load();
   }, [eveningId]);
 
+  const applyPaymentRow = (participantId: string, payload: Partial<PaymentPayload>) => {
+    const saved = payload.participants?.find((item) => item.id === participantId);
+    if (!saved) return;
+    setData((current) => current ? {
+      ...current,
+      participants: current.participants.map((item) => item.id === participantId ? saved : item),
+    } : current);
+  };
+
   const setPaid = async (participant: PaymentParticipant, paid: boolean) => {
     if (busyIds.has(participant.id)) return;
     const previousParticipant = participant;
@@ -97,9 +106,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось изменить оплату');
-      // The row is already in the requested state. Do not replace the whole payload
-      // with the server response: that used to make each tap visually reload the list
-      // and prevented an organizer from marking several people in quick succession.
+      applyPaymentRow(participant.id, body);
     } catch (saveError: any) {
       setData((current) => current ? {
         ...current,
@@ -140,7 +147,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить сумму');
-      setData(body as PaymentPayload);
+      applyPaymentRow(participant.id, body);
       setAmountTarget(null);
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить сумму');
@@ -161,7 +168,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось изменить освобождение от оплаты');
-      setData(body as PaymentPayload);
+      applyPaymentRow(participant.id, body);
     } catch (waiveError: any) {
       setError(waiveError?.message || 'Не удалось изменить освобождение от оплаты');
     } finally {

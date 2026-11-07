@@ -22,6 +22,25 @@ describe('tournament card loading', () => {
     expect(second.result.current.selectedGameIdx).toBe(1);
   });
 
+  it('keeps the chosen game visible while the parent refreshes tournament data', async () => {
+    const data = { id: 'refresh-test', games: [game('g1', 'active'), game('g2', 'planned')] } as any;
+    const getTournament = vi.spyOn(api, 'getTournament').mockResolvedValueOnce(data);
+    let resolveRefresh!: (value: typeof data) => void;
+    getTournament.mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }));
+    const { result, rerender } = renderHook(({ revision }) => useTournamentDetail({
+      tournamentId: data.id, revision, onSilentError: vi.fn(),
+    }), { initialProps: { revision: 0 } });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.setSelectedGameIdx(1));
+    rerender({ revision: 1 });
+    expect(getTournament).toHaveBeenCalledTimes(2);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.selectedGameIdx).toBe(1);
+    await act(async () => resolveRefresh({ ...data, title: 'Обновлённый турнир' }));
+    expect(result.current.tournament?.title).toBe('Обновлённый турнир');
+    expect(result.current.selectedGameIdx).toBe(1);
+  });
+
   it('a failed first load keeps the status code and no tournament', async () => {
     vi.spyOn(api, 'getTournament').mockRejectedValue(Object.assign(new Error('нет'), { status: 404 }));
     const { result } = renderHook(() => useTournamentDetail({ tournamentId: 't', onSilentError: vi.fn() }));

@@ -68,7 +68,7 @@ const numeric = (value: unknown) => {
  * Expectation and protection use their own documented level distances.
  */
 export const ELO_SCALE = 5;
-const RESULT_WEIGHT = 10 * ELO_SCALE;
+export const RESULT_WEIGHT = 10 * ELO_SCALE;
 const PERSONAL_POINT_WEIGHT = ELO_PERSONAL_POINT_WEIGHT;
 export const PERSONAL_CAP_ELO = ELO_PERSONAL_CAP;
 /**
@@ -144,7 +144,8 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
       + (player.contributionNegativePoints ?? Math.min(0, numeric(player.contributionPoints)));
     const awardedPersonal = Math.max(-PERSONAL_CAP_ELO, Math.min(PERSONAL_CAP_ELO, positive * PERSONAL_POINT_WEIGHT) + negative * PERSONAL_POINT_WEIGHT);
     const personalCapDelta = awardedPersonal - personalSum;
-    const missDelta = -Math.max(0, numeric(player.missPenaltyElo));
+    // Fixed cuts after the personal cap; a negative value is a fixed bonus (the «Убил шерифа в нуле» tag, owner 2026-11-03).
+    const missDelta = -numeric(player.missPenaltyElo);
     const disciplinaryDelta = -Math.max(0, numeric(player.eloDisciplinePoints ?? disciplinePoints)) * ELO_DISCIPLINE_POINT_WEIGHT;
     return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta,
       personalDelta, contributionDelta, personalCapDelta, missDelta, disciplinaryDelta,
@@ -387,10 +388,9 @@ export async function prepareCanonicalEloEvents(db: DatabaseWrapper, knownPlayer
 export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
   eloInputsGeneration += 1;
   const players = await db.all<any>(
-    `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
+    `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed, lifecycle_status
        FROM players
       WHERE COALESCE(source, '') != 'legacy_guest_migrated'
-        AND COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged')
       ORDER BY nickname COLLATE NOCASE, id`,
     [DEFAULT_ELO],
   );
@@ -413,8 +413,10 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);
     }
   }
+  // Historical participants affect every later table even when their profile is inactive.
+  const activePlayers = players.filter((player) => !['archived', 'merged'].includes(player.lifecycle_status));
   const persistRatings = async (tx: DatabaseWrapper) => {
-    for (const player of players) {
+    for (const player of activePlayers) {
       const playerId = String(player.id);
       const seed = seedByPlayer.get(playerId) ?? DEFAULT_ELO;
       const rating = ratings.get(playerId) ?? seed;
@@ -424,7 +426,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
   if ((db.sqlite as any)?.inTransaction) await persistRatings(db);
   else await db.transaction(persistRatings);
   eloInputsGeneration += 1;
-  return players
+  return activePlayers
     .filter((player) => (gameCounts.get(String(player.id)) || 0) > 0)
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))
     .sort((a, b) => b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));

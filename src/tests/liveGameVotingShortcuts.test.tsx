@@ -66,6 +66,27 @@ beforeEach(() => { localStorage.clear(); sessionStorage.clear(); deactivateTable
 afterEach(() => { cleanup(); deactivateTableDecisionSelection(); localStorage.clear(); sessionStorage.clear(); });
 
 describe('vote count shortcuts', () => {
+  it('numbers: quick split, revote and the same split lead to the table decision without collapsing', async () => {
+    const snapshot = dayVote([5, 3], []);
+    snapshot.roundNumber = 1;
+    snapshot.votingRounds[0].day_number = 0;
+    await play(snapshot);
+    let sheet = await screen.findByTestId('live-vote-numbers-sheet');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Попил' }));
+    const picker = within(screen.getByTestId('live-vote-numbers-split'));
+    fireEvent.click(picker.getByRole('button', { name: '#5' }));
+    fireEvent.click(picker.getByRole('button', { name: '#3' }));
+    expect(saved().votingRounds[0].vote_counts).toEqual({ 5: 5, 3: 5 });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Подвести итог' }));
+    await toRevote();
+    sheet = await screen.findByTestId('live-vote-numbers-sheet');
+    expect(within(sheet).queryByRole('button', { name: 'Попил' })).toBeNull();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Поделилось также' }));
+    expect(saved().votingRounds[1].vote_counts).toEqual({ 5: 5, 3: 5 });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Подвести итог' }));
+    await screen.findByText('Поднять всех?');
+  });
+
   it('«Поделилось также» repeats the split of the previous round on the revote', async () => {
     // As in game №20: #4 and #9 are out; 4 nominated, #8 and #2 get nothing, #5 and #3 split 4–4.
     await play(dayVote([5, 8, 2, 3], [4, 9]));

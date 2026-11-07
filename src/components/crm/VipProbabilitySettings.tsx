@@ -97,13 +97,13 @@ export default function VipProbabilitySettings() {
       </div>)}
     </div>}
     <div className="grid gap-2 sm:grid-cols-2">
-      <label className="text-xs text-white/60">Игрок
-        <select className={field} value={draft.playerId} onChange={e=>change('playerId',e.target.value)}>
+      <label htmlFor="vip-rule-player" className="text-xs text-white/60">Игрок
+        <select id="vip-rule-player" aria-label="Игрок" className={field} value={draft.playerId} onChange={e=>change('playerId',e.target.value)}>
           <option value="">Выбрать</option>{players.map(p=><option key={p.id} value={p.id}>{p.nickname}</option>)}
         </select>
       </label>
-      <label className="text-xs text-white/60">Условие
-        <select className={field} value={draft.kind} onChange={e=>change('kind',e.target.value as Kind)}>
+      <label htmlFor="vip-rule-kind" className="text-xs text-white/60">Условие
+        <select id="vip-rule-kind" aria-label="Условие" className={field} value={draft.kind} onChange={e=>change('kind',e.target.value as Kind)}>
           {(Object.keys(labels) as Kind[]).map(kind=><option key={kind} value={kind}>{labels[kind]}</option>)}
         </select>
       </label>
@@ -121,6 +121,9 @@ export default function VipProbabilitySettings() {
       <div className="space-y-2 rounded-xl border border-white/10 p-3">
         <label htmlFor="vip-rule-percent" className="flex justify-between gap-2 text-xs text-white/70">
           <span>Шанс</span><strong className="text-white">{draft.percent}%</strong>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-white/70">Шанс срабатывания
+          <input type="number" min={0} max={100} step={1} aria-label="Шанс срабатывания" className="ml-auto min-h-11 w-20 rounded-xl border border-white/15 bg-[#202126] px-2 text-center text-sm text-white" value={draft.percent} onChange={e=>change("percent",Math.max(0,Math.min(100,Number(e.target.value))))} />
         </label>
         <p className="text-[11px] text-white/50">50% — обычная раздача, 100% — всегда, 0% — никогда.</p>
         <input id="vip-rule-percent" type="range" min={0} max={100} step={1} className="w-full accent-white"

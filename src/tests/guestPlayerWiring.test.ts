@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 const read = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8');
 
 const eveningUi = read('../components/crm/EveningGameCreateSheet.tsx');
+const protocolEditor = read('../components/crm/EveningGameProtocolModal.tsx');
 const protocolUi = read('../components/crm/gameProtocol/ResultView.tsx');
 const eveningsRoute = read('../server/routes/eveningsRoutes.ts');
 const gamesRoute = read('../server/routes/gamesRoutes.ts');
@@ -22,8 +23,9 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
 
   it('exposes explicit guest-to-registered-player correction and hands a seat to a guest only through the explicit guest flow', () => {
     expect(protocolUi).toContain('Заменить гостя без профиля на игрока клуба');
-    expect(protocolUi).toContain('clubGamesApi.repairSeatIdentity');
-    expect(protocolUi).toContain('replacement_player_id: replacement.id');
+    expect(protocolUi).toContain('api.replaceGuest(guest.seat_number, replacement.id)');
+    expect(protocolEditor).toContain('clubGamesApi.repairSeatIdentity');
+    expect(protocolEditor).toContain('replacement_player_id: playerId');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
     expect(gamesRoute).toContain('replaceSeatWithGuest');
     expect(gamesRoute).toContain("if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed')");

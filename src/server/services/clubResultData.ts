@@ -1,3 +1,4 @@
+import { circleTitle } from '../../lib/circleTitle.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import fs from 'node:fs';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -7,10 +8,10 @@ import { roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
 import { gameActionFacts } from '../../lib/gameActionFacts.ts';
-import { contributionBreakdown, gameContribution } from '../../lib/playerContribution.ts';
-import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP } from './eloRatingService.ts';
-import { ELO_CONTRIBUTION_CAP, ELO_PERSONAL_CAP, ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
-import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
+import { contributionBreakdown, gameContribution, mistakeLines, type SeatContribution } from '../../lib/playerContribution.ts';
+import { SAME_LEVEL_GAP, STRONG_LEVEL_GAP, RED_EQUAL_EXPECTATION, RESULT_WEIGHT } from './eloRatingService.ts';
+import { ELO_PERSONAL_POINT_WEIGHT } from '../../shared/eloWeights.ts';
+import { clubBestMovePointsForParticipant, clubBestMoveSeatsForParticipant } from './bestMovePoints.ts';
 import type { StatGame } from '../../lib/gameStatistics.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
@@ -37,6 +38,9 @@ export type BlankSeat = {
   /** Elo from the individual contribution in this game (already inside `eloDelta`) and its breakdown in plain words. */
   eloContribution: number | null;
   contributionLines: string[];
+  teamResultLines?: string[];
+  roundLines?: string[];
+  eloFixedDelta?: number;
   eloPersonalBonus?: number | null;
   /** The personal bonuses by source in Elo (best move, judge, Ci), so «личные бонусы» never stays unexplained. */
   personalLines?: string[];
@@ -68,7 +72,16 @@ export function personalBonusLines(protocol: any, result: any, results: any[]): 
   const signed = (n: number) => `${n > 0 ? '+' : '−'}${Math.abs(n)}`;
   const lines: string[] = [];
   const bestMove = value(clubBestMovePointsForParticipant(protocol, String(result?.participant_id || ''), results));
-  if (bestMove) lines.push(`Лучший ход: ${signed(bestMove)} Эло`);
+  if (bestMove) {
+    const blackSeats = new Set(results.filter((row) => ['mafia', 'don'].includes(normalizeGameRole(row.role) || '')).map((row) => Number(row.seat_number)));
+    const describe = (seats: number[]) => seats.map((seat) => `№${seat}`).join(', ');
+    const moves = clubBestMoveSeatsForParticipant(protocol, String(result?.participant_id || ''));
+    const detail = moves.map((seats) => {
+      const guessed = seats.filter((seat) => blackSeats.has(seat));
+      return `${describe(seats)} — ${guessed.length ? 'угадал ' + describe(guessed) : 'без попаданий'}`;
+    }).join(' / ');
+    lines.push(`Лучший ход: ${signed(bestMove)} Эло (${detail})`);
+  }
   const judge = value(Number(result?.judge_bonus || 0));
   if (judge) lines.push(`Бонус судьи: ${signed(judge)} Эло`);
   const ci = value(Number(result?.ci_points || 0));
@@ -94,8 +107,49 @@ export function eloTableOfEvent(event: PlayerEloHistoryEvent | null | undefined)
     : null;
 }
 
+const signedEloValue = (n: number) => {
+  const rounded = roundToTwo(n);
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)}`;
+};
+
+export function roundContributionLines(contribution: SeatContribution, protocol: Parameters<typeof circleTitle>[1], tableSize: number): string[] {
+  const groups = new Map<number | undefined, SeatContribution['items']>();
+  for (const item of contribution.items) {
+    const round = item.round ?? (item.kind === 'shot_miss' ? undefined : item.night);
+    const group = groups.get(round) ?? [];
+    group.push(item);
+    groups.set(round, group);
+  }
+  return [...groups].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)).flatMap(([round, items]) => {
+    const detailed = new Set(['check_black', 'check_voted_out', 'will_right', 'will_wrong', 'vote_red', 'streak_correct', 'streak_wrong', 'will_vote_relief']);
+    const lines = contributionBreakdown(contribution.role, items.filter((item) => !detailed.has(item.kind) && item.points !== 0));
+    // Explain each wrong vote/will with the base, series and finally the critical ×2.
+    // Do not show the pre-multiplied vote and the series as unrelated penalties.
+    lines.push(...mistakeLines(items, 'vote_red', false), ...mistakeLines(items, 'will_wrong', false));
+    for (const item of items) {
+      if (!item.points && item.kind === 'check_black') {
+        lines.push(`Чёрная проверка №${item.seat}: 0 Эло (уже учтена)`);
+      }
+      if (!item.points) continue;
+      const points = signedEloValue(item.points * ELO_PERSONAL_POINT_WEIGHT);
+      if (item.kind === 'check_black') lines.push(`Чёрная проверка: ${points} (проверил №${item.seat})`);
+      if (item.kind === 'check_voted_out') lines.push(`Стол вывел проверенного чёрного: ${points} (ушёл №${item.seat})`);
+      if (item.kind === 'will_right') {
+        const color = item.willColor ? ` назвал ${item.willColor === 'red' ? 'красным' : item.willColor === 'black' ? 'чёрным' : 'шерифом'}` : '';
+        lines.push(`В завещании${item.firstKilledWill ? ' ПУ' : ''} правильно: ${points} (№${item.seat}${color})`);
+      }
+      if ((item.kind === 'streak_correct' || item.kind === 'streak_wrong')
+        && item.source !== 'vote_red' && item.source !== 'will_wrong') {
+        lines.push(`Серия ${item.points > 0 ? 'верных решений' : 'ошибок'} · решение №${item.step ?? '?'} подряд: ${points}`);
+      }
+    }
+    const title = round != null ? circleTitle(round - 1, protocol, tableSize) : 'Начисления без привязки к кругу';
+    return lines.length ? [title, ...lines] : [];
+  });
+}
+
 /** The Elo parts of one seat of a club game: the change, the rating after it and every source in plain words. */
-export type SeatElo = Pick<BlankSeat, 'eloDelta' | 'eloAfter' | 'eloContribution' | 'contributionLines' | 'eloPersonalBonus' | 'personalLines' | 'eloPersonalCap' | 'eloContributionCap' | 'eloDiscipline'>;
+export type SeatElo = Pick<BlankSeat, 'eloDelta' | 'eloAfter' | 'eloContribution' | 'contributionLines' | 'eloPersonalBonus' | 'personalLines' | 'eloPersonalCap' | 'eloContributionCap' | 'eloDiscipline' | 'teamResultLines' | 'roundLines' | 'eloFixedDelta'>;
 
 export function seatEloOfGame(envelope: any, event: PlayerEloHistoryEvent | null | undefined, result: any, contributions = new Map(gameContribution(envelope).map((item) => [item.seat, item]))): SeatElo | null {
   const playerId = result?.player_id ? String(result.player_id) : '';
@@ -105,10 +159,26 @@ export function seatEloOfGame(envelope: any, event: PlayerEloHistoryEvent | null
   const results: any[] = Array.isArray(envelope?.player_results) ? envelope.player_results : [];
   const contribution = contributions.get(Number(result?.seat_number));
   const contributionDelta = Number(elo.contributionDelta || 0);
+  const equalChance = elo.team === 'red' ? RED_EQUAL_EXPECTATION : 1 - RED_EQUAL_EXPECTATION;
+  const equalResult = RESULT_WEIGHT * ((elo.won ? 1 : 0) - equalChance);
+  const resultLabel = elo.won ? 'За победу' : 'За поражение';
+  const difficultyDelta = roundToTwo(elo.resultDelta - equalResult);
+  const teammateDelta = roundToTwo(elo.modifiedResultDelta - elo.resultDelta);
+  const adjustments = [
+    difficultyDelta ? `за сложность ${signedEloValue(difficultyDelta)}` : null,
+    teammateDelta ? `за разницу с командой ${signedEloValue(teammateDelta)}` : null,
+  ].filter(Boolean);
+  const breakdown = adjustments.length
+    ? ` (${resultLabel} ${signedEloValue(equalResult)}, ${adjustments.join(', ')})`
+    : '';
+  const teamResultLines = [`${resultLabel} ${signedEloValue(elo.modifiedResultDelta)}${breakdown}`];
   return {
     eloDelta: Math.round(Number(elo.totalDelta || 0)),
     eloAfter: Math.round(Number(elo.eloAfter || 0)),
     eloContribution: roundToTwo(contributionDelta),
+    teamResultLines,
+    roundLines: contribution ? roundContributionLines(contribution, protocol, results.length) : undefined,
+    eloFixedDelta: elo.missDelta,
     eloPersonalBonus: Number(elo.personalDelta || 0),
     personalLines: personalBonusLines(protocol, result, results),
     eloPersonalCap: Number(elo.personalCapDelta || 0),
@@ -118,18 +188,23 @@ export function seatEloOfGame(envelope: any, event: PlayerEloHistoryEvent | null
   };
 }
 
-/**
- * Every Elo line under a seat, in the order of the result blank (owner, 2026-10-25/27: the in-app protocols show the same
- * breakdown as the chat pictures): personal bonuses, «За действия в игре», each kind of action, the caps and discipline.
- */
+/** Shared order for the protocol and chat card: team result, personal total, then its itemized breakdown. */
 export function seatEloLines(seat: SeatElo): string[] {
-  const value = (n: number) => `${Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : ''}${Math.abs(Math.round(n))}`;
-  const lines: string[] = [...(seat.personalLines || [])];
-  if (seat.eloContribution != null && seat.contributionLines.length) lines.push(`За действия в игре: ${value(seat.eloContribution)} Эло`);
-  lines.push(...seat.contributionLines);
-  if (Math.round(seat.eloContributionCap || 0)) lines.push(`Срезано пределом действий (±${ELO_CONTRIBUTION_CAP}): ${value(seat.eloContributionCap || 0)} Эло`);
-  if (Math.round(seat.eloPersonalCap || 0)) lines.push(`Поправка по личным пределам (±${ELO_PERSONAL_CAP}): ${value(seat.eloPersonalCap || 0)} Эло`);
-  if (seat.eloDiscipline) lines.push(`Дисциплина: ${value(seat.eloDiscipline)} Эло`);
+  const details = [
+    ...(seat.personalLines || []),
+    ...(seat.roundLines ?? seat.contributionLines),
+  ];
+  if (seat.eloFixedDelta && !seat.roundLines?.length) details.push(`Отдельные бонусы и штрафы: ${signedEloValue(seat.eloFixedDelta)} Эло`);
+  if (Math.round(seat.eloContributionCap || 0)) details.push(`После лимита за действия: ${signedEloValue(seat.eloContributionCap || 0)} Эло`);
+  if (Math.round(seat.eloPersonalCap || 0)) details.push(`После лимита личных баллов: ${signedEloValue(seat.eloPersonalCap || 0)} Эло`);
+  if (seat.eloDiscipline) details.push(`За нарушения: ${signedEloValue(seat.eloDiscipline)} Эло`);
+
+  const personalTotal = (seat.eloContribution || 0) + (seat.eloPersonalBonus || 0)
+    + (seat.eloFixedDelta || 0) + (seat.eloPersonalCap || 0) + (seat.eloDiscipline || 0);
+  const lines = [...(seat.teamResultLines || [])];
+  if (Math.round(personalTotal) || details.length) {
+    lines.push(`Личный итог: ${signedEloValue(personalTotal)} Эло`, ...details);
+  }
   return lines;
 }
 
@@ -604,10 +679,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     const average = (item: Tally) => stat(item).effect / stat(item).games;
     const best = candidates.sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games)[0];
     const fact = roleFactLine(role, stat(best).facts);
-    // A fact says what the player did, so the average beside it would only be noise; without one the plain effect stays, and a single
-    // game is not «averaged» (owner, 2026-11-02: «+2 в среднем за 1 игру» meant nothing).
-    const plain = stat(best).games === 1 ? 'за игру' : `в среднем за ${stat(best).games} ${gamesWord(stat(best).games)}`;
-    return { role, player: person(best, fact ? '' : signed(average(best)), fact || plain) };
+    return { role, player: person(best, '', fact || '') };
   });
 
   return {
@@ -794,12 +866,13 @@ export type TournamentAnnouncement = {
   timeLabel: string;
   venue: string | null;
   judge: string | null;
+  judgeAvatar?: string | null;
   players: Array<{ playerId: string; nickname: string; avatar: string | null }>;
 };
 
 /** Everything the tournament announcement shows: the confirmed roster with photos, the judge, the start. */
 export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournamentId: string): Promise<TournamentAnnouncement | null> {
-  const tournament = await db.get<any>('SELECT id, title, date, venue, chief_judge_name FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
+  const tournament = await db.get<any>('SELECT id, title, date, venue, chief_judge_name, judge_player_id FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
   if (!tournament) return null;
   let rows = await db.all<any>(
     `SELECT r.player_id, p.nickname FROM tournament_registrations r JOIN players p ON p.id = r.player_id
@@ -813,7 +886,8 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
       [tournamentId],
     ).catch(() => []);
   }
-  const avatars = await loadAvatars(db, rows.map((row: any) => String(row.player_id)));
+  const judgeId = String(tournament.judge_player_id || '');
+  const avatars = await loadAvatars(db, [...rows.map((row: any) => String(row.player_id)), judgeId].filter(Boolean));
   const time = new Date(String(tournament.date)).getTime();
   return {
     tournamentId,
@@ -823,6 +897,7 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
     timeLabel: Number.isFinite(time) ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(time) : '',
     venue: tournament.venue ? String(tournament.venue) : null,
     judge: tournament.chief_judge_name ? String(tournament.chief_judge_name) : null,
+    judgeAvatar: avatars.get(judgeId) || null,
     players: rows.map((row: any) => ({ playerId: String(row.player_id), nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null })),
   };
 }

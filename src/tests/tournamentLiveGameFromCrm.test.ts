@@ -22,7 +22,9 @@ describe('conducting a tournament game in the Live Game engine from the CRM', ()
     const deathProtocol = read('../components/crm/EveningDeathProtocolOverlay.tsx');
     const desktopParity = read('../components/crm/liveGameDesktopParity.css');
 
-    expect(modal).toContain('className="tournament-live-shell evening-live-engine-shell"');
+    expect(modal).toContain('className="tournament-live-shell evening-live-engine-shell evening-live-seatgrid"');
+    // The same seat cards with avatar and nickname as an evening game (owner, 2026-11-07).
+    expect(modal).toContain('<SeatIdentityContext.Provider value={seatIdentity}>');
     expect(scopedDeathProtocol).toContain("document.querySelector('.evening-live-engine-shell')");
     expect(deathProtocol).toContain("document.querySelector('.evening-live-engine-shell')");
     expect(desktopParity).toContain('.evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer__name');

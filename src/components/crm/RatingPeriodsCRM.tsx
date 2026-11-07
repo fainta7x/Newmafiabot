@@ -148,10 +148,12 @@ export const RatingPeriodsCRM: React.FC = () => {
     }
   };
 
-  const loadSelected = async (periodId: string) => {
+  const loadSelected = async (periodId: string, background = false) => {
     const requestId = ++detailsRequestSeq.current;
-    setDetailsLoading(true);
-    setLoadedPeriodId(null);
+    if (!background || loadedPeriodId !== periodId) {
+      setDetailsLoading(true);
+      setLoadedPeriodId(null);
+    }
     setError(null);
     try {
       const [eveningData, gameData, standingsData] = await Promise.all([
@@ -230,7 +232,7 @@ export const RatingPeriodsCRM: React.FC = () => {
         method: 'PUT',
         body: JSON.stringify({ included }),
       });
-      if (activePeriodRef.current === periodId) await loadSelected(periodId);
+      if (activePeriodRef.current === periodId) await loadSelected(periodId, true);
     } catch (err: any) {
       if (activePeriodRef.current === periodId) setError(err?.message || 'Не удалось изменить участие вечера');
     }
@@ -245,7 +247,7 @@ export const RatingPeriodsCRM: React.FC = () => {
         method: 'PUT',
         body: JSON.stringify({ included }),
       });
-      if (activePeriodRef.current === periodId) await loadSelected(periodId);
+      if (activePeriodRef.current === periodId) await loadSelected(periodId, true);
     } catch (err: any) {
       if (activePeriodRef.current === periodId) setError(err?.message || 'Не удалось изменить участие игры');
     }

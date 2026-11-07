@@ -124,7 +124,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
       if (!response.ok) throw new Error(body.error || body.message || 'Не удалось обновить Telegram');
       const actions = Array.isArray(body?.results) ? body.results : [];
       const skipped = actions.length && actions.every((item: any) => item.action === 'skipped');
-      setTelegramMessage(skipped
+      setTelegramMessage(body.announcementPhoto === 'updated'
+        ? 'Картинка и состав в анонсе турнира обновлены.'
+        : skipped
         ? 'Закрытый канал пока не включён в «Ещё → Telegram». Сначала настрой его там.'
         : tournament?.status === 'completed'
           ? 'Пост турнира в Telegram закрыт и обновлён.'
@@ -254,7 +256,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           <>
             <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
             <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
-            <TournamentDetailViewBase key={`games-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
+            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
             {telegramSection}
             {judgeSection}
           </>
@@ -262,7 +264,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
         {currentStep === 'results' ? (
           <>
             <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
-            <TournamentDetailViewBase key={`results-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
+            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
             {telegramSection}
           </>
         ) : null}

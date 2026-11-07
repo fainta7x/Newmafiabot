@@ -12,6 +12,7 @@ export type ProtocolApi = {
   tableSize: number;
   zeroRoundRule: ZeroRoundRule;
 
+  replaceGuest?: (seat: number, playerId: string) => Promise<void>;
   updateResult: (participantId: string, updates: Partial<PlayerResultData>) => void;
   changeRegularFoul: (player: PlayerResultData, delta: number) => void;
   changeTechFoul: (player: PlayerResultData, type: TechFoulType, delta: number) => void;

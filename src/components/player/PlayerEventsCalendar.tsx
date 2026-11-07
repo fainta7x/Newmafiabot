@@ -169,6 +169,7 @@ export default function PlayerEventsCalendar({
   const [focusFirstApplication, setFocusFirstApplication] = useState(false);
   const firstApplicationRef = useRef<HTMLElement | null>(null);
   const calendarRequestSeq = useRef(0);
+  const loadedMonth = useRef<string | null>(null);
 
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   const queryEventId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('event') : null;
@@ -176,11 +177,12 @@ export default function PlayerEventsCalendar({
 
   const load = async () => {
     const requestId = ++calendarRequestSeq.current;
-    setLoading(true);
+    if (loadedMonth.current !== monthKey) setLoading(true);
     setError('');
     try {
       const body = await getJson<any>(`/api/player/calendar?month=${monthKey}`, 'Не удалось загрузить календарь');
       if (requestId !== calendarRequestSeq.current) return;
+      loadedMonth.current = monthKey;
       setEvents(Array.isArray(body.events) ? body.events : []);
       if (body?.novice_state?.player) {
         setNoviceState(body.novice_state);
@@ -192,7 +194,7 @@ export default function PlayerEventsCalendar({
     } catch (loadError: any) {
       if (requestId !== calendarRequestSeq.current) return;
       setError(loadError?.message || 'Не удалось загрузить календарь');
-      setEvents([]);
+      if (loadedMonth.current !== monthKey) setEvents([]);
     } finally {
       if (requestId === calendarRequestSeq.current) setLoading(false);
     }
@@ -458,7 +460,7 @@ export default function PlayerEventsCalendar({
         </div>}
         {loading && <div className="mt-3 rounded-2xl bg-white/[0.035] p-4 text-sm text-white/50">Загрузка событий…</div>}
 
-        {!loading && !error && view === 'list' && (
+        {!loading && (!error || loadedMonth.current === monthKey) && view === 'list' && (
           <div className="player-event-list mt-3 space-y-2">
             {nearest && (
               <button type="button" onClick={() => openEvent(nearest)} className="min-h-11 w-full rounded-[28px] border border-white/12 bg-gradient-to-br from-white/[0.10] to-white/[0.035] p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,0.20)] active:bg-white/[0.08]">
@@ -487,7 +489,7 @@ export default function PlayerEventsCalendar({
           </div>
         )}
 
-        {!loading && !error && view === 'calendar' && (
+        {!loading && (!error || loadedMonth.current === monthKey) && view === 'calendar' && (
           <section className="player-event-calendar mt-3 rounded-[24px] border border-white/10 bg-white/[0.035] p-2.5">
             <div className="grid grid-cols-7 gap-1 text-center text-[12px] text-white/45">
               {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((value) => <div key={value}>{value}</div>)}

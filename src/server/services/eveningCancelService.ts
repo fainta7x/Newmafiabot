@@ -70,6 +70,13 @@ export async function publishCancelPost(db: DatabaseWrapper, eveningId: string, 
   await importLegacyPublicationHolds(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  if (normalizeEveningFormat(evening.format) === 'CASUAL') {
+    const [telegram, vk] = await Promise.all([
+      db.get('SELECT 1 FROM evening_telegram_publications WHERE evening_id = ? LIMIT 1', [eveningId]),
+      db.get("SELECT 1 FROM vk_evening_publications WHERE evening_id = ? AND status = 'published' LIMIT 1", [eveningId]),
+    ]);
+    if (!telegram && !vk) return loadCancelPost(db, eveningId);
+  }
   const now = new Date().toISOString();
   await db.run('INSERT OR IGNORE INTO evening_cancel_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)', [eveningId, now, now]);
   const existing = await db.get<any>('SELECT * FROM evening_cancel_posts WHERE evening_id = ? LIMIT 1', [eveningId]);

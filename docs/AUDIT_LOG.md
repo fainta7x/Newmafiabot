@@ -1,3 +1,16 @@
+## 2026-11-05 — детализация Elo в итогах игры
+
+- Fixed in code: общий форматтер итогов скрывал командную часть и объединял действия разных кругов. Форматтер показывает результат, поправки и круги по записанной хронологии.
+
+## 2026-11-04 — теги в карточке игрока
+
+- Fixed in candidate: PlayersView.tsx: карточка протокола не содержит судейских Elo-тегов, они доступны лишь в круге. Добавить существующие теги и слом попила в карточку с выбором круга.
+- Fixed in candidate: ELO_TAGS: нет согласованного штрафа −20 за лжевскрытие чёрного с настоящим шерифом красной проверкой.
+
+## 2026-11-03 — голосование цифрами: попил и повторный попил
+
+- Fixed in candidate: `VoteByNumbersOverlay.tsx` перекрывает кнопки «Попил» и «Поделилось также» центральной панели; сами переходы голосования общие. Добавить те же действия в окно цифр, используя существующие обработчики и ограничения. Проверка: попил → речи → переголосование → повторный попил → решение стола без сворачивания окна.
+
 # Audit log
 
 ## 2026-11-03 — expanded preview regression triage (artifact #13244315358)
@@ -2703,3 +2716,7 @@ Production logs (read only): game 31, `virtual-deal/confirm` and the next `revea
 
 Production read only (`/api/telegram-settings`): the club group destination has topic 5912 and the novice group topic 128 — the groups' announcement topics. `sendPhotos` / `sendText` (`src/server/services/clubResultPostService.ts`) sent game blanks, evening summaries, MVP votes, season tables, digests and birthdays into that topic — fixed: they go to the group's main chat; only an announcement (tournament announcement) keeps the topic.
 Open: `src/tests/clubResultPosts.test.ts` «the running seasons go to the club chat…» fails on clean main as of 2026-11-07 — depends on today's date, not on this change.
+## 2026-11-07 — the tournament Live game looked older than the evening one
+
+- `src/components/player/TournamentLiveGameModal.tsx`: the tournament engine lacked the evening seat grid (`evening-live-seatgrid`) and the avatar + nickname inside each seat card (`SeatIdentityContext`) — fixed: the same providers as `EveningLiveGameModal`. Layout audit 390/1366/1920 clean.
+- Open, older than this change: at 360×640 the tournament window cuts a «0» (`space-y-4` / fixed layer) right after the deal — same before and after.

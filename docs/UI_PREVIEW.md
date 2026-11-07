@@ -19,7 +19,7 @@ Output: temp/ui-preview. The allowlisted pages include evening roster/payments, 
 
 Artifacts (14 days):
 - ui-preview-site: exact built pages and source revision.
-- ui-preview-evidence: mobile screenshots and failure traces.
+- ui-preview-evidence-1 through ui-preview-evidence-3: mobile screenshots and failure traces from the three parallel shards.
 
 The Telegram viewport matrix covers representative Android narrow portrait, iOS portrait and Telegram landscape content-safe-area combinations plus a browser fallback. It checks Player Cabinet, Organizer CRM, the canonical player profile and its tabs/filters/invitations, real modal/overlay screens and Live Game. Automated assertions include horizontal overflow, fixed navigation inside horizontal content-safe insets, reachable modal content/actions and duplicate CRM primary-heading regressions. These checks complement, rather than replace, the broader CRM/Live Game interaction suites.
 

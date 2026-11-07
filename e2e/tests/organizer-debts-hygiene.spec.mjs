@@ -35,3 +35,31 @@ for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900]]
     await check('hygiene-empty');
   });
 }
+
+test('confirming a debt payment preserves the mobile list and scroll during refresh', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.goto('/e2e/organizer-crm.html?debts=1');
+  const panel = page.getByTestId('debts-panel');
+  const pay = panel.getByRole('button', { name: 'Оплачено', exact: true }).first();
+  await pay.scrollIntoViewIfNeeded();
+  await page.evaluate(() => {
+    const fetchFixture = window.fetch;
+    const refresh = new Promise((resolve) => { window.releaseDebtAuditRefresh = resolve; });
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input), location.href).pathname;
+      if (/^\/api\/crm\/debts\/[^/]+\/paid$/.test(path)) return Response.json({ ok: true });
+      if (path === '/api/crm/command-center') await refresh;
+      return fetchFixture(input, init);
+    };
+  });
+  const scroll = await page.evaluate(() => window.scrollY);
+  await panel.evaluate((node) => { node.dataset.auditMounted = 'yes'; });
+  try {
+    await pay.click();
+    await expect(pay).toBeEnabled();
+    await expect(panel).toHaveAttribute('data-audit-mounted', 'yes');
+    expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+  } finally {
+    await page.evaluate(() => window.releaseDebtAuditRefresh());
+  }
+});

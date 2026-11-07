@@ -1,3 +1,15 @@
+## 2026-11-05 — детализация Elo
+
+Клубный протокол и картинка итогов выводят командную часть, поправку силы стола, множитель относительно союзников и начисления по кругам. Формулы расчёта сохранены. 60 целевых тестов прошли.
+
+## 2026-11-04 — теги игрока в протоколе
+
+Готово в коде, ожидают проверки: ручной тег «Вскрылся шерифом с шерифом красным» (−20 Elo дон/мафия, объявившему настоящего шерифа красной проверкой); все ручные Elo-теги и слом попила доступны в карточке игрока с выбором круга. Карточка и блок круга редактируют одни события; снятие отменяет начисление. 52 целевых теста прошли. CI/layout, слияние и выкладка ещё нужны.
+
+## 2026-11-03 — голосование цифрами: попилы
+
+Готово в коде, ожидают проверки: в окне цифр доступны «Попил» и «Поделилось также» через общие обработчики обычного режима. 13 целевых тестов прошли, включая попил → речи → переголосование → повторный попил → решение стола. Проверки CI/layout и merge ещё нужны.
+
 ## 2026-11-03 — expanded preview fixes before the combined release
 
 Actual artifacts show stale physical-deal button wording and an arrived participant searched under the retained expected filter. Corrected those two test actions, keeping every behavior/layout assertion and detector unchanged. #1172 was merged as 4c7524f after exact-head non-browser CI and the all-app layout audit passed; expanded preview regressions are addressed in #1160. Runtime GET still reports build 2e500c7, so deployment of the new VIP mechanism is not confirmed.
@@ -1446,6 +1458,8 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
+- **«Попил» in the «Цифрами» voting window (owner, 2026-11-03):** the same auto-split logic as the one-button «Попил» and «также попилились» — meaning of «попилились» asked, not built.
+- **Telegram routing (owner, 2026-11-03):** everything except announcements and the evening gathering goes only to the chat inside the main-table group, not to the announcements group — reported still going to announcements; being fixed.
 - **VIP slider meaning (owner, 2026-11-03, to agree before building):** the owner expected 50 % to be the neutral point = an ordinary deal; above 50 the player gets the card more often, below 50 less often. Today the percent is the chance a condition fires on each card choice (stress run: 50 % «шериф» gives seat 1 ≈55 %, seat 10 ≈35 %; «одноцвет» 50 % gives ≈86 %). Proposed mapping sent to the owner; not built.
 - **VIP settings by player, not a list of rules (owner, 2026-11-03, not built, to agree):** choose a player first, then his conditions with a slider under each, in the owner's words: «мне нравится играть на …» (pick a card), «люблю играть в одноцвете с …» (pick a player), «не хочу играть в одноцвете с …», consent to a stronger pull of revealing roles (don and sheriff equally); later the player sets them himself in a VIP cabinet. Possibly in the player's profile. Open questions sent to the owner.
 - **Owner answers of 2026-11-02:** self-vote allowed; the «Проголосовали: …» strip is not needed («не обязательно»); the warning «Игрок уже выставлял…» becomes a hint that disappears after 1 s (DONE in code, `LiveGameEngine.tsx`); no guest→profile conversion in played games, Elo only for a registered player from the first game (BUSINESS_RULES); the adaptive Elo base chance is cancelled. Telegram: the entry channel gets only announcements (games, «стол есть / нет»), everything else goes to the chats — DONE in code. Gifted individual games: cancelled. «Картинка вечера на 390 px»: struck off by the owner. The novice evening of 16 Oct is already `completed` in production (read 2026-11-02, updated 2026-10-22) — nothing to close; the older note that it was an open `published` evening is outdated.

@@ -6,7 +6,7 @@ import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from '../s
 import { ensureClubResultPostSchema, queueEveningPlayerCards, runClubResultPosts } from '../server/services/clubResultPostService.ts';
 
 const opened: DatabaseWrapper[] = [];
-afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
+afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 
 const PLAYERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 const ROLES = ['sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'mafia', 'mafia', 'don'];
@@ -22,6 +22,8 @@ async function setup(format = 'CASUAL', startsAt = new Date(Date.now() - 3 * 360
     VALUES ('ev','Пятничный вечер',?,'Europe/Moscow',?,'active',20,100,?,?)`, [startsAt, format, now, now]);
   await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)
     VALUES ('club','Клуб','-100500',77,1,?,?), ('rating','Рейтинг','-100600',NULL,1,?,?)`, [now, now, now, now]);
+  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)
+    VALUES ('club_chat','Чатик','-100500',88,1,?,?), ('rating_chat','Чат рейтинга','-100600',NULL,1,?,?)`, [now, now, now, now]);
   // The feature was switched on a day ago.
   await ensureClubResultPostSchema(db);
   const switchedOn = new Date(Date.now() - 86400_000).toISOString();
@@ -164,7 +166,7 @@ describe('evening summary', () => {
     expect(summary).toMatchObject({ games: 3, redWins: 2, blackWins: 1, players: 10, scored: false, bestAverage: [] });
     expect(summary!.mostWins[0]).toMatchObject({ nickname: 'Игрок A', value: '2 победы', detail: 'из 3 игр' });
     expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player).toMatchObject({ nickname: 'Игрок A' });
-    expect(summary!.bestByRole.find((item) => item.role === 'don')!.player).toMatchObject({ nickname: 'Игрок J', value: '+0,33', detail: 'в среднем за 3 игры' });
+    expect(summary!.bestByRole.find((item) => item.role === 'don')!.player).toMatchObject({ nickname: 'Игрок J', value: '', detail: '' });
     expect(eveningSummarySvg(summary!)).toContain('БОЛЬШЕ ВСЕХ ПОБЕД');
     expect(summary!.eloGain[0].detail).toBe('Эло за вечер');
     expect(eveningSummarySvg(summary!)).toContain('РОСТ ЭЛО ЗА ВЕЧЕР');
@@ -191,8 +193,8 @@ describe('evening summary', () => {
     expect(summary!.bestAverage.map((item) => item.nickname)).toEqual(['Игрок B', 'Игрок A', expect.any(String)]);
     expect(summary!.bestAverage[1]).toMatchObject({ value: '+0,75', detail: 'в среднем за 2 игры' });
     // Roles go by effectiveness, not points: the sheriff only has the red win in game 1 (1 / 2 games).
-    expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player!.value).toBe('+0,5');
-    expect(eveningSummarySvg(summary!)).toContain('ЛУЧШИЙ СРЕДНИЙ БАЛЛ');
+    expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player!.value).toBe('');
+    expect(eveningSummarySvg(summary!)).not.toContain('ЛУЧШИЙ СРЕДНИЙ БАЛЛ');
   });
 });
 
@@ -268,7 +270,7 @@ describe('one personal message per evening', () => {
     expect(card.text).toContain('Сыграно: 2 игры · 1 победа');
     expect(card.text).toContain('№1 Шериф — победа');
     expect(card.text).toContain('№2 Шериф — поражение');
-    expect(card.text).toContain('Баллы за вечер: +1,5 · в среднем +0,75');
+    expect(card.text).toContain('Баллы за вечер: +1,5');
     expect(card.text).toMatch(/Эло: [+−]\d+ · теперь \d+/);
     const outbox = await db.get<any>("SELECT reply_markup_json FROM telegram_message_outbox WHERE message_key = 'evening-result:ev:a'");
     const [row] = JSON.parse(outbox.reply_markup_json).inline_keyboard;
@@ -288,6 +290,7 @@ describe('posting to the club chat', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].get('chat_id')).toBe('-100500');
     expect(calls[0].get('message_thread_id')).toBeNull(); // the group's main chat, not its announcements topic (owner, 2026-11-03)
+    expect(calls[0].get('message_thread_id')).toBe('88');
     expect(calls[0].get('caption')).toBe('🎭 Игра №1 · победа красных');
     expect((calls[0].get('photo') as Blob).type).toBe('image/png');
 
@@ -310,6 +313,7 @@ describe('posting to the club chat', () => {
     expect(media.map((item: any) => item.media)).toEqual(['attach://p0', 'attach://p1']);
     expect(media[0].caption).toBe('🏁 Итоги вечера «Пятничный вечер» и промежуточная таблица «Осень 2026»');
     expect(calls[1].get('message_thread_id')).toBeNull();
+    expect(calls[1].get('message_thread_id')).toBe('88');
     expect((calls[1].get('p1') as Blob).type).toBe('image/png');
   });
 
@@ -354,7 +358,7 @@ describe('posting to the club chat', () => {
     expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
     expect(calls).toHaveLength(1);
 
-    await db.run("DELETE FROM telegram_destinations WHERE id = 'club'");
+    await db.run("DELETE FROM telegram_destinations WHERE id = 'club_chat'");
     await addGame(2, 'red');
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
     expect(await db.get<any>("SELECT status, last_error FROM club_result_posts WHERE post_key LIKE 'game:%' AND status = 'failed'"))
@@ -433,6 +437,8 @@ describe('the entry channel', () => {
   });
 
   it('the running seasons go to the club chat, not to the entry channel, once a week on Monday afternoon', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-05T10:00:00Z'));
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addPublic(db);

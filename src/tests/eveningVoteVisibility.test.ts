@@ -52,7 +52,7 @@ describe('«MVP вечера» is no longer hidden', () => {
     process.env.TELEGRAM_BOT_TOKEN = 'test-token';
     await ensureClubResultPostSchema(db);
     await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations (id TEXT PRIMARY KEY, chat_id TEXT, topic_id TEXT, active INTEGER DEFAULT 1, invite_url TEXT)").catch(() => undefined);
-    await db.run("INSERT OR REPLACE INTO telegram_destinations (id, chat_id, active) VALUES ('club', '-100', 1)");
+    await db.run("INSERT OR REPLACE INTO telegram_destinations (id, chat_id, active) VALUES ('club_chat', '-100', 1)");
     const sent: any[] = [];
     const asSent = (body: any) => {
       if (!(body instanceof FormData)) return JSON.parse(body);

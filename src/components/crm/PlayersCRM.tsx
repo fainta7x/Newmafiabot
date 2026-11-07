@@ -185,9 +185,9 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  const loadPlayers = useCallback(async () => {
+  const loadPlayers = useCallback(async (background = false) => {
     const requestId = ++requestSeq.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     setListError(null);
     try {
       const params: Record<string, string | number | boolean> = {};
@@ -231,9 +231,9 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     });
   };
 
-  const loadPlayerDetails = async (id: string) => {
+  const loadPlayerDetails = async (id: string, background = false) => {
     const requestId = ++detailRequestSeq.current;
-    setLoadingDetails(true);
+    if (!background) setLoadingDetails(true);
     setDetailError(null);
     try {
       const data = await api.getPlayer(id);
@@ -321,9 +321,9 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const refreshPlayer = async () => {
     if (!activePlayerCardId) return;
     if (selectedPlayerId) {
-      await loadPlayerDetails(activePlayerCardId);
+      await loadPlayerDetails(activePlayerCardId, true);
     } else {
-      await Promise.all([loadPlayerDetails(activePlayerCardId), loadPlayers()]);
+      await Promise.all([loadPlayerDetails(activePlayerCardId, true), loadPlayers(true)]);
     }
     onCrmChanged?.();
   };
@@ -392,7 +392,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       });
       setShowAddModal(false);
       setNewNickname(''); setNewFullName(''); setNewPhone(''); setNewTgUsername('');
-      await loadPlayers();
+      await loadPlayers(true);
       handleOpenCard(created.id);
     } catch (err: any) {
       setAddError(err?.message || 'Не удалось создать игрока');

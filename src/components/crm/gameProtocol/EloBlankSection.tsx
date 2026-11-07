@@ -49,7 +49,7 @@ export const EloBlankSection: React.FC<{ gameId: number | string; version: strin
                     {seat.eloDelta != null ? <EloChange delta={seat.eloDelta} after={seat.eloAfter} /> : <span className="text-[11px] text-white/40">без Эло</span>}
                   </div>
                 </div>
-                <EloBreakdownLines lines={seat.lines} contribution={seat.eloContribution} />
+                <EloBreakdownLines lines={seat.lines} contribution={seat.eloContribution} spacious />
               </li>
             ))}
           </ol>

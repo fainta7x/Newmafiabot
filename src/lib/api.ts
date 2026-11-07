@@ -1159,6 +1159,8 @@ export const api = {
         candidates: Array<{
           participant_id: string;
           participant_number: number;
+          player_id?: string | null;
+          avatar_updated_at?: string | null;
           display_name: string;
           points: number;
           additional_points: number;

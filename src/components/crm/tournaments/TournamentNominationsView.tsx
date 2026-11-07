@@ -88,7 +88,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
 
               {winner ? (
                 <div className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{countGames(winner.games_in_role)} в выборке</span></div></div>
+                  <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar playerId={winner.player_id || undefined} avatarVersion={winner.avatar_updated_at} forceStoredLookup nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{countGames(winner.games_in_role)} в выборке</span></div></div>
                   <div className="text-right font-mono text-[11px]"><div><span className="text-text-muted">Итог </span><strong>{signed(winner.points)}</strong></div><div><span className="text-text-muted">Судьи {signed(winner.judge_bonus)} · протоколы </span><strong>{signed(winner.protocol_bonus)}</strong></div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div><span className="text-text-muted">Победы в роли </span><strong>{winner.role_wins}</strong></div>}</div>
                 </div>
               ) : terminalTie ? (
@@ -105,7 +105,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                   return (
                     <div key={candidate.participant_id} className={`border rounded-2xl overflow-hidden ${isWinner ? 'border-accent/30 bg-accent/5' : isTied ? 'border-amber-500/30 bg-amber-500/5' : 'border-border-soft bg-surface-2/20'}`}>
                       <button type="button" onClick={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))} className="w-full p-3 min-h-[44px] flex items-center gap-3 text-left">
-                        <span className="w-5 text-xs text-text-muted font-bold">{index + 1}</span><PlayerAvatar nickname={candidate.display_name} size="xs" /><span className="font-bold text-sm truncate flex-1">{candidate.display_name}</span>
+                        <span className="w-5 text-xs text-text-muted font-bold">{index + 1}</span><PlayerAvatar playerId={candidate.player_id || undefined} avatarVersion={candidate.avatar_updated_at} forceStoredLookup nickname={candidate.display_name} size="xs" /><span className="font-bold text-sm truncate flex-1">{candidate.display_name}</span>
                         <div className="font-mono text-[10px] text-right shrink-0"><div>Итог {signed(candidate.points)}</div><div>С {signed(candidate.judge_bonus)} · П {signed(candidate.protocol_bonus)}</div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div>Р {candidate.role_wins}</div>}</div>
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
                       </button>

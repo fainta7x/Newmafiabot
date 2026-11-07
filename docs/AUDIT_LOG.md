@@ -2720,3 +2720,8 @@ Open: `src/tests/clubResultPosts.test.ts` «the running seasons go to the club c
 
 - `src/components/player/TournamentLiveGameModal.tsx`: the tournament engine lacked the evening seat grid (`evening-live-seatgrid`) and the avatar + nickname inside each seat card (`SeatIdentityContext`) — fixed: the same providers as `EveningLiveGameModal`. Layout audit 390/1366/1920 clean.
 - Open, older than this change: at 360×640 the tournament window cuts a «0» (`space-y-4` / fixed layer) right after the deal — same before and after.
+
+## 2026-11-07 — tournament protocol could not be completed (Gun Town Cup 3, game 1)
+
+Production read only: ~20 `PUT …/protocol` (autosave, 200) and no `POST …/protocol/complete`; the protocol passes both completion checks locally.
+- `src/components/crm/tournaments/protocol/*Dialog*.tsx`: the confirmation dialogs («Завершить игру?», first killed, zero round, exit type, discipline) were on layer `z-60`, under the protocol window `z-[90]` — the confirmation opened invisibly, so the game never completed and «Результаты PNG» (shown only for a completed game) never appeared — fixed: `z-[130]`; `src/tests/tournamentProtocolDialogsLayer.test.ts`.

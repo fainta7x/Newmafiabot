@@ -28,7 +28,7 @@ export function ProtocolDisciplineConfirmDialog({
   const canConfirmPpk = pending.type !== 'ppk' || !!winnerTeam;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
         <div className="flex items-center space-x-3 text-rose-400">
           <AlertTriangle className="w-6 h-6" />

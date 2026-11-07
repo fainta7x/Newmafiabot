@@ -28,7 +28,7 @@ export function ProtocolCompletionDialogs({
   return (
     <>
       {showCompleteConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <FileCheck className="w-6 h-6" />
@@ -88,7 +88,7 @@ export function ProtocolCompletionDialogs({
       )}
 
       {showRevertConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <RotateCcw className="w-6 h-6" />

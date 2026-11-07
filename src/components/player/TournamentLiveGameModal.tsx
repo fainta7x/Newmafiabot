@@ -32,6 +32,9 @@ import { useLiveGameCheckpoint } from '../game/useLiveGameCheckpoint';
 import { LiveGameContinueGate } from '../game/LiveGameContinueGate';
 import { gameKey } from '../../shared/game';
 import { DealSeatPlayersContext } from '../game/dealSeatPlayers';
+import { SeatIdentityContext } from '../LiveGameEngine/seatIdentityContext';
+import { NumbersAutoOpenContext } from '../LiveGameEngine/numbersAutoOpenContext.ts';
+import { PlayerAvatar } from '../ui/PlayerAvatar';
 
 const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | null | undefined): LegacyPlayer[] => {
   const players: LegacyPlayer[] = results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player, index) => ({
@@ -400,6 +403,19 @@ function TournamentLiveGameModalBody({
     if (!response.ok) throw new Error('Tournament broadcast state rejected');
   });
 
+  // The same seat cards as an evening game (owner, 2026-11-07: «live engine турнира другой, не современный»): avatar and nickname
+  // inside each card, the evening seat grid.
+  const seatIdentity = useMemo(() => (slot: number) => {
+    const player = (latestRoleResults || payload?.player_results || []).find((item) => Number(item.seat_number) === slot);
+    if (!player) return null;
+    return (
+      <>
+        <PlayerAvatar playerId={player.player_id ?? null} nickname={player.display_name || `Игрок ${slot}`} size="xl" forceStoredLookup className="live-seat-id__avatar" />
+        <span className="live-seat-id__name" title={player.display_name || ''}>{player.display_name || `Игрок ${slot}`}</span>
+      </>
+    );
+  }, [latestRoleResults, payload]);
+
   const finishedGameRef = useRef<any>(null);
   // The finished result is kept in the browser until it is saved: if the app is reloaded after a failed save, the judge
   // can still retry instead of losing the whole game (engine audit, 2026-10-04).
@@ -585,7 +601,9 @@ function TournamentLiveGameModalBody({
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (
-        <div className="tournament-live-shell evening-live-engine-shell">
+        <div className="tournament-live-shell evening-live-engine-shell evening-live-seatgrid">
+          <NumbersAutoOpenContext.Provider value={true}>
+          <SeatIdentityContext.Provider value={seatIdentity}>
           <LiveGameEngine
             players={legacyPlayers}
             initialJudgeId={10001}
@@ -604,6 +622,8 @@ function TournamentLiveGameModalBody({
             onRolesHiddenChange={setRolesHidden}
             onGameFinished={(gameData) => { void saveFinishedGame(gameData); }}
           />
+          </SeatIdentityContext.Provider>
+          </NumbersAutoOpenContext.Provider>
         </div>
       ) : null}
     </div>

@@ -146,7 +146,8 @@ describe('live-game undo boundaries', () => {
 
     expect(shootingStart).toBeGreaterThanOrEqual(0);
     expect(block.slice(0, shootingStart)).not.toContain('saveSnapshot();');
-    expect(block).toContain("if (nightSubPhase === 'shooting') {\n        saveSnapshot();");
+    // The shot refuses a player who has left before the undo step is saved (checks may target him, owner 2026-11-07).
+    expect(block).toContain("if (nightSubPhase === 'shooting') {\n        if (!player.alive) return;\n        saveSnapshot();");
     expect(block).toContain("if (nightSubPhase === 'don') {\n        if (!donAtTable(activePlayers) || donCheckSlot === slot) return;\n        saveSnapshot();");
     expect(block).toContain("if (nightSubPhase === 'sheriff') {\n        if (!sheriffAtTable(activePlayers) || sheriffCheckSlot === slot) return;\n        saveSnapshot();");
   });

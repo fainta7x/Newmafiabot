@@ -287,7 +287,7 @@ describe('posting to the club chat', () => {
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
     expect(calls).toHaveLength(1);
     expect(calls[0].get('chat_id')).toBe('-100500');
-    expect(calls[0].get('message_thread_id')).toBe('77');
+    expect(calls[0].get('message_thread_id')).toBeNull(); // the group's main chat, not its announcements topic (owner, 2026-11-03)
     expect(calls[0].get('caption')).toBe('🎭 Игра №1 · победа красных');
     expect((calls[0].get('photo') as Blob).type).toBe('image/png');
 
@@ -309,7 +309,7 @@ describe('posting to the club chat', () => {
     const media = JSON.parse(String(calls[1].get('media')));
     expect(media.map((item: any) => item.media)).toEqual(['attach://p0', 'attach://p1']);
     expect(media[0].caption).toBe('🏁 Итоги вечера «Пятничный вечер» и промежуточная таблица «Осень 2026»');
-    expect(calls[1].get('message_thread_id')).toBe('77');
+    expect(calls[1].get('message_thread_id')).toBeNull();
     expect((calls[1].get('p1') as Blob).type).toBe('image/png');
   });
 

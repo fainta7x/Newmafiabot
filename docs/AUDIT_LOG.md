@@ -2698,3 +2698,8 @@ Production read only: `POST /api/evenings/cbcb7301…/seating/generate` at 20:17
 Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
 - `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
 - `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.
+
+## 2026-11-03 — Telegram: results went to the announcements topic
+
+Production read only (`/api/telegram-settings`): the club group destination has topic 5912 and the novice group topic 128 — the groups' announcement topics. `sendPhotos` / `sendText` (`src/server/services/clubResultPostService.ts`) sent game blanks, evening summaries, MVP votes, season tables, digests and birthdays into that topic — fixed: they go to the group's main chat; only an announcement (tournament announcement) keeps the topic.
+Open: `src/tests/clubResultPosts.test.ts` «the running seasons go to the club chat…» fails on clean main as of 2026-11-07 — depends on today's date, not on this change.

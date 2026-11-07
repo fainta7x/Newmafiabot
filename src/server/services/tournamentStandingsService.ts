@@ -426,7 +426,8 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
   if (!tournament) throw new Error('Турнир не найден');
 
   const participants = await db.all<any>(
-    `SELECT tp.id as participant_id, tp.participant_number,
+    `SELECT tp.id as participant_id, tp.player_id, tp.participant_number,
+            (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at,
             COALESCE(p.nickname, tp.display_name, 'Участник') as display_name
        FROM tournament_participants tp
        LEFT JOIN players p ON tp.player_id = p.id
@@ -568,6 +569,8 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
         candidateList.push({
           participant_id: participant.participant_id,
           participant_number: participant.participant_number,
+          player_id: participant.player_id || null,
+          avatar_updated_at: participant.avatar_updated_at || null,
           display_name: participant.display_name,
           points: nominationPoints,
           additional_points: sumProtocol,

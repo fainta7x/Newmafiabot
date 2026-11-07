@@ -472,6 +472,20 @@ describe('Tournament Module API Tests', () => {
     expect(responseString).not.toContain('+7900000000'); // No phones leaked
     expect(responseString).not.toContain('NEW_LEAD'); // No lead status leaked
 
+    // 13f. One permanent link (owner, 2026-11-07): a running tournament shows its table by the same link, not final, no nominations.
+    const running = await request(app).post('/api/tournaments').set('Cookie', organizerCookie).send({ title: 'Идущий турнир', date: new Date().toISOString(), participants: playerIds.map((id) => ({ player_id: id })) });
+    await request(app).post(`/api/tournaments/${running.body.id}/start`).set('Cookie', organizerCookie);
+    expect((await request(app).post(`/api/tournaments/${running.body.id}/public-link`)).status).toBe(401);
+    const link = await request(app).post(`/api/tournaments/${running.body.id}/public-link`).set('Cookie', organizerCookie);
+    expect(link.status).toBe(200);
+    const again = await request(app).post(`/api/tournaments/${running.body.id}/public-link`).set('Cookie', organizerCookie);
+    expect(again.body.public_token).toBe(link.body.public_token);
+    const live = await request(app).get(`/api/public/tournaments/results/${link.body.public_token}`);
+    expect(live.status).toBe(200);
+    expect(live.body.final).toBe(false);
+    expect(live.body.nominations).toEqual([]);
+    expect(Array.isArray(live.body.standings)).toBe(true);
+
     // 13e. Unauthorized access with wrong token should fail
     const badTokenRes = await request(app)
       .get(`/api/public/tournaments/results/some_fake_nonexistent_token`);

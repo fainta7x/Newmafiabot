@@ -151,6 +151,16 @@ router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth,
   }
 });
 
+/** One permanent link to the tournament table for everybody (owner, 2026-11-07); the same token the published results use. */
+router.post('/:id/public-link', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = req.db as DatabaseWrapper;
+  const tournament = await db.get<any>('SELECT id, public_token FROM tournaments WHERE id = ?', [String(req.params.id)]);
+  if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+  const publicToken = tournament.public_token || crypto.randomUUID();
+  if (!tournament.public_token) await db.run('UPDATE tournaments SET public_token = ?, updated_at = ? WHERE id = ?', [publicToken, new Date().toISOString(), String(req.params.id)]);
+  return res.json({ public_token: publicToken, path: `/tournaments/results/${encodeURIComponent(publicToken)}` });
+});
+
 router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {

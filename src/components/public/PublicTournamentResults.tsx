@@ -33,7 +33,7 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
       const res = await api.getPublicTournamentResults(token);
       setData(res);
     } catch (err: any) {
-      setError(err.message || 'Турнир не найден или результаты ещё не опубликованы');
+      setError(err.message || 'Турнир не найден');
     } finally {
       setLoading(false);
     }
@@ -42,6 +42,12 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
   useEffect(() => {
     loadData();
   }, [token]);
+  // While the tournament runs the table refreshes itself every minute, quietly (no loading screen).
+  useEffect(() => {
+    if (data?.final !== false) return undefined;
+    const timer = window.setInterval(() => { void api.getPublicTournamentResults(token).then(setData).catch(() => undefined); }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [data?.final, token]);
 
   const toggleExpandRow = (id: string) => {
     setExpandedRowId(expandedRowId === id ? null : id);
@@ -132,7 +138,7 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
                 )}
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                   <Star className="w-3 h-3 fill-emerald-400 text-emerald-400" />
-                  <span>Официальные результаты</span>
+                  <span>{data?.final === false ? 'Идёт турнир · таблица после сыгранных игр' : 'Официальные результаты'}</span>
                 </span>
               </div>
 
@@ -167,15 +173,18 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
                 <Trophy className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
-                <span className="text-[10px] uppercase font-black text-text-muted tracking-wider block">Опубликовано</span>
+                <span className="text-[10px] uppercase font-black text-text-muted tracking-wider block">{data?.final === false ? 'Обновляется сама' : 'Опубликовано'}</span>
                 <span className="text-xs font-mono font-bold text-text-primary">
-                  {formatDate(tournament.results_published_at)}
+                  {data?.final === false ? 'каждую минуту' : formatDate(tournament.results_published_at)}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
+        {data?.hidden ? (
+          <div className="rounded-2xl border border-border-soft bg-surface-1 p-5 text-center text-sm text-text-secondary">Судья закрыл таблицу до конца турнира — она откроется по этой же ссылке.</div>
+        ) : null}
         {/* ========================================== */}
         {/* PODIUM / LEADERS SECTION                   */}
         {/* ========================================== */}

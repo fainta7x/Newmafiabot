@@ -2711,3 +2711,8 @@ Production read only: `POST /api/evenings/cbcb7301…/seating/generate` at 20:17
 Production logs (read only): game 31, `virtual-deal/confirm` and the next `reveal` in the same second 17:41:13.
 - `src/components/game/VirtualRoleDeal.tsx`: after «Следующий игрок» the previous turn's start time was still read for the new player, so the program opened a random card for him at once — fixed: the timer belongs to one turn (`turnStart.key`). Added «Стартуем» before the first player's turn (owner).
 - `src/components/crm/EveningGameCreateSheet.tsx`: «Загрузить рассадку из плана» appeared only after the optional «Стол» was chosen — fixed: choosing a planned game takes its table and fills the seats; seats of players without «Пришёл» are named instead of silently left empty.
+
+## 2026-11-07 — the tournament Live game looked older than the evening one
+
+- `src/components/player/TournamentLiveGameModal.tsx`: the tournament engine lacked the evening seat grid (`evening-live-seatgrid`) and the avatar + nickname inside each seat card (`SeatIdentityContext`) — fixed: the same providers as `EveningLiveGameModal`. Layout audit 390/1366/1920 clean.
+- Open, older than this change: at 360×640 the tournament window cuts a «0» (`space-y-4` / fixed layer) right after the deal — same before and after.

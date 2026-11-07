@@ -43,7 +43,8 @@ describe('digest of changes for the players (owner, 2026-10-05)', () => {
     const first = await publishClubDigest(db, { text: TEXT, destinations: ['club', 'public'], createdBy: 'owner' }, fetchImpl);
     expect(first).toEqual([{ destination: 'club', status: 'sent' }, { destination: 'public', status: 'sent' }]);
     expect(calls).toHaveLength(2);
-    expect(calls[0]).toMatchObject({ chat: '-100500', thread: 7, parse_mode: 'HTML' });
+    expect(calls[0]).toMatchObject({ chat: '-100500', parse_mode: 'HTML' });
+    expect(calls[0].thread).toBeUndefined(); // the group's main chat, not its announcements topic (owner, 2026-11-03)
     expect(calls[0].text).toContain('<b>Что нового</b>');
 
     const again = await publishClubDigest(db, { text: TEXT, destinations: ['club', 'public'] }, fetchImpl);

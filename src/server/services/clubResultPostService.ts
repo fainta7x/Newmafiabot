@@ -68,7 +68,7 @@ export const clubResultDestination = (format: unknown) => {
 };
 
 /** One picture, or an album (the evening summary with the season table) in one message. */
-export async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown, context?: PublicationContext): Promise<PublicationResult> {
+export async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown, context?: PublicationContext, announcement = false): Promise<PublicationResult> {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, certainty: 'rejected', temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(
@@ -80,7 +80,9 @@ export async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: B
   }
   return sendPublicTelegram(db, {
     method: photos.length > 1 ? 'sendMediaGroup' : 'sendPhoto',
-    fields: { chat_id: destination.chat_id, ...(destination.topic_id ? { message_thread_id: destination.topic_id } : {}),
+    // Results, blanks, votes, season tables, digests, birthdays go to the group's main chat, never to its announcements topic
+    // (owner, 2026-11-03: «кроме анонсов и сбора вечера — только в чат внутри группы с основным столом»).
+    fields: { chat_id: destination.chat_id, ...(announcement && destination.topic_id ? { message_thread_id: destination.topic_id } : {}),
       ...(photos.length > 1 ? { media: photos.map((_, index) => ({ type:'photo', media:`attach://p${index}`, ...(index === 0 ? { caption } : {}) })) }
         : { caption, ...(replyMarkup ? { reply_markup:replyMarkup } : {}) }) },
     photos: photos.map((photo,index) => ({ data:photo.toString('base64'), mime, name:mime === 'image/png' ? 'result.png' : 'photo.jpg', field:photos.length > 1 ? `p${index}` : 'photo' })),
@@ -661,7 +663,7 @@ export async function postTournamentAnnouncement(db: DatabaseWrapper, tournament
   if (!(await claim(db, key, 'tournament-announce', '', null))) return false;
   try {
     const { caption, photo } = tournamentAnnouncementMedia(announcement);
-    const result = await sendPhotos(db, 'TOURNAMENT', [photo], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, 'TOURNAMENT', [photo], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' }, true);
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -711,7 +713,7 @@ export async function sendText(db: DatabaseWrapper, destinationId: string, text:
   // Markup is never cut: a slice could break a tag or an entity and Telegram would reject the whole message.
   if (parseMode && text.length > 4000) return { ok: false, certainty: 'rejected', temporary: false, error: 'Сообщение слишком длинное для Telegram' };
   const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: parseMode ? text : text.slice(0, 4000), disable_web_page_preview: true, ...(parseMode ? { parse_mode: parseMode } : {}) };
-  if (destination.topic_id) body.message_thread_id = Number(destination.topic_id);
+  // The main chat of the group, not its announcements topic (owner, 2026-11-03).
   if (replyMarkup) body.reply_markup = replyMarkup;
   return sendPublicTelegram(db, { method:'sendMessage', fields:body }, fetchImpl, context);
 }

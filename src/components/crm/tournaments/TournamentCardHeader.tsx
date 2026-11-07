@@ -1,5 +1,6 @@
-import React from 'react';
-import { ArrowLeft, Calendar, MapPin } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Calendar, Link2, MapPin } from 'lucide-react';
+import { sendJson } from '../../../lib/requestJson.ts';
 import type { Tournament, TournamentGame } from '../../../lib/api.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
@@ -82,6 +83,29 @@ export const TournamentCardHeader: React.FC<Props> = ({ tournament, games, actio
         )}
       </div>
 
-      
+      <PublicTableLink tournamentId={String(tournament.id)} />
     </div>
 );
+
+/** One permanent link to the tournament table for anybody (owner, 2026-11-07): no sign-in; during the tournament the table after the played games. */
+const PublicTableLink: React.FC<{ tournamentId: string }> = ({ tournamentId }) => {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const copy = async () => {
+    if (busy) return;
+    setBusy(true); setNote('');
+    try {
+      const body = await sendJson<{ path: string }>(`/api/tournaments/${encodeURIComponent(tournamentId)}/public-link`, 'POST', {}, 'Не удалось получить ссылку');
+      const url = `${window.location.origin}${body.path}`;
+      try { await navigator.clipboard.writeText(url); setNote(`Ссылка скопирована: ${url}`); } catch { setNote(url); }
+    } catch (error: any) { setNote(error?.message || 'Не удалось получить ссылку'); } finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-1">
+      <button type="button" data-testid="tournament-public-link" disabled={busy} onClick={() => void copy()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-soft bg-surface-2 px-3 text-xs font-semibold text-text-primary disabled:opacity-50">
+        <Link2 className="h-4 w-4" aria-hidden="true" />Скопировать ссылку на таблицу
+      </button>
+      {note ? <p role="status" className="break-all text-[11px] text-text-secondary">{note}</p> : <p className="text-[11px] text-text-muted">Открывается у любого без входа; во время турнира — таблица после сыгранных игр.</p>}
+    </div>
+  );
+};

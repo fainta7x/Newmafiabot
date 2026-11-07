@@ -98,6 +98,10 @@ type SheetProps = { api: ProtocolApi; seat: number | null; onClose: () => void }
 
 export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
   const [tagCircle, setTagCircle] = useState(0);
+  // «Когда удалён?» (owner, 2026-11-07): a removal set in the protocol is tied to a circle and a moment.
+  const [removalAsk, setRemovalAsk] = useState<null | 'segment' | 'judge'>(null);
+  const [removalCircle, setRemovalCircle] = useState(0);
+  const [removalMoment, setRemovalMoment] = useState<'day_speeches' | 'day_voting' | 'night'>('day_speeches');
   const player = seat == null ? null : api.results.find((item) => item.seat_number === seat) || null;
   if (!player) return <Sheet open={false} title="" onClose={onClose}>{null}</Sheet>;
   const splitOn = splitBreakMarks(api.protocol.events).some((mark) => mark.round === tagCircle + 1 && mark.seat === player.seat_number);
@@ -110,6 +114,26 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
   const tech = (player.minor_technical_fouls || 0) + (player.major_technical_fouls || 0);
 
   const recorded = recordedExit(api, player);
+  const circles = buildCircles(api.protocol);
+  const confirmRemoval = () => {
+    if (removalAsk === 'judge') api.removeByJudge(player);
+    else api.updateResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
+    const round = removalCircle + 1;
+    api.setEvents((list) => {
+      const kept = list.filter((event) => !(event.kind === 'exit' && event.seat === player.seat_number && event.value === 'removed'));
+      const nextSeq = list.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+      return [...kept, { seq: nextSeq, at: new Date().toISOString(), round, phase: removalMoment, kind: 'exit', seat: player.seat_number, value: 'removed' }];
+    });
+    setRemovalAsk(null);
+  };
+  // After the removal: is the table still playable? A hint only, the judge confirms the winner (owner, 2026-11-07).
+  const alive = api.results.filter((item) => item.exit_type === 'alive');
+  const blacksLeft = alive.filter((item) => item.role === 'mafia' || item.role === 'don').length;
+  const redsLeft = alive.length - blacksLeft;
+  const endHint = player.exit_type === 'removed' && alive.length
+    ? (blacksLeft === 0 ? 'После удаления за столом не осталось чёрных — игра закончилась победой красных в этом круге.'
+      : blacksLeft >= redsLeft ? 'После удаления чёрных за столом не меньше, чем красных, — игра закончилась победой чёрных в этом круге.' : null)
+    : null;
   const setMark = (key: MarkKey, target: number) => {
     const next = { red: [...marks.red], black: [...marks.black], sheriff: [...marks.sheriff] };
     const has = next[key].includes(target);
@@ -157,7 +181,7 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
 
         <section aria-label="Как вышел" className="space-y-2">
           <Eyebrow>Как вышел</Eyebrow>
-          <Segmented label="Как вышел" disabled={locked} value={player.exit_type} options={EXIT_OPTIONS} cols={3} onChange={(value) => api.updateResult(player.participant_id, value === 'removed' ? { exit_type: 'removed', removal_reason: 'direct' } : { exit_type: value as PlayerResultData['exit_type'], removal_reason: null })} />
+          <Segmented label="Как вышел" disabled={locked} value={player.exit_type} options={EXIT_OPTIONS} cols={3} onChange={(value) => (value === 'removed' ? setRemovalAsk('segment') : api.updateResult(player.participant_id, { exit_type: value as PlayerResultData['exit_type'], removal_reason: null }))} />
           <p className="text-[12px] leading-4 text-white/40">Обычно это считается из голосований и ночей; вручную стоит менять, только если запись неполная.</p>
         </section>
 
@@ -191,9 +215,25 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
               : <Btn kind="danger" disabled={locked || api.protocol.end_reason === 'ppk'} onClick={() => api.causePpk(player)}>ППК</Btn>}
             {removedByJudge
               ? <Btn kind="ghost" disabled={locked} onClick={() => api.cancelRemoval(player)}>Отменить удаление</Btn>
-              : <Btn kind="danger" disabled={locked || player.exit_type === 'removed'} onClick={() => api.removeByJudge(player)}>Удалить судьёй</Btn>}
+              : <Btn kind="danger" disabled={locked || player.exit_type === 'removed'} onClick={() => setRemovalAsk('judge')}>Удалить судьёй</Btn>}
           </div>
         </section>
+        {removalAsk ? (
+          <section data-testid="removal-moment" aria-label="Когда удалён" className="space-y-3 rounded-2xl border border-rose-300/25 bg-rose-300/[0.06] p-3">
+            <Eyebrow>Когда удалён?</Eyebrow>
+            <label className="block text-[12px] text-white/60">Круг
+              <select value={removalCircle} onChange={(event) => setRemovalCircle(Number(event.target.value))} className="mt-1 min-h-11 w-full rounded-xl border border-white/12 bg-[#111216] px-3 text-sm text-white">
+                {circles.map((circle) => <option key={circle.index} value={circle.index}>{circle.title}</option>)}
+              </select>
+            </label>
+            <Segmented label="Момент удаления" value={removalMoment} options={[{ value: 'day_speeches', label: 'На речах' }, { value: 'day_voting', label: 'На голосовании' }, { value: 'night', label: 'Ночью' }]} cols={3} onChange={(value) => setRemovalMoment(value as typeof removalMoment)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Btn kind="danger" onClick={confirmRemoval}>Записать удаление</Btn>
+              <Btn kind="ghost" onClick={() => setRemovalAsk(null)}>Отмена</Btn>
+            </div>
+          </section>
+        ) : null}
+        {endHint ? <p data-testid="removal-end-hint" role="status" className="rounded-xl border border-amber-300/25 bg-amber-300/[0.07] px-3 py-2 text-[12px] leading-5 text-amber-100">{endHint} Победителя подтверждаете вы.</p> : null}
       </div>
     </Sheet>
   );

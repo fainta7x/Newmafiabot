@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { contributionBreakdown, gameContribution } from '../../../../lib/playerContribution';
 import { AlertTriangle } from 'lucide-react';
 import type { PlayerResultData } from '../../../../lib/api';
 import { calculateDisciplinaryPenalty } from '../../../../lib/gameDiscipline';
@@ -24,6 +25,17 @@ type Props = {
 export const TournamentPointsView: React.FC<Props> = ({ api, oldTechFouls, onClassify }) => {
   const { protocol } = api;
   const sorted = api.results.slice().sort((a, b) => a.seat_number - b.seat_number);
+  // What each player did, in the words of the Elo breakdown (owner, 2026-11-07: «чтобы я мог на что-то опираться при расстановке баллов»).
+  const actions = useMemo(() => {
+    try {
+      const bySeat = new Map(gameContribution({ protocol, player_results: api.results }, 'club').map((item) => [item.seat, item]));
+      return new Map(api.results.map((player) => {
+        const item = bySeat.get(player.seat_number);
+        return [player.participant_id, item ? contributionBreakdown(item.role, item.items, item.streaks) : []];
+      }));
+    } catch { return new Map<string, string[]>(); }
+  }, [protocol, api.results]);
+  const MARKS: Array<['red' | 'black' | 'sheriff', string]> = [['red', 'Красные'], ['black', 'Чёрные'], ['sheriff', 'Шериф']];
   const step = (player: PlayerResultData, field: 'protocol_bonus' | 'judge_bonus', label: string) => (
     <div data-testid={field === 'judge_bonus' ? `judge-bonus-${player.participant_id}` : undefined} className="rounded-2xl bg-black/25 p-3">
       <div className="mb-1.5 text-[12px] text-white/55">{label}</div>
@@ -50,6 +62,22 @@ export const TournamentPointsView: React.FC<Props> = ({ api, oldTechFouls, onCla
                   <SeatBadge seat={player.seat_number} team={teamOfRole(player.role)} size="sm" />
                   <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{player.display_name}</div><div className="text-[12px] text-white/45">Дисциплинарный минус: {penalty}</div></div>
                 </div>
+                {(player.color_protocol || []).some((mark) => mark.seat_numbers?.length) ? (
+                  <div data-testid={`points-death-protocol-${player.seat_number}`} className="rounded-2xl bg-black/25 p-3 text-[12px] leading-5">
+                    <div className="mb-1 text-white/55">Протокол убитого</div>
+                    {MARKS.map(([mark, label]) => {
+                      const seats = (player.color_protocol || []).filter((item) => item.mark === mark).flatMap((item) => item.seat_numbers || []);
+                      if (!seats.length) return null;
+                      return <div key={mark} className="flex flex-wrap items-center gap-1"><span className="text-white/60">{label}:</span>{seats.map((seat) => { const target = api.results.find((item) => item.seat_number === seat); return <SeatBadge key={seat} seat={seat} team={teamOfRole(target?.role)} size="sm" />; })}</div>;
+                    })}
+                  </div>
+                ) : null}
+                {(actions.get(player.participant_id) || []).length ? (
+                  <div data-testid={`points-actions-${player.seat_number}`} className="rounded-2xl bg-black/25 p-3 text-[12px] leading-5">
+                    <div className="mb-1 text-white/55">Что сделал в игре (как в разборе Elo)</div>
+                    <ul className="space-y-0.5 text-white/80">{(actions.get(player.participant_id) || []).map((line) => <li key={line}>{line}</li>)}</ul>
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2">
                   {step(player, 'protocol_bonus', 'Балл за протокол')}
                   {step(player, 'judge_bonus', 'Балл судьи')}

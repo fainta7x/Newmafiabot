@@ -23,20 +23,15 @@ export function TournamentTableVisibilityCard({ tournamentId, hidden, onChanged 
     }
   };
   return (
-    <section data-testid="tournament-table-visibility" className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
-      <div className="flex items-start gap-2.5">
-        {hidden ? <EyeOff className="mt-0.5 h-5 w-5 shrink-0 text-warning" /> : <Eye className="mt-0.5 h-5 w-5 shrink-0 text-success" />}
-        <div className="min-w-0">
-          <div className="text-[14px] font-bold text-text-primary">{hidden ? 'Таблица закрыта для игроков' : 'Таблица открыта для игроков'}</div>
-          <p className="mt-0.5 text-[12px] leading-4 text-text-secondary">
-            {hidden ? 'Игроки не видят таблицу и номинации. Состав и игры видны.' : 'Игроки видят таблицу и номинации в приложении. Перед последними играми её можно закрыть.'}
-          </p>
-        </div>
+    <section data-testid="tournament-table-visibility" className="rounded-[18px] border border-border-soft bg-surface-1 px-3.5 py-2.5">
+      <div className="flex items-center gap-2.5">
+        {hidden ? <EyeOff className="h-5 w-5 shrink-0 text-warning" /> : <Eye className="h-5 w-5 shrink-0 text-success" />}
+        <div className="min-w-0 flex-1 text-[13px] font-bold leading-4 text-text-primary">{hidden ? 'Таблица закрыта для игроков' : 'Таблица открыта для игроков'}</div>
+        <button type="button" disabled={busy} onClick={() => void toggle()} data-testid="tournament-table-toggle"
+          className={`min-h-11 shrink-0 rounded-xl px-3 text-[13px] font-bold disabled:opacity-40 ${hidden ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
+          {busy ? 'Сохраняем…' : hidden ? 'Открыть' : 'Закрыть'}
+        </button>
       </div>
-      <button type="button" disabled={busy} onClick={() => void toggle()} data-testid="tournament-table-toggle"
-        className={`mt-3 min-h-11 w-full rounded-xl px-3 text-[14px] font-bold disabled:opacity-40 ${hidden ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
-        {busy ? 'Сохраняем…' : hidden ? 'Открыть таблицу игрокам' : 'Закрыть таблицу для игроков'}
-      </button>
       {error ? <p role="alert" className="mt-2 text-[12px] text-danger">{error}</p> : null}
     </section>
   );

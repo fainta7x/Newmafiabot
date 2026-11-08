@@ -14,7 +14,7 @@ vi.mock('../lib/api.ts', () => ({
 vi.mock('../components/crm/tournaments/TournamentEveningSettingsPanel.tsx', () => ({ TournamentEveningSettingsPanel: () => <div>ПАРАМЕТРЫ</div> }));
 vi.mock('../components/crm/tournaments/TournamentParticipantsPanel.tsx', () => ({ TournamentParticipantsPanel: () => <div>УЧАСТНИКИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentDetailViewBase.tsx', () => ({
-  TournamentDetailView: ({ tabs }: { tabs?: string[] }) => <div>ИГРЫ:{(tabs || ['all']).join(',')}</div>,
+  TournamentDetailView: ({ tabs, stacked }: { tabs?: string[]; stacked?: boolean }) => <div>ИГРЫ:{(tabs || ['all']).join(',')}{stacked ? '' : ':tabs'}</div>,
 }));
 
 const { TournamentDetailView } = await import('../components/crm/tournaments/TournamentDetailView.tsx');
@@ -29,8 +29,11 @@ describe('tournament step screen', () => {
     expect(screen.getByTestId('tournament-step-setup').textContent).toContain('✓');
     fireEvent.click(screen.getByTestId('tournament-step-games'));
     expect(screen.getByText('ИГРЫ:organization,games')).toBeTruthy();
+    // the table switch is only on the results step (owner, 2026-11-08)
+    expect(screen.queryByTestId('tournament-table-visibility')).toBeNull();
     fireEvent.click(screen.getByTestId('tournament-step-results'));
     expect(screen.getByText('ИГРЫ:standings,nominations')).toBeTruthy();
+    expect(screen.getByTestId('tournament-table-visibility')).toBeTruthy();
   });
 
   it('shows the same step screen for a tournament made the old way: one format for everybody (owner, 2026-10-06)', async () => {
@@ -40,13 +43,17 @@ describe('tournament step screen', () => {
     tournament.tournament_evening_flow = 1;
   });
 
-  it('shows the «send seats» block on the players and games steps once there are games to play', async () => {
+  it('shows the «send seats» block on the players step once there are games to play', async () => {
     tournament.games = [{ id: 'g1', status: 'planned' }, { id: 'g2', status: 'planned' }] as any;
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
     expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
     expect(screen.getByTestId('tournament-seat-messages')).toBeTruthy();
+    // One button, on the players step only (owner, 2026-11-08): the games step does not repeat it.
     fireEvent.click(screen.getByTestId('tournament-step-games'));
+    expect(screen.queryByRole('button', { name: /Разослать места игрокам/ })).toBeNull();
+    expect(screen.queryByTestId('tournament-seat-messages')).toBeNull();
+    fireEvent.click(screen.getByTestId('tournament-step-players'));
     fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
     await waitFor(() => expect(sendSeatMessages).toHaveBeenCalledWith('t1'));
     expect(await screen.findByText(/отправлены в личные сообщения: 8 из 10 игроков/)).toBeTruthy();

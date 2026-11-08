@@ -46,9 +46,9 @@ describe('tournament card: header and organization', () => {
     expect(screen.getByText('Нет судьи у игры 2')).toBeTruthy();
     expect((screen.getByRole('button', { name: /Запустить турнир/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('cancel-tournament-button')).toBeTruthy();
-    // a tournament made the old way edits its data and roster here
-    expect(screen.getByRole('button', { name: 'Редактировать данные' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Изменить состав' }).length).toBe(2);
+    // data and roster are edited on the «Параметры» and «Участники» steps only (owner, 2026-11-08)
+    expect(screen.queryByRole('button', { name: 'Редактировать данные' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Изменить состав' })).toBeNull();
   });
 
   it('a ready draft can start; a tournament with registration has no old data/roster forms', async () => {

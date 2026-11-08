@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Image as ImageIcon, Play, RefreshCw, RotateCcw, Send, Trophy, UserCheck, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Image as ImageIcon, Play, RefreshCw, RotateCcw, Trophy, UserCheck, Users } from 'lucide-react';
 import type { Tournament, TournamentGame, TournamentParticipant } from '../../../lib/api.ts';
 import { countGames } from '../../../lib/russianPlural';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 
 /** Progress of a running (or corrected) tournament and the button that completes it, with what still blocks it. */
-const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[]; actionLoading: boolean; label: string; onComplete: () => void; onSendSeatMessages?: () => void }> = ({ tournament, games, actionLoading, label, onComplete, onSendSeatMessages }) => {
+const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[]; actionLoading: boolean; label: string; onComplete: () => void }> = ({ tournament, games, actionLoading, label, onComplete }) => {
   const readiness = tournament.complete_readiness || { isReady: false, errors: ['Ошибка загрузки готовности'] };
   return (
     <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3.5">
@@ -19,15 +19,6 @@ const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[
           </span>
         </div>
 
-        {onSendSeatMessages ? (<button
-          type="button"
-          onClick={onSendSeatMessages}
-          disabled={actionLoading}
-          className="bg-surface-3 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-        >
-          <Send className="w-3.5 h-3.5 text-accent" />
-          <span>Разослать места игрокам</span>
-        </button>) : null}
 
         <button
           type="button"
@@ -74,9 +65,7 @@ type Props = {
   onSeatingExport: () => void;
   onImportBlank: (gameId: string | undefined) => void;
   onEditData: () => void;
-  onEditRoster: () => void;
   onRegenerateSeating: () => void;
-  onSendSeatMessages: () => void;
   onStart: () => void;
   onComplete: () => void;
   onReopen: () => void;
@@ -86,7 +75,7 @@ type Props = {
 /** «Организация» of the tournament card: start readiness, progress and completion, correction, official results, roster. */
 export const TournamentOrganizationTab: React.FC<Props> = ({
   tournament, tournamentId, games, isDraft, registrationFlow, actionLoading, refreshTrigger, onRefresh,
-  onSeatingExport, onImportBlank, onEditData, onEditRoster, onRegenerateSeating, onSendSeatMessages, onStart, onComplete, onReopen, onCorrectParticipant,
+  onSeatingExport, onImportBlank, onEditData, onRegenerateSeating, onStart, onComplete, onReopen, onCorrectParticipant,
 }) => {
   const [showRoster, setShowRoster] = useState(false);
   return (
@@ -152,28 +141,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
           <span>Загрузить бланк игры</span>
         </button>
 
-        {!registrationFlow ? (
-          <button
-            type="button"
-            onClick={onEditData}
-            className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-          >
-            <FileText className="w-3.5 h-3.5 text-accent" />
-            <span>Редактировать данные</span>
-          </button>
-        ) : null}
-
-        {!registrationFlow ? (
-          <button
-            type="button"
-            onClick={onEditRoster}
-            className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-          >
-            <Users className="w-3.5 h-3.5 text-accent" />
-            <span>Изменить состав</span>
-          </button>
-        ) : null}
-
         <button
           type="button"
           onClick={onRegenerateSeating}
@@ -184,15 +151,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
           <span>Перегенерировать рассадку</span>
         </button>
 
-        <button
-          type="button"
-          onClick={onSendSeatMessages}
-          disabled={actionLoading}
-          className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-        >
-          <Send className="w-3.5 h-3.5 text-accent" />
-          <span>Разослать места игрокам</span>
-        </button>
 
         <button
           type="button"
@@ -214,7 +172,7 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
     <div className="space-y-3 pt-3 border-t border-border-soft">
       {/* Completion Readiness & Controls for Active Tournament */}
       {tournament.status === 'active' && (
-        <CompletionPanel tournament={tournament} games={games} actionLoading={actionLoading} label="Завершить турнир" onComplete={onComplete} onSendSeatMessages={onSendSeatMessages} />
+        <CompletionPanel tournament={tournament} games={games} actionLoading={actionLoading} label="Завершить турнир" onComplete={onComplete} />
       )}
 
       {/* Correction Mode Section */}
@@ -294,14 +252,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
           <h3 className="text-sm font-bold text-text-primary">Состав участников ({tournament.participants?.length || 0} человек)</h3>
         </div>
         <div className="flex items-center gap-4">
-          {isDraft && !registrationFlow && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEditRoster(); }}
-              className="text-xs text-accent hover:underline font-bold"
-            >
-              Изменить состав
-            </button>
-          )}
           <div className="flex items-center gap-1.5 text-text-muted">
             <span className="text-xs">{showRoster ? 'Скрыть' : 'Показать'}</span>
             {showRoster ? <ChevronLeft className="w-4 h-4 -rotate-90" /> : <ChevronRight className="w-4 h-4" />}

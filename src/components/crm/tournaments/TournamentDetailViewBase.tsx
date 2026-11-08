@@ -3,7 +3,6 @@ import React, { useState, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Users, X, FileText, Trophy, Award } from 'lucide-react';
 import { TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
-import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
@@ -33,6 +32,8 @@ interface TournamentDetailViewProps {
   /** Step screen of a tournament with registration: its own header, and only this step's tabs. */
   hideHeader?: boolean;
   tabs?: TournamentTab[];
+  /** Step screen: every listed tab is shown one after another, with no second row of tabs (owner, 2026-11-08). */
+  stacked?: boolean;
 }
 
 const ALL_TABS: TournamentTab[] = ['organization', 'games', 'standings', 'nominations'];
@@ -55,6 +56,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   onBack,
   hideHeader = false,
   tabs = ALL_TABS,
+  stacked = false,
 }) => {
   // The card's own message line is owned by the actions below; a failed silent refresh reports through it.
   const reportRef = useRef<(message: string) => void>(() => undefined);
@@ -69,7 +71,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
-  const [showEditRosterModal, setShowEditRosterModal] = useState(false);
 
   // Seating PNG export modal state
   const [showSeatingExportModal, setShowSeatingExportModal] = useState(false);
@@ -102,7 +103,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     editingJudge, setEditingJudge, judgeInput, setJudgeInput,
     handleCompleteTournament, handleCorrectGame, handleReopenTournament,
     handleOpenStartModal, handleConfirmStartTournament, handleRegenerateSeating, handleCancelTournament,
-    handleResetGameToPlanned, handleDropLastGame, handleSendSeatMessages, handleSwapSeats, handleAssignRole, handleSaveJudge,
+    handleResetGameToPlanned, handleDropLastGame, handleSwapSeats, handleAssignRole, handleSaveJudge,
   } = useTournamentActions({ tournamentId, tournament, selectedGameIdx, loadDetail: (opts) => loadDetail(opts), setTournament, goToGames: () => setActiveTab('games') });
   reportRef.current = (message) => setFeedbackMsg({ type: 'error', text: message });
 
@@ -152,6 +153,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const currentGame: TournamentGame | undefined = games[selectedGameIdx];
   const seats: TournamentGameSeat[] = currentGame?.seats || [];
 
+  const shows = (id: TournamentTab) => (stacked ? tabs.includes(id) : activeTab === id);
+
   const rights = tournamentGameEditRights(tournament.status, games, currentGame);
 
   return (
@@ -179,7 +182,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       )}
 
       {/* Navigation Tabs */}
-      {tabs.length > 1 ? (
+      {tabs.length > 1 && !stacked ? (
       <div className={`grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft overflow-hidden`}>
         {TAB_BUTTONS.filter((item) => tabs.includes(item.id)).map(({ id, label, Icon, iconClass }) => (
           <button
@@ -199,16 +202,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       </div>
       ) : null}
 
-      {activeTab === 'organization' && (
+      {shows('organization') && (
         <TournamentOrganizationTab
           tournament={tournament} tournamentId={tournamentId} games={games} isDraft={isDraft} registrationFlow={registrationFlow}
           actionLoading={actionLoading} refreshTrigger={refreshTrigger} onRefresh={() => refresh()}
           onSeatingExport={() => setShowSeatingExportModal(true)}
           onImportBlank={(gameId) => { setSelectedImportGameId(gameId); setShowProtocolImportModal(true); }}
           onEditData={() => setShowEditDataModal(true)}
-          onEditRoster={() => setShowEditRosterModal(true)}
           onRegenerateSeating={handleRegenerateSeating}
-          onSendSeatMessages={handleSendSeatMessages}
           onStart={handleOpenStartModal}
           onComplete={() => setShowCompleteModal(true)}
           onReopen={() => setShowReopenModal(true)}
@@ -216,11 +217,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         />
       )}
 
-      {activeTab === 'standings' ? (
+      {shows('standings') ? (
         <TournamentStandingsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
-      ) : activeTab === 'nominations' ? (
+      ) : null}
+      {shows('nominations') ? (
         <TournamentNominationsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
-      ) : activeTab === 'games' ? (
+      ) : null}
+      {shows('games') ? (
         <TournamentGamesTab
           tournament={tournament} tournamentId={tournamentId} games={games} selectedGameIdx={selectedGameIdx} setSelectedGameIdx={setSelectedGameIdx}
           currentGame={currentGame} seats={seats} rights={rights} actionLoading={actionLoading}
@@ -244,13 +247,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         onSaved={loadDetail}
       />
 
-      {/* EDIT TOURNAMENT ROSTER MODAL */}
-      <EditTournamentRosterModal
-        isOpen={showEditRosterModal}
-        tournament={tournament}
-        onClose={() => setShowEditRosterModal(false)}
-        onSaved={loadDetail}
-      />
 
       {/* SWAP SEATS MODAL */}
       {showSwapModal && rights.canSwapSeatsCurrentGame && (

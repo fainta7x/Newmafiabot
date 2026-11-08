@@ -4,7 +4,6 @@ import { CheckCircle2, AlertCircle, Users, X, FileText, Trophy, Award } from 'lu
 import { TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
-import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
 import { ActiveGameRolesModal } from './ActiveGameRolesModal.tsx';
 import TournamentLiveGameModal from '../../player/TournamentLiveGameModal.tsx';
@@ -72,9 +71,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
 
-  // Seating PNG export modal state
-  const [showSeatingExportModal, setShowSeatingExportModal] = useState(false);
-
   // Protocol blank import modal state
   const [showProtocolImportModal, setShowProtocolImportModal] = useState(false);
   const [liveGameId, setLiveGameId] = useState<string | null>(null);
@@ -100,10 +96,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     showStartModal, setShowStartModal, startModalLoading, startModalError,
     showSwapModal, setShowSwapModal, swapSeat1, setSwapSeat1, swapSeat2, setSwapSeat2,
     showCompleteModal, setShowCompleteModal, showReopenModal, setShowReopenModal, setCorrectGameAfterReopen,
-    editingJudge, setEditingJudge, judgeInput, setJudgeInput,
     handleCompleteTournament, handleCorrectGame, handleReopenTournament,
-    handleOpenStartModal, handleConfirmStartTournament, handleRegenerateSeating, handleCancelTournament,
-    handleResetGameToPlanned, handleDropLastGame, handleSwapSeats, handleAssignRole, handleSaveJudge,
+    handleOpenStartModal, handleConfirmStartTournament, handleCancelTournament,
+    handleResetGameToPlanned, handleDropLastGame, handleSwapSeats, handleAssignRole,
   } = useTournamentActions({ tournamentId, tournament, selectedGameIdx, loadDetail: (opts) => loadDetail(opts), setTournament, goToGames: () => setActiveTab('games') });
   reportRef.current = (message) => setFeedbackMsg({ type: 'error', text: message });
 
@@ -206,10 +201,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         <TournamentOrganizationTab
           tournament={tournament} games={games} isDraft={isDraft} registrationFlow={registrationFlow}
           actionLoading={actionLoading}
-          onSeatingExport={() => setShowSeatingExportModal(true)}
           onImportBlank={(gameId) => { setSelectedImportGameId(gameId); setShowProtocolImportModal(true); }}
           onEditData={() => setShowEditDataModal(true)}
-          onRegenerateSeating={handleRegenerateSeating}
           onStart={handleOpenStartModal}
           onComplete={() => setShowCompleteModal(true)}
           onReopen={() => setShowReopenModal(true)}
@@ -227,8 +220,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         <TournamentGamesTab
           tournament={tournament} tournamentId={tournamentId} games={games} selectedGameIdx={selectedGameIdx} setSelectedGameIdx={setSelectedGameIdx}
           currentGame={currentGame} seats={seats} rights={rights} actionLoading={actionLoading}
-          editingJudge={editingJudge} setEditingJudge={setEditingJudge} judgeInput={judgeInput} setJudgeInput={setJudgeInput}
-          handleSaveJudge={handleSaveJudge} handleCorrectGame={handleCorrectGame} handleResetGameToPlanned={handleResetGameToPlanned}
+          handleCorrectGame={handleCorrectGame} handleResetGameToPlanned={handleResetGameToPlanned}
           handleDropLastGame={handleDropLastGame} handleAssignRole={handleAssignRole} setFeedbackMsg={setFeedbackMsg} loadDetail={() => loadDetail()}
           onOpenProtocol={(gameId) => { setProtocolGameId(gameId); setShowGameProtocolModal(true); }}
           onLiveGame={setLiveGameId}
@@ -278,12 +270,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         error={startModalError}
       />
 
-      {/* Seating PNG Export Modal */}
-      <SeatingExportModal
-        isOpen={showSeatingExportModal}
-        onClose={() => setShowSeatingExportModal(false)}
-        tournament={tournament}
-      />
 
       {/* Live Game engine for the active tournament game (owner, 2026-10-03): the same engine as the judge's cabinet */}
       {liveGameId && (() => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Image as ImageIcon, Play, RefreshCw, RotateCcw, Trophy, UserCheck, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Play, RotateCcw, Trophy, UserCheck, Users } from 'lucide-react';
 import type { Tournament, TournamentGame, TournamentParticipant } from '../../../lib/api.ts';
 import { countGames } from '../../../lib/russianPlural';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
@@ -58,10 +58,8 @@ type Props = {
   isDraft: boolean;
   registrationFlow: boolean;
   actionLoading: boolean;
-  onSeatingExport: () => void;
   onImportBlank: (gameId: string | undefined) => void;
   onEditData: () => void;
-  onRegenerateSeating: () => void;
   onStart: () => void;
   onComplete: () => void;
   onReopen: () => void;
@@ -71,7 +69,7 @@ type Props = {
 /** «Организация» of the tournament card: start readiness, progress and completion, correction, official results, roster. */
 export const TournamentOrganizationTab: React.FC<Props> = ({
   tournament, games, isDraft, registrationFlow, actionLoading,
-  onSeatingExport, onImportBlank, onEditData, onRegenerateSeating, onStart, onComplete, onReopen, onCorrectParticipant,
+  onImportBlank, onEditData, onStart, onComplete, onReopen, onCorrectParticipant,
 }) => {
   const [showRoster, setShowRoster] = useState(false);
   return (
@@ -101,14 +99,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onSeatingExport}
-          className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-        >
-          <ImageIcon className="w-3.5 h-3.5" />
-          <span>Рассадка для игроков (PNG)</span>
-        </button>
       </div>
 
       {/* List of readiness errors if not ready */}
@@ -137,15 +127,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
           <span>Загрузить бланк игры</span>
         </button>
 
-        <button
-          type="button"
-          onClick={onRegenerateSeating}
-          disabled={actionLoading}
-          className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
-          <span>Перегенерировать рассадку</span>
-        </button>
 
 
         <button
@@ -222,14 +203,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
             <span>Редактировать данные</span>
           </button>
         )}
-        <button
-          type="button"
-          onClick={onSeatingExport}
-          className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-        >
-          <ImageIcon className="w-3.5 h-3.5 text-accent" />
-          <span>Рассадка для игроков (PNG)</span>
-        </button>
       </div>
     </div>
   )}

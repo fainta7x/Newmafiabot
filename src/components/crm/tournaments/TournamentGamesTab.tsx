@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeftRight, Check, ChevronLeft, ChevronRight, Edit2, FileCheck, FileSpreadsheet, Image as ImageIcon, Play, Users, X } from 'lucide-react';
+import { ArrowLeftRight, ChevronLeft, ChevronRight, FileCheck, FileSpreadsheet, Image as ImageIcon, Play, Users } from 'lucide-react';
 import type { Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
 import { isRoleOptionDisabled } from '../../../lib/tournamentRoleValidation.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
@@ -25,11 +25,6 @@ type Props = {
   seats: TournamentGameSeat[];
   rights: ReturnType<typeof tournamentGameEditRights>;
   actionLoading: boolean;
-  editingJudge: boolean;
-  setEditingJudge: (value: boolean) => void;
-  judgeInput: string;
-  setJudgeInput: (value: string) => void;
-  handleSaveJudge: () => void;
   handleCorrectGame: (gameId: string) => Promise<unknown> | void;
   handleResetGameToPlanned: () => void;
   handleDropLastGame: () => void;
@@ -47,10 +42,10 @@ type Props = {
 /** «Игры» of the tournament card: the game switcher, the selected game's actions, its setup or its seats with roles. */
 export const TournamentGamesTab: React.FC<Props> = ({
   tournament, tournamentId, games, selectedGameIdx, setSelectedGameIdx, currentGame, seats, rights, actionLoading,
-  editingJudge, setEditingJudge, judgeInput, setJudgeInput, handleSaveJudge, handleCorrectGame, handleResetGameToPlanned, handleDropLastGame, handleAssignRole,
+  handleCorrectGame, handleResetGameToPlanned, handleDropLastGame, handleAssignRole,
   setFeedbackMsg, loadDetail, onOpenProtocol, onLiveGame, onImportBlank, onExportResult, onFixRoles, onOpenSwap,
 }) => {
-  const { activeGameInTournament, isAnotherGameActive, roleCounts, isCorrection, canEditCurrentGameJudgeAndRoles, canEditJudgeInline, canSwapSeatsCurrentGame, canCorrectCurrentGame } = rights;
+  const { activeGameInTournament, isAnotherGameActive, roleCounts, isCorrection, canEditCurrentGameJudgeAndRoles, canSwapSeatsCurrentGame, canCorrectCurrentGame } = rights;
   return (
   <div className="space-y-5">
     {/* Selected Game Selector & Navigator */}
@@ -123,41 +118,12 @@ export const TournamentGamesTab: React.FC<Props> = ({
           {/* Judge info */}
           <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
             <span>Судья:</span>
-            {!editingJudge && (currentGame.judge_name || tournament.chief_judge_name) && (
+            {(currentGame.judge_name || tournament.chief_judge_name) && (
               <PlayerAvatar nickname={currentGame.judge_name || tournament.chief_judge_name} size="xs" />
             )}
-            {editingJudge && canEditJudgeInline ? (
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={judgeInput}
-                  onChange={(e) => setJudgeInput(e.target.value)}
-                  className="bg-surface-1 border border-border-soft rounded px-2 py-0.5 text-xs text-text-primary"
-                  placeholder="Имя судьи"
-                />
-                <button onClick={handleSaveJudge} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded cursor-pointer">
-                  <Check className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setEditingJudge(false)} className="p-1 text-text-muted hover:bg-surface-hover rounded cursor-pointer">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : canEditJudgeInline ? (
-              <button
-                onClick={() => {
-                  setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
-                  setEditingJudge(true);
-                }}
-                className="font-semibold text-text-primary hover:text-accent flex items-center gap-1 cursor-pointer"
-              >
-                <span>{currentGame.judge_name || tournament.chief_judge_name || 'Назначить судью'}</span>
-                <Edit2 className="w-3 h-3 text-text-muted" />
-              </button>
-            ) : (
-              <span className="font-semibold text-text-primary">
-                {currentGame.judge_name || tournament.chief_judge_name || 'Не указан'}
-              </span>
-            )}
+            <span className="font-semibold text-text-primary">
+              {currentGame.judge_name || tournament.chief_judge_name || 'Не указан'}
+            </span>
           </div>
         </div>
 
@@ -288,10 +254,6 @@ export const TournamentGamesTab: React.FC<Props> = ({
           canEditJudgeAndRoles={canEditCurrentGameJudgeAndRoles}
           canSwapSeats={canSwapSeatsCurrentGame}
           onOpenSwapModal={onOpenSwap}
-          onEditJudgeClick={() => {
-            setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
-            setEditingJudge(true);
-          }}
           onGameStarted={() => {
             loadDetail();
           }}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { appConfirm } from '../../../lib/appConfirm.ts';
 import { api, type Tournament, type TournamentGame, type TournamentGameSeat } from '../../../lib/api.ts';
 import { validateRoleAssignmentChange } from '../../../lib/tournamentRoleValidation.ts';
 import { tournamentGameEditRights } from './tournamentGameEditRights.ts';
@@ -125,24 +126,9 @@ export const useTournamentActions = ({ tournamentId, tournament, selectedGameIdx
     }
   };
 
-  const handleRegenerateSeating = async () => {
-    if (!confirm(`Сгенерировать новую случайную рассадку для всех ${(tournament?.games || []).length || 10} игр?`)) return;
-    setActionLoading(true);
-    setFeedbackMsg(null);
-    try {
-      await api.generateTournamentSeating(tournamentId);
-      setFeedbackMsg({ type: 'success', text: 'Случайная рассадка успешно перегенерирована!' });
-      loadDetail();
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка генерации рассадки' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   // The tournament will not be played: registered players are told, the card stays as «Отменён».
   const handleCancelTournament = async () => {
-    if (!confirm('Отменить турнир? Все записанные игроки получат сообщение об отмене. Это нельзя вернуть.')) return;
+    if (!(await appConfirm('Все записанные игроки получат сообщение об отмене. Это нельзя вернуть.', { title: 'Отменить турнир?', confirmLabel: 'Отменить турнир', danger: true }))) return;
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
@@ -159,7 +145,7 @@ export const useTournamentActions = ({ tournamentId, tournament, selectedGameIdx
   // A game started by mistake: back to «planned», its unfinished draft protocol is discarded.
   const handleResetGameToPlanned = async () => {
     if (!currentGame) return;
-    if (!confirm(`Вернуть игру №${currentGame.game_number} в план? Незавершённый протокол и ход игры будут сброшены, рассадка и роли останутся.`)) return;
+    if (!(await appConfirm(`Незавершённый протокол и ход игры будут сброшены, рассадка и роли останутся.`, { title: `Вернуть игру №${currentGame.game_number} в план?`, confirmLabel: 'Вернуть в план', danger: true }))) return;
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
@@ -181,7 +167,7 @@ export const useTournamentActions = ({ tournamentId, tournament, selectedGameIdx
   // Force majeure: drop the last game that was never started, so the tournament is shorter by one game.
   const handleDropLastGame = async () => {
     const total = (tournament?.games || []).length;
-    if (!confirm(`Убрать игру №${total} и играть турнир в ${total - 1} игр? Сыгранные игры не затрагиваются.`)) return;
+    if (!(await appConfirm(`Сыгранные игры не затрагиваются.`, { title: `Убрать игру №${total} и играть турнир в ${total - 1} игр?`, confirmLabel: 'Убрать игру', danger: true }))) return;
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
@@ -196,29 +182,6 @@ export const useTournamentActions = ({ tournamentId, tournament, selectedGameIdx
   };
 
   // Sends «ты сидишь на месте N» to the players of the next game now (otherwise it goes by itself 30 minutes before the start).
-  const handleSendSeatMessages = async () => {
-    if (!confirm('Разослать игрокам личные сообщения, где они сидят в ближайшей игре?')) return;
-    setActionLoading(true);
-    setFeedbackMsg(null);
-    try {
-      const result = await api.sendTournamentSeatMessages(tournamentId);
-      const missing = result.unreachable > 0
-        ? ` У ${result.unreachable} из ${result.players} нет привязанного Telegram/VK или личные сообщения выключены, им не дойдёт.`
-        : '';
-      if (result.reached === 0) {
-        setFeedbackMsg({ type: 'error', text: `Места игры №${result.game_number} никому не дошли: ни у кого из игроков нет привязанного Telegram/VK или личные сообщения выключены.` });
-      } else if (result.new_sent === 0) {
-        setFeedbackMsg({ type: 'success', text: `Места игры №${result.game_number} уже были разосланы раньше (${result.reached} из ${result.players} игроков).${missing}` });
-      } else {
-        setFeedbackMsg({ type: 'success', text: `Места игры №${result.game_number} отправлены в личные сообщения: ${result.reached} из ${result.players} игроков.${missing}` });
-      }
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось разослать места' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleSwapSeats = async () => {
     if (!currentGame) return;
     if (swapSeat1 === swapSeat2) {
@@ -281,7 +244,7 @@ export const useTournamentActions = ({ tournamentId, tournament, selectedGameIdx
     showCompleteModal, setShowCompleteModal, showReopenModal, setShowReopenModal, correctGameAfterReopen, setCorrectGameAfterReopen,
     editingJudge, setEditingJudge, judgeInput, setJudgeInput,
     handleCompleteTournament, handleCorrectGame, handleReopenTournament,
-    handleOpenStartModal, handleConfirmStartTournament, handleRegenerateSeating, handleCancelTournament,
-    handleResetGameToPlanned, handleDropLastGame, handleSendSeatMessages, handleSwapSeats, handleAssignRole, handleSaveJudge,
+    handleOpenStartModal, handleConfirmStartTournament, handleCancelTournament,
+    handleResetGameToPlanned, handleDropLastGame, handleSwapSeats, handleAssignRole, handleSaveJudge,
   };
 };

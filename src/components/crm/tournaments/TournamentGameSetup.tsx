@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, Crown, Skull, User, ArrowLeftRight, Play, Edit2 } from 'lucide-react';
+import { Shield, Crown, Skull, User, ArrowLeftRight, Play } from 'lucide-react';
 import PhysicalRoleDeal, { type PhysicalRole } from '../../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../../game/VirtualRoleDeal.tsx';
 import { TournamentGame, TournamentGameSeat } from '../../../lib/api';
@@ -16,7 +16,6 @@ export interface TournamentGameSetupProps {
   canEditJudgeAndRoles: boolean;
   canSwapSeats: boolean;
   onOpenSwapModal: () => void;
-  onEditJudgeClick?: () => void;
   onRolesUpdated?: () => void;
   onGameStarted: (gameId: string) => void;
   setFeedbackMsg: (msg: { type: 'success' | 'error'; text: string } | null) => void;
@@ -35,7 +34,6 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
   canEditJudgeAndRoles,
   canSwapSeats,
   onOpenSwapModal,
-  onEditJudgeClick,
   onGameStarted,
   setFeedbackMsg,
 }) => {
@@ -193,14 +191,7 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-2 p-3.5 rounded-2xl border border-border-soft">
         <div className="flex items-center gap-2 text-xs text-text-secondary">
           <span className="font-semibold">Судья игры:</span>
-          {onEditJudgeClick && canEditJudgeAndRoles ? (
-            <button type="button" onClick={onEditJudgeClick} className="font-bold text-text-primary hover:text-accent flex items-center gap-1 cursor-pointer">
-              <span>{judgeName || chiefJudgeName || 'Назначить судью'}</span>
-              <Edit2 className="w-3 h-3 text-text-muted" />
-            </button>
-          ) : (
-            <span className="font-bold text-text-primary">{judgeName || chiefJudgeName || 'Не указан'}</span>
-          )}
+          <span className="font-bold text-text-primary">{judgeName || chiefJudgeName || 'Не указан'}</span>
         </div>
 
         {canSwapSeats && (

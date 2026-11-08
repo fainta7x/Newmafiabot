@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, AlertCircle, RefreshCw, Image as ImageIcon, Send, CheckCircle2 } from 'lucide-react';
+import { appConfirm } from '../../../lib/appConfirm.ts';
 import { api, Tournament } from '../../../lib/api.ts';
 import {
   buildSeatingMatrix,
@@ -199,7 +200,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
   // The bot posts the picture to the rating group.
   const handleSendToGroup = async () => {
     if (!pngBlob || sendingTo) return;
-    if (!window.confirm('Отправить рассадку в группу «Рейтинг» в Telegram?')) return;
+    if (!(await appConfirm('Рассадка уйдёт в группу «Рейтинг» в Telegram.', { title: 'Отправить рассадку?', confirmLabel: 'Отправить' }))) return;
     setSendingTo('group');
     setErrorMsg(null);
     setSentMsg(null);

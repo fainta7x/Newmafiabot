@@ -59,8 +59,9 @@ describe('tournament card: header and organization', () => {
     expect(screen.queryByRole('button', { name: 'Редактировать данные' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Изменить состав' })).toBeNull();
     expect(start).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Рассадка для игроков/ }));
-    expect(screen.getByText('ОКНО РАССАДКИ')).toBeTruthy();
+    // seating (PNG, new random seating, seat messages) lives on the «Участники» step only (owner, 2026-11-08)
+    expect(screen.queryByRole('button', { name: /Рассадка для игроков/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Перегенерировать рассадку/ })).toBeNull();
   });
 
   it('a running tournament shows its progress and why it cannot be completed yet', async () => {
@@ -104,9 +105,9 @@ describe('tournament card: header and organization', () => {
   });
 
   it('a failed action shows its message, which can be closed', async () => {
-    vi.spyOn(api, 'generateTournamentSeating').mockRejectedValue(new Error('Сервер недоступен'));
+    vi.spyOn(api, 'cancelTournament').mockRejectedValue(new Error('Сервер недоступен'));
     await open(tournament());
-    fireEvent.click(screen.getByRole('button', { name: /Перегенерировать рассадку/ }));
+    fireEvent.click(screen.getByTestId('cancel-tournament-button'));
     const banner = await screen.findByText(/Сервер недоступен/);
     fireEvent.click(within(banner.closest('div')!.parentElement as HTMLElement).getByRole('button'));
     expect(screen.queryByText(/Сервер недоступен/)).toBeNull();
@@ -187,15 +188,11 @@ describe('tournament card: games', () => {
     expect(JSON.stringify(swap.mock.calls[0])).toMatch(/3.*5/);
   });
 
-  it('the judge of a planned game is edited inline', async () => {
-    const save = vi.spyOn(api, 'updateGameJudge').mockResolvedValue({} as any);
+  it('the judge of a game is shown as plain text; it is edited in the «Судья игры» block only (owner, 2026-11-08)', async () => {
     await open(tournament({ status: 'draft', games: [game(1, 'planned')] }));
     games();
-    fireEvent.click(screen.getByRole('button', { name: /Судья/ }));
-    const input = screen.getByPlaceholderText('Имя судьи');
-    fireEvent.change(input, { target: { value: 'Новый судья' } });
-    fireEvent.click(input.parentElement!.querySelectorAll('button')[0]);
-    await waitFor(() => expect(save).toHaveBeenCalled());
-    expect(JSON.stringify(save.mock.calls[0])).toContain('Новый судья');
+    expect(screen.queryByRole('button', { name: /Судья/ })).toBeNull();
+    expect(screen.queryByPlaceholderText('Имя судьи')).toBeNull();
+    expect(screen.getAllByText('Судья:').length).toBeGreaterThan(0);
   });
 });

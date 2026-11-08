@@ -2730,3 +2730,16 @@ Production read only: ~20 `PUT …/protocol` (autosave, 200) and no `POST …/pr
 
 Production read only (login + `GET /api/tournaments`): all three tournaments, Gun Town Cup 3 included, are `completed` (Gun Town Cup 3 since 2026-11-08 06:45 UTC).
 - `TournamentOrganizationTab.tsx`: «Завершить турнир» is rendered only for `active` / `correction`; for `completed` there is no such button by design. Same component on phone and PC, no viewport-dependent hiding. Status: not a bug (wontfix).
+
+## 2026-11-08 — audit of the CRM tournament screens («слишком много лишнего и дублирующего»)
+
+Scope: «События → Турниры → Управление турниром», all four steps of a completed tournament (Gun Town Cup 3) at 1366 px on the live app (organizer login, read only) plus the source in `src/components/crm/tournaments/`. Not covered: an active/draft tournament on production (none exists), 390 px, the live protocol window, the player-side tournament screens. Status of every finding: **open** (nothing changed; waiting for the owner's agreement).
+- T01 `TournamentDetailView.tsx` + `TournamentDetailViewBase.tsx` + `TournamentOrganizationTab.tsx`: three levels of navigation on one screen — step bar (Параметры/Участники/Игры/Итоги), inside «Игры» a second bar (Организация/Игры), inside «Итоги» a third (Таблица/Номинации); «Игры» is a step and a tab at once, and «Организация» repeats the word «Управление турниром».
+- T02 `TournamentTableVisibilityCard.tsx`: the large «Таблица открыта для игроков / Закрыть таблицу» card is shown identically on the «Игры» and «Итоги» steps and pushes the content down by ~190 px at 1366.
+- T03 `TournamentSeatMessagesCard.tsx` (steps «Участники» and «Игры»), `TournamentOrganizationTab.tsx:189` (draft) and `CompletionPanel` (active, `onSendSeatMessages`): «Разослать места игрокам» exists in up to four places for one action.
+- T04 `TournamentOrganizationTab.tsx` (`TournamentOfficialResults`, completed) vs step «Итоги»: official results card and «Посмотреть итоговый результат» live under «Игры → Организация», the table and «Посмотреть промежуточные итоги» under «Итоги»; both open `ResultsImageExportModal` (used in four files).
+- T05 `TournamentOrganizationTab.tsx:158,270` («Редактировать данные»), `:169,299` («Изменить состав») vs step «Параметры» (`TournamentEveningSettingsPanel`) and «Участники» (`TournamentParticipantsPanel`): the same data can be edited in two places; `EditTournamentDataModal` / `EditTournamentRosterModal` are reached only from the organization tab.
+- T06 `TournamentDetailView.tsx` (`judgeSection`, `telegramSection`): «Судья игры · стабильная привязка» and «Telegram · рейтинг и турниры» sit below the tabs of step «Игры»; the judge is also chosen in «Параметры».
+- T07 `TournamentParticipantsPanel.tsx`: each participant row shows five payment buttons (Не оплачен / Оплачен / Оплата отклонена / Без взноса / Возврат) next to the status line, so 10 rows are ~110 text lines.
+- T08 `TournamentsList.tsx`: the list card repeats a «Турнир завершён» label and a one-button card; fine, not a finding unless the owner says so.
+- Not a bug: the missing «Завершить турнир» button (the tournament was already completed), see the entry above.

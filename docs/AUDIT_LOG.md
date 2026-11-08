@@ -2725,3 +2725,8 @@ Open: `src/tests/clubResultPosts.test.ts` «the running seasons go to the club c
 
 Production read only: ~20 `PUT …/protocol` (autosave, 200) and no `POST …/protocol/complete`; the protocol passes both completion checks locally.
 - `src/components/crm/tournaments/protocol/*Dialog*.tsx`: the confirmation dialogs («Завершить игру?», first killed, zero round, exit type, discipline) were on layer `z-60`, under the protocol window `z-[90]` — the confirmation opened invisibly, so the game never completed and «Результаты PNG» (shown only for a completed game) never appeared — fixed: `z-[130]`; `src/tests/tournamentProtocolDialogsLayer.test.ts`.
+
+## 2026-11-08 — «не вижу, где закрыть турнир» (ПК, Gun Town Cup 3)
+
+Production read only (login + `GET /api/tournaments`): all three tournaments, Gun Town Cup 3 included, are `completed` (Gun Town Cup 3 since 2026-11-08 06:45 UTC).
+- `TournamentOrganizationTab.tsx`: «Завершить турнир» is rendered only for `active` / `correction`; for `completed` there is no such button by design. Same component on phone and PC, no viewport-dependent hiding. Status: not a bug (wontfix).

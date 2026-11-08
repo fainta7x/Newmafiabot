@@ -60,7 +60,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 }) => {
   // The card's own message line is owned by the actions below; a failed silent refresh reports through it.
   const reportRef = useRef<(message: string) => void>(() => undefined);
-  const { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, refresh, loadDetail } = useTournamentDetail({ tournamentId, revision, onSilentError: (message) => reportRef.current(message) });
+  const { tournament, setTournament, loading, loadError, selectedGameIdx, setSelectedGameIdx, refreshTrigger, loadDetail } = useTournamentDetail({ tournamentId, revision, onSilentError: (message) => reportRef.current(message) });
   const [tabState, setTabState] = useState(() => ({ id: tournamentId, tab: readTournamentTab(tournamentId, tabs) }));
   const activeTab = tabState.id === tournamentId && tabs.includes(tabState.tab) ? tabState.tab : readTournamentTab(tournamentId, tabs);
   const setActiveTab = (tab: TournamentTab) => {
@@ -204,8 +204,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
       {shows('organization') && (
         <TournamentOrganizationTab
-          tournament={tournament} tournamentId={tournamentId} games={games} isDraft={isDraft} registrationFlow={registrationFlow}
-          actionLoading={actionLoading} refreshTrigger={refreshTrigger} onRefresh={() => refresh()}
+          tournament={tournament} games={games} isDraft={isDraft} registrationFlow={registrationFlow}
+          actionLoading={actionLoading}
           onSeatingExport={() => setShowSeatingExportModal(true)}
           onImportBlank={(gameId) => { setSelectedImportGameId(gameId); setShowProtocolImportModal(true); }}
           onEditData={() => setShowEditDataModal(true)}

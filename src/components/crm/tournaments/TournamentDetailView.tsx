@@ -6,6 +6,7 @@ import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmen
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
 import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
 import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
+import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 import { TournamentSeatMessagesCard } from './TournamentSeatMessagesCard.tsx';
 import { TournamentTableVisibilityCard } from './TournamentTableVisibilityCard.tsx';
 
@@ -250,20 +251,20 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           <>
             <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
             <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
+            {telegramSection}
           </>
         ) : null}
         {currentStep === 'games' ? (
           <>
             <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader stacked tabs={['organization', 'games']} />
-            {telegramSection}
             {judgeSection}
           </>
         ) : null}
         {currentStep === 'results' ? (
           <>
             <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
+            {tournament.status === 'completed' ? <TournamentOfficialResults tournamentId={tournamentId} refreshTrigger={revision} onResolve={() => setRevision((value) => value + 1)} /> : null}
             <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader stacked tabs={['standings', 'nominations']} />
-            {telegramSection}
           </>
         ) : null}
       </div>

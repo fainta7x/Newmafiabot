@@ -12,6 +12,7 @@ vi.mock('../lib/api.ts', () => ({
   api: { getTournament: vi.fn(async () => tournament), getPlayers: vi.fn(async () => []), sendTournamentSeatMessages: sendSeatMessages },
 }));
 vi.mock('../components/crm/tournaments/TournamentEveningSettingsPanel.tsx', () => ({ TournamentEveningSettingsPanel: () => <div>ПАРАМЕТРЫ</div> }));
+vi.mock('../components/crm/tournaments/TournamentOfficialResults.tsx', () => ({ TournamentOfficialResults: () => <div>ОФИЦИАЛЬНЫЕ ИТОГИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentParticipantsPanel.tsx', () => ({ TournamentParticipantsPanel: () => <div>УЧАСТНИКИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentDetailViewBase.tsx', () => ({
   TournamentDetailView: ({ tabs, stacked }: { tabs?: string[]; stacked?: boolean }) => <div>ИГРЫ:{(tabs || ['all']).join(',')}{stacked ? '' : ':tabs'}</div>,
@@ -34,6 +35,13 @@ describe('tournament step screen', () => {
     fireEvent.click(screen.getByTestId('tournament-step-results'));
     expect(screen.getByText('ИГРЫ:standings,nominations')).toBeTruthy();
     expect(screen.getByTestId('tournament-table-visibility')).toBeTruthy();
+    // official results only once the tournament is completed (owner, 2026-11-08: all results on one step)
+    expect(screen.queryByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeNull();
+    cleanup();
+    tournament.status = 'completed';
+    render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeTruthy();
+    tournament.status = 'draft';
   });
 
   it('shows the same step screen for a tournament made the old way: one format for everybody (owner, 2026-10-06)', async () => {

@@ -86,10 +86,10 @@ describe('tournament card: header and organization', () => {
     expect(screen.getByText('ОКНО ЗАВЕРШЕНИЯ')).toBeTruthy();
   });
 
-  it('a completed tournament shows the official results and can be reopened', async () => {
+  it('a completed tournament can be reopened; its official results are on the results step, not here', async () => {
     await open(tournament({ status: 'completed', games: [game(1, 'completed')] }));
     expect(screen.getByText('Завершён')).toBeTruthy();
-    expect(screen.getByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeTruthy();
+    expect(screen.queryByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Редактировать завершённый турнир/ }));
     expect(screen.getByText('ОКНО ВОЗВРАТА')).toBeTruthy();
   });

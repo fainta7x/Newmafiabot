@@ -3,7 +3,6 @@ import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileSpreadsheet, 
 import type { Tournament, TournamentGame, TournamentParticipant } from '../../../lib/api.ts';
 import { countGames } from '../../../lib/russianPlural';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
-import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 
 /** Progress of a running (or corrected) tournament and the button that completes it, with what still blocks it. */
 const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[]; actionLoading: boolean; label: string; onComplete: () => void }> = ({ tournament, games, actionLoading, label, onComplete }) => {
@@ -55,13 +54,10 @@ const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[
 
 type Props = {
   tournament: Tournament;
-  tournamentId: string;
   games: TournamentGame[];
   isDraft: boolean;
   registrationFlow: boolean;
   actionLoading: boolean;
-  refreshTrigger: number;
-  onRefresh: () => void;
   onSeatingExport: () => void;
   onImportBlank: (gameId: string | undefined) => void;
   onEditData: () => void;
@@ -74,7 +70,7 @@ type Props = {
 
 /** «Организация» of the tournament card: start readiness, progress and completion, correction, official results, roster. */
 export const TournamentOrganizationTab: React.FC<Props> = ({
-  tournament, tournamentId, games, isDraft, registrationFlow, actionLoading, refreshTrigger, onRefresh,
+  tournament, games, isDraft, registrationFlow, actionLoading,
   onSeatingExport, onImportBlank, onEditData, onRegenerateSeating, onStart, onComplete, onReopen, onCorrectParticipant,
 }) => {
   const [showRoster, setShowRoster] = useState(false);
@@ -212,12 +208,6 @@ export const TournamentOrganizationTab: React.FC<Props> = ({
               <span>Редактировать завершённый турнир</span>
             </button>
           </div>
-
-          <TournamentOfficialResults
-            tournamentId={tournamentId}
-            refreshTrigger={refreshTrigger}
-            onResolve={() => onRefresh()}
-          />
         </div>
       )}
 

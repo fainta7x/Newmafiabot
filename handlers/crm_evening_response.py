@@ -204,6 +204,10 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
         await callback.answer("Некорректная кнопка", show_alert=True)
         return
 
+    if response_status not in _STATUS_LABELS and evening_id and len(response_status) >= 4:
+        # Additional-round MVP buttons sent before the `evo:` prefix existed also began with `evr:`.
+        await handle_evening_vote(callback)
+        return
     if response_status not in _STATUS_LABELS or not evening_id:
         await callback.answer("Некорректный статус", show_alert=True)
         return
@@ -342,7 +346,7 @@ def _mark_vote_choice(markup: InlineKeyboardMarkup | None, chosen_data: str) -> 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-@router.callback_query(F.data.startswith("evv:") | F.data.startswith("evr:"))
+@router.callback_query(F.data.startswith("evv:") | F.data.startswith("evo:"))
 async def handle_evening_vote(callback: CallbackQuery):
     """A tap on a player under «Кто сыграл лучше всех?» is the vote for «MVP вечера»; another tap changes it."""
     try:
@@ -353,7 +357,7 @@ async def handle_evening_vote(callback: CallbackQuery):
     if not evening_id or not nominee:
         await callback.answer("Некорректная кнопка", show_alert=True)
         return
-    result = await cast_evening_vote(evening_id, callback.from_user.id, nominee, round=1) if callback.data.startswith("evr:") else await cast_evening_vote(evening_id, callback.from_user.id, nominee)
+    result = await cast_evening_vote(evening_id, callback.from_user.id, nominee, round=1) if callback.data.startswith(("evo:", "evr:")) else await cast_evening_vote(evening_id, callback.from_user.id, nominee)
     if result.get("success"):
         chosen = (result.get("data") or {}).get("nominee") or "игрок"
         await callback.answer(f"✅ Твой голос: {chosen}", show_alert=False)

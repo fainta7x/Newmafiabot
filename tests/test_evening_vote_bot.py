@@ -131,3 +131,17 @@ def test_owner_decision_refusal_is_shown(monkeypatch):
     callback = FakeCallback(f"mvw:{EVENING}:bbbb2222")
     asyncio.run(responses.handle_evening_mvp_decision(callback))
     assert callback.answers == [("Выбирать MVP при равенстве может только организатор клуба.", True)]
+
+
+def test_an_additional_round_tap_votes_in_round_one(monkeypatch):
+    calls = []
+
+    async def vote(evening_id, telegram_user_id, nominee, round=0):
+        calls.append((evening_id, telegram_user_id, nominee, round))
+        return {"success": True, "data": {"nominee": "Гамма"}}
+
+    monkeypatch.setattr(responses, "cast_evening_vote", vote)
+    asyncio.run(responses.handle_evening_vote(FakeCallback(f"evo:{EVENING}:cccc3333")))
+    # buttons already sent with the old `evr:` prefix still vote, not "bad status" (the RSVP handler hands them over)
+    asyncio.run(responses.handle_crm_evening_response(FakeCallback(f"evr:{EVENING}:cccc3333"), None))
+    assert calls == [(EVENING, 501, "cccc3333", 1), (EVENING, 501, "cccc3333", 1)]

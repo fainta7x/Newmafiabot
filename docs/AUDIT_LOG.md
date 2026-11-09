@@ -2779,3 +2779,6 @@ Status: open, waiting for the owner's choice. Correction to T18: the protocol's 
 
 ## 2026-11-09 — `clubResultPosts.test.ts` depended on the weekday
 «with a season the evening summary and the season table go as one album» expected 2 posts; on a Monday after 12:00 Moscow time the weekly «Таблица сезона на эту неделю» goes out as a third post, so the test (and CI of every PR) turned red at 09:00 UTC on Monday 2026-11-09 although the code was unchanged. Fixed in the test (fixed Wednesday, `vi.useFakeTimers({ toFake: ['Date'] })`). Status: fixed. Other tests of that file use the real clock and may have the same weakness (not checked).
+
+## 2026-11-09 — tests that depended on the weekday or the hour (after the MVP schedule)
+Besides `clubResultPosts.test.ts` (above), `eveningVoteBot`, `eveningVoteVisibility`, `mvpResultPost` and `eveningRunoff.integration` built the evening's times from «now minus N hours», which only worked for some weekdays once the vote got a fixed schedule (Friday → Saturday 12:00 → Tuesday 21:00 → Thursday 21:00). They now pin the date (`vi.useFakeTimers({ toFake: ['Date'] })`) to fixed Moscow instants. Status: fixed. Not checked: other tests that read the real clock for a weekly or daily rule (`grep -l "Date.now()" src/tests` is long); the first CI run of the next PR that fails only on a weekday/hour is the place to look.

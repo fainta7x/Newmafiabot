@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, Crown, Skull, User, ArrowLeftRight, Play } from 'lucide-react';
-import PhysicalRoleDeal, { type PhysicalRole } from '../../game/PhysicalRoleDeal.tsx';
+import React, { useState } from 'react';
+import { ArrowLeftRight } from 'lucide-react';
+import { RoleDealChoice } from '../../game/RoleDealChoice.tsx';
+import PhysicalRoleDeal from '../../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../../game/VirtualRoleDeal.tsx';
 import { TournamentGame, TournamentGameSeat } from '../../../lib/api';
 import { api } from '../../../lib/api';
@@ -21,8 +22,6 @@ export interface TournamentGameSetupProps {
   setFeedbackMsg: (msg: { type: 'success' | 'error'; text: string } | null) => void;
 }
 
-export type SpecialRoleTool = 'sheriff' | 'don' | 'mafia';
-
 export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
   tournamentId,
   game,
@@ -37,153 +36,32 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
   onGameStarted,
   setFeedbackMsg,
 }) => {
-  const [activeTool, setActiveTool] = useState<SpecialRoleTool>('sheriff');
-  const [sheriffSeat, setSheriffSeat] = useState<number | null>(null);
-  const [donSeat, setDonSeat] = useState<number | null>(null);
-  const [mafiaSeats, setMafiaSeats] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [showPhysicalDeal, setShowPhysicalDeal] = useState(false);
-  // The virtual deal right where a tournament game is started (owner, 2026-11-07: «в CRM не вижу, где запуск с виртуальной раздачи»).
   const [showVirtualDeal, setShowVirtualDeal] = useState(false);
-
-  useEffect(() => {
-    let sSeat: number | null = null;
-    let dSeat: number | null = null;
-    const mSeats: number[] = [];
-
-    for (const seat of game.seats || []) {
-      if (seat.role === 'sheriff') sSeat = seat.seat_number;
-      else if (seat.role === 'don') dSeat = seat.seat_number;
-      else if (seat.role === 'mafia') {
-        if (mSeats.length < 2) mSeats.push(seat.seat_number);
-      }
-    }
-
-    setSheriffSeat(sSeat);
-    setDonSeat(dSeat);
-    setMafiaSeats(mSeats);
-
-    if (!sSeat) setActiveTool('sheriff');
-    else if (!dSeat) setActiveTool('don');
-    else if (mSeats.length < 2) setActiveTool('mafia');
-  }, [game.id, game.seats]);
-
-  const isSheriffDone = sheriffSeat !== null;
-  const isDonDone = donSeat !== null;
-  const isMafiaDone = mafiaSeats.length === 2;
-  const isComplete = isSheriffDone && isDonDone && isMafiaDone;
-  const citizenCount = 10 - (isSheriffDone ? 1 : 0) - (isDonDone ? 1 : 0) - mafiaSeats.length;
+  // A physical deal whose start failed (network, server): kept, so the organizer retries instead of dealing again.
+  const [unstarted, setUnstarted] = useState<Record<number, string> | null>(null);
   const sortedSeats = [...(game.seats || [])].sort((a, b) => a.seat_number - b.seat_number);
+  const seatsForDeal = sortedSeats.map((seat) => ({ seat_number: seat.seat_number, nickname: seat.display_name || `Игрок ${seat.seat_number}` }));
 
-  const physicalAssignments = useMemo(() => {
-    if (!isComplete || sortedSeats.length !== 10) return {} as Record<number, PhysicalRole>;
-    return Object.fromEntries(sortedSeats.map((seat) => {
-      let role: PhysicalRole = 'citizen';
-      if (seat.seat_number === sheriffSeat) role = 'sheriff';
-      else if (seat.seat_number === donSeat) role = 'don';
-      else if (mafiaSeats.includes(seat.seat_number)) role = 'mafia';
-      return [seat.seat_number, role];
-    }));
-  }, [isComplete, sortedSeats, sheriffSeat, donSeat, mafiaSeats]);
+  // ONE reason, shown on top, instead of a grey note inside a disabled button.
+  const blockedReason = tournamentStatus !== 'active'
+    ? 'Сначала нажмите «Запустить турнир» на вкладке «Организация»: игры запускаются только в идущем турнире.'
+    : isAnotherGameActive ? `Сначала завершите идущую игру №${activeGameNumber}.` : null;
 
-  const applyPhysicalAssignments = (assignments: Record<number, PhysicalRole>) => {
-    let nextSheriff: number | null = null;
-    let nextDon: number | null = null;
-    const nextMafia: number[] = [];
-    Object.entries(assignments).forEach(([seatRaw, role]) => {
-      const seat = Number(seatRaw);
-      if (role === 'sheriff') nextSheriff = seat;
-      else if (role === 'don') nextDon = seat;
-      else if (role === 'mafia') nextMafia.push(seat);
-    });
-    setSheriffSeat(nextSheriff);
-    setDonSeat(nextDon);
-    setMafiaSeats(nextMafia.sort((a, b) => a - b));
-    setShowPhysicalDeal(false);
-    setFeedbackMsg({ type: 'success', text: 'Физическая раздача зафиксирована. Проверьте роли и запускайте игру.' });
-  };
-
-  const handleSeatClick = (seatNumber: number) => {
-    if (!canEditJudgeAndRoles) return;
-
-    const isSheriff = sheriffSeat === seatNumber;
-    const isDon = donSeat === seatNumber;
-    const isMafia = mafiaSeats.includes(seatNumber);
-    const currentRole = isSheriff ? 'sheriff' : isDon ? 'don' : isMafia ? 'mafia' : null;
-
-    if (currentRole === activeTool) {
-      if (activeTool === 'sheriff') setSheriffSeat(null);
-      else if (activeTool === 'don') setDonSeat(null);
-      else if (activeTool === 'mafia') setMafiaSeats((prev) => prev.filter((s) => s !== seatNumber));
-      return;
-    }
-
-    if (activeTool === 'sheriff') {
-      if (isDon) setDonSeat(null);
-      if (isMafia) setMafiaSeats((prev) => prev.filter((s) => s !== seatNumber));
-      setSheriffSeat(seatNumber);
-      if (!donSeat && donSeat !== seatNumber) setActiveTool('don');
-      else if (mafiaSeats.length < 2) setActiveTool('mafia');
-    } else if (activeTool === 'don') {
-      if (isSheriff) setSheriffSeat(null);
-      if (isMafia) setMafiaSeats((prev) => prev.filter((s) => s !== seatNumber));
-      setDonSeat(seatNumber);
-      if (mafiaSeats.length < 2) setActiveTool('mafia');
-      else if (!sheriffSeat) setActiveTool('sheriff');
-    } else if (activeTool === 'mafia') {
-      if (isSheriff) setSheriffSeat(null);
-      if (isDon) setDonSeat(null);
-      if (mafiaSeats.length < 2) setMafiaSeats((prev) => [...prev, seatNumber]);
-      else setMafiaSeats(([_, second]) => [second, seatNumber]);
-    }
-  };
-
+  // The one way a game starts, for every way of dealing (owner, 2026-11-09): roles are saved, the game starts, the engine opens.
   const startWithRoles = async (rolesBySeat: Record<number, string>) => {
-    if (tournamentStatus !== 'active') { setFeedbackMsg({ type: 'error', text: 'Запуск игры разрешён только в активном турнире. Запустите турнир вверху.' }); return; }
-    if (isAnotherGameActive) { setFeedbackMsg({ type: 'error', text: `Сначала завершите активную Игру №${activeGameNumber}` }); return; }
+    if (blockedReason) { setFeedbackMsg({ type: 'error', text: blockedReason }); throw new Error(blockedReason); }
     setSaving(true); setFeedbackMsg(null);
     try {
       await api.updateGameRoles(tournamentId, game.id, (game.seats || []).map((seat: TournamentGameSeat) => ({ seat_number: seat.seat_number, role: rolesBySeat[seat.seat_number] || 'citizen' })));
       await api.startTournamentGame(tournamentId, game.id);
+      setUnstarted(null);
       onGameStarted(game.id);
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка сохранения ролей или запуска игры' });
       throw err;
     } finally { setSaving(false); }
-  };
-
-  const handleSaveAndStart = async () => {
-    if (!isComplete) {
-      setFeedbackMsg({ type: 'error', text: 'Выберите Шерифа, Дона и двух игроков Мафии. Остальные станут мирными автоматически.' });
-      return;
-    }
-    if (tournamentStatus !== 'active') {
-      setFeedbackMsg({ type: 'error', text: 'Запуск игры разрешён только в активном турнире. Запустите турнир вверху.' });
-      return;
-    }
-    if (isAnotherGameActive) {
-      setFeedbackMsg({ type: 'error', text: `Сначала завершите активную Игру №${activeGameNumber}` });
-      return;
-    }
-
-    setSaving(true);
-    setFeedbackMsg(null);
-    try {
-      const rolesPayload = (game.seats || []).map((s: TournamentGameSeat) => {
-        let role: string = 'citizen';
-        if (s.seat_number === sheriffSeat) role = 'sheriff';
-        else if (s.seat_number === donSeat) role = 'don';
-        else if (mafiaSeats.includes(s.seat_number)) role = 'mafia';
-        return { seat_number: s.seat_number, role };
-      });
-      await api.updateGameRoles(tournamentId, game.id, rolesPayload);
-      await api.startTournamentGame(tournamentId, game.id);
-      onGameStarted(game.id);
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка сохранения ролей или запуска игры' });
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
@@ -195,116 +73,47 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
         </div>
 
         {canSwapSeats && (
-          <button type="button" onClick={onOpenSwapModal} className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-auto">
+          <button type="button" onClick={onOpenSwapModal} className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer">
             <ArrowLeftRight className="w-3.5 h-3.5 text-accent" />
             <span>Исправить игроков на местах</span>
           </button>
         )}
       </div>
 
-      {canEditJudgeAndRoles && (
-        <button type="button" data-testid="tournament-setup-virtual-deal" disabled={tournamentStatus !== 'active' || isAnotherGameActive} onClick={() => setShowVirtualDeal(true)}
-          className="w-full rounded-2xl border border-white/25 bg-white/10 p-3 text-left transition-all hover:bg-white/15 disabled:opacity-50">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-black text-white">🂠 Раздать виртуальные карты и запустить игру</div>
-              <div className="mt-1 text-[11px] leading-4 text-white/55">{tournamentStatus !== 'active' ? 'Сначала нажмите «Запустить турнир» вверху' : isAnotherGameActive ? `Сначала завершите игру №${activeGameNumber}` : `Игроки по очереди выбирают карту на экране; после последней карты игра №${game.game_number} запускается сама`}</div>
-            </div>
-            <span className="text-xl text-white/60">›</span>
-          </div>
-        </button>
-      )}
-
-      {canEditJudgeAndRoles && (
-        <button
-          type="button"
-          onClick={() => setShowPhysicalDeal(true)}
-          className="w-full rounded-2xl border border-violet-400/30 bg-violet-500/10 p-3 text-left transition-all hover:bg-violet-500/15"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-black text-violet-200">🃏 Раздать физические карты</div>
-              <div className="mt-1 text-[11px] leading-4 text-violet-100/50">10 закрытых карт · игроки тянут вслепую · вы фиксируете реальные роли. Музыка включится на время раздачи.</div>
-            </div>
-            <span className="text-xl text-violet-200/60">›</span>
-          </div>
-        </button>
-      )}
-
-      <div className="bg-surface-2 p-3.5 rounded-2xl border border-border-soft space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-bold text-text-primary">Роли после раздачи:</span>
-          <span className="text-[11px] font-mono text-text-muted">Мирные: <strong className="text-emerald-400">{citizenCount}</strong> / 6</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => setActiveTool('sheriff')} className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTool === 'sheriff' ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-md shadow-amber-500/10' : isSheriffDone ? 'bg-amber-500/10 text-amber-400/80 border-amber-500/30' : 'bg-surface-1 text-text-secondary border-border-soft hover:bg-surface-hover'}`}>
-            <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" /><span>Шериф</span><span className="font-mono text-[10px] bg-amber-500/20 px-1.5 py-0.5 rounded-md">{isSheriffDone ? '1/1' : '0/1'}</span>
-          </button>
-          <button type="button" onClick={() => setActiveTool('don')} className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTool === 'don' ? 'bg-purple-500/20 text-purple-300 border-purple-500/60 shadow-md shadow-purple-500/10' : isDonDone ? 'bg-purple-500/10 text-purple-400/80 border-purple-500/30' : 'bg-surface-1 text-text-secondary border-border-soft hover:bg-surface-hover'}`}>
-            <Crown className="w-3.5 h-3.5 text-purple-400 shrink-0" /><span>Дон</span><span className="font-mono text-[10px] bg-purple-500/20 px-1.5 py-0.5 rounded-md">{isDonDone ? '1/1' : '0/1'}</span>
-          </button>
-          <button type="button" onClick={() => setActiveTool('mafia')} className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTool === 'mafia' ? 'bg-rose-500/20 text-rose-300 border-rose-500/60 shadow-md shadow-rose-500/10' : isMafiaDone ? 'bg-rose-500/10 text-rose-400/80 border-rose-500/30' : 'bg-surface-1 text-text-secondary border-border-soft hover:bg-surface-hover'}`}>
-            <Skull className="w-3.5 h-3.5 text-rose-400 shrink-0" /><span>Мафия</span><span className="font-mono text-[10px] bg-rose-500/20 px-1.5 py-0.5 rounded-md">{mafiaSeats.length}/2</span>
+      {unstarted ? (
+        <div role="alert" data-testid="role-deal-unstarted" className="space-y-2 rounded-2xl border border-danger/30 bg-danger-soft p-3 text-xs text-danger">
+          <p className="font-bold">Роли розданы, но игра не запустилась.</p>
+          <button type="button" disabled={saving} onClick={() => void startWithRoles(unstarted).catch(() => undefined)} className="min-h-11 w-full rounded-xl bg-accent px-4 text-xs font-black text-white disabled:opacity-50">
+            {saving ? 'Запускаем…' : 'Повторить запуск с этими ролями'}
           </button>
         </div>
+      ) : null}
 
-        <p className="text-[11px] text-text-muted leading-snug">Если при фиксации ошиблись, роль можно исправить вручную: выберите её выше и нажмите на место игрока.</p>
-      </div>
+      {canEditJudgeAndRoles && (
+        <RoleDealChoice
+          blockedReason={blockedReason}
+          busy={saving}
+          virtualTestId="tournament-setup-virtual-deal"
+          physicalTestId="tournament-setup-physical-deal"
+          onVirtual={() => setShowVirtualDeal(true)}
+          onPhysical={() => setShowPhysicalDeal(true)}
+        />
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2" data-testid="tournament-game-setup-grid">
-        {sortedSeats.map((seat) => {
-          const isSheriff = sheriffSeat === seat.seat_number;
-          const isDon = donSeat === seat.seat_number;
-          const isMafia = mafiaSeats.includes(seat.seat_number);
-          let roleLabel = 'Мирный';
-          let roleBadgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-          let borderClass = 'border-border-soft bg-surface-2 hover:bg-surface-hover';
-          let IconComponent = User;
-
-          if (isSheriff) {
-            roleLabel = 'Шериф';
-            roleBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold';
-            borderClass = 'border-amber-500/60 bg-amber-500/10 shadow-sm';
-            IconComponent = Shield;
-          } else if (isDon) {
-            roleLabel = 'Дон';
-            roleBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40 font-bold';
-            borderClass = 'border-purple-500/60 bg-purple-500/10 shadow-sm';
-            IconComponent = Crown;
-          } else if (isMafia) {
-            roleLabel = 'Мафия';
-            roleBadgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold';
-            borderClass = 'border-rose-500/60 bg-rose-500/10 shadow-sm';
-            IconComponent = Skull;
-          }
-
-          return (
-            <button key={seat.id} type="button" data-testid={`seat-button-${seat.seat_number}`} onClick={() => handleSeatClick(seat.seat_number)} disabled={!canEditJudgeAndRoles} className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-1.5 min-w-0 cursor-pointer ${borderClass} ${!canEditJudgeAndRoles ? 'opacity-75 cursor-default' : ''}`}>
-              <div className="flex items-center justify-between gap-1 min-w-0 w-full">
-                <span className="w-6 h-6 rounded-lg bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">{seat.seat_number}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-md border truncate max-w-[70px] ${roleBadgeClass}`}>{roleLabel}</span>
-              </div>
-              <div className="min-w-0 w-full pt-0.5 flex items-center gap-1.5">
-                <IconComponent className="w-3.5 h-3.5 shrink-0 opacity-80" />
-                <span className="text-xs font-bold text-text-primary block truncate">{seat.display_name}</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="sticky bottom-3 z-30 pt-2 pb-1 bg-surface-1/90 backdrop-blur-md rounded-2xl">
-        <button type="button" onClick={handleSaveAndStart} disabled={saving} data-testid="save-and-start-game-btn" className={`w-full font-bold py-3.5 px-4 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer min-h-[48px] ${isComplete ? 'bg-accent hover:bg-accent-hover text-white shadow-accent/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'}`}>
-          {saving ? <span>Сохранение и запуск...</span> : <><Play className="w-4 h-4 fill-current shrink-0" /><span>Сохранить роли и запустить игру №{game.game_number}</span></>}
-        </button>
+        {sortedSeats.map((seat) => (
+          <div key={seat.id} data-testid={`seat-${seat.seat_number}`} className="flex min-w-0 items-center gap-2 rounded-xl border border-border-soft bg-surface-2 p-2">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-accent font-mono text-xs font-black text-white">{seat.seat_number}</span>
+            <span className="block min-w-0 truncate text-xs font-bold text-text-primary">{seat.display_name}</span>
+          </div>
+        ))}
       </div>
 
       {showVirtualDeal && (
         <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/80 p-3">
           <div className="mx-auto max-w-md">
             <VirtualRoleDeal
-              seats={sortedSeats.map((seat) => ({ seat_number: seat.seat_number, nickname: seat.display_name || `Игрок ${seat.seat_number}` }))}
+              seats={seatsForDeal}
               allowRolePurchase={false}
               persistenceKey={`tournament-setup:${tournamentId}:${game.id}`}
               finishLabel="Сохранить роли и запустить игру"
@@ -317,10 +126,12 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
 
       {showPhysicalDeal && (
         <PhysicalRoleDeal
-          seats={sortedSeats.map((seat) => ({ seat_number: seat.seat_number, nickname: seat.display_name || `Игрок ${seat.seat_number}` }))}
-          initialAssignments={physicalAssignments}
+          seats={seatsForDeal}
           onCancel={() => setShowPhysicalDeal(false)}
-          onComplete={applyPhysicalAssignments}
+          onComplete={(assignments) => {
+            setShowPhysicalDeal(false);
+            void startWithRoles(assignments as Record<number, string>).catch(() => setUnstarted(assignments as Record<number, string>));
+          }}
         />
       )}
     </div>

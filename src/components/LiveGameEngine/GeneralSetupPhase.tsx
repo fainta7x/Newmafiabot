@@ -115,7 +115,7 @@ export default function SetupPhase({
 
       {isClubEveningEngine && (
         <button type="button" onClick={openPhysicalDeal} className="w-full rounded-2xl border border-violet-300/15 bg-violet-300/[0.06] p-3 text-left transition hover:bg-violet-300/[0.09]">
-          <div className="flex items-center justify-between gap-3"><div><div className="text-xs font-black text-violet-100">🃏 Раздать роли</div><div className="mt-1 text-[10px] leading-4 text-violet-100/45">10 закрытых физических карт → игрок тянет карту → ведущий отмечает роль. Музыка включается на время раздачи.</div></div><span className="text-lg text-violet-200/60">›</span></div>
+          <div className="flex items-center justify-between gap-3"><div><div className="text-xs font-black text-violet-100">🃏 Раздать физические карты</div><div className="mt-1 text-[10px] leading-4 text-violet-100/45">10 закрытых физических карт → игрок тянет карту → ведущий отмечает роль. Музыка включается на время раздачи.</div></div><span className="text-lg text-violet-200/60">›</span></div>
         </button>
       )}
 

@@ -301,6 +301,8 @@ describe('posting to the club chat', () => {
 
   it('with a season the evening summary and the season table go as one album', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    // A fixed Wednesday: on a Monday after noon Moscow time the weekly «Таблица сезона на эту неделю» goes out as a third post.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-04T10:00:00Z') });
     const { db, addGame } = await setup('CASUAL');
     await addPeriod(db, 'CASUAL');
     await addGame(1, 'red');

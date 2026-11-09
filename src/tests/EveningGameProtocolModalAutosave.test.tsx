@@ -165,6 +165,7 @@ describe('undoing a PPK and a judge removal', () => {
     go('Протокол');
     openPlayer(8); // a black player causes it
     fireEvent.click(sheet().getByRole('button', { name: 'ППК' }));
+    await settle(); // the question is asked in the app's own window (async); no host here, the browser's confirm answers
     expect(sheet().getByRole('button', { name: 'Отменить ППК' })).toBeTruthy();
     fireEvent.click(sheet().getByRole('button', { name: 'Отменить ППК' }));
     await settle();
@@ -178,8 +179,10 @@ describe('undoing a PPK and a judge removal', () => {
     go('Протокол');
     openPlayer(3);
     fireEvent.click(sheet().getByRole('button', { name: 'Удалить судьёй' }));
+    await settle();
     // «Когда удалён?» (owner, 2026-11-07): the removal is tied to a circle and a moment.
     fireEvent.click(sheet().getByRole('button', { name: 'Записать удаление' }));
+    await settle();
     fireEvent.click(sheet().getByRole('button', { name: 'Отменить удаление' }));
     await settle();
     const saved = save.mock.calls.at(-1)![1];
@@ -220,6 +223,7 @@ describe('taking back a voting change', () => {
     go('Ход игры');
     fireEvent.click(screen.getByRole('tab', { name: /Круг неизвестен/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить результат' }));
+    await settle();
     go('Протокол');
     expect(screen.getByText(/Вы изменили · 2/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Вернуть: Круг неизвестен/ }));

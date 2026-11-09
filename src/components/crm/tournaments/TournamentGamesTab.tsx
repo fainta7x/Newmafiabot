@@ -158,15 +158,6 @@ export const TournamentGamesTab: React.FC<Props> = ({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => onImportBlank(currentGame.id)}
-            className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Загрузить бланк игры</span>
-          </button>
-
           {currentGame.status === 'completed' && (
             <button
               type="button"
@@ -178,6 +169,21 @@ export const TournamentGamesTab: React.FC<Props> = ({
               <span>Посмотреть результат</span>
             </button>
           )}
+
+          {/* Rare and destructive actions: one «Ещё» menu (owner, 2026-11-08), the main action stays in view */}
+          <details data-testid="game-more-actions" className="w-full rounded-xl border border-border-soft bg-surface-1">
+            <summary className="flex min-h-[40px] cursor-pointer list-none items-center justify-between px-3 text-xs font-bold text-text-secondary">Ещё<span aria-hidden="true">▾</span></summary>
+            <div className="flex flex-wrap gap-2 border-t border-border-soft p-2.5">
+          <button
+            type="button"
+            onClick={() => onImportBlank(currentGame.id)}
+            className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Загрузить бланк игры</span>
+          </button>
+
+
 
           {/* «Исправить» on a completed game: reopens it (and a completed tournament first) — owner, 2026-10-22 */}
           {canCorrectCurrentGame && (
@@ -239,6 +245,8 @@ export const TournamentGamesTab: React.FC<Props> = ({
               <span>Исправить игроков на местах</span>
             </button>
           )}
+            </div>
+          </details>
         </div>
       </div>
 

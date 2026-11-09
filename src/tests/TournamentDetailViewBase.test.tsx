@@ -195,4 +195,13 @@ describe('tournament card: games', () => {
     expect(screen.queryByPlaceholderText('Имя судьи')).toBeNull();
     expect(screen.getAllByText('Судья:').length).toBeGreaterThan(0);
   });
+
+  it('rare and destructive game actions sit in one «Ещё» menu; the main action stays outside it (owner, 2026-11-08)', async () => {
+    await open(tournament({ status: 'active', games: [game(1, 'active')] }));
+    games();
+    const menu = screen.getByTestId('game-more-actions');
+    expect(menu.textContent).toContain('Загрузить бланк игры');
+    expect(menu.contains(screen.getByTestId('tournament-live-game-button'))).toBe(false);
+    expect(menu.contains(screen.getByRole('button', { name: /Протокол игры/ }))).toBe(false);
+  });
 });

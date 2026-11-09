@@ -35,7 +35,8 @@ test('tournament draw resumes after reload without duplicating a role or resetti
     await deal.getByTestId('virtual-deal-next-player').click();
   }
   await expect(deal).toContainText('Выдано 3 из 10');
-  const key = 'mafia_tournament_virtual_deal:tournament-e2e:game-e2e';
+  // The deal lives on the server (here: the harness's stand-in for it), the same one the club uses (owner, 2026-11-09).
+  const key = '__e2eServerDeal';
   const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
   expect(before.history).toHaveLength(3);
   expect(before.deck).toHaveLength(7);
@@ -56,7 +57,7 @@ test('tournament draw resumes after reload without duplicating a role or resetti
   expect(saved.filter((row) => row.role === 'don')).toHaveLength(1);
   expect(saved.filter((row) => row.role === 'sheriff')).toHaveLength(1);
   expect(saved.filter((row) => row.role === 'citizen')).toHaveLength(6);
-  expect(await page.evaluate((key) => localStorage.getItem(key), key)).toBeNull();
+  expect((await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key)).history).toHaveLength(10);
 });
 
 test('tournament draw undo and full reset preserve deck integrity', async ({ page }) => {
@@ -93,7 +94,8 @@ test('tournament random timeout reveals a card without duplicating a turn', asyn
   await expect(deal.getByTestId('virtual-deal-next-player')).toBeEnabled();
   await deal.getByTestId('virtual-deal-next-player').click();
   await expect(deal).toContainText('Выдано 1 из 10');
-  const key = 'mafia_tournament_virtual_deal:tournament-e2e:game-e2e';
+  // The deal lives on the server (here: the harness's stand-in for it), the same one the club uses (owner, 2026-11-09).
+  const key = '__e2eServerDeal';
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
   expect(saved.history).toHaveLength(1);
   expect(new Set(saved.history.map((item) => item.cardId)).size).toBe(1);
@@ -108,12 +110,13 @@ test('reloading after the role is revealed keeps that very card for confirmation
   await deal.getByTestId('virtual-deal-go').click();
   await deal.getByRole('button', { name: /^Карта №/ }).first().click();
   const roleBefore = await deal.locator('.deal-face').getAttribute('aria-label');
-  const key = 'mafia_tournament_virtual_deal:tournament-e2e:game-e2e';
-  const cardBefore = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).selectedId, key);
+  // The deal lives on the server (here: the harness's stand-in for it), the same one the club uses (owner, 2026-11-09).
+  const key = '__e2eServerDeal';
+  const cardBefore = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).pending.cardId, key);
   await page.reload();
   await expect(deal).toBeVisible();
   await expect(deal.locator('.deal-face')).toHaveAttribute('aria-label', roleBefore);
-  const cardAfter = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).selectedId, key);
+  const cardAfter = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).pending.cardId, key);
   expect(cardAfter).toBe(cardBefore);
   await deal.getByTestId('virtual-deal-next-player').click();
   await expect(deal).toContainText('Выдано 1 из 10');

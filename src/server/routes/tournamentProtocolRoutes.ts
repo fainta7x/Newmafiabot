@@ -15,7 +15,11 @@ import { calculateBestMovePoints } from '../services/bestMovePoints.ts';
 import { gameTeamOfRole, normalizeGameRole } from '../../shared/gameRoles.ts';
 import { clearLiveGameCheckpoint } from '../services/liveGameCheckpointService.ts';
 
+import { tournamentVirtualRoleDealRouter } from './virtualRoleDealRoutes.ts';
+
 const router = Router();
+// The same virtual role deal as the club's (owner, 2026-11-09): one logic, the tournament game as another kind of game.
+router.use('/:tournamentId/games/:gameId/virtual-deal', tournamentVirtualRoleDealRouter);
 
 /**
  * The protocol payload from the browser carries results by participant, without the seat number, while the

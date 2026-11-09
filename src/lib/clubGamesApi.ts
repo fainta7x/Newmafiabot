@@ -287,8 +287,35 @@ export type VirtualDealSnapshot = {
   version: number;
   cards: Array<{ id: string }>;
   history: Array<{ seat: number; cardId: string; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>;
+  pending?: { seat: number; cardId: string; role: 'citizen' | 'sheriff' | 'mafia' | 'don' } | null;
 };
 export type VirtualDealAction = { seat: number; cardId: string; version: number };
+
+/** The server deal of one game, whatever its kind (owner, 2026-11-09): the same five calls for a club and a tournament game. */
+export type RoleDealApi = {
+  key: string;
+  open: () => Promise<VirtualDealSnapshot>;
+  reveal: (payload: VirtualDealAction) => Promise<{ version: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don' }>;
+  confirm: (payload: VirtualDealAction) => Promise<VirtualDealSnapshot>;
+  buy: (payload: { seat: number; role: 'citizen' | 'sheriff' | 'mafia' | 'don'; version: number }) => Promise<VirtualDealSnapshot & { priceRub: number }>;
+  undo: (version: number) => Promise<VirtualDealSnapshot>;
+  reset: (version: number) => Promise<VirtualDealSnapshot>;
+};
+const dealPost = <T,>(base: string, action: string, body?: unknown) => request<T>(`${base}/virtual-deal/${action}`, {
+  method: 'POST', ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+});
+const roleDealApiFor = (key: string, base: string): RoleDealApi => ({
+  key,
+  open: () => dealPost(base, 'open'),
+  reveal: (payload) => dealPost(base, 'reveal', payload),
+  confirm: (payload) => dealPost(base, 'confirm', payload),
+  buy: (payload) => dealPost(base, 'buy', payload),
+  undo: (version) => dealPost(base, 'undo', { version }),
+  reset: (version) => dealPost(base, 'reset', { version }),
+});
+export const clubRoleDealApi = (gameId: number): RoleDealApi => roleDealApiFor(`club:${gameId}`, `/api/games/${gameId}`);
+export const tournamentRoleDealApi = (tournamentId: string, gameId: string): RoleDealApi =>
+  roleDealApiFor(`tournament:${gameId}`, `/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}`);
 
 export const clubGamesApi = {
   roleDealOpen: (gameId: number) => request<VirtualDealSnapshot>(`/api/games/${gameId}/virtual-deal/open`, { method: 'POST' }),

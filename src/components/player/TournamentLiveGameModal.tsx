@@ -1,5 +1,5 @@
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
-import { loadTournamentDealState, tournamentDealKey } from '../../lib/tournamentDealState.ts';
+import { tournamentRoleDealApi } from '../../lib/clubGamesApi.ts';
 import { completeLiveRosterIdentity } from '../../lib/liveRosterCorrections.ts';
 import { completeLiveRoleAssignments } from '../../lib/liveRoleCorrections.ts';
 import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume.ts';
@@ -216,14 +216,18 @@ function TournamentLiveGameModalBody({
   // «Продолжить игру»: the server keeps a copy of this game's session for another device (one mechanism for every game).
   useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
   const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
-  const dealKey = tournamentDealKey(tournamentId, gameId);
-  const dealRosterToken = (rows: PlayerResultData[]) => rows.slice().sort((a,b) => a.seat_number - b.seat_number).map((row) => `${row.seat_number}:${row.participant_id}`).join('|');
+  // The deal lives on the server (the same deal as the club's, owner 2026-11-09). Only a small marker says that one is open, so a
+  // reload brings the deal screen back; `open` on the server then resumes the cards already handed out.
+  const dealApi = useMemo(() => tournamentRoleDealApi(tournamentId, gameId), [tournamentId, gameId]);
+  const dealOpenMarker = `mafia_tournament_deal_open:${gameId}`;
+  const setDealOpen = (open: boolean) => { try { if (open) localStorage.setItem(dealOpenMarker, '1'); else localStorage.removeItem(dealOpenMarker); } catch { /* storage may be blocked */ } };
   useEffect(() => {
     if (!payload || virtualSeats || livePhase !== 'setup') return;
     if (completeLiveRoleAssignments(payload.player_results)) return;
-    const seats = payload.player_results.slice().sort((a, b) => a.seat_number - b.seat_number);
-    if (loadTournamentDealState(dealKey, seats.map((seat) => Number(seat.seat_number)), dealRosterToken(seats))) setVirtualSeats(seats);
-  }, [payload, dealKey, livePhase, virtualSeats]);
+    let marked = false;
+    try { marked = localStorage.getItem(dealOpenMarker) === '1'; } catch { /* storage may be blocked */ }
+    if (marked) setVirtualSeats(payload.player_results.slice().sort((a, b) => a.seat_number - b.seat_number));
+  }, [payload, dealOpenMarker, livePhase, virtualSeats]);
 
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   // Seats the organizer changed in the CRM while this game runs (owner, 2026-10-22: seats can be fixed in a running game).
@@ -594,14 +598,14 @@ function TournamentLiveGameModalBody({
         </div>
       ) : null}
       {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 && !roleAssignments ? <div className="mx-4 my-2">
-        <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number))} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
+        <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>{setDealOpen(true);setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number));}} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
       </div>:null}
-      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal persistenceKey={dealKey} persistenceRosterToken={dealRosterToken(virtualSeats)} allowRolePurchase={false} seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{
+      {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal dealApi={dealApi} allowRolePurchase={false} seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>{setDealOpen(false);setVirtualSeats(null);}} onComplete={async assignments=>{
         const fresh=await loadLivePayload();
         const identity=(rows:PlayerResultData[])=>JSON.stringify(rows.slice().sort((a,b)=>a.seat_number-b.seat_number).map(p=>[p.seat_number,p.participant_id,p.player_id]));
         if(identity(fresh.player_results)!==identity(virtualSeats))throw new Error('Состав игры изменился. Закройте раздачу и проверьте игроков.');
         await sendJson(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/roles`,'PATCH',{roles:Object.entries(assignments).map(([seat,role])=>({seat_number:Number(seat),role}))},'Не удалось сохранить роли');
-        const saved=await loadLivePayload();setPayload(saved);setLatestRoleResults(saved.player_results);setVirtualSeats(null);
+        const saved=await loadLivePayload();setPayload(saved);setLatestRoleResults(saved.player_results);setDealOpen(false);setVirtualSeats(null);
       }}/></DealSeatPlayersContext.Provider>:null}
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 

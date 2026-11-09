@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
@@ -8,6 +8,10 @@ import { ensureClubResultPostSchema, postMvpResult } from '../server/services/cl
 
 let db: DatabaseWrapper;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+// A Friday evening is polled until Tuesday 21:00 Moscow time (owner, 2026-11-09); the clock is pinned just after that.
+const FRIDAY_START = new Date('2026-11-06T21:00:00+03:00').toISOString();
+const FRIDAY_SETTLED = new Date('2026-11-06T23:30:00+03:00').toISOString();
+const TUESDAY_AFTER_VOTE = new Date('2026-11-10T22:00:00+03:00');
 const sent: any[] = [];
 const asSent = (body: any) => {
   if (!(body instanceof FormData)) return JSON.parse(body);
@@ -17,6 +21,7 @@ const asSent = (body: any) => {
 const fetchImpl = (async (_url: string, init: any) => { sent.push(asSent(init.body)); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as unknown as typeof fetch;
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'], now: TUESDAY_AFTER_VOTE });
   process.env.TELEGRAM_BOT_TOKEN = 'test-token';
   sent.length = 0;
   db = createDatabaseConnection(':memory:');
@@ -24,8 +29,8 @@ beforeEach(async () => {
   await ensureClubResultPostSchema(db);
   await ensureEveningVoteSchema(db);
   const created = hoursAgo(100);
-  // Closed 4 days ago: the three days of voting are over.
-  await db.run("INSERT INTO game_evenings (id,title,starts_at,status,settled_at,format,created_at,updated_at) VALUES ('e1','Пятница',?,'completed',?,'CASUAL',?,?)", [hoursAgo(104), hoursAgo(96), created, created]);
+  // Friday evening, the clock is Tuesday 22:00: the first round (to Tuesday 21:00) is over.
+  await db.run("INSERT INTO game_evenings (id,title,starts_at,status,settled_at,format,created_at,updated_at) VALUES ('e1','Пятница',?,'completed',?,'CASUAL',?,?)", [FRIDAY_START, FRIDAY_SETTLED, created, created]);
   await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('club_chat','Клуб','-100500',77,1,?,?)`, [created, created]);
   const players: Array<[string, string]> = [['a', '1'], ['b', '2'], ['c', '3'], ['d', '4'], [PRIMARY_ORGANIZER_PLAYER_ID, '9']];
   for (const [id, tg] of players) {
@@ -34,7 +39,7 @@ beforeEach(async () => {
     if (id !== PRIMARY_ORGANIZER_PLAYER_ID) await db.run("INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,created_at,updated_at) VALUES (?,?,?,'going','going','attended',?,?)", [`ep-${id}`, 'e1', id, created, created]);
   }
 });
-afterEach(() => { try { db.sqlite.close(); } catch {} });
+afterEach(() => { try { db.sqlite.close(); } catch {} vi.useRealTimers(); });
 
 // Votes are accepted only while the window is open, so they are written directly here.
 const vote = (voter: string, nominee: string) => db.run("INSERT INTO evening_player_votes (evening_id, voter_player_id, category, nominee_player_id, created_at, updated_at) VALUES ('e1',?,'best_player',?,?,?)", [voter, nominee, hoursAgo(90), hoursAgo(90)]);
@@ -60,7 +65,7 @@ describe('result of the «MVP вечера» vote', () => {
   it('says nothing when nobody voted or the window is still open', async () => {
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(false);
     await vote('a', 'b');
-    await db.run("UPDATE game_evenings SET settled_at = ? WHERE id = 'e1'", [hoursAgo(10)]);
+    vi.setSystemTime(new Date('2026-11-10T20:00:00+03:00')); // Tuesday evening, before 21:00: the vote is still open
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(false);
     expect(sent.length).toBe(0);
   });

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
@@ -9,17 +9,21 @@ import { ensureClubResultPostSchema, postVotePrompt, remindUnvotedPlayers } from
 
 let db: DatabaseWrapper;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+// A Friday evening (21:00 Moscow time) is polled from Saturday 12:00 to Tuesday 21:00 (owner, 2026-11-09); the clock is pinned inside that window.
+const FRIDAY_START = new Date('2026-11-06T21:00:00+03:00').toISOString();
+const FRIDAY_SETTLED = new Date('2026-11-06T23:30:00+03:00').toISOString();
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-08T18:00:00+03:00') });
   db = createDatabaseConnection(':memory:');
   const created = hoursAgo(30);
-  await db.run("INSERT INTO game_evenings (id,title,starts_at,status,settled_at,format,created_at,updated_at) VALUES ('e1','Пятница',?,'completed',?,'CASUAL',?,?)", [hoursAgo(34), hoursAgo(30), created, created]);
+  await db.run("INSERT INTO game_evenings (id,title,starts_at,status,settled_at,format,created_at,updated_at) VALUES ('e1','Пятница',?,'completed',?,'CASUAL',?,?)", [FRIDAY_START, FRIDAY_SETTLED, created, created]);
   for (const [id, tg] of [['a', '1'], ['b', '2'], ['c', '3']]) {
     await db.run('INSERT INTO players (id,nickname,telegram_user_id,tokens,created_at,updated_at) VALUES (?,?,?,0,?,?)', [id, `Игрок ${id}`, tg, created, created]);
     await db.run("INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,created_at,updated_at) VALUES (?,?,?,'going','going','attended',?,?)", [`ep-${id}`, 'e1', id, created, created]);
   }
 });
-afterEach(() => { try { db.sqlite.close(); } catch {} });
+afterEach(() => { try { db.sqlite.close(); } catch {} vi.useRealTimers(); });
 
 describe('«MVP вечера» is no longer hidden', () => {
   it('shows the open vote on the player\'s home, then who they voted for', async () => {
@@ -32,10 +36,10 @@ describe('«MVP вечера» is no longer hidden', () => {
     expect(response.body.pending).toMatchObject({ evening_id: 'e1', voted: false });
   });
 
-  it('shows nothing once the three days are over or for someone who was not there', async () => {
+  it('shows nothing once the voting is over (Tuesday 21:00) or for someone who was not there', async () => {
     await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['z', 'Не был', hoursAgo(30), hoursAgo(30)]);
     expect(await loadPendingVoteForPlayer(db, 'z')).toBeNull();
-    await db.run("UPDATE game_evenings SET settled_at = ? WHERE id = 'e1'", [hoursAgo(80)]);
+    vi.setSystemTime(new Date('2026-11-10T21:00:01+03:00'));
     expect(await loadPendingVoteForPlayer(db, 'a')).toBeNull();
   });
 

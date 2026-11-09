@@ -1,5 +1,6 @@
 import {resolveEveningMvp,mvpDecisionCallbackData} from './eveningMvpService.ts';
 import {PRIMARY_ORGANIZER_PLAYER_ID} from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import {eveningVotingSchedule} from '../../shared/eveningVotingSchedule.ts';
 import {MVP_RUNOFF_CATEGORY,ensureMvpRunoffIfNeeded,ensureRunoffSchema,type MvpRunoff} from './eveningVoteRounds.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
@@ -42,6 +43,9 @@ export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: s
   const voted = nudge
     ? new Set((await db.all<any>("SELECT voter_player_id FROM evening_player_votes WHERE evening_id = ? AND category = ?", [eveningId,voteCategory]).catch(() => [])).map((row: any) => String(row.voter_player_id)))
     : new Set<string>();
+  const times = await db.get<any>('SELECT starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]).catch(() => null);
+  const firstSchedule = times ? eveningVotingSchedule(times) : null;
+  const firstRoundDeadline = firstSchedule ? new Date(firstSchedule.deadlineMs).toLocaleString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }) : '';
   const attendees = await db.all<any>(`
     SELECT p.id, p.nickname
       FROM evening_participants ep JOIN players p ON p.id = ep.player_id
@@ -83,7 +87,7 @@ export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: s
       playerId: String(voter.id),
       eventType: runoff?'evening_vote_runoff':nudge ? 'evening_vote_nudge' : 'evening_vote',
       entityId: eveningId,
-      text: runoff?`🏅 «${title}»: дополнительное голосование за MVP между лидерами.\nГолоса первого тура не переносятся. Выбери одного из финалистов до ${deadline}. Голос можно изменить до закрытия тура.`:`${nudge ? '⏰ Ты ещё не проголосовал.\n' : ''}🏅 «${title}»: кто сыграл лучше всех?\nНажми на игрока — это твой голос за «MVP вечера». Передумал? Нажми на другого, голос заменится. Голосование открыто 3 дня.`,
+      text: runoff?`🏅 «${title}»: дополнительное голосование за MVP между лидерами.\nГолоса первого тура не переносятся. Выбери одного из финалистов до ${deadline}. Голос можно изменить до закрытия тура.`:`${nudge ? '⏰ Ты ещё не проголосовал.\n' : ''}🏅 «${title}»: кто сыграл лучше всех?\nНажми на игрока — это твой голос за «MVP вечера». Передумал? Нажми на другого, голос заменится. ${firstRoundDeadline ? `Голосование до ${firstRoundDeadline}.` : ''}`,
       telegramReplyMarkup: { inline_keyboard: rows },
       telegramPhotoPng: card,
     });

@@ -59,11 +59,38 @@ async function hasRecentTournamentGames(db: DatabaseWrapper, now: number): Promi
   }
 }
 
+/** Keys of the Elo notes that need no work: routed to an outbox row that exists, disabled, or sent under an old suffixed key. */
+async function loadSettledEloNoteKeys(db: DatabaseWrapper): Promise<Set<string>> {
+  const settled = new Set<string>();
+  try {
+    const rows = await db.all<{ notification_key: string; settled: number }>(`
+      SELECT d.notification_key,
+             (d.status = 'disabled'
+              OR (d.status = 'queued' AND d.selected_channel = 'telegram'
+                  AND EXISTS (SELECT 1 FROM telegram_message_outbox o WHERE o.message_key = d.notification_key))
+              OR (d.status = 'pending_channel' AND d.selected_channel = 'vk'
+                  AND EXISTS (SELECT 1 FROM vk_message_outbox v WHERE v.message_key = 'personal:' || d.notification_key || ':vk'))) AS settled
+        FROM personal_notification_deliveries d
+       WHERE d.notification_key LIKE 'elo:%'`);
+    for (const row of rows) {
+      const parts = String(row.notification_key).split(':');
+      // elo:<source>:<sourceId>:<player> is the stable key; a fifth part (the new Elo) is the old suffixed form.
+      if (parts.length > 4) settled.add(parts.slice(0, 4).join(':'));
+      else if (Number(row.settled) === 1) settled.add(String(row.notification_key));
+    }
+  } catch { /* the tables may not exist yet: nothing is settled */ }
+  return settled;
+}
+
 async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
   let queued = 0;
   if (!(await hasRecentTournamentGames(db, now))) return 0;
   // Club games: one personal message per evening after closing (clubResultPostService), not one per game.
   const eloTimeline = await loadPlayerEloHistory(db);
+  // Notes already delivered or routed (and the old suffixed keys) are read ONCE per scan, not once per player and game: with a
+  // tournament of the last week the scan made ~4 queries for each of ~100 notes every minute (4.7 s of SQLite, measured
+  // 2026-11-09 on /api/health/performance).
+  const settled = await loadSettledEloNoteKeys(db);
   for (const event of eloTimeline.slice(-100)) {
     // The club game's Elo rides in the evening's personal message; tournaments keep their own note.
     if (event.source === 'club') continue;
@@ -76,13 +103,10 @@ async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
       // One note per player and game. A recalculation (the ×5 scale, a corrected protocol) changes the
       // numbers but must not send the same game again; older keys carried the new Elo as a suffix.
       const notificationKey = `elo:${event.source}:${event.sourceId}:${playerId}`;
-      // A note under the old suffixed key was already sent. The stable key still goes through
-      // queuePersonalNotification, which is idempotent and repairs a missing outbox row after a crash.
-      const sentUnderOldKey = await db.get(
-        'SELECT 1 FROM personal_notification_deliveries WHERE notification_key LIKE ? LIMIT 1',
-        [`${notificationKey}:%`],
-      ).catch(() => null);
-      if (sentUnderOldKey) continue;
+      // A note under the old suffixed key was already sent; a note already routed and sitting in its outbox needs nothing.
+      // A note that still needs routing, or whose outbox row is missing, goes through queuePersonalNotification, which is
+      // idempotent and repairs a missing outbox row after a crash.
+      if (settled.has(notificationKey)) continue;
       await queuePersonalNotification(db, {
         notificationKey,
         playerId, eventType: 'elo_change', entityId: `${event.source}:${event.sourceId}`,

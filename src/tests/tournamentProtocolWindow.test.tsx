@@ -43,6 +43,20 @@ describe('tournament protocol in the common protocol window', () => {
     expect(screen.getByText(/Судья: Судья/)).toBeTruthy();
   });
 
+  it('says where the Live Engine\'s result is when it was not carried into the protocol (T22)', async () => {
+    load();
+    open({ engineCopyNotice: 'Результат игры из движка не перенесён в протокол. Его копия сохранена на этом устройстве.' });
+    await ready();
+    expect(await screen.findByText(/Результат игры из движка не перенесён/)).toBeTruthy();
+  });
+
+  it('shows no engine notice once the protocol is completed', async () => {
+    load({ status: 'completed' });
+    open({ engineCopyNotice: 'Результат игры из движка не перенесён в протокол.' });
+    await ready();
+    expect(screen.queryByText(/Результат игры из движка не перенесён/)).toBeNull();
+  });
+
   it('ignores a newer localStorage backup instead of replaying it over canonical server data', async () => {
     load();
     const saveSpy = vi.spyOn(api, 'saveGameProtocol');

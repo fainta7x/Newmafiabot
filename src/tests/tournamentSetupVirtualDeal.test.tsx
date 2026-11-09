@@ -55,6 +55,8 @@ describe('tournament game start with the virtual deal (owner, 2026-11-07)', () =
       fireEvent.click((await screen.findAllByRole('button', { name: /^Карта №/ }))[0]);
       await waitFor(() => expect((screen.getByTestId('virtual-deal-next-player') as HTMLButtonElement).disabled).toBe(false), { timeout: 15000 });
       fireEvent.click(screen.getByTestId('virtual-deal-next-player'));
+      // the deal is on the server now: the next card is taken only after this one has been confirmed there
+      if (i < 9) await screen.findByText(new RegExp(`Выдано ${i + 1} из 10`), undefined, { timeout: 15000 });
     }
     await waitFor(() => expect(startTournamentGame).toHaveBeenCalledWith('t1', 'g1'), { timeout: 10000 });
     const roles = (updateGameRoles.mock.calls[0] as any)[2] as Array<{ role: string }>;

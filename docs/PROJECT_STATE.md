@@ -1,3 +1,9 @@
+## 2026-11-09 — tournament CRM audit: decisions of the owner (code in #1202/#1203, one item open)
+
+- Done and merged (#1202): fewer duplicates on the tournament screens, one app confirmation window, one «Рассадка» card, the engine opens right after the start, MVP additional-round buttons fixed (`evo:`). Not deployed/verified on production at the time of writing.
+- **Open, agreed in principle, plan not yet shown:** one role deal for club evenings and tournaments: two ways only — «Виртуальные карты» and «Физические карты» (the manual picker is dropped); either way ends with roles saved, the game started and the engine open; one shared component and one persistence mechanism (today the club deal keeps the deck on the server via `serverGameId`, the tournament deal in `localStorage` via `persistenceKey`); the engine's own deal button only where roles are not dealt yet; the reason for a blocked start in one line on top.
+- Owner asked to criticise the protocol's convenience separately (after the deal work); T18 (draft protocol + manual completion) stays for now.
+
 ## 2026-11-05 — детализация Elo
 
 Клубный протокол и картинка итогов выводят командную часть, поправку силы стола, множитель относительно союзников и начисления по кругам. Формулы расчёта сохранены. 60 целевых тестов прошли.

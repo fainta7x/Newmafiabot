@@ -8,12 +8,16 @@ import { markAutoRestore } from '../../lib/liveGameResume.ts';
  * has a copy (the judge changed device or the browser lost its storage), offer to continue it; the engine then restores
  * the copy exactly as it restores its own saved session. The same gate wraps every live-game window.
  */
+const CHECKPOINT_WAIT_MS = 2000;
+
 export function LiveGameContinueGate({ gameKey, enabled, children }: { gameKey: GameKey; enabled: boolean; children: React.ReactNode }) {
   const [stage, setStage] = useState<'checking' | 'offer' | 'ready'>(() => (!enabled || readDeviceSession(gameKey) ? 'ready' : 'checking'));
   const [checkpoint, setCheckpoint] = useState<(LiveGameCheckpointPayload & { saved_at: string }) | null>(null);
   useEffect(() => {
     if (stage !== 'checking') return;
     let active = true;
+    // A slow or absent server must not hold the start of a game: after this the engine opens, the offer is dropped (owner, 2026-11-09).
+    const timer = setTimeout(() => { if (active) { active = false; setStage('ready'); } }, CHECKPOINT_WAIT_MS);
     liveGameCheckpointApi.load(gameKey)
       .then((copy) => {
         if (!active) return;
@@ -22,7 +26,7 @@ export function LiveGameContinueGate({ gameKey, enabled, children }: { gameKey: 
         setCheckpoint(copy); setStage('offer');
       })
       .catch(() => { if (active) setStage('ready'); });
-    return () => { active = false; };
+    return () => { active = false; clearTimeout(timer); };
   }, [stage, gameKey]);
 
   if (stage === 'ready') return <>{children}</>;

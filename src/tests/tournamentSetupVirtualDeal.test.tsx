@@ -20,7 +20,7 @@ vi.mock('../lib/clubGamesApi.ts', async (importOriginal) => {
       return {
         key: `tournament:${gameId}`,
         open: async () => { st = fresh(st.version + 1); return view(st); },
-        reveal: async ({ cardId, seat }: any) => { const card = st.deck.find((c: any) => c.id === cardId); st.pending = { seat, cardId, role: card.role }; st.version += 1; return { version: st.version, role: card.role }; },
+        reveal: async ({ cardId, seat }: any) => { const card = st.deck.find((c: any) => c.id === cardId)!; st.pending = { seat, cardId, role: card.role }; st.version += 1; return { version: st.version, role: card.role }; },
         confirm: async () => { st.history.push({ ...st.pending }); st.deck = st.deck.filter((c: any) => c.id !== st.pending.cardId); st.pending = null; st.version += 1; return view(st); },
         buy: async () => { throw new Error('no purchase'); },
         undo: async () => view(st),

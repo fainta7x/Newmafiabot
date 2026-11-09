@@ -73,4 +73,21 @@ describe('tournament Elo note', () => {
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
+
+  it('a note already routed to its outbox is not looked at again by the next scans (2026-11-09: 4 queries per note per minute)', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    await createApp(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO players (id,nickname,telegram_user_id,lifecycle_status,source,created_at,updated_at) VALUES ('hero','Герой','100','normal','telegram',?,?)`, [now, now]);
+    await recentTournamentGame(db, now);
+    timeline.push(tournamentGame('g1', now, 1010));
+    await reconcilePersonalNotifications(db);
+    expect(await notes(db)).toHaveLength(1);
+    const perNoteLookups = vi.spyOn(db, 'get');
+    await reconcilePersonalNotifications(db);
+    // the only per-note read is the delivery lookup inside queuePersonalNotification: a settled note must not reach it
+    const lookups = perNoteLookups.mock.calls.filter(([sql]) => String(sql).includes('FROM personal_notification_deliveries WHERE notification_key = ?'));
+    expect(lookups).toHaveLength(0);
+    expect(await notes(db)).toHaveLength(1);
+  });
 });

@@ -207,6 +207,11 @@ export async function reconcileTournamentGameTokenSettlement(
       mutations += 1;
     }
 
+    // Nothing changed (same target, revision and breakdown): no write. The scan used to rewrite every row of every completed
+    // game each time (42 upserts, up to 183 ms each, measured 2026-11-09 on /api/health/performance).
+    const nextBreakdownJson = breakdown ? JSON.stringify(breakdown) : null;
+    if (previous && delta === 0 && revision === Number(previous.revision) && nextBreakdownJson === (previous.breakdown_json ?? null)) continue;
+
     await db.run(
       `INSERT INTO tournament_game_token_settlements
        (game_id, subject_type, player_id, target_amount, revision, breakdown_json, updated_at)
@@ -216,7 +221,7 @@ export async function reconcileTournamentGameTokenSettlement(
          revision = excluded.revision,
          breakdown_json = excluded.breakdown_json,
          updated_at = excluded.updated_at`,
-      [String(gameId), subjectType, playerId, nextAmount, revision, breakdown ? JSON.stringify(breakdown) : null, now],
+      [String(gameId), subjectType, playerId, nextAmount, revision, nextBreakdownJson, now],
     );
   }
 

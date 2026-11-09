@@ -1,7 +1,7 @@
 import {loadMvpRunoff,MVP_RUNOFF_CATEGORY} from './eveningVoteRounds.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { dateLabel, loadAvatars } from './clubResultData.ts';
-import { mvpResultSvg, mvpVoteSvg, renderPng } from './clubResultImages.ts';
+import { mvpResultSvg, mvpVoteSvg, renderPngAsync } from './clubResultImages.ts';
 import { eveningVotingSchedule } from '../../shared/eveningVotingSchedule.ts';
 
 /**
@@ -21,7 +21,7 @@ export async function buildMvpVoteCard(db: DatabaseWrapper, eveningId: string): 
     if (nominees.length < 2) return null;
     const schedule = eveningVotingSchedule(evening);
     const avatars = await loadAvatars(db, nominees.map((nominee: any) => String(nominee.id)));
-    return renderPng(mvpVoteSvg({
+    return renderPngAsync(mvpVoteSvg({
       eveningTitle: String(evening.title || 'Игровой вечер'),
       dateLabel: dateLabel(evening.starts_at) || '',
       deadlineLabel: schedule ? `Голосование до ${moscowDayTime(schedule.deadlineMs)}` : 'Голосование открыто несколько дней',
@@ -52,7 +52,7 @@ export async function buildMvpResultCard(
       [eveningId,round?MVP_RUNOFF_CATEGORY:'best_player', winner.player_id],
     );
     const avatars = await loadAvatars(db, [winner.player_id, ...others.map((row: any) => String(row.player_id))]);
-    return renderPng(mvpResultSvg({
+    return renderPngAsync(mvpResultSvg({
       eveningTitle: String(evening.title || 'Игровой вечер'), dateLabel: dateLabel(evening.starts_at) || '', totalVotes, reason,
       winner: { nickname: winner.nickname, avatar: avatars.get(winner.player_id) || null, votes: winner.votes },
       others: others.map((row: any) => ({ nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null, votes: Number(row.votes || 0) })),

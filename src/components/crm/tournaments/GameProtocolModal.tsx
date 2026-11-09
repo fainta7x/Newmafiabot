@@ -62,6 +62,8 @@ interface GameProtocolModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProtocolUpdated?: () => void;
+  /** The Live Engine's result was not carried into this protocol: a line that says where the copy is and how to carry it over. */
+  engineCopyNotice?: string | null;
 }
 
 /**
@@ -74,7 +76,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   gameId,
   isOpen,
   onClose,
-  onProtocolUpdated
+  onProtocolUpdated,
+  engineCopyNotice = null,
 }) => {
   useMobileKeyboardViewport();
   const [loading, setLoading] = useState(true);
@@ -402,7 +405,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     : saveStatus === 'unsaved' ? { label: 'Есть несохранённые изменения', tone: 'warn' as const }
       : saveStatus === 'error' ? { label: 'Не сохранилось', tone: 'bad' as const }
         : { label: 'Сохранено', tone: 'good' as const };
-  const problem = error || (saveErrorMessage ? `Ошибка автосохранения: ${saveErrorMessage}` : null);
+  const problem = error || (saveErrorMessage ? `Ошибка автосохранения: ${saveErrorMessage}` : null) || (protocol.status !== 'completed' ? engineCopyNotice : null);
 
   if (loading) {
     return (

@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePlayerProfileIntegritySchema } from '../../db/ensurePlayerProfileIntegritySchema.ts';
-import { birthdayCardSvg, renderPng } from './clubResultImages.ts';
+import { birthdayCardSvg, renderPngAsync } from './clubResultImages.ts';
 import { loadAvatars } from './clubResultData.ts';
 import { sendPhotos } from './clubResultPostService.ts';
 import { sendVk } from './eveningTodayPostService.ts';
@@ -61,7 +61,7 @@ async function loadContext(db: DatabaseWrapper, playerId: string, eveningId: str
   const link = evening ? appUrl(`/player/events/${encodeURIComponent(String(evening.id))}`) : null;
   const text = birthdayPostText({ nickname: String(player.nickname), firstName: String(player.profile_first_name || '').trim().split(/\s+/)[0] || null, day: Number(player.birth_day), month: Number(player.birth_month), eveningStartsAt: evening?.starts_at ?? null, venue: evening?.venue ?? null, link, ...wording });
   const avatar = (await loadAvatars(db, [playerId])).get(playerId) || null;
-  const card = renderPng(birthdayCardSvg({ nickname: String(player.nickname), avatar, dateLabel: `${player.birth_day} ${MONTHS[Number(player.birth_month) - 1]}` }));
+  const card = await renderPngAsync(birthdayCardSvg({ nickname: String(player.nickname), avatar, dateLabel: `${player.birth_day} ${MONTHS[Number(player.birth_month) - 1]}` }));
   return { player, evening, text, card, hasAvatar: Boolean(avatar) };
 }
 

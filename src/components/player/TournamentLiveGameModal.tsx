@@ -486,11 +486,15 @@ function TournamentLiveGameModalBody({
   const legacyPlayers = useMemo(() => payload ? buildLegacyPlayers(payload.player_results, judgeName) : [], [payload, judgeName]);
 
   if (reviewMode) {
+    // The engine's finished result is kept on this device until the game is completed (T19); say so, so the judge knows it exists.
+    let hasEngineCopy = Boolean(finishedGameRef.current);
+    if (!hasEngineCopy) { try { hasEngineCopy = Boolean(localStorage.getItem(pendingSaveKey)); } catch { /* storage may be blocked */ } }
     return (
       <GameProtocolModal
         tournamentId={tournamentId}
         gameId={gameId}
         isOpen={true}
+        engineCopyNotice={hasEngineCopy ? 'Результат игры из движка не перенесён в протокол. Его копия сохранена на этом устройстве: откройте игру в движке снова и нажмите «Повторить сохранение», или заполните протокол вручную.' : null}
         onClose={onClose}
         onProtocolUpdated={() => {
           onCompleted();

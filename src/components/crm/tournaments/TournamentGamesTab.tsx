@@ -129,6 +129,18 @@ export const TournamentGamesTab: React.FC<Props> = ({
 
         {/* Game Action Buttons: two columns on a phone so the card does not grow by one screen */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center [&>button]:w-full [&>button]:justify-center [&>button]:text-center sm:[&>button]:w-auto">
+          {currentGame.status === 'active' && (
+            <button
+              type="button"
+              data-testid="tournament-live-game-button"
+              onClick={() => onLiveGame(String(currentGame.id))}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-sm transition-all flex items-center gap-1.5 min-h-[44px] shadow-sm cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Вести игру (движок)</span>
+            </button>
+          )}
+
           <button
             type="button"
             disabled={currentGame.status === 'planned'}
@@ -146,17 +158,6 @@ export const TournamentGamesTab: React.FC<Props> = ({
             <span>Протокол игры</span>
           </button>
 
-          {currentGame.status === 'active' && (
-            <button
-              type="button"
-              data-testid="tournament-live-game-button"
-              onClick={() => onLiveGame(String(currentGame.id))}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 min-h-[40px] shadow-sm cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Вести игру (движок)</span>
-            </button>
-          )}
 
           {currentGame.status === 'completed' && (
             <button
@@ -262,8 +263,10 @@ export const TournamentGamesTab: React.FC<Props> = ({
           canEditJudgeAndRoles={canEditCurrentGameJudgeAndRoles}
           canSwapSeats={canSwapSeatsCurrentGame}
           onOpenSwapModal={onOpenSwap}
-          onGameStarted={() => {
+          onGameStarted={(startedGameId) => {
             loadDetail();
+            // The engine opens at once after the start (owner, 2026-11-09): no hunting for «Вести игру».
+            onLiveGame(String(startedGameId));
           }}
           setFeedbackMsg={setFeedbackMsg}
         />

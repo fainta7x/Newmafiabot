@@ -10,7 +10,7 @@ import { api } from '../lib/api';
 vi.mock('../components/crm/tournaments/TournamentStandingsView.tsx', () => ({ TournamentStandingsView: () => <div>ТАБЛИЦА</div> }));
 vi.mock('../components/crm/tournaments/TournamentNominationsView.tsx', () => ({ TournamentNominationsView: () => <div>НОМИНАЦИИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentOfficialResults.tsx', () => ({ TournamentOfficialResults: () => <div>ОФИЦИАЛЬНЫЕ ИТОГИ</div> }));
-vi.mock('../components/crm/tournaments/TournamentGameSetup.tsx', () => ({ TournamentGameSetup: ({ game }: any) => <div>ПОДГОТОВКА ИГРЫ {game.game_number}</div> }));
+vi.mock('../components/crm/tournaments/TournamentGameSetup.tsx', () => ({ TournamentGameSetup: ({ game, onGameStarted }: any) => <div>ПОДГОТОВКА ИГРЫ {game.game_number}<button type="button" onClick={() => onGameStarted(game.id)}>ТЕСТ-ЗАПУСК</button></div> }));
 vi.mock('../components/crm/tournaments/GameProtocolModal.tsx', () => ({ GameProtocolModal: ({ isOpen }: any) => (isOpen ? <div>ОКНО ПРОТОКОЛА</div> : null) }));
 vi.mock('../components/player/TournamentLiveGameModal.tsx', () => ({ default: () => <div>ДВИЖОК</div> }));
 vi.mock('../components/crm/tournaments/ConfirmReopenTournamentModal.tsx', () => ({ ConfirmReopenTournamentModal: ({ isOpen }: any) => (isOpen ? <div>ОКНО ВОЗВРАТА</div> : null) }));
@@ -203,5 +203,18 @@ describe('tournament card: games', () => {
     expect(menu.textContent).toContain('Загрузить бланк игры');
     expect(menu.contains(screen.getByTestId('tournament-live-game-button'))).toBe(false);
     expect(menu.contains(screen.getByRole('button', { name: /Протокол игры/ }))).toBe(false);
+  });
+
+  it('the Live Engine opens right after a game is started, with no extra button press (owner, 2026-11-09)', async () => {
+    const planned = tournament({ status: 'active', games: [game(1, 'planned')] });
+    const running = tournament({ status: 'active', games: [game(1, 'active')] });
+    const get = vi.spyOn(api, 'getTournament').mockResolvedValue(planned as any);
+    render(<TournamentDetailView tournamentId="t1" onBack={vi.fn()} />);
+    await screen.findByText('Кубок октября');
+    games();
+    expect(screen.queryByText('ДВИЖОК')).toBeNull();
+    get.mockResolvedValue(running as any);
+    fireEvent.click(await screen.findByText('ТЕСТ-ЗАПУСК'));
+    expect(await screen.findByText('ДВИЖОК')).toBeTruthy();
   });
 });

@@ -173,6 +173,24 @@ describe('undoing a PPK and a judge removal', () => {
     expect(saved.protocol).toMatchObject({ end_reason: 'normal', ppk_culprit_participant_id: null, winner_team: null });
   });
 
+  it('«Нет» in the confirmation of «Удалить судьёй» changes nothing: no removal and no event in the log', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
+    open(makeGame('draft', 'red'));
+    go('Протокол');
+    openPlayer(3);
+    fireEvent.click(sheet().getByRole('button', { name: 'Удалить судьёй' }));
+    await settle();
+    fireEvent.click(sheet().getByRole('button', { name: 'Записать удаление' }));
+    await settle();
+    expect(sheet().queryByRole('button', { name: 'Отменить удаление' })).toBeNull();
+    const last = save.mock.calls.at(-1);
+    if (last) {
+      expect((last[1] as any).player_results[2]).toMatchObject({ exit_type: 'alive' });
+      expect(JSON.stringify((last[1] as any).protocol.events || [])).not.toContain('"removed"');
+    }
+  });
+
   it('«Отменить удаление» returns a player removed by the judge', async () => {
     const save = vi.spyOn(clubGamesApi, 'saveProtocol').mockImplementation(async (_id: number, payload: any) => echo(payload));
     open(makeGame('draft', 'red'));

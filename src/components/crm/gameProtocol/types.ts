@@ -18,7 +18,8 @@ export type ProtocolApi = {
   changeTechFoul: (player: PlayerResultData, type: TechFoulType, delta: number) => void;
   causePpk: (player: PlayerResultData) => void;
   cancelPpk: () => void;
-  removeByJudge: (player: PlayerResultData) => void;
+  /** Resolves to `false` when the judge answered «no» in the confirmation window (the tournament protocol answers by its own dialog and returns nothing). */
+  removeByJudge: (player: PlayerResultData) => void | boolean | Promise<boolean | void>;
   cancelRemoval: (player: PlayerResultData) => void;
   setWinner: (team: 'red' | 'black' | null) => void;
   setJudgeNotes: (notes: string) => void;

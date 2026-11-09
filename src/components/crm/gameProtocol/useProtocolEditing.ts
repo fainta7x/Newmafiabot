@@ -259,9 +259,11 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     });
   };
 
-  const removeByJudge = async (player: PlayerResultData) => {
-    if (protocol.status === 'completed') return;
-    if (await appConfirm(`Удалить игрока #${player.seat_number} решением судьи?`, { title: 'Удалить игрока?', confirmLabel: 'Удалить', danger: true })) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
+  const removeByJudge = async (player: PlayerResultData): Promise<boolean> => {
+    if (protocol.status === 'completed') return false;
+    if (!(await appConfirm(`Удалить игрока #${player.seat_number} решением судьи?`, { title: 'Удалить игрока?', confirmLabel: 'Удалить', danger: true }))) return false;
+    updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
+    return true;
   };
 
   const cancelRemoval = async (player: PlayerResultData) => {

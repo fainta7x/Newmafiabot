@@ -421,6 +421,11 @@ function TournamentLiveGameModalBody({
   // can still retry instead of losing the whole game (engine audit, 2026-10-04).
   const pendingSaveKey = `mafia_live_pending_save:tournament:${gameId}`;
   useEffect(() => {
+    // The copy stays until the game is completed in the CRM (owner, 2026-11-09): «Заполнить протокол вручную» no longer erases it.
+    if (payload && (payload.protocol?.status === 'completed' || payload.game?.status === 'completed')) {
+      try { localStorage.removeItem(pendingSaveKey); } catch { /* storage may be blocked */ }
+      return;
+    }
     if (!payload || finishedGameRef.current) return;
     try {
       const raw = localStorage.getItem(pendingSaveKey);
@@ -573,7 +578,7 @@ function TournamentLiveGameModalBody({
           {finishedGameRef.current ? (
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={() => void saveFinishedGame(finishedGameRef.current)} className="min-h-10 rounded-xl bg-white px-4 text-xs font-black text-black">Повторить сохранение</button>
-              <button type="button" onClick={() => { try { localStorage.removeItem(pendingSaveKey); } catch {} finishedGameRef.current = null; setError(null); setReviewMode(true); }} className="min-h-10 rounded-xl border border-white/20 px-4 text-xs font-bold text-white">Заполнить протокол вручную</button>
+              <button type="button" onClick={() => { setError(null); setReviewMode(true); }} className="min-h-10 rounded-xl border border-white/20 px-4 text-xs font-bold text-white">Заполнить протокол вручную</button>
             </div>
           ) : null}
         </div>

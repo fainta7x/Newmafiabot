@@ -22,4 +22,11 @@ describe('«Продолжить игру» offers only a real server copy', () 
     render(<LiveGameContinueGate gameKey="tournament:7" enabled><div>Игра</div></LiveGameContinueGate>);
     await waitFor(() => expect(screen.getByText(/Найдена незавершённая игра/)).toBeDefined());
   });
+
+  it('a server that does not answer within 2 seconds does not hold the game (owner, 2026-11-09)', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => { /* never answers */ })));
+    render(<LiveGameContinueGate gameKey="tournament:8" enabled><div>Игра</div></LiveGameContinueGate>);
+    expect(screen.queryByText('Игра')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Игра')).toBeDefined(), { timeout: 4000 });
+  });
 });

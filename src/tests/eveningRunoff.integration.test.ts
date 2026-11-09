@@ -8,9 +8,11 @@ import {castEveningVote,ensureEveningVoteSchema,loadVotingContext,loadPendingVot
 import {resolveEveningMvp,decideEveningMvp} from '../server/services/eveningMvpService.ts';
 import {loadMvpRunoff} from '../server/services/eveningVoteRounds.ts';
 import {PRIMARY_ORGANIZER_PLAYER_ID} from '../db/ensureOrganizerPlayerAccessSchema.ts';
-let db:DatabaseWrapper;afterEach(()=>{db?.sqlite.close();vi.unstubAllEnvs();});
+let db:DatabaseWrapper;afterEach(()=>{db?.sqlite.close();vi.unstubAllEnvs();vi.useRealTimers();});
 it('runs a separate finalist vote in app and bot, preserving first ballots and rejecting old buttons',async()=>{
- db=createDatabaseConnection(':memory:');const app=await createApp(db);await ensureEveningVoteSchema(db);const stamp=new Date().toISOString();const closed=new Date(Date.now()-4*86_400_000).toISOString();
+ // The vote has a fixed schedule (owner, 2026-11-09): a Friday evening is polled to Tuesday 21:00, the additional vote runs to Thursday 21:00; the clock is a Wednesday noon (Moscow time) inside the additional vote.
+ vi.useFakeTimers({toFake:['Date'],now:new Date('2026-11-11T12:00:00+03:00')});
+ db=createDatabaseConnection(':memory:');const app=await createApp(db);await ensureEveningVoteSchema(db);const stamp=new Date().toISOString();const closed=new Date('2026-11-06T21:00:00+03:00').toISOString();
  await db.run("INSERT INTO game_evenings(id,title,status,starts_at,settled_at,created_at,updated_at) VALUES('ev','Тест','completed',?,?,?,?)",[closed,closed,closed,closed]);
  for(const p of ['a','b','c','d']){await db.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES(?,?,?,?)',[p,p,stamp,stamp]);await db.run("INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,created_at,updated_at) VALUES(?,'ev',?,'attended',?,?)",['ep'+p,p,stamp,stamp]);}
  for(const[v,n]of [['a','b'],['c','d']])await db.run("INSERT INTO evening_player_votes VALUES('ev',?,'best_player',?,?,?)",[v,n,closed,closed]);
@@ -19,7 +21,7 @@ it('runs a separate finalist vote in app and bot, preserving first ballots and r
  expect(context.round).toBe(1);expect(context.nominees.map(n=>n.player_id).sort()).toEqual(['b','d']);
  for(let i=0;i<3;i++){await db.run("INSERT INTO game_evenings(id,title,status,starts_at,settled_at,created_at,updated_at) VALUES(?,?,'completed',?,?,?,?)",['new'+i,'Недавний',stamp,stamp,stamp,stamp]);await db.run("INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,created_at,updated_at) VALUES(?,?,'a','attended',?,?)",['new-ep'+i,'new'+i,stamp,stamp]);}
  expect((await loadPendingVoteForPlayer(db,'a'))?.evening_id).toBe('ev');
- const round=await loadMvpRunoff(db,'ev');expect(Date.parse(round!.deadline_at)-Date.parse(round!.started_at)).toBe(86_400_000);
+ const round=await loadMvpRunoff(db,'ev');expect(Date.parse(round!.deadline_at)).toBe(new Date('2026-11-12T21:00:00+03:00').getTime()); // the additional vote ends on Thursday 21:00 (owner, 2026-11-09)
  expect((await loadPendingVoteForPlayer(db,'a'))?.voted).toBe(false);
  expect(await castEveningVote(db,'ev','a','b')).toEqual({ok:false,code:'round_changed'});
  expect(await castEveningVote(db,'ev','a','c',{round:1})).toEqual({ok:false,code:'bad_nominee'});

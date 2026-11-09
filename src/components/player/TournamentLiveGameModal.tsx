@@ -593,7 +593,7 @@ function TournamentLiveGameModalBody({
           В CRM изменены роли: {changedRoleSeats.map((seat) => `№${seat}`).join(', ')}. {roleAssignments ? 'Движок применяет исправления и записывает их в журнал. Прошлые ночные действия проверьте перед подтверждением протокола.' : 'Назначение ролей не заполнено полностью; движок сохраняет последнее полное назначение до завершения правки.'}
         </div>
       ) : null}
-      {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 ? <div className="mx-4 my-2">
+      {payload && !loading && !reviewMode && livePhase==='setup' && payload.protocol.status!=='completed' && (latestRoleResults||payload.player_results).length===10 && !roleAssignments ? <div className="mx-4 my-2">
         <button type="button" data-testid="tournament-start-virtual-deal" onClick={()=>setVirtualSeats((latestRoleResults||payload.player_results).slice().sort((a,b)=>a.seat_number-b.seat_number))} className="min-h-12 w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white">Раздать виртуальные карты</button>
       </div>:null}
       {virtualSeats ? <DealSeatPlayersContext.Provider value={(seat:number)=>virtualSeats.find(p=>p.seat_number===seat)?.player_id||null}><VirtualRoleDeal persistenceKey={dealKey} persistenceRosterToken={dealRosterToken(virtualSeats)} allowRolePurchase={false} seats={virtualSeats.map(p=>({seat_number:p.seat_number,nickname:p.display_name}))} finishLabel="Сохранить роли и вернуться к игре" onCancel={()=>setVirtualSeats(null)} onComplete={async assignments=>{

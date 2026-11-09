@@ -228,7 +228,8 @@ export default function PlayerJudging({ onBack, evenings = [], onCreated }: { on
                 } : current);
                 setTournamentGame((current) => current ? { ...current, status: 'active' } : current);
                 setProtocolOpen(false);
-                setTournamentLiveOpen(false);
+                // The engine opens at once after the start, as in the CRM (owner, 2026-11-09).
+                setTournamentLiveOpen(true);
                 void reload();
               }}
               setFeedbackMsg={setFeedback}

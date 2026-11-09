@@ -287,13 +287,14 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
     return true;
   }
 
-  const tournamentMatch = path.match(/^\/api\/tournaments\/([^/]+)\/games\/([^/]+)\/(roles|start|protocol(?:\/complete)?)\/?$/);
+  const tournamentMatch = path.match(/^\/api\/tournaments\/([^/]+)\/games\/([^/]+)\/(roles|start|virtual-deal\/(?:open|reveal|confirm|undo|reset)|protocol(?:\/complete)?)\/?$/);
   if (!tournamentMatch) return false;
 
   const action = tournamentMatch[3];
   const methodAllowed =
     (action === 'roles' && req.method === 'PATCH') ||
     (action === 'start' && req.method === 'POST') ||
+    (action.startsWith('virtual-deal/') && req.method === 'POST') ||
     (action === 'protocol' && (req.method === 'GET' || req.method === 'PUT')) ||
     (action === 'protocol/complete' && req.method === 'POST');
   if (!methodAllowed) return false;

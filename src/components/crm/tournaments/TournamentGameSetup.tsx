@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowLeftRight } from 'lucide-react';
 import { RoleDealChoice } from '../../game/RoleDealChoice.tsx';
 import PhysicalRoleDeal from '../../game/PhysicalRoleDeal.tsx';
 import VirtualRoleDeal from '../../game/VirtualRoleDeal.tsx';
 import { TournamentGame, TournamentGameSeat } from '../../../lib/api';
 import { api } from '../../../lib/api';
+import { tournamentRoleDealApi } from '../../../lib/clubGamesApi.ts';
 
 export interface TournamentGameSetupProps {
   tournamentId: string;
@@ -36,6 +37,7 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
   onGameStarted,
   setFeedbackMsg,
 }) => {
+  const dealApi = useMemo(() => tournamentRoleDealApi(tournamentId, String(game.id)), [tournamentId, game.id]);
   const [saving, setSaving] = useState(false);
   const [showPhysicalDeal, setShowPhysicalDeal] = useState(false);
   const [showVirtualDeal, setShowVirtualDeal] = useState(false);
@@ -115,7 +117,7 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
             <VirtualRoleDeal
               seats={seatsForDeal}
               allowRolePurchase={false}
-              persistenceKey={`tournament-setup:${tournamentId}:${game.id}`}
+              dealApi={dealApi}
               finishLabel="Сохранить роли и запустить игру"
               onCancel={() => setShowVirtualDeal(false)}
               onComplete={async (assignments) => { await startWithRoles(assignments as Record<number, string>); setShowVirtualDeal(false); }}

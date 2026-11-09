@@ -53,8 +53,8 @@ playerRouter.get('/role-purchase-games', async (req, res) => {
             game.status === 'archived' || game.status === 'cancelled' ||
             !game.seats.some((seat) => seat.playerId === playerId)) continue;
         const deal = await db.get(
-          'SELECT 1 FROM game_virtual_role_deals WHERE game_id=? LIMIT 1',
-          [Number(game.id)],
+          'SELECT 1 FROM game_role_deals WHERE game_key=? LIMIT 1',
+          [`club:${Number(game.id)}`],
         ).catch(() => null);
         if (deal) continue;
         games.push({
@@ -91,8 +91,8 @@ playerRouter.get('/game-purchase-options', async (req, res) => {
             ['completed','archived','cancelled'].includes(game.status)) continue;
         const ownSeat = game.seats.find((seat) => seat.playerId === playerId);
         if (!ownSeat) continue;
-        const deal = await db.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id=?',
-          [Number(game.id)]).catch(() => null);
+        const deal = await db.get('SELECT 1 FROM game_role_deals WHERE game_key=?',
+          [`club:${Number(game.id)}`]).catch(() => null);
         games.push({
           gameId: Number(game.id), eveningId: event.id,
           eveningTitle: event.title, number: game.number ?? Number(game.id),

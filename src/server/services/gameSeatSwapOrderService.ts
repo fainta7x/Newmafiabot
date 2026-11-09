@@ -53,7 +53,7 @@ export async function orderGameSeatSwap(
     if (!targetPlayerId || targetPlayerId === playerId) fail('Выберите другого игрока', 400);
     if (!game.seats.some((seat) => seat.playerId === playerId) ||
         !game.seats.some((seat) => seat.playerId === targetPlayerId)) fail('Оба игрока должны сидеть за этим столом', 403);
-    const deal = await tx.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id=?', [gameId]).catch(() => null);
+    const deal = await tx.get('SELECT 1 FROM game_role_deals WHERE game_key=?', [`club:${gameId}`]).catch(() => null);
     if (deal) fail('После начала раздачи менять места нельзя');
     const existing = await tx.get(
       "SELECT 1 FROM game_seat_swap_orders WHERE game_id=? AND status='ordered' AND (player_id IN (?,?) OR target_player_id IN (?,?)) LIMIT 1",
@@ -81,7 +81,7 @@ export async function applyGameSeatSwap(db: DatabaseWrapper, orderId: string, ga
     if (order.status === 'cancelled') fail('Заказ отменён');
     if (order.status === 'applied') return { applied: true };
     const game = await availableGame(tx, gameId);
-    const deal = await tx.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id=?', [gameId]).catch(() => null);
+    const deal = await tx.get('SELECT 1 FROM game_role_deals WHERE game_key=?', [`club:${gameId}`]).catch(() => null);
     if (deal) fail('Нельзя менять места после начала раздачи');
     const row = await tx.get<{ protocol_text: string; slots_json: string; evening_table_id: string | null }>(
       'SELECT protocol_text,slots_json,evening_table_id FROM games WHERE id=?', [gameId],

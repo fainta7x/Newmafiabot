@@ -5,6 +5,30 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 const updateGameRoles = vi.fn(async () => ({}));
 const startTournamentGame = vi.fn(async () => ({}));
 vi.mock('../lib/api.ts', () => ({ api: { updateGameRoles: (...a: any[]) => (updateGameRoles as any)(...a), startTournamentGame: (...a: any[]) => (startTournamentGame as any)(...a) } }));
+// The deal is kept on the server (owner, 2026-11-09): a small in-memory stand-in for its five calls.
+vi.mock('../lib/clubGamesApi.ts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../lib/clubGamesApi.ts')>();
+  const fresh = (version: number) => {
+    const roles = ['sheriff', 'don', 'mafia', 'mafia', ...Array(6).fill('citizen')];
+    return { version, deck: roles.map((role, i) => ({ id: `c${i}`, role })), history: [] as any[], pending: null as any };
+  };
+  const view = (st: any) => ({ version: st.version, cards: st.deck.map((c: any) => ({ id: c.id })), history: st.history.map((h: any) => ({ seat: h.seat, cardId: h.cardId, role: h.role })), pending: null });
+  return {
+    ...original,
+    tournamentRoleDealApi: (_t: string, gameId: string) => {
+      let st = fresh(0);
+      return {
+        key: `tournament:${gameId}`,
+        open: async () => { st = fresh(st.version + 1); return view(st); },
+        reveal: async ({ cardId, seat }: any) => { const card = st.deck.find((c: any) => c.id === cardId)!; st.pending = { seat, cardId, role: card.role }; st.version += 1; return { version: st.version, role: card.role }; },
+        confirm: async () => { st.history.push({ ...st.pending }); st.deck = st.deck.filter((c: any) => c.id !== st.pending.cardId); st.pending = null; st.version += 1; return view(st); },
+        buy: async () => { throw new Error('no purchase'); },
+        undo: async () => view(st),
+        reset: async () => { st = fresh(st.version + 1); return view(st); },
+      };
+    },
+  };
+});
 import { TournamentGameSetup } from '../components/crm/tournaments/TournamentGameSetup';
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -23,14 +47,18 @@ describe('tournament game start with the virtual deal (owner, 2026-11-07)', () =
     const p = props('active');
     render(<TournamentGameSetup {...p} />);
     fireEvent.click(screen.getByTestId('tournament-setup-virtual-deal'));
+    // the deal is opened on the server first: its buttons wake up when the cards have arrived
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Начать раздачу' }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Начать раздачу' }));
-    fireEvent.click(screen.getByTestId('virtual-deal-go'));
+    fireEvent.click(await screen.findByTestId('virtual-deal-go'));
     for (let i = 0; i < 10; i += 1) {
-      fireEvent.click(screen.getAllByRole('button', { name: /^Карта №/ })[0]);
+      fireEvent.click((await screen.findAllByRole('button', { name: /^Карта №/ }))[0]);
       await waitFor(() => expect((screen.getByTestId('virtual-deal-next-player') as HTMLButtonElement).disabled).toBe(false), { timeout: 15000 });
       fireEvent.click(screen.getByTestId('virtual-deal-next-player'));
+      // the deal is on the server now: the next card is taken only after this one has been confirmed there
+      if (i < 9) await screen.findByText(new RegExp(`Выдано ${i + 1} из 10`), undefined, { timeout: 15000 });
     }
-    await waitFor(() => expect(startTournamentGame).toHaveBeenCalledWith('t1', 'g1'));
+    await waitFor(() => expect(startTournamentGame).toHaveBeenCalledWith('t1', 'g1'), { timeout: 10000 });
     const roles = (updateGameRoles.mock.calls[0] as any)[2] as Array<{ role: string }>;
     expect(roles.filter((r) => r.role === 'mafia')).toHaveLength(2);
     expect(roles.filter((r) => r.role === 'don')).toHaveLength(1);

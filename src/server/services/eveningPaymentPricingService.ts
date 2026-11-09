@@ -219,7 +219,7 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
   let rows: Array<{ state_json: string }> = [];
   try {
     rows = await db.all<{ state_json: string }>(
-      `SELECT d.state_json FROM game_virtual_role_deals d JOIN games g ON g.id = d.game_id
+      `SELECT d.state_json FROM game_role_deals d JOIN games g ON d.game_key = 'club:' || g.id
         WHERE g.evening_id = ? AND g.archived_at IS NULL`, [eveningId]);
   } catch { rows = []; } // pre-deal purchases must still be charged when no virtual-deal table exists
   for (const row of rows) {

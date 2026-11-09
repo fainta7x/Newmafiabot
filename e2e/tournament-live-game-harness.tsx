@@ -144,6 +144,40 @@ const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const url = new URL(rawUrl, window.location.origin);
+  // A small stand-in for the server deal (the same five calls as the club's): the state is kept in the page, so a reload resumes it.
+  if(url.pathname.startsWith('/api/tournaments/tournament-e2e/games/game-e2e/virtual-deal/')){
+    const action=url.pathname.split('/').pop();
+    const body=init?.body?JSON.parse(String(init.body)):{};
+    const key='__e2eServerDeal';
+    const load=()=>JSON.parse(localStorage.getItem(key)||'null');
+    const save=(state:any)=>localStorage.setItem(key,JSON.stringify(state));
+    const view=(st:any)=>({version:st.version,cards:st.deck.map((c:any)=>({id:c.id})),history:st.history.map((h:any)=>({seat:h.seat,cardId:h.cardId,role:h.role})),pending:st.pending?{seat:st.pending.seat,cardId:st.pending.cardId,role:st.pending.role}:null});
+    const fresh=(version:number)=>{
+      const roles=['sheriff','don','mafia','mafia',...Array(6).fill('citizen')];
+      for(let i=roles.length-1;i>0;i-=1){const j=Math.floor(Math.random()*(i+1));[roles[i],roles[j]]=[roles[j],roles[i]];}
+      return {version,deck:roles.map((role,i)=>({id:`c${i}-${Math.random().toString(36).slice(2,8)}`,role})),history:[] as any[],pending:null as any};
+    };
+    let st=load();
+    if(action==='open'){
+      if(!(st&&(st.history.length>0||st.pending)&&st.history.length<10)){st=fresh((st?.version??-1)+1);save(st);}
+      return Response.json(view(st));
+    }
+    if(action==='reveal'){
+      const card=st.deck.find((c:any)=>c.id===body.cardId);
+      st.pending={seat:body.seat,cardId:body.cardId,role:card.role};st.version+=1;save(st);
+      return Response.json({version:st.version,role:card.role});
+    }
+    if(action==='confirm'){
+      st.history.push({seat:st.pending.seat,cardId:st.pending.cardId,role:st.pending.role});
+      st.deck=st.deck.filter((c:any)=>c.id!==st.pending.cardId);st.pending=null;st.version+=1;save(st);
+      return Response.json(view(st));
+    }
+    if(action==='undo'){
+      const last=st.history.pop();if(last)st.deck.push({id:last.cardId,role:last.role});st.version+=1;save(st);
+      return Response.json(view(st));
+    }
+    if(action==='reset'){st=fresh(st.version+1);save(st);return Response.json(view(st));}
+  }
   if(url.pathname==='/api/tournaments/tournament-e2e/games/game-e2e/roles'){
     const {roles}=JSON.parse(String(init?.body));
     (window as any).__savedVirtualRoles=roles;

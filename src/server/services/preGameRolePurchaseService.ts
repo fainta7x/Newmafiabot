@@ -71,7 +71,7 @@ export async function reserveRoleBeforeDeal(
     if (!game.seats.some((seat) => seat.playerId === playerId)) failure('Игрок не участвует в этой игре', 403);
 
     // A deal row exists as soon as dealing starts, even before the first card.
-    const deal = await tx.get('SELECT 1 FROM game_virtual_role_deals WHERE game_id = ? LIMIT 1', [gameId])
+    const deal = await tx.get('SELECT 1 FROM game_role_deals WHERE game_key = ? LIMIT 1', [`club:${gameId}`])
       .catch(() => null); // An older DB may not yet have the virtual-deal table.
     const existingRows = await tx.all<OrderRow>(
       'SELECT id, game_id, evening_id, player_id, role, status, created_at FROM game_role_reservations WHERE game_id = ?',
@@ -126,8 +126,8 @@ export async function cancelPreGameRolePurchase(db: DatabaseWrapper, orderId: st
       const game = await getGame(tx, `club:${row.game_id}`);
       const seat = game?.seats.find((entry) => entry.playerId === row.player_id)?.seat;
       const deal = await tx.get<{ state_json: string }>(
-        'SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',
-        [row.game_id],
+        'SELECT state_json FROM game_role_deals WHERE game_key=?',
+        [`club:${row.game_id}`],
       ).catch(() => null);
       if (deal?.state_json && seat != null) {
         let pendingSeat: unknown = null;
@@ -190,7 +190,7 @@ export async function chooseGameForDeferredRolePurchase(
     if (['completed', 'cancelled', 'archived'].includes(game.status)) failure('На выбранную игру покупки закрыты');
     if (!game.seats.some((seat) => seat.playerId === buyerPlayerId)) failure('Игрок не участвует в выбранной игре', 403);
     const deal = await tx.get(
-      'SELECT 1 FROM game_virtual_role_deals WHERE game_id=? LIMIT 1', [nextGameId],
+      'SELECT 1 FROM game_role_deals WHERE game_key=? LIMIT 1', [`club:${nextGameId}`],
     ).catch(() => null);
     const orders = await tx.all<OrderRow>(
       'SELECT id, game_id, evening_id, player_id, role, status, created_at FROM game_role_reservations WHERE game_id=?',

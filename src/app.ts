@@ -17,6 +17,7 @@ import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
 import { ensureLegacyRegularWaiverProtection } from './db/ensureLegacyRegularWaiverProtection.ts';
 import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
+import { ensureGameRoleDealSchema } from './db/ensureGameRoleDealSchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerConnectionsSchema } from './db/ensurePlayerConnectionsSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
@@ -200,6 +201,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureClubOperationsSchema(db);
   await ensureCanonicalEveningParticipantState(db);
   await ensureJudgeMusicSchema(db);
+  await ensureGameRoleDealSchema(db);
   await ensureEloSeedSchema(db);
   await ensurePlayerShopSchema(db);
   await ensureCommerceSchema(db);

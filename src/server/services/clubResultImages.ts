@@ -2,7 +2,7 @@ import { round2 } from '../../shared/numbers.ts';
 import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Resvg } from '@resvg/resvg-js';
+import { Resvg, renderAsync } from '@resvg/resvg-js';
 import {
   NOIR_EXPORT_COLORS as C,
   NOIR_EXPORT_LAYOUT,
@@ -381,12 +381,19 @@ export function birthdayCardSvg(card: { nickname: string; avatar: string | null;
 </svg>`;
 }
 
+const renderOptions = () => ({
+  font: { fontFiles: FONT_FILES, loadSystemFonts: FONT_FILES.length === 0, defaultFontFamily: 'Montserrat', sansSerifFamily: 'Montserrat' },
+  fitTo: { mode: 'width' as const, value: W },
+});
+
+/** Synchronous: blocks the server for the whole drawing (0.1–0.7 s a card with photos, measured 2026-11-09). Tests and scripts only. */
 export function renderPng(svg: string): Buffer {
-  const resvg = new Resvg(svg, {
-    font: { fontFiles: FONT_FILES, loadSystemFonts: FONT_FILES.length === 0, defaultFontFamily: 'Montserrat', sansSerifFamily: 'Montserrat' },
-    fitTo: { mode: 'width', value: W },
-  });
-  return resvg.render().asPng();
+  return new Resvg(svg, renderOptions()).render().asPng();
+}
+
+/** The drawing runs in the library's own thread pool, so the server keeps answering while a card is drawn. */
+export async function renderPngAsync(svg: string): Promise<Buffer> {
+  return (await renderAsync(svg, renderOptions())).asPng();
 }
 
 

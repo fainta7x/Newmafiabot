@@ -21,7 +21,7 @@ import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
 import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
-import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
+import { eveningSummarySvg, gameBlankSvg, renderPngAsync, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
 import { clubGameCompletedSql, tournamentGameCompletedSql } from './gameService.ts';
 
@@ -139,7 +139,7 @@ export async function postGameBlank(db: DatabaseWrapper, gameId: string, format:
     const blank = await loadGameBlank(db, gameId);
     if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра не завершена' }); return false; }
     const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
-    const result = await sendPhotos(db, format, [renderPng(gameBlankSvg(blank))], `🎭 Игра №${blank.gameNumber} · ${winner}`, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, format, [await renderPngAsync(gameBlankSvg(blank))], `🎭 Игра №${blank.gameNumber} · ${winner}`, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -156,7 +156,7 @@ export async function postEveningSummary(db: DatabaseWrapper, eveningId: string,
     if (!summary) { await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' }); return false; }
     // The season so far rides as the second picture of the same message (owner: less spam).
     const season = await loadSeasonTable(db, eveningId).catch((error) => { console.error('[CLUB RESULTS] season table failed:', error); return null; });
-    const photos = [renderPng(eveningSummarySvg(summary)), ...(season ? [renderPng(seasonTableSvg(season))] : [])];
+    const photos = [await renderPngAsync(eveningSummarySvg(summary)), ...(season ? [await renderPngAsync(seasonTableSvg(season))] : [])];
     const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${season ? ` и промежуточная таблица «${season.periodTitle}»` : ''}`;
     const result = await sendPhotos(db, format, photos, caption, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
@@ -338,7 +338,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   if (!(await claim(db, key, 'public-season', null as any, null))) return false;
   try {
     const caption = `🏆 Таблица сезона на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
-    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'club_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, null, await Promise.all(tables.map((table) => renderPngAsync(seasonTableSvg(table)))), caption, fetchImpl, 'club_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -631,7 +631,7 @@ export const TOURNAMENT_ANNOUNCE_HOURS = 36;
 // The club's Twitch channel (owner, 2026-10-02: chagintv); TWITCH_CHANNEL_URL overrides it.
 const broadcastLink = () => String(process.env.TWITCH_CHANNEL_URL || 'https://www.twitch.tv/chagintv').trim().replace(/\/$/, '');
 
-function tournamentAnnouncementMedia(announcement: NonNullable<Awaited<ReturnType<typeof loadTournamentAnnouncement>>>) {
+async function tournamentAnnouncementMedia(announcement: NonNullable<Awaited<ReturnType<typeof loadTournamentAnnouncement>>>) {
   const link = broadcastLink();
   const caption = [
     `🏆 Турнир «${announcement.title}» — ${announcement.dateLabel}${announcement.timeLabel ? `, начало в ${announcement.timeLabel}` : ''}!`,
@@ -643,7 +643,7 @@ function tournamentAnnouncementMedia(announcement: NonNullable<Awaited<ReturnTyp
     '',
     'Приходите болеть за любимчиков и смотрите в эфире! 🖤',
   ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').slice(0, 1020);
-  return { caption, photo: renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба')) };
+  return { caption, photo: await renderPngAsync(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба')) };
 }
 
 export async function syncTournamentAnnouncementPhoto(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
@@ -660,7 +660,7 @@ export async function syncTournamentAnnouncementPhoto(db: DatabaseWrapper, tourn
   if (!chatId || !messageId) throw new Error('У старого анонса не сохранился номер сообщения. Картинку нужно заменить в Telegram.');
   const announcement = await loadTournamentAnnouncement(db, tournamentId);
   if (!announcement?.players.length) throw new Error('В турнире нет подтверждённых участников');
-  const { caption, photo } = tournamentAnnouncementMedia(announcement);
+  const { caption, photo } = await tournamentAnnouncementMedia(announcement);
   const result = await sendPublicTelegram(db, {
     method: 'editMessageMedia',
     fields: { chat_id: chatId, message_id: messageId, media: { type: 'photo', media: 'attach://photo', caption } },
@@ -682,7 +682,7 @@ export async function postTournamentAnnouncement(db: DatabaseWrapper, tournament
   if (tournament?.tournament_evening_flow && !tournament.published_at) return false;
   if (!(await claim(db, key, 'tournament-announce', '', null))) return false;
   try {
-    const { caption, photo } = tournamentAnnouncementMedia(announcement);
+    const { caption, photo } = await tournamentAnnouncementMedia(announcement);
     const result = await sendPhotos(db, 'TOURNAMENT', [photo], caption, fetchImpl, 'rating', undefined, undefined, { key: 'club:' + key, kind: 'club-result' }, true);
     await finish(db, key, result);
     return result.ok;
@@ -713,7 +713,7 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
     const blank = await loadTournamentGameBlank(db, tournamentGameId);
     if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра турнира не завершена' }); return false; }
     const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
-    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+    const result = await sendPhotos(db, 'TOURNAMENT', [await renderPngAsync(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {

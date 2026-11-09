@@ -1,6 +1,6 @@
 ## 2026-11-09 — «MVP вечера»: new schedule of the vote (owner)
 
-Friday evening: poll Saturday 12:00, voting to Tuesday 21:00, additional vote to Thursday 21:00; other days: next day 12:00 → 3rd day 21:00 → 5th day 21:00; a late-closed evening is polled right after closing, never after the end. Rule text: `docs/BUSINESS_RULES.md` «MVP вечера: schedule of the vote». Code: `src/shared/eveningVotingSchedule.ts` is the one place of the times; the personal bot buttons now go out with the poll (not with the personal card). Open: the reminder for non-voters stays «24 h after the poll» (owner not asked). Not deployed.
+Friday evening: poll Saturday 12:00, voting to Tuesday 21:00, additional vote to Thursday 21:00; other days: next day 12:00 → 3rd day 21:00 → 5th day 21:00; a late-closed evening is polled right after closing, never after the end. Rule text: `docs/BUSINESS_RULES.md` «MVP вечера: schedule of the vote». Code: `src/shared/eveningVotingSchedule.ts` is the one place of the times; the personal bot buttons now go out with the poll (not with the personal card). The owner confirmed (2026-11-09) the 12:00/21:00 hours for other days, the reminder «24 h after the poll», and that old polls are left as they are. Live check list: `docs/LIVE_CHECK_2026-11-09.md` (waiting for the owner's «ок» per item).
 
 ## 2026-11-09 — tournament CRM audit: decisions of the owner (code in #1202/#1203, one item open)
 

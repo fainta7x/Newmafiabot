@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { openExternalMusicUrl } from '../../lib/openExternalMusicUrl.ts';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type UploadTrack = {
   id: string;
@@ -100,7 +101,7 @@ export default function JudgeMusicPlaylist() {
   };
 
   const removeUpload = async (track: UploadTrack) => {
-    if (busy || !window.confirm(`Удалить «${track.title}»?`)) return;
+    if (busy || !await appConfirm(`Удалить «${track.title}»?`)) return;
     setBusy(true);
     try {
       await sendJson(`/api/player/judge-music/tracks/${encodeURIComponent(track.id)}`, 'DELETE', undefined, 'Не удалось удалить трек.');
@@ -114,7 +115,7 @@ export default function JudgeMusicPlaylist() {
   };
 
   const removeLink = async (track: LinkTrack) => {
-    if (busy || !window.confirm(`Удалить «${track.title}»?`)) return;
+    if (busy || !await appConfirm(`Удалить «${track.title}»?`)) return;
     setBusy(true);
     try {
       await sendJson(`/api/player/music-library/organizer/links/${encodeURIComponent(track.id)}`, 'DELETE', undefined, 'Не удалось удалить ссылку.');

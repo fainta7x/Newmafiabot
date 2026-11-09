@@ -2,6 +2,7 @@ import { organizerJson } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 import type { PlayerDetails } from '../../lib/api.ts';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 export default function PlayerServiceTools({ player }: { player: PlayerDetails }) {
   const [eloSeed, setEloSeed] = useState(String(Number((player as any).elo_seed ?? 1000)));
@@ -58,7 +59,7 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
       setError('Стартовый Elo должен быть целым числом от 0 до 10000');
       return;
     }
-    if (!window.confirm(`Установить стартовый Elo ${seed} для ${player.nickname} и пересчитать всю Elo-историю?`)) return;
+    if (!await appConfirm(`Установить стартовый Elo ${seed} для ${player.nickname} и пересчитать всю Elo-историю?`)) return;
     setSaving(true); setError(null); setMessage(null);
     try {
       const body = await organizerJson<any>(`/api/players/${encodeURIComponent(player.id)}/elo-seed`, 'Не удалось изменить стартовый Elo', {

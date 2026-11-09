@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Recipient = { id: string; nickname: string; channel: 'telegram' | 'vk_manual' | 'none'; attendance_count: number | null; last_visit: string | null };
 type Contribution = { player_id: string; nickname: string; contact_url: string | null; status: 'invited' | 'pledged' | 'declined' | 'paid'; channel: Recipient['channel']; pledged_amount: number; paid_amount: number };
@@ -67,7 +68,7 @@ export function GiftCollectionCRM() {
     finally { setBusy(false); }
   };
   const publishBirthday = async () => {
-    if (!postPlayerId || !editedBirthdayText.trim() || !window.confirm('Опубликовать поздравление во всех активных Telegram-каналах и на стене ВК?')) return;
+    if (!postPlayerId || !editedBirthdayText.trim() || !await appConfirm('Опубликовать поздравление во всех активных Telegram-каналах и на стене ВК?')) return;
     setBusy(true); setError('');
     try {
       const result = await sendJson<any>(`/api/birthday-posts/${encodeURIComponent(postPlayerId)}/publish`, 'POST', { evening_id: birthdayDraft?.evening_id || null, text: editedBirthdayText }, 'Не удалось опубликовать поздравление');
@@ -99,7 +100,7 @@ export function GiftCollectionCRM() {
   };
   const removeRecipient = async (c: Contribution) => {
     if (!view || busy) return;
-    if (!window.confirm(`Убрать игрока «${c.nickname}» из сбора? Его ответ и обещанная сумма будут удалены.`)) return;
+    if (!await appConfirm(`Убрать игрока «${c.nickname}» из сбора? Его ответ и обещанная сумма будут удалены.`)) return;
     setBusy(true); setError(''); setNotice('');
     try {
       await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/contributions/${encodeURIComponent(c.player_id)}`, 'DELETE', undefined, 'Не удалось убрать участника');
@@ -126,7 +127,7 @@ export function GiftCollectionCRM() {
     } catch (e) { fail(e, 'Не удалось добавить игроков'); } finally { setBusy(false); }
   };
   const closeCollection = async () => {
-    if (!view || !window.confirm('Закрыть сбор? Игроки больше не смогут менять сумму.')) return;
+    if (!view || !await appConfirm('Закрыть сбор? Игроки больше не смогут менять сумму.')) return;
     setError('');
     try { await sendJson(`/api/gift-collections/${encodeURIComponent(view.collection.id)}/close`, 'POST', {}, 'Не удалось закрыть сбор'); await loadOne(view.collection.id); await loadList(); }
     catch (e) { fail(e, 'Не удалось закрыть сбор'); }

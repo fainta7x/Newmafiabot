@@ -36,6 +36,7 @@ import {
   useTableDecisionSelection,
 } from "./tableDecisionSelectionStore.js";
 import { normalizeGameRole } from '../../shared/gameRoles.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -1123,7 +1124,7 @@ export default function CenterPanel(props: CenterPanelProps) {
               <button type="button" data-testid={canReturnToSpeeches ? "live-voting-back-to-speeches" : undefined} onClick={handleVotingBack} className="live-judge-hud__header-button"><ArrowLeft /><span>{canReturnToSpeeches ? "К речам" : "Назад"}</span></button>
             )}
             {onCancel && (
-              <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="live-judge-hud__header-button"><LogOut /><span>Выйти</span></button>
+              <button type="button" onClick={async () => { if (await appConfirm('Выйти из текущей игры?')) onCancel(); }} className="live-judge-hud__header-button"><LogOut /><span>Выйти</span></button>
             )}
           </div>
         </div>

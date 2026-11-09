@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { appConfirm } from '../../../lib/appConfirm.ts';
 import { winnerRemarkTarget, winnerTableMessage } from './protocolReview';
 import { AlertTriangle, ChevronDown, UserRoundCog } from 'lucide-react';
 import { api as backend, type Player } from '../../../lib/api';
@@ -43,7 +44,7 @@ const GuestSeatReplacement: React.FC<{ api: ProtocolApi }> = ({ api }) => {
 
   const apply = async () => {
     if (!guest || !replacement || busy || !api.replaceGuest) return;
-    if (!window.confirm(`Заменить гостя #${guest.seat_number} ${guest.display_name || 'Гость без профиля'} на ${replacement.nickname}? Роль, фолы, голосования и выход останутся на месте.`)) return;
+    if (!(await appConfirm(`Заменить гостя #${guest.seat_number} ${guest.display_name || 'Гость без профиля'} на ${replacement.nickname}? Роль, фолы, голосования и выход останутся на месте.`, { title: 'Заменить гостя?', confirmLabel: 'Заменить' }))) return;
     setBusy(true); setError(null);
     try {
       await api.replaceGuest(guest.seat_number, replacement.id);

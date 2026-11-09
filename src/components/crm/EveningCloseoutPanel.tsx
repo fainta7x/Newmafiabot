@@ -3,6 +3,7 @@ import { CheckCircle2, CircleDollarSign, Gift, RefreshCw, Search, UserPlus, User
 import { isAttendingResponse } from '../../lib/eveningResponse.ts';
 import { needsEveningCloseoutAttendance } from '../../lib/eveningParticipantView.ts';
 import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Participant = {
   id: string;
@@ -200,7 +201,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
   };
 
   const cancelShortfall = async () => {
-    if (!state || busyAction || !window.confirm('Отменить вечер из-за недобора? Всем записавшимся придёт сообщение об отмене.')) return;
+    if (!state || busyAction || !await appConfirm('Отменить вечер из-за недобора? Всем записавшимся придёт сообщение об отмене.')) return;
     setBusyAction('cancel'); setError(null);
     try {
       await request(`/api/evenings/${encodeURIComponent(eveningId)}/closeout/cancel-shortfall`, { method: 'POST' });

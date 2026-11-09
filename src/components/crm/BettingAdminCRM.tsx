@@ -2,6 +2,7 @@ import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Team = 'red' | 'black';
 type Bet = {
@@ -98,7 +99,7 @@ export const BettingAdminCRM: React.FC = () => {
       : action === 'refund'
         ? 'Вернуть все ставки игрокам? Выплаты, если они уже были, будут отменены.'
         : `Принудительно рассчитать победу ${winner === 'red' ? 'красных' : 'чёрных'}?`;
-    if (!window.confirm(title)) return;
+    if (!await appConfirm(title)) return;
     const key = `${pool.game_id}:${action}:${winner || ''}`;
     setBusy(key); setError(null); setMessage(null);
     try {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { appNotice } from '../../../lib/appConfirm.ts';
 import { Clock, Image as ImageIcon } from 'lucide-react';
 import {
   api,
@@ -328,7 +329,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       setShowCompleteConfirm(false);
 
       if (res.checkpoint_warning) {
-        alert('Протокол завершён, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
+        void appNotice('Протокол завершён, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
       }
 
       // Clear the emergency browser backup after successful completion.
@@ -358,7 +359,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       setShowRevertConfirm(false);
 
       if (res.checkpoint_warning) {
-        alert('Протокол открыт для правки, но резервная копия базы не сохранилась:\n\n' + res.checkpoint_warning);
+        void appNotice('Протокол открыт для правки, но резервная копия базы не сохранилась:\n\n' + res.checkpoint_warning);
       }
 
       if (onProtocolUpdated) onProtocolUpdated();

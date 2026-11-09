@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Circle, Clipboard, Laptop, Link2, Loader2, Mic, MicOff, Radio, RefreshCw, Unplug } from 'lucide-react';
 import { OBS_RECOMMENDED_SCENES, orderObsScenes } from '../../lib/obsScenes.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type ObsRemoteStatus = {
   paired: boolean;
@@ -145,7 +146,7 @@ export const ObsRemoteCRM: React.FC = () => {
           </div>
         </div> : null}
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" disabled={Boolean(sending)} onClick={() => { if (!status?.stream_active || window.confirm('Остановить трансляцию?')) void send('stream', { type: 'stream', action: status?.stream_active ? 'stop' : 'start' }); }}
+          <button type="button" disabled={Boolean(sending)} onClick={async () => { if (!status?.stream_active || await appConfirm('Остановить трансляцию?')) void send('stream', { type: 'stream', action: status?.stream_active ? 'stop' : 'start' }); }}
             className={`min-h-12 rounded-2xl px-3 text-[13px] font-bold ${status?.stream_active ? 'border border-rose-300/30 bg-rose-400/10 text-rose-100' : 'bg-white text-black'}`}>{sending === 'stream' ? '…' : status?.stream_active ? 'Остановить эфир' : 'Начать эфир'}</button>
           <button type="button" disabled={Boolean(sending)} onClick={() => void send('record', { type: 'record', action: status?.recording_active ? 'stop' : 'start' })}
             className="min-h-12 rounded-2xl border border-white/10 bg-black/20 px-3 text-[13px] font-bold text-white/80">{sending === 'record' ? '…' : status?.recording_active ? 'Остановить запись' : 'Начать запись'}</button>

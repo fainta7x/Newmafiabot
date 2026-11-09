@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { appConfirm, appNotice } from '../../../lib/appConfirm.ts';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../../lib/api';
 import { cleanAndSyncVotes as cleanVotes, createNextRevoteRound } from '../../../shared/tournamentVoting';
 import { getOppositeTeam, recalculateVoteRemainder, syncAllEventsToResults } from '../tournaments/protocol/protocolStateUtils';
@@ -51,30 +52,30 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     setPlayerResults((prev) => prev.map((player) => player.participant_id === participantId ? { ...player, ...withoutRemovalFouls(player, updates) } : player));
   };
 
-  const changeRegularFoul = (player: PlayerResultData, delta: number) => {
+  const changeRegularFoul = async (player: PlayerResultData, delta: number) => {
     const change = getRegularFoulChange(player, delta);
     if (change.kind === 'update') updatePlayerResult(player.participant_id, change.updates);
-    if (change.kind === 'confirm' && confirm(`Удалить игрока #${player.seat_number} за 4-й фол?`)) {
+    if (change.kind === 'confirm' && await appConfirm(`Удалить игрока #${player.seat_number} за 4-й фол?`, { title: 'Удалить игрока?', confirmLabel: 'Удалить', danger: true })) {
       const updates = getConfirmedPlayerDisciplineUpdates(player, 'foul_4');
       if (updates) updatePlayerResult(player.participant_id, updates);
     }
   };
 
-  const changeTechFoul = (player: PlayerResultData, type: TechFoulType, delta: number) => {
+  const changeTechFoul = async (player: PlayerResultData, type: TechFoulType, delta: number) => {
     const change = getTechFoulChange(player, type, delta);
     if (change.kind === 'update') updatePlayerResult(player.participant_id, change.updates);
-    if (change.kind === 'confirm' && confirm(`Это второй технический фол игрока #${player.seat_number}. Удалить игрока?`)) {
+    if (change.kind === 'confirm' && await appConfirm(`Это второй технический фол игрока #${player.seat_number}. Удалить игрока?`, { title: 'Удалить игрока?', confirmLabel: 'Удалить', danger: true })) {
       const updates = getConfirmedPlayerDisciplineUpdates(player, 'tech_2', type);
       if (updates) updatePlayerResult(player.participant_id, updates);
     }
   };
 
-  const handlePpk = (player: PlayerResultData) => {
+  const handlePpk = async (player: PlayerResultData) => {
     if (protocol.status === 'completed') return;
-    if (!confirm(`Зафиксировать ППК игрока #${player.seat_number}? Игра завершится немедленно.`)) return;
+    if (!(await appConfirm(`Зафиксировать ППК игрока #${player.seat_number}? Игра завершится немедленно.`, { title: 'Зафиксировать ППК?', confirmLabel: 'Зафиксировать', danger: true }))) return;
     const winner = getOppositeTeam(player.role);
     if (!winner) {
-      alert('Сначала установите роль игрока');
+      await appNotice('Сначала установите роль игрока');
       return;
     }
     setProtocol((prev) => ({
@@ -85,9 +86,9 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     }));
   };
 
-  const handleCancelPpk = () => {
+  const handleCancelPpk = async () => {
     if (protocol.status === 'completed') return;
-    if (!confirm('Отменить ППК? Игра снова станет незавершённой, победителя нужно будет указать заново.')) return;
+    if (!(await appConfirm('Игра снова станет незавершённой, победителя нужно будет указать заново.', { title: 'Отменить ППК?', confirmLabel: 'Отменить ППК', danger: true }))) return;
     setProtocol((prev) => ({ ...prev, end_reason: 'normal', ppk_culprit_participant_id: null, winner_team: null }));
   };
 
@@ -258,14 +259,14 @@ export const useProtocolEditing = ({ protocol, setProtocol, playerResults, setPl
     });
   };
 
-  const removeByJudge = (player: PlayerResultData) => {
+  const removeByJudge = async (player: PlayerResultData) => {
     if (protocol.status === 'completed') return;
-    if (confirm(`Удалить игрока #${player.seat_number} решением судьи?`)) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
+    if (await appConfirm(`Удалить игрока #${player.seat_number} решением судьи?`, { title: 'Удалить игрока?', confirmLabel: 'Удалить', danger: true })) updatePlayerResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
   };
 
-  const cancelRemoval = (player: PlayerResultData) => {
+  const cancelRemoval = async (player: PlayerResultData) => {
     if (protocol.status === 'completed') return;
-    if (confirm(`Вернуть игрока #${player.seat_number}: отменить удаление судьёй?`)) updatePlayerResult(player.participant_id, { exit_type: 'alive', removal_reason: null });
+    if (await appConfirm(`Вернуть игрока #${player.seat_number}: отменить удаление судьёй?`, { title: 'Вернуть игрока?', confirmLabel: 'Вернуть' })) updatePlayerResult(player.participant_id, { exit_type: 'alive', removal_reason: null });
   };
 
   const revertChange = (change: Change) => {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { readJsonResponse } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Song = {
   id: string; player_id: string; track_reference: string;
@@ -52,7 +53,7 @@ export default function EveningMusicOrderPanel({ gameId, seats, completed }: {
   };
   const change = async (id: string, kind: 'played' | 'cancel') => {
     if (busy) return;
-    if (kind === 'cancel' && !confirm('Отменить заказ музыки и снять 50 ₽ с долга?')) return;
+    if (kind === 'cancel' && !await appConfirm('Отменить заказ музыки и снять 50 ₽ с долга?')) return;
     setBusy(true); setError('');
     try {
       await action(`/api/admin/music-orders/${encodeURIComponent(id)}${kind === 'played' ? '/played' : ''}`,

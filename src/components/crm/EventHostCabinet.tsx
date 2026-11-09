@@ -5,6 +5,7 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat, noviceStartsAt, type Eve
 import { canOrganizeEveningFormat, organizeFormatsSummary, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
 import MobileSheet from '../ui/MobileSheet.tsx';
 import CustomEventsPanel from './CustomEventsPanel.tsx';
+import { appNotice } from '../../lib/appConfirm.ts';
 
 /**
  * Limited cabinet «Проводит вечера» (owner decision 2026-09-29): the player sees every evening,
@@ -81,7 +82,7 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
       setTitle('');
       setStartsAt('');
       await onChanged();
-      if (!slots.ok) window.alert('Вечер создан, но игры не настроились. Настройте игры в карточке вечера.');
+      if (!slots.ok) await appNotice('Вечер создан, но игры не настроились. Настройте игры в карточке вечера.');
       onOpenEvening(created.id);
     } catch (createError: any) {
       setError(createError?.message || 'Не удалось создать вечер');

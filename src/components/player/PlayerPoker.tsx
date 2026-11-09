@@ -8,6 +8,7 @@ import PokerSoundToggle, { usePokerSoundEffects } from './PokerSoundToggle.tsx';
 import PokerDeskSidebar from './PokerDeskSidebar.tsx';
 import { PokerChatBubbles, PokerChatDock, readPokerChatMuted, usePokerChat, writePokerChatMuted } from './PokerChat.tsx';
 import { sendJson } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Card = { rank: string; suit: string };
 
@@ -478,12 +479,12 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
   /** A bot gets up from the table: its cards in a running hand are folded (owner, 2026-10-02). */
   /** Only the club owner gets this (the server decides; `can_kick` shows the button). */
   const kickPlayer = async (person: Player) => {
-    if (!window.confirm(`Убрать игрока «${person.nickname}» со стола?`)) return;
+    if (!await appConfirm(`Убрать игрока «${person.nickname}» со стола?`)) return;
     try { await applyLobby(`/api/player/poker/lobbies/${current.id}/kick`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: person.id }) }); }
     catch (e: any) { setError(e.message); }
   };
   const removeBot = async (bot: Player) => {
-    if (!window.confirm(`Убрать «${bot.nickname}» из-за стола?`)) return;
+    if (!await appConfirm(`Убрать «${bot.nickname}» из-за стола?`)) return;
     try { await applyLobby(`/api/player/poker/lobbies/${current.id}/bot/remove`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ botId: bot.id }) }); }
     catch (e: any) { setError(e.message); }
   };
@@ -721,7 +722,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
     const heroIndex = orderedPlayers.findIndex((player) => player.id === viewerId);
     return (
     <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ minHeight: shortLandscape ? '760px' : undefined, paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
-      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm(current.tournament ? 'Отойти от стола? Из турнира выход не делает: пока игрока нет, его карты сбрасываются.' : 'Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="truncate whitespace-nowrap text-[9px] uppercase tracking-[.2em] text-amber-100/45">{pokerModeLabel(current)} · {streetName(hand.street)} · {stackDisplay === 'bb' ? 'ББ 0,5/1' : `блайнды ${hand.small_blind}/${hand.big_blind}`}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>{isClubTokenTable(current) ? 'Жетоны' : 'Фишки'}</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ход ${baseSeconds}с · резерв ${reserveSeconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={async () => { if (await appConfirm(current.tournament ? 'Отойти от стола? Из турнира выход не делает: пока игрока нет, его карты сбрасываются.' : 'Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="truncate whitespace-nowrap text-[9px] uppercase tracking-[.2em] text-amber-100/45">{pokerModeLabel(current)} · {streetName(hand.street)} · {stackDisplay === 'bb' ? 'ББ 0,5/1' : `блайнды ${hand.small_blind}/${hand.big_blind}`}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>{isClubTokenTable(current) ? 'Жетоны' : 'Фишки'}</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ход ${baseSeconds}с · резерв ${reserveSeconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
       {error ? <div role="status" className="pointer-events-none fixed inset-x-3 top-14 z-50 rounded-xl bg-rose-950/90 px-3 py-2 text-xs text-rose-100 ring-1 ring-rose-300/30">{error}</div> : null}
       <TournamentStrip lobby={current} />
       {inviteOpen && isClubTokenTable(current) ? <div className="fixed inset-0 z-[60] flex items-end bg-black/60 px-3 pt-3 backdrop-blur-sm" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }} onClick={() => setInviteOpen(false)}><div className="mx-auto w-full max-w-[430px] rounded-3xl border border-white/10 bg-[#101312] p-3 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-2 flex items-center justify-between"><b className="text-sm">Позвать за стол</b><button type="button" onClick={() => setInviteOpen(false)} className="grid h-8 w-8 place-items-center rounded-full bg-white/[.08] text-white/60">✕</button></div><PokerInvitePanel lobbyId={current.id} /></div></div> : null}

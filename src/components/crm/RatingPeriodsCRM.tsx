@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { formatMoscowDate } from '../../lib/moscowDate.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type RatingPeriod = {
   id: string;
@@ -254,7 +255,7 @@ export const RatingPeriodsCRM: React.FC = () => {
   };
 
   const deletePeriod = async (period: RatingPeriod) => {
-    if (!confirm(`Удалить сезон «${period.title}»? Игры и вечера удалены не будут.`)) return;
+    if (!await appConfirm(`Удалить сезон «${period.title}»? Игры и вечера удалены не будут.`)) return;
     try {
       await apiJson(`/api/rating-periods/${period.id}`, { method: 'DELETE' });
       await loadPeriods();

@@ -174,23 +174,24 @@ describe('protocol window: what the manual edits must do (owner rules, 2026-10-3
     expect(hook.result.current.protocol.shots[0].result).toBe('miss');
   });
 
-  it('bringing back a player removed for the second technical foul takes that foul back, so the game can be saved', () => {
+  it('bringing back a player removed for the second technical foul takes that foul back, so the game can be saved', async () => {
     const hook = setup();
     const player = hook.result.current.results[2];
-    act(() => hook.result.current.editing.members.changeTechFoul(player, 'minor', 1));
-    act(() => hook.result.current.editing.members.changeTechFoul(hook.result.current.results[2], 'major', 1));
+    await act(async () => { await hook.result.current.editing.members.changeTechFoul(player, 'minor', 1); });
+    await act(async () => { await hook.result.current.editing.members.changeTechFoul(hook.result.current.results[2], 'major', 1); });
     expect(exitOf(hook.result.current, 3)).toBe('removed');
-    act(() => hook.result.current.editing.members.cancelRemoval(hook.result.current.results[2]));
+    // the question is asked in the app's own window; here no host is mounted, so the browser's confirm answers
+    await act(async () => { await hook.result.current.editing.members.cancelRemoval(hook.result.current.results[2]); });
     const back = hook.result.current.results[2];
     expect(back.exit_type).toBe('alive');
     expect(back.minor_technical_fouls + back.major_technical_fouls).toBe(1);
     expect(() => canonicalizeClubGameSave({ player_results: makeResults(), protocol: makeProtocol() }, hook.result.current.protocol, hook.result.current.results, 'draft')).not.toThrow();
   });
 
-  it('after bringing back a player removed for the fourth foul he is at three fouls', () => {
+  it('after bringing back a player removed for the fourth foul he is at three fouls', async () => {
     const hook = setup();
     act(() => hook.result.current.editing.members.updateResult('p4', { regular_fouls: 4, exit_type: 'removed', removal_reason: '4th_foul' }));
-    act(() => hook.result.current.editing.members.cancelRemoval(hook.result.current.results[3]));
+    await act(async () => { await hook.result.current.editing.members.cancelRemoval(hook.result.current.results[3]); });
     expect(hook.result.current.results[3]).toMatchObject({ exit_type: 'alive', regular_fouls: 3 });
   });
 });

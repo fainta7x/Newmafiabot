@@ -24,16 +24,16 @@ export async function applyPrivateVipDraw(
   // Pending reveals in OTHER games hold capacity until confirm/reset; this prevents
   // two simultaneous games from both taking the last available quota slot.
   const successes = await db.all<{ game_id:number; player_id:string }>(`
-    SELECT DISTINCT d.game_id, p.value AS player_id
-      FROM game_virtual_role_deals d JOIN games g ON g.id=d.game_id,
+    SELECT DISTINCT g.id AS game_id, p.value AS player_id
+      FROM game_role_deals d JOIN games g ON d.game_key = 'club:' || g.id,
            json_each(json_extract(d.state_json,'$.history')) h,
            json_each(json_extract(h.value,'$.vipPlayerIds')) p
      WHERE g.evening_id=? AND g.archived_at IS NULL
     UNION
-    SELECT d.game_id, p.value AS player_id
-      FROM game_virtual_role_deals d JOIN games g ON g.id=d.game_id,
+    SELECT g.id AS game_id, p.value AS player_id
+      FROM game_role_deals d JOIN games g ON d.game_key = 'club:' || g.id,
            json_each(json_extract(d.state_json,'$.pending.vipPlayerIds')) p
-     WHERE g.evening_id=? AND g.archived_at IS NULL AND d.game_id<>?`,
+     WHERE g.evening_id=? AND g.archived_at IS NULL AND g.id<>?`,
   [context.eveningId,context.eveningId,gameId]);
   const allowed = (playerId: string) => vipCanTriggerInGame(
     quotas.find(q=>q.playerId===playerId) ?? null,

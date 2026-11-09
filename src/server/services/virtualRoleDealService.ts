@@ -1,5 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensureGameRoleDealSchema } from '../../db/ensureGameRoleDealSchema.ts';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { protectReservedRolesForDraw } from '../../lib/protectReservedRolesForDraw.ts';
@@ -36,18 +37,8 @@ class DealError extends Error {
 const reject = (message: string, statusCode = 409): never => { throw new DealError(message, statusCode); };
 
 export async function ensureVirtualRoleDealSchema(db: DatabaseWrapper) {
-  await db.exec(`CREATE TABLE IF NOT EXISTS game_virtual_role_deals (
-    game_id INTEGER PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
-    state_json TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`);
-  // The deal of every non-club game, by the game's key (`tournament:<id>`). The club deal stays in the table above until
-  // the services that read it (purchases, seat swaps, VIP, payments) move to this key as well.
-  await db.exec(`CREATE TABLE IF NOT EXISTS game_role_deals (
-    game_key TEXT PRIMARY KEY,
-    state_json TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`);
+  // Both tables, the copy of the club deals and the delete triggers: see ensureGameRoleDealSchema.
+  await ensureGameRoleDealSchema(db);
 }
 
 async function gameContext(db: DatabaseWrapper, game: DealGame) {
@@ -138,9 +129,7 @@ const rosterKey = (context: DealContext) =>
 
 async function readState(db: DatabaseWrapper, game: DealGame, context: DealContext): Promise<State> {
   const ref = toRef(game);
-  const row = ref.storage === 'club'
-    ? await db.get<{ state_json: string }>('SELECT state_json FROM game_virtual_role_deals WHERE game_id = ? LIMIT 1', [ref.id])
-    : await db.get<{ state_json: string }>('SELECT state_json FROM game_role_deals WHERE game_key = ? LIMIT 1', [dealGameKey(ref)]);
+  const row = await db.get<{ state_json: string }>('SELECT state_json FROM game_role_deals WHERE game_key = ? LIMIT 1', [dealGameKey(ref)]);
   if (!row) return reject('Раздача не началась');
   let state: State;
   try { state = JSON.parse(row.state_json) as State; } catch { return reject('Ошибка сохранённой раздачи'); }
@@ -152,13 +141,14 @@ async function readState(db: DatabaseWrapper, game: DealGame, context: DealConte
 async function writeState(db: DatabaseWrapper, game: DealGame, state: State) {
   const ref = toRef(game);
   const now = new Date().toISOString();
+  const json = JSON.stringify(state);
+  await db.run('INSERT INTO game_role_deals (game_key,state_json,updated_at) VALUES (?,?,?) ON CONFLICT(game_key) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at',
+    [dealGameKey(ref), json, now]);
+  // The old club table is mirrored until the next release removes it (older builds and a rollback still read it).
   if (ref.storage === 'club') {
     await db.run('INSERT INTO game_virtual_role_deals (game_id,state_json,updated_at) VALUES (?,?,?) ON CONFLICT(game_id) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at',
-      [ref.id, JSON.stringify(state), now]);
-    return;
+      [ref.id, json, now]);
   }
-  await db.run('INSERT INTO game_role_deals (game_key,state_json,updated_at) VALUES (?,?,?) ON CONFLICT(game_key) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at',
-    [dealGameKey(ref), JSON.stringify(state), now]);
 }
 
 const versionMatches = (state: State, version: number) => {
@@ -171,9 +161,7 @@ export async function openVirtualRoleDeal(db: DatabaseWrapper, game: DealGame) {
   await migrateLegacyChaginRedGuarantee(db);
   return db.transaction(async (tx) => {
     const context = await gameContext(tx, ref);
-    const previous = ref.storage === 'club'
-      ? await tx.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[ref.id])
-      : await tx.get<{state_json:string}>('SELECT state_json FROM game_role_deals WHERE game_key=?',[dealGameKey(ref)]);
+    const previous = await tx.get<{state_json:string}>('SELECT state_json FROM game_role_deals WHERE game_key=?',[dealGameKey(ref)]);
     // Paid role reservations exist for club games only: a started deal with a purchase is kept, not reshuffled.
     const hasPurchase = ref.storage === 'club'
       ? await tx.get("SELECT 1 FROM game_role_reservations WHERE game_id=? AND status IN ('reserved','fulfilled') LIMIT 1",[ref.id]).catch(()=>null)

@@ -275,7 +275,8 @@ describe('private VIP rules in the actual server deal',()=>{
     const state=JSON.parse(row!.state_json);
     state.deck=[{id:'last-c',role:'citizen'},{id:'last-s',role:'sheriff'},{id:'last-b',role:'mafia'}];
     state.history=['citizen','citizen','citizen','citizen','citizen','don','mafia'].map((role,i)=>({seat:i+1,cardId:'past-'+i,role,previousDeck:[]}));
-    await db.run('UPDATE game_virtual_role_deals SET state_json=? WHERE game_id=?',[JSON.stringify(state),gameId]);
+    // The deal lives under the game key (stage C); the old club table is only its mirror.
+    await db.run('UPDATE game_role_deals SET state_json=? WHERE game_key=?',[JSON.stringify(state),`club:${gameId}`]);
     const reveal=await revealVirtualRole(db,gameId,8,'last-c',opening.version);
     expect(reveal.role).not.toBe('citizen');
     const confirmed=await confirmVirtualRole(db,gameId,8,'last-c',reveal.version);

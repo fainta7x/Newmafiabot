@@ -75,8 +75,8 @@ export async function loadPlayerEveningWorkspace(db: any, eveningId: string, vie
   // Only the existence of a started deal is public to the participant;
   // never expose reserved roles or other buyers' order state.
   const dealingIds = new Set((await db.all(
-    `SELECT d.game_id FROM game_virtual_role_deals d
-      JOIN games g ON g.id=d.game_id WHERE g.evening_id=?`,
+    `SELECT g.id AS game_id FROM game_role_deals d
+      JOIN games g ON d.game_key = 'club:' || g.id WHERE g.evening_id=?`,
     [eveningId],
   ).catch(() => [])).map((row: any) => Number(row.game_id)));
 

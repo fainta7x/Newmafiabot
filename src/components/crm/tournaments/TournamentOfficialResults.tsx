@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { appNotice } from '../../../lib/appConfirm.ts';
 import {
   Trophy,
   AlertCircle,
@@ -112,7 +113,7 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
     const originalIds = new Set(activeStandingsTie.participant_ids);
     const savedIds = new Set(orderedParticipants.map((p) => p.id));
     if (originalIds.size !== savedIds.size || [...originalIds].some((id) => !savedIds.has(id))) {
-      alert('Ошибка: состав участников группы равенства не совпадает с исходным');
+      await appNotice('Ошибка: состав участников группы равенства не совпадает с исходным');
       return;
     }
 
@@ -126,7 +127,7 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
       setActiveStandingsTie(null);
       onResolve();
     } catch (err: any) {
-      alert(err.message || 'Ошибка сохранения решения');
+      await appNotice(err.message || 'Ошибка сохранения решения');
     } finally {
       setStandingsSubmitting(false);
     }

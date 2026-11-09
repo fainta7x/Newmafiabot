@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import PokerInvitePanel from './PokerInvitePanel.tsx';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 /**
  * «Кровь на часовой башне» (owner, 2026-10-18): a joke-level stub next to the poker table. There is no game engine:
@@ -96,7 +97,7 @@ export default function PlayerClocktower({ initialRoomId = null, onExit, onOpenR
             <>
               <button type="button" disabled={busy} data-testid="clocktower-leave" onClick={() => void act(async () => { await request(`${roomUrl(room.id)}/leave`, 'POST'); if (full) onOpenRoom?.(null); })} className="min-h-10 rounded-xl border border-white/15 px-3 text-sm text-white/75">Выйти</button>
               <button type="button" disabled={busy} data-testid="clocktower-storyteller" onClick={() => void act(() => request(`${roomUrl(room.id)}/storyteller`, 'POST', { value: !room.i_am_storyteller }))} className="min-h-10 rounded-xl border border-rose-200/25 px-3 text-sm text-rose-100">{room.i_am_storyteller ? 'Не буду Рассказчиком' : 'Я — Рассказчик'}</button>
-              {room.is_host ? <button type="button" disabled={busy} data-testid="clocktower-close" onClick={() => { if (window.confirm('Закрыть комнату для всех?')) void act(async () => { await request(`${roomUrl(room.id)}/close`, 'POST'); if (full) onOpenRoom?.(null); }); }} className="min-h-10 rounded-xl border border-white/15 px-3 text-sm text-white/55">Закрыть комнату</button> : null}
+              {room.is_host ? <button type="button" disabled={busy} data-testid="clocktower-close" onClick={async () => { if (await appConfirm('Закрыть комнату для всех?')) void act(async () => { await request(`${roomUrl(room.id)}/close`, 'POST'); if (full) onOpenRoom?.(null); }); }} className="min-h-10 rounded-xl border border-white/15 px-3 text-sm text-white/55">Закрыть комнату</button> : null}
             </>
           ) : (
             <button type="button" disabled={busy || seats >= MAX_PLAYERS} data-testid="clocktower-join" onClick={() => void act(() => request(`${roomUrl(room.id)}/join`, 'POST'))} className="min-h-11 rounded-xl bg-rose-300 px-4 text-sm font-black text-black disabled:opacity-50">{seats >= MAX_PLAYERS ? 'Мест нет' : 'Присоединиться'}</button>

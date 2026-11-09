@@ -8,6 +8,7 @@ import { useProtocolEditing } from './gameProtocol/useProtocolEditing';
 import { useProtocolAutosave } from './gameProtocol/useProtocolAutosave';
 import type { ProtocolState } from './gameProtocol/protocolReview';
 import type { ProtocolApi } from './gameProtocol/types';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 interface EveningGameProtocolModalProps {
   game: ClubGameRecord;
@@ -80,7 +81,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   };
 
   const reopenDraft = async () => {
-    if (!confirm('Вернуть подтверждённую игру на исправление?')) return;
+    if (!await appConfirm('Вернуть подтверждённую игру на исправление?')) return;
     const draft = { ...protocol, status: 'draft' as const, completed_at: null };
     await save(draft, playerResults, { replaceEditor: true });
   };

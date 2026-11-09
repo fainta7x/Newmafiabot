@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Kind = 'role' | 'same_color' | 'different_color' | 'red_color';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null;
@@ -68,7 +69,7 @@ export default function VipProbabilitySettings() {
     finally{setBusy(false);}
   };
   const remove = async(id:string)=>{
-    if(busy || !window.confirm('Удалить настройку вероятности?'))return;
+    if(busy || !await appConfirm('Удалить настройку вероятности?'))return;
     setBusy(true);setError('');
     try{await send('/api/admin/vip-probability-rules/'+encodeURIComponent(id),{method:'DELETE'});
       await refresh();if(editing===id)reset();

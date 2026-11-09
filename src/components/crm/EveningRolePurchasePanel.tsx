@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { readJsonResponse } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Seat = { seat_number: number; player_id?: string | null; display_name?: string; nickname?: string };
 type Purchase = {
@@ -68,7 +69,7 @@ export default function EveningRolePurchasePanel({ gameId, seats, completed }: {
   };
 
   const cancel = async (orderId: string) => {
-    if (busy || !window.confirm('Отменить покупку и снять долг 150 ₽?')) return;
+    if (busy || !await appConfirm('Отменить покупку и снять долг 150 ₽?')) return;
     setBusy(true); setError('');
     try {
       await organizerJson(`/api/admin/role-purchases/${encodeURIComponent(orderId)}`, { method: 'DELETE' });

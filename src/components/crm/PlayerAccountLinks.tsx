@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, Link2, Send } from 'lucide-react';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Links = {
   telegram: { linked: boolean; username: string | null };
@@ -57,7 +58,7 @@ export default function PlayerAccountLinks({ playerId }: { playerId: string }) {
     if (data) { setClaim(data); await load(); }
   };
   const resolvePending = async (requestId: string, decision: 'approve' | 'reject') => {
-    if (decision === 'approve' && !window.confirm('Вы лично подтвердили, что этот VK/Telegram аккаунт действительно принадлежит игроку? Привязка даст ему доступ к истории, профилю и жетонам.')) return;
+    if (decision === 'approve' && !await appConfirm('Вы лично подтвердили, что этот VK/Telegram аккаунт действительно принадлежит игроку? Привязка даст ему доступ к истории, профилю и жетонам.')) return;
     const data = await call('resolve:' + requestId,
       `/api/crm/onboarding-links/${encodeURIComponent(requestId)}/resolve`, { decision });
     if (data) {

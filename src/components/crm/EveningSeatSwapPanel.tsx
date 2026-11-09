@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { readJsonResponse } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Seat = { seat_number: number; player_id?: string | null; display_name?: string; nickname?: string };
 type Order = { id: string; player_id: string; target_player_id: string; status: 'ordered' | 'applied' | 'cancelled' };
@@ -48,7 +49,7 @@ export default function EveningSeatSwapPanel({
     finally { setBusy(false); }
   };
   const act = async (id: string, kind: 'apply' | 'cancel') => {
-    if (busy || kind === 'cancel' && !confirm('Отменить обмен и снять 50 ₽ долга?')) return;
+    if (busy || kind === 'cancel' && !await appConfirm('Отменить обмен и снять 50 ₽ долга?')) return;
     setBusy(true); setError('');
     try {
       await call(`/api/admin/seat-swap-orders/${encodeURIComponent(id)}${kind === 'apply' ? '/apply' : ''}`,

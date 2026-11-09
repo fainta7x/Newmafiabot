@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, RefreshCw, Trash2 } from 'lucide-react';
 import { requestJson } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 /**
  * «Фото для анонсов» (owner request 2026-09-29): club photos shown above Telegram announcements.
@@ -93,7 +94,7 @@ export function AnnouncementPhotosCard() {
   };
 
   const remove = async (photo: Photo) => {
-    if (!window.confirm('Удалить это фото? Уже вышедшие анонсы не изменятся.')) return;
+    if (!await appConfirm('Удалить это фото? Уже вышедшие анонсы не изменятся.')) return;
     setBusy(photo.id);
     setError('');
     try {

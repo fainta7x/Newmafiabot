@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { appConfirm } from '../../../lib/appConfirm.ts';
 import { Check, ChevronRight, Plus } from 'lucide-react';
 import type { LiveGameEvent } from '../../../shared/liveGameEvents';
 import type { VotingRound } from '../../../shared/tournamentVoting';
@@ -60,11 +61,11 @@ export const GameFlowView: React.FC<Props> = ({ api, circles, circleIndex, onCir
   const firstMissingNight = (protocol.shots || []).length;
   const earlierNightMissing = circle.shotIndex < 0 && circle.index > firstMissingNight && firstMissingNight < circles.length;
   // A mistaken vote-out taken back: the result is erased and the game counts as if it had not happened; what followed is listed for a re-check.
-  const resetWithNotice = (index: number) => {
+  const resetWithNotice = async (index: number) => {
     const { returning, lines } = recordsAfterVoting(protocol, index);
     const head = returning.length ? `Результат голосования будет стёрт, ${returning.length > 1 ? 'игроки' : 'игрок'} ${returning.map((seat) => `№${seat}`).join(', ')} ${returning.length > 1 ? 'вернутся' : 'вернётся'} за стол.` : 'Результат голосования будет стёрт.';
     const tail = lines.length ? `\n\nПосле него в протоколе записано (проверьте это после отката):\n${lines.join('\n')}` : '';
-    if (confirm(`${head}${tail}`)) api.resetOutcome(index);
+    if (await appConfirm(`${head}${tail}`, { title: 'Стереть результат голосования?', confirmLabel: 'Стереть', danger: true })) api.resetOutcome(index);
   };
   // «Продолжить игру» (owner, 2026-11-01): only while the table has not decided the game; the next step follows the rules — after a day the night, after a night the next circle's voting.
   const decided = tableDecision(api.results);

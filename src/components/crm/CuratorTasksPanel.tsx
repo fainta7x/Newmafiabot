@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, ClipboardList, Plus, X } from 'lucide-react';
 import { curatorAreaLabel, type CuratorArea } from '../../lib/curatorAreas.ts';
 import MobileSheet from '../ui/MobileSheet.tsx';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 type Task = { id: string; curator_player_id: string; curator_nickname: string; area: CuratorArea | null; title: string; description: string | null; due_at: string | null; status: string; done_note: string | null; completed_at: string | null };
 type Curator = { id: string; nickname: string; areas: CuratorArea[] };
@@ -57,7 +58,7 @@ export default function CuratorTasksPanel() {
     } catch (createError: any) { setError(createError?.message || 'Не получилось'); } finally { setBusy(''); }
   };
   const cancel = async (task: Task) => {
-    if (busy || !window.confirm(`Отменить задачу «${task.title}»?`)) return;
+    if (busy || !await appConfirm(`Отменить задачу «${task.title}»?`)) return;
     setBusy(task.id);
     setListError('');
     try {

@@ -29,7 +29,7 @@ describe('VK-ACCESS-004 organizer routing and UI', () => {
     const onboarding = read('src/components/player/VerifiedPlayerOnboarding.tsx');
     expect(card).toContain('data-testid="crm-player-pending-account-links"');
     expect(card).toContain('/api/crm/onboarding-links/');
-    expect(card).toContain('window.confirm');
+    expect(card).toContain('appConfirm(');
     expect(route).toContain('pending_links: pendingLinks');
     expect(route).toContain("WHERE target_player_id=? AND status='pending'");
     expect(route).not.toContain('external_user_id: externalUserId');

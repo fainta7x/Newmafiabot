@@ -115,9 +115,11 @@ export const PlayerSheet: React.FC<SheetProps> = ({ api, seat, onClose }) => {
 
   const recorded = recordedExit(api, player);
   const circles = buildCircles(api.protocol);
-  const confirmRemoval = () => {
-    if (removalAsk === 'judge') api.removeByJudge(player);
-    else api.updateResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
+  const confirmRemoval = async () => {
+    if (removalAsk === 'judge') {
+      // «No» in the confirmation window leaves everything as it was: no removal and no event.
+      if ((await api.removeByJudge(player)) === false) { setRemovalAsk(null); return; }
+    } else api.updateResult(player.participant_id, { exit_type: 'removed', removal_reason: 'direct' });
     const round = removalCircle + 1;
     api.setEvents((list) => {
       const kept = list.filter((event) => !(event.kind === 'exit' && event.seat === player.seat_number && event.value === 'removed'));

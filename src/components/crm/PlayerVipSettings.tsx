@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 
 /**
  * VIP role pull in the player's card (owner, 2026-11-03: «из CRM в профиле игрока менять ему настройку на подкрутку карты»).
@@ -111,7 +112,7 @@ export function PlayerVipSettings({ playerId }: { playerId: string }) {
             onKeyUp={(event) => void update(rule, { percent: Number((event.target as HTMLInputElement).value) })} />
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={() => void update(rule, { enabled: !rule.enabled })} className="min-h-10 flex-1 rounded-lg border border-white/15 px-3 text-[12px] text-text-primary">{rule.enabled ? 'Выключить' : 'Включить'}</button>
-            <button type="button" disabled={busy} onClick={() => { if (window.confirm('Удалить условие?')) void run(() => send(`/api/admin/vip-probability-rules/${encodeURIComponent(rule.id)}`, { method: 'DELETE' })); }} className="min-h-10 flex-1 rounded-lg border border-white/15 px-3 text-[12px] text-text-secondary">Удалить</button>
+            <button type="button" disabled={busy} onClick={async () => { if (await appConfirm('Удалить условие?')) void run(() => send(`/api/admin/vip-probability-rules/${encodeURIComponent(rule.id)}`, { method: 'DELETE' })); }} className="min-h-10 flex-1 rounded-lg border border-white/15 px-3 text-[12px] text-text-secondary">Удалить</button>
           </div>
         </div>
       ))}

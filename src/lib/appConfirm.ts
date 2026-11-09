@@ -24,5 +24,6 @@ export function registerAppConfirmHost(handler: (request: AppConfirmRequest) => 
 
 export function appConfirm(message: string, options: AppConfirmOptions = {}): Promise<boolean> {
   if (!host) return Promise.resolve(window.confirm(message));
-  return new Promise((resolve) => host!({ ...options, message, resolve }));
+  const ask = host;
+  return new Promise((resolve) => { ask({ ...options, message, resolve }); });
 }

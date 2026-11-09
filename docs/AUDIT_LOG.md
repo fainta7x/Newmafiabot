@@ -2794,3 +2794,6 @@ Measured locally (`Resvg.render()` of a vote card with 12 photos: ~740 ms; a bir
 
 ## 2026-11-09 · AR05: legacy-publication probes at every claim
 `importLegacyPublicationHolds` (called by every `claim()` of a post) looked at all six legacy sources on each call: a `sqlite_master` probe and a marker probe per source, 12–14 statements a minute, up to 106 ms each on production. Status: `fixed in code` — a source whose marker was seen is remembered per connection and not probed again (a source whose table does not exist yet is still probed); the test fails without the change. Other `sqlite_master` probes (`gameService`, `eventService`, …) were not seen in the production list and are left as they are.
+
+## 2026-11-09 — role deal, stage D
+Owner: «если он нужен — делай». The mirror write of the club deal to `game_virtual_role_deals` was removed (`writeState`); the table and its rows are kept, the startup copy still moves only a NEWER legacy row. Tests that read the club deal now read `game_role_deals` (`club:<id>`); a new assertion says the old table is not written. Not done on purpose: dropping the table (irreversible, needs a separate word). Risk accepted: a rollback to a build older than stage C would read stale deals made after this change.

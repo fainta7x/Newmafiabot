@@ -5,7 +5,7 @@ Friday evening: poll Saturday 12:00, voting to Tuesday 21:00, additional vote to
 ## 2026-11-09 — tournament CRM audit: decisions of the owner (code in #1202/#1203, one item open)
 
 - Done and merged (#1202): fewer duplicates on the tournament screens, one app confirmation window, one «Рассадка» card, the engine opens right after the start, MVP additional-round buttons fixed (`evo:`). Not deployed/verified on production at the time of writing.
-- **Role deal: stages A (#1204), B (#1205) merged; stage C (club deal under `game_role_deals`, all ten readers switched, old table mirrored) in the next PR. Open stage D: remove the mirror `game_virtual_role_deals` after one release without problems (check first that no build or script reads it).** Agreed: one role deal for club evenings and tournaments, two ways only (virtual, physical), either ends with roles saved, game started, engine open.
+- **Role deal: stages A (#1204), B (#1205) merged; stage C (club deal under `game_role_deals`, all ten readers switched, old table mirrored) in the next PR. Stage D done 2026-11-09 (owner «если нужен — делай»): the mirror write to `game_virtual_role_deals` is gone; the table and its rows stay (a rollback to a build older than stage C would see stale club deals made after this change — acceptable, deals are short-lived); dropping the table itself is a separate decision, not taken.** Agreed: one role deal for club evenings and tournaments, two ways only (virtual, physical), either ends with roles saved, game started, engine open.
 - Owner asked to criticise the protocol's convenience separately (after the deal work); T18 (draft protocol + manual completion) stays for now.
 
 ## 2026-11-05 — детализация Elo

@@ -24,7 +24,7 @@ export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 50, name: 'ensureClubOperationsSchema', kind: 'data_migration', idempotency: 'application migration markers + schema guards' },
   { order: 60, name: 'ensureCanonicalEveningParticipantState', kind: 'compatibility', idempotency: 'state reconciliation' },
   { order: 70, name: 'ensureJudgeMusicSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
-  { order: 75, name: 'ensureGameRoleDealSchema', kind: 'data_migration', idempotency: 'CREATE TABLE/TRIGGER IF NOT EXISTS; the copy of club deals takes only a row newer than the key row', notes: 'game_role_deals by game key + copy of game_virtual_role_deals; the old table stays as a mirror until the next release' },
+  { order: 75, name: 'ensureGameRoleDealSchema', kind: 'data_migration', idempotency: 'CREATE TABLE/TRIGGER IF NOT EXISTS; the copy of club deals takes only a row newer than the key row', notes: 'game_role_deals by game key + copy of game_virtual_role_deals; the old table is kept (no longer written since stage D)' },
   { order: 80, name: 'ensureEloSeedSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
   { order: 90, name: 'ensurePlayerShopSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
   { order: 100, name: 'ensureCommerceSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },

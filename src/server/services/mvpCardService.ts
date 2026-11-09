@@ -2,7 +2,7 @@ import {loadMvpRunoff,MVP_RUNOFF_CATEGORY} from './eveningVoteRounds.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { dateLabel, loadAvatars } from './clubResultData.ts';
 import { mvpResultSvg, mvpVoteSvg, renderPng } from './clubResultImages.ts';
-import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { eveningVotingSchedule } from '../../shared/eveningVotingSchedule.ts';
 
 /**
  * The pictures of the «MVP вечера» posts and personal messages (owner, 2026-10-14: «только текст» was poor). Both return
@@ -19,12 +19,12 @@ export async function buildMvpVoteCard(db: DatabaseWrapper, eveningId: string): 
        WHERE ep.evening_id = ? AND ep.attendance_status = 'attended' ORDER BY p.nickname COLLATE NOCASE ASC
     `, [eveningId]);
     if (nominees.length < 2) return null;
-    const base = new Date(String(evening.settled_at || evening.updated_at || evening.starts_at || '')).getTime();
+    const schedule = eveningVotingSchedule(evening);
     const avatars = await loadAvatars(db, nominees.map((nominee: any) => String(nominee.id)));
     return renderPng(mvpVoteSvg({
       eveningTitle: String(evening.title || 'Игровой вечер'),
       dateLabel: dateLabel(evening.starts_at) || '',
-      deadlineLabel: Number.isFinite(base) ? `Голосование до ${moscowDayTime(base + EVENING_VOTING_WINDOW_MS)}` : 'Голосование открыто 3 дня',
+      deadlineLabel: schedule ? `Голосование до ${moscowDayTime(schedule.deadlineMs)}` : 'Голосование открыто несколько дней',
       candidates: nominees.map((nominee: any) => ({ nickname: String(nominee.nickname || 'Игрок'), avatar: avatars.get(String(nominee.id)) || null })),
     }));
   } catch (error) {

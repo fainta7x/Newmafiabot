@@ -6,7 +6,7 @@ import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
 import { ensurePremiumPlayerConnectionsSchema } from '../services/premiumPlayerConnectionsService.ts';
-import { EVENING_VOTING_WINDOW_MS } from '../services/clubYearAwardsService.ts';
+import { eveningVotingSchedule, isVotingOpen } from '../../shared/eveningVotingSchedule.ts';
 
 const router = Router();
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
@@ -229,8 +229,8 @@ const buildNotifications = async (db: any, playerId: string) => {
   `, [playerId]);
   const votesTableExists = await safeTableExists(db, 'evening_player_votes');
   for (const evening of attendedRecent) {
-    const baseMs = new Date(String(evening.settled_at || evening.starts_at)).getTime();
-    if (!Number.isFinite(baseMs) || baseMs + EVENING_VOTING_WINDOW_MS <= now) continue;
+    const voteSchedule = eveningVotingSchedule(evening);
+    if (!voteSchedule || !isVotingOpen(voteSchedule, now)) continue;
     let voted = false;
     if (votesTableExists) {
       const row = await db.get(`
@@ -247,7 +247,7 @@ const buildNotifications = async (db: any, playerId: string) => {
         icon: '🗳️',
         title: 'Кто сыграл лучше всех?',
         text: `${String(evening.title || 'Игровой вечер')} · выбери «MVP вечера»`,
-        date: new Date(baseMs).toISOString(),
+        date: new Date(voteSchedule.openAtMs).toISOString(),
         action: { kind: 'club', target: String(evening.id) },
         priority: 80,
       });

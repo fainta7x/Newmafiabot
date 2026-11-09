@@ -1,4 +1,5 @@
-import {EVENING_VOTING_WINDOW_MS,ensureMvpRunoffIfNeeded,ensureRunoffSchema,MVP_RUNOFF_CATEGORY} from './eveningVoteRounds.ts';
+import {ensureMvpRunoffIfNeeded,ensureRunoffSchema,MVP_RUNOFF_CATEGORY} from './eveningVoteRounds.ts';
+import {eveningVotingSchedule} from '../../shared/eveningVotingSchedule.ts';
 
 /**
  * «MVP вечера» voting (owner, 2026-10-04): one question for the whole evening, open for three days after the evening is
@@ -56,12 +57,15 @@ export const loadVotingContext = async (db: any, eveningId: string, viewerId: st
   `, [eveningId, viewerId]);
   if (!viewer) return { error: 'not_attended', evening };
 
-  const baseTime = new Date(String(evening.settled_at || evening.starts_at || '')).getTime();
+  // The vote's times are the evening's schedule (owner, 2026-11-09): the poll opens the day after (right after a late closing),
+  // the first round ends on a fixed evening hour, the additional vote on a later one.
+  const schedule = eveningVotingSchedule(evening);
   const runoff=await ensureMvpRunoffIfNeeded(db,eveningId);
   const round=runoff?1:0;
   const voteCategory=round?MVP_RUNOFF_CATEGORY:EVENING_VOTE_CATEGORY;
-  const deadlineMs = runoff?Date.parse(runoff.deadline_at):Number.isFinite(baseTime) ? baseTime + EVENING_VOTING_WINDOW_MS : 0;
-  const votingOpen = deadlineMs > Date.now();
+  const deadlineMs = runoff?Date.parse(runoff.deadline_at):schedule?schedule.deadlineMs:0;
+  const now = Date.now();
+  const votingOpen = deadlineMs > now && (round === 1 || (schedule !== null && now >= schedule.openAtMs));
 
   const attendeeRows = await db.all(`
     SELECT p.id, p.nickname

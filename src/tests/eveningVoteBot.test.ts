@@ -6,21 +6,27 @@ import { generatePlayerSessionToken } from '../server/auth.ts';
 import { queueEveningVoteMessages, voteCallbackData } from '../server/services/eveningVoteMessageService.ts';
 
 const opened: DatabaseWrapper[] = [];
-afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); delete process.env.BOT_API_SECRET; vi.unstubAllGlobals(); });
+afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); delete process.env.BOT_API_SECRET; vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+// The vote has a fixed schedule (owner, 2026-11-09): a Friday evening is polled from Saturday 12:00 to Tuesday 21:00 Moscow time.
+const FRIDAY_START = '2026-11-06T21:00:00+03:00';
+const FRIDAY_SETTLED = '2026-11-06T23:30:00+03:00';
+const SUNDAY_NOON = new Date('2026-11-08T12:00:00+03:00');
+const WEDNESDAY_NOON = new Date('2026-11-11T12:00:00+03:00');
 
 const EVENING = '11111111-2222-3333-4444-555555555555';
 
-async function setup(settledHoursAgo = 2) {
+async function setup(votingOver = false) {
+  vi.useFakeTimers({ toFake: ['Date'], now: votingOver ? WEDNESDAY_NOON : SUNDAY_NOON });
   process.env.BOT_API_SECRET = 'bot-secret-test';
   const db = createDatabaseConnection(':memory:'); opened.push(db);
   const app = await createApp(db);
   const now = new Date().toISOString();
-  const settled = new Date(Date.now() - settledHoursAgo * 3600_000).toISOString();
   // a, b, c attended; d only registered; e is a VK-only attendee
   for (const [id, nick, telegram] of [['aaaa1111-0000', 'Альфа', 501], ['bbbb2222-0000', 'Бета', 502], ['cccc3333-0000', 'Гамма', 503], ['dddd4444-0000', 'Дельта', 504], ['eeee5555-0000', 'Эпсилон', null]] as const) {
     await db.run('INSERT INTO players (id,nickname,telegram_user_id,created_at,updated_at) VALUES (?,?,?,?,?)', [id, nick, telegram === null ? null : String(telegram), now, now]);
   }
-  await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,settled_at,capacity,default_price,created_at,updated_at) VALUES (?, 'Пятница', ?, 'Europe/Moscow','RATING','completed',?,20,100,?,?)`, [EVENING, settled, settled, now, now]);
+  await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,settled_at,capacity,default_price,created_at,updated_at) VALUES (?, 'Пятница', ?, 'Europe/Moscow','RATING','completed',?,20,100,?,?)`, [EVENING, new Date(FRIDAY_START).toISOString(), new Date(FRIDAY_SETTLED).toISOString(), now, now]);
   for (const [index, id] of ['aaaa1111-0000', 'bbbb2222-0000', 'cccc3333-0000', 'eeee5555-0000'].entries()) {
     await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,attendance_status,response_status,created_at,updated_at) VALUES (?,?,?,'attended','going',?,?)`, [`ep${index}`, EVENING, id, now, now]);
   }
@@ -58,8 +64,8 @@ describe('«MVP вечера» from the bot buttons', () => {
     expect((await vote(app, 999, 'aaaa1111')).status).toBe(404);
   });
 
-  it('is closed three days after the evening', async () => {
-    const { app } = await setup(24 * 4);
+  it('is closed after Tuesday 21:00 for a Friday evening', async () => {
+    const { app } = await setup(true);
     const closed = await vote(app, 501, 'bbbb2222');
     expect(closed.status).toBe(409);
     expect(closed.body.code).toBe('closed');

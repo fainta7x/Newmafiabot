@@ -14,7 +14,7 @@ import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { queueEveningVoteMessages, voteCallbackData } from './eveningVoteMessageService.ts';
-import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { eveningVotingSchedule, isVotingOpen } from '../../shared/eveningVotingSchedule.ts';
 import { mvpDecisionCallbackData, mvpReasonText, resolveEveningMvp } from './eveningMvpService.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { sendVk } from './eveningTodayPostService.ts';
@@ -236,28 +236,30 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   } });
 
-  // «MVP вечера»: a post of its own once the results are out, and one reminder for those who have not voted a day later.
+  // «MVP вечера» (owner, 2026-11-09): the poll — a post of its own and the personal buttons — goes out when the vote opens
+  // (the day after the evening at 12:00, right after a late closing) and stays open to the evening's end hour; one reminder
+  // for those who have not voted a day after the poll.
   const voting = await db.all<any>(`
-    SELECT e.id, COALESCE(e.settled_at, e.updated_at) AS closed_at FROM game_evenings e
-     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
-       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+    SELECT e.id, e.title, e.starts_at, e.settled_at, e.updated_at FROM game_evenings e
+     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
        AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  `, [publicSince, new Date(now - VOTE_SCAN_DAYS * 24 * 60 * 60 * 1000).toISOString()]).catch(() => []);
   await part('mvp_vote', async () => { for (const evening of voting) {
+    const schedule = eveningVotingSchedule(evening);
+    if (!schedule || !isVotingOpen(schedule, now)) continue;
     if (await postVotePrompt(db, String(evening.id), fetchImpl)) posted += 1;
-    const closedAt = new Date(String(evening.closed_at)).getTime();
-    if (Number.isFinite(closedAt) && now - closedAt >= 24 * 60 * 60 * 1000) await remindUnvotedPlayers(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] vote reminder failed:', error));
+    await sendPersonalVoteMessages(db, String(evening.id), String(evening.title || 'Игровой вечер'));
+    if (now - schedule.openAtMs >= 24 * 60 * 60 * 1000) await remindUnvotedPlayers(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] vote reminder failed:', error));
   } });
 
   // The result of the vote, when its window is over (and for a few days after: a missed run is caught up, a tie waits for the owner).
   await ensureRunoffSchema(db);
-  const voted = await db.all<any>(`
-    SELECT e.id FROM game_evenings e
-     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
-       AND (datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?) OR EXISTS(SELECT 1 FROM evening_mvp_runoffs r WHERE r.evening_id=e.id AND datetime(r.deadline_at)>=datetime(?)))
-       AND datetime(COALESCE(e.settled_at, e.updated_at)) <= datetime(?)
+  const voted = (await db.all<any>(`
+    SELECT e.id, e.starts_at, e.settled_at, e.updated_at FROM game_evenings e
+     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
        AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS - CLOSED_WINDOW_MS).toISOString(), new Date(now - CLOSED_WINDOW_MS).toISOString(), new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  `, [publicSince, new Date(now - (VOTE_SCAN_DAYS + 7) * 24 * 60 * 60 * 1000).toISOString()]).catch(() => []))
+    .filter((evening: any) => { const schedule = eveningVotingSchedule(evening); return Boolean(schedule) && schedule!.deadlineMs <= now; });
   await part('mvp_result', async () => { for (const evening of voted) {
     if (await postMvpResult(db, String(evening.id), fetchImpl).catch((error) => { console.error('[CLUB RESULTS] MVP result failed:', error); return false; })) posted += 1;
   } });
@@ -375,7 +377,12 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
       lines.push(`Баллы за вечер: ${comma(player.points)}`);
     }
     if (player.eloDelta != null) lines.push(`Эло: ${comma(Math.round(player.eloDelta))} · теперь ${Math.round(player.eloAfter || 0)}`);
-    lines.push('🏆 Кто сыграл лучше всех? Отдай свой голос за «MVP вечера»: кнопками в следующем сообщении или в приложении (Клуб → Истории), голосование открыто 3 дня.');
+    // The vote's own times (owner, 2026-11-09): the poll with the buttons comes when it opens, not with this card.
+    const voteTimes = await db.get<any>('SELECT starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+    const voteSchedule = voteTimes ? eveningVotingSchedule(voteTimes) : null;
+    lines.push(voteSchedule
+      ? `🏆 Кто сыграл лучше всех? «MVP вечера»: опрос с кнопками придёт ${moscowDayTime(Math.max(voteSchedule.openAtMs, Date.now()))}, голосовать можно до ${moscowDayTime(voteSchedule.deadlineMs)} — кнопками или в приложении (Клуб → Истории).`
+      : '🏆 Кто сыграл лучше всех? Отдай свой голос за «MVP вечера» в приложении (Клуб → Истории).');
     const invite = await inviteFriendUrl(player.playerId, botUsername);
     const row = [
       ...(gamesUrl ? [{ text: '📋 Мои игры', web_app: { url: gamesUrl } }] : []),
@@ -392,8 +399,7 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
     });
     if (result.created) queued += 1;
   }
-  // The «MVP вечера» vote as buttons, right after the card; a failure here must not hold back the cards.
-  await queueEveningVoteMessages(db, eveningId, evening.title).catch((error) => console.error('[CLUB RESULTS] vote messages failed:', error));
+  // The «MVP вечера» vote buttons go out on the vote's own schedule (Saturday 12:00 for a Friday evening), not with the card.
   const now = new Date().toISOString();
   await db.run(
     `INSERT INTO club_result_posts (post_key, kind, evening_id, status, attempts, sent_at, created_at, updated_at)
@@ -405,11 +411,24 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
 
 const moscowDayTime = (ms: number) => new Date(ms).toLocaleString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
-/** When voting for a closed evening ends (the same three days the app and the bot use). */
-const votingDeadlineMs = (evening: any) => {
-  const base = new Date(String(evening.settled_at || evening.updated_at || evening.starts_at || '')).getTime();
-  return Number.isFinite(base) ? base + EVENING_VOTING_WINDOW_MS : 0;
-};
+/** When voting for an evening ends (the schedule the app and the bot use too). */
+const votingDeadlineMs = (evening: any) => eveningVotingSchedule(evening)?.deadlineMs ?? 0;
+
+/** How many days after its start an evening is still looked at by the vote scan (voting ends by day 6 at the latest). */
+const VOTE_SCAN_DAYS = 10;
+
+/** The personal «Кто сыграл лучше всех?» buttons, once per evening, when the vote has opened. */
+async function sendPersonalVoteMessages(db: DatabaseWrapper, eveningId: string, title: string) {
+  const key = `vote-messages:${eveningId}`;
+  if (!(await claim(db, key, 'vote-messages', eveningId, null))) return;
+  try {
+    await queueEveningVoteMessages(db, eveningId, title);
+    await finish(db, key, { ok: true });
+  } catch (error) {
+    console.error('[CLUB RESULTS] vote messages failed:', error);
+    await finish(db, key, { ok: false, temporary: true, error: error instanceof Error ? error.message : String(error) });
+  }
+}
 
 /**
  * «MVP вечера» was hidden (owner, 2026-10-13: people did not vote): a post of its own in the evening's Telegram group and
@@ -420,7 +439,8 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   if (!evening || evening.status !== 'completed') return false;
   const attendees = Number((await db.get<any>("SELECT COUNT(*) AS n FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.n || 0);
   const deadline = votingDeadlineMs(evening);
-  if (attendees < 2 || deadline <= Date.now()) return false;
+  const voteSchedule = eveningVotingSchedule(evening);
+  if (attendees < 2 || deadline <= Date.now() || !voteSchedule || Date.now() < voteSchedule.openAtMs) return false;
   const title = String(evening.title || 'Игровой вечер');
   const base = appUrl('/player');
   // The candidates are buttons right under the post (owner, 2026-10-13: «кнопки в боте» led nowhere): a tap is the vote.
@@ -505,7 +525,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   const resolution = await resolveEveningMvp(db, eveningId);
   if (resolution.status === 'none') return false;
   if(resolution.status==='runoff'){const round=await loadMvpRunoff(db,eveningId);return round?postMvpRunoff(db,evening,round,fetchImpl):false;}
-  if(resolution.status==='tie'&&!(await loadMvpRunoff(db,eveningId))){const round=await startMvpRunoff(db,eveningId,resolution.candidates.map(c=>c.player_id));return round?postMvpRunoff(db,evening,round,fetchImpl):false;}
+  if(resolution.status==='tie'&&!(await loadMvpRunoff(db,eveningId))){const round=await startMvpRunoff(db,eveningId,resolution.candidates.map(c=>c.player_id),Date.now(),eveningVotingSchedule(evening)?.runoffDeadlineMs);return round?postMvpRunoff(db,evening,round,fetchImpl):false;}
   const title = String(evening.title || 'Игровой вечер');
 
   if (resolution.status === 'tie') {

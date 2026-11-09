@@ -2,7 +2,7 @@ import { round2 } from '../../shared/numbers.ts';
 import { resolveEveningMvp } from './eveningMvpService.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
-import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { eveningVotingSchedule } from '../../shared/eveningVotingSchedule.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 
 export type EveningSummaryAward = {
@@ -107,8 +107,8 @@ export const buildAwards = async (
 
   // The title is official only when the voting is closed; before that the leader can still change.
   const evening = await db.get('SELECT starts_at, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
-  const baseMs = new Date(String(evening?.settled_at || evening?.starts_at || '')).getTime();
-  if (!Number.isFinite(baseMs) || baseMs + EVENING_VOTING_WINDOW_MS > Date.now()) return [];
+  const schedule = evening ? eveningVotingSchedule(evening) : null;
+  if (!schedule || schedule.deadlineMs > Date.now()) return [];
 
   // One winner (owner, 2026-10-14): see resolveEveningMvp; an evening waiting for the owner's decision has no title yet.
   const resolution = await resolveEveningMvp(db, eveningId);

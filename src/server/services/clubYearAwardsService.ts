@@ -11,8 +11,7 @@ import { resolveEveningMvp } from './eveningMvpService.ts';
  * года» awards in their profile showcase; past years stay there.
  */
 // Three days after the evening is closed: a Friday evening is voted on until Monday, before the next one is announced.
-import {EVENING_VOTING_WINDOW_MS} from './eveningVoteRounds.ts';
-export {EVENING_VOTING_WINDOW_MS};
+import {eveningVotingSchedule} from '../../shared/eveningVotingSchedule.ts';
 const VOTE_CATEGORY = 'best_player';
 const AWARD_KEY_PREFIX = 'club-year:';
 const TROPHY_PREFIX = 'club-evening-';
@@ -42,9 +41,9 @@ export async function loadEveningTitles(db: DatabaseWrapper, now = Date.now()): 
   let loaded: Promise<CompletedGameSnapshot[]> | null = null;
   const snapshots = () => (loaded ||= loadCompletedGameSnapshots(db));
   for (const evening of evenings) {
-    const base = new Date(String(evening.settled_at || evening.starts_at || '')).getTime();
+    const schedule = eveningVotingSchedule(evening);
     // Still open: the result can change, so it is not a title yet.
-    if (!Number.isFinite(base) || base + EVENING_VOTING_WINDOW_MS > now) continue;
+    if (!schedule || schedule.deadlineMs > now) continue;
     const year = moscowYear(evening.starts_at || evening.settled_at);
     if (!year) continue;
     const resolution = await resolveEveningMvp(db, String(evening.evening_id), snapshots);

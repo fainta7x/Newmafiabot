@@ -87,11 +87,19 @@ export async function reconcilePublication(db: DatabaseWrapper, input: { key: st
 }
 
 /** Per-source cutover, once: do not reinterpret historical terminal club results or personal queues. */
+// A migrated source never needs a second look, and this runs at every claim of a post: a source whose marker was seen is not
+// probed again for the life of the connection (2 queries per source per call, 12–14 a minute, up to 106 ms each: measured
+// 2026-11-09 on /api/health/performance/queries). A source whose table does not exist yet is still probed.
+const migratedSources = new WeakMap<object, Set<string>>();
+
 export async function importLegacyPublicationHolds(db: DatabaseWrapper) {
   await ensurePublicationDeliverySchema(db);
+  let done = migratedSources.get(db as object);
+  if (!done) { done = new Set<string>(); migratedSources.set(db as object, done); }
   for (const source of ['club_result_posts','evening_today_posts','evening_cancel_posts','poker_tournament_publications','custom_event_publications','evening_reschedule_notices']) {
+    if (done.has(source)) continue;
     if (!await db.get("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",[source])) continue;
-    if (await db.get('SELECT 1 FROM publication_delivery_migrations WHERE source=?',[source])) continue;
+    if (await db.get('SELECT 1 FROM publication_delivery_migrations WHERE source=?',[source])) { done.add(source); continue; }
     await db.transaction(async tx => {
       if (await tx.get('SELECT 1 FROM publication_delivery_migrations WHERE source=?',[source])) return;
       const rows=await tx.all<any>(`SELECT * FROM ${source}`);
@@ -119,5 +127,6 @@ export async function importLegacyPublicationHolds(db: DatabaseWrapper) {
       }
       await tx.run('INSERT INTO publication_delivery_migrations(source,created_at) VALUES (?,?)',[source,new Date().toISOString()]);
     });
+    done.add(source);
   }
 }

@@ -107,4 +107,15 @@ describe('public Telegram acknowledgement boundary',()=>{
     expect(publicTelegramResult(429,{ok:false,error_code:429,parameters:{retry_after:42}})).toMatchObject({certainty:'rejected',temporary:true,retryAfter:42});
     expect(publicTelegramResult(503,{ok:false,error_code:400})).toMatchObject({certainty:'uncertain'});
   });
+  it('does not probe a migrated source again on every call (AR05, 2026-11-09: 12-14 probes a minute)',async()=>{
+    const db=database();
+    await ensurePublicationDeliverySchema(db);
+    await db.exec('CREATE TABLE IF NOT EXISTS club_result_posts (post_key TEXT PRIMARY KEY, kind TEXT, status TEXT, evening_id TEXT, game_id TEXT)');
+    await importLegacyPublicationHolds(db);
+    const probes=vi.spyOn(db,'get');
+    await importLegacyPublicationHolds(db);await importLegacyPublicationHolds(db);
+    // sources whose table does not exist are still looked at (a table can appear later); the migrated one is not
+    const forMigrated=probes.mock.calls.filter(([sql,params])=>String(sql).includes('sqlite_master')&&JSON.stringify(params)==='["club_result_posts"]');
+    expect(forMigrated).toHaveLength(0);
+  });
 });

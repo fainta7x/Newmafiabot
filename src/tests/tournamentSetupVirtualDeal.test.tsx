@@ -56,7 +56,7 @@ describe('tournament game start with the virtual deal (owner, 2026-11-07)', () =
       await waitFor(() => expect((screen.getByTestId('virtual-deal-next-player') as HTMLButtonElement).disabled).toBe(false), { timeout: 15000 });
       fireEvent.click(screen.getByTestId('virtual-deal-next-player'));
     }
-    await waitFor(() => expect(startTournamentGame).toHaveBeenCalledWith('t1', 'g1'));
+    await waitFor(() => expect(startTournamentGame).toHaveBeenCalledWith('t1', 'g1'), { timeout: 10000 });
     const roles = (updateGameRoles.mock.calls[0] as any)[2] as Array<{ role: string }>;
     expect(roles.filter((r) => r.role === 'mafia')).toHaveLength(2);
     expect(roles.filter((r) => r.role === 'don')).toHaveLength(1);

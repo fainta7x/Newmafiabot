@@ -10,7 +10,7 @@ import { api } from '../lib/api';
 vi.mock('../components/crm/tournaments/TournamentStandingsView.tsx', () => ({ TournamentStandingsView: () => <div>ТАБЛИЦА</div> }));
 vi.mock('../components/crm/tournaments/TournamentNominationsView.tsx', () => ({ TournamentNominationsView: () => <div>НОМИНАЦИИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentOfficialResults.tsx', () => ({ TournamentOfficialResults: () => <div>ОФИЦИАЛЬНЫЕ ИТОГИ</div> }));
-vi.mock('../components/crm/tournaments/TournamentGameSetup.tsx', () => ({ TournamentGameSetup: ({ game }: any) => <div>ПОДГОТОВКА ИГРЫ {game.game_number}</div> }));
+vi.mock('../components/crm/tournaments/TournamentGameSetup.tsx', () => ({ TournamentGameSetup: ({ game, onGameStarted }: any) => <div>ПОДГОТОВКА ИГРЫ {game.game_number}<button type="button" onClick={() => onGameStarted(game.id)}>ТЕСТ-ЗАПУСК</button></div> }));
 vi.mock('../components/crm/tournaments/GameProtocolModal.tsx', () => ({ GameProtocolModal: ({ isOpen }: any) => (isOpen ? <div>ОКНО ПРОТОКОЛА</div> : null) }));
 vi.mock('../components/player/TournamentLiveGameModal.tsx', () => ({ default: () => <div>ДВИЖОК</div> }));
 vi.mock('../components/crm/tournaments/ConfirmReopenTournamentModal.tsx', () => ({ ConfirmReopenTournamentModal: ({ isOpen }: any) => (isOpen ? <div>ОКНО ВОЗВРАТА</div> : null) }));
@@ -46,9 +46,9 @@ describe('tournament card: header and organization', () => {
     expect(screen.getByText('Нет судьи у игры 2')).toBeTruthy();
     expect((screen.getByRole('button', { name: /Запустить турнир/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('cancel-tournament-button')).toBeTruthy();
-    // a tournament made the old way edits its data and roster here
-    expect(screen.getByRole('button', { name: 'Редактировать данные' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Изменить состав' }).length).toBe(2);
+    // data and roster are edited on the «Параметры» and «Участники» steps only (owner, 2026-11-08)
+    expect(screen.queryByRole('button', { name: 'Редактировать данные' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Изменить состав' })).toBeNull();
   });
 
   it('a ready draft can start; a tournament with registration has no old data/roster forms', async () => {
@@ -59,8 +59,9 @@ describe('tournament card: header and organization', () => {
     expect(screen.queryByRole('button', { name: 'Редактировать данные' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Изменить состав' })).toBeNull();
     expect(start).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Рассадка для игроков/ }));
-    expect(screen.getByText('ОКНО РАССАДКИ')).toBeTruthy();
+    // seating (PNG, new random seating, seat messages) lives on the «Участники» step only (owner, 2026-11-08)
+    expect(screen.queryByRole('button', { name: /Рассадка для игроков/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Перегенерировать рассадку/ })).toBeNull();
   });
 
   it('a running tournament shows its progress and why it cannot be completed yet', async () => {
@@ -86,10 +87,10 @@ describe('tournament card: header and organization', () => {
     expect(screen.getByText('ОКНО ЗАВЕРШЕНИЯ')).toBeTruthy();
   });
 
-  it('a completed tournament shows the official results and can be reopened', async () => {
+  it('a completed tournament can be reopened; its official results are on the results step, not here', async () => {
     await open(tournament({ status: 'completed', games: [game(1, 'completed')] }));
     expect(screen.getByText('Завершён')).toBeTruthy();
-    expect(screen.getByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeTruthy();
+    expect(screen.queryByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Редактировать завершённый турнир/ }));
     expect(screen.getByText('ОКНО ВОЗВРАТА')).toBeTruthy();
   });
@@ -104,9 +105,9 @@ describe('tournament card: header and organization', () => {
   });
 
   it('a failed action shows its message, which can be closed', async () => {
-    vi.spyOn(api, 'generateTournamentSeating').mockRejectedValue(new Error('Сервер недоступен'));
+    vi.spyOn(api, 'cancelTournament').mockRejectedValue(new Error('Сервер недоступен'));
     await open(tournament());
-    fireEvent.click(screen.getByRole('button', { name: /Перегенерировать рассадку/ }));
+    fireEvent.click(screen.getByTestId('cancel-tournament-button'));
     const banner = await screen.findByText(/Сервер недоступен/);
     fireEvent.click(within(banner.closest('div')!.parentElement as HTMLElement).getByRole('button'));
     expect(screen.queryByText(/Сервер недоступен/)).toBeNull();
@@ -187,15 +188,33 @@ describe('tournament card: games', () => {
     expect(JSON.stringify(swap.mock.calls[0])).toMatch(/3.*5/);
   });
 
-  it('the judge of a planned game is edited inline', async () => {
-    const save = vi.spyOn(api, 'updateGameJudge').mockResolvedValue({} as any);
+  it('the judge of a game is shown as plain text; it is edited in the «Судья игры» block only (owner, 2026-11-08)', async () => {
     await open(tournament({ status: 'draft', games: [game(1, 'planned')] }));
     games();
-    fireEvent.click(screen.getByRole('button', { name: /Судья/ }));
-    const input = screen.getByPlaceholderText('Имя судьи');
-    fireEvent.change(input, { target: { value: 'Новый судья' } });
-    fireEvent.click(input.parentElement!.querySelectorAll('button')[0]);
-    await waitFor(() => expect(save).toHaveBeenCalled());
-    expect(JSON.stringify(save.mock.calls[0])).toContain('Новый судья');
+    expect(screen.queryByRole('button', { name: /Судья/ })).toBeNull();
+    expect(screen.queryByPlaceholderText('Имя судьи')).toBeNull();
+    expect(screen.getAllByText('Судья:').length).toBeGreaterThan(0);
+  });
+
+  it('rare and destructive game actions sit in one «Ещё» menu; the main action stays outside it (owner, 2026-11-08)', async () => {
+    await open(tournament({ status: 'active', games: [game(1, 'active')] }));
+    games();
+    const menu = screen.getByTestId('game-more-actions');
+    expect(menu.textContent).toContain('Загрузить бланк игры');
+    expect(menu.contains(screen.getByTestId('tournament-live-game-button'))).toBe(false);
+    expect(menu.contains(screen.getByRole('button', { name: /Протокол игры/ }))).toBe(false);
+  });
+
+  it('the Live Engine opens right after a game is started, with no extra button press (owner, 2026-11-09)', async () => {
+    const planned = tournament({ status: 'active', games: [game(1, 'planned')] });
+    const running = tournament({ status: 'active', games: [game(1, 'active')] });
+    const get = vi.spyOn(api, 'getTournament').mockResolvedValue(planned as any);
+    render(<TournamentDetailView tournamentId="t1" onBack={vi.fn()} />);
+    await screen.findByText('Кубок октября');
+    games();
+    expect(screen.queryByText('ДВИЖОК')).toBeNull();
+    get.mockResolvedValue(running as any);
+    fireEvent.click(await screen.findByText('ТЕСТ-ЗАПУСК'));
+    expect(await screen.findByText('ДВИЖОК')).toBeTruthy();
   });
 });

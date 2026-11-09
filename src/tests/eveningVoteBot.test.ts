@@ -104,5 +104,7 @@ describe('the voting message with buttons', () => {
     const data = voteCallbackData('x'.repeat(40), 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
     expect(Buffer.byteLength(data!)).toBeLessThanOrEqual(64);
     expect(voteCallbackData('x'.repeat(60), 'aaaaaaaa')).toBeNull();
+    // the additional round must not share the RSVP prefix `evr:` (its handler would swallow the vote)
+    expect(voteCallbackData('e1', 'aaaaaaaa', true)).toBe('evo:e1:aaaaaaaa');
   });
 });

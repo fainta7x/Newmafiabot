@@ -12,9 +12,10 @@ vi.mock('../lib/api.ts', () => ({
   api: { getTournament: vi.fn(async () => tournament), getPlayers: vi.fn(async () => []), sendTournamentSeatMessages: sendSeatMessages },
 }));
 vi.mock('../components/crm/tournaments/TournamentEveningSettingsPanel.tsx', () => ({ TournamentEveningSettingsPanel: () => <div>ПАРАМЕТРЫ</div> }));
+vi.mock('../components/crm/tournaments/TournamentOfficialResults.tsx', () => ({ TournamentOfficialResults: () => <div>ОФИЦИАЛЬНЫЕ ИТОГИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentParticipantsPanel.tsx', () => ({ TournamentParticipantsPanel: () => <div>УЧАСТНИКИ</div> }));
 vi.mock('../components/crm/tournaments/TournamentDetailViewBase.tsx', () => ({
-  TournamentDetailView: ({ tabs }: { tabs?: string[] }) => <div>ИГРЫ:{(tabs || ['all']).join(',')}</div>,
+  TournamentDetailView: ({ tabs, stacked }: { tabs?: string[]; stacked?: boolean }) => <div>ИГРЫ:{(tabs || ['all']).join(',')}{stacked ? '' : ':tabs'}</div>,
 }));
 
 const { TournamentDetailView } = await import('../components/crm/tournaments/TournamentDetailView.tsx');
@@ -29,8 +30,18 @@ describe('tournament step screen', () => {
     expect(screen.getByTestId('tournament-step-setup').textContent).toContain('✓');
     fireEvent.click(screen.getByTestId('tournament-step-games'));
     expect(screen.getByText('ИГРЫ:organization,games')).toBeTruthy();
+    // the table switch is only on the results step (owner, 2026-11-08)
+    expect(screen.queryByTestId('tournament-table-visibility')).toBeNull();
     fireEvent.click(screen.getByTestId('tournament-step-results'));
     expect(screen.getByText('ИГРЫ:standings,nominations')).toBeTruthy();
+    expect(screen.getByTestId('tournament-table-visibility')).toBeTruthy();
+    // official results only once the tournament is completed (owner, 2026-11-08: all results on one step)
+    expect(screen.queryByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeNull();
+    cleanup();
+    tournament.status = 'completed';
+    render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByText('ОФИЦИАЛЬНЫЕ ИТОГИ')).toBeTruthy();
+    tournament.status = 'draft';
   });
 
   it('shows the same step screen for a tournament made the old way: one format for everybody (owner, 2026-10-06)', async () => {
@@ -40,14 +51,21 @@ describe('tournament step screen', () => {
     tournament.tournament_evening_flow = 1;
   });
 
-  it('shows the «send seats» block on the players and games steps once there are games to play', async () => {
+  it('shows the «send seats» block on the players step once there are games to play', async () => {
     tournament.games = [{ id: 'g1', status: 'planned' }, { id: 'g2', status: 'planned' }] as any;
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
     expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
     expect(screen.getByTestId('tournament-seat-messages')).toBeTruthy();
+    // One button, on the players step only (owner, 2026-11-08): the games step does not repeat it.
     fireEvent.click(screen.getByTestId('tournament-step-games'));
+    expect(screen.queryByRole('button', { name: /Разослать места игрокам/ })).toBeNull();
+    expect(screen.queryByTestId('tournament-seat-messages')).toBeNull();
+    fireEvent.click(screen.getByTestId('tournament-step-players'));
+    expect(screen.getByRole('button', { name: /Рассадка для игроков \(PNG\)/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
+    // the question is the app's own window, not the browser's (owner, 2026-11-08)
+    fireEvent.click(await screen.findByTestId('app-confirm-ok'));
     await waitFor(() => expect(sendSeatMessages).toHaveBeenCalledWith('t1'));
     expect(await screen.findByText(/отправлены в личные сообщения: 8 из 10 игроков/)).toBeTruthy();
     expect(screen.getByText(/У 2 из 10 нет привязанного Telegram\/VK/)).toBeTruthy();
@@ -59,13 +77,14 @@ describe('tournament step screen', () => {
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
     expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
-    await waitFor(() => expect(screen.queryByTestId('tournament-seat-messages')).toBeNull());
+    fireEvent.click(await screen.findByTestId('app-confirm-ok'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Разослать места игрокам/ })).toBeNull());
     cleanup();
 
     tournament.games = [{ id: 'g1', status: 'completed' }] as any;
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
     expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
-    expect(screen.queryByTestId('tournament-seat-messages')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Разослать места игрокам/ })).toBeNull();
     tournament.games = [];
   });
 });

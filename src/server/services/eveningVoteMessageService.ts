@@ -15,9 +15,10 @@ const CALLBACK_LIMIT = 64;
 
 const utf8Length = (value: string) => Buffer.byteLength(value, 'utf8');
 
-/** `evv:<evening>:<start of the player id>` — as much of the id as fits Telegram's 64-byte callback data. */
+/** `evv:<evening>:<start of the player id>` (`evo:` in the additional round) — as much of the id as fits Telegram's 64-byte callback data. */
 export const voteCallbackData = (eveningId: string, nomineeId: string,runoff=false): string | null => {
-  const head = `${runoff?'evr':'evv'}:${eveningId}:`;
+  // `evo:` for the additional round: `evr:` is the RSVP answer prefix and its handler would swallow a vote button.
+  const head = `${runoff?'evo':'evv'}:${eveningId}:`;
   const room = CALLBACK_LIMIT - utf8Length(head);
   if (room < 4) return null;
   return `${head}${nomineeId.slice(0, Math.min(nomineeId.length, room))}`;

@@ -6,6 +6,8 @@ import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmen
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
 import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
 import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
+import { AppConfirmHost } from '../../ui/AppConfirmHost.tsx';
+import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 import { TournamentSeatMessagesCard } from './TournamentSeatMessagesCard.tsx';
 import { TournamentTableVisibilityCard } from './TournamentTableVisibilityCard.tsx';
 
@@ -220,7 +222,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
   if (tournament) {
     return (
       <div data-stable-judge-view className="min-w-0 space-y-3 overflow-x-hidden" data-testid="tournament-steps">
-        <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
         <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
           <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-surface-2 px-3 text-xs font-semibold text-text-secondary"><ArrowLeft className="h-4 w-4" />Назад</button>
           <h2 className="mt-2 text-lg font-black leading-tight text-text-primary">{tournament.title}</h2>
@@ -243,29 +244,28 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           </nav>
         </section>
 
+        <AppConfirmHost />
         {currentStep === 'setup' ? (
           <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
         ) : null}
         {currentStep === 'players' ? (
           <>
             <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
-            <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
+            <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} tournament={tournament as any} onChanged={() => setRevision((value) => value + 1)} />
+            {telegramSection}
           </>
         ) : null}
         {currentStep === 'games' ? (
           <>
-            <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
-            <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
-            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
-            {telegramSection}
+            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader stacked tabs={['organization', 'games']} />
             {judgeSection}
           </>
         ) : null}
         {currentStep === 'results' ? (
           <>
             <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
-            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
-            {telegramSection}
+            {tournament.status === 'completed' ? <TournamentOfficialResults tournamentId={tournamentId} refreshTrigger={revision} onResolve={() => setRevision((value) => value + 1)} /> : null}
+            <TournamentDetailViewBase revision={revision} tournamentId={tournamentId} onBack={onBack} hideHeader stacked tabs={['standings', 'nominations']} />
           </>
         ) : null}
       </div>

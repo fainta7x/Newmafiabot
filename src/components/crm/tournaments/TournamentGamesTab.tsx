@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeftRight, Check, ChevronLeft, ChevronRight, Edit2, FileCheck, FileSpreadsheet, Image as ImageIcon, Play, Users, X } from 'lucide-react';
+import { ArrowLeftRight, ChevronLeft, ChevronRight, FileCheck, FileSpreadsheet, Image as ImageIcon, Play, Users } from 'lucide-react';
 import type { Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
 import { isRoleOptionDisabled } from '../../../lib/tournamentRoleValidation.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
@@ -25,11 +25,6 @@ type Props = {
   seats: TournamentGameSeat[];
   rights: ReturnType<typeof tournamentGameEditRights>;
   actionLoading: boolean;
-  editingJudge: boolean;
-  setEditingJudge: (value: boolean) => void;
-  judgeInput: string;
-  setJudgeInput: (value: string) => void;
-  handleSaveJudge: () => void;
   handleCorrectGame: (gameId: string) => Promise<unknown> | void;
   handleResetGameToPlanned: () => void;
   handleDropLastGame: () => void;
@@ -47,10 +42,10 @@ type Props = {
 /** «Игры» of the tournament card: the game switcher, the selected game's actions, its setup or its seats with roles. */
 export const TournamentGamesTab: React.FC<Props> = ({
   tournament, tournamentId, games, selectedGameIdx, setSelectedGameIdx, currentGame, seats, rights, actionLoading,
-  editingJudge, setEditingJudge, judgeInput, setJudgeInput, handleSaveJudge, handleCorrectGame, handleResetGameToPlanned, handleDropLastGame, handleAssignRole,
+  handleCorrectGame, handleResetGameToPlanned, handleDropLastGame, handleAssignRole,
   setFeedbackMsg, loadDetail, onOpenProtocol, onLiveGame, onImportBlank, onExportResult, onFixRoles, onOpenSwap,
 }) => {
-  const { activeGameInTournament, isAnotherGameActive, roleCounts, isCorrection, canEditCurrentGameJudgeAndRoles, canEditJudgeInline, canSwapSeatsCurrentGame, canCorrectCurrentGame } = rights;
+  const { activeGameInTournament, isAnotherGameActive, roleCounts, isCorrection, canEditCurrentGameJudgeAndRoles, canSwapSeatsCurrentGame, canCorrectCurrentGame } = rights;
   return (
   <div className="space-y-5">
     {/* Selected Game Selector & Navigator */}
@@ -123,46 +118,29 @@ export const TournamentGamesTab: React.FC<Props> = ({
           {/* Judge info */}
           <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
             <span>Судья:</span>
-            {!editingJudge && (currentGame.judge_name || tournament.chief_judge_name) && (
+            {(currentGame.judge_name || tournament.chief_judge_name) && (
               <PlayerAvatar nickname={currentGame.judge_name || tournament.chief_judge_name} size="xs" />
             )}
-            {editingJudge && canEditJudgeInline ? (
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={judgeInput}
-                  onChange={(e) => setJudgeInput(e.target.value)}
-                  className="bg-surface-1 border border-border-soft rounded px-2 py-0.5 text-xs text-text-primary"
-                  placeholder="Имя судьи"
-                />
-                <button onClick={handleSaveJudge} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded cursor-pointer">
-                  <Check className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setEditingJudge(false)} className="p-1 text-text-muted hover:bg-surface-hover rounded cursor-pointer">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : canEditJudgeInline ? (
-              <button
-                onClick={() => {
-                  setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
-                  setEditingJudge(true);
-                }}
-                className="font-semibold text-text-primary hover:text-accent flex items-center gap-1 cursor-pointer"
-              >
-                <span>{currentGame.judge_name || tournament.chief_judge_name || 'Назначить судью'}</span>
-                <Edit2 className="w-3 h-3 text-text-muted" />
-              </button>
-            ) : (
-              <span className="font-semibold text-text-primary">
-                {currentGame.judge_name || tournament.chief_judge_name || 'Не указан'}
-              </span>
-            )}
+            <span className="font-semibold text-text-primary">
+              {currentGame.judge_name || tournament.chief_judge_name || 'Не указан'}
+            </span>
           </div>
         </div>
 
         {/* Game Action Buttons: two columns on a phone so the card does not grow by one screen */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center [&>button]:w-full [&>button]:justify-center [&>button]:text-center sm:[&>button]:w-auto">
+          {currentGame.status === 'active' && (
+            <button
+              type="button"
+              data-testid="tournament-live-game-button"
+              onClick={() => onLiveGame(String(currentGame.id))}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-sm transition-all flex items-center gap-1.5 min-h-[44px] shadow-sm cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Вести игру (движок)</span>
+            </button>
+          )}
+
           <button
             type="button"
             disabled={currentGame.status === 'planned'}
@@ -180,26 +158,6 @@ export const TournamentGamesTab: React.FC<Props> = ({
             <span>Протокол игры</span>
           </button>
 
-          {currentGame.status === 'active' && (
-            <button
-              type="button"
-              data-testid="tournament-live-game-button"
-              onClick={() => onLiveGame(String(currentGame.id))}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 min-h-[40px] shadow-sm cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Вести игру (движок)</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => onImportBlank(currentGame.id)}
-            className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Загрузить бланк игры</span>
-          </button>
 
           {currentGame.status === 'completed' && (
             <button
@@ -212,6 +170,21 @@ export const TournamentGamesTab: React.FC<Props> = ({
               <span>Посмотреть результат</span>
             </button>
           )}
+
+          {/* Rare and destructive actions: one «Ещё» menu (owner, 2026-11-08), the main action stays in view */}
+          <details data-testid="game-more-actions" className="w-full rounded-xl border border-border-soft bg-surface-1">
+            <summary className="flex min-h-[40px] cursor-pointer list-none items-center justify-between px-3 text-xs font-bold text-text-secondary">Ещё<span aria-hidden="true">▾</span></summary>
+            <div className="flex flex-wrap gap-2 border-t border-border-soft p-2.5">
+          <button
+            type="button"
+            onClick={() => onImportBlank(currentGame.id)}
+            className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Загрузить бланк игры</span>
+          </button>
+
+
 
           {/* «Исправить» on a completed game: reopens it (and a completed tournament first) — owner, 2026-10-22 */}
           {canCorrectCurrentGame && (
@@ -273,6 +246,8 @@ export const TournamentGamesTab: React.FC<Props> = ({
               <span>Исправить игроков на местах</span>
             </button>
           )}
+            </div>
+          </details>
         </div>
       </div>
 
@@ -288,12 +263,10 @@ export const TournamentGamesTab: React.FC<Props> = ({
           canEditJudgeAndRoles={canEditCurrentGameJudgeAndRoles}
           canSwapSeats={canSwapSeatsCurrentGame}
           onOpenSwapModal={onOpenSwap}
-          onEditJudgeClick={() => {
-            setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
-            setEditingJudge(true);
-          }}
-          onGameStarted={() => {
+          onGameStarted={(startedGameId) => {
             loadDetail();
+            // The engine opens at once after the start (owner, 2026-11-09): no hunting for «Вести игру».
+            onLiveGame(String(startedGameId));
           }}
           setFeedbackMsg={setFeedbackMsg}
         />

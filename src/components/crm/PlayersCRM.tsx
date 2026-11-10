@@ -48,8 +48,6 @@ import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
 import PlayerActivityCard from './PlayerActivityCard.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
-import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
-import ColourReadingPanel from '../player/ColourReadingPanel.tsx';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfile.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
@@ -682,8 +680,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             </section>
 
             <StaffWorkStats stats={(playerDetails as any).staff_stats} variant="crm" testId="crm-player-staff-stats" />
-            <PlayerLearningBlock playerId={String((playerDetails as any).id)} />
-            <ColourReadingPanel url={`/api/learning/colour-reading/${encodeURIComponent(String((playerDetails as any).id))}`} />
             <PlayerAccountLinks playerId={String((playerDetails as any).id)} />
 
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">

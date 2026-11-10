@@ -333,6 +333,8 @@ Open work, in order:
 
 5. **«Новости» posts (owner 2026-11-10)** — daily «Вордли» invitation (10:00 МСК) and a 3-day digest of fun bot changes: built (`botNewsPostService.ts`, entries in `server/data/botChangesDigest.ts`); verify live after deploy.
 
+6. **Owner direction 2026-11-10 (CRM structure, not built):** everything about one kind of entity is managed in its own CRM section («Достижения», «Жетоны», «VIP», …), not inside the player card; the card keeps the player's own data and links into the sections. Scheme being agreed with the owner (see AUDIT_LOG PL08).
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner
@@ -350,6 +352,8 @@ Needs an answer or content from the owner before anything is built:
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 
 ### Player-facing changes not yet announced
+
+- 2026-11-10: «Вордли» удобнее на телефоне: клавиатура сразу под полем, клавиши одного размера, буквы можно вписывать в любую клетку (нажмите на неё), нет отдельного текстового поля.
 
 - 2026-11-09: «MVP вечера» — новый срок. Опрос приходит в субботу в 12:00 (после пятничного вечера), голосование до вторника 21:00, дополнительное голосование между лидерами до четверга 21:00; кнопки голосования в боте приходят вместе с опросом, а не сразу после карточки вечера. Кнопки второго тура в Telegram теперь работают.
 - 2026-11-09: в турнире у номинаций («Лучший мирный» и др.) теперь видны аватарки игроков.

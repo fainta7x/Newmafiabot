@@ -5,7 +5,7 @@ for (const [width,height] of [[360,640],[390,844],[1366,768],[1440,900],[1920,10
   test(`private VIP red rule at ${width}x${height}`,async({page},testInfo)=>{
     await page.setViewportSize({width,height});
     const playerId='owner';
-    let rule={id:'red',playerId,kind:'red_color',role:null,otherPlayerId:null,percent:100,enabled:true};
+    let rule={id:'red',playerId,kind:'role',role:'citizen',otherPlayerId:null,percent:100,enabled:true};
     await page.route('**/api/players**',route=>route.fulfill({json:[{id:playerId,nickname:'Чагин'}]}));
     await page.route('**/api/admin/vip-probability-rules**',route=>{
       const url=route.request().url();
@@ -14,10 +14,10 @@ for (const [width,height] of [[360,640],[390,844],[1366,768],[1440,900],[1920,10
       return route.fulfill({json:{rules:[rule]}});
     });
     await page.goto('/e2e/evening-prices.html?vip=1');
-    await expect(page.getByText('Чагин · Красная карта')).toBeVisible();
+    await expect(page.getByText('Чагин · Мне нравится играть на')).toBeVisible();
     await page.getByRole('button',{name:'Изменить',exact:true}).click();
-    await expect(page.getByLabel('Условие',{exact:true})).toHaveValue('red_color');
-    await expect(page.getByLabel('Роль',{exact:true})).toHaveCount(0);
+    await expect(page.getByLabel('Условие',{exact:true})).toHaveValue('role');
+    await expect(page.getByLabel('Роль')).toHaveCount(1);
     await expect(page.getByLabel('С кем',{exact:true})).toHaveCount(0);
     await page.getByRole('heading',{name:'Вероятности ролей и цвета'}).scrollIntoViewIfNeeded();
     expect(await page.evaluate(auditScreen)).toEqual([]);
@@ -26,7 +26,7 @@ for (const [width,height] of [[360,640],[390,844],[1366,768],[1440,900],[1920,10
     await page.screenshot({path:testInfo.outputPath(`vip-red-${width}.png`),fullPage:true});
     await page.getByLabel('Шанс срабатывания').fill('0');
     await page.getByRole('button',{name:'Сохранить изменения'}).click();
-    await expect(page.getByText('Мирный житель · 0% · Включено')).toBeVisible();
+    await expect(page.getByText('Мирный · 0% · Включено')).toBeVisible();
     expect(rule.percent).toBe(0);
   });
 }

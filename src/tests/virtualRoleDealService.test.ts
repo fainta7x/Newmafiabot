@@ -190,7 +190,7 @@ async function privateSuccesses(db:DatabaseWrapper,id=gameId){
 describe('private VIP rules in the actual server deal',()=>{
   it('owner can disable/delete the migrated guarantee; no ID-based override remains',async()=>{
     const {db}=await setup('CASUAL');
-    const rule=(await listVipProbabilityRules(db)).find(r=>r.kind==='red_color')!;
+    const rule=(await listVipProbabilityRules(db)).find(r=>r.kind==='role'&&r.role==='citizen')!;
     await saveVipProbabilityRule(db,{...rule,percent:0},rule.id);
     expect(isRed((await drawBlack(db,gameId)).reveal.role)).toBe(false);
     await deleteVipProbabilityRule(db,rule.id);

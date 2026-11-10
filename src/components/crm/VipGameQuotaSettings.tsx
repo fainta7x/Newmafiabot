@@ -70,7 +70,7 @@ export default function VipGameQuotaSettings(){
         <p className="text-xs text-white/60">Вероятности проверяются в каждой игре вечера без лимита успешных игр.</p>:
         <div className="rounded-xl border border-white/10 p-3 space-y-2">
           <div className="flex justify-between gap-2 text-xs text-white/75">
-            <label htmlFor="vip-game-quota-range">Количество игр, где сработала подкрутка</label>
+            <label htmlFor="vip-game-quota-range">Игр со сработавшей подкруткой за вечер</label>
             <strong className="text-white">{maxGames}</strong>
           </div>
           <input id="vip-game-quota-range" type="range" min={1} max={20} step={1}

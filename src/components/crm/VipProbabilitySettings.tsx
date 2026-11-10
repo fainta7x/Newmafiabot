@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
 import { appConfirm } from '../../lib/appConfirm.ts';
+import { VIP_CONDITION_PHRASE, VIP_ROLES, vipChanceCaption } from '../../lib/vipLabels.ts';
 
-type Kind = 'role' | 'same_color' | 'different_color' | 'red_color';
+type Kind = 'role' | 'same_color' | 'different_color';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null;
   percent: number; enabled: boolean };
 type Draft = Omit<Rule, 'id'>;
 const empty = (): Draft => ({ playerId:'', kind:'role',role:'citizen',otherPlayerId:null,
   percent:50,enabled:true });
-const roleLabels: Record<string,string> = {
-  citizen:'Мирный житель',sheriff:'Шериф',mafia:'Мафия',don:'Дон',
-};
-const labels: Record<Kind,string> = { role:'Конкретная роль',same_color:'Одноцвет с игроком',
-  different_color:'Разноцвет с игроком', red_color:'Красная карта' };
+const roleLabels: Record<string,string> = Object.fromEntries(VIP_ROLES);
+const labels: Record<Kind,string> = VIP_CONDITION_PHRASE;
 const field = 'min-h-11 w-full rounded-xl border border-white/15 bg-[#202126] px-3 text-sm text-white';
 async function send(url: string, init: RequestInit = {}) {
   const response = await fetch(url,{ credentials:'include',...init,headers:{
@@ -88,7 +86,7 @@ export default function VipProbabilitySettings() {
       {rules.map(rule=><div key={rule.id} className="rounded-xl border border-white/10 bg-black/15 p-3">
         <div className="text-sm text-white">{playerName(rule.playerId)} · {labels[rule.kind]}</div>
         <div className="mt-1 text-xs text-white/60">
-          {rule.kind==='role'?roleLabels[rule.role||'']:rule.kind==='red_color'?'Мирный житель':playerName(rule.otherPlayerId)}
+          {rule.kind==='role'?roleLabels[rule.role||'']:playerName(rule.otherPlayerId)}
           {' · '}{rule.percent}% · {rule.enabled?'Включено':'Выключено'}
         </div>
         <div className="mt-2 flex gap-2">
@@ -108,7 +106,7 @@ export default function VipProbabilitySettings() {
           {(Object.keys(labels) as Kind[]).map(kind=><option key={kind} value={kind}>{labels[kind]}</option>)}
         </select>
       </label>
-      {draft.kind==='red_color'?null:draft.kind==='role'?
+      {draft.kind==='role'?
         <label className="text-xs text-white/60">Роль
           <select className={field} value={draft.role||'citizen'} onChange={e=>change('role',e.target.value)}>
             {Object.entries(roleLabels).map(([id,label])=><option key={id} value={id}>{label}</option>)}
@@ -121,7 +119,7 @@ export default function VipProbabilitySettings() {
         </label>}
       <div className="space-y-2 rounded-xl border border-white/10 p-3">
         <label htmlFor="vip-rule-percent" className="flex justify-between gap-2 text-xs text-white/70">
-          <span>Шанс</span><strong className="text-white">{draft.percent}%</strong>
+          <span>Шанс · {vipChanceCaption(draft.percent)}</span><strong className="text-white">{draft.percent}%</strong>
         </label>
         <label className="flex items-center gap-2 text-xs text-white/70">Шанс срабатывания
           <input type="number" min={0} max={100} step={1} aria-label="Шанс срабатывания" className="ml-auto min-h-11 w-20 rounded-xl border border-white/15 bg-[#202126] px-2 text-center text-sm text-white" value={draft.percent} onChange={e=>change("percent",Math.max(0,Math.min(100,Number(e.target.value))))} />

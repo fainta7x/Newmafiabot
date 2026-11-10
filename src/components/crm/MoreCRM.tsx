@@ -19,6 +19,7 @@ import {
   Send,
   ShieldCheck,
   Award,
+  Crown,
   Settings2,
   Sprout, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
@@ -38,6 +39,7 @@ import WhatsNewCRM from './WhatsNewCRM.tsx';
 import BotFaqCRM from './BotFaqCRM.tsx';
 import GiftCollectionCRM from './GiftCollectionCRM.tsx';
 import AchievementsCRM from './AchievementsCRM.tsx';
+import VipCRM from './VipCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -56,7 +58,7 @@ type Subscreen = OrganizerMoreScreen | null;
 type MenuItem = { id: string; label: string; detail: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void; };
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
-  data: 'Данные и настройки', achievements: 'Достижения', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
+  data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
   system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок',
 };
 
@@ -92,6 +94,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       </div>
       {subscreen === 'data' ? <DataSettingsCRM /> : null}
       {subscreen === 'achievements' ? <AchievementsCRM /> : null}
+      {subscreen === 'vip' ? <VipCRM /> : null}
       {subscreen === 'betting' ? <BettingAdminCRM /> : null}
       {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
       {subscreen === 'telegram' ? <TelegramCRM /> : null}
@@ -124,6 +127,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'development', label: 'Заявки новых игроков', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
     { id: 'learning', label: 'Обучение', detail: 'Кто какие экзамены тренажёра сдал', icon: GraduationCap, onClick: () => setSubscreen('learning') },
     { id: 'achievements', label: 'Достижения', detail: 'Каталог, выдача вручную и награды игроков', icon: Award, onClick: () => setSubscreen('achievements') },
+    { id: 'vip', label: 'VIP', detail: 'Подкрутка карт: у кого какие условия', icon: Crown, onClick: () => setSubscreen('vip') },
     { id: 'access', label: 'Уровни и роли', detail: 'Уровень, роль в клубе и ведение игр — сразу нескольким игрокам', icon: ShieldCheck, onClick: () => setSubscreen('access') },
     { id: 'guide', label: 'Памятка для новичка', detail: 'Открыть правила, чтобы отправить ссылку игроку', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },
   ];

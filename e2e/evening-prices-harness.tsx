@@ -1,10 +1,7 @@
 import { ClubOwnerContext } from '../src/components/crm/useClubOwner.ts';
-import VipProbabilitySettings from '../src/components/crm/VipProbabilitySettings.tsx';
-import VipGameQuotaSettings from '../src/components/crm/VipGameQuotaSettings.tsx';
 import ReactDOM from 'react-dom/client';
 import DataSettingsCRM from '../src/components/crm/DataSettingsCRM.tsx';
 import Before from './fixtures/EveningPricesBefore.tsx';
 import './appStyles.ts';
-const vipOnly = new URLSearchParams(location.search).has('vip');
 const Component = new URLSearchParams(location.search).has('before') ? Before : DataSettingsCRM;
-ReactDOM.createRoot(document.getElementById('root')!).render(<div className="crm-premium min-h-screen bg-[#090a0d] p-3 pb-24 font-sans text-white"><ClubOwnerContext.Provider value={vipOnly || new URLSearchParams(location.search).get('owner') === '1'}>{vipOnly ? <div className="mx-auto max-w-2xl space-y-4"><VipGameQuotaSettings /><VipProbabilitySettings /></div> : <Component />}</ClubOwnerContext.Provider></div>);
+ReactDOM.createRoot(document.getElementById('root')!).render(<div className="crm-premium min-h-screen bg-[#090a0d] p-3 pb-24 font-sans text-white"><ClubOwnerContext.Provider value={new URLSearchParams(location.search).get('owner') === '1'}><Component /></ClubOwnerContext.Provider></div>);

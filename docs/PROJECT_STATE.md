@@ -339,6 +339,8 @@ New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner
 
+- Answered 2026-11-10 (board «Проект»): redesign of the cabinet/profile is cancelled (point fixes instead); night evenings at the cafe agreed; the release was checked on the phone.
+
 Needs an answer or content from the owner before anything is built:
 
 - VIP slider / VIP settings: how they should work.

@@ -335,6 +335,8 @@ Open work, in order:
 
 6. **Owner direction 2026-11-10 (CRM structure, not built):** everything about one kind of entity is managed in its own CRM section («Достижения», «Жетоны», «VIP», …), not inside the player card; the card keeps the player's own data and links into the sections. Scheme being agreed with the owner (see AUDIT_LOG PL08).
 
+7. **Owner request 2026-11-10: «как ходит» from real visits** — built (`playerActivityAutoService.ts`, «Считать само»); all current statuses stay manual until the owner marks players «Считать само». **Idea, not built:** price of an evening depends on activity (regular cheaper, rare more expensive) — to agree first.
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner

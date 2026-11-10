@@ -16,6 +16,12 @@ type HostChoice = '' | 'yes' | 'no';
 
 type Row = Player & { organize_formats?: string | null; curator_areas?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null; attends_sometimes?: number | null };
 
+// «Считать само»: the status follows the real visits (owner, 2026-11-10).
+const ACTIVITY_CHOICES: Array<{ value: PlayerActivity | 'auto'; label: string; hint: string }> = [
+  ...PLAYER_ACTIVITY,
+  { value: 'auto', label: 'Считать само', hint: 'По фактическим визитам: 2 и больше за месяц — постоянно, был за 2 месяца — иногда, иначе перестал' },
+];
+
 const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);
 const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
   : Number(row.from_other_city || 0) === 1 ? 'other_city'
@@ -154,7 +160,7 @@ export function PlayerAccessBulkCRM() {
   const [curating, setCurating] = useState<Record<CuratorArea, HostChoice>>({ NOVICES: '', LEARNING: '', EVENTS: '', TOURNAMENTS: '', DISCIPLINE: '', SMM: '' });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
-  const [activity, setActivity] = useState<PlayerActivity | ''>('');
+  const [activity, setActivity] = useState<PlayerActivity | 'auto' | ''>('');
   const [organization, setOrganization] = useState<ClubOrganization | ''>('');
   // «Может вести»: per evening type — add the mark, remove it, or leave each player as is.
   const [hosting, setHosting] = useState<Record<HostFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '' });
@@ -244,7 +250,7 @@ export function PlayerAccessBulkCRM() {
   };
   const changes = [
     levelPick ? `уровень игры: ${optionLabel(GAME_LEVELS, levelPick)}` : '',
-    activityPick ? `как часто ходит: ${optionLabel(PLAYER_ACTIVITY, activityPick)}` : '',
+    activityPick ? `как часто ходит: ${optionLabel(ACTIVITY_CHOICES, activityPick)}` : '',
     organizationPick ? `роль в клубе: ${optionLabel(CLUB_ORGANIZATION, organizationPick)}` : '',
     ...HOST_FORMAT_OPTIONS.filter((option) => hostAdd.includes(option.value) || hostRemove.includes(option.value)).map((option) => `${hosting[option.value] === 'yes' ? 'может' : 'не может'} вести: ${option.label.toLocaleLowerCase('ru-RU')}`),
     ...ORGANIZE_FORMAT_OPTIONS.filter((option) => organizeAdd.includes(option.value) || organizeRemove.includes(option.value)).map((option) => `${organizing[option.value] === 'yes' ? 'может' : 'не может'} проводить: ${option.label.toLocaleLowerCase('ru-RU')}`),
@@ -373,7 +379,7 @@ export function PlayerAccessBulkCRM() {
                 </span>
                 <span className="mt-1 flex flex-wrap gap-1">
                   <Tag className="border border-white/[0.07] bg-white/[0.035] text-white/55">{accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))}</Tag>
-                  <Tag className={ACTIVITY_TAG[rowActivity]}>{accessLabel(PLAYER_ACTIVITY, rowActivity)}</Tag>
+                  <Tag className={ACTIVITY_TAG[rowActivity]}>{accessLabel(PLAYER_ACTIVITY, rowActivity)}{Number((row as any).activity_auto || 0) === 1 && rowActivity !== 'other_city' ? ' · авто' : ''}</Tag>
                   {organization !== 'none' ? <Tag className="border border-rose-400/20 bg-rose-400/[0.08] text-rose-200/80">{accessLabel(CLUB_ORGANIZATION, organization)}</Tag> : null}
                   {hosts.length ? <Tag className="border border-amber-300/20 bg-amber-300/[0.08] text-amber-100/85">{hostFormatsSummary(hosts)}</Tag> : null}
                   {organizes.length ? <Tag className="border border-orange-300/20 bg-orange-300/[0.08] text-orange-100/85">{organizeFormatsSummary(organizes)}</Tag> : null}
@@ -402,7 +408,7 @@ export function PlayerAccessBulkCRM() {
               <Choice label="Поставить уровень игры" value={gameLevel} current={currentLevel} onChange={setGameLevel} options={GAME_LEVELS} />
             </Section>
             <Section title="Как часто ходит" about="Пишет ли бот ему лично">
-              <Choice label="Поставить, как часто ходит" value={activity} current={currentActivity} onChange={setActivity} options={PLAYER_ACTIVITY} />
+              <Choice<PlayerActivity | 'auto'> label="Поставить, как часто ходит" value={activity} current={currentActivity} onChange={setActivity} options={ACTIVITY_CHOICES} />
             </Section>
             {otherCityPanel ? null : (
               <Section title="Роль в клубе" about="«Организатор клуба» — полный кабинет; ставит только владелец">

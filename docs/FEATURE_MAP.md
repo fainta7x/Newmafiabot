@@ -501,3 +501,7 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 - Virtual role deal look: `src/components/game/virtualRoleDeal.css`, the card back logo `public/assets/deal/club-logo.webp` (cut from the poker card back), seat → player for the avatars `src/components/game/dealSeatPlayers.ts` (provided by `EveningLiveGameModal` and `TournamentLiveGameModal`).
 
 - Закрытые VIP-вероятности (только владелец клуба; CASUAL/NOVICE): `src/lib/vipRoleProbabilityRules.ts` → `src/server/services/vipProbabilityRulesService.ts` → `src/server/routes/vipProbabilityRulesRoutes.ts`, `VipProbabilitySettings.tsx` в «Ещё → Данные и настройки». Шанс и общая квота успешных игр — ползунки, галочка «На весь вечер», условие роль/одноцвет/разноцвет/красная карта. `vipLiveDrawService.ts` подключает единый планировщик `vipDrawPlanner.ts` к `virtualRoleDealService.ts`; приватные маркеры успеха в состоянии раздачи участвуют в атомарном учёте/отмене, не выходят в API. Подробности: `ROLE_DEAL_SPEC_2026-10-28.md`.
+
+### CRM «Достижения»
+
+- Screen `AchievementsCRM.tsx` (menu «Ещё → Достижения»), catalogue editor `AchievementEditor.tsx`, a player's official awards `PlayerAwardsPanel.tsx`; opening it from the player card: `lib/crmSectionNavigation.ts`. Focused coverage: `e2e/tests/crm-achievements.spec.mjs`.

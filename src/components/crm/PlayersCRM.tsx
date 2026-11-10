@@ -46,6 +46,7 @@ import { PlayerGameCard } from './PlayerGameCard.tsx';
 import PlayerGoMafiaLink from '../player/PlayerGoMafiaLink.tsx';
 import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
 import PlayerActivityCard from './PlayerActivityCard.tsx';
+import { openCrmSection } from '../../lib/crmSectionNavigation.ts';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
@@ -648,6 +649,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
             <button type="button" data-testid="crm-open-player-profile" onClick={() => setShowPublicProfile(true)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-[14px] border border-border-soft bg-surface-1 px-3.5 text-left text-[13px] font-semibold text-text-primary active:bg-surface-hover">
               <span>Открыть профиль игрока<span className="mt-0.5 block text-[11px] font-normal text-text-secondary">Так его видят другие игроки: игры, роли, Elo, награды</span></span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </button>
+
+            <button type="button" data-testid="crm-player-open-achievements" onClick={() => openCrmSection('achievements', String(playerDetails.id))} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-[14px] border border-border-soft bg-surface-1 px-3.5 text-left text-[13px] font-semibold text-text-primary">
+              <span>Достижения и награды<span className="mt-0.5 block text-[11px] font-normal text-text-secondary">Выдать вручную, официальные награды, каталог</span></span>
               <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
             </button>
 

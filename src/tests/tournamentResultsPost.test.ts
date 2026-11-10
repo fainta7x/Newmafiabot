@@ -27,7 +27,7 @@ async function setup(published: boolean) {
 }
 const recorder = () => {
   const calls: Array<{ chat: string; text: string }> = [];
-  const fetchImpl = (async (_url: string, init: any) => { const body = JSON.parse(String(init.body)); calls.push({ chat: body.chat_id, text: body.text }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
+  const fetchImpl = (async (_url: string, init: any) => { const form = init.body instanceof FormData; const body = form ? null : JSON.parse(String(init.body)); calls.push({ chat: form ? String(init.body.get('chat_id')) : body.chat_id, text: form ? `[картинка] ${String(init.body.get('caption'))}` : body.text }); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 }); }) as any;
   return { calls, fetchImpl };
 };
 
@@ -46,14 +46,17 @@ describe('official tournament results in Telegram', () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { calls, fetchImpl } = recorder();
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(true);
-    expect(calls.map((call) => call.chat).sort()).toEqual(['-100600', '-100700', '-100800']);
+    expect(calls.filter((call) => !call.text.startsWith('[картинка]')).map((call) => call.chat).sort()).toEqual(['-100600', '-100700', '-100800']);
+    // the full table as a picture goes to the same three places
+    expect(calls.filter((call) => call.text.startsWith('[картинка] 📊 Итоговая таблица')).map((call) => call.chat).sort()).toEqual(['-100600', '-100700', '-100800']);
     expect(calls[0].text).toContain('🥇 Аня — 12.5');
     expect(calls[0].text).toContain('3. Вера — 7.25'.replace('3.', '🥉'));
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(false);
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(6);
     // the scan does not send it again either
     await runClubResultPosts(db, fetchImpl);
     expect(calls.filter((call) => call.text.includes('Итоги турнира'))).toHaveLength(3);
+    expect(calls).toHaveLength(6);
   });
 
   it('does not post results the organizer has not published', async () => {
@@ -70,7 +73,7 @@ describe('official tournament results in Telegram', () => {
     const sent: string[] = [];
     let fail = true;
     const fetchImpl = (async (_url: string, init: any) => {
-      const body = JSON.parse(String(init.body));
+      const body = init.body instanceof FormData ? { chat_id: String(init.body.get('chat_id')) } : JSON.parse(String(init.body));
       if (fail) return new Response(JSON.stringify({ ok: false, error_code:429, description: 'busy' }), { status:429 });
       sent.push(body.chat_id); return new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 });
     }) as any;

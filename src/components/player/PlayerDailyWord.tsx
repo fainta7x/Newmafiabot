@@ -20,22 +20,52 @@ export function DailyWordCard({onOpen}:{onOpen:()=>void}){
 }
 export default function PlayerDailyWord({onExit,onTokenBalanceChange}:{onExit:()=>void;onTokenBalanceChange?:(balance:number)=>void}){
  const{state,setState,error,setError,load}=useDailyWord();
- const[draft,setDraft]=useState('');const[busy,setBusy]=useState(false);const[answer,setAnswer]=useState('');const[share,setShare]=useState('');const[remaining,setRemaining]=useState('');
+ const[cells,setCells]=useState<string[]>([]);const[active,setActive]=useState(0);const[busy,setBusy]=useState(false);const[answer,setAnswer]=useState('');const[share,setShare]=useState('');const[remaining,setRemaining]=useState('');
  const inFlight=useRef(false);const pending=useRef<{day:string;word:string;request_id:string;expected_count:number}|null>(null);
  const finished=state?.status==='won'||state?.status==='lost';
- useEffect(()=>{setDraft('');setAnswer('');setShare('');pending.current=null;},[state?.day]);
+ const clearDraft=()=>{setCells([]);setActive(0);};
+ const length=state?.length||0;const row=Array.from({length},(_,i)=>cells[i]||'');
+ useEffect(()=>{clearDraft();setAnswer('');setShare('');pending.current=null;},[state?.day]);
  useEffect(()=>{if(!state)return;const tick=()=>{const seconds=Math.max(0,Math.ceil((Date.parse(state.next_at)-Date.now())/1000));setRemaining(`${Math.floor(seconds/3600)} ч ${Math.floor(seconds%3600/60)} мин`);};tick();const timer=setInterval(tick,30000);return()=>clearInterval(timer);},[state?.next_at]);
  const submit=async()=>{
   if(!state||finished||inFlight.current)return;
-  const word=normalizeDailyWord(draft);
+  const word=normalizeDailyWord(row.join(''));
   if(word.length!==state.length){setError(`Нужно слово из ${state.length} букв`);return;}
   inFlight.current=true;setBusy(true);setError('');
   if(!pending.current || pending.current.word!==word || pending.current.day!==state.day)pending.current={day:state.day,word,request_id:crypto.randomUUID(),expected_count:state.guesses.length};
-  try{const next=await sendJson<DailyWordState>(`${API}/guess`,'POST',pending.current,'Не удалось сохранить попытку');setState({...next,can_manage:state.can_manage});onTokenBalanceChange?.(next.token_balance);pending.current=null;setDraft('');}
-  catch(e){const text=message(e);if(e instanceof RequestJsonError && e.status===409){await load();setDraft('');pending.current=null;}setError(text);}
+  try{const next=await sendJson<DailyWordState>(`${API}/guess`,'POST',pending.current,'Не удалось сохранить попытку');setState({...next,can_manage:state.can_manage});onTokenBalanceChange?.(next.token_balance);pending.current=null;clearDraft();}
+  catch(e){const text=message(e);if(e instanceof RequestJsonError && e.status===409){await load();clearDraft();pending.current=null;}setError(text);}
   finally{inFlight.current=false;setBusy(false);}
  };
- const type=(key:string)=>{if(busy||finished||!state)return;setError('');if(key==='⌫')setDraft(v=>v.slice(0,-1));else if(draft.length<state.length)setDraft(v=>(v+key).slice(0,state.length));};
+ const type=(key:string)=>{
+  if(busy||finished||!state)return;setError('');
+  if(key==='⌫'){
+   // Erase the chosen cell; if it is already empty, step back and erase the previous one.
+   const at=row[active]?active:Math.max(0,active-1);
+   setCells(row.map((letter,index)=>index===at?'':letter));setActive(at);return;
+  }
+  const next=row.map((letter,index)=>index===active?key:letter);
+  setCells(next);
+  // The next empty cell after this one, else the first empty one; stays put when the row is full.
+  const empty=[...next.keys()].find(index=>index>active&&!next[index])??[...next.keys()].find(index=>!next[index]);
+  setActive(empty??active);
+ };
+ const moveActive=(step:number)=>setActive(at=>Math.min(Math.max(0,at+step),Math.max(0,length-1)));
+ const typeRef=useRef(type);typeRef.current=type;const submitRef=useRef(submit);submitRef.current=submit;
+ useEffect(()=>{
+  // A physical keyboard (desktop): Russian letters, Backspace, Enter and the arrows work too.
+  const onKey=(event:KeyboardEvent)=>{
+   const target=event.target as HTMLElement|null;
+   if(event.ctrlKey||event.metaKey||event.altKey||(target&&(target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.isContentEditable)))return;
+   const key=event.key.toLocaleLowerCase('ru-RU');
+   if(key==='backspace'){event.preventDefault();typeRef.current('⌫');}
+   else if(key==='enter'){if(target?.closest('button,summary,a'))return;event.preventDefault();void submitRef.current();}
+   else if(key==='arrowleft'){event.preventDefault();moveActive(-1);}
+   else if(key==='arrowright'){event.preventDefault();moveActive(1);}
+   else if(/^[а-яё]$/.test(key))typeRef.current(key==='ё'?'е':key);
+  };
+  window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);
+ },[length]);
  const marks=new Map<string,LetterMark>();
  for(const guess of state?.guesses || [])guess.marks.forEach((mark,i)=>{const old=marks.get(guess.word[i]);if(old==='correct'||(old==='present'&&mark==='absent'))return;marks.set(guess.word[i],mark);});
  const shareResult=async()=>{if(!state)return;const text=dailyWordShare(state);try{if(navigator.share)await navigator.share({text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);setShare('Результат скопирован');}else setShare(text);}catch(e){if(!(e instanceof DOMException && e.name==='AbortError'))setShare(text);}};
@@ -43,9 +73,10 @@ export default function PlayerDailyWord({onExit,onTokenBalanceChange}:{onExit:()
  {error&&<div className="dw-error" role="alert"><p>{error}</p>{!state&&<button type="button" onClick={()=>void load()}>Повторить загрузку</button>}</div>}
  {state&&<><div className="dw-meta"><span>{state.day.split('-').reverse().join('.')}</span><span>Бесплатная партия</span></div>
  {!state.reward_eligible&&<p className="dw-note">Слово назначено с этого аккаунта: игра без награды и участия в сравнении.</p>}
- <div className="dw-board" aria-label="Попытки"><div className="dw-grid" style={{gridTemplateColumns:`repeat(${state.length},minmax(0,1fr))`}}>{Array.from({length:state.max_tries},(_,row)=>{const guess=state.guesses[row];const value=guess?.word || (row===state.guesses.length&&!finished?draft:'');return Array.from({length:state.length},(_,col)=><span key={`${row}-${col}`} className={`dw-cell ${guess?`dw-${guess.marks[col]}`:''}`} aria-label={value[col]?`${value[col]}${guess?`: ${labels[guess.marks[col]]}`:''}`:'Пусто'}>{value[col]||''}</span>);})}</div></div>
- {!finished?<><form onSubmit={e=>{e.preventDefault();void submit();}} className="dw-form"><label htmlFor="daily-word-input">Слово из {state.length} букв</label><input id="daily-word-input" value={draft} disabled={busy} maxLength={state.length} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={e=>{setDraft(normalizeDailyWord(e.target.value).replace(/[^а-я]/g,'').slice(0,state.length));setError('');}}/><button type="submit" disabled={busy||draft.length!==state.length}>{busy?'Сохраняем…':'Проверить слово'}</button></form>
- <div className="dw-keyboard" aria-label="Русская клавиатура">{rows.map(row=><div key={row}>{Array.from(row,key=><button type="button" key={key} className={marks.has(key)?`dw-${marks.get(key)}`:''} disabled={busy} onClick={()=>type(key)} aria-label={`Буква ${key}${marks.has(key)?`: ${labels[marks.get(key)!]}`:''}`}>{key}</button>)}</div>)}<button type="button" className="dw-delete" onClick={()=>type('⌫')} disabled={busy}>Стереть букву</button></div></>:<section className="dw-result"><h2>{state.status==='won'?'Слово разгадано!':'На сегодня попытки закончились'}</h2><p>{state.status==='won'?`Попыток: ${state.guesses.length} из ${state.max_tries}. ${state.reward_earned?`Начислено ${state.reward_earned} жетонов.`:'Партия без награды.'}`:'Следующая партия будет бесплатной.'}</p><p>Новое слово через {remaining}</p><button type="button" onClick={()=>void shareResult()}>Поделиться результатом</button>{share&&<p className="dw-share" role="status">{share}</p>}{state.status==='lost'&&(answer?<p className="dw-answer">Ответ: {answer}</p>:<button type="button" onClick={async()=>{try{const result=await sendJson<{answer:string}>(`${API}/reveal`,'POST',{day:state.day},'Не удалось открыть ответ');setAnswer(result.answer);}catch(e){setError(message(e));}}}>Показать ответ</button>)}</section>}
+ <div className="dw-board" aria-label="Попытки" style={{maxWidth:`min(100%,${state.length*56+(state.length-1)*5}px)`}}><div className="dw-grid" style={{gridTemplateColumns:`repeat(${state.length},minmax(0,1fr))`}}>{Array.from({length:state.max_tries},(_,r)=>{const guess=state.guesses[r];const current=r===state.guesses.length&&!finished;return Array.from({length:state.length},(_,col)=>{const letter=guess?guess.word[col]:current?row[col]:'';const cls=`dw-cell ${guess?`dw-${guess.marks[col]}`:''}${current&&active===col?' dw-active':''}`;const label=letter?`${letter}${guess?`: ${labels[guess.marks[col]]}`:''}`:'Пусто';return current?<button type="button" key={`${r}-${col}`} className={cls} disabled={busy} aria-label={`Клетка ${col+1} из ${state.length}: ${letter||'пусто'}`} aria-pressed={active===col} onClick={()=>setActive(col)}>{letter||<span className="dw-dot" aria-hidden="true">·</span>}</button>:<span key={`${r}-${col}`} className={cls} aria-label={label}>{letter||''}</span>;});})}</div></div>
+ {!finished?<><p className="dw-hint">Нажмите на клетку, чтобы вписать букву именно в неё. Слово из {state.length} букв.</p>
+ <div className="dw-keyboard" aria-label="Русская клавиатура">{rows.map(r=><div key={r}>{Array.from(r,key=><button type="button" key={key} className={marks.has(key)?`dw-${marks.get(key)}`:''} disabled={busy} onClick={()=>type(key)} aria-label={`Буква ${key}${marks.has(key)?`: ${labels[marks.get(key)!]}`:''}`}>{key}</button>)}</div>)}
+ <div className="dw-actions"><button type="button" className="dw-delete" onClick={()=>type('⌫')} disabled={busy}>⌫ Стереть</button><button type="button" className="dw-submit" onClick={()=>void submit()} disabled={busy||!row.every(Boolean)}>{busy?'Сохраняем…':'Проверить слово'}</button></div></div></>:<section className="dw-result"><h2>{state.status==='won'?'Слово разгадано!':'На сегодня попытки закончились'}</h2><p>{state.status==='won'?`Попыток: ${state.guesses.length} из ${state.max_tries}. ${state.reward_earned?`Начислено ${state.reward_earned} жетонов.`:'Партия без награды.'}`:'Следующая партия будет бесплатной.'}</p><p>Новое слово через {remaining}</p><button type="button" onClick={()=>void shareResult()}>Поделиться результатом</button>{share&&<p className="dw-share" role="status">{share}</p>}{state.status==='lost'&&(answer?<p className="dw-answer">Ответ: {answer}</p>:<button type="button" onClick={async()=>{try{const result=await sendJson<{answer:string}>(`${API}/reveal`,'POST',{day:state.day},'Не удалось открыть ответ');setAnswer(result.answer);}catch(e){setError(message(e));}}}>Показать ответ</button>)}</section>}
  <div className="dw-legend"><span><i className="dw-correct"/>На месте</span><span><i className="dw-present"/>Есть в слове</span><span><i className="dw-absent"/>Нет в слове</span></div>
  <details className="dw-rules"><summary>Как играть</summary><p>Каждый день — одно слово для всего клуба. Нужно угадать существительное в начальной форме за шесть попыток. Цвет показывает, какие буквы найдены. Буквы Е и Ё считаются одинаковыми.</p><p>Все попытки бесплатны. Награда за победу одинаковая, без бонуса за скорость. Партия сохраняется при выходе. Новый день начинается в 00:00 по Москве.</p></details>
  <section className="dw-social"><h2>Сегодня в клубе</h2><p>Начали: {state.played} · Разгадали: {state.solved}</p><p>Моя серия: {state.streak} · Лучшая: {state.best_streak}</p>{finished?state.results.length?<ul>{state.results.map((r,i)=><li key={i}><span>{r.nickname}</span><strong>{r.won?`${r.attempts}/${state.max_tries}`:'Не разгадано'}</strong></li>)}</ul>:<p>Результатов других игроков пока нет.</p>:<p>Результаты игроков откроются после завершения партии.</p>}</section>

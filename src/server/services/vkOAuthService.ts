@@ -8,9 +8,12 @@ const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const REFRESH_EARLY_MS = 2 * 60 * 1000;
 // `messages` is required for VK community-channel posts (`messages.send`/`messages.edit`).
 // Keep `wall` and `groups` for public-wall publishing and group discovery.
-const VK_SCOPES = ['wall', 'groups', 'messages'] as const;
+const VK_SCOPES = ['wall', 'photos', 'groups', 'messages'] as const;
 const VK_LEGACY_SCOPES = ['wall', 'photos', 'groups', 'messages', 'offline'] as const;
 const LEGACY_DEVICE_ID = 'legacy-api';
+// A VK ID token works with the wall API only when VK really granted the wall and photo rights; «vkid.personal_info» alone does not.
+export const scopeAllowsWallPhotos = (scope: unknown) => { const granted = String(scope || '').split(/[\s,]+/); return granted.includes('wall') && granted.includes('photos'); };
+const apiCompatibleFor = (deviceId: string, scope: unknown) => deviceId === LEGACY_DEVICE_ID || scopeAllowsWallPhotos(scope);
 
 type OAuthStateRow = {
   state: string;
@@ -131,8 +134,8 @@ const saveCredential = async (db: DatabaseWrapper, payload: VkTokenPayload, devi
       updated_at=excluded.updated_at
   `, [OAUTH_CREDENTIAL_KEY, accessToken, refreshToken, deviceId, userId, scope, expiresAt, updatedAt]);
 
-  setVkRuntimeUserToken(accessToken, { apiCompatible: deviceId === LEGACY_DEVICE_ID });
-  return { user_id: userId, scope, expires_at: expiresAt, api_compatible: deviceId === LEGACY_DEVICE_ID };
+  setVkRuntimeUserToken(accessToken, { apiCompatible: apiCompatibleFor(deviceId, scope) });
+  return { user_id: userId, scope, expires_at: expiresAt, api_compatible: apiCompatibleFor(deviceId, scope) };
 };
 
 const createState = async (db: DatabaseWrapper, input: { redirectUri: string; returnTo?: unknown; verifier: string }) => {
@@ -269,9 +272,9 @@ export async function hydrateVkOAuthAccessToken(db: DatabaseWrapper): Promise<bo
   const credential = await loadCredential(db);
   if (!credential?.access_token) { setVkRuntimeUserToken(''); return false; }
   const expiresAt = credential.expires_at ? new Date(credential.expires_at).getTime() : Number.POSITIVE_INFINITY;
-  if (expiresAt > Date.now() + REFRESH_EARLY_MS) { setVkRuntimeUserToken(credential.access_token, { apiCompatible: credential.device_id === LEGACY_DEVICE_ID }); return true; }
+  if (expiresAt > Date.now() + REFRESH_EARLY_MS) { setVkRuntimeUserToken(credential.access_token, { apiCompatible: apiCompatibleFor(credential.device_id, credential.scope) }); return true; }
   try { if (await refreshCredential(db, credential)) return true; } catch (error) { console.error('[VK OAUTH] token refresh failed:', error); }
-  if (expiresAt > Date.now()) { setVkRuntimeUserToken(credential.access_token, { apiCompatible: credential.device_id === LEGACY_DEVICE_ID }); return true; }
+  if (expiresAt > Date.now()) { setVkRuntimeUserToken(credential.access_token, { apiCompatible: apiCompatibleFor(credential.device_id, credential.scope) }); return true; }
   setVkRuntimeUserToken('');
   return false;
 }
@@ -281,7 +284,7 @@ export async function getVkOAuthStatus(db: DatabaseWrapper) {
   return {
     app_id: getVkOAuthAppId(),
     managed_connected: Boolean(credential?.access_token),
-    api_compatible: Boolean(String(process.env.VK_ACCESS_TOKEN || '').trim()) || credential?.device_id === LEGACY_DEVICE_ID,
+    api_compatible: Boolean(String(process.env.VK_ACCESS_TOKEN || '').trim()) || Boolean(credential && apiCompatibleFor(credential.device_id, credential.scope)),
     token_source: String(process.env.VK_ACCESS_TOKEN || '').trim() ? 'environment' : credential?.device_id === LEGACY_DEVICE_ID ? 'classic_api' : credential?.access_token ? 'vkid' : null,
     user_id: credential?.user_id || null,
     scope: credential?.scope || null,

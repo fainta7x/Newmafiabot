@@ -18,7 +18,7 @@ describe('VK OAuth helpers', () => {
   });
 
   it('requests the API scopes required for wall and channel publishing', () => {
-    expect(getVkOAuthScopes()).toEqual(['wall', 'groups', 'messages']);
+    expect(getVkOAuthScopes()).toEqual(['wall', 'photos', 'groups', 'messages']);
   });
 
   it('uses the same verifier for VK ID PKCE challenge and token exchange', () => {
@@ -52,5 +52,15 @@ describe('VK OAuth helpers', () => {
   it('rejects external return URLs', () => {
     expect(appendVkOAuthResult('https://evil.example/path', 'vk_error', 'no'))
       .toBe('/?vk_error=no');
+  });
+});
+
+describe('VK ID token and the wall API', () => {
+  it('is API-compatible only when VK granted the wall and photo rights', async () => {
+    const { scopeAllowsWallPhotos } = await import('../server/services/vkOAuthService.ts');
+    expect(scopeAllowsWallPhotos('vkid.personal_info')).toBe(false);
+    expect(scopeAllowsWallPhotos('wall groups messages')).toBe(false);
+    expect(scopeAllowsWallPhotos('wall photos groups messages')).toBe(true);
+    expect(scopeAllowsWallPhotos('wall,photos,offline')).toBe(true);
   });
 });

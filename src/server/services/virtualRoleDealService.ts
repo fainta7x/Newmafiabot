@@ -144,11 +144,8 @@ async function writeState(db: DatabaseWrapper, game: DealGame, state: State) {
   const json = JSON.stringify(state);
   await db.run('INSERT INTO game_role_deals (game_key,state_json,updated_at) VALUES (?,?,?) ON CONFLICT(game_key) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at',
     [dealGameKey(ref), json, now]);
-  // The old club table is mirrored until the next release removes it (older builds and a rollback still read it).
-  if (ref.storage === 'club') {
-    await db.run('INSERT INTO game_virtual_role_deals (game_id,state_json,updated_at) VALUES (?,?,?) ON CONFLICT(game_id) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at',
-      [ref.id, json, now]);
-  }
+  // Stage D (owner, 2026-11-09): the old club table `game_virtual_role_deals` is no longer written. It stays in the database with
+  // its old rows (nothing is deleted); the startup copy in ensureGameRoleDealSchema only moves a row that is NEWER than the key row.
 }
 
 const versionMatches = (state: State, version: number) => {

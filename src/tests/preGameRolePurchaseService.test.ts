@@ -96,7 +96,7 @@ describe('pre-deal role purchase persistence and debt', () => {
     const db = await setup();
     await reserveRoleBeforeDeal(db, 817, 'buyer-2', 'sheriff');
     const opened = await openVirtualRoleDeal(db, 817);
-    const raw = await db.get<{ state_json: string }>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=817');
+    const raw = await db.get<{ state_json: string }>('SELECT state_json FROM game_role_deals WHERE game_key=\'club:817\'');
     const state = JSON.parse(String(raw?.state_json));
     const sheriffId: string = state.deck.find((card: any) => card.role === 'sheriff').id;
     const otherReveal = await revealVirtualRole(db, 817, 1, sheriffId, opened.version);
@@ -393,7 +393,7 @@ describe('paid reservation priority over private VIP settings',()=>{
       await saveVipGameQuota(db,playerId,{wholeEvening:true,maxSuccessfulGames:null});
     }
     let view=await openVirtualRoleDeal(db,817);
-    const state=async()=>JSON.parse((await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=817'))!.state_json);
+    const state=async()=>JSON.parse((await db.get<{state_json:string}>('SELECT state_json FROM game_role_deals WHERE game_key=\'club:817\''))!.state_json);
     const first=(await state()).deck.find((card:any)=>card.role==='mafia');
     let reveal=await revealVirtualRole(db,817,1,first.id,view.version);
     expect(reveal.role).not.toBe('sheriff');

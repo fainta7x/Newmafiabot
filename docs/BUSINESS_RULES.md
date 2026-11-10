@@ -1211,8 +1211,9 @@ The earlier six «blocks» and the minimum of 5 games together are replaced by t
 
 Replaces the earlier «3 days after the evening is closed» (and the 24-hour runoff). All times are Moscow time.
 - **Friday evening:** the poll is sent **on Saturday at 12:00**; voting ends **on Tuesday at 21:00**; the additional vote between tied leaders (переголосование) runs **until Thursday 21:00**.
-- **Evenings on other days** (owner: «1 день после вечера и до 3-го дня + 2 дня на переголосование»): the poll is sent **the next day at 12:00**; voting ends **on the 3rd day after the evening at 21:00**; the additional vote runs **until the 5th day at 21:00**. The clock times 12:00 and 21:00 for these evenings are the same as for Friday (assumed from the Friday answers; not stated separately by the owner).
+- **Evenings on other days** (owner: «1 день после вечера и до 3-го дня + 2 дня на переголосование»): the poll is sent **the next day at 12:00**; voting ends **on the 3rd day after the evening at 21:00**; the additional vote runs **until the 5th day at 21:00**. The clock times 12:00 and 21:00 for these evenings are the same as for Friday (**confirmed by the owner, 2026-11-09**).
 - **An evening closed late:** the poll goes out **right after the closing, but never after the end of voting** (an evening closed after the voting end has no poll).
 - The day of an evening is its start's calendar day in Moscow time; the reference is the evening's date, not the moment of closing.
 - Not changed: the tie rules (the additional vote only between the leaders, first-round votes do not carry over, then the club owner decides), the one-winner rule, the home-page card.
-- Open question left to the owner: the reminder for those who have not voted yet; it is kept as «24 hours after the poll was sent, before the voting ends».
+- The reminder for those who have not voted yet: **24 hours after the poll was sent, before the voting ends** (confirmed by the owner, 2026-11-09).
+- Evenings whose poll already went out under the old rule are **left as they are** (owner, 2026-11-09): they end by the old term, only new evenings follow this schedule.

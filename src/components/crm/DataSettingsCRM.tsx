@@ -1,7 +1,4 @@
-import { useClubOwner } from './useClubOwner.ts';
 import { EveningPriceSettingsCard } from './EveningPriceSettingsCard.tsx';
-import VipProbabilitySettings from './VipProbabilitySettings.tsx';
-import VipGameQuotaSettings from './VipGameQuotaSettings.tsx';
 import React, { useEffect, useState } from 'react';
 import { Database, History, RefreshCw, ShoppingBag } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -186,7 +183,6 @@ function ExpertRowEditor({ row, columns, table, onSaved }: { row: Record<string,
 }
 
 export const DataSettingsCRM: React.FC = () => {
-  const owner = useClubOwner() === true;
   const [tab, setTab] = useState<Tab>('shop');
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -250,7 +246,6 @@ export const DataSettingsCRM: React.FC = () => {
       </div>
 
       <EveningPriceSettingsCard />
-      {owner && <><VipGameQuotaSettings /><VipProbabilitySettings /></>}
       {error ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
 
       <div className="grid grid-cols-3 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">

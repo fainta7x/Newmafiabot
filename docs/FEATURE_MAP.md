@@ -505,3 +505,7 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 ### CRM «Достижения»
 
 - Screen `AchievementsCRM.tsx` (menu «Ещё → Достижения»), catalogue editor `AchievementEditor.tsx`, a player's official awards `PlayerAwardsPanel.tsx`; opening it from the player card: `lib/crmSectionNavigation.ts`. Focused coverage: `e2e/tests/crm-achievements.spec.mjs`.
+
+### CRM «VIP»
+
+- Screen `VipCRM.tsx` (menu «Ещё → VIP»), one player's editor `PlayerVipSettings.tsx`, shared words `lib/vipLabels.ts`; owner-only API `/api/admin/vip-probability-rules`. Coverage: `e2e/tests/crm-vip.spec.mjs`, `src/tests/PlayerVipSettings.test.tsx`.

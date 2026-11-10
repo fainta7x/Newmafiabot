@@ -150,7 +150,9 @@ describe('canonical runtime contracts', () => {
     expect(routes).toContain("code: 'vk_poll_callback_setup_retired'");
     expect(routes).not.toContain('processVkPollVoteCallback');
     expect(routes).not.toContain('parseVkPollVoteCallback');
-    expect(routes).not.toContain('createVkOAuthStart');
+    // The retired /vk/oauth/start stays inert; the VK ID code flow is allowed again only behind the organizer's «Подключить API ВК» route (owner, 2026-11-10: the implicit flow gave Security Error).
+    expect(routes.match(/createVkOAuthStart/g)).toHaveLength(1);
+    expect(routes).toContain("router.post('/vk/oauth/connect', vkConnectRateLimit, requireOrganizerAuth");
     expect(routes).not.toContain('completeVkOAuth');
     expect(routes).not.toContain('ensureVkCallbackRegistration');
   });

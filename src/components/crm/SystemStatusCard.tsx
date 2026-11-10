@@ -132,8 +132,10 @@ export const SystemStatusCard: React.FC = () => {
     setVkError(null);
     try {
       const body: any = await sendJson('/api/integrations/vk/oauth/connect', 'POST', { return_to: window.location.pathname }, 'Не удалось начать подключение API ВК');
-      if (!body?.authorize_url) throw new Error('ВК не вернул ссылку для подключения');
-      window.location.assign(String(body.authorize_url));
+      const target = String(body?.authorize_url || '');
+      // Only VK's own sign-in page; anything else from a reply is not followed.
+      if (!target.startsWith('https://id.vk.com/')) throw new Error('ВК не вернул ссылку для подключения');
+      window.location.assign(target);
     } catch (err: any) {
       setVkError(err?.message || 'Не удалось начать подключение API ВК');
     }

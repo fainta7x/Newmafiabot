@@ -1,7 +1,6 @@
 import { organizerJson } from '../../lib/organizerAuth.ts';
 import { useEffect, useState } from 'react';
 import type { PlayerDetails } from '../../lib/api.ts';
-import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 import { appConfirm } from '../../lib/appConfirm.ts';
 
 export default function PlayerServiceTools({ player }: { player: PlayerDetails }) {
@@ -44,7 +43,6 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
 
   return (
     <div className="space-y-3">
-      <PlayerTokenLedgerCard playerId={player.id} initialBalance={Number(player.tokens || 0)} />
       <section className="rounded-[14px] border border-border-soft bg-surface-1 px-3.5 py-3">
         <div className="flex items-start justify-between gap-3">
           <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-text-muted">Стартовый Elo</span><span className="mt-0.5 block text-[11px] leading-4 text-text-secondary">Редкая служебная коррекция с полным пересчётом истории.</span></div>

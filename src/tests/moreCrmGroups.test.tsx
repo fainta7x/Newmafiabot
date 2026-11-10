@@ -10,18 +10,19 @@ describe('«Ещё» structure', () => {
 
   it('groups entries by the organizer task with plain names', () => {
     render(<MoreCRM {...props} />);
-    for (const title of ['Проведение и дела', 'Сообщения и публикации', 'Игроки и обучение', 'Отчёты и финансы']) expect(screen.getByText(title)).toBeDefined();
+    for (const title of ['Ведение игр', 'Игроки', 'Игровая часть', 'Сообщения', 'Деньги']) expect(screen.getByText(title)).toBeDefined();
     expect(screen.getByTestId('crm-more-development').textContent).toContain('Заявки новых игроков');
     expect(screen.getByTestId('crm-more-telegram').textContent).toContain('Публикации и каналы');
     expect(screen.getByTestId('crm-more-analytics')).toBeDefined();
   });
 
-  it('keeps the novice guide with player tools while hiding technical items', () => {
+  it('keeps technical items in «Система» and the theme in the header; the guide lives inside «Обучение»', () => {
     render(<MoreCRM {...props} />);
-    expect(screen.getByTestId('crm-more-guide').textContent).toContain('Памятка для новичка');
+    expect(screen.queryByTestId('crm-more-guide')).toBeNull();
     expect(screen.queryByTestId('crm-more-system')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Служебное/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Система/ }));
     expect(screen.getByTestId('crm-more-system')).toBeDefined();
-    expect(screen.getAllByTestId('crm-more-guide')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('crm-more-theme'));
+    expect(props.onOpenTheme).toHaveBeenCalled();
   });
 });

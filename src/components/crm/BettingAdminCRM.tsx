@@ -65,6 +65,7 @@ const statusMeta: Record<Pool['status'], { label: string; className: string }> =
   refunded: { label: 'Возвращено', className: 'bg-danger-soft text-danger' },
 };
 const roleLabel: Record<string, string> = GAME_ROLE_LABELS;
+const PAGE = 10;
 const money = (value: number) => Number(value || 0).toLocaleString('ru-RU');
 const coef = (value: number | null | undefined) => `x${Number(value || 1).toFixed(2)}`;
 
@@ -88,10 +89,14 @@ export const BettingAdminCRM: React.FC = () => {
   };
   useEffect(() => { void load(); }, []);
 
-  const pools = useMemo(() => {
+  const [visible, setVisible] = useState(PAGE);
+  const filtered = useMemo(() => {
     if (!data) return [];
     return filter === 'all' ? data.pools : data.pools.filter((pool) => pool.status === filter);
   }, [data, filter]);
+  // Games nobody bet on are noise (owner, 2026-11-10): the working list keeps games with bets and the ones still to act on; the rest is one folded list.
+  const pools = useMemo(() => filtered.filter((pool) => pool.bet_count > 0 || pool.status === 'open' || pool.status === 'closed'), [filtered]);
+  const emptyPools = useMemo(() => filtered.filter((pool) => !(pool.bet_count > 0 || pool.status === 'open' || pool.status === 'closed')), [filtered]);
 
   const runAction = async (pool: Pool, action: 'close' | 'refund' | 'settle', winner?: Team) => {
     const title = action === 'close'
@@ -154,14 +159,14 @@ export const BettingAdminCRM: React.FC = () => {
         {([
           ['all', 'Все'], ['open', 'Открытые'], ['closed', 'Ждут итога'], ['settled', 'Рассчитаны'], ['refunded', 'Возвраты'],
         ] as Array<[Filter, string]>).map(([id, label]) => (
-          <button key={id} onClick={() => setFilter(id)} className={`min-h-10 shrink-0 rounded-[10px] px-3 text-[12px] font-bold ${filter === id ? 'bg-accent text-white' : 'text-text-muted'}`}>{label}</button>
+          <button key={id} onClick={() => { setFilter(id); setVisible(PAGE); }} className={`min-h-10 shrink-0 rounded-[10px] px-3 text-[12px] font-bold ${filter === id ? 'bg-accent text-white' : 'text-text-muted'}`}>{label}</button>
         ))}
       </div>
 
-      {!pools.length ? <div className="rounded-[18px] border border-border-soft bg-surface-1 p-5 text-center text-[12px] text-text-muted">В этой категории ставок пока нет.</div> : null}
+      {!pools.length && !emptyPools.length ? <div className="rounded-[18px] border border-border-soft bg-surface-1 p-5 text-center text-[12px] text-text-muted">В этой категории ставок пока нет.</div> : null}
 
       <div className="space-y-3">
-        {pools.map((pool) => {
+        {pools.slice(0, visible).map((pool) => {
           const meta = statusMeta[pool.status];
           return (
             <details key={pool.id} className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
@@ -211,6 +216,13 @@ export const BettingAdminCRM: React.FC = () => {
           );
         })}
       </div>
+
+      {pools.length > visible ? <button type="button" onClick={() => setVisible((count) => count + PAGE)} className="min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[12px] font-bold text-text-primary">Показать ещё {Math.min(PAGE, pools.length - visible)} · осталось {pools.length - visible}</button> : null}
+
+      {emptyPools.length ? <details data-testid="crm-betting-empty" className="rounded-[16px] border border-border-soft bg-surface-1">
+        <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><span>Игры без ставок</span><span className="text-[11px] font-normal text-text-muted">{emptyPools.length}</span></summary>
+        <div className="border-t border-border-soft">{emptyPools.map((pool, index) => <div key={pool.id} className={`flex items-center justify-between gap-3 px-3.5 py-2.5 text-[12px] ${index ? 'border-t border-border-soft' : ''}`}><span className="min-w-0 text-text-primary">Игра №{pool.game_number || pool.game_id}<span className="ml-2 text-text-muted">{pool.game_date || ''}</span></span><span className="shrink-0 text-text-muted">{statusMeta[pool.status].label}</span></div>)}</div>
+      </details> : null}
 
       <div className="rounded-[15px] border border-border-soft bg-surface-1 p-3 text-[12px] leading-5 text-text-muted">
         <div className="mb-1 flex items-center gap-2 font-bold text-text-secondary"><Coins className="h-4 w-4" /> Как работает ручная коррекция</div>

@@ -509,3 +509,7 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 ### CRM «VIP»
 
 - Screen `VipCRM.tsx` (menu «Ещё → VIP»), one player's editor `PlayerVipSettings.tsx`, shared words `lib/vipLabels.ts`; owner-only API `/api/admin/vip-probability-rules`. Coverage: `e2e/tests/crm-vip.spec.mjs`, `src/tests/PlayerVipSettings.test.tsx`.
+
+### CRM «Жетоны» and the «Ещё» menu
+
+- `TokensCRM.tsx` (balances + `PlayerTokenLedgerCard`), menu groups and items in `MoreCRM.tsx`, screens and routes in `organizerRouting.ts`, opening a section from elsewhere `lib/crmSectionNavigation.ts`. Coverage: `e2e/tests/crm-tokens.spec.mjs`, `src/tests/moreCrmGroups.test.tsx`, `MoreCRMNavigationUX.test.tsx`.

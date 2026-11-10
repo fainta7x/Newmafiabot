@@ -33,27 +33,17 @@ afterEach(() => {
 describe('CRM «Ещё» navigation hierarchy', () => {
   it('groups actions by what the organizer is doing and keeps all original destinations', () => {
     render(<MoreCRM {...props} />);
-    const actions = screen.getByText('Проведение и дела').closest('section')!;
-    const publications = screen.getByText('Сообщения и публикации').closest('section')!;
-    const people = screen.getByText('Игроки и обучение').closest('section')!;
-    const reports = screen.getByText('Отчёты и финансы').closest('section')!;
-
-    expect(within(actions).getByTestId('crm-more-tasks')).toBeDefined();
-    expect(within(actions).getByTestId('crm-more-music')).toBeDefined();
-
-    for (const id of ['telegram', 'whatsnew', 'botfaq']) {
-      expect(within(publications).getByTestId(`crm-more-${id}`)).toBeDefined();
-    }
-    for (const id of ['development', 'learning', 'access', 'guide']) {
-      expect(within(people).getByTestId(`crm-more-${id}`)).toBeDefined();
-    }
-    for (const id of ['analytics', 'commerce', 'betting']) {
-      expect(within(reports).getByTestId(`crm-more-${id}`)).toBeDefined();
-    }
-    expect(screen.getAllByTestId('crm-more-guide')).toHaveLength(1);
+    const group = (title: string) => screen.getByText(title).closest('section')!;
+    const expected: Record<string, string[]> = {
+      'Ведение игр': ['tasks', 'music', 'analytics'],
+      'Игроки': ['development', 'access', 'learning', 'gifts'],
+      'Игровая часть': ['achievements', 'vip', 'tokens', 'betting'],
+      'Сообщения': ['telegram', 'whatsnew', 'botfaq'],
+      'Деньги': ['commerce', 'prices'],
+    };
+    for (const [title, ids] of Object.entries(expected)) for (const id of ids) expect(within(group(title)).getByTestId(`crm-more-${id}`)).toBeDefined();
+    expect(screen.queryByTestId('crm-more-guide')).toBeNull();
     expect(screen.queryByTestId('crm-more-service-tools')).toBeNull();
-    expect(screen.getByTestId('crm-more-guide').textContent).toContain('Открыть правила');
-    expect(screen.getByTestId('crm-more-guide').querySelector('.line-clamp-2')).not.toBeNull();
   });
 
   it('opens the published content screen and returns to the More menu', () => {
@@ -64,9 +54,9 @@ describe('CRM «Ещё» navigation hierarchy', () => {
     expect(screen.getByTestId('crm-more-botfaq')).toBeDefined();
   });
 
-  it('opens the novice guide as a guide, not as a copy action', () => {
+  it('opens the novice guide from «Обучение» as a guide, not as a copy action', () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-    render(<MoreCRM {...props} />);
+    render(<MoreCRM {...props} activeScreen="learning" />);
     fireEvent.click(screen.getByTestId('crm-more-guide'));
     expect(open).toHaveBeenCalledWith('/guide', '_blank', 'noopener');
   });

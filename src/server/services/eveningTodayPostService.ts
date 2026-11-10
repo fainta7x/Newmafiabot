@@ -185,6 +185,13 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
         console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
       }
     }
+    // Owner 2026-11-10: a VK post never goes out without its picture (the text-only post looked broken next to Telegram).
+    if (photo && !photo.noPhoto && !attachments?.length && !photo.requireImage) {
+      return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const, url: null,
+        error: canEditVkWallPosts()
+          ? 'Пост в ВК не отправлен: не удалось прикрепить фото. Проверьте, что в «Публикациях клуба» есть фото, и повторите.'
+          : 'Пост в ВК не отправлен: не подключён личный ключ ВК для загрузки фото. Подключите API ВК в «Ещё → Состояние системы».' };
+    }
     if (photo?.requireImage && (!photo.image || !attachments?.length)) {
       return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const,
         error: 'Публикация требует карточку MVP с аватаркой; пост без изображения не отправлен', url: null };

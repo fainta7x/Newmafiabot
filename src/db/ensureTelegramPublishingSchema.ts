@@ -6,7 +6,12 @@ import { oncePerDatabase } from './oncePerDatabase.ts';
 export const NOVICE_GROUP_CHAT_ID = '-1003925510303';
 export const NOVICE_GROUP_TOPIC_ID = 128;
 
-export const TELEGRAM_DESTINATION_IDS = ['public', 'novice', 'club', 'rating', 'novice_chat', 'club_chat', 'rating_chat'] as const;
+// The MVP topics (owner, 2026-11-10): main group «Новости» and novice group «История». Set once; later changes in CRM are kept.
+export const CLUB_GROUP_CHAT_ID = '-1001628595679';
+export const CLUB_NEWS_TOPIC_ID = 5925;
+export const NOVICE_HISTORY_TOPIC_ID = 134;
+
+export const TELEGRAM_DESTINATION_IDS = ['public', 'novice', 'club', 'rating', 'novice_chat', 'club_chat', 'rating_chat', 'club_mvp', 'novice_mvp'] as const;
 export type TelegramDestinationId = (typeof TELEGRAM_DESTINATION_IDS)[number];
 
 const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; description: string }> = [
@@ -32,6 +37,8 @@ const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; des
   },
   { id: 'novice_chat', name: 'Новички · чат', description: 'Итоги, голосования и MVP вечеров новичков.' },
   { id: 'club_chat', name: 'Обычные вечера · Чатик', description: 'Итоги, голосования и MVP обычных вечеров.' },
+  { id: 'club_mvp', name: 'Основной клуб · MVP', description: 'Основная группа, тема «Новости»: голосование и итоги MVP обычных вечеров; сюда же итоги рейтинговых вечеров и турниров.' },
+  { id: 'novice_mvp', name: 'Новички · MVP', description: 'Группа новичков, тема «История»: голосование и итоги MVP вечеров новичков.' },
   { id: 'rating_chat', name: 'Рейтинг и турниры · чат', description: 'Итоги, голосования и MVP рейтинговых вечеров и турниров.' },
 ];
 
@@ -328,6 +335,16 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
   // later changes in CRM «Ещё → Telegram» are kept. Open novice evenings whose announcement is already
   // due are then synced once, so the missed post appears in the group.
   await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const mvpTopicsMigrationId = '2026-11-mvp-topic-destinations';
+  if (!(await db.get('SELECT id FROM app_data_migrations WHERE id = ?', [mvpTopicsMigrationId]))) {
+    for (const [id, chatId, topicId] of [['club_mvp', CLUB_GROUP_CHAT_ID, CLUB_NEWS_TOPIC_ID], ['novice_mvp', NOVICE_GROUP_CHAT_ID, NOVICE_HISTORY_TOPIC_ID]] as const) {
+      await db.run(
+        `UPDATE telegram_destinations SET chat_id = ?, topic_id = ?, active = 1, updated_at = ? WHERE id = ? AND COALESCE(chat_id, '') = ''`,
+        [chatId, topicId, now, id],
+      );
+    }
+    await db.run('INSERT OR IGNORE INTO app_data_migrations (id, applied_at) VALUES (?, ?)', [mvpTopicsMigrationId, now]);
+  }
   const noviceGroupKey = '2026-09-novice-group-destination';
   if (!(await db.get('SELECT id FROM app_data_migrations WHERE id = ?', [noviceGroupKey]))) {
     await db.run(

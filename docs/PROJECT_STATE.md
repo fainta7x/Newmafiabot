@@ -329,6 +329,10 @@ Open work, in order:
 
 4. **Next task (owner, 2026-11-10): sort out the messages to the VK and Telegram groups** — what exactly is wrong is to be clarified with the owner before work.
 
+4b. **Group messages, step 2 (owner, 2026-11-10): Telegram** — structure recorded; what is wrong and where each message goes is to be clarified with the owner.
+
+5. **«Новости» posts (owner 2026-11-10)** — daily «Вордли» invitation (10:00 МСК) and a 3-day digest of fun bot changes: built (`botNewsPostService.ts`, entries in `server/data/botChangesDigest.ts`); verify live after deploy.
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner
@@ -340,6 +344,7 @@ Needs an answer or content from the owner before anything is built:
 - Cafe working hours (for evening planning).
 - The novice evening of 16 October: what to record.
 - Content the owner promised (art, compendium text, teaching material).
+- Rating-evening vote goes only to the rating channel — confirmed by the owner 2026-11-10 (no action).
 - The 14-item live check (above).
 
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.

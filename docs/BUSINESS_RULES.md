@@ -1124,6 +1124,11 @@ These are the owner's answers to the questions where copies in the code disagree
 - New day at00:00 Europe/Moscow. Unfinished yesterday games expire; yesterday attempts cannot be applied to today. Skipping does not remove tokens; streaks are informational.
 - Answers stay server-only. A losing player can reveal the answer after finishing. Other players' finished results open only after one's own completion; shared text contains colour squares and attempt counts, never letters. No automatic messages or publication.
 
+### Daily word and digest in «Новости» (owner, 2026-11-10; supersedes «no automatic messages» above)
+
+- **Daily invitation:** every day from 10:00 Moscow the bot posts into the main group's «Новости» topic a call to play the daily word («Вордли») with a «Играть» button, and yesterday's club result: the **word is named** (owner's decision) and how many of the players who played guessed it.
+- **Digest of bot changes:** published automatically into «Новости», at most once in 3 days (from 18:00 Moscow, only if there is something unsent). Only interesting, fun changes in lively words — never «fixed bugs», «moved a button», «repaired announcement sending». The assistant adds such entries to `src/server/data/botChangesDigest.ts` when a fun change reaches the players; each entry is sent once. The 18:00 hour is the assistant's default — the owner did not name a time.
+
 ## Virtual role dealing (owner, 2026-10-28)
 
 The approved fair virtual deck is an alternative to manual physical-role entry in all game formats. It follows the existing10/9/8-player composition in tableComposition; horizontal cards are renumbered after removal, the judge reveals and confirms separately, may choose another unassigned seat, undo the last assignment or explicitly redeal before starting. Synthetic training keeps its fixed task roles. Tournament assignments remain subject to the existing server role permissions and composition checks.
@@ -1217,3 +1222,22 @@ Replaces the earlier «3 days after the evening is closed» (and the 24-hour run
 - Not changed: the tie rules (the additional vote only between the leaders, first-round votes do not carry over, then the club owner decides), the one-winner rule, the home-page card.
 - The reminder for those who have not voted yet: **24 hours after the poll was sent, before the voting ends** (confirmed by the owner, 2026-11-09).
 - Evenings whose poll already went out under the old rule are **left as they are** (owner, 2026-11-09): they end by the old term, only new evenings follow this schedule.
+
+## Структура Telegram клуба (владелец, 2026-11-10)
+
+Два канала и две группы:
+
+- **Канал «Мафия в Туле | 2LA Noire»** — головной пригласительный (`public`, @mafiatulasport). Из него перенаправление в две группы:
+  1. **Группа «2LA Noire мафия в Туле❤️»** — основная клуба (`club`, топик 5912).
+  2. **Группа «2LA Noire | Игры для новичков»** (`novice`, топик 128).
+- **Закрытый канал «2LA Noire | Рейтинг и турниры»** — только по инвайтам (`rating`).
+
+Куда уходят анонсы вечеров (сверено с кодом `channelDestinationsForFormat`, 2026-11-10): новичковый вечер — в группу новичков и в головной канал; обычный (CASUAL) — в основную группу клуба; рейтинговый и турнир — в закрытый канал «Рейтинг и турниры».
+
+## Куда идёт MVP и результаты в Telegram (владелец, 2026-11-10)
+
+- **Обычный вечер (CASUAL):** голосование за MVP — в основную группу, тема «Новости» (только MVP основного вечера); результат голосования — туда же и ещё в головной канал.
+- **Вечер новичков (NOVICE):** голосование — в группу новичков, тема «История» (только MVP вечера новичков); результат — туда же и в головной канал.
+- **Рейтинговые вечера и турниры:** MVP, итоги, результаты игр, турнирная таблица и номинации — в головной канал, в закрытый канал «Рейтинг и турниры» и в основную группу, тема «Новости». Само голосование — только в закрытый канал рейтинга (подтверждено владельцем 2026-11-10).
+- Прочие итоги обычных и новичковых вечеров (карточки игр, итоги вечера) по-прежнему идут в «чатовые» назначения `club_chat` / `novice_chat` (не настроены) — владелец про них не говорил.
+- В приложении: назначения `club_mvp` (основная группа, тема «Новости») и `novice_mvp` (группа новичков, тема «История») — при первом запуске заполняются сами: основная группа `-1001628595679`, тема «Новости» 5925; группа новичков `-1003925510303`, тема «История» 134 (из ссылок владельца 2026-11-10); дальше меняются в «Ещё → Публикации и каналы».

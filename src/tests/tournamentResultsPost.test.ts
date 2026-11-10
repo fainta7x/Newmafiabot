@@ -20,7 +20,8 @@ async function setup(published: boolean) {
   await createApp(db);
   const now = new Date().toISOString();
   await db.run(`INSERT INTO tournaments (id,title,date,venue,status,public_token,results_published_at,created_at,updated_at) VALUES ('t1','Турнир Богдана #2',?,'Суп с Котом','completed',?,?,?,?)`, ['2026-10-03T08:00:00.000Z', published ? 'tok' : null, published ? now : null, now, now]);
-  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('rating_chat','Рейтинг','-100600',9,1,?,?)`, [now, now]);
+  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('rating','Рейтинг','-100600',NULL,1,?,?)`, [now, now]);
+  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('club_mvp','Новости','-100800',9,1,?,?)`, [now, now]);
   await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('public','Канал','-100700',NULL,1,?,?)`, [now, now]);
   return db;
 }
@@ -40,19 +41,19 @@ describe('official tournament results in Telegram', () => {
     expect(text).toContain('Полные результаты: https://app.test/tournaments/results/tok');
   });
 
-  it('posts once to the rating group only (not to the entry channel), and never twice', async () => {
+  it('posts once to the rating channel, the entry channel and the club «Новости» topic, and never twice', async () => {
     const db = await setup(true);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { calls, fetchImpl } = recorder();
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(true);
-    expect(calls.map((call) => call.chat).sort()).toEqual(['-100600']);
+    expect(calls.map((call) => call.chat).sort()).toEqual(['-100600', '-100700', '-100800']);
     expect(calls[0].text).toContain('🥇 Аня — 12.5');
     expect(calls[0].text).toContain('3. Вера — 7.25'.replace('3.', '🥉'));
     expect(await postTournamentResults(db, 't1', fetchImpl)).toBe(false);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(3);
     // the scan does not send it again either
     await runClubResultPosts(db, fetchImpl);
-    expect(calls.filter((call) => call.text.includes('Итоги турнира'))).toHaveLength(1);
+    expect(calls.filter((call) => call.text.includes('Итоги турнира'))).toHaveLength(3);
   });
 
   it('does not post results the organizer has not published', async () => {
@@ -77,9 +78,8 @@ describe('official tournament results in Telegram', () => {
     expect(sent).toEqual([]);
     fail = false;
     await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
-    await db.run("UPDATE club_result_posts SET updated_at = '2000-01-01T00:00:00Z' WHERE post_key = 'tournament-results:t1:rating'");
+    await db.run("UPDATE club_result_posts SET updated_at = '2000-01-01T00:00:00Z' WHERE post_key LIKE 'tournament-results:t1:%'");
     await runClubResultPosts(db, fetchImpl, Date.now() + 3_600_000);
-    expect(sent).toEqual(['-100600']);
-    expect(sent).not.toContain('-100700');
+    expect(sent.sort()).toEqual(['-100600', '-100700', '-100800']);
   });
 });

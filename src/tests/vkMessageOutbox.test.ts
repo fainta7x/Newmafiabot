@@ -39,7 +39,7 @@ describe('VK personal messages.send delivery',()=>{
         if(sql.includes('SELECT * FROM vk_message_outbox WHERE status')) return [row];
         return [];
       }),
-      transaction:vi.fn(),sqlite:{} as any,drizzle:{} as any,dbPath:':memory:',
+      transaction:vi.fn(),sqlite:{} as any,dbPath:':memory:',
     } as unknown as DatabaseWrapper;
     startVkMessageOutboxWorker(db);
     await vi.waitFor(()=>expect(fetchMock).toHaveBeenCalledTimes(1),{timeout:1000});

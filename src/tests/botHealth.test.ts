@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, DatabaseWrapper } from '../db/index.ts';
-import * as schema from '../db/schema.ts';
 
 describe('Bot Health Check API Integration Tests', () => {
   let app: any;
@@ -87,13 +86,13 @@ describe('Bot Health Check API Integration Tests', () => {
   it('should not modify any data in the database during health checks', async () => {
     process.env.BOT_API_SECRET = 'supersecretkey';
 
-    const pBefore = await db.drizzle.select().from(schema.players);
+    const pBefore = await db.all('SELECT id FROM players');
 
     await request(app)
       .get('/api/bot/health')
       .set('X-Bot-Token', 'supersecretkey');
 
-    const pAfter = await db.drizzle.select().from(schema.players);
+    const pAfter = await db.all('SELECT id FROM players');
     expect(pBefore.length).toBe(pAfter.length);
   });
 });

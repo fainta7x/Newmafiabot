@@ -2813,3 +2813,19 @@ Scope: source files (1036 `src` files outside tests, 716 test files), repo root,
 ## C06 — docs consolidation (2026-11-10, fixed)
 
 `docs/PROJECT_STATE.md` cut from 1713 to ~490 lines: old queue, per-day owner notes and historical handoffs moved verbatim to `docs/archive/PROJECT_STATE_until_2026-11-10.md`; the current file keeps source-of-truth, production/runtime, product state, integrations, a short current queue, the verified «waiting on the owner» list and the player-facing digest. `project:status --check` and `projectBoard` test pass.
+
+C04 [fixed 2026-11-10, owner: «если не нужно, то убери»]: removed the vestigial TypeScript drizzle layer (`src/db/schema.ts`, `src/db/schemaBase.ts`, `db.drizzle`, dependency `drizzle-orm`); the `drizzle/*.sql` base migrations stay. The checkpoint signature no longer hashes the two schema files; the repository meta file stores no signature, so nothing to regenerate.
+
+## 2026-11-10 — VK posts without pictures (owner report with screenshot)
+
+Scope: why the VK wall posts have no photo while Telegram posts have the cover.
+- [open, VK01] Root cause (verified read-only on production): `/api/integrations/status` → `vk.token_configured=false`, `public_post_edit_supported=false`, `oauth.api_compatible=false` (only the community key and a VK ID token with scope `vkid.personal_info` exist). `photos.getWallUploadServer` with the community key answers error 27 «method is unavailable with group auth». `sendVk` (`eveningTodayPostService.ts`) uploads photos only when `canEditVkWallPosts()` (needs a user token), so every post silently goes out as text only.
+- [open, VK02] `eveningTodayPostService.ts` swallows the missing-token case with no notice to the organizer (only `console.warn`); `vkDirectJoinPublishingService.ts` already reports «на сервере не подключён личный ключ ВК для загрузки фото».
+- [open, VK03] The backend flow for an API-compatible user token exists (`POST /api/integrations/vk/oauth/legacy/start`, `vkOAuthService.createVkLegacyOAuthStart`) but no screen in the app calls it.
+- VK01–VK03 [fixed in code 2026-11-10, owner choices: connect button; no VK post without a photo]: «Подключить API ВК» button in «Состояние системы» (`SystemStatusCard.tsx`) starts the existing legacy OAuth (scope now includes `photos`); `sendVk` refuses a post it cannot attach the picture to and tells the organizer why. Open until the owner presses the button once after deploy and `/api/integrations/status` shows `token_configured=true`.
+
+## 2026-11-10 — Telegram routing check (owner request, read-only on production)
+- [open, TG01] `/api/telegram-settings`: `public`, `novice` (topic 128), `club` (topic 5912), `rating` are active with a chat; `novice_chat`, `club_chat`, `rating_chat` («Итоги, голосования и MVP») have **no chat and are inactive**. `clubResultPostService.ts` (`clubResultDestination`, results, MVP, runoff, tournament results) sends only to those three, so these posts are rejected «Не настроен…». Needs the owner's answer which chat each format uses.
+- Verified OK in code: announcements — NOVICE → `novice` + `public`; CASUAL → `club`; RATING/TOURNAMENT → `rating` (`weeklyEveningAutomationService.ts`).
+
+- TG01 [fixed in code 2026-11-10 (owner answers), config pending]: results/MVP routing by `clubResultTargets` (new destinations `club_mvp`, `novice_mvp`); rating/tournament results go to `rating` + `public` + `club_mvp`. Production stays silent until the owner's chat id / topic ids for «Новости» and «История» are entered in the CRM. Also fixed: `mvpCardDrawnOnlyWhenPosted` test was weekday-dependent (failed on Tuesday).

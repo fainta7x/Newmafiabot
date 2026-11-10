@@ -13,6 +13,9 @@ let db: DatabaseWrapper;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 beforeEach(async () => {
+  // Saturday 18:00 Moscow: a Friday evening's vote is open (the schedule depends on the weekday).
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-07T15:00:00Z'));
   drawn.count = 0;
   db = createDatabaseConnection(':memory:');
   const created = hoursAgo(30);
@@ -22,14 +25,14 @@ beforeEach(async () => {
     await db.run("INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,created_at,updated_at) VALUES (?,?,?,'going','going','attended',?,?)", [`ep-${id}`, 'e1', id, created, created]);
   }
 });
-afterEach(() => { try { db.sqlite.close(); } catch {} });
+afterEach(() => { vi.useRealTimers(); try { db.sqlite.close(); } catch {} });
 
 describe('the «MVP вечера» card is drawn only for a post that goes out (stall audit, 2026-10-23)', () => {
   it('draws the card for the first post and not on the minute scans after it', async () => {
     process.env.TELEGRAM_BOT_TOKEN = 'test-token';
     await ensureClubResultPostSchema(db);
     await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations (id TEXT PRIMARY KEY, chat_id TEXT, topic_id TEXT, active INTEGER DEFAULT 1, invite_url TEXT)").catch(() => undefined);
-    await db.run("INSERT OR REPLACE INTO telegram_destinations (id, chat_id, active) VALUES ('club_chat', '-100', 1)");
+    await db.run("INSERT OR REPLACE INTO telegram_destinations (id, chat_id, active) VALUES ('club_mvp', '-100', 1)");
     const fetchImpl = (async () => new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 })) as unknown as typeof fetch;
     await postVotePrompt(db, 'e1', fetchImpl);
     expect(drawn.count).toBe(1);
@@ -39,7 +42,7 @@ describe('the «MVP вечера» card is drawn only for a post that goes out (
   it('does not replace a possibly accepted photo with text after a 5xx',async()=>{
     process.env.TELEGRAM_BOT_TOKEN='test-token';await ensureClubResultPostSchema(db);
     await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations(id TEXT PRIMARY KEY,chat_id TEXT,topic_id TEXT,active INTEGER)");
-    await db.run("INSERT OR REPLACE INTO telegram_destinations(id,chat_id,active) VALUES('club_chat','-100',1)");
+    await db.run("INSERT OR REPLACE INTO telegram_destinations(id,chat_id,active) VALUES('club_mvp','-100',1)");
     const fetchImpl=vi.fn(async(_url:RequestInfo|URL)=>new Response('{}',{status:503}));
     await postVotePrompt(db,'e1',fetchImpl);await postVotePrompt(db,'e1',fetchImpl);
     expect(fetchImpl).toHaveBeenCalledTimes(1);

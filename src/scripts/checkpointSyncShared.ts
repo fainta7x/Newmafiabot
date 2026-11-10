@@ -72,13 +72,6 @@ export function currentSchemaMarker(rootDir = process.cwd()): string {
     digest.update(name);
     digest.update(fs.readFileSync(path.join(drizzleDir, name)));
   }
-  for (const schemaFile of ['src/db/schema.ts', 'src/db/schemaBase.ts']) {
-    const fullPath = path.join(rootDir, schemaFile);
-    if (fs.existsSync(fullPath)) {
-      digest.update(schemaFile);
-      digest.update(fs.readFileSync(fullPath));
-    }
-  }
 
   return `${latestMigration};sha256=${digest.digest('hex')}`;
 }

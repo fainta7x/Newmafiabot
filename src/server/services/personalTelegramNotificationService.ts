@@ -35,6 +35,8 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   + (await isolated('MVP RUNOFFS',step('mvp_runoffs',()=>runEveningMvpRunoffs(db))))
   // The game blank and the evening summary for the club chat (clubResultPostService).
   + (await step('club_results', () => runClubResultPosts(db)).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
+  // «Новости»: the daily-word invitation and the digest of bot changes (botNewsPostService).
+  + (await step('bot_news', async () => (await import('./botNewsPostService.ts')).runBotNewsPosts(db)).catch((error) => { console.error('[BOT NEWS] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).
   + (await step('today_post', () => runTodayPostSchedule(db)).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }))
   // The organizer's own reminders: the evening route, an unclosed evening, debts, overdue tasks (organizerReminderService).

@@ -69,6 +69,8 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 ### Daily word
 
+- «Новости» invitation and bot-changes digest: `botNewsPostService.ts` (called from `runClubResultPosts`), digest entries `server/data/botChangesDigest.ts`, target destination `club_mvp`.
+
 - Player game/home card: `PlayerDailyWord.tsx` + `dailyWord.css`, mounted at `/player/daily-word` through `PlayerCabinetShell.tsx`; entry from Home and Community → Mini-games.
 - Public contract/feedback/share: `shared/dailyWord.ts`; answer/accepted word lists stay in `server/data/`, the latter licensed MIT from Harrix/Russian-Nouns.
 - API: `dailyWordRoutes.ts` under `/api/player/daily-word`; service `dailyWordService.ts`, schema `ensureDailyWordSchema.ts`. Future assignments require club-owner authorization. Guess/request/reward state is transactional and uses `tokenLedgerService.ts`.

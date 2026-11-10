@@ -31,7 +31,7 @@ beforeEach(async () => {
   const created = hoursAgo(100);
   // Friday evening, the clock is Tuesday 22:00: the first round (to Tuesday 21:00) is over.
   await db.run("INSERT INTO game_evenings (id,title,starts_at,status,settled_at,format,created_at,updated_at) VALUES ('e1','Пятница',?,'completed',?,'CASUAL',?,?)", [FRIDAY_START, FRIDAY_SETTLED, created, created]);
-  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('club_chat','Клуб','-100500',77,1,?,?)`, [created, created]);
+  await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at) VALUES ('club_mvp','Клуб','-100500',77,1,?,?)`, [created, created]);
   const players: Array<[string, string]> = [['a', '1'], ['b', '2'], ['c', '3'], ['d', '4'], [PRIMARY_ORGANIZER_PLAYER_ID, '9']];
   for (const [id, tg] of players) {
     await db.run('INSERT OR IGNORE INTO players (id,nickname,telegram_user_id,tokens,created_at,updated_at) VALUES (?,?,?,0,?,?)', [id, `Игрок ${id.slice(0, 1)}`, tg, created, created]);

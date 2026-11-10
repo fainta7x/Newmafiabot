@@ -1,10 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { addSqliteTime, recordSlowTransaction, SLOW_TRANSACTION_MS } from '../lib/performanceProbe.ts';
 import Database from 'better-sqlite3';
-import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import * as schema from './schema.ts';
 import { seedDemoData } from './seed.ts';
 import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.ts';
 import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromCanonical } from './canonicalSnapshot.ts';
@@ -16,7 +14,6 @@ import { ensureIsolatedTestRuntimeSchema } from './ensureIsolatedTestRuntimeSche
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
-  drizzle: BetterSQLite3Database<typeof schema>;
   all<T = any>(sql: string, params?: any[]): Promise<T[]>;
   get<T = any>(sql: string, params?: any[]): Promise<T | null>;
   run(sql: string, params?: any[]): Promise<{ lastID: number | bigint | null; changes: number }>;
@@ -92,11 +89,10 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   // Keep up to ~32 MB of database pages in memory (the default is ~2 MB): on production every point lookup that missed
   // the cache waited 100–200 ms for the network disk (owner question 2026-10-22). Reads only; durability is unchanged.
   sqlite.pragma('cache_size = -32000');
-  const drizzleDb = drizzle(sqlite, { schema });
   let transactionQueue: Promise<void> = Promise.resolve();
   let savepointCounter = 0;
   const wrapper: DatabaseWrapper = {
-    sqlite, drizzle: drizzleDb, dbPath: resolvedDbPath,
+    sqlite, dbPath: resolvedDbPath,
     async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { const t = performance.now(); try { return sqlite.prepare(sql).all(...params) as T[]; } finally { addSqliteTime(performance.now() - t, sql); } },
     async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { const t = performance.now(); try { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; } finally { addSqliteTime(performance.now() - t, sql); } },
     async run(sql: string, params: any[] = []) { const t = performance.now(); try { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; } finally { addSqliteTime(performance.now() - t, sql); } },

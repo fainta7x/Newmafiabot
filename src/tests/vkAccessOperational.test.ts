@@ -22,7 +22,6 @@ function makeStartDb() {
     all: vi.fn(async () => []),
     transaction: vi.fn(),
     sqlite: {} as any,
-    drizzle: {} as any,
     dbPath: ':memory:',
   } as unknown as DatabaseWrapper;
 }

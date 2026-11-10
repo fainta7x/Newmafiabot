@@ -11,10 +11,6 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [achievements, setAchievements] = useState<Array<{ id: string; name: string; icon: string }>>([]);
-  const [achievementId, setAchievementId] = useState('');
-  const [achievementBusy, setAchievementBusy] = useState(false);
-  const [achievementMessage, setAchievementMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setEloSeed(String(Number((player as any).elo_seed ?? 1000)));
@@ -23,34 +19,6 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
     setMessage(null);
     setError(null);
   }, [player.id, (player as any).elo_seed, (player as any).elo_seed_reason, player.elo]);
-
-  useEffect(() => {
-    let cancelled = false;
-    organizerJson<any>('/api/admin-data/summary', 'Не удалось загрузить достижения')
-      .then((body) => (Array.isArray(body?.achievements) ? body.achievements : []))
-      .then((items) => {
-        if (cancelled) return;
-        setAchievements(items);
-        setAchievementId((current) => current || items[0]?.id || '');
-      })
-      .catch(() => {
-        if (!cancelled) setAchievements([]);
-      });
-    return () => { cancelled = true; };
-  }, [player.id]);
-
-  const changeAchievement = async (state: 'grant' | 'revoke' | 'auto') => {
-    if (!achievementId || achievementBusy) return;
-    setAchievementBusy(true); setAchievementMessage(null);
-    try {
-      await organizerJson(`/api/admin-data/players/${encodeURIComponent(player.id)}/achievements/${encodeURIComponent(achievementId)}`, 'Не удалось изменить достижение', {
-        method: 'POST', body: JSON.stringify({ state, note: 'Ручная настройка из карточки игрока' }),
-      });
-      setAchievementMessage(state === 'grant' ? 'Достижение выдано' : state === 'revoke' ? 'Достижение отозвано' : 'Включена автоматическая выдача');
-    } catch (achievementError: any) {
-      setAchievementMessage(achievementError?.message || 'Не удалось изменить достижение');
-    } finally { setAchievementBusy(false); }
-  };
 
   const saveEloSeed = async () => {
     if (saving) return;
@@ -77,18 +45,6 @@ export default function PlayerServiceTools({ player }: { player: PlayerDetails }
   return (
     <div className="space-y-3">
       <PlayerTokenLedgerCard playerId={player.id} initialBalance={Number(player.tokens || 0)} />
-      {achievements.length ? <section className="rounded-[14px] border border-border-soft bg-surface-1 px-3.5 py-3">
-        <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-text-muted">Ручное достижение</span><span className="mt-0.5 block text-[11px] leading-4 text-text-secondary">Исключение для конкретного игрока. Каталог достижений настраивается отдельно.</span></div>
-        <select value={achievementId} onChange={(event) => setAchievementId(event.target.value)} className="mobile-field mt-3 min-h-[44px]">
-          {achievements.map((achievement) => <option key={achievement.id} value={achievement.id}>{achievement.icon} {achievement.name}</option>)}
-        </select>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <button type="button" disabled={achievementBusy} onClick={() => void changeAchievement('grant')} className="min-h-[44px] rounded-xl bg-accent px-1 text-[11px] font-bold text-white disabled:opacity-50">Выдать</button>
-          <button type="button" disabled={achievementBusy} onClick={() => void changeAchievement('revoke')} className="min-h-[44px] rounded-xl bg-danger-soft px-1 text-[11px] font-bold text-danger disabled:opacity-50">Забрать</button>
-          <button type="button" disabled={achievementBusy} onClick={() => void changeAchievement('auto')} className="min-h-[44px] rounded-xl bg-surface-2 px-1 text-[11px] font-bold text-text-primary disabled:opacity-50">Авто</button>
-        </div>
-        {achievementMessage ? <p className="mt-2 text-[11px] text-text-secondary">{achievementMessage}</p> : null}
-      </section> : null}
       <section className="rounded-[14px] border border-border-soft bg-surface-1 px-3.5 py-3">
         <div className="flex items-start justify-between gap-3">
           <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-text-muted">Стартовый Elo</span><span className="mt-0.5 block text-[11px] leading-4 text-text-secondary">Редкая служебная коррекция с полным пересчётом истории.</span></div>

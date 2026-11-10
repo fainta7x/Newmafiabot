@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
@@ -19,6 +20,7 @@ import {
 import { checkVkRuntimeHealth } from '../services/vkRuntimeHealthService.ts';
 
 const router = Router();
+const vkConnectRateLimit = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false });
 
 const withVkSchema = async (req: any) => {
   const db = req.db as DatabaseWrapper;
@@ -107,6 +109,17 @@ const startOrganizerVkLegacyOAuth = async (req: any, res: any) => {
   }
 };
 
+// The button «Подключить API ВК»: the VK ID code flow with the wall and photo rights (the old oauth.vk.com implicit flow answers «Security Error» for this app).
+router.post('/vk/oauth/connect', vkConnectRateLimit, requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = await withVkSchema(req);
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/integrations/vk/oauth/callback`;
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(await vkOAuthService.createVkOAuthStart(db, { redirectUri, returnTo: req.body?.return_to || '/admin/more/system' }));
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось начать подключение ВК', code: error?.code || 'vk_oauth_start_failed' });
+  }
+});
 router.post('/vk/oauth/legacy/start', requireOrganizerAuth, startOrganizerVkLegacyOAuth);
 router.get('/vk/oauth/legacy/start', requireOrganizerAuth, startOrganizerVkLegacyOAuth);
 

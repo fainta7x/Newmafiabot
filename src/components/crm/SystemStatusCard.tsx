@@ -111,12 +111,31 @@ export const SystemStatusCard: React.FC = () => {
     }
   };
 
+  // The result of «Подключить API ВК» after VK sends the organizer back here.
+  const [vkNotice, setVkNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const connected = params.get('vk_connected'); const failed = params.get('vk_error');
+      if (!connected && !failed) return;
+      setVkNotice(failed
+        ? { ok: false, text: `ВК не подключился: ${failed}` }
+        : connected === 'connected_vkid_only'
+          ? { ok: false, text: 'ВК подключён, но не выдал права на стену и фото. Включите «Стена» и «Фотографии» в настройках приложения ВК и нажмите кнопку ещё раз.' }
+          : { ok: true, text: 'ВК подключён: фото и правка постов теперь доступны.' });
+      params.delete('vk_connected'); params.delete('vk_error');
+      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+    } catch { /* the notice is optional */ }
+  }, []);
+
   const connectVkApi = async () => {
     setVkError(null);
     try {
-      const body: any = await sendJson('/api/integrations/vk/oauth/legacy/start', 'POST', { return_to: window.location.pathname }, 'Не удалось начать подключение API ВК');
-      if (!body?.authorize_url) throw new Error('ВК не вернул ссылку для подключения');
-      window.location.assign(String(body.authorize_url));
+      const body: any = await sendJson('/api/integrations/vk/oauth/connect', 'POST', { return_to: window.location.pathname }, 'Не удалось начать подключение API ВК');
+      const target = String(body?.authorize_url || '');
+      // Only VK's own sign-in page; anything else from a reply is not followed.
+      if (!target.startsWith('https://id.vk.com/')) throw new Error('ВК не вернул ссылку для подключения');
+      window.location.assign(target);
     } catch (err: any) {
       setVkError(err?.message || 'Не удалось начать подключение API ВК');
     }
@@ -187,6 +206,7 @@ export const SystemStatusCard: React.FC = () => {
           </button>
         </div>
         <button type="button" onClick={() => void connectVkApi()} className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-[10px] border border-border-soft bg-surface-1 px-3 text-[10px] font-bold text-text-primary">Подключить API ВК (для фото в постах)</button>
+        {vkNotice ? <div role="status" data-testid="vk-connect-notice" className={`mt-2 rounded-[10px] px-3 py-2 text-[11px] leading-4 ${vkNotice.ok ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{vkNotice.text}</div> : null}
         {vkData ? <div className="mt-2 text-[10px] leading-4 text-text-muted">{vkDetail(vkData)}</div> : null}
         {vkError ? <div className="mt-2 text-[10px] leading-4 text-danger">{vkError}</div> : null}
       </div>

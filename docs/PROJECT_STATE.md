@@ -324,8 +324,10 @@ Closed in the 2026-11-10 cleanup (verified against code, see `docs/AUDIT_LOG.md`
 Open work, in order:
 
 1. **Live verification of the 2026-11-09 changes** — owner answers the 14-item list in `docs/LIVE_CHECK_2026-11-09.md`.
-2. **Cleanup proposals awaiting the owner's «да»** — C07 new «Ещё» menu scheme (picture before → after first, then code); C04 removal of the vestigial drizzle TypeScript layer (`schema.ts`, `schemaBase.ts`, `db.drizzle`, `drizzle-orm`; the `drizzle/*.sql` base migrations stay).
+2. **Cleanup proposals awaiting the owner's «да»** — C07 «Ещё» menu: owner 2026-11-10 «пока не трогай, потом по очереди всё разберем» (note: «Деньги» = только реальные деньги; ставки/жетоны — внутриигровое; аналитика не в «Деньги»); C04 removal of the vestigial drizzle TypeScript layer (`schema.ts`, `schemaBase.ts`, `db.drizzle`, `drizzle-orm`; the `drizzle/*.sql` base migrations stay).
 3. **Performance re-measure after deploy** — `/api/health/performance[/queries]` (GET-only); open: residual `telegram_sync_outbox` stall, other `sqlite_master` probes (`docs/AUDIT_LOG.md` AR05).
+
+4. **Next task (owner, 2026-11-10): sort out the messages to the VK and Telegram groups** — what exactly is wrong is to be clarified with the owner before work.
 
 New product work is started only after the owner's «да» (AGENTS §4).
 

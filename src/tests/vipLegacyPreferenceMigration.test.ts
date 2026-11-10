@@ -21,25 +21,25 @@ describe('legacy red-card owner preference migration',()=>{
     const db=await setup();
     const first=await listVipProbabilityRules(db);
     expect(first).toContainEqual(expect.objectContaining({
-      playerId,kind:'red_color',percent:100,enabled:true,role:null,
+      playerId,kind:'role',percent:100,enabled:true,role:'citizen',
     }));
     const quota=await db.get<any>(
       'SELECT whole_evening,max_successful_games FROM vip_player_game_quotas WHERE player_id=?',[playerId]);
     expect(quota).toMatchObject({whole_evening:1,max_successful_games:null});
-    const rule=first.find(item=>item.kind==='red_color')!;
+    const rule=first.find(item=>item.kind==='role'&&item.role==='citizen')!;
     await saveVipProbabilityRule(db,{...rule,percent:25,enabled:false},rule.id);
     await migrateLegacyChaginRedGuarantee(db);
     const second=await listVipProbabilityRules(db);
-    expect(second.filter(item=>item.kind==='red_color')).toHaveLength(1);
+    expect(second.filter(item=>item.kind==='role'&&item.role==='citizen')).toHaveLength(1);
     expect(second.find(item=>item.id===rule.id)).toMatchObject({percent:25,enabled:false});
   });
   it("keeps the owner deletion instead of silently restoring 100%",async()=>{
     const db=await setup();
     const rules=await listVipProbabilityRules(db);
-    const rule=rules.find(item=>item.kind==='red_color')!;
+    const rule=rules.find(item=>item.kind==='role'&&item.role==='citizen')!;
     await db.run('DELETE FROM vip_probability_rules WHERE id=?',[rule.id]);
     await migrateLegacyChaginRedGuarantee(db);
-    expect((await listVipProbabilityRules(db)).some(item=>item.kind==='red_color')).toBe(false);
+    expect((await listVipProbabilityRules(db)).some(item=>item.kind==='role'&&item.role==='citizen')).toBe(false);
   });
   it.each([true,false])('upgrades the old CHECK and preserves every existing value (scope column: %s)',async(hasScope)=>{
     const db=await setup();
@@ -57,7 +57,7 @@ describe('legacy red-card owner preference migration',()=>{
     expect(await db.get("SELECT * FROM vip_probability_rules WHERE id='old'")).toMatchObject({
       kind:'role',role:'don',percent:37,enabled:0,personal_limit:4,limit_scope:'evening',created_at:'before',
     });
-    expect((await listVipProbabilityRules(db)).find(rule=>rule.kind==='red_color')?.percent).toBe(100);
+    expect((await listVipProbabilityRules(db)).find(rule=>rule.kind==='role'&&rule.role==='citizen')?.percent).toBe(100);
     expect((await db.get<{integrity_check:string}>('PRAGMA integrity_check'))?.integrity_check).toBe('ok');
   });
   it('rolls back a failed old-table copy instead of dropping any source records',async()=>{

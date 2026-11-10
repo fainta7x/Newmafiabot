@@ -28,7 +28,7 @@ function makeDb(input: { telegram?: string | null; vk?: string | null; preferenc
       if (sql.includes('FROM vk_message_outbox')) return vkRows.get(String(params[0]))||null;
       return null;
     }),
-    all: vi.fn(async () => []), transaction:vi.fn(), sqlite:{} as any, drizzle:{} as any, dbPath:':memory:',
+    all: vi.fn(async () => []), transaction:vi.fn(), sqlite:{} as any, dbPath:':memory:',
   } as unknown as DatabaseWrapper;
   return {db,deliveries,telegramRows,vkRows,getPreference:()=>preference};
 }

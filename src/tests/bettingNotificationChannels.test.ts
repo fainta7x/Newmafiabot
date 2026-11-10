@@ -52,7 +52,6 @@ describe('betting-open personal channel routing', () => {
       }),
       transaction: vi.fn(),
       sqlite: {} as any,
-      drizzle: {} as any,
       dbPath: ':memory:',
     } as unknown as DatabaseWrapper;
 

@@ -81,7 +81,6 @@ function makeDb(linkedPlayerId: string | null = null) {
     }),
     transaction: vi.fn(),
     sqlite: {} as any,
-    drizzle: {} as any,
     dbPath: ':memory:',
   } as unknown as DatabaseWrapper;
   return { db, states };

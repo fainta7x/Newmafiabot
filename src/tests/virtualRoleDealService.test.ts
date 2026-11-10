@@ -40,7 +40,7 @@ async function setup(format: 'CASUAL' | 'NOVICE' | 'RATING' | 'STANDARD') {
 }
 
 async function storedDeck(db: DatabaseWrapper) {
-  const row = await db.get<{ state_json: string }>('SELECT state_json FROM game_virtual_role_deals WHERE game_id = ?', [gameId]);
+  const row = await db.get<{ state_json: string }>('SELECT state_json FROM game_role_deals WHERE game_key = ?', [`club:${gameId}`]);
   return JSON.parse(String(row?.state_json || '{}')).deck as Array<{ id: string; role: string }>;
 }
 
@@ -178,19 +178,19 @@ async function copyGame(db:DatabaseWrapper,id:number,eveningId='role-ev') {
 }
 async function drawBlack(db:DatabaseWrapper,id:number,seat=10){
   const view=await openVirtualRoleDeal(db,id);
-  const row=await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[id]);
+  const row=await db.get<{state_json:string}>('SELECT state_json FROM game_role_deals WHERE game_key=?',[`club:${id}`]);
   const card=JSON.parse(row!.state_json).deck.find((c:any)=>!isRed(c.role));
   const reveal=await revealVirtualRole(db,id,seat,card.id,view.version);
   return {card,reveal,view};
 }
 async function privateSuccesses(db:DatabaseWrapper,id=gameId){
-  const row=await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[id]);
+  const row=await db.get<{state_json:string}>('SELECT state_json FROM game_role_deals WHERE game_key=?',[`club:${id}`]);
   return JSON.parse(row!.state_json).history.flatMap((entry:any)=>entry.vipPlayerIds||[]);
 }
 describe('private VIP rules in the actual server deal',()=>{
   it('owner can disable/delete the migrated guarantee; no ID-based override remains',async()=>{
     const {db}=await setup('CASUAL');
-    const rule=(await listVipProbabilityRules(db)).find(r=>r.kind==='red_color')!;
+    const rule=(await listVipProbabilityRules(db)).find(r=>r.kind==='role'&&r.role==='citizen')!;
     await saveVipProbabilityRule(db,{...rule,percent:0},rule.id);
     expect(isRed((await drawBlack(db,gameId)).reveal.role)).toBe(false);
     await deleteVipProbabilityRule(db,rule.id);
@@ -271,7 +271,7 @@ describe('private VIP rules in the actual server deal',()=>{
   it('a protected LAST citizen exchange credits its beneficiary and undo releases it',async()=>{
     const {db}=await setup('CASUAL');
     const opening=await openVirtualRoleDeal(db,gameId);
-    const row=await db.get<{state_json:string}>('SELECT state_json FROM game_virtual_role_deals WHERE game_id=?',[gameId]);
+    const row=await db.get<{state_json:string}>('SELECT state_json FROM game_role_deals WHERE game_key=?',[`club:${gameId}`]);
     const state=JSON.parse(row!.state_json);
     state.deck=[{id:'last-c',role:'citizen'},{id:'last-s',role:'sheriff'},{id:'last-b',role:'mafia'}];
     state.history=['citizen','citizen','citizen','citizen','citizen','don','mafia'].map((role,i)=>({seat:i+1,cardId:'past-'+i,role,previousDeck:[]}));

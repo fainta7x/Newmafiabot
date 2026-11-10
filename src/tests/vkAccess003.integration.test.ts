@@ -65,7 +65,6 @@ function makeLinkedDb(binding: string) {
     all,
     transaction: vi.fn(),
     sqlite: {} as any,
-    drizzle: {} as any,
     dbPath: ':memory:',
   } as unknown as DatabaseWrapper;
   return { db, run };

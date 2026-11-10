@@ -23,9 +23,11 @@ import {
   parseOrganizerRoute,
   routePathForReturnContext,
   type OrganizerMainTab,
+  type OrganizerMoreScreen,
   type OrganizerPlayerReturnContext,
   type OrganizerRouteState,
 } from './crm/organizerRouting.ts';
+import { CRM_OPEN_SECTION_EVENT } from '../lib/crmSectionNavigation.ts';
 import { useOrganizerCrmSession } from './crm/useOrganizerCrmSession.ts';
 import { initTheme, type ThemeId } from '../lib/theme.ts';
 import { useMobileKeyboardViewport } from '../hooks/useMobileKeyboardViewport.ts';
@@ -112,6 +114,15 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [pathname]);
+
+  useEffect(() => {
+    const open = (event: Event) => {
+      const screen = (event as CustomEvent<{ screen?: OrganizerMoreScreen }>).detail?.screen;
+      if (screen) navigateAdmin(organizerMorePath(screen));
+    };
+    window.addEventListener(CRM_OPEN_SECTION_EVENT, open);
+    return () => window.removeEventListener(CRM_OPEN_SECTION_EVENT, open);
+  });
 
   useEffect(() => {
     const route = parseOrganizerRoute(routePathname);

@@ -6,8 +6,6 @@ import { formatMoscowDate } from '../../lib/moscowDate.ts';
 type IntegrityData = {
   player: { birth_day: number | null; birth_month: number | null; birth_year: number | null; birthday_visibility: string; profile_checked_at: string | null; profile_updated_at: string | null };
   completeness: { percentage: number; complete: boolean; missing_fields: string[]; fields: Record<string, { label: string; state: string; complete: boolean }> };
-  awards: any[];
-  suggestions: any[];
 };
 
 const formatDate = (value?: string | null) => formatMoscowDate(value, 'numeric', { empty: '—' });
@@ -18,11 +16,6 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
   const [busy, setBusy] = useState(false);
   const [birthDate, setBirthDate] = useState('');
   const [visibility, setVisibility] = useState('private');
-  const [awardTitle, setAwardTitle] = useState('');
-  const [awardTournament, setAwardTournament] = useState('');
-  const [awardResult, setAwardResult] = useState('');
-  const [awardKind, setAwardKind] = useState('trophy');
-  const [showAwardForm, setShowAwardForm] = useState(false);
 
   const load = async () => {
     setError(null);
@@ -67,30 +60,6 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
     } catch (checkedError: any) { setError(checkedError?.message || 'Не удалось отметить проверку'); } finally { setBusy(false); }
   };
 
-  const createAward = async () => {
-    if (!awardTitle.trim() || busy) return; setBusy(true); setError(null);
-    try {
-      await sendJson(`/api/players/${encodeURIComponent(player.id)}/verified-awards`, 'POST', { kind: awardKind, title: awardTitle.trim(), tournament_name: awardTournament.trim() || null, place_result: awardResult.trim() || null, source_type: 'historical' }, 'Не удалось сохранить награду');
-      setAwardTitle(''); setAwardTournament(''); setAwardResult(''); setShowAwardForm(false); await load();
-    } catch (awardError: any) { setError(awardError?.message || 'Не удалось сохранить награду'); } finally { setBusy(false); }
-  };
-
-  const review = async (id: string, action: 'approve' | 'reject') => {
-    if (busy) return; setBusy(true); setError(null);
-    try {
-      await sendJson(`/api/players/award-suggestions/${encodeURIComponent(id)}/review`, 'POST', { action }, 'Не удалось обработать предложение');
-      await load();
-    } catch (reviewError: any) { setError(reviewError?.message || 'Не удалось обработать предложение'); } finally { setBusy(false); }
-  };
-
-  const importHistorical = async () => {
-    setBusy(true); setError(null);
-    try {
-      await sendJson(`/api/players/${encodeURIComponent(player.id)}/verified-awards/import-historical`, 'POST', undefined, 'Не удалось импортировать награды');
-      await load();
-    } catch (importError: any) { setError(importError?.message || 'Не удалось импортировать награды'); } finally { setBusy(false); }
-  };
-
   if (!data && !error) return <div className="py-4 text-center text-[12px] text-text-muted">Проверяем профиль…</div>;
   return <div data-testid="crm-profile-integrity" className="space-y-3">
     {error ? <div className="rounded-xl bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
@@ -107,9 +76,7 @@ export default function PlayerProfileIntegrityPanel({ player }: { player: Player
 
       <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3"><div className="text-[12px] font-semibold text-text-primary">День рождения</div><div className="mt-2 grid grid-cols-1 gap-2"><input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="mobile-field" /><select value={visibility} onChange={(event) => setVisibility(event.target.value)} className="mobile-field"><option value="private">Только организаторам</option><option value="day_month">Публично день и месяц</option><option value="full">Публично полная дата</option></select><button type="button" disabled={busy} onClick={() => void saveBirthday()} className="min-h-[44px] rounded-xl bg-white px-3 text-[12px] font-semibold text-black">Сохранить дату</button></div></section>
 
-      <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3"><div className="flex items-center justify-between"><strong className="text-[12px] text-text-primary">Официальные награды</strong><span className="text-[11px] text-text-muted">{data.awards.filter((item) => item.verification_status === 'verified').length}</span></div>{data.awards.length ? <div className="mt-2 space-y-1.5">{data.awards.map((award) => <div key={award.id} className="rounded-xl bg-black/15 p-2"><div className="text-[12px] font-semibold text-text-primary">{award.title}</div><div className="mt-0.5 text-[10px] text-text-muted">{[award.tournament_name, award.place_result, award.source_type].filter(Boolean).join(' · ')}</div></div>)}</div> : <div className="mt-2 text-[11px] text-text-muted">Проверенных наград пока нет.</div>}<div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => setShowAwardForm((value) => !value)} className="min-h-[44px] rounded-xl border border-border-soft text-[11px] font-semibold text-text-primary">Добавить вручную</button><button type="button" disabled={busy} onClick={() => void importHistorical()} className="min-h-[44px] rounded-xl border border-border-soft text-[11px] font-semibold text-text-primary">Импорт старых</button></div>{showAwardForm ? <div className="mt-2 space-y-2"><select value={awardKind} onChange={(event) => setAwardKind(event.target.value)} className="mobile-field"><option value="trophy">Кубок</option><option value="medal">Медаль</option><option value="certificate">Диплом</option><option value="placement">Место</option><option value="nomination">Номинация</option><option value="team">Командная</option></select><input value={awardTitle} onChange={(event) => setAwardTitle(event.target.value)} placeholder="Название награды" className="mobile-field" /><input value={awardTournament} onChange={(event) => setAwardTournament(event.target.value)} placeholder="Турнир" className="mobile-field" /><input value={awardResult} onChange={(event) => setAwardResult(event.target.value)} placeholder="Место / результат" className="mobile-field" /><button type="button" disabled={!awardTitle.trim() || busy} onClick={() => void createAward()} className="min-h-[44px] w-full rounded-xl bg-white text-[12px] font-semibold text-black">Сохранить проверенную награду</button></div> : null}</section>
 
-      {data.suggestions.length ? <section className="rounded-[14px] border border-warning/20 bg-warning-soft p-3"><div className="text-[12px] font-semibold text-warning">Предложения игрока · {data.suggestions.length}</div><div className="mt-2 space-y-2">{data.suggestions.map((suggestion) => <div key={suggestion.id} className="rounded-xl bg-black/10 p-2"><div className="text-[11px] text-text-primary">{suggestion.tournament_name || suggestion.description || suggestion.comment || 'Предложение награды'}</div><div className="mt-2 grid grid-cols-2 gap-1"><button type="button" disabled={busy} onClick={() => void review(suggestion.id, 'approve')} className="min-h-[40px] rounded-lg bg-white text-[11px] font-semibold text-black">Одобрить</button><button type="button" disabled={busy} onClick={() => void review(suggestion.id, 'reject')} className="min-h-[40px] rounded-lg border border-danger/30 text-[11px] font-semibold text-danger">Отклонить</button></div></div>)}</div></section> : null}
     </> : null}
   </div>;
 }

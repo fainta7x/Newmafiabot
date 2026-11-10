@@ -111,6 +111,17 @@ export const SystemStatusCard: React.FC = () => {
     }
   };
 
+  const connectVkApi = async () => {
+    setVkError(null);
+    try {
+      const body: any = await sendJson('/api/integrations/vk/oauth/legacy/start', 'POST', { return_to: window.location.pathname }, 'Не удалось начать подключение API ВК');
+      if (!body?.authorize_url) throw new Error('ВК не вернул ссылку для подключения');
+      window.location.assign(String(body.authorize_url));
+    } catch (err: any) {
+      setVkError(err?.message || 'Не удалось начать подключение API ВК');
+    }
+  };
+
   const checkVk = async () => {
     if (vkLoading) return;
     setVkLoading(true);
@@ -175,6 +186,7 @@ export const SystemStatusCard: React.FC = () => {
             <RefreshCw className={`h-3.5 w-3.5 ${vkLoading ? 'animate-spin' : ''}`} /> Проверить VK
           </button>
         </div>
+        <button type="button" onClick={() => void connectVkApi()} className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-[10px] border border-border-soft bg-surface-1 px-3 text-[10px] font-bold text-text-primary">Подключить API ВК (для фото в постах)</button>
         {vkData ? <div className="mt-2 text-[10px] leading-4 text-text-muted">{vkDetail(vkData)}</div> : null}
         {vkError ? <div className="mt-2 text-[10px] leading-4 text-danger">{vkError}</div> : null}
       </div>

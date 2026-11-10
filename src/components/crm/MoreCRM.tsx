@@ -18,6 +18,9 @@ import {
   Palette,
   Send,
   ShieldCheck,
+  Award,
+  Crown,
+  Wallet,
   Settings2,
   Sprout, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
@@ -36,6 +39,10 @@ import ProjectBoardCRM from './ProjectBoardCRM.tsx';
 import WhatsNewCRM from './WhatsNewCRM.tsx';
 import BotFaqCRM from './BotFaqCRM.tsx';
 import GiftCollectionCRM from './GiftCollectionCRM.tsx';
+import AchievementsCRM from './AchievementsCRM.tsx';
+import VipCRM from './VipCRM.tsx';
+import TokensCRM from './TokensCRM.tsx';
+import { EveningPriceSettingsCard } from './EveningPriceSettingsCard.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -54,7 +61,7 @@ type Subscreen = OrganizerMoreScreen | null;
 type MenuItem = { id: string; label: string; detail: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void; };
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
-  data: 'Данные и настройки', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
+  data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', tokens: 'Жетоны', prices: 'Стоимость вечеров', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
   system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок',
 };
 
@@ -89,6 +96,10 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
         <div className="min-w-0"><div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/65">Ещё</div><h2 className="mt-0.5 line-clamp-1 text-[18px] font-semibold text-white">{subscreenTitles[subscreen]}</h2></div>
       </div>
       {subscreen === 'data' ? <DataSettingsCRM /> : null}
+      {subscreen === 'achievements' ? <AchievementsCRM /> : null}
+      {subscreen === 'vip' ? <VipCRM /> : null}
+      {subscreen === 'tokens' ? <TokensCRM /> : null}
+      {subscreen === 'prices' ? <div className="mx-auto w-full max-w-2xl"><EveningPriceSettingsCard /></div> : null}
       {subscreen === 'betting' ? <BettingAdminCRM /> : null}
       {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
       {subscreen === 'telegram' ? <TelegramCRM /> : null}
@@ -97,7 +108,10 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
       {subscreen === 'tournaments' ? <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">Турнирные вечера теперь в «События → Турниры»: ответы игроков, очередь на место, взносы и публикация — в карточке турнира.</p> : null}
       {subscreen === 'development' ? <NoviceDevelopmentCRM onOpenPlayer={onOpenPlayer} /> : null}
-      {subscreen === 'learning' ? <LearningProgressCRM onOpenPlayer={onOpenPlayer} /> : null}
+      {subscreen === 'learning' ? <>
+        <button type="button" data-testid="crm-more-guide" onClick={() => { window.open('/guide', '_blank', 'noopener'); }} className="flex min-h-[56px] w-full items-center gap-3 rounded-[16px] border border-white/10 bg-white/[0.04] px-3 text-left"><BookOpen className="h-[18px] w-[18px] shrink-0 text-white/70" /><span className="min-w-0"><strong className="block text-[14px] font-semibold text-white">Памятка для новичка</strong><span className="mt-0.5 block text-[12px] text-white/70">Открыть правила, чтобы отправить ссылку игроку</span></span></button>
+        <LearningProgressCRM onOpenPlayer={onOpenPlayer} />
+      </> : null}
       {subscreen === 'access' ? <PlayerAccessBulkCRM /> : null}
       {subscreen === 'project' ? <ProjectBoardCRM /> : null}
       {subscreen === 'whatsnew' ? <WhatsNewCRM /> : null}
@@ -106,43 +120,47 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     </div>;
   }
 
-  // Grouped by the organizer's task, plain names (owner walk-through, 2026-10-12).
+  // Grouped by what the organizer is doing; names agreed with the owner (2026-11-10).
   const dailyItems: MenuItem[] = [
     { id: 'tasks', label: 'Дела', detail: 'Что нужно сделать и кому написать — по срочности', icon: ClipboardList, onClick: onOpenTasks },
-    { id: 'music', label: 'Музыкальная база', detail: 'Музыка для ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
+    { id: 'music', label: 'Музыкальная база', detail: 'Музыка для ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
+    { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
+  ];
+  const peopleItems: MenuItem[] = [
+    { id: 'development', label: 'Заявки новых игроков', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
+    { id: 'access', label: 'Уровни и роли', detail: 'Уровень, роль в клубе и ведение игр — сразу нескольким игрокам', icon: ShieldCheck, onClick: () => setSubscreen('access') },
+    { id: 'learning', label: 'Обучение', detail: 'Кто какие экзамены тренажёра сдал и памятка для новичка', icon: GraduationCap, onClick: () => setSubscreen('learning') },
+    { id: 'gifts', label: 'Сбор на подарок', detail: 'Опрос игроков ко дню рождения и кто сколько внёс', icon: Coins, onClick: () => setSubscreen('gifts') },
+  ];
+  const gameItems: MenuItem[] = [
+    { id: 'achievements', label: 'Достижения', detail: 'Каталог, выдача вручную и награды игроков', icon: Award, onClick: () => setSubscreen('achievements') },
+    { id: 'vip', label: 'VIP', detail: 'Подкрутка карт: у кого какие условия', icon: Crown, onClick: () => setSubscreen('vip') },
+    { id: 'tokens', label: 'Жетоны', detail: 'Балансы игроков, журнал и ручные операции', icon: Wallet, onClick: () => setSubscreen('tokens') },
+    { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
   ];
   const publicationItems: MenuItem[] = [
     { id: 'telegram', label: 'Публикации и каналы', detail: 'Объявления, сводки и каналы клуба', icon: Send, onClick: () => setSubscreen('telegram') },
     { id: 'whatsnew', label: 'Что нового', detail: 'Записи на главной странице игроков', icon: Sparkles, onClick: () => setSubscreen('whatsnew') },
     { id: 'botfaq', label: 'Ответы бота', detail: 'Вопросы игроков и тексты ответов в Telegram', icon: MessageCircleQuestion, onClick: () => setSubscreen('botfaq') },
   ];
-  const peopleItems: MenuItem[] = [
-    { id: 'development', label: 'Заявки новых игроков', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
-    { id: 'learning', label: 'Обучение', detail: 'Кто какие экзамены тренажёра сдал', icon: GraduationCap, onClick: () => setSubscreen('learning') },
-    { id: 'access', label: 'Уровни и роли', detail: 'Уровень, роль в клубе и ведение игр — сразу нескольким игрокам', icon: ShieldCheck, onClick: () => setSubscreen('access') },
-    { id: 'guide', label: 'Памятка для новичка', detail: 'Открыть правила, чтобы отправить ссылку игроку', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },
-  ];
   const moneyItems: MenuItem[] = [
-    { id: 'gifts', label: 'Сбор на подарок', detail: 'Опрос игроков ко дню рождения и кто сколько внёс', icon: Coins, onClick: () => setSubscreen('gifts') },
-    { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
-    { id: 'commerce', label: 'Оплата и поддержка', detail: 'Жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
-    { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
+    { id: 'commerce', label: 'Оплата и поддержка', detail: 'Платежи деньгами, пакеты жетонов и целевые сборы', icon: Coins, onClick: () => setSubscreen('commerce') },
+    { id: 'prices', label: 'Стоимость вечеров', detail: 'Сколько стоит вечер для игроков', icon: Coins, onClick: () => setSubscreen('prices') },
   ];
   const adminItems: MenuItem[] = [
-    { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин и экспертная правка', icon: Database, onClick: () => setSubscreen('data') },
+    { id: 'data', label: 'Данные и настройки', detail: 'Магазин жетонов, экспертная правка и журнал', icon: Database, onClick: () => setSubscreen('data') },
     { id: 'project', label: 'Проект', detail: 'Что ждёт вас, дорожная карта и все PR', icon: KanbanSquare, onClick: () => setSubscreen('project') },
     { id: 'system', label: 'Состояние системы', detail: 'Сервисы и техническая диагностика', icon: Activity, onClick: () => setSubscreen('system') },
-    { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },
     { id: 'developer', label: '[TEST] Тестовый режим', detail: 'Изолированные тестовые сценарии', icon: FlaskConical, onClick: () => setSubscreen('developer') },
   ];
   const group = (title: string, rows: MenuItem[], className: string) => <section className={`${className} space-y-1.5`}><div className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/65">{title}</div><div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5">{rows.map((item) => <MenuRow key={item.id} {...item} />)}</div></section>;
 
   return <div className="crm-more-menu mx-auto w-full max-w-xl space-y-4">
-    <header className="px-1 pt-0.5"><h2 data-crm-duplicate-primary-title="true" className="text-[22px] font-semibold text-white">Ещё</h2><p className="mt-1 text-[13px] leading-5 text-white/70">Рабочие инструменты, связь с игроками и настройки клуба.</p></header>
-    <div className="crm-more-daily space-y-4">{group('Проведение и дела', dailyItems, 'crm-more-everyday')}{group('Сообщения и публикации', publicationItems, 'crm-more-publications')}{group('Игроки и обучение', peopleItems, 'crm-more-people')}</div>
-    <div className="crm-more-secondary space-y-4">{group('Отчёты и финансы', moneyItems, 'crm-more-reports')}
-    <section className="crm-more-admin rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5"><button type="button" aria-expanded={adminOpen} onClick={() => setAdminOpen((value) => !value)} className="flex min-h-[56px] w-full items-center gap-3 rounded-[15px] px-2.5 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-white/[0.05] text-white/70"><Settings2 className="h-[18px] w-[18px]" /></span><span className="min-w-0 flex-1"><strong className="block text-[14px] font-semibold text-white">Служебное</strong><span className="mt-0.5 block text-[12px] text-white/65">Система, оформление, проект, данные и тесты</span></span>{adminOpen ? <ChevronUp className="h-5 w-5 text-white/30" /> : <ChevronDown className="h-5 w-5 text-white/30" />}</button>{adminOpen ? <div data-testid="crm-more-service-tools" className="mt-1 border-t border-white/[0.07] pt-1">{adminItems.map((item) => <MenuRow key={item.id} {...item} />)}</div> : null}</section>
+    <header className="flex items-start justify-between gap-3 px-1 pt-0.5"><div className="min-w-0"><h2 data-crm-duplicate-primary-title="true" className="text-[22px] font-semibold text-white">Ещё</h2><p className="mt-1 text-[13px] leading-5 text-white/70">Рабочие инструменты, связь с игроками и настройки клуба.</p></div><button type="button" data-testid="crm-more-theme" onClick={onOpenTheme} aria-label="Оформление: тема и визуальный режим" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.05] text-white/75"><Palette className="h-[18px] w-[18px]" /></button></header>
+    <div className="crm-more-daily space-y-4">{group('Ведение игр', dailyItems, 'crm-more-everyday')}{group('Игроки', peopleItems, 'crm-more-people')}{group('Игровая часть', gameItems, 'crm-more-game')}{group('Сообщения', publicationItems, 'crm-more-publications')}</div>
+    <div className="crm-more-secondary space-y-4">{group('Деньги', moneyItems, 'crm-more-reports')}
+    <section className="crm-more-admin rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5"><button type="button" aria-expanded={adminOpen} onClick={() => setAdminOpen((value) => !value)} className="flex min-h-[56px] w-full items-center gap-3 rounded-[15px] px-2.5 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-white/[0.05] text-white/70"><Settings2 className="h-[18px] w-[18px]" /></span><span className="min-w-0 flex-1"><strong className="block text-[14px] font-semibold text-white">Система</strong><span className="mt-0.5 block text-[12px] text-white/65">Состояние, проект, данные и тесты</span></span>{adminOpen ? <ChevronUp className="h-5 w-5 text-white/30" /> : <ChevronDown className="h-5 w-5 text-white/30" />}</button>{adminOpen ? <div data-testid="crm-more-service-tools" className="mt-1 border-t border-white/[0.07] pt-1">{adminItems.map((item) => <MenuRow key={item.id} {...item} />)}</div> : null}</section>
     </div>
     <button type="button" onClick={() => void onLogout()} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[16px] border border-rose-300/15 bg-rose-300/[0.06] px-4 text-[14px] font-semibold text-rose-100/75"><LogOut className="h-[17px] w-[17px]" /> Выйти из кабинета организатора</button>
   </div>;

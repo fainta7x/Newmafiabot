@@ -43,7 +43,7 @@ describe('stage C: the club deal under the game key (owner, 2026-11-09)', () => 
     expect(await db.get("SELECT state_json FROM game_virtual_role_deals WHERE game_id = 3")).toMatchObject({ state_json: expect.stringContaining('legacy-older') });
   });
 
-  it('every change of a club deal is written under the key and mirrored to the old table', async () => {
+  it('every change of a club deal is written under the key only: the old table is not written any more (stage D)', async () => {
     const db = await clubGame();
     let view = await openVirtualRoleDeal(db, gameId);
     const card = view.cards[0];
@@ -52,7 +52,7 @@ describe('stage C: the club deal under the game key (owner, 2026-11-09)', () => 
     const key = await db.get<{ state_json: string }>("SELECT state_json FROM game_role_deals WHERE game_key = ?", [`club:${gameId}`]);
     const legacy = await db.get<{ state_json: string }>('SELECT state_json FROM game_virtual_role_deals WHERE game_id = ?', [gameId]);
     expect(key?.state_json).toBeTruthy();
-    expect(legacy?.state_json).toBe(key?.state_json);
+    expect(legacy).toBeFalsy();
     expect(JSON.parse(String(key?.state_json)).history).toHaveLength(1);
   });
 

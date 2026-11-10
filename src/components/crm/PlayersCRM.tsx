@@ -41,15 +41,13 @@ import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import PlayerIdentityFields from '../player/PlayerIdentityFields.tsx';
 import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
-import { PlayerVipSettings } from './PlayerVipSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
 import PlayerGoMafiaLink from '../player/PlayerGoMafiaLink.tsx';
 import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
 import PlayerActivityCard from './PlayerActivityCard.tsx';
+import { openCrmSection } from '../../lib/crmSectionNavigation.ts';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
-import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
-import ColourReadingPanel from '../player/ColourReadingPanel.tsx';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfile.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
@@ -653,10 +651,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
             </button>
 
-            <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
-            <PlayerVipSettings playerId={String(playerDetails.id)} />
-            <PlayerGoMafiaLink playerId={playerDetails.id} isSelf={false} organizer />
-
             <section data-testid="crm-player-form" className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
               <div className="text-[13px] font-bold text-text-primary">Анкета</div>
               <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Контактный статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
@@ -681,9 +675,22 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[10px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[11px] font-semibold text-text-primary">{value}</strong></div>)}
             </section>
 
+            <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
+
+            <button type="button" data-testid="crm-player-open-achievements" onClick={() => openCrmSection('achievements', String(playerDetails.id))} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-[14px] border border-border-soft bg-surface-1 px-3.5 text-left text-[13px] font-semibold text-text-primary">
+              <span>Достижения и награды<span className="mt-0.5 block text-[11px] font-normal text-text-secondary">Выдать вручную, официальные награды, каталог</span></span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </button>
+
+            {isClubOwner === true ? <button type="button" data-testid="crm-player-open-vip" onClick={() => openCrmSection('vip', String(playerDetails.id))} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-[14px] border border-border-soft bg-surface-1 px-3.5 text-left text-[13px] font-semibold text-text-primary">
+              <span>VIP-подкрутка<span className="mt-0.5 block text-[11px] font-normal text-text-secondary">Условия и ползунки этого игрока, видите только вы</span></span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </button> : null}
+            <PlayerGoMafiaLink playerId={playerDetails.id} isSelf={false} organizer />
+
+
+
             <StaffWorkStats stats={(playerDetails as any).staff_stats} variant="crm" testId="crm-player-staff-stats" />
-            <PlayerLearningBlock playerId={String((playerDetails as any).id)} />
-            <ColourReadingPanel url={`/api/learning/colour-reading/${encodeURIComponent(String((playerDetails as any).id))}`} />
             <PlayerAccountLinks playerId={String((playerDetails as any).id)} />
 
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">

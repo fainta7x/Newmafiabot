@@ -93,9 +93,11 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       setBusy(false);
     }
   };
+  // The organizer's card only keeps the link settings; the career statistics are in the player's own profile (owner, 2026-11-10).
+  const showCareer = !organizer;
   return <section data-testid="player-gomafia-link" className="rounded-2xl border border-white/10 bg-white/[.04] p-4">
     <div className="flex items-start justify-between gap-3">
-      <div><strong className="text-sm">Спортивная карьера</strong>
+      <div><strong className="text-sm">{organizer ? 'Привязка GoMafia' : 'Спортивная карьера'}</strong>
         <p className="mt-1 text-xs text-white/55">{link
           ? link.status === 'verified' ? 'Привязка подтверждена' : 'Ожидает подтверждения организатора'
           : 'Профиль пока не привязан'}</p></div>
@@ -103,13 +105,13 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     </div>
     <p className="mt-2 text-xs leading-5 text-white/60">Источник: GoMafia. Внешние результаты считаются отдельно от игр 2LA Noire.</p>
     {(linkError||careerError)&&<div role="alert" className="mt-3 rounded-xl border border-amber-200/20 p-3 text-xs text-amber-100"><p>{linkError||careerError}</p><button type="button" onClick={()=>{setLinkError('');setCareerError('');setRetry(v=>v+1);}} className="mt-2 min-h-11 px-3">Повторить загрузку GoMafia</button></div>}
-    {years.length > 0 && <label className="mt-4 block text-xs text-white/70">Период спортивной карьеры
+    {showCareer && years.length > 0 && <label className="mt-4 block text-xs text-white/70">Период спортивной карьеры
       <select aria-label="Год спортивной карьеры" value={year} onChange={e => setYear(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-neutral-900 px-3 text-sm text-white">
         <option value="all">За всё время</option>
         {years.map(value => <option key={value} value={String(value)}>{value}</option>)}
       </select>
     </label>}
-    {snap && <div data-testid="gomafia-federation-stats" className="mt-3 space-y-2">
+    {showCareer && snap && <div data-testid="gomafia-federation-stats" className="mt-3 space-y-2">
       <p className="text-xs text-amber-100/80">{statPeriod} · {snap.gameFilter || 'Режим игр неизвестен'} · {snap.tournamentFilter || 'Турниры не уточнены'}</p>
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.overallElo)}</strong><div className="text-xs text-white/55">Elo сейчас</div></div>
@@ -122,9 +124,9 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       </div>
       <p className="text-xs text-white/45">Данные GoMafia · Обновлено {new Date(snap.retrievedAt).toLocaleDateString('ru-RU')}</p>
     </div>}
-    {year !== 'all' && !snap && <p className="mt-2 text-xs text-white/50">Статистика за {year} год пока недоступна. Турнирная история показана по опубликованным датам.</p>}
-    {career?.syncing && <p role="status" className="mt-3 text-xs text-white/60">Автоматически обновляем спортивную карьеру…</p>}
-    {tournaments.length > 0 && <div className="mt-5 space-y-3" data-testid="gomafia-size-breakdown">
+    {showCareer && year !== 'all' && !snap && <p className="mt-2 text-xs text-white/50">Статистика за {year} год пока недоступна. Турнирная история показана по опубликованным датам.</p>}
+    {showCareer && career?.syncing && <p role="status" className="mt-3 text-xs text-white/60">Автоматически обновляем спортивную карьеру…</p>}
+    {showCareer && tournaments.length > 0 && <div className="mt-5 space-y-3" data-testid="gomafia-size-breakdown">
       <div><strong className="text-sm text-white">Турниры по размеру</strong><p className="mt-1 text-xs text-white/55">Группы не смешиваются в статистике. Учитывается только подтверждённое число участников.</p></div>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label="Размер турнира">
         {groups.map(group => <button key={group.key} type="button" onClick={() => setSizeGroup(group.key)} aria-pressed={activeSizeGroup === group.key} className={`min-h-[64px] rounded-xl border px-3 py-2 text-left transition-colors ${activeSizeGroup === group.key ? 'border-amber-200/50 bg-amber-200/10' : 'border-white/10 bg-white/[.035]'}`}>
@@ -142,7 +144,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
         ].map(([label, value]) => <div key={label} className="min-w-0 rounded-xl bg-white/[.06] p-3"><strong className="text-lg text-white">{value}</strong><div className="mt-1 text-xs text-white/55">{label}</div></div>)}
       </div>
     </div>}
-    {tournaments.length > 0 && <div data-testid="gomafia-tournament-appearances" className="mt-4 space-y-3">
+    {showCareer && tournaments.length > 0 && <div data-testid="gomafia-tournament-appearances" className="mt-4 space-y-3">
       <strong className="block text-sm">Турнирные выступления · {displayed.length}</strong>
       {displayed.length === 0 && <p className="rounded-xl bg-white/[.04] p-4 text-xs text-white/60">В этой категории пока нет подтверждённых турниров.</p>}
       {displayed.map((item: any) => <article key={item.tournamentId} className="rounded-xl bg-white/[.045] p-3">
@@ -170,12 +172,12 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
         </details>}
       </article>)}
     </div>}
-    {career?.status === 'verified' && <details className="mt-3 text-xs text-white/50">
+    {showCareer && career?.status === 'verified' && <details className="mt-3 text-xs text-white/50">
       <summary className="min-h-11 cursor-pointer py-3">Доступность данных и регистраций</summary>
       {(career?.limitations?.length ? career.limitations : ['Первоначальный импорт выполняется автоматически после подтверждения привязки. Будущие регистрации пока недоступны в подтверждённом публичном источнике.']).map((text: string) => <p key={text} className="mb-2">{text}</p>)}
     </details>}
-    {career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
-    <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>
+    {showCareer && career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
+    {showCareer && <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>}
       {(isSelf || organizer) && !linkError && <details open={!snap} className="mt-3 space-y-2"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Привязка профиля GoMafia</summary>
       <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'ID этого игрока на GoMafia' : 'Твой ID на GoMafia'}</label>
       <div className="flex min-h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/15 bg-white/[.07] focus-within:border-amber-200/60">

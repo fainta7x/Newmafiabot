@@ -79,11 +79,11 @@ describe('Telegram publishing destinations', () => {
     await ensureTelegramPublishingSchema(db);
 
     const rows = await db.all<any>('SELECT id, chat_id, topic_id, active FROM telegram_destinations ORDER BY id ASC');
-    expect(rows.map((row) => row.id).sort()).toEqual(['club', 'club_chat', 'novice', 'novice_chat', 'public', 'rating', 'rating_chat']);
+    expect(rows.map((row) => row.id).sort()).toEqual(['club', 'club_chat', 'club_mvp', 'novice', 'novice_chat', 'novice_mvp', 'public', 'rating', 'rating_chat']);
     const club = rows.find((row) => row.id === 'club');
     expect(club).toMatchObject({ chat_id: '-1001628595679', topic_id: 5912, active: 1 });
     expect(rows.find((row) => row.id === 'novice')).toMatchObject({ chat_id: '-1003925510303', topic_id: 128, active: 1 });
-    expect(rows.filter((row) => !['club', 'novice'].includes(row.id)).every((row) => Number(row.active) === 0)).toBe(true);
+    expect(rows.filter((row) => !['club', 'novice', 'club_mvp', 'novice_mvp'].includes(row.id)).every((row) => Number(row.active) === 0)).toBe(true);
   });
 
   it('sets the novice group once, keeps later CRM changes, and syncs a due novice evening that missed it', async () => {

@@ -9,7 +9,7 @@ import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, or
  *  - otherwise at least 1 visit in the last 21 days → «Ходит иногда»;
  *  - had visits, none for more than 60 days → «Перестал ходить»;
  *  - in between (the last visit 22–60 days ago, not regular) and never came → left as it is.
- * «Из другого города» stays manual, and a status the organizer set by hand stays until «Считать само» is chosen for the player.
+ * Automatic is the default for every player. «Из другого города» stays manual, and a status the organizer sets by hand stays until «Считать само» is chosen for the player.
  */
 export type AutoActivity = 'regular' | 'sometimes' | 'stopped';
 export const AUTO_REGULAR_VISITS = 3;
@@ -22,9 +22,9 @@ export async function ensurePlayerActivityAutoSchema(db: DatabaseWrapper) {
   await ensureJudgeAuthoritySchema(db);
   const columns = await db.all<{ name: string }>('PRAGMA table_info(players)');
   if (columns.some((column) => column.name === 'activity_auto')) return;
+  // Automatic for everybody by default (owner, 2026-11-10: «по умолчанию, чтобы ручные теги стали автоматическими»);
+  // a status the organizer sets by hand afterwards switches the player to manual.
   await db.exec('ALTER TABLE players ADD COLUMN activity_auto INTEGER NOT NULL DEFAULT 1');
-  // Everything the organizer set by hand before this feature stays as it is until «Считать само».
-  await db.run('UPDATE players SET activity_auto = 0');
 }
 
 export const autoActivityOf = (visits: { recent: number; short: number; within: number; total: number }): AutoActivity | null => (

@@ -22,19 +22,21 @@ async function setup() {
 }
 
 describe('«как ходит» from the real visits', () => {
-  it('thresholds: 2+ in 30 days regular; a visit in 60 days sometimes; older stopped; never came unknown', () => {
-    expect(autoActivityOf({ recent: 2, within: 2, total: 5 })).toBe('regular');
-    expect(autoActivityOf({ recent: 1, within: 1, total: 5 })).toBe('sometimes');
-    expect(autoActivityOf({ recent: 0, within: 1, total: 5 })).toBe('sometimes');
-    expect(autoActivityOf({ recent: 0, within: 0, total: 5 })).toBe('stopped');
-    expect(autoActivityOf({ recent: 0, within: 0, total: 0 })).toBeNull();
+  it('thresholds: 3+ in 30 days regular; a visit in 21 days sometimes; none for 60+ days stopped; in between and never came unchanged', () => {
+    expect(autoActivityOf({ recent: 3, short: 3, within: 3, total: 5 })).toBe('regular');
+    expect(autoActivityOf({ recent: 2, short: 2, within: 2, total: 5 })).toBe('sometimes');
+    expect(autoActivityOf({ recent: 1, short: 1, within: 1, total: 5 })).toBe('sometimes');
+    expect(autoActivityOf({ recent: 1, short: 0, within: 1, total: 5 })).toBeNull();
+    expect(autoActivityOf({ recent: 0, short: 0, within: 1, total: 5 })).toBeNull();
+    expect(autoActivityOf({ recent: 0, short: 0, within: 0, total: 5 })).toBe('stopped');
+    expect(autoActivityOf({ recent: 0, short: 0, within: 0, total: 0 })).toBeNull();
   });
 
   it('updates automatic players, pauses mailing on «перестал», keeps manual ones and other-city, and runs once a day', async () => {
     const { db, player, evening } = await setup();
     await player('reg'); await player('old'); await player('manual'); await player('city', 'from_other_city=1'); await player('never');
     await db.run("UPDATE players SET activity_auto = 0 WHERE id = 'manual'");
-    await evening('e1', 3, 'reg', 'manual', 'city'); await evening('e2', 10, 'reg', 'manual', 'city'); await evening('e3', 120, 'old');
+    await evening('e1', 3, 'reg', 'manual', 'city'); await evening('e2', 10, 'reg', 'manual', 'city'); await evening('e2b', 17, 'reg', 'manual', 'city'); await evening('e3', 120, 'old');
     const changes = await runAutoPlayerActivity(db, NOW);
     expect(changes.map((change) => `${change.id}:${change.to}`).sort()).toEqual(['old:stopped']);
     expect(await db.get("SELECT stopped_attending, contact_status, attends_sometimes FROM players WHERE id='old'")).toMatchObject({ stopped_attending: 1, contact_status: 'paused' });
@@ -47,7 +49,7 @@ describe('«как ходит» from the real visits', () => {
     const { db, player, evening } = await setup();
     await player('back');
     await db.run(`UPDATE players SET stopped_attending = 1, contact_status = 'paused', lifecycle_status = 'paused', pause_reason = '${STOPPED_REASON}' WHERE id = 'back'`);
-    await evening('e1', 2, 'back'); await evening('e2', 9, 'back');
+    await evening('e1', 2, 'back'); await evening('e2', 9, 'back'); await evening('e2b', 16, 'back');
     const changes = await runAutoPlayerActivity(db, NOW);
     expect(changes[0]?.to).toBe('regular');
     expect(await db.get("SELECT stopped_attending, contact_status FROM players WHERE id='back'")).toMatchObject({ stopped_attending: 0, contact_status: 'normal' });

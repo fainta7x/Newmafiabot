@@ -19,7 +19,7 @@ type Row = Player & { organize_formats?: string | null; curator_areas?: string |
 // «Считать само»: the status follows the real visits (owner, 2026-11-10).
 const ACTIVITY_CHOICES: Array<{ value: PlayerActivity | 'auto'; label: string; hint: string }> = [
   ...PLAYER_ACTIVITY,
-  { value: 'auto', label: 'Считать само', hint: 'По фактическим визитам: 2 и больше за месяц — постоянно, был за 2 месяца — иногда, иначе перестал' },
+  { value: 'auto', label: 'Считать само', hint: 'По фактическим визитам: больше 2 за месяц — постоянно, был за 3 недели — иногда, нет 60 дней — перестал' },
 ];
 
 const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);

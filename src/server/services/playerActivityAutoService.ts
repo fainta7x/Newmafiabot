@@ -5,15 +5,16 @@ import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, or
 
 /**
  * «Как часто ходит» from the real visits (owner, 2026-11-10). A visit is the one of `playerVisitsService` («пришёл» or a seat at a table).
- *  - 2 or more visits in the last 30 days → «Ходит постоянно»;
- *  - otherwise a visit in the last 60 days → «Ходит иногда»;
- *  - had visits, none in the last 60 days → «Перестал ходить»;
- *  - never came → left as it is.
+ *  - more than 2 visits (3 or more) in the last 30 days → «Ходит постоянно»;
+ *  - otherwise at least 1 visit in the last 21 days → «Ходит иногда»;
+ *  - had visits, none for more than 60 days → «Перестал ходить»;
+ *  - in between (the last visit 22–60 days ago, not regular) and never came → left as it is.
  * «Из другого города» stays manual, and a status the organizer set by hand stays until «Считать само» is chosen for the player.
  */
 export type AutoActivity = 'regular' | 'sometimes' | 'stopped';
-export const AUTO_REGULAR_VISITS = 2;
+export const AUTO_REGULAR_VISITS = 3;
 export const AUTO_REGULAR_DAYS = 30;
+export const AUTO_SOMETIMES_DAYS = 21;
 export const AUTO_STOPPED_DAYS = 60;
 const DAY_MS = 86_400_000;
 
@@ -26,25 +27,26 @@ export async function ensurePlayerActivityAutoSchema(db: DatabaseWrapper) {
   await db.run('UPDATE players SET activity_auto = 0');
 }
 
-export const autoActivityOf = (visits: { recent: number; within: number; total: number }): AutoActivity | null => (
-  visits.recent >= AUTO_REGULAR_VISITS ? 'regular' : visits.within >= 1 ? 'sometimes' : visits.total >= 1 ? 'stopped' : null
+export const autoActivityOf = (visits: { recent: number; short: number; within: number; total: number }): AutoActivity | null => (
+  visits.recent >= AUTO_REGULAR_VISITS ? 'regular' : visits.short >= 1 ? 'sometimes' : visits.total >= 1 && visits.within === 0 ? 'stopped' : null
 );
 
-/** Target status per player id (only players who ever came). */
+/** Target status per player id (only where the rules decide). */
 export async function computeAutoActivities(db: DatabaseWrapper, now = new Date(), playerIds?: string[]): Promise<Map<string, AutoActivity>> {
-  const recentFrom = new Date(now.getTime() - AUTO_REGULAR_DAYS * DAY_MS).toISOString();
-  const withinFrom = new Date(now.getTime() - AUTO_STOPPED_DAYS * DAY_MS).toISOString();
-  const rows = await db.all<{ player_id: string; recent: number; within: number; total: number }>(
-    `SELECT player_id, SUM(CASE WHEN datetime(starts_at) >= datetime(?) THEN 1 ELSE 0 END) AS recent,
+  const from = (days: number) => new Date(now.getTime() - days * DAY_MS).toISOString();
+  const rows = await db.all<{ player_id: string; recent: number; short: number; within: number; total: number }>(
+    `SELECT player_id,
+            SUM(CASE WHEN datetime(starts_at) >= datetime(?) THEN 1 ELSE 0 END) AS recent,
+            SUM(CASE WHEN datetime(starts_at) >= datetime(?) THEN 1 ELSE 0 END) AS short,
             SUM(CASE WHEN datetime(starts_at) >= datetime(?) THEN 1 ELSE 0 END) AS within, COUNT(*) AS total
        FROM (${PLAYER_VISITS_SQL}) GROUP BY player_id`,
-    [recentFrom, withinFrom],
+    [from(AUTO_REGULAR_DAYS), from(AUTO_SOMETIMES_DAYS), from(AUTO_STOPPED_DAYS)],
   );
   const wanted = playerIds ? new Set(playerIds.map(String)) : null;
   const result = new Map<string, AutoActivity>();
   for (const row of rows) {
     if (wanted && !wanted.has(String(row.player_id))) continue;
-    const activity = autoActivityOf({ recent: Number(row.recent || 0), within: Number(row.within || 0), total: Number(row.total || 0) });
+    const activity = autoActivityOf({ recent: Number(row.recent || 0), short: Number(row.short || 0), within: Number(row.within || 0), total: Number(row.total || 0) });
     if (activity) result.set(String(row.player_id), activity);
   }
   return result;

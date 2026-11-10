@@ -81,9 +81,9 @@ export async function migrateLegacyChaginRedGuarantee(db: DatabaseWrapper) {
   const now = new Date().toISOString();
   await tx.run(`INSERT INTO vip_probability_rules
     (id,player_id,kind,role,other_player_id,percent,enabled,created_at,updated_at)
-    SELECT ?, ?, 'red_color',NULL,NULL,100,1,?,?
+    SELECT ?, ?, 'role','citizen',NULL,100,1,?,?
      WHERE NOT EXISTS (
-       SELECT 1 FROM vip_probability_rules WHERE player_id=? AND kind='red_color'
+       SELECT 1 FROM vip_probability_rules WHERE player_id=? AND kind IN ('role','red_color') AND COALESCE(role,'citizen')='citizen'
      )`, ['legacy-chagin-red-guarantee',playerId,now,now,playerId]);
   await tx.run(`INSERT INTO vip_player_game_quotas
     (player_id,whole_evening,max_successful_games,updated_at)
@@ -100,7 +100,15 @@ export async function removeDuplicateVipRules(db: DatabaseWrapper) {
   await ensureVipProbabilityRulesSchema(db);
   await db.exec('CREATE TABLE IF NOT EXISTS vip_legacy_migrations (migration_key TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
   const key = 'vip_duplicate_rules_20261110';
+  const redKey = 'vip_red_color_to_role_20261110';
   await db.transaction(async tx => {
+    // «Красная карта» was a separate kind that always meant the citizen role (owner, 2026-11-10: show it as «Мне нравится играть на: Мирный»).
+    if (!(await tx.get('SELECT migration_key FROM vip_legacy_migrations WHERE migration_key=?', [redKey]))) {
+      await tx.run(`DELETE FROM vip_probability_rules WHERE kind='red_color' AND EXISTS (
+        SELECT 1 FROM vip_probability_rules o WHERE o.player_id=vip_probability_rules.player_id AND o.kind='role' AND o.role='citizen')`);
+      await tx.run(`UPDATE vip_probability_rules SET kind='role', role='citizen' WHERE kind='red_color'`);
+      await tx.run('INSERT OR IGNORE INTO vip_legacy_migrations (migration_key,applied_at) VALUES (?,?)', [redKey, new Date().toISOString()]);
+    }
     if (await tx.get('SELECT migration_key FROM vip_legacy_migrations WHERE migration_key=?', [key])) return;
     await tx.run(`DELETE FROM vip_probability_rules WHERE id IN (
       SELECT r.id FROM vip_probability_rules r WHERE EXISTS (

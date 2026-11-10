@@ -17,6 +17,8 @@ describe('duplicate VIP conditions of one player', () => {
     await add('role-b', 'role', 'don', '2026-11-05T10:00:00Z');
     const rules = await listVipProbabilityRules(db);
     expect(rules.map((rule) => rule.id).filter((id) => id !== 'legacy-chagin-red-guarantee').sort()).toEqual(['old', 'role-a', 'role-b']);
+    // the former «Красная карта» is now the ordinary «Мне нравится играть на: Мирный»
+    expect(rules.find((rule) => rule.id === 'old')).toMatchObject({ kind: 'role', role: 'citizen', percent: 100 });
     await add('later', 'role', 'sheriff', '2026-11-06T10:00:00Z');
     // the clean-up runs once: a later duplicate is stopped by the save check, not silently deleted here
     expect((await listVipProbabilityRules(db)).some((rule) => rule.id === 'later')).toBe(true);

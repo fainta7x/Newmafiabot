@@ -93,7 +93,7 @@ for (const [width, height, wideFont] of VIEWPORTS) {
           await page.route('**/api/admin/vip-probability-rules**',route=>route.fulfill({json:
             route.request().url().endsWith('/game-quotas')
               ? {quotas:[{playerId:'owner',wholeEvening:true,maxSuccessfulGames:null}]}
-              : {rules:[{id:'red',playerId:'owner',kind:'red_color',role:null,otherPlayerId:null,percent:100,enabled:true}]},
+              : {rules:[{id:'red',playerId:'owner',kind:'role',role:'citizen',otherPlayerId:null,percent:100,enabled:true}]},
           }));
         }
         await page.goto(url);

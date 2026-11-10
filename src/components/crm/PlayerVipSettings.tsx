@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
 import { appConfirm } from '../../lib/appConfirm.ts';
+import { VIP_CONDITION_PHRASE, VIP_QUOTA_LABEL, VIP_ROLES, vipChanceCaption } from '../../lib/vipLabels.ts';
 
 /**
  * VIP role pull in the player's card (owner, 2026-11-03: «из CRM в профиле игрока менять ему настройку на подкрутку карты»).
@@ -8,18 +9,13 @@ import { appConfirm } from '../../lib/appConfirm.ts';
  * (the chance the condition fires), new conditions start at 50 %, and one «На весь вечер» switch for all of them.
  * Visible only to the club owner: the rules API answers 403 to anybody else and the block then hides.
  */
-type Kind = 'role' | 'same_color' | 'different_color' | 'red_color';
+type Kind = 'role' | 'same_color' | 'different_color';
 type Rule = { id: string; playerId: string; kind: Kind; role: string | null; otherPlayerId: string | null; percent: number; enabled: boolean };
 type Quota = { playerId: string; wholeEvening: boolean; maxSuccessfulGames: number | null };
 
 const DEFAULT_PERCENT = 50;
-const ROLES: Array<[string, string]> = [['citizen', 'Мирный'], ['sheriff', 'Шериф'], ['mafia', 'Мафия'], ['don', 'Дон']];
-const PHRASE: Record<Kind, string> = {
-  role: 'Мне нравится играть на',
-  same_color: 'Люблю играть в одноцвете с',
-  different_color: 'Не хочу играть в одноцвете с',
-  red_color: 'Красная карта (мирный)',
-};
+const ROLES = VIP_ROLES;
+const PHRASE: Record<Kind, string> = VIP_CONDITION_PHRASE;
 const field = 'min-h-11 w-full rounded-xl border border-white/15 bg-[#202126] px-3 text-sm text-white';
 
 async function send(url: string, init: RequestInit = {}) {
@@ -98,13 +94,13 @@ export function PlayerVipSettings({ playerId }: { playerId: string }) {
             <select aria-label="Роль" className={field} value={rule.role || 'citizen'} disabled={busy} onChange={(event) => void update(rule, { role: event.target.value })}>
               {ROLES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
-          ) : rule.kind === 'red_color' ? null : (
+          ) : (
             <select aria-label="Игрок" className={field} value={rule.otherPlayerId || ''} disabled={busy} onChange={(event) => void update(rule, { otherPlayerId: event.target.value })}>
               {others.map((player) => <option key={player.id} value={String(player.id)}>{player.nickname}</option>)}
             </select>
           )}
           <label className="flex items-center justify-between gap-2 text-[11px] text-text-secondary">
-            <span>Шанс · 50% — обычная раздача</span><strong className="text-[13px] text-text-primary">{rule.percent}%</strong>
+            <span>Шанс · {vipChanceCaption(rule.percent)}</span><strong className="text-[13px] text-text-primary">{rule.percent}%</strong>
           </label>
           <input type="range" min={0} max={100} step={5} aria-label={`${PHRASE[rule.kind]}: шанс срабатывания`} className="w-full accent-white" value={rule.percent} disabled={busy}
             onChange={(event) => setRules((list) => list.map((item) => (item.id === rule.id ? { ...item, percent: Number(event.target.value) } : item)))}
@@ -151,7 +147,7 @@ export function PlayerVipSettings({ playerId }: { playerId: string }) {
         </label>
         {wholeEvening ? <p className="text-[11px] text-text-secondary">Условия проверяются в каждой игре вечера.</p> : (
           <>
-            <label className="flex items-center justify-between gap-2 text-[11px] text-text-secondary"><span>Игр со сработавшей подкруткой за вечер</span><strong className="text-[13px] text-text-primary">{maxGames}</strong></label>
+            <label className="flex items-center justify-between gap-2 text-[11px] text-text-secondary"><span>{VIP_QUOTA_LABEL}</span><strong className="text-[13px] text-text-primary">{maxGames}</strong></label>
             <input type="range" min={1} max={10} step={1} aria-label="Игр со сработавшей подкруткой за вечер" className="w-full accent-white" value={maxGames} disabled={busy}
               onChange={(event) => setMaxGames(Number(event.target.value))}
               onPointerUp={(event) => void saveQuota(false, Number((event.target as HTMLInputElement).value))}

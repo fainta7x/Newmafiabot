@@ -31,26 +31,13 @@ afterEach(() => {
 });
 
 describe('CRM «Ещё» navigation hierarchy', () => {
-  it('groups actions by what the organizer is doing and keeps all original destinations', () => {
-    render(<MoreCRM {...props} />);
-    const group = (title: string) => screen.getByText(title).closest('section')!;
-    const expected: Record<string, string[]> = {
-      'Ведение игр': ['tasks', 'music', 'analytics'],
-      'Игроки': ['development', 'access', 'learning', 'gifts'],
-      'Игровая часть': ['achievements', 'vip', 'tokens', 'betting'],
-      'Сообщения': ['telegram', 'whatsnew', 'botfaq'],
-      'Деньги': ['commerce', 'prices'],
-    };
-    for (const [title, ids] of Object.entries(expected)) for (const id of ids) expect(within(group(title)).getByTestId(`crm-more-${id}`)).toBeDefined();
-    expect(screen.queryByTestId('crm-more-guide')).toBeNull();
-    expect(screen.queryByTestId('crm-more-service-tools')).toBeNull();
-  });
-
   it('opens the published content screen and returns to the More menu', () => {
     render(<MoreCRM {...props} />);
+    fireEvent.click(screen.getByTestId('crm-more-cat-messages'));
     fireEvent.click(screen.getByTestId('crm-more-telegram'));
     expect(screen.getByText('Открыты публикации')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Назад в раздел Ещё' }));
+    // back lands in the same category list
     expect(screen.getByTestId('crm-more-botfaq')).toBeDefined();
   });
 
@@ -61,14 +48,13 @@ describe('CRM «Ещё» navigation hierarchy', () => {
     expect(open).toHaveBeenCalledWith('/guide', '_blank', 'noopener');
   });
 
-  it('keeps maintenance tools expanded when returning from a direct service deep link', () => {
+  it('returns into the «Система» list from a direct service deep link', () => {
     const onScreenChange = vi.fn();
     const { rerender } = render(<MoreCRM {...props} activeScreen="system" onScreenChange={onScreenChange} />);
     expect(screen.getByText('Открыто состояние системы')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Назад в раздел Ещё' }));
     expect(onScreenChange).toHaveBeenCalledWith(null);
     rerender(<MoreCRM {...props} activeScreen={null} onScreenChange={onScreenChange} />);
-    expect(screen.getByTestId('crm-more-service-tools')).toBeDefined();
     expect(screen.getByTestId('crm-more-system')).toBeDefined();
   });
 });

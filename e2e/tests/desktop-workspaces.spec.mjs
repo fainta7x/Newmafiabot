@@ -18,11 +18,11 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
       await page.getByRole('button', { name: 'Ещё', exact: true }).click();
       await expect(page.locator('.crm-more-menu')).toBeVisible();
       await expect(page.locator('[data-crm-duplicate-primary-title]')).toBeHidden();
-      await page.getByRole('button', { name: /Система/ }).click();
-      await expect(page.getByTestId('crm-more-service-tools')).toBeVisible();
-      const reports = await page.locator('.crm-more-reports').boundingBox();
-      const admin = await page.locator('.crm-more-admin').boundingBox();
-      expect(admin.y - (reports.y + reports.height)).toBeLessThanOrEqual(24);
+      // «Ещё» is six category tiles on one screen; a tap goes one level down (owner, 2026-11-10).
+      await expect(page.getByTestId('crm-more-cat-system')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
+      await page.getByTestId('crm-more-cat-system').click();
+      await expect(page.getByTestId('crm-more-data')).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`crm-more-${width}.png`), fullPage: true });
       for (const [url, ready] of [['/e2e/crm-players.html', '[data-testid="crm-active-player-list"]'], ['/e2e/crm-evening-roster.html', '.crm-premium main'], ['/e2e/crm-analytics.html', '[data-testid="crm-analytics"]']]) {
         await page.goto(url);

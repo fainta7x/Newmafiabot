@@ -2809,3 +2809,7 @@ Scope: source files (1036 `src` files outside tests, 716 test files), repo root,
 - C07 MEDIUM the «Ещё» menu has 20 rows in 6 groups; overlaps to ask the owner about: «Проект» (roadmap and all PRs) vs «Состояние системы» (services, diagnostics); «Оплата и поддержка» vs «Управление ставками» vs «Данные и настройки»; «Уровни и роли» vs «Заявки новых игроков» (`development`); «[TEST] Тестовый режим» visible in the production menu. The menu is the owner's product surface: no change without agreement (AGENTS §3b).
 - C08 INFO 147 source files mention «legacy»/«deprecated»; most are guards and migrations that must stay (`ensureLegacy…`, `migrateLegacyData`, VK/Telegram identity imports). No sweep.
 - C09 INFO repo hygiene is otherwise fine: no tracked `temp/`, `uploads/`, `__pycache__/` (ignored); biggest tracked files are the two guide PNGs (1.9 MB, 1.8 MB) and the player avatars; 0 `TODO`/`FIXME` in source.
+
+## C06 — docs consolidation (2026-11-10, fixed)
+
+`docs/PROJECT_STATE.md` cut from 1713 to ~490 lines: old queue, per-day owner notes and historical handoffs moved verbatim to `docs/archive/PROJECT_STATE_until_2026-11-10.md`; the current file keeps source-of-truth, production/runtime, product state, integrations, a short current queue, the verified «waiting on the owner» list and the player-facing digest. `project:status --check` and `projectBoard` test pass.

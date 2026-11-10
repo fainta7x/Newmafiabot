@@ -10,8 +10,8 @@ const when = (days: number) => (days === 0 ? 'сегодня' : days === 1 ? 'з
 /** «Дни рождения в этом месяце» for the CRM home (owner, 2026-11-10): upcoming ones in sight, the passed ones folded. Hidden when nobody has a birthday. */
 export default function MonthBirthdaysHome({ onOpenPlayer }: { onOpenPlayer?: (playerId: string) => void }) {
   const [data, setData] = useState<Month | null>(null);
-  useEffect(() => { let alive = true; getJson<Month>('/api/crm/birthdays', 'Не удалось загрузить дни рождения').then((body) => { if (alive) setData(body); }).catch(() => undefined); return () => { alive = false; }; }, []);
-  if (!data?.items.length) return null;
+  useEffect(() => { let alive = true; getJson<Month>('/api/crm/birthdays', 'Не удалось загрузить дни рождения').then((body) => { if (alive && body && Array.isArray((body as Month).items)) setData(body); }).catch(() => undefined); return () => { alive = false; }; }, []);
+  if (!Array.isArray(data?.items) || !data.items.length) return null;
   const upcoming = data.items.filter((item) => item.days_left >= 0);
   const passed = data.items.filter((item) => item.days_left < 0);
   const row = (item: Birthday, muted = false) => <button key={item.player_id} type="button" onClick={() => onOpenPlayer?.(item.player_id)} className={`flex min-h-11 w-full items-center gap-3 rounded-xl bg-surface-2 px-3 text-left ${muted ? 'opacity-70' : ''}`}>

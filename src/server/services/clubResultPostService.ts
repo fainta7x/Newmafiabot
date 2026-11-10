@@ -21,7 +21,7 @@ import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
 import { timeBackgroundJob } from '../../lib/performanceProbe.ts';
-import { eveningSummarySvg, gameBlankSvg, renderPngAsync, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
+import { eveningSummarySvg, gameBlankSvg, renderPngAsync, seasonTableSvg, tournamentAnnounceSvg, tournamentNominationsSvg, tournamentTableSvg } from './clubResultImages.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
 import { clubGameCompletedSql, tournamentGameCompletedSql } from './gameService.ts';
 
@@ -808,6 +808,46 @@ export const tournamentResultsText = (title: string, dateLabel: string, rows: Ar
 const TOURNAMENT_RESULTS_DESTINATIONS = clubResultTargets('TOURNAMENT', 'other');
 const tournamentResultsKey = (tournamentId: string, destination: string) => `tournament-results:${tournamentId}:${destination}`;
 
+/** The table and nominations pictures of a finished tournament; a failure in one never blocks the other or the text. */
+async function loadTournamentPictures(db: DatabaseWrapper, tournamentId: string, title: string, dateLabel: string, empty: Set<string>): Promise<Array<['table' | 'nominations', Buffer, string]>> {
+  const out: Array<['table' | 'nominations', Buffer, string]> = [];
+  try {
+    const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');
+    const { loadAvatars } = await import('./clubResultData.ts');
+    const standings = (await getFlexibleTournamentStandings(db, tournamentId)).standings || [];
+    const ids = standings.map((row: any) => String(row.player_id || '')).filter(Boolean);
+    const avatars = await loadAvatars(db, ids).catch(() => new Map<string, string>());
+    const rows = standings
+      .map((row: any) => ({ place: Number(row.place || row.official_place || row.calculated_place || 0), nickname: String(row.display_name || 'Участник'), avatar: (row.player_id && avatars.get(String(row.player_id))) || null,
+        value: String(round2(Number(row.total_points || 0))).replace('.', ','), detail: `игр ${Number(row.games_played || 0)} · побед ${Number(row.wins || 0)}` }))
+      .filter((row: { place: number }) => row.place > 0)
+      .sort((a: { place: number }, b: { place: number }) => a.place - b.place);
+    if (!rows.length) empty.add('table');
+    if (rows.length) out.push(['table', await renderPngAsync(tournamentTableSvg({ title, dateLabel, rows })), `📊 Итоговая таблица турнира «${title}»`]);
+  } catch (error) { console.error('[TOURNAMENT RESULTS] table picture failed:', error); }
+  try {
+    const { internalGetNominations } = await import('./tournamentStandingsService.ts');
+    const { loadAvatars } = await import('./clubResultData.ts');
+    const data = await internalGetNominations(db, tournamentId);
+    const nominations = data.nominations || [];
+    const ids = nominations.flatMap((item: any) => (item.candidates || []).map((candidate: any) => String(candidate.player_id || ''))).filter(Boolean);
+    const avatars = await loadAvatars(db, ids).catch(() => new Map<string, string>());
+    const points = (candidate: any) => Number(candidate.nomination_points ?? candidate.points ?? 0);
+    const items = nominations.map((item: any) => {
+      const candidates = item.candidates || [];
+      const winner = candidates.find((candidate: any) => String(candidate.participant_id) === String(item.winner_participant_id)) || candidates[0] || null;
+      return {
+        title: String(item.title || item.category), tie: Boolean(item.has_tie),
+        winner: winner ? { nickname: String(winner.display_name || 'Участник'), avatar: (winner.player_id && avatars.get(String(winner.player_id))) || null, value: String(round2(points(winner))).replace('.', ',') } : null,
+        others: candidates.filter((candidate: any) => candidate !== winner).slice(0, 3).map((candidate: any) => `${String(candidate.display_name || 'Участник')} ${String(round2(points(candidate))).replace('.', ',')}`),
+      };
+    }).filter((item: { winner: unknown }) => item.winner);
+    if (!items.length) empty.add('nominations');
+    if (items.length) out.push(['nominations', await renderPngAsync(tournamentNominationsSvg({ title, dateLabel, items })), `🏅 Номинации турнира «${title}»`]);
+  } catch (error) { console.error('[TOURNAMENT RESULTS] nominations picture failed:', error); }
+  return out;
+}
+
 /**
  * The official results of a tournament go to the rating group only (owner, 2026-11-02: the entry channel «Анонсы» is for announcements; before that, 2026-10-05, they also went there) once the organizer has published them. Each destination is claimed on its own, so a retry never posts twice.
  */
@@ -840,6 +880,27 @@ export async function postTournamentResults(db: DatabaseWrapper, tournamentId: s
       await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
     }
   }
+  // The full table and the nominations as pictures (owner, 2026-11-10), to the same places, after the text.
+  const empty = new Set<string>();
+  const pictures = await loadTournamentPictures(db, tournamentId, String(tournament.title || 'Турнир 2LA Noire'), dateLabel.replace(/\s*г\.?$/, ''), empty);
+  // Nothing to draw (no games yet): recorded as done, so the scan does not look again every minute.
+  for (const kind of empty) for (const destination of TOURNAMENT_RESULTS_DESTINATIONS) {
+    const key = `tournament-${kind}:${tournamentId}:${destination}`;
+    if (await claim(db, key, `tournament-${kind}`, '', null)) await finish(db, key, { ok: true });
+  }
+  for (const [kind, png, caption] of pictures) {
+    for (const destination of TOURNAMENT_RESULTS_DESTINATIONS) {
+      const key = `tournament-${kind}:${tournamentId}:${destination}`;
+      if (!(await claim(db, key, `tournament-${kind}`, '', null))) continue;
+      try {
+        const result = await sendPhotos(db, null, [png], caption, fetchImpl, destination, 'image/png', undefined, { key: 'club:' + key, kind: 'club-result' });
+        await finish(db, key, result);
+        if (result.ok) posted = true;
+      } catch (error: any) {
+        await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+      }
+    }
+  }
   return posted;
 }
 
@@ -855,7 +916,11 @@ async function runTournamentResultPosts(db: DatabaseWrapper, fetchImpl: typeof f
       `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (${TOURNAMENT_RESULTS_DESTINATIONS.map(() => '?').join(', ')}) AND status IN ('sent', 'failed', 'uncertain')`,
       TOURNAMENT_RESULTS_DESTINATIONS.map((destination) => tournamentResultsKey(String(row.id), destination)),
     );
-    if (Number(done?.c || 0) >= TOURNAMENT_RESULTS_DESTINATIONS.length) continue;
+    const picturesDone = await db.get<any>(
+      `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (${['table', 'nominations'].flatMap(() => TOURNAMENT_RESULTS_DESTINATIONS.map(() => '?')).join(', ')}) AND status IN ('sent', 'failed', 'uncertain')`,
+      ['table', 'nominations'].flatMap((kind) => TOURNAMENT_RESULTS_DESTINATIONS.map((destination) => `tournament-${kind}:${String(row.id)}:${destination}`)),
+    );
+    if (Number(done?.c || 0) >= TOURNAMENT_RESULTS_DESTINATIONS.length && Number(picturesDone?.c || 0) >= 2 * TOURNAMENT_RESULTS_DESTINATIONS.length) continue;
     try { if (await postTournamentResults(db, String(row.id), fetchImpl)) posted += 1; } catch (error) { console.error('[TOURNAMENT RESULTS] post failed:', row.id, error); }
   }
   return posted;

@@ -282,6 +282,64 @@ export function seasonTableSvg(season: SeasonTable) {
 </svg>`;
 }
 
+export type TournamentTableRow = { place: number; nickname: string; avatar: string | null; value: string; detail: string };
+
+/** The whole standings of a tournament as one picture (owner, 2026-11-10: the post had only the top-10 as text). */
+export function tournamentTableSvg(table: { title: string; dateLabel: string; rows: TournamentTableRow[] }) {
+  clipCounter = 0;
+  const top = 230;
+  const rowHeight = 84;
+  const rows = table.rows.slice(0, 30);
+  const height = top + 50 + Math.max(1, rows.length) * rowHeight + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const medal = [C.gold, C.silver, C.bronze];
+  const rowsSvg = rows.map((row, index) => {
+    const y = top + 50 + index * rowHeight;
+    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${rowHeight - 10}" rx="18" fill="rgba(255,255,255,${index < 3 ? 0.055 : 0.028})"/>
+      <text x="${M + 30}" y="${y + 47}" text-anchor="middle" font-size="26" font-weight="700" fill="${medal[index] || C.mutedText}">${row.place}</text>
+      ${avatar(M + 62, y + 6, 62, row.nickname, row.avatar)}
+      <text x="${M + 144}" y="${y + 47}" font-size="28" font-weight="700" fill="${C.warmText}">${esc(clip(row.nickname, 22))}</text>
+      <text x="${W - M - 24}" y="${y + 40}" text-anchor="end" font-size="30" font-weight="700" fill="${C.warmText}">${esc(row.value)}</text>
+      <text x="${W - M - 24}" y="${y + 62}" text-anchor="end" font-size="16" font-weight="600" fill="${C.subduedText}">${esc(row.detail)}</text>`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('ТУРНИР · ИТОГОВАЯ ТАБЛИЦА')}
+  <text x="${M}" y="168" font-size="48" font-weight="700" fill="${C.warmText}">${esc(clip(table.title, 30))}</text>
+  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(table.dateLabel)}</text>
+  ${rowsSvg || `<text x="${M}" y="${top + 100}" font-size="24" font-weight="500" fill="${C.subduedText}">Результатов пока нет</text>`}
+  ${renderNoirExportFooter(W, height, 'баллы за все игры турнира')}
+</svg>`;
+}
+
+export type TournamentNominationItem = { title: string; winner: { nickname: string; avatar: string | null; value: string } | null; tie: boolean; others: string[] };
+
+/** The nominations of a tournament («Лучший мирный» and the others) as one picture. */
+export function tournamentNominationsSvg(card: { title: string; dateLabel: string; items: TournamentNominationItem[] }) {
+  clipCounter = 0;
+  const top = 230;
+  const cellHeight = 170;
+  const height = top + 40 + Math.max(1, card.items.length) * cellHeight + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const cells = card.items.map((item, index) => {
+    const y = top + 40 + index * cellHeight;
+    const winner = item.winner;
+    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${cellHeight - 16}" rx="22" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.07)"/>
+      <text x="${M + 28}" y="${y + 36}" font-size="18" font-weight="700" letter-spacing="2" fill="#D7A0AE">${esc(clip(item.title.toUpperCase(), 28))}${item.tie ? ' · ничья' : ''}</text>
+      ${winner ? `${avatar(M + 28, y + 52, 76, winner.nickname, winner.avatar)}
+      <text x="${M + 124}" y="${y + 84}" font-size="30" font-weight="700" fill="${C.warmText}">${esc(clip(winner.nickname, 20))}</text>
+      <text x="${W - M - 28}" y="${y + 84}" text-anchor="end" font-size="32" font-weight="700" fill="${C.gold}">${esc(winner.value)}</text>
+      <text x="${M + 124}" y="${y + 118}" font-size="18" font-weight="500" fill="${C.subduedText}">${esc(clip(item.others.join(' · '), 52))}</text>`
+      : `<text x="${M + 28}" y="${y + 90}" font-size="24" font-weight="500" fill="${C.subduedText}">—</text>`}`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('ТУРНИР · НОМИНАЦИИ')}
+  <text x="${M}" y="168" font-size="48" font-weight="700" fill="${C.warmText}">${esc(clip(card.title, 30))}</text>
+  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(card.dateLabel)}</text>
+  ${cells || `<text x="${M}" y="${top + 100}" font-size="24" font-weight="500" fill="${C.subduedText}">Номинаций нет</text>`}
+  ${renderNoirExportFooter(W, height, 'баллы номинации = дополнительные баллы судьи и протокола')}
+</svg>`;
+}
+
 const FONT_DIRS = [path.resolve(process.cwd(), 'fonts'), '/app/fonts'];
 const FONT_FILES = ['Montserrat-Medium.ttf', 'Montserrat-SemiBold.ttf', 'Montserrat-Bold.ttf']
   .map((name) => FONT_DIRS.map((dir) => path.join(dir, name)).find((file) => fs.existsSync(file)))

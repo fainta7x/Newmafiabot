@@ -21,6 +21,7 @@ describe('«Дела»', () => {
   it('preview hides items the home screen already shows elsewhere', async () => {
     vi.stubGlobal('fetch', vi.fn((input:RequestInfo|URL) => json(String(input)==='/api/crm/publications/held' ? {items:[]} : agenda)));
     render(<OrganizerAgenda mode="preview" hideItemIds={['check:unclosed:e1']} onOpenEveningSection={vi.fn()} onOpenPlayer={vi.fn()} onCreateEvening={vi.fn()} />);
+    fireEvent.click(await screen.findByTestId('agenda-toggle'));
     await screen.findByText('Давно не были: постоянные · 1');
     expect(screen.queryByText('Вечер прошёл, но не закрыт')).toBeNull();
   });
@@ -53,6 +54,10 @@ describe('«Дела»', () => {
     vi.stubGlobal('fetch', vi.fn((input:RequestInfo|URL) => json(String(input)==='/api/crm/publications/held' ? {items:[]} : agenda)));
     const openAll = vi.fn();
     render(<OrganizerAgenda mode="preview" onOpenEveningSection={vi.fn()} onOpenPlayer={vi.fn()} onCreateEvening={vi.fn()} onOpenAll={openAll} />);
+    await screen.findByTestId('agenda-toggle');
+    // folded on the home screen (owner, 2026-11-10)
+    expect(screen.queryByText('Вечер прошёл, но не закрыт')).toBeNull();
+    fireEvent.click(screen.getByTestId('agenda-toggle'));
     await screen.findByText('Вечер прошёл, но не закрыт');
     expect(screen.queryByText('Позвонить в кафе')).toBeNull();
     fireEvent.click(screen.getByTestId('agenda-open-all'));

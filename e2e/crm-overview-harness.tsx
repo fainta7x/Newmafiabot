@@ -72,6 +72,17 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname === '/api/crm/command-center') return jsonResponse(new URLSearchParams(window.location.search).get('unfinished')
     ? { ...COMMAND_CENTER, unfinished_games: [{ id: 17, global_number: 17, evening: { id: 'e0', title: 'Спортивная мафия · пятница', starts_at: '2026-10-23T17:00:00.000Z' } }] }
     : COMMAND_CENTER);
+  // `?home=1`: birthdays of the month and the folded «Дела» (owner, 2026-11-10).
+  if (new URLSearchParams(window.location.search).get('home') === '1') {
+    if (url.pathname === '/api/crm/birthdays') return jsonResponse({ month_label: 'ноябре', items: [
+      { player_id: 'b', nickname: 'Богдан', day: 3, date_label: '3 ноября', days_left: -7 },
+      { player_id: 'a', nickname: 'Алоэ', day: 10, date_label: '10 ноября', days_left: 0 },
+      { player_id: 'c', nickname: 'Чагин', day: 20, date_label: '20 ноября', days_left: 10 }] });
+    if (url.pathname === '/api/crm/agenda') return jsonResponse({ total: 3, snoozed: 0, counts: { now: 1, soon: 2 }, groups: { now: 'Срочно', soon: 'Скоро' }, errors: [], checked: null, items: [
+      { id: 'check:unclosed:e1', group: 'now', title: 'Вечер прошёл, но не закрыт', why: 'Закройте вечер.', action: { type: 'evening', evening_id: 'e1', section: 'closeout' }, action_label: 'Закрыть вечер' },
+      { id: 'check:a', group: 'soon', title: 'Кураторы: узнать, как дела · 2', why: 'Спроси, что сделано.' },
+      { id: 'check:b', group: 'soon', title: 'Профили не заполнены · 22', why: 'Попроси дозаполнить профиль.' }] });
+  }
   return jsonResponse({ error: 'E2E route not mocked' }, 404);
 };
 

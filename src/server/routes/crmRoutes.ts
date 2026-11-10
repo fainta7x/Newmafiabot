@@ -3,6 +3,7 @@ import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.
 import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import { loadClubHygiene } from '../services/clubHygieneService.ts';
 import { DebtActionError, listDebtors, markPlayerDebtPaid, markPlayerDebtPartiallyPaid, remindDebtors } from '../services/debtActionsService.ts';
+import { loadMonthBirthdays } from '../services/monthBirthdaysService.ts';
 import { Router, Response } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
@@ -69,6 +70,11 @@ router.post('/club-order/dismiss', requireOrganizerAuth, async (req: Authenticat
 });
 
 // «Дела»: one list of what needs the organizer (owner, 2026-09-30); replaces «Задачи» + «Порядок в клубе» on screen.
+router.get('/birthdays', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(await loadMonthBirthdays(req.db || (await getDb()))); } catch (error: any) { res.status(500).json({ error: error?.message || 'Не удалось загрузить дни рождения' }); }
+});
+
 router.get('/agenda', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   res.setHeader('Cache-Control', CRM_READ_CACHE_CONTROL);
   try {

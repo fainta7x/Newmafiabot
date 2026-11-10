@@ -2830,3 +2830,9 @@ Scope: why the VK wall posts have no photo while Telegram posts have the cover.
 
 - TG01 [fixed in code 2026-11-10 (owner answers), config pending]: results/MVP routing by `clubResultTargets` (new destinations `club_mvp`, `novice_mvp`); rating/tournament results go to `rating` + `public` + `club_mvp`. Production stays silent until the owner's chat id / topic ids for «Новости» and «История» are entered in the CRM. Also fixed: `mvpCardDrawnOnlyWhenPosted` test was weekday-dependent (failed on Tuesday).
 - TG02 [fixed in code 2026-11-10, owner request]: a finished tournament's results now also go as pictures — the full standings table and the nominations — to rating channel, entry channel and «Новости» (`loadTournamentPictures`, `tournamentTableSvg`, `tournamentNominationsSvg`). Before: top-10 as text only, no nominations post.
+
+## 2026-11-10 — VIP card of Chagin (owner: «в профиле какие-то баги, несколько механик смешались»)
+Read-only on production (rules API + screenshot of the CRM card, 390 px).
+- [fixed, VP01] `vip_probability_rules`: two identical «Красная карта (мирный) 100 %» rules for Chagin (the legacy migrated one and a second one created before the one-condition-once check) → the card showed the condition twice. One-time clean-up `removeDuplicateVipRules` keeps the oldest.
+- [open, VP02] The same data is edited in two places with two vocabularies: «Данные и настройки» («Конкретная роль / Одноцвет с игроком», number input, quota block) and the player card (the owner's phrases, slider). `red_color` («Красная карта») exists only in the card phrase list and cannot be added there.
+- [open, VP03] Card label «Шанс · 50% — обычная раздача» sits under every slider, also at 100 %, where the line reads as a contradiction.

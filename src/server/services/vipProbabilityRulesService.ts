@@ -92,8 +92,29 @@ export async function migrateLegacyChaginRedGuarantee(db: DatabaseWrapper) {
   });
 }
 
+/**
+ * One-time clean-up (owner, 2026-11-10: Chagin's card showed «Красная карта (мирный)» twice): identical conditions of one player
+ * (the duplicate check came after they were created) collapse into the oldest one, which keeps its percent and on/off state.
+ */
+export async function removeDuplicateVipRules(db: DatabaseWrapper) {
+  await ensureVipProbabilityRulesSchema(db);
+  await db.exec('CREATE TABLE IF NOT EXISTS vip_legacy_migrations (migration_key TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const key = 'vip_duplicate_rules_20261110';
+  await db.transaction(async tx => {
+    if (await tx.get('SELECT migration_key FROM vip_legacy_migrations WHERE migration_key=?', [key])) return;
+    await tx.run(`DELETE FROM vip_probability_rules WHERE id IN (
+      SELECT r.id FROM vip_probability_rules r WHERE EXISTS (
+        SELECT 1 FROM vip_probability_rules o
+         WHERE o.player_id=r.player_id AND o.kind=r.kind AND COALESCE(o.role,'')=COALESCE(r.role,'')
+           AND COALESCE(o.other_player_id,'')=COALESCE(r.other_player_id,'')
+           AND (o.created_at<r.created_at OR (o.created_at=r.created_at AND o.id<r.id))))`);
+    await tx.run('INSERT OR IGNORE INTO vip_legacy_migrations (migration_key,applied_at) VALUES (?,?)', [key, new Date().toISOString()]);
+  });
+}
+
 export async function listVipProbabilityRules(db: DatabaseWrapper) {
   await migrateLegacyChaginRedGuarantee(db);
+  await removeDuplicateVipRules(db);
   const rows = await db.all<any>(`SELECT id,player_id,kind,role,other_player_id,percent,enabled
     FROM vip_probability_rules ORDER BY created_at, id`);
   return rows.map(row => ({

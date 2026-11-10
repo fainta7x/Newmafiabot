@@ -6,6 +6,7 @@ import {
 import { type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import OrganizerAgenda from './OrganizerAgenda.tsx';
+import MonthBirthdaysHome from './MonthBirthdaysHome.tsx';
 import OrganizerDebtsPanel from './OrganizerDebtsPanel.tsx';
 import ActiveGiftCollectionsHome from './ActiveGiftCollectionsHome.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
@@ -381,6 +382,7 @@ export default function OrganizerCommandCenter({
 
     </div>
     <div className="crm-today-planning space-y-3">
+    <MonthBirthdaysHome onOpenPlayer={onOpenPlayer} />
     <ActiveGiftCollectionsHome />
     {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
 

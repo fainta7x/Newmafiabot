@@ -513,3 +513,7 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 ### CRM «Жетоны» and the «Ещё» menu
 
 - `TokensCRM.tsx` (balances + `PlayerTokenLedgerCard`), menu groups and items in `MoreCRM.tsx`, screens and routes in `organizerRouting.ts`, opening a section from elsewhere `lib/crmSectionNavigation.ts`. Coverage: `e2e/tests/crm-tokens.spec.mjs`, `src/tests/moreCrmGroups.test.tsx`, `MoreCRMNavigationUX.test.tsx`.
+
+### CRM home: birthdays and «Дела»
+
+- `MonthBirthdaysHome.tsx` + `server/services/monthBirthdaysService.ts` (`GET /api/crm/birthdays`); the folded «Дела» preview is `OrganizerAgenda.tsx` (`mode="preview"`). Coverage: `e2e/tests/crm-home-birthdays.spec.mjs`, `src/tests/monthBirthdays.test.ts`, `MonthBirthdaysHome.test.tsx`.

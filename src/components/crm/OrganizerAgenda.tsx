@@ -99,6 +99,9 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
     else if (action.type === 'create_evening') onCreateEvening();
   };
 
+  // On the home screen the list is folded (owner, 2026-11-10: it took too much room); the full screen always shows it.
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const card = (item: Item) => {
     const peopleOpen = open[item.id] ?? (mode === 'full' && (item.people?.length || 0) <= 5);
     return (
@@ -174,10 +177,13 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
     <section data-testid={mode === 'preview' ? 'agenda-preview' : 'agenda'} aria-label="Дела" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
       <div className="flex items-center gap-2.5">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent/10 text-accent"><ClipboardCheck className="h-4 w-4" /></span>
-        <div className="min-w-0 flex-1">
+        {mode === 'preview' && visibleItems.length > 0 ? <button type="button" data-testid="agenda-toggle" aria-expanded={previewOpen} onClick={() => setPreviewOpen((value) => !value)} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left">
+          <span className="min-w-0 flex-1"><span className="block text-[15px] font-bold text-text-primary">Дела<span data-testid="agenda-count" className="ml-2 rounded-full bg-warning-soft px-2 py-0.5 align-middle text-[12px] font-bold text-warning">{visibleItems.length}</span></span><span className="block text-[12px] leading-4 text-text-muted">{previewOpen ? 'Срочное и гигиена клуба. Дело уходит само, когда сделано.' : nowItems.length ? `Срочно: ${nowItems.length} · нажмите, чтобы открыть` : 'Нажмите, чтобы открыть список'}</span></span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-text-muted transition-transform ${previewOpen ? 'rotate-180' : ''}`} />
+        </button> : <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-bold text-text-primary">Дела{data?.total ? <span data-testid="agenda-count" className="ml-2 rounded-full bg-warning-soft px-2 py-0.5 align-middle text-[12px] font-bold text-warning">{data.total}</span> : null}</h3>
           <p className="text-[12px] leading-4 text-text-muted">{mode === 'preview' ? 'Срочное и гигиена клуба. Дело уходит само, когда сделано.' : 'Дело уходит само, когда сделано. Людей из списка отмечай «Написал».'}</p>
-        </div>
+        </div>}
         <button type="button" onClick={() => void load()} aria-label="Обновить дела" className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-text-muted"><RefreshCw className={`h-4 w-4 ${!data && !error ? 'animate-spin' : ''}`} /></button>
       </div>
       {mode === 'full' ? <details data-testid="agenda-legend" className="mt-2 rounded-[10px] bg-surface-2 px-3 py-2 text-[12px] leading-5 text-text-secondary"><summary className="cursor-pointer font-semibold text-text-primary">Что делают кнопки</summary><ul className="mt-1 list-disc space-y-0.5 pl-4"><li><b>Открыть …</b> — переход туда, где дело решается (карточка игрока, вечер, оплата).</li><li><b>Telegram / VK</b> — написать человеку; сама отметка не ставится.</li><li><b>Написал</b> — вы уже связались: человек уходит из пункта на несколько дней и возвращается, если проблема осталась.</li><li><b>Отложить</b> — спрятать весь пункт на выбранный срок.</li><li><b>Сделано</b> (у задач) — закрыть задачу.</li><li>Пункт исчезает сам, как только проблема решена.</li></ul></details> : null}
@@ -188,7 +194,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
         <div className="mt-3 flex min-h-11 items-center gap-2 rounded-[12px] bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> Дел нет — всё в порядке{data.snoozed ? ` (отложено: ${data.snoozed})` : ''}.</div>
       ) : null}
 
-      {data && visibleItems.length > 0 && mode === 'preview' ? (
+      {data && visibleItems.length > 0 && mode === 'preview' && previewOpen ? (
         <div className="mt-3 space-y-2">
           {previewItems.map(card)}
           {visibleItems.length > previewItems.length ? <button type="button" data-testid="agenda-open-all" onClick={onOpenAll} className="flex min-h-11 w-full items-center justify-between rounded-[12px] border border-border-soft px-3 text-left text-[13px] font-semibold text-text-primary">

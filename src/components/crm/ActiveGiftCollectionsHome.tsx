@@ -10,7 +10,6 @@ const rub = (value: number) => `${value.toLocaleString('ru-RU')} ₽`;
 export default function ActiveGiftCollectionsHome() {
   const [items, setItems] = useState<Array<Collection & { pending: number; pledged: number; paid: number }>>([]);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
     try {
       const rows = await getJson<Collection[]>('/api/gift-collections', 'Не удалось загрузить сборы');
@@ -23,10 +22,10 @@ export default function ActiveGiftCollectionsHome() {
       }));
       setItems(details); setError('');
     } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось загрузить сборы'); }
-    finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
-  if (!loading && items.length === 0 && !error) return null;
+  // Nothing to show means no card at all — also while loading (owner, 2026-11-10: «Загружаем сборы…» flashed on «Сегодня» with no collections).
+  if (items.length === 0 && !error) return null;
   return <section data-testid="crm-active-gift-collections" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
     <div className="flex items-center gap-2">
       <Gift className="h-5 w-5 text-accent" />
@@ -41,7 +40,6 @@ export default function ActiveGiftCollectionsHome() {
           <p className="mt-1 text-xs text-text-secondary">Получено {rub(item.paid)} · обещано {rub(item.pledged)} · ждём ответа: {item.pending}</p></div>
         <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
       </a>)}
-      {loading && <p className="text-xs text-text-secondary">Загружаем сборы…</p>}
     </div>
   </section>;
 }

@@ -21,9 +21,10 @@ describe('«Уровни и роли»', () => {
     render(<PlayerAccessBulkCRM />);
     await screen.findByText('Стаут');
     expect(names()).toEqual(['Аня', 'Гость', 'Стаут', 'Точка']);
+    fireEvent.click(screen.getByTestId('crm-access-filters-open'));
     fireEvent.change(screen.getByLabelText('Порядок'), { target: { value: 'visits' } });
     expect(names()).toEqual(['Точка', 'Стаут', 'Гость', 'Аня']);
-    fireEvent.click(screen.getByRole('button', { name: /Ещё фильтры/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Показать: / }));
     fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
     expect(names()).toEqual(['Точка']);
     fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
@@ -68,16 +69,20 @@ describe('«Уровни и роли»', () => {
     expect(screen.getByTestId('crm-access-bulk-panel').textContent).toContain('по-разному');
   });
 
-  it('puts «Все» first and combines «Как ходят» with «Роль в клубе»', async () => {
+  it('quick chips are the groups this screen edits; level and «как ходит» are in the sheet', async () => {
     render(<PlayerAccessBulkCRM />);
     await screen.findByText('Стаут');
-    const levelChips = screen.getByLabelText('Уровень игры').querySelectorAll('button');
-    expect(levelChips[0].textContent).toContain('Все');
-    fireEvent.click(screen.getByRole('button', { name: /Ещё фильтры/ }));
+    const chips = screen.getByTestId('crm-access-quick-filters').querySelectorAll('button');
+    expect(chips[chips.length - 1].textContent).toContain('Вся база');
+    fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
+    expect(names()).toEqual(['Точка']);
+    fireEvent.click(screen.getByRole('button', { name: 'Вся база · 4' }));
+    fireEvent.click(screen.getByTestId('crm-access-filters-open'));
+    expect(screen.getByLabelText('Уровень игры')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ходят постоянно · 3' }));
     expect(names()).toHaveLength(3);
-    fireEvent.click(screen.getByRole('button', { name: 'Помогают клубу · 1' }));
-    expect(names()).toEqual(['Точка']);
+    fireEvent.click(screen.getByTestId('crm-access-clear-filters'));
+    expect(names()).toHaveLength(4);
   });
 
   it('a player from another city gets only the level and rating judging', async () => {

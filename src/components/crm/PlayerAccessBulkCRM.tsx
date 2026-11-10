@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { api, type Player } from '../../lib/api.ts';
 import {
   CLUB_ORGANIZATION, GAME_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOfPlayer,
@@ -14,6 +15,12 @@ import { CURATOR_AREAS, CURATOR_AREA_OPTIONS, curatorAreasSummary, normalizeCura
 type HostChoice = '' | 'yes' | 'no';
 
 type Row = Player & { organize_formats?: string | null; curator_areas?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null; attends_sometimes?: number | null };
+
+// «Считать само»: the status follows the real visits (owner, 2026-11-10).
+const ACTIVITY_CHOICES: Array<{ value: PlayerActivity | 'auto'; label: string; hint: string }> = [
+  ...PLAYER_ACTIVITY,
+  { value: 'auto', label: 'Считать само', hint: 'По фактическим визитам: больше 2 за месяц — постоянно, был за 3 недели — иногда, нет 60 дней — перестал' },
+];
 
 const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);
 const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
@@ -147,13 +154,13 @@ export function PlayerAccessBulkCRM() {
   const [activityFilter, setActivityFilter] = useState<RoleFilter>('all');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
-  const [showQuickDetails, setShowQuickDetails] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   // «Может проводить» (owner only): per kind — add, remove, or leave as is.
   const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
   const [curating, setCurating] = useState<Record<CuratorArea, HostChoice>>({ NOVICES: '', LEARNING: '', EVENTS: '', TOURNAMENTS: '', DISCIPLINE: '', SMM: '' });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
-  const [activity, setActivity] = useState<PlayerActivity | ''>('');
+  const [activity, setActivity] = useState<PlayerActivity | 'auto' | ''>('');
   const [organization, setOrganization] = useState<ClubOrganization | ''>('');
   // «Может вести»: per evening type — add the mark, remove it, or leave each player as is.
   const [hosting, setHosting] = useState<Record<HostFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '' });
@@ -192,7 +199,6 @@ export function PlayerAccessBulkCRM() {
       });
   }, [rows, query, level, activityFilter, roleFilter, sortBy]);
 
-  const counts = useMemo(() => Object.fromEntries(GAME_LEVELS.map((item) => [item.value, rows.filter((row) => normalizeGameLevel(row.game_level) === item.value).length])), [rows]);
   const allVisibleSelected = visible.length > 0 && visible.every((row) => selected.has(row.id));
   const toggle = (id: string) => setSelected((current) => {
     const next = new Set(current);
@@ -244,7 +250,7 @@ export function PlayerAccessBulkCRM() {
   };
   const changes = [
     levelPick ? `уровень игры: ${optionLabel(GAME_LEVELS, levelPick)}` : '',
-    activityPick ? `как часто ходит: ${optionLabel(PLAYER_ACTIVITY, activityPick)}` : '',
+    activityPick ? `как часто ходит: ${optionLabel(ACTIVITY_CHOICES, activityPick)}` : '',
     organizationPick ? `роль в клубе: ${optionLabel(CLUB_ORGANIZATION, organizationPick)}` : '',
     ...HOST_FORMAT_OPTIONS.filter((option) => hostAdd.includes(option.value) || hostRemove.includes(option.value)).map((option) => `${hosting[option.value] === 'yes' ? 'может' : 'не может'} вести: ${option.label.toLocaleLowerCase('ru-RU')}`),
     ...ORGANIZE_FORMAT_OPTIONS.filter((option) => organizeAdd.includes(option.value) || organizeRemove.includes(option.value)).map((option) => `${organizing[option.value] === 'yes' ? 'может' : 'не может'} проводить: ${option.label.toLocaleLowerCase('ru-RU')}`),
@@ -286,6 +292,15 @@ export function PlayerAccessBulkCRM() {
     }
   };
 
+  // What this screen edits is who leads games, runs evenings, curates and at what level — so those are the quick chips (owner, 2026-11-10);
+  // «how often he comes» becomes automatic from attendance and sits in the sheet with the level.
+  const extraFilterCount = (level !== 'all' ? 1 : 0) + (activityFilter !== 'all' ? 1 : 0);
+  const quickFilters = [
+    ...ROLE_FILTERS.map((item) => ({ id: item.value, label: item.label, count: rows.filter((row) => matchesRoleFilter(row, item.value)).length, active: roleFilter === item.value,
+      apply: () => setRoleFilter((current: RoleFilter) => (current === item.value ? 'all' : item.value)) })),
+    { id: 'all', label: 'Вся база', count: rows.length, active: roleFilter === 'all' && extraFilterCount === 0, apply: () => { setRoleFilter('all'); setLevel('all'); setActivityFilter('all'); } },
+  ];
+
   const dropPicks = () => {
     setSelected(new Set());
   };
@@ -297,53 +312,51 @@ export function PlayerAccessBulkCRM() {
         <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/80"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
 
-      <label className="relative block">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/80" />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти игрока по нику"
-          className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-3 text-[15px] text-white outline-none placeholder:text-white/30" />
-      </label>
+      {/* The same filter pattern as «Игроки» (owner, 2026-11-10): search + the filter button, status chips with counts, the rest in the sheet. */}
+      <div className="flex gap-2">
+        <label className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти игрока по нику" className="mobile-field pl-10" />
+        </label>
+        <button type="button" data-testid="crm-access-filters-open" aria-label="Фильтры" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${extraFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>
+          <SlidersHorizontal className="h-4 w-4" />{extraFilterCount ? <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">{extraFilterCount}</span> : null}
+        </button>
+      </div>
 
-      <section data-testid="crm-access-quick-filters" className="rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-2.5">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <strong className="text-[12px] font-semibold text-white/85">Быстрые фильтры</strong>
-          <div className="flex items-center gap-2">
-            {(level !== 'all' || activityFilter !== 'all' || roleFilter !== 'all') && <button type="button" data-testid="crm-access-clear-filters" onClick={() => { setLevel('all'); setActivityFilter('all'); setRoleFilter('all'); }} className="min-h-9 rounded-lg px-2 text-[11px] font-semibold text-white/70 underline underline-offset-2">Сбросить</button>}
-            <button type="button" aria-expanded={showQuickDetails} aria-controls="crm-access-extra-filters" onClick={() => setShowQuickDetails((open) => !open)} className="min-h-9 rounded-lg border border-white/10 bg-white/[0.05] px-2 text-[11px] font-semibold text-white/80">{showQuickDetails ? 'Свернуть' : 'Ещё фильтры'} {showQuickDetails ? '⌃' : '⌄'}</button>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" aria-label="Уровень игры">
-          <button type="button" aria-pressed={level === 'all'} onClick={() => setLevel('all')} className={`min-h-10 rounded-xl px-2 text-left text-[11px] font-semibold ${level === 'all' ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.045] text-white/70'}`}>Все <span className="opacity-60">· {rows.length}</span></button>
-          {GAME_LEVELS.map((item) => <button type="button" key={item.value} aria-pressed={level === item.value} onClick={() => setLevel(level === item.value ? 'all' : item.value)} className={`min-h-10 rounded-xl px-2 text-left text-[11px] font-semibold ${level === item.value ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.045] text-white/70'}`}>{item.label} <span className="opacity-60">· {counts[item.value] ?? 0}</span></button>)}
-        </div>
-        {(activityFilter !== 'all' || roleFilter !== 'all') && !showQuickDetails ? <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Применённые фильтры">
-          {activityFilter !== 'all' && <button type="button" onClick={() => setActivityFilter('all')} className="min-h-9 rounded-full border border-sky-300/20 bg-sky-300/[0.08] px-3 text-[11px] text-sky-100">Ходят: {ACTIVITY_FILTERS.find((item) => item.value === activityFilter)?.label} ×</button>}
-          {roleFilter !== 'all' && <button type="button" onClick={() => setRoleFilter('all')} className="min-h-9 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-3 text-[11px] text-amber-100">Роль: {ROLE_FILTERS.find((item) => item.value === roleFilter)?.label} ×</button>}
-        </div> : null}
-        <div id="crm-access-extra-filters" hidden={!showQuickDetails} className="mt-3 space-y-3 border-t border-white/[0.08] pt-3">
-          {([
-            ['Как ходят', ACTIVITY_FILTERS, activityFilter, setActivityFilter],
-            ['Роль в клубе', ROLE_FILTERS, roleFilter, setRoleFilter],
-          ] as const).map(([title, filters, value, setValue]) => (
-            <div key={title}>
-              <strong className="block pb-1.5 text-[11px] font-semibold text-white/60">{title}</strong>
-              <div className="flex flex-wrap gap-1.5" aria-label={title}>
-                {filters.map((item) => <Chip key={item.value} active={value === item.value} onClick={() => setValue((current: RoleFilter) => current === item.value ? 'all' : item.value)}>{item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}</Chip>)}
-              </div>
+      <div data-testid="crm-access-quick-filters" className="grid grid-cols-6 gap-2 sm:flex">
+        {quickFilters.map((item) => <button key={item.id} type="button" aria-label={`${item.label} · ${item.count}`} aria-pressed={item.active} onClick={item.apply} className={`col-span-2 min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${item.active ? 'border-white/16 bg-white/[0.09] text-white' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}<span className="ml-1 text-text-muted">{item.count}</span></button>)}
+      </div>
+      {extraFilterCount ? <div className="flex flex-wrap gap-1.5" aria-label="Применённые фильтры">
+        {level !== 'all' && <button type="button" onClick={() => setLevel('all')} className="min-h-9 rounded-full border border-white/20 bg-white/[0.07] px-3 text-[11px] text-white/90">Уровень: {accessLabel(GAME_LEVELS, level)} ✕</button>}
+        {activityFilter !== 'all' && <button type="button" onClick={() => setActivityFilter('all')} className="min-h-9 rounded-full border border-sky-300/20 bg-sky-300/[0.08] px-3 text-[11px] text-sky-100">Ходят: {ACTIVITY_FILTERS.find((item) => item.value === activityFilter)?.label} ✕</button>}
+      </div> : null}
+
+      <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" widthClass="sm:max-w-md">
+        <div className="space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div>
+            <span className="mb-2 block text-[11px] font-semibold text-text-secondary">Уровень игры</span>
+            <div className="flex flex-wrap gap-1.5" aria-label="Уровень игры">
+              {GAME_LEVELS.map((item) => <Chip key={item.value} active={level === item.value} onClick={() => setLevel(level === item.value ? 'all' : item.value)}>{item.label} · {rows.filter((row) => normalizeGameLevel(row.game_level) === item.value).length}</Chip>)}
             </div>
-          ))}
+          </div>
+          <div>
+            <span className="mb-2 block text-[11px] font-semibold text-text-secondary">Как ходит</span>
+            <div className="flex flex-wrap gap-1.5" aria-label="Как ходит">
+              {ACTIVITY_FILTERS.map((item) => <Chip key={item.value} active={activityFilter === item.value} onClick={() => setActivityFilter((current: RoleFilter) => (current === item.value ? 'all' : item.value))}>{item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}</Chip>)}
+            </div>
+          </div>
+          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Порядок</span>
+            <select aria-label="Порядок" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)} className="mobile-field">{SORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+          </label>
+          <button type="button" data-testid="crm-access-clear-filters" onClick={() => { setLevel('all'); setActivityFilter('all'); setRoleFilter('all'); setSortBy('name'); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить фильтры</button>
+          <button type="button" onClick={() => setShowFilters(false)} className="min-h-[44px] w-full rounded-[12px] bg-white text-[13px] font-bold text-black">Показать: {visible.length}</button>
         </div>
-      </section>
+      </MobileSheet>
 
       {error && !selected.size ? <div className="rounded-2xl bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">{error}</div> : null}
 
       <div className="flex items-center gap-2 px-0.5 text-[12px] text-white/75">
         <span data-testid="crm-access-bulk-count" className="min-w-0 flex-1 whitespace-nowrap">{loading ? 'Загружаем…' : `Игроков: ${visible.length}`}</span>
-        <label className="shrink-0"><span className="sr-only">Порядок</span>
-          <select aria-label="Порядок" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}
-            className="min-h-9 max-w-[150px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[12px] text-white/80">
-            {SORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </label>
         {visible.length ? <button type="button" onClick={toggleVisible} className="min-h-9 shrink-0 px-1 font-semibold text-white/80">{allVisibleSelected ? 'Снять все' : 'Отметить всех'}</button> : null}
       </div>
 
@@ -366,7 +379,7 @@ export function PlayerAccessBulkCRM() {
                 </span>
                 <span className="mt-1 flex flex-wrap gap-1">
                   <Tag className="border border-white/[0.07] bg-white/[0.035] text-white/55">{accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))}</Tag>
-                  <Tag className={ACTIVITY_TAG[rowActivity]}>{accessLabel(PLAYER_ACTIVITY, rowActivity)}</Tag>
+                  <Tag className={ACTIVITY_TAG[rowActivity]}>{accessLabel(PLAYER_ACTIVITY, rowActivity)}{Number((row as any).activity_auto || 0) === 1 && rowActivity !== 'other_city' ? ' · авто' : ''}</Tag>
                   {organization !== 'none' ? <Tag className="border border-rose-400/20 bg-rose-400/[0.08] text-rose-200/80">{accessLabel(CLUB_ORGANIZATION, organization)}</Tag> : null}
                   {hosts.length ? <Tag className="border border-amber-300/20 bg-amber-300/[0.08] text-amber-100/85">{hostFormatsSummary(hosts)}</Tag> : null}
                   {organizes.length ? <Tag className="border border-orange-300/20 bg-orange-300/[0.08] text-orange-100/85">{organizeFormatsSummary(organizes)}</Tag> : null}
@@ -395,7 +408,7 @@ export function PlayerAccessBulkCRM() {
               <Choice label="Поставить уровень игры" value={gameLevel} current={currentLevel} onChange={setGameLevel} options={GAME_LEVELS} />
             </Section>
             <Section title="Как часто ходит" about="Пишет ли бот ему лично">
-              <Choice label="Поставить, как часто ходит" value={activity} current={currentActivity} onChange={setActivity} options={PLAYER_ACTIVITY} />
+              <Choice<PlayerActivity | 'auto'> label="Поставить, как часто ходит" value={activity} current={currentActivity} onChange={setActivity} options={ACTIVITY_CHOICES} />
             </Section>
             {otherCityPanel ? null : (
               <Section title="Роль в клубе" about="«Организатор клуба» — полный кабинет; ставит только владелец">

@@ -74,10 +74,10 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
     : COMMAND_CENTER);
   // `?home=1`: birthdays of the month and the folded «Дела» (owner, 2026-11-10).
   if (new URLSearchParams(window.location.search).get('home') === '1') {
-    if (url.pathname === '/api/crm/birthdays') return jsonResponse({ month_label: 'ноябре', items: [
-      { player_id: 'b', nickname: 'Богдан', day: 3, date_label: '3 ноября', days_left: -7 },
-      { player_id: 'a', nickname: 'Алоэ', day: 10, date_label: '10 ноября', days_left: 0 },
-      { player_id: 'c', nickname: 'Чагин', day: 20, date_label: '20 ноября', days_left: 10 }] });
+    if (url.pathname === '/api/crm/birthdays') return jsonResponse({ window_days: 45, with_date: 11, total: 40, items: [
+      { player_id: 'a', nickname: 'Алоэ', date_label: '10 ноября', days_left: 0 },
+      { player_id: 'c', nickname: 'Чагин', date_label: '20 ноября', days_left: 10 },
+      { player_id: 'd', nickname: 'Денди', date_label: '12 декабря', days_left: 32 }] });
     if (url.pathname === '/api/crm/agenda') return jsonResponse({ total: 3, snoozed: 0, counts: { now: 1, soon: 2 }, groups: { now: 'Срочно', soon: 'Скоро' }, errors: [], checked: null, items: [
       { id: 'check:unclosed:e1', group: 'now', title: 'Вечер прошёл, но не закрыт', why: 'Закройте вечер.', action: { type: 'evening', evening_id: 'e1', section: 'closeout' }, action_label: 'Закрыть вечер' },
       { id: 'check:a', group: 'soon', title: 'Кураторы: узнать, как дела · 2', why: 'Спроси, что сделано.' },

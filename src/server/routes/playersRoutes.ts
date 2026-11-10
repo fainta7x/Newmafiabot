@@ -3,6 +3,7 @@ import { syncPlayersWithOrganizerLevel } from '../services/noviceService.ts';
 import { Router } from 'express';
 import { PLAYER_VISIT_STATS_SQL } from '../services/playerVisitsService.ts';
 import { z } from 'zod';
+import { computeAutoActivities, ensurePlayerActivityAutoSchema } from '../services/playerActivityAutoService.ts';
 import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, hostFormatsOf, legacyJudgeLevelFor } from '../../lib/hostFormats.ts';
 import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
@@ -219,7 +220,7 @@ const bulkAccessSchema = z.object({
   // club_role holds two answers, so they change separately (as in the player card):
   // how often the player comes and the organization role. Changing one keeps the other.
   // «stopped» pauses announcements and invitations instead of touching club_role.
-  activity: z.enum(['regular', 'sometimes', 'stopped', 'other_city']).optional(),
+  activity: z.enum(['regular', 'sometimes', 'stopped', 'other_city', 'auto']).optional(),
   organization: z.enum(['none', 'team', 'organizer']).optional(),
   // «Может вести»: marks to add and to remove; formats in neither list stay as they are for each player.
   host_formats_add: z.array(z.enum(HOST_FORMATS)).optional(),
@@ -266,6 +267,9 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     }
     // «Из другого города»: only the level is set; they may judge rating games and tournaments, nothing else.
     const otherCityWarnings: string[] = [];
+    await ensurePlayerActivityAutoSchema(db);
+    // «Считать само»: the status comes from the visits and keeps following them; any other choice is a manual one and stays until «Считать само».
+    const autoTargets = data.activity === 'auto' ? await computeAutoActivities(db, new Date(), ids) : null;
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
@@ -274,7 +278,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         );
         if (!current) continue;
         const role = normalizeClubRole(current.club_role);
-        let activity = data.activity;
+        let activity: Exclude<typeof data.activity, 'auto'> = data.activity === 'auto' ? autoTargets?.get(String(id)) : data.activity;
         if (activity === 'other_city' && organizationOf(role) === 'organizer') {
           otherCityWarnings.push(`${current.nickname}: организатор клуба не может быть «Из другого города»`);
           activity = undefined;
@@ -336,6 +340,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
             ...(organizeWritten ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
             ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, otherCity ? 1 : 0, membership === 'guest' ? 1 : 0, now, id],
         );
+        if (data.activity) await tx.run('UPDATE players SET activity_auto = ? WHERE id = ?', [data.activity === 'auto' ? 1 : 0, id]);
         updated += Number(result.changes || 0);
       }
     });

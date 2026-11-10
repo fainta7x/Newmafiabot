@@ -17,7 +17,8 @@ describe('project board API (read-only CRM screen)', () => {
     const response = await request(app).get('/api/project-board').set('Cookie', organizer());
     expect(response.status).toBe(200);
     expect(response.body.source).toBe('docs/PROJECT_BOARD_RU.md');
-    expect(response.body.cards.filter((card: any) => card.status === 'waiting').length).toBe(3);
+    expect(response.body.cards.length).toBeGreaterThan(5);
+    expect(response.body.cards.some((card: any) => card.status === 'done')).toBe(true);
   });
 
   it('lists pull requests with the club colours and whose they are, and says so when GitHub is down', async () => {

@@ -2849,3 +2849,13 @@ Measured at 390 px (collapsed, as opened): ≈ 6 900 px of scroll; with the thre
 - [fixed, PL06] VIP block: duplicate «Красная карта» and mixed wording (see VP01–VP04).
 - [open, PL07] List rows: percent badges (100 %, 85 %, 65 %) have no explanation; the explanation line about tabs is two lines of small text above the list.
 - [open, PL08, owner direction] Entity-centred CRM: achievements (catalogue, official awards, manual issue, import of old ones), tokens (balance, ledger, manual accrual), VIP (rules, quotas), levels/roles, training each get their own section; the player card links to them. Today: achievements live in «Данные и настройки», tokens in «Оплата и поддержка», VIP in both «Данные и настройки» and the card, levels in «Уровни и роли», training in «Обучение».
+
+## 2026-11-10 — «Ещё» and CRM sections audit (owner: «в Ещё тоже много мусора», entity sections)
+Scope: every «Ещё» item opened on production at 390 px (read-only), heights of the page body.
+- [open, ME01] «Данные и настройки» = 6 833 px: evening prices, VIP quota, VIP probabilities, then the whole achievements catalogue (≈ 40 rows, each with a technical key «first_game · активна · порог 1»), shop and expert editing in one scroll.
+- [open, ME02] «Управление ставками» = 5 961 px and 79 buttons: a flat list of every past game (`Игра №36 … 0 ставок · банк 0`), most with no bets.
+- [open, ME03] «Уровни и роли» = 3 724 px and 57 buttons (one control set per player in one list).
+- [open, ME04] «Оплата и поддержка» (real money and tokens) mixes tokens with payments; «Данные и настройки» holds the price of evenings (money). Owner: money = real money; bets/tokens/achievements/VIP are in-game things.
+- [open, ME05] «Памятка для новичка» and «Оформление» are not screens but actions (open a link / switch theme) shown as menu rows next to real sections; «Аналитика» and «Дела» open separate pages.
+- [open, ME06] Same entity edited in several places: VIP (data + card), achievements (data + card), tokens (commerce + card), levels (access + card).
+- [open, ME07] The «Проект» screen is the owner's task board; «Состояние системы» and «[TEST] Тестовый режим» both show service state.

@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { appConfirm } from '../../lib/appConfirm.ts';
+import { formatMoscowDate } from '../../lib/moscowDate.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 type Team = 'red' | 'black';
 type Bet = {
@@ -137,10 +139,7 @@ export const BettingAdminCRM: React.FC = () => {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[24px] font-black tracking-tight text-text-primary">Управление ставками</h2>
-          <p className="mt-1 text-[13px] leading-5 text-text-secondary">Ставки игроков на игры: что открыто, что ждёт итога и ручные исправления, если что-то пошло не так.</p>
-        </div>
+        <p className="min-w-0 text-[13px] leading-5 text-text-secondary">Ставки игроков на игры: что открыто, что ждёт итога и ручные исправления, если что-то пошло не так.</p>
         <button type="button" disabled={busy === 'reconcile'} onClick={() => void reconcile()} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary disabled:opacity-40" title="Пересчитать все ставки">
           <RefreshCw className={`h-4.5 w-4.5 ${busy === 'reconcile' ? 'animate-spin' : ''}`} />
         </button>
@@ -155,7 +154,7 @@ export const BettingAdminCRM: React.FC = () => {
         <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><div className="text-[12px] text-text-muted">Резерв клуба</div><div className="mt-1 truncate text-[18px] font-black">{money(data?.summary.reserve_total || 0)} <TokenIcon /></div></div>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto rounded-[14px] border border-border-soft bg-surface-1 p-1">
+      <div className="flex flex-wrap gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
         {([
           ['all', 'Все'], ['open', 'Открытые'], ['closed', 'Ждут итога'], ['settled', 'Рассчитаны'], ['refunded', 'Возвраты'],
         ] as Array<[Filter, string]>).map(([id, label]) => (
@@ -174,14 +173,16 @@ export const BettingAdminCRM: React.FC = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[15px] font-black text-text-primary">Игра №{pool.game_number || pool.game_id}</div>
-                    <div className="mt-1 text-[12px] text-text-muted">{pool.game_date || 'дата не указана'} · {pool.bet_count} ставок · банк {money(pool.total_staked)} <TokenIcon /></div>
+                    <div className="mt-1 text-[12px] text-text-muted">{formatMoscowDate(pool.game_date, 'short-time', { empty: 'дата не указана', invalidAsRaw: true })} · {pool.bet_count} {russianPlural(pool.bet_count, 'ставка', 'ставки', 'ставок')} · банк {money(pool.total_staked)} <TokenIcon /></div>
                   </div>
                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${meta.className}`}>{meta.label}</span>
                 </div>
+                {pool.status !== 'refunded' ? (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-[13px] bg-red-500/[0.08] p-3"><div className="text-[12px] font-bold text-red-300/70">🔴 Красные</div><div className="mt-1 flex items-end justify-between gap-2"><span className="text-[17px] font-black">{money(pool.red_pool)} <TokenIcon /></span><span className="text-[12px] font-bold text-red-200/70">{coef(pool.red_coefficient)}</span></div></div>
                   <div className="rounded-[13px] bg-white/[0.055] p-3"><div className="text-[12px] font-bold text-text-secondary">⚫ Чёрные</div><div className="mt-1 flex items-end justify-between gap-2"><span className="text-[17px] font-black">{money(pool.black_pool)} <TokenIcon /></span><span className="text-[12px] font-bold text-text-secondary">{coef(pool.black_coefficient)}</span></div></div>
                 </div>
+                ) : null}
               </summary>
 
               <div className="space-y-4 border-t border-border-soft p-4">

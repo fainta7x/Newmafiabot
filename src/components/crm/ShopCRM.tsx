@@ -75,7 +75,7 @@ export default function ShopCRM() {
 
   const field = 'mobile-field mt-1 min-h-11 w-full';
   return <div data-testid="crm-shop" className="mx-auto w-full max-w-2xl space-y-3">
-    <p className="px-1 text-[13px] leading-5 text-text-secondary">Товары, которые игроки покупают за жетоны, и кто что купил. Товар можно продавать, только если покупка что-то даёт: бесплатный вечер или вещь, которую вы выдаёте сами.</p>
+    <p className="px-1 text-[13px] leading-5 text-text-secondary">Товары за жетоны и кто что купил. Роль и музыку игрок выбирает за рубли или за жетоны при покупке перед игрой — здесь цена в жетонах. Бесплатный вечер игрок тратит сам, остальное вы выдаёте и отмечаете «Выдано».</p>
     {error && <div role="alert" className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div>}
     <div className="grid grid-cols-2 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
       {([['items', 'Товары'], ['purchases', waiting ? `Покупки · ждут выдачи: ${waiting}` : 'Покупки']] as const).map(([id, label]) =>

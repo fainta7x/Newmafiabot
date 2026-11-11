@@ -1,7 +1,18 @@
 import { formatRubles } from './formatRubleAmount.ts';
 import { normalizeEveningFormat } from './eveningFormat.ts';
-export const DEFAULT_EVENING_PRICES = { casual_game: 100, casual_cap: 400, novice_game: 200, novice_cap: null as number | null, rating_entry: 500 };
+// The club evening depends on how often the player comes (owner, 2026-11-11): regulars 100 ₽ per game up to `casual_cap`,
+// «иногда» (and another city) up to `sometimes_cap`, «перестал ходить» `stopped_game` per game up to `stopped_cap`.
+export const DEFAULT_EVENING_PRICES = { casual_game: 100, casual_cap: 400, sometimes_cap: 500, stopped_game: 200, stopped_cap: 800, novice_game: 200, novice_cap: null as number | null, rating_entry: 500 };
 export type EveningPrices = typeof DEFAULT_EVENING_PRICES;
+export type ClubPriceTier = 'regular' | 'sometimes' | 'stopped';
+export const CLUB_PRICE_TIERS: ClubPriceTier[] = ['regular', 'sometimes', 'stopped'];
+export const isClubPriceTier = (value: unknown): value is ClubPriceTier => CLUB_PRICE_TIERS.includes(value as ClubPriceTier);
+/** Price per game and the cap of one club evening for a player of the given tier. */
+export const clubTierPrice = (policy: EveningPrices, tier: ClubPriceTier) => (
+  tier === 'stopped' ? { game: policy.stopped_game, cap: policy.stopped_cap }
+    : tier === 'sometimes' ? { game: policy.casual_game, cap: policy.sometimes_cap }
+      : { game: policy.casual_game, cap: policy.casual_cap }
+);
 export function eveningSelectionPrice(format: unknown, prices: number[], policy: EveningPrices = DEFAULT_EVENING_PRICES): number {
   const kind = normalizeEveningFormat(format);
   if (kind === 'RATING') return prices.length ? policy.rating_entry : 0;

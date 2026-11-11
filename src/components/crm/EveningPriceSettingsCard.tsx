@@ -3,7 +3,10 @@ import { requestJson } from '../../lib/requestJson.ts';
 import { DEFAULT_EVENING_PRICES, type EveningPrices } from '../../lib/eveningPrices.ts';
 const fields: Array<{ key: keyof EveningPrices; label: string }> = [
   { key: 'casual_game', label: 'Обычный вечер · за игру' },
-  { key: 'casual_cap', label: 'Обычный вечер · максимум' },
+  { key: 'casual_cap', label: 'Обычный вечер · максимум (ходит постоянно)' },
+  { key: 'sometimes_cap', label: 'Обычный вечер · максимум (ходит иногда, другой город)' },
+  { key: 'stopped_game', label: 'Обычный вечер · за игру (перестал ходить)' },
+  { key: 'stopped_cap', label: 'Обычный вечер · максимум (перестал ходить)' },
   { key: 'novice_game', label: 'Новички · за игру' },
   { key: 'novice_cap', label: 'Новички · максимум' },
   { key: 'rating_entry', label: 'Рейтинговый вечер · вход' },

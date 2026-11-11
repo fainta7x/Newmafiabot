@@ -1260,3 +1260,14 @@ Replaces the earlier «3 days after the evening is closed» (and the 24-hour run
 ## VK wall photos (owner, 2026-11-11)
 
 VK gives the app no right to upload wall photos. A VK wall post goes out as text by itself; its picture (club photo, MVP card, birthday card, «Мы собрались» photo) is kept in «Фото для постов ВК» on the CRM home screen, and the organizer attaches it to the post by hand and ticks it off. The text of a VK post is the same as in Telegram except where Telegram uses buttons (then VK names the app).
+
+## Club evening price by «как ходит» (owner, 2026-11-11)
+
+Applies to club (CASUAL) evenings only; novice, rating and tournament evenings keep their own prices.
+
+- «Ходит постоянно»: 100 ₽ за игру, не больше 400 ₽ за вечер (as before).
+- «Ходит иногда» and «Другой город»: 100 ₽ за игру, не больше 500 ₽ за вечер.
+- «Перестал ходить»: 200 ₽ за игру, не больше 800 ₽ за вечер.
+- The three new numbers (максимум для «иногда», цена за игру и максимум для «перестал») are edited in «Стоимость вечеров» next to the other prices and apply at once to every evening that is not closed.
+- The player's tariff is the status at the moment the amount is counted while the evening is open; it is written on the participant and stays when the evening is closed. A later change of «как ходит» never reprices a closed evening; evenings closed before this rule keep the regular price.
+- The registration screens still show the base price (100 ₽, максимум 400 ₽); the personal amount appears in «Оплата вечера». Showing the personal price to the player is not done yet.

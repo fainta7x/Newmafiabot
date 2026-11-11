@@ -1,22 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Database, History, RefreshCw, ShoppingBag } from 'lucide-react';
+import { Database, History, RefreshCw } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
-import { TokenIcon } from '../ui/TokenIcon.tsx';
-
-type ShopItem = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  icon: string;
-  item_type: string;
-  active: number;
-  sort_order: number;
-};
 
 type Change = { id: string; entity_type: string; entity_id: string | null; action: string; note: string | null; created_at: string };
-type Summary = { shop_items: ShopItem[]; changes: Change[] };
-type Tab = 'shop' | 'database' | 'log';
+type Summary = { changes: Change[] };
+type Tab = 'database' | 'log';
 type TableMeta = { table: string; label: string; columns: Array<{ name: string; type: string; pk: number; editable: boolean }> };
 type TableData = TableMeta & { rows: Array<Record<string, any> & { __pk: string }>; total: number; limit: number; offset: number };
 
@@ -32,93 +20,6 @@ const apiFetch = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 };
 
 const fieldClass = 'mobile-field min-h-[44px]';
-
-function ShopEditor({ item, onSaved }: { item: ShopItem; onSaved: () => Promise<void> }) {
-  const [draft, setDraft] = useState({ ...item });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      await apiFetch(`/api/admin-data/shop-items/${encodeURIComponent(item.id)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ ...draft, active: Boolean(draft.active) }),
-      });
-      await onSaved();
-    } catch (err: any) {
-      setError(err?.message || 'Ошибка');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <details className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
-      <summary className="cursor-pointer list-none">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{item.icon}</span>
-          <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{item.name}</div><div className="text-[11px] text-text-secondary">{item.price.toLocaleString('ru-RU')} <TokenIcon /> · {item.active ? 'продаётся' : 'скрыт'}</div></div>
-        </div>
-      </summary>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <input className={fieldClass} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Название" />
-        <input className={fieldClass} value={draft.icon} onChange={(e) => setDraft({ ...draft, icon: e.target.value })} placeholder="Иконка" />
-        <textarea className="mobile-field min-h-[82px] sm:col-span-2" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
-        <input className={fieldClass} type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} placeholder="Цена" />
-        <input className={fieldClass} value={draft.item_type} onChange={(e) => setDraft({ ...draft, item_type: e.target.value })} placeholder="Тип" />
-        <input className={fieldClass} type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} placeholder="Порядок" />
-        <label className="flex items-center gap-2 text-[12px]"><input type="checkbox" checked={Boolean(draft.active)} onChange={(e) => setDraft({ ...draft, active: e.target.checked ? 1 : 0 })} /> Товар активен</label>
-      </div>
-      {error ? <p className="mt-3 text-[12px] text-danger">{error}</p> : null}
-      <button type="button" onClick={() => void save()} disabled={saving} className="mt-4 min-h-11 w-full rounded-[12px] bg-accent text-[13px] font-bold text-white disabled:opacity-50">{saving ? 'Сохраняем…' : 'Сохранить товар'}</button>
-    </details>
-  );
-}
-
-function ShopCreate({ onSaved }: { onSaved: () => Promise<void> }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [icon, setIcon] = useState('🛍️');
-  const [itemType, setItemType] = useState('custom');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const save = async () => {
-    if (!name.trim() || !description.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await apiFetch('/api/admin-data/shop-items', {
-        method: 'POST',
-        body: JSON.stringify({ name, description, price: Number(price || 0), icon, item_type: itemType }),
-      });
-      setName(''); setDescription(''); setPrice(''); setIcon('🛍️'); setItemType('custom');
-      await onSaved();
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось создать товар');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <details className="rounded-[16px] border border-accent/25 bg-accent-soft p-3">
-      <summary className="cursor-pointer list-none text-[13px] font-bold text-accent">+ Добавить новый товар</summary>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <input className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Название товара" />
-        <input className={fieldClass} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="Иконка" />
-        <textarea className="mobile-field min-h-[82px] sm:col-span-2" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Что получает игрок" />
-        <input className={fieldClass} type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Цена в жетонах" />
-        <input className={fieldClass} value={itemType} onChange={(e) => setItemType(e.target.value)} placeholder="Тип товара" />
-      </div>
-      {error ? <p className="mt-3 text-[12px] text-danger">{error}</p> : null}
-      <button type="button" disabled={saving || !name.trim() || !description.trim()} onClick={() => void save()} className="mt-4 min-h-11 w-full rounded-[12px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{saving ? 'Создаём…' : 'Создать товар'}</button>
-    </details>
-  );
-}
 
 function ExpertRowEditor({ row, columns, table, onSaved }: { row: Record<string, any> & { __pk: string }; columns: TableMeta['columns']; table: string; onSaved: () => Promise<void> }) {
   const editable = columns.filter((column) => column.editable);
@@ -182,7 +83,7 @@ function ExpertRowEditor({ row, columns, table, onSaved }: { row: Record<string,
 }
 
 export const DataSettingsCRM: React.FC = () => {
-  const [tab, setTab] = useState<Tab>('shop');
+  const [tab, setTab] = useState<Tab>('database');
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -232,7 +133,6 @@ export const DataSettingsCRM: React.FC = () => {
   if (loading) return <div className="flex min-h-[40vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
   const tabs = [
-    { id: 'shop', icon: ShoppingBag, label: 'Магазин' },
     { id: 'database', icon: Database, label: 'Правка' },
     { id: 'log', icon: History, label: 'Журнал' },
   ] as const;
@@ -241,19 +141,17 @@ export const DataSettingsCRM: React.FC = () => {
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <div>
         <h2 className="text-[24px] font-black tracking-tight">Данные и настройки</h2>
-        <p className="mt-1 text-[13px] text-text-secondary">Товары магазина жетонов. «Правка» — прямое исправление записей, только на крайний случай. Настройки конкретного игрока — в его карточке.</p>
+        <p className="mt-1 text-[13px] text-text-secondary">«Правка» — прямое исправление записей, только на крайний случай. Настройки конкретного игрока — в его карточке.</p>
       </div>
 
       {error ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
 
-      <div className="grid grid-cols-3 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
         {tabs.map((item) => {
           const Icon = item.icon;
           return <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center rounded-[10px] px-1 text-[10px] font-bold ${tab === item.id ? 'bg-accent text-white' : 'text-text-muted'}`}><Icon className="mb-1 h-4 w-4" />{item.label}</button>;
         })}
       </div>
-
-      {tab === 'shop' ? <div className="space-y-2"><ShopCreate onSaved={loadSummary} />{summary?.shop_items.map((item) => <ShopEditor key={item.id} item={item} onSaved={loadSummary} />)}</div> : null}
 
       {tab === 'database' ? (
         <div className="space-y-3">

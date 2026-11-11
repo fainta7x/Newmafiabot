@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../lib/api.ts';
-import { SECTION_PLAYER_HANDOFF } from '../../lib/crmSectionNavigation.ts';
+import { SECTION_PLAYER_HANDOFF, openCrmSection } from '../../lib/crmSectionNavigation.ts';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 
 /** Club tokens (in-game currency) in one place (owner, 2026-11-10): balances of all players and one player's ledger with manual accrual. Real-money payments stay in «Оплата и поддержка». */
@@ -29,6 +29,7 @@ export default function TokensCRM() {
     return <div data-testid="crm-tokens-player" className="mx-auto w-full max-w-2xl space-y-3">
       <button type="button" onClick={() => { setPlayerId(''); void load(); }} className="min-h-11 rounded-xl border border-border-soft bg-surface-1 px-3 text-[13px] font-semibold text-text-primary">← Все игроки</button>
       <div className="px-1 text-[15px] font-semibold text-text-primary">{selected?.nickname || 'Игрок'}</div>
+      <button type="button" data-testid="crm-tokens-open-shop" onClick={() => openCrmSection('shop', playerId)} className="min-h-11 w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-[13px] font-semibold text-text-primary">Покупки игрока в магазине</button>
       <PlayerTokenLedgerCard key={playerId} playerId={playerId} initialBalance={Number(selected?.tokens || 0)} />
     </div>;
   }

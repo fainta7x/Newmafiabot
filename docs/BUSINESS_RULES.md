@@ -1260,3 +1260,23 @@ Replaces the earlier «3 days after the evening is closed» (and the 24-hour run
 ## VK wall photos (owner, 2026-11-11)
 
 VK gives the app no right to upload wall photos. A VK wall post goes out as text by itself; its picture (club photo, MVP card, birthday card, «Мы собрались» photo) is kept in «Фото для постов ВК» on the CRM home screen, and the organizer attaches it to the post by hand and ticks it off. The text of a VK post is the same as in Telegram except where Telegram uses buttons (then VK names the app).
+
+## Club evening price by «как ходит» (owner, 2026-11-11)
+
+Applies to club (CASUAL) evenings only; novice, rating and tournament evenings keep their own prices.
+
+- «Ходит постоянно»: 100 ₽ за игру, не больше 400 ₽ за вечер (as before).
+- «Ходит иногда» and «Другой город»: 100 ₽ за игру, не больше 500 ₽ за вечер.
+- «Перестал ходить»: 200 ₽ за игру, не больше 800 ₽ за вечер.
+- The three new numbers (максимум для «иногда», цена за игру и максимум для «перестал») are edited in «Стоимость вечеров» next to the other prices and apply at once to every evening that is not closed.
+- The player's tariff is the status at the moment the amount is counted while the evening is open; it is written on the participant and stays when the evening is closed. A later change of «как ходит» never reprices a closed evening; evenings closed before this rule keep the regular price.
+- The player sees his own price, cap and a hint on the evening page of his cabinet (the slot plan for a player carries `personal_price`): which status he has, what the other statuses pay, and for a non-regular player «Приходите чаще — цена станет ниже». The public join page shows the same price and hint once the visitor is identified (VK ID / Telegram); an unidentified visitor sees the base price. The bot's personal invitation to a club evening carries the recipient's own price; group posts, being public, show the base price.
+- Coming back (owner, 2026-11-11): one visit moves «Перестал ходить» to «Ходит иногда»; «Ходит постоянно» needs 3 visits in 30 days (so a returning player is never regular at once).
+- Guests without a profile are not priced by status at all (owner, 2026-11-11: they have two gift evenings anyway); this price applies to players with a profile only.
+
+## Token shop (owner, 2026-11-11)
+
+- The shop has its own CRM section «Магазин» (Ещё → Игровая часть): products and a list of purchases (who bought what, waiting or handed over). It left «Данные и настройки», which is now only expert editing and the change log.
+- A product is sold only if buying it delivers something. Two kinds exist: «Бесплатный вечер» (the player spends it himself when paying an evening) and «Выдаётся вручную» (the organizer hands it over and ticks «Выдано»). Any other type («Купить роль на игру», «Заказ музыки» — they deliver nothing from the token shop; roles and music are bought as separate ruble purchases) is not shown to players and cannot be bought until its type is changed.
+- The price is in tokens, a whole number.
+- The player's «Жетоны» screen and the shop link to each other: «Жетоны игрока» on a purchase, «Покупки игрока в магазине» in the token ledger.

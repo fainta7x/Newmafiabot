@@ -17,7 +17,7 @@ async function ensureColumns(db: DatabaseWrapper) {
   if (ensured.has(db as object)) return;
   const columns = new Set((await db.all<{ name: string }>('PRAGMA table_info(shop_purchases)')).map((column) => column.name));
   for (const [name, type] of [['evening_id', 'TEXT'], ['covers_rub', 'INTEGER NOT NULL DEFAULT 0'], ['order_kind', 'TEXT'], ['order_id', 'TEXT']] as const) {
-    if (!columns.has(name)) await db.exec(`ALTER TABLE shop_purchases ADD COLUMN ${name} ${type}`);
+    if (!columns.has(name)) await db.run(`ALTER TABLE shop_purchases ADD COLUMN ${name} ${type}`);
   }
   await db.exec('CREATE INDEX IF NOT EXISTS idx_shop_purchases_order ON shop_purchases(order_id)');
   ensured.add(db as object);

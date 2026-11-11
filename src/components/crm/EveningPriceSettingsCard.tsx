@@ -24,7 +24,6 @@ export function EveningPriceSettingsCard() {
     catch (error: any) { setMessage(error.message || 'Не удалось сохранить'); } finally { setBusy(false); }
   };
   return <section className="space-y-3 rounded-2xl border border-border-soft bg-surface-1 p-4" data-testid="evening-price-settings">
-    <h3 className="text-[15px] font-bold">Стоимость вечеров</h3>
     <p className="text-[13px] leading-5 text-text-secondary">Цены действуют сразу для всех незакрытых вечеров, закрытые сохраняют свои. Бесплатное участие — подарок организатора в оплатах вечера.</p>
     {groups.map((group) => <fieldset key={group.title} className="space-y-2 rounded-xl border border-border-soft bg-surface-2/40 p-3">
       <legend className="px-1 text-[13px] font-bold text-text-primary">{group.title}</legend>

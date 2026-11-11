@@ -1,5 +1,6 @@
 import { formatRubles } from './formatRubleAmount.ts';
 import { normalizeEveningFormat } from './eveningFormat.ts';
+import { membershipOfPlayer } from './playerAccess.ts';
 // The club evening depends on how often the player comes (owner, 2026-11-11): regulars 100 ₽ per game up to `casual_cap`,
 // «иногда» (and another city) up to `sometimes_cap`, «перестал ходить» `stopped_game` per game up to `stopped_cap`.
 export const DEFAULT_EVENING_PRICES = { casual_game: 100, casual_cap: 400, sometimes_cap: 500, stopped_game: 200, stopped_cap: 800, novice_game: 200, novice_cap: null as number | null, rating_entry: 500 };
@@ -28,3 +29,15 @@ export function eveningPriceLabel(format: unknown, policy: EveningPrices = DEFAU
   const cap = kind === 'NOVICE' ? policy.novice_cap : policy.casual_cap;
   return `${formatRubles(game)} за игру${cap === null ? '' : `, не больше ${formatRubles(cap)} за вечер`}`;
 }
+
+/**
+ * Price tier of a club-evening player from «как ходит» (owner, 2026-11-11): «перестал ходить» → stopped; «другой город» and «иногда» →
+ * sometimes; «ходит постоянно» → regular.
+ */
+export const clubPriceTierOf = (player: { club_role?: unknown; attends_sometimes?: unknown; stopped_attending?: unknown; from_other_city?: unknown } | null | undefined): ClubPriceTier => {
+  if (!player) return 'sometimes';
+  if (Number(player.stopped_attending || 0) === 1) return 'stopped';
+  if (Number(player.from_other_city || 0) === 1) return 'sometimes';
+  return membershipOfPlayer(player) === 'member' ? 'regular' : 'sometimes';
+};
+

@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
-import { DEFAULT_EVENING_PRICES, clubTierPrice, isClubPriceTier, type ClubPriceTier, type EveningPrices } from '../../lib/eveningPrices.ts';
-import { membershipOfPlayer } from '../../lib/playerAccess.ts';
+import { DEFAULT_EVENING_PRICES, clubPriceTierOf, clubTierPrice, isClubPriceTier, type ClubPriceTier, type EveningPrices } from '../../lib/eveningPrices.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
@@ -27,16 +26,7 @@ export const calculateRegularEveningPlayedAmount = (gamesPlayed: number, policy:
   return Math.min(count * game, cap);
 };
 
-/**
- * Price tier of a club-evening player from «как ходит» (owner, 2026-11-11): «перестал ходить» → stopped; «другой город» and «иногда» →
- * sometimes; «ходит постоянно» → regular.
- */
-export const clubPriceTierOf = (player: { club_role?: unknown; attends_sometimes?: unknown; stopped_attending?: unknown; from_other_city?: unknown } | null | undefined): ClubPriceTier => {
-  if (!player) return 'sometimes';
-  if (Number(player.stopped_attending || 0) === 1) return 'stopped';
-  if (Number(player.from_other_city || 0) === 1) return 'sometimes';
-  return membershipOfPlayer(player) === 'member' ? 'regular' : 'sometimes';
-};
+export { clubPriceTierOf };
 
 /** The tier is written on the participant while the evening is open and then stays: a closed account is never repriced by a later change of «как ходит». Evenings closed before this rule have no tier and stay at the regular price. */
 const ensurePriceTierColumn = async (db: DatabaseWrapper) => {

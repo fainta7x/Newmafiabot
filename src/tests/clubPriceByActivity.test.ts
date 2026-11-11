@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index';
 import { reconcileRegularEveningPayments } from '../server/services/eveningPaymentPricingService';
+import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService';
 
 describe('club evening price by «как ходит» (owner, 2026-11-11)', () => {
   let db: DatabaseWrapper;
@@ -50,5 +51,19 @@ describe('club evening price by «как ходит» (owner, 2026-11-11)', () =
     await db.run("UPDATE players SET stopped_attending = 1 WHERE id = 'reg'");
     await reconcileRegularEveningPayments(db, 'e1');
     expect(await due('reg')).toBe(400);
+  });
+
+  it('shows every player his own price and the reason in the evening plan', async () => {
+    await evening('published', null);
+    await player('reg', "club_role = 'member', attends_sometimes = 0, stopped_attending = 0");
+    await player('gone', "club_role = 'guest', attends_sometimes = 1, stopped_attending = 1");
+    const regular: any = await loadEveningSlotPlan(db, 'e1', 'reg');
+    const stopped: any = await loadEveningSlotPlan(db, 'e1', 'gone');
+    expect(regular.personal_price).toMatchObject({ tier: 'regular', game: 100, cap: 400, sometimes_cap: 500, stopped_game: 200, stopped_cap: 800 });
+    expect(regular.event.max_evening_price).toBe(400);
+    expect(stopped.personal_price).toMatchObject({ tier: 'stopped', game: 200, cap: 800 });
+    expect(stopped.event.max_evening_price).toBe(800);
+    expect(stopped.slots[0].price).toBe(200);
+    expect(((await loadEveningSlotPlan(db, 'e1')) as any).personal_price).toBeNull();
   });
 });

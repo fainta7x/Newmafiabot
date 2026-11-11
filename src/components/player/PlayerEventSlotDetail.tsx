@@ -38,6 +38,7 @@ type Slot = {
 type Plan = {
   event: EventItem & { assembled: boolean; assembled_slots: number; max_evening_price?: number | null; price_per_game?: number; required_slots?: number; required_players_per_slot?: number };
   pricing?: EveningPrices;
+  personal_price?: { tier: 'regular' | 'sometimes' | 'stopped'; game: number; cap: number; regular_cap: number; sometimes_cap: number; stopped_game: number; stopped_cap: number } | null;
   first_application_required?: boolean;
   slots: Slot[];
   selection: { slot_ids: string[]; games: number; total: number };
@@ -265,6 +266,7 @@ export default function PlayerEventSlotDetail({
                 </div>
                 <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}{requiredSlots ? `/${requiredSlots}` : ''}</div><div className="text-[11px] text-white/25">игр</div></div>
               </div>
+              {plan.personal_price && <PriceDependsOnActivity price={plan.personal_price} />}
             </section>
 
             <section className="sticky top-16 z-20 mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
@@ -327,4 +329,14 @@ export default function PlayerEventSlotDetail({
       </div>
     </main>
   );
+}
+
+/** What the club evening price depends on (owner, 2026-11-11): the player sees his own tariff and what brings the lower one. */
+function PriceDependsOnActivity({ price }: { price: NonNullable<Plan['personal_price']> }) {
+  const own = price.tier === 'regular' ? 'Вы ходите постоянно' : price.tier === 'stopped' ? 'Вы давно не были' : 'Вы ходите иногда';
+  return <div data-testid="price-depends-on-activity" className="mt-3 rounded-xl bg-black/20 px-3 py-2.5 text-[11px] leading-4 text-white/55">
+    <div className="font-semibold text-white/80">{own}: {formatRubles(price.game)} за игру, не больше {formatRubles(price.cap)} за вечер</div>
+    <div className="mt-1">Цена зависит от того, как часто вы бываете: постоянным игрокам (3 вечера и больше за 30 дней) — не больше {formatRubles(price.regular_cap)} за вечер, тем, кто ходит иногда — не больше {formatRubles(price.sometimes_cap)}, а если не были больше двух месяцев — {formatRubles(price.stopped_game)} за игру, не больше {formatRubles(price.stopped_cap)}.</div>
+    {price.tier !== 'regular' && <div className="mt-1 font-semibold text-emerald-200/80">Приходите чаще — цена станет ниже.</div>}
+  </div>;
 }

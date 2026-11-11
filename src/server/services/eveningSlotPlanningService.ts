@@ -5,7 +5,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
-import { DEFAULT_EVENING_PRICES, eveningSelectionPrice, type EveningPrices } from '../../lib/eveningPrices.ts';
+import { DEFAULT_EVENING_PRICES, clubPriceTierOf, clubTierPrice, eveningSelectionPrice, type EveningPrices } from '../../lib/eveningPrices.ts';
 
 export const SLOT_PRICE = DEFAULT_EVENING_PRICES.casual_game;
 export const CLUB_EVENING_MAX_PRICE = DEFAULT_EVENING_PRICES.casual_cap;
@@ -355,7 +355,15 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     for (const row of selectedRows) selectedSlotIds.add(String(row.slot_id));
   }
 
-  const policy = await loadEveningPrices(db, eveningId);
+  const basePolicy = await loadEveningPrices(db, eveningId);
+  // A club evening is priced by «как ходит» of the player who looks at it (owner, 2026-11-11): the plan carries his own price and cap.
+  let personalClub: { tier: string; game: number; cap: number } | null = null;
+  if (playerId && normalizeEveningFormat(evening.format) === 'CASUAL') {
+    // A players table without the access columns (an old or minimal database) simply means the base price.
+    const person = await db.get<any>('SELECT club_role, attends_sometimes, stopped_attending, from_other_city FROM players WHERE id = ?', [playerId]).catch(() => null);
+    if (person) { const tier = clubPriceTierOf(person); personalClub = { tier, ...clubTierPrice(basePolicy, tier) }; }
+  }
+  const policy = personalClub ? { ...basePolicy, casual_game: personalClub.game, casual_cap: personalClub.cap } : basePolicy;
   const personalNovicePrice = playerId && normalizeEveningFormat(evening.format) === 'NOVICE'
     ? await novicePriceForPlayer(db, playerId, eveningId)
     : null;
@@ -365,7 +373,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     status: String(row.status || 'open'),
     starts_at: row.starts_at,
     ends_at: row.ends_at,
-    price: personalNovicePrice == null ? Number(row.price_rub ?? SLOT_PRICE) : personalNovicePrice,
+    price: personalNovicePrice == null ? (personalClub ? personalClub.game : Number(row.price_rub ?? SLOT_PRICE)) : personalNovicePrice,
     target_players: Number(row.target_players || TABLE_MIN_PLAYERS),
     registered_count: Number(row.registered_count || 0),
     selected: selectedSlotIds.has(String(row.id)),
@@ -379,6 +387,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   const selected = slots.filter((slot) => slot.selected);
   return {
     pricing: policy,
+    // For the hint at the price: the player's own tariff and the others, so he sees what the price depends on.
+    personal_price: personalClub ? { tier: personalClub.tier, game: personalClub.game, cap: personalClub.cap, regular_cap: basePolicy.casual_cap, sometimes_cap: basePolicy.sometimes_cap, stopped_game: basePolicy.stopped_game, stopped_cap: basePolicy.stopped_cap } : null,
     event: {
       id: evening.id,
       title: evening.title,
@@ -389,7 +399,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       format: evening.format || 'CASUAL',
       status: evening.status,
       event_type: 'evening',
-      price_per_game: normalizeEveningFormat(evening.format) === 'NOVICE' ? policy.novice_game : normalizeEveningFormat(evening.format) === 'RATING' ? policy.rating_entry : Number(settings.price_per_game ?? policy.casual_game),
+      price_per_game: normalizeEveningFormat(evening.format) === 'NOVICE' ? policy.novice_game : normalizeEveningFormat(evening.format) === 'RATING' ? policy.rating_entry : Number(personalClub ? personalClub.game : (settings.price_per_game ?? policy.casual_game)),
       max_evening_price: normalizeEveningFormat(evening.format) === 'CASUAL' ? policy.casual_cap : normalizeEveningFormat(evening.format) === 'NOVICE' ? policy.novice_cap : null,
       slot_duration_minutes: Number(settings.slot_duration_minutes || 60),
       slot_count: slots.length,

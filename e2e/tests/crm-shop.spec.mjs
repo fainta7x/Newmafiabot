@@ -18,6 +18,7 @@ for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900],
     await page.route('**/api/admin-data/shop', (route) => route.fulfill({ json: { items, types } }));
     await page.route('**/api/admin-data/shop/purchases', (route) => route.fulfill({ json: { purchases } }));
     await page.goto('/e2e/crm-more.html');
+    await page.getByTestId('crm-more-cat-game').click();
     await page.getByTestId('crm-more-shop').click();
     await expect(page.getByTestId('crm-shop')).toContainText('Кружка клуба');
     await expect(page.getByTestId('crm-shop')).toContainText('Не продаётся: этот товар ничего не выдаёт');

@@ -1,15 +1,17 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 
 /**
- * The token shop (owner, 2026-11-11: «товар, который ничего не выдаёт, продавать нельзя»). A product is sold only if buying it
- * delivers something:
- *  - `free_evening` is redeemed by the player himself when paying an evening (`playerPaymentRoutes.ts`);
- *  - `manual` is handed out by the organizer, who ticks «Выдано» in the purchase list.
- * Any other type («role», «music», legacy «custom» …) has no delivery behind it and is neither shown to players nor sold.
+ * The token shop (owner, 2026-11-11: everything in it must really work). A product delivers something in one of four ways:
+ *  - `free_evening`: the player spends it himself when paying an evening (`playerPaymentRoutes.ts`);
+ *  - `manual`: the organizer hands it out and ticks «Выдано» in the purchase list;
+ *  - `role` and `music`: the token price of «Купить роль» and «Заказ музыки» in «Покупки перед игрой» — the player chooses rubles
+ *    (added to the evening debt) or tokens at this price (`gameTokenPaymentService.ts`). They are not bought on their own.
  */
 export const SHOP_ITEM_TYPES = {
-  free_evening: { label: 'Бесплатный вечер', delivery: 'Игрок сам тратит его при оплате вечера' },
-  manual: { label: 'Выдаётся вручную', delivery: 'Организатор выдаёт товар и отмечает «Выдано»' },
+  free_evening: { label: 'Бесплатный вечер', delivery: 'Игрок сам тратит его при оплате вечера', standalone: true },
+  manual: { label: 'Выдаётся вручную', delivery: 'Организатор выдаёт товар и отмечает «Выдано»', standalone: true },
+  role: { label: 'Роль на игру (жетоны)', delivery: 'Цена в жетонах за роль в «Покупках перед игрой»; игрок выбирает: рубли или жетоны', standalone: false },
+  music: { label: 'Музыка на игру (жетоны)', delivery: 'Цена в жетонах за песню в «Покупках перед игрой»; игрок выбирает: рубли или жетоны', standalone: false },
 } as const;
 export type ShopItemType = keyof typeof SHOP_ITEM_TYPES;
 
@@ -18,8 +20,10 @@ export const normalizeShopItemType = (value: unknown): string => {
   const type = String(value ?? '').trim();
   return type === 'custom' ? 'manual' : type;
 };
+/** Has a delivery behind it (any of the four). */
 export const isSellableShopType = (value: unknown): value is ShopItemType => Object.prototype.hasOwnProperty.call(SHOP_ITEM_TYPES, normalizeShopItemType(value));
-export const SELLABLE_TYPES_SQL = `('free_evening', 'manual', 'custom')`;
+/** Bought on its own in the shop list (the other two are paid inside «Покупки перед игрой»). */
+export const isStandaloneShopType = (value: unknown): boolean => isSellableShopType(value) && SHOP_ITEM_TYPES[normalizeShopItemType(value) as ShopItemType].standalone;
 
 export async function loadShopOverview(db: DatabaseWrapper) {
   const items = await db.all<any>(`
@@ -31,7 +35,7 @@ export async function loadShopOverview(db: DatabaseWrapper) {
     items: items.map((item) => ({
       ...item, price: Number(item.price || 0), active: Number(item.active || 0), sort_order: Number(item.sort_order || 0),
       sold_count: Number(item.sold_count || 0), waiting_count: Number(item.waiting_count || 0),
-      sellable: isSellableShopType(item.item_type), item_type: normalizeShopItemType(item.item_type),
+      sellable: isSellableShopType(item.item_type), standalone: isStandaloneShopType(item.item_type), item_type: normalizeShopItemType(item.item_type),
     })),
   };
 }

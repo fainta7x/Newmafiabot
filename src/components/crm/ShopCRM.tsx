@@ -5,7 +5,7 @@ import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { SECTION_PLAYER_HANDOFF, openCrmSection } from '../../lib/crmSectionNavigation.ts';
 import { formatMoscowDate } from '../../lib/moscowDate.ts';
 
-type Item = { id: string; name: string; description: string; price: number; icon: string; item_type: string; active: number; sold_count: number; waiting_count: number; sellable: boolean };
+type Item = { id: string; name: string; description: string; price: number; icon: string; item_type: string; active: number; sold_count: number; waiting_count: number; sellable: boolean; standalone: boolean };
 type TypeOption = { value: string; label: string; delivery: string };
 type Purchase = { id: string; player_id: string; nickname: string | null; item_name_snapshot: string; item_type_snapshot: string; price_snapshot: number; status: string; purchased_at: string; redeemed_at: string | null };
 type Draft = { id?: string; name: string; description: string; price: string; icon: string; item_type: string; active: boolean };
@@ -91,7 +91,7 @@ export default function ShopCRM() {
           <strong className="block break-words text-[14px] text-text-primary">{item.name}</strong>
           <span className="mt-0.5 flex items-center gap-1 text-[13px] font-semibold text-text-secondary">{tokens(item.price)} <TokenIcon /></span>
           <span className="mt-1 block text-[11px] leading-4 text-text-muted">
-            {!item.sellable ? 'Не продаётся: этот товар ничего не выдаёт. Выберите, что получает игрок.' : !item.active ? 'Скрыт от игроков' : 'В продаже'}
+            {!item.sellable ? 'Не продаётся: этот товар ничего не выдаёт. Выберите, что получает игрок.' : !item.standalone ? (item.active ? 'Цена оплаты жетонами в «Покупках перед игрой»' : 'Оплата жетонами выключена') : !item.active ? 'Скрыт от игроков' : 'В продаже'}
             {item.sold_count ? ` · куплено ${item.sold_count}` : ''}{item.waiting_count && item.item_type === 'manual' ? ` · ждут выдачи ${item.waiting_count}` : ''}
           </span>
         </span>

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { reconcileAllBettingPools } from '../services/bettingPoolService.ts';
-import { isSellableShopType } from '../services/shopCatalogService.ts';
+import { isStandaloneShopType } from '../services/shopCatalogService.ts';
 import {
   getTokenLedgerPage,
   mutateTokenBalance,
@@ -104,8 +104,8 @@ router.post('/shop/purchase', async (req, res) => {
        LIMIT 1
     `, [itemId]);
     if (!item) return res.status(404).json({ error: 'Товар не найден или недоступен' });
-    // A product that delivers nothing is never sold (owner, 2026-11-11).
-    if (!isSellableShopType(item.item_type)) return res.status(409).json({ error: 'Этот товар сейчас недоступен' });
+    // Roles and songs are paid with tokens inside «Покупки перед игрой», not as a standalone product.
+    if (!isStandaloneShopType(item.item_type)) return res.status(409).json({ error: 'Эта покупка оформляется в «Покупках перед игрой»: выберите игру и оплату жетонами' });
 
     const price = Number(item.price);
     if (!Number.isInteger(price) || price <= 0) return res.status(500).json({ error: 'У товара некорректная цена' });

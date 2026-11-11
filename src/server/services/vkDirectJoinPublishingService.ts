@@ -21,7 +21,8 @@ import {
   organizerContactLinks,
 } from '../../lib/novicePromo.ts';
 import { loadPostTemplate, renderPostTemplate } from './postTemplateService.ts';
-import { announcementPhotoPath, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { announcementPhotoPath, loadAnnouncementPhoto, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { saveVkManualPhoto } from './vkManualPhotoService.ts';
 
 type EveningRow = {
   id: string;
@@ -148,7 +149,7 @@ export const buildDirectVkEveningAnnouncement = async (
   const novice = format === 'NOVICE';
   // A novice post starts with who it is for (owner, 2026-09-29); why the game is fun comes last.
   const headline = novice ? noviceHeadlineText() : '';
-  const lines = [...(headline ? [headline, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
+  const lines = [...(headline ? [headline, ''] : []), `🎭 ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) {
     lines.push(`📍 ${venueLine(evening.venue)}`);
     const map = venueDetails(evening.venue).mapUrl;
@@ -159,7 +160,7 @@ export const buildDirectVkEveningAnnouncement = async (
   lines.push(
     announcementPriceLine(format, prices),
     '',
-    `📝 Записаться и посмотреть, кто идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
+    `📝 Записывайтесь и смотрите, кто уже идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
     `👤 Личный кабинет: ${await shortCabinetLink(db, baseUrl)}`,
   );
   if (novice) {
@@ -417,6 +418,12 @@ export async function syncDirectVkEveningPublications(
         results.push({ destination: destination.key, success: true, skipped: true, reason: synced.reason });
       } else {
         results.push({ destination: destination.key, success: true, ...(destination.key === 'public' && photoProblem ? { photo_problem: photoProblem } : {}) });
+        // The picture waits in «Фото для постов ВК» for the organizer to attach by hand (owner, 2026-11-11).
+        if (destination.key === 'public' && photoId && !wallAttachment) {
+          const stored = await loadAnnouncementPhoto(db, photoId).catch(() => null);
+          const published = await getPublication(db, evening.id, destination.key).catch(() => null);
+          if (stored) await saveVkManualPhoto(db, { postKey: `announcement:${evening.id}`, title: `Анонс: ${evening.title}`, postUrl: published?.external_url || null, mime: stored.mime, bytes: Buffer.from(stored.bytes) }).catch(() => null);
+        }
       }
     } catch (error: any) {
       if (!error?.vkUncertain) await savePublicationError(db, evening.id, destination, error);

@@ -352,6 +352,7 @@ Needs an answer or content from the owner before anything is built:
 - Content the owner promised (art, compendium text, teaching material).
 - Rating-evening vote goes only to the rating channel — confirmed by the owner 2026-11-10 (no action).
 - The 14-item live check (above).
+- VK wall pictures are attached by hand (owner, 2026-11-11, `docs/BUSINESS_RULES.md` → VK wall photos); open: whether to remove the «Подключить API ВК» button, and which VK posts look wrong compared to Telegram (`docs/AUDIT_LOG.md` VK06 lists two open text differences).
 
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 

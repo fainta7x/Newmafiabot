@@ -14,7 +14,7 @@ const values = { 'для_новичков': '', 'подробности_нови
 describe('organizer-editable post text', () => {
   it('uses the owner\'s original words until a text is saved', async () => {
     expect(await loadPostTemplate(db, 'vk_club_evening')).toBe(DEFAULT_POST_TEMPLATES.vk_club_evening);
-    expect(renderPostTemplate(DEFAULT_POST_TEMPLATES.vk_club_evening, values)).toBe('Привет! В пятницу, 16 октября, играем в мафию — ждём тебя 🎭\n📍 Суп с Котом, 21:00 · 100 ₽ за игру\nОтметь, придёшь ли, и выбери игры: https://x/e');
+    expect(renderPostTemplate(DEFAULT_POST_TEMPLATES.vk_club_evening, values)).toBe('🎭 Вечер мафии в Туле\n\n📅 В пятницу, 16 октября · 21:00\n📍 Суп с Котом\n💳 100 ₽ за игру\n\nНовички и опытные игроки — за столом найдётся место каждому. Столы ограничены, поэтому записывайтесь заранее 👇\nhttps://x/e');
   });
 
   it('saves, uses and resets a text; the sign-up link is required', async () => {

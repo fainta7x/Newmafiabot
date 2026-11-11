@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { createVkWallPost, getVkDestinations, vkApi } from './vkPublishingService.ts';
+import { canEditVkWallPosts, createVkWallPost, getVkDestinations, vkApi } from './vkPublishingService.ts';
+import { saveVkManualPhoto } from './vkManualPhotoService.ts';
 
 /**
  * «Мы собрались» (user-approved 2026-09-24): once the evening starts, the organizer takes a photo
@@ -86,20 +87,29 @@ async function publishTelegram(db: DatabaseWrapper, evening: any, photo: Buffer,
   }
 }
 
-async function publishVk(photo: Buffer, mime: string, caption: string, fetchImpl: typeof fetch) {
+async function publishVk(db: DatabaseWrapper, eveningId: string, photo: Buffer, mime: string, caption: string, fetchImpl: typeof fetch) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
-    // Wall photos need the organizer's user token (photos.getWallUploadServer / saveWallPhoto).
-    const server = await vkApi<{ upload_url: string }>('photos.getWallUploadServer', { group_id: groupId });
-    const form = new FormData();
-    form.set('photo', new Blob([new Uint8Array(photo)], { type: mime }), 'gathered.jpg');
-    const uploaded: any = await (await fetchImpl(server.upload_url, { method: 'POST', body: form })).json();
-    const saved = await vkApi<Array<{ id: number; owner_id: number }>>('photos.saveWallPhoto', {
-      group_id: groupId, server: uploaded.server, photo: uploaded.photo, hash: uploaded.hash,
-    });
-    const attachment = saved?.[0] ? `photo${saved[0].owner_id}_${saved[0].id}` : null;
+    // Wall photos need an API-compatible personal key; without it (owner, 2026-11-11) the text goes out and the photo waits
+    // in «Фото для постов ВК» to be attached by hand.
+    let attachment: string | null = null;
+    if (canEditVkWallPosts()) {
+      try {
+        const server = await vkApi<{ upload_url: string }>('photos.getWallUploadServer', { group_id: groupId });
+        const form = new FormData();
+        form.set('photo', new Blob([new Uint8Array(photo)], { type: mime }), 'gathered.jpg');
+        const uploaded: any = await (await fetchImpl(server.upload_url, { method: 'POST', body: form })).json();
+        const saved = await vkApi<Array<{ id: number; owner_id: number }>>('photos.saveWallPhoto', {
+          group_id: groupId, server: uploaded.server, photo: uploaded.photo, hash: uploaded.hash,
+        });
+        attachment = saved?.[0] ? `photo${saved[0].owner_id}_${saved[0].id}` : null;
+      } catch (error) {
+        console.warn('[VK GATHERED POST] Photo upload failed; the picture is kept for manual attaching:', error instanceof Error ? error.message : String(error));
+      }
+    }
     const post = await createVkWallPost({ groupId, message: caption, attachments: attachment ? [attachment] : [] });
+    if (!attachment) await saveVkManualPhoto(db, { postKey: `gathered:${eveningId}`, title: caption.split('\n')[0] || 'Мы собрались', postUrl: post.externalUrl, mime, bytes: photo }).catch(() => null);
     return { status: 'published', error: null, url: post.externalUrl };
   } catch (error: any) {
     return { status: 'failed', error: `${error?.message || 'ВК недоступен'} — если пост всё же появился на стене, повторять не нужно`, url: null };
@@ -154,7 +164,7 @@ export async function publishGatheredPost(
         : publishTelegram(db, evening, photo, mime, caption, fetchImpl),
       existing?.vk_status === 'published'
         ? { status: 'published', error: null, url: existing.vk_url || null }
-        : publishVk(photo, mime, caption, fetchImpl),
+        : publishVk(db, eveningId, photo, mime, caption, fetchImpl),
     ]);
     const done = new Date().toISOString();
     const reached = telegram.status === 'published' || vk.status === 'published';

@@ -10,7 +10,8 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { canEditVkWallPosts, createVkWallPost, getVkDestinations } from './vkPublishingService.ts';
-import { announcementCoverUrl, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk, uploadVkWallPhotoBytes } from './announcementPhotoService.ts';
+import { announcementCoverUrl, loadAnnouncementPhoto, pickAnnouncementPhotoId, uploadVkWallPhotoBytes } from './announcementPhotoService.ts';
+import { saveVkManualPhoto } from './vkManualPhotoService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { loadEveningShortfall } from './eveningShortfallService.ts';
@@ -163,38 +164,33 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
   return { ...result, status: result.ok ? 'published' : result.certainty === 'uncertain' ? 'uncertain' : 'failed', error:result.error || null };
 }
 
-export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string }; context?: PublicationContext; noPhoto?: boolean; requireImage?: boolean }) {
+export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string }; context?: PublicationContext; noPhoto?: boolean }) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { certainty: 'rejected' as const, status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
-    // The club photo on the wall post, as in the evening announcement; without the photo the text post still goes out.
+    // The picture of the post. With an API-compatible personal key it is attached to the wall post; without one (VK ID gives no
+    // «wall»/«photos» rights, owner 2026-11-11) the text goes out by itself and the picture waits in «Фото для постов ВК».
     let attachments: string[] | undefined;
-    if (photo && !photo.noPhoto && canEditVkWallPosts()) {
+    let pending: { bytes: Buffer; mime: string } | null = null;
+    if (photo && !photo.noPhoto) {
       try {
-        // A picture made for this post (the MVP cards) goes instead of the club photo.
-        if (photo.image) attachments = [await uploadVkWallPhotoBytes(photo.image.bytes, photo.image.mime, groupId)];
+        if (photo.image) pending = { bytes: photo.image.bytes, mime: photo.image.mime };
         else {
           const photoId = await pickAnnouncementPhotoId(photo.db, photo.eveningId, photo.format);
-          if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
+          const stored = photoId ? await loadAnnouncementPhoto(photo.db, photoId) : null;
+          if (stored) pending = { bytes: Buffer.from(stored.bytes), mime: stored.mime };
+        }
+        if (pending && canEditVkWallPosts()) {
+          try {
+            attachments = [await uploadVkWallPhotoBytes(pending.bytes, pending.mime, groupId)];
+            pending = null;
+          } catch (error) {
+            console.warn('[VK TODAY POST] Photo upload failed; the picture is kept for manual attaching:', error instanceof Error ? error.message : String(error));
+          }
         }
       } catch (error) {
-        if (photo.requireImage) {
-          return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const,
-            error: `Не удалось прикрепить фото к публикации: ${error instanceof Error ? error.message : String(error)}`, url: null };
-        }
-        console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
+        console.warn('[VK TODAY POST] The picture could not be prepared; the text post goes out:', error instanceof Error ? error.message : String(error));
       }
-    }
-    // Owner 2026-11-10: a VK post never goes out without its picture (the text-only post looked broken next to Telegram).
-    if (photo && !photo.noPhoto && !attachments?.length && !photo.requireImage) {
-      return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const, url: null,
-        error: canEditVkWallPosts()
-          ? 'Пост в ВК не отправлен: не удалось прикрепить фото. Проверьте, что в «Публикациях клуба» есть фото, и повторите.'
-          : 'Пост в ВК не отправлен: не подключён личный ключ ВК для загрузки фото. Подключите API ВК в «Ещё → Состояние системы».' };
-    }
-    if (photo?.requireImage && (!photo.image || !attachments?.length)) {
-      return { certainty: 'rejected' as const, temporary: true, status: 'failed' as const,
-        error: 'Публикация требует карточку MVP с аватаркой; пост без изображения не отправлен', url: null };
     }
     const send = async (payload: { groupId:string; message:string; attachments?:string[] }): Promise<PublicationResult> => {
       try { const post = await createVkWallPost(payload); return {ok:true,certainty:'accepted',ids:[String(post.postId)],url:post.externalUrl}; }
@@ -202,6 +198,10 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
     };
     const payload = { groupId, message:text, attachments };
     const result = photo?.context ? await deliverPublication(photo.db,photo.context,'vk',groupId,payload,send) : await send(payload);
+    if (result.ok && pending && photo) {
+      await saveVkManualPhoto(photo.db, { postKey: photo.context?.key || `vk:${photo.eveningId}:${Date.now()}`, title: text.split('\n')[0] || 'Пост в ВК', postUrl: result.url || null, mime: pending.mime, bytes: pending.bytes })
+        .catch((error) => console.warn('[VK TODAY POST] Could not keep the picture for manual attaching:', error instanceof Error ? error.message : String(error)));
+    }
     return {...result,status:result.ok ? 'published' : result.certainty === 'uncertain' ? 'uncertain' : 'failed',error:result.error || null,url:result.url || null};
   } catch (error: any) {
     return { certainty: 'uncertain' as const, temporary:false, status: 'uncertain', error: `${error?.message || 'ВК недоступен'} — если пост всё же появился на стене, повторять не нужно`, url: null };

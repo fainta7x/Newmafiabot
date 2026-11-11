@@ -9,6 +9,7 @@ import OrganizerAgenda from './OrganizerAgenda.tsx';
 import MonthBirthdaysHome from './MonthBirthdaysHome.tsx';
 import OrganizerDebtsPanel from './OrganizerDebtsPanel.tsx';
 import ActiveGiftCollectionsHome from './ActiveGiftCollectionsHome.tsx';
+import VkManualPhotosHome from './VkManualPhotosHome.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
 import { sendJson } from '../../lib/requestJson.ts';
@@ -383,6 +384,7 @@ export default function OrganizerCommandCenter({
     </div>
     <div className="crm-today-planning space-y-3">
     <MonthBirthdaysHome onOpenPlayer={onOpenPlayer} />
+    <VkManualPhotosHome />
     <ActiveGiftCollectionsHome />
     {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
 

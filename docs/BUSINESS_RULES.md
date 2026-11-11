@@ -1256,3 +1256,7 @@ Replaces the earlier «3 days after the evening is closed» (and the 24-hour run
 - **«Из другого города» остаётся ручным.** Статус, поставленный вручную, важнее расчёта и держится, пока для игрока не выбрано «Считать само» («Ещё → Игроки → Уровни и роли» → «Как часто ходит» → «Считать само», или карточка игрока).
 - Расчёт идёт раз в сутки для игроков с автоматическим режимом. Он пишет то же, что ручной выбор: «Перестал ходить» приостанавливает личные сообщения бота, возвращение снимает только эту паузу. **Расчёт включён по умолчанию для всех игроков** (владелец, 2026-11-10: «ручные теги должны стать автоматическими»): при первом запуске статусы пересчитываются по фактическим визитам. Ручной выбор статуса переводит игрока на ручной режим; вернуть расчёт — «Считать само».
 - **Идея владельца (не сделана, ждёт решения):** цена вечера зависит от активности — постоянным дешевле, редким дороже.
+
+## VK wall photos (owner, 2026-11-11)
+
+VK gives the app no right to upload wall photos. A VK wall post goes out as text by itself; its picture (club photo, MVP card, birthday card, «Мы собрались» photo) is kept in «Фото для постов ВК» on the CRM home screen, and the organizer attaches it to the post by hand and ticks it off. The text of a VK post is the same as in Telegram except where Telegram uses buttons (then VK names the app).

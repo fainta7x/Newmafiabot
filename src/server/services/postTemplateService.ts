@@ -19,7 +19,7 @@ export const POST_TEMPLATE_PLACEHOLDERS: Record<PostTemplateKey, Array<{ token: 
 };
 
 export const DEFAULT_POST_TEMPLATES: Record<PostTemplateKey, string> = {
-  vk_club_evening: 'Привет! {когда}, играем в мафию — ждём тебя 🎭\n📍 {где_и_когда} · {цена}\nОтметь, придёшь ли, и выбери игры: {ссылка}',
+  vk_club_evening: '🎭 Вечер мафии в Туле\n\n📅 {когда} · {время}\n📍 {место}\n💳 {цена}\n\nНовички и опытные игроки — за столом найдётся место каждому. Столы ограничены, поэтому записывайтесь заранее 👇\n{ссылка}',
 };
 
 export const POST_TEMPLATE_LABELS: Record<PostTemplateKey, string> = {

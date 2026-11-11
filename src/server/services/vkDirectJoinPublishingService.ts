@@ -149,7 +149,7 @@ export const buildDirectVkEveningAnnouncement = async (
   const novice = format === 'NOVICE';
   // A novice post starts with who it is for (owner, 2026-09-29); why the game is fun comes last.
   const headline = novice ? noviceHeadlineText() : '';
-  const lines = [...(headline ? [headline, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
+  const lines = [...(headline ? [headline, ''] : []), `🎭 ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) {
     lines.push(`📍 ${venueLine(evening.venue)}`);
     const map = venueDetails(evening.venue).mapUrl;
@@ -160,7 +160,7 @@ export const buildDirectVkEveningAnnouncement = async (
   lines.push(
     announcementPriceLine(format, prices),
     '',
-    `📝 Записаться и посмотреть, кто идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
+    `📝 Записывайтесь и смотрите, кто уже идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
     `👤 Личный кабинет: ${await shortCabinetLink(db, baseUrl)}`,
   );
   if (novice) {

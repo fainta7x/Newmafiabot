@@ -29,7 +29,7 @@ describe('novice evening promo in announcements', () => {
     expect(text.endsWith(noviceAboutText())).toBe(true);
     expect(text.indexOf('📝 Записаться')).toBeLessThan(text.indexOf(noviceAboutText()));
     expect(text).toContain('👥 Группа для новичков:\nTelegram: https://t.me/+novice\nVK: https://vk.com/2lanoiremafia');
-    expect(text).toContain('📝 Записаться и посмотреть, кто идёт: https://example.test/e/ev');
+    expect(text).toContain('📝 Записывайтесь и смотрите, кто уже идёт: https://example.test/e/ev');
     expect(text).toContain('👤 Личный кабинет: https://example.test/player');
     expect(text).toContain('✉️ Остались вопросы? Пишите:\nTelegram: https://t.me/Chagina7x\nVK: https://vk.com/m1kesh1noda');
   });
@@ -49,9 +49,14 @@ describe('novice evening promo in announcements', () => {
     const row = await evening('CASUAL');
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(text).toBe([
-      'Привет! В пятницу, 2 октября, играем в мафию — ждём тебя 🎭',
-      '📍 Суп с Котом, 19:00 · 100 ₽ за игру, не больше 400 ₽ за вечер',
-      'Отметь, придёшь ли, и выбери игры: https://example.test/e/ev',
+      '🎭 Вечер мафии в Туле',
+      '',
+      '📅 В пятницу, 2 октября · 19:00',
+      '📍 Суп с Котом',
+      '💳 100 ₽ за игру, не больше 400 ₽ за вечер',
+      '',
+      'Новички и опытные игроки — за столом найдётся место каждому. Столы ограничены, поэтому записывайтесь заранее 👇',
+      'https://example.test/e/ev',
     ].join('\n'));
   });
 
@@ -84,7 +89,7 @@ describe('novice evening promo in announcements', () => {
     vi.stubGlobal('fetch', fetchMock);
     try {
       const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
-      expect(text).toContain('📝 Записаться и посмотреть, кто идёт: https://vk.cc/ev1');
+      expect(text).toContain('📝 Записывайтесь и смотрите, кто уже идёт: https://vk.cc/ev1');
       expect(text).toContain('👤 Личный кабинет: https://vk.cc/cab1');
       expect(new URLSearchParams(fetchMock.mock.calls[0][1].body).get('url')).toBe('https://example.test/e/ev');
       await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
@@ -93,7 +98,7 @@ describe('novice evening promo in announcements', () => {
       await db!.run('DELETE FROM announcement_short_links');
       fetchMock.mockImplementation(async () => new Response(JSON.stringify({ error: { error_code: 15, error_msg: 'Access denied' } }), { status: 200 }));
       const fallback = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
-      expect(fallback).toContain('📝 Записаться и посмотреть, кто идёт: https://example.test/e/ev');
+      expect(fallback).toContain('📝 Записывайтесь и смотрите, кто уже идёт: https://example.test/e/ev');
       expect(fallback).toContain('👤 Личный кабинет: https://example.test/player');
     } finally {
       vi.unstubAllGlobals();

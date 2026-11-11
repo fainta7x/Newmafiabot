@@ -11,6 +11,8 @@ import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod, loadTournamentAnnouncement, loadTournamentGameBlank } from './clubResultData.ts';
 import { queueTournamentGameSeatMessages, runTournamentFirstSeatMessages } from './tournamentSeatNotificationService.ts';
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
+import { shortCabinetLink } from './announcementShortLinks.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { queueEveningVoteMessages, voteCallbackData } from './eveningVoteMessageService.ts';
@@ -501,12 +503,16 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
     'Кто сыграл лучше всех? Нажми на игрока под этим постом — это твой голос. Голосовать могут те, кто был за столом; за себя нельзя. Передумал — нажми на другого, голос заменится.',
     `⏳ Голосование до ${moscowDayTime(deadline)}.`,
   ].join('\n');
-  const vkText = [
-    `🏆 MVP вечера «${title}» — голосуем!`,
-    'Кто сыграл лучше всех? Голосовать могут те, кто был за столом: откройте приложение клуба — на главной карточка «MVP вечера», это 10 секунд.',
-    base ? `👉 ${base}` : '',
-    `⏳ Голосование до ${moscowDayTime(deadline)}.`,
-  ].filter(Boolean).join('\n');
+  // The short link is made only once the VK post is claimed: this scan runs every minute of the voting window.
+  const buildVkText = async () => {
+    const cabinetLink = await shortCabinetLink(db, getPublicAppBaseUrl()).catch(() => base || '');
+    return [
+    `🏆 Выбираем MVP вечера «${title}»`,
+    'Кто сыграл сильнее всех? Голосуют участники вечера: за себя — нельзя, свой голос можно изменить.',
+    cabinetLink ? `👉 Проголосовать: ${cabinetLink} (на главной — карточка «MVP вечера»)` : '👉 Проголосовать: приложение клуба, на главной — карточка «MVP вечера»',
+    `⏳ Голосование до ${moscowDayTime(deadline)}`,
+    ].join('\n');
+  };
   let posted = false;
   // The card with the photo of every candidate (owner, 2026-10-14: the polls were only text); without it the text post still goes out.
   // It is drawn only when a post is actually claimed: drawing it on every minute scan of the three-day window blocked the
@@ -526,7 +532,7 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   const vkKey = `vote-prompt-vk:${eveningId}`;
   if (await claim(db, vkKey, 'vote-prompt', eveningId, null)) {
     const card = await voteCard();
-    const result = await sendVk(vkText, { db, eveningId, format: evening.format, context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId }, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+    const result = await sendVk(await buildVkText(), { db, eveningId, format: evening.format, context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId }, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
     await finish(db, vkKey, { ok: result.status === 'published', certainty: result.certainty, temporary: result.temporary, error: result.error || undefined });
     posted = posted || result.status === 'published';
   }
@@ -553,7 +559,7 @@ async function postMvpRunoff(db:DatabaseWrapper,evening:any,round:MvpRunoff,fetc
   const key=`mvp-runoff:${evening.id}`;
   if(await claim(db,key,'mvp-runoff',String(evening.id),null)){const result=await sendTextForFormat(db,evening.format,text,fetchImpl,undefined,{inline_keyboard:buttons}, { key: 'club:' + key, kind: 'club-result' });await finish(db,key,result);posted=result.ok;}
   const vkKey=`mvp-runoff-vk:${evening.id}`;
-  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(`${text}\n👉 Проголосовать: откройте приложение клуба — на главной карточка «MVP вечера»${appUrl('/player')?`\n${appUrl('/player')}`:''}`,{db,eveningId:String(evening.id),format:evening.format,context:{key:'club:'+vkKey,kind:'club-result',entityId:String(evening.id)}});await finish(db,vkKey,{ok:result.status==='published',certainty:result.certainty,temporary:result.temporary,error:result.error||undefined});posted=posted||result.status==='published';}
+  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(`🏅 «${evening.title}»: решающее голосование за MVP\nВ первом туре несколько игроков набрали поровну голосов. Выбираем между ними: ${finalists.map(p=>p.nickname).join(', ')}.\nПервый тур не переносится — голосуем заново до ${moscowDayTime(Date.parse(round.deadline_at))}.\n👉 Проголосовать: ${await shortCabinetLink(db,getPublicAppBaseUrl()).catch(()=>'приложение клуба, карточка «MVP вечера»')}`,{db,eveningId:String(evening.id),format:evening.format,context:{key:'club:'+vkKey,kind:'club-result',entityId:String(evening.id)}});await finish(db,vkKey,{ok:result.status==='published',certainty:result.certainty,temporary:result.temporary,error:result.error||undefined});posted=posted||result.status==='published';}
   await queueEveningVoteMessages(db,String(evening.id),String(evening.title),{runoff:round});
   return posted;
 }

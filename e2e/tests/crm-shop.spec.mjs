@@ -24,7 +24,7 @@ for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900],
     await expect(page.getByTestId('crm-shop')).toContainText('Не продаётся: этот товар ничего не выдаёт');
     expect(await page.evaluate(auditScreen)).toEqual([]);
     await page.getByTestId('crm-shop-item-mug').click();
-    await expect(page.getByText('Что получает игрок')).toBeVisible();
+    await expect(page.getByRole('combobox')).toBeVisible();
     expect(await page.evaluate(auditScreen)).toEqual([]);
     await page.screenshot({ path: info.outputPath(`shop-edit-${width}.png`), fullPage: true });
     await page.keyboard.press('Escape');

@@ -12,7 +12,10 @@ export default function VkManualPhotosHome() {
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
-    try { setItems((await getJson<{ items: Item[] }>('/api/crm/vk-manual-photos', 'Не удалось загрузить фото для постов ВК')).items); setError(''); }
+    try {
+      const answer = await getJson<{ items?: Item[] }>('/api/crm/vk-manual-photos', 'Не удалось загрузить фото для постов ВК');
+      setItems(Array.isArray(answer?.items) ? answer.items : []); setError('');
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Не удалось загрузить фото для постов ВК'); }
   }, []);
   useEffect(() => { void load(); }, [load]);

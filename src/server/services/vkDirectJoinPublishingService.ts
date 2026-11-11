@@ -21,7 +21,8 @@ import {
   organizerContactLinks,
 } from '../../lib/novicePromo.ts';
 import { loadPostTemplate, renderPostTemplate } from './postTemplateService.ts';
-import { announcementPhotoPath, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { announcementPhotoPath, loadAnnouncementPhoto, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { saveVkManualPhoto } from './vkManualPhotoService.ts';
 
 type EveningRow = {
   id: string;
@@ -417,6 +418,12 @@ export async function syncDirectVkEveningPublications(
         results.push({ destination: destination.key, success: true, skipped: true, reason: synced.reason });
       } else {
         results.push({ destination: destination.key, success: true, ...(destination.key === 'public' && photoProblem ? { photo_problem: photoProblem } : {}) });
+        // The picture waits in «Фото для постов ВК» for the organizer to attach by hand (owner, 2026-11-11).
+        if (destination.key === 'public' && photoId && !wallAttachment) {
+          const stored = await loadAnnouncementPhoto(db, photoId).catch(() => null);
+          const published = await getPublication(db, evening.id, destination.key).catch(() => null);
+          if (stored) await saveVkManualPhoto(db, { postKey: `announcement:${evening.id}`, title: `Анонс: ${evening.title}`, postUrl: published?.external_url || null, mime: stored.mime, bytes: Buffer.from(stored.bytes) }).catch(() => null);
+        }
       }
     } catch (error: any) {
       if (!error?.vkUncertain) await savePublicationError(db, evening.id, destination, error);

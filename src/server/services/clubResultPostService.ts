@@ -553,7 +553,7 @@ async function postMvpRunoff(db:DatabaseWrapper,evening:any,round:MvpRunoff,fetc
   const key=`mvp-runoff:${evening.id}`;
   if(await claim(db,key,'mvp-runoff',String(evening.id),null)){const result=await sendTextForFormat(db,evening.format,text,fetchImpl,undefined,{inline_keyboard:buttons}, { key: 'club:' + key, kind: 'club-result' });await finish(db,key,result);posted=result.ok;}
   const vkKey=`mvp-runoff-vk:${evening.id}`;
-  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(text,{db,eveningId:String(evening.id),format:evening.format,context:{key:'club:'+vkKey,kind:'club-result',entityId:String(evening.id)}});await finish(db,vkKey,{ok:result.status==='published',certainty:result.certainty,temporary:result.temporary,error:result.error||undefined});posted=posted||result.status==='published';}
+  if(await claim(db,vkKey,'mvp-runoff',String(evening.id),null)){const result=await sendVk(`${text}\n👉 Проголосовать: откройте приложение клуба — на главной карточка «MVP вечера»${appUrl('/player')?`\n${appUrl('/player')}`:''}`,{db,eveningId:String(evening.id),format:evening.format,context:{key:'club:'+vkKey,kind:'club-result',entityId:String(evening.id)}});await finish(db,vkKey,{ok:result.status==='published',certainty:result.certainty,temporary:result.temporary,error:result.error||undefined});posted=posted||result.status==='published';}
   await queueEveningVoteMessages(db,String(evening.id),String(evening.title),{runoff:round});
   return posted;
 }
@@ -616,11 +616,10 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   const vkKey = `mvp-result-vk:${eveningId}`;
   if (await claim(db, vkKey, 'mvp-result', eveningId, null)) {
     const card = await resultCard();
-    // An MVP announcement is a visual award, not a text-only status.
-    // Keep the VK channel retryable if rendering or photo upload fails.
+    // The card goes to «Фото для постов ВК» when VK cannot take it by itself.
     const result = await sendVk(groupText, { db, eveningId, format: evening.format,
       context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId },
-      requireImage: true, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+      ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
     await finish(db, vkKey, { ok: result.status === 'published', certainty: result.certainty, temporary: result.temporary, error: result.error || undefined });
     posted = posted || result.status === 'published';
   }

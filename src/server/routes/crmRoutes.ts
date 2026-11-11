@@ -4,6 +4,7 @@ import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import { loadClubHygiene } from '../services/clubHygieneService.ts';
 import { DebtActionError, listDebtors, markPlayerDebtPaid, markPlayerDebtPartiallyPaid, remindDebtors } from '../services/debtActionsService.ts';
 import { loadMonthBirthdays } from '../services/monthBirthdaysService.ts';
+import { listPendingVkManualPhotos, loadVkManualPhotoImage, markVkManualPhotoDone } from '../services/vkManualPhotoService.ts';
 import { Router, Response } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
@@ -73,6 +74,27 @@ router.post('/club-order/dismiss', requireOrganizerAuth, async (req: Authenticat
 router.get('/birthdays', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   res.set('Cache-Control', 'no-store');
   try { res.json(await loadMonthBirthdays(req.db || (await getDb()))); } catch (error: any) { res.status(500).json({ error: error?.message || 'Не удалось загрузить дни рождения' }); }
+});
+
+// «Фото для постов ВК»: pictures of wall posts that went out as text; the organizer attaches them by hand (owner, 2026-11-11).
+router.get('/vk-manual-photos', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json({ items: await listPendingVkManualPhotos(req.db || (await getDb())) }); } catch (error: any) { res.status(500).json({ error: error?.message || 'Не удалось загрузить фото для постов ВК' }); }
+});
+router.get('/vk-manual-photos/:id/image', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const image = await loadVkManualPhotoImage(req.db || (await getDb()), String(req.params.id));
+    if (!image) return res.status(404).json({ error: 'Картинка не найдена' });
+    res.set('Cache-Control', 'private, no-store');
+    res.type(image.mime === 'image/png' ? 'image/png' : 'image/jpeg');
+    return res.send(image.bytes);
+  } catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось загрузить картинку' }); }
+});
+router.post('/vk-manual-photos/:id/done', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const ok = await markVkManualPhotoDone(req.db || (await getDb()), String(req.params.id));
+    return ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Картинка не найдена' });
+  } catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось отметить' }); }
 });
 
 router.get('/agenda', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {

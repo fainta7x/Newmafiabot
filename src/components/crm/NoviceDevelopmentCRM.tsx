@@ -47,6 +47,7 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
   const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [operations, setOperations] = useState<any>(null);
   const [awaiting, setAwaiting] = useState<AwaitingPlayer[]>([]);
+  const [funnel, setFunnel] = useState<{ days: number; steps: Array<{ key: string; label: string; count: number }>; sources: Array<{ source: string; label: string; leads: number; came: number }>; leads_waiting: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +57,8 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
       setApplications(Array.isArray(body.applications) ? body.applications : []);
       setOperations(body.operations || null);
       setAwaiting(Array.isArray(body.awaiting_players) ? body.awaiting_players : []);
+      // The funnel is a view of its own: a failure here must not hide the applications.
+      setFunnel(await getJson('/api/novice/funnel', 'Не удалось собрать воронку').catch(() => null));
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить воронку');
     } finally {
@@ -121,6 +124,20 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
   const readyCount = applications.filter((item) => item.status === 'COMPLETED').length;
 
   return <div className="space-y-3">
+    {funnel ? <section data-testid="newcomer-funnel" className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+      <div className="flex items-baseline justify-between gap-2"><strong className="text-[14px]">Воронка новичков</strong><span className="text-[11px] text-white/40">за {funnel.days} дн.</span></div>
+      <ol className="space-y-1.5">{funnel.steps.map((step, index) => {
+        const top = Math.max(1, funnel.steps[0]?.count || 1, ...funnel.steps.map((item) => item.count));
+        const previous = index ? funnel.steps[index - 1].count : 0;
+        return <li key={step.key} className="text-[12px]">
+          <div className="flex items-center justify-between gap-2"><span className="min-w-0 text-white/75">{step.label}</span><span className="shrink-0 font-bold text-white">{step.count}{index && previous > 0 ? <span className="ml-1 font-normal text-white/40">({Math.round((step.count / previous) * 100)}%)</span> : null}</span></div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-sky-300/70" style={{ width: `${Math.min(100, Math.round((step.count / top) * 100))}%` }} /></div>
+        </li>;
+      })}</ol>
+      {funnel.sources.length ? <div className="border-t border-white/10 pt-2 text-[12px] text-white/60"><div className="mb-1 font-semibold text-white/75">Откуда пришли</div>{funnel.sources.map((row) => <div key={row.source} className="flex justify-between gap-2"><span className="min-w-0">{row.label}</span><span className="shrink-0">{row.leads} · пришли {row.came}</span></div>)}</div> : null}
+      {funnel.leads_waiting > 0 ? <p className="text-[12px] text-amber-200/80">Лидов без ответа: {funnel.leads_waiting}. Готовые тексты — в «Делах» на «Сегодня».</p> : null}
+    </section> : null}
+
     <section className="grid grid-cols-3 gap-2">
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3"><span className="text-[11px] text-white/45">Новые</span><strong className="mt-1 block text-xl">{newCount}</strong></div>
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3"><span className="text-[11px] text-white/45">В работе</span><strong className="mt-1 block text-xl">{visible.length}</strong></div>

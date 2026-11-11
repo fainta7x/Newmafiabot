@@ -105,6 +105,7 @@ import clubDigestRoutes from './server/routes/clubDigestRoutes.ts';
 import developerOpsRoutes from './server/routes/developerOpsRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
+import welcomeRoutes from './server/routes/welcomeRoutes.ts';
 import { resolveEveningShortCode } from './server/services/announcementShortLinks.ts';
 import { loadAnnouncementPhoto } from './server/services/announcementPhotoService.ts';
 import announcementPhotoRoutes from './server/routes/announcementPhotoRoutes.ts';
@@ -379,6 +380,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/crm', crmRoutes);
   app.use('/api/crm', tableScoutingRoutes);
   app.use('/api/novice', noviceOrganizerRoutes);
+  app.use('/api/public', welcomeRoutes);
   app.use('/api/public', vkJoinStartRouter);
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateRouter);

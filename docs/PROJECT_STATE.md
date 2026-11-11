@@ -337,6 +337,10 @@ Open work, in order:
 
 7. **Owner request 2026-11-10: «как ходит» from real visits** — built (`playerActivityAutoService.ts`, «Считать само»); automatic by default for everybody (the first daily run recomputes all statuses); a manual choice makes a player manual until «Считать само». **Price of a club evening by activity** — built 2026-11-11 (`docs/BUSINESS_RULES.md` → Club evening price by «как ходит»); the player sees his own price and a hint in the cabinet, on the public join page (when identified) and in the bot's personal invitation; group posts and unidentified visitors see the base price.
 
+8. **Idea (owner, 2026-11-11), not built, to agree first: club finances** — enter expenses, see net profit, set money aside for development. What counts as income (evening payments, ruble purchases, support), which expense kinds, and what «отложить на развитие» means are to be defined with the owner before any work.
+
+9. **Open question (owner, 2026-11-11):** «Резерв клуба» on «Управление ставками» — per game it is the bank minus the payouts to winners (`bettingPoolService.ts`: `reserve = totalPool − totalPayout`), shown summed over all games; the owner does not know what it is for: keep, rename or remove.
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner

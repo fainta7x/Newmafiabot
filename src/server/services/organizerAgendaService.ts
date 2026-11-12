@@ -1,3 +1,5 @@
+import { loadLeadsToContact, markLeadContacted } from './newcomerFunnelService.ts';
+import { withAgendaMessages } from './agendaMessageService.ts';
 import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 import { noviceLevelSql } from '../../lib/noviceRule.ts';
@@ -31,6 +33,8 @@ export type AgendaPerson = {
   player_id: string;
   nickname: string;
   detail?: string;
+  /** Ready text to copy into the chat (owner, 2026-11-11). */
+  message?: string;
   telegram_url?: string | null;
   vk_url?: string | null;
 };
@@ -54,7 +58,7 @@ export type AgendaItem = {
   can_complete?: boolean;
   dismiss_label?: string;
 };
-export type ContactReason = 'absent_regular' | 'absent_sometimes' | 'stopped' | 'profile' | 'novice_feedback' | 'fill' | 'thinking' | 'curator';
+export type ContactReason = 'lead' | 'absent_regular' | 'absent_sometimes' | 'stopped' | 'profile' | 'novice_feedback' | 'fill' | 'thinking' | 'curator';
 
 export const AGENDA_GROUP_LABELS: Record<AgendaGroup, string> = {
   now: 'Срочно',
@@ -70,6 +74,7 @@ export const FILL_DAYS = 3;
 /** A curator's direction counts as quiet after this many days without anything done or a talk. */
 export const CURATOR_QUIET_DAYS = 14;
 const CONTACT_QUIET_DAYS: Record<ContactReason, number> = {
+  lead: 365,
   absent_regular: ABSENCE_DAYS.regular,
   absent_sometimes: ABSENCE_DAYS.sometimes,
   stopped: ABSENCE_DAYS.stopped,
@@ -216,6 +221,25 @@ async function profileItem(db: DatabaseWrapper, now: number): Promise<AgendaItem
     id: 'people:profile', group: 'later', kind: 'profile', title: `Профили не заполнены · ${people.length}`,
     why: 'Попроси дозаполнить профиль — то же, что игрок видит на плашке у себя в профиле. Можно заполнить и самому в карточке.',
     people: await withLinks(db, people.slice(0, PEOPLE_LIMIT)), people_total: people.length, contact_reason: 'profile',
+  }];
+}
+
+/** New leads of the welcome page nobody has written to yet: the first thing to do in the day (owner, 2026-11-11). */
+async function leadItems(db: DatabaseWrapper): Promise<AgendaItem[]> {
+  const leads = await loadLeadsToContact(db);
+  if (!leads.length) return [];
+  const people: AgendaPerson[] = leads.map((lead) => {
+    const how = lead.contact_kind === 'telegram' ? 'Telegram' : lead.contact_kind === 'vk' ? 'ВКонтакте' : 'телефон';
+    return {
+      player_id: String(lead.player_id), nickname: String(lead.nickname), detail: `${how}: ${lead.contact_value.replace(/^https:\/\/vk\.com\//, 'vk.com/')}`,
+      telegram_url: lead.contact_kind === 'telegram' ? `https://t.me/${lead.contact_value.replace(/^@/, '')}` : null,
+      vk_url: lead.contact_kind === 'vk' ? lead.contact_value : null,
+    };
+  });
+  return [{
+    id: 'people:lead', group: 'now', kind: 'lead', title: `Новые лиды · ${people.length}`,
+    why: 'Оставили контакт и ждут ответа. Текст готов: скопируйте и отправьте.',
+    people, people_total: people.length, contact_reason: 'lead',
   }];
 }
 
@@ -436,7 +460,7 @@ async function taskItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
 }
 
 const GROUP_ORDER: AgendaGroup[] = ['now', 'week', 'later'];
-const PEOPLE_RANK: Record<string, number> = { novice_feedback: 35, absent_regular: 40, absent_sometimes: 20, stopped: 25, profile: 10, curator: 5 };
+const PEOPLE_RANK: Record<string, number> = { lead: 1, novice_feedback: 35, absent_regular: 40, absent_sometimes: 20, stopped: 25, profile: 10, curator: 5 };
 
 export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
   await ensureAgendaSchema(db);
@@ -459,6 +483,7 @@ export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
     profiles: await safely('профили', async () => (await profileItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.profile }))),
     novices: await safely('новички', async () => (await noviceFeedbackItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.novice_feedback }))),
     fill: await safely('добор на вечер', () => fillItems(db, nowMs)),
+    leads: await safely('новые лиды', async () => (await leadItems(db)).map((item) => ({ ...item, rank: PEOPLE_RANK.lead }))),
     curators: await safely('кураторы', async () => (await curatorItems(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.curator }))),
   };
   const candidates: Array<AgendaItem & { rank: number }> = Object.values(sources).flat();
@@ -467,7 +492,7 @@ export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
   const visible = candidates.filter((item) => !snoozed.has(item.id));
   visible.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) || a.rank - b.rank
     || String(a.due_at || '').localeCompare(String(b.due_at || '')));
-  const items: AgendaItem[] = visible.map(({ rank: _rank, ...item }) => (item.contact_reason ? { ...item, contact_quiet_days: CONTACT_QUIET_DAYS[item.contact_reason] } : item));
+  const items: AgendaItem[] = await withAgendaMessages(db, visible.map(({ rank: _rank, ...item }) => (item.contact_reason ? { ...item, contact_quiet_days: CONTACT_QUIET_DAYS[item.contact_reason] } : item)));
   const counts = Object.fromEntries(GROUP_ORDER.map((group) => [group, items.filter((item) => item.group === group).length])) as Record<AgendaGroup, number>;
   return {
     items, counts, total: items.length, snoozed: snoozed.size, groups: AGENDA_GROUP_LABELS, generated_at: iso(nowMs),
@@ -511,6 +536,7 @@ export async function snoozeAgendaItem(db: DatabaseWrapper, itemId: unknown, day
 }
 
 const CONTACT_LABELS: Record<ContactReason, string> = {
+  lead: 'написал новому лиду',
   absent_regular: 'позвал вернуться (давно не был)',
   absent_sometimes: 'позвал на вечер (приходит иногда)',
   stopped: 'позвал вернуться (перестал ходить)',
@@ -534,6 +560,7 @@ export async function recordAgendaContact(db: DatabaseWrapper, input: { playerId
      VALUES (?, ?, NULL, NULL, 'contact', ?, ?, ?, ?)`,
     [`act_${crypto.randomUUID()}`, playerId, `agenda:${reason}`, `Организатор ${CONTACT_LABELS[reason]}`, now, now],
   );
+  if (reason === 'lead') await markLeadContacted(db, playerId);
   if (reason === 'novice_feedback') {
     await db.run(
       `UPDATE organizer_tasks SET status = 'done', completed_at = ?, updated_at = ?

@@ -4,9 +4,19 @@ import type { DatabaseWrapper } from '../../db/index.ts';
  * Texts of posts the organizer can rewrite in the CRM (owner, 2026-10-13: «хочу сам менять текст, а не просить»).
  * The default is the text the code always had; a saved text replaces it, «Вернуть стандартный» deletes the saved one.
  */
-export type PostTemplateKey = 'vk_club_evening';
+export type PostTemplateKey = 'vk_club_evening' | AgendaMessageKey;
+/** Ready messages the CRM offers next to a person in «Дела» (owner, 2026-11-11: the app tells what to write). */
+export type AgendaMessageKey = 'msg_lead' | 'msg_novice_feedback' | 'msg_absent_regular' | 'msg_absent_sometimes' | 'msg_stopped' | 'msg_profile' | 'msg_fill' | 'msg_thinking';
+const AGENDA_PLACEHOLDERS = [
+  { token: '{имя}', meaning: 'ник игрока', example: 'Алоэ' },
+  { token: '{когда}', meaning: 'ближайший подходящий вечер', example: 'пятница, 14 ноября, 19:00' },
+  { token: '{место}', meaning: 'площадка', example: 'Суп с Котом' },
+  { token: '{ссылка}', meaning: 'ссылка на запись', example: 'https://2la.ru/e/abc' },
+];
 
 export const POST_TEMPLATE_PLACEHOLDERS: Record<PostTemplateKey, Array<{ token: string; meaning: string; example: string }>> = {
+  msg_lead: AGENDA_PLACEHOLDERS, msg_novice_feedback: AGENDA_PLACEHOLDERS, msg_absent_regular: AGENDA_PLACEHOLDERS, msg_absent_sometimes: AGENDA_PLACEHOLDERS,
+  msg_stopped: AGENDA_PLACEHOLDERS, msg_profile: AGENDA_PLACEHOLDERS, msg_fill: AGENDA_PLACEHOLDERS, msg_thinking: AGENDA_PLACEHOLDERS,
   vk_club_evening: [
     { token: '{когда}', meaning: 'день: «В пятницу, 16 октября»', example: 'В пятницу, 16 октября' },
     { token: '{время}', meaning: 'время начала', example: '21:00' },
@@ -20,9 +30,20 @@ export const POST_TEMPLATE_PLACEHOLDERS: Record<PostTemplateKey, Array<{ token: 
 
 export const DEFAULT_POST_TEMPLATES: Record<PostTemplateKey, string> = {
   vk_club_evening: '🎭 Вечер мафии в Туле\n\n📅 {когда} · {время}\n📍 {место}\n💳 {цена}\n\nНовички и опытные игроки — за столом найдётся место каждому. Столы ограничены, поэтому записывайтесь заранее 👇\n{ссылка}',
+  msg_lead: 'Привет, {имя}! Это школа спортивной мафии в Туле. Ближайшее обучение — {когда}, {место}: объясним правила и поможем сыграть первые партии. Первые 2 вечера бесплатно. Записать тебя? Или запишись сам: {ссылка}',
+  msg_novice_feedback: 'Привет, {имя}! Как тебе первый вечер? Что понравилось, а что нет? Следующий вечер для новичков — {когда}: {ссылка}',
+  msg_absent_regular: 'Привет, {имя}! Давно тебя не было. Ближайший вечер — {когда}. Придёшь? {ссылка}',
+  msg_absent_sometimes: 'Привет, {имя}! Ближайший вечер — {когда}. Придёшь? {ссылка}',
+  msg_stopped: 'Привет, {имя}! Давно тебя не видели. Ближайший вечер — {когда}, будем рады тебе: {ссылка}',
+  msg_profile: 'Привет, {имя}! Заполни, пожалуйста, профиль в приложении, это минута: {ссылка}',
+  msg_fill: 'Привет, {имя}! На ближайший вечер ({когда}) не хватает игроков. Сможешь прийти? {ссылка}',
+  msg_thinking: 'Привет, {имя}! Придёшь на вечер ({когда})? Отметься, пожалуйста: {ссылка}',
 };
 
 export const POST_TEMPLATE_LABELS: Record<PostTemplateKey, string> = {
+  msg_lead: 'Сообщение: новому лиду', msg_novice_feedback: 'Сообщение: после первого вечера', msg_absent_regular: 'Сообщение: давно не был (постоянный)',
+  msg_absent_sometimes: 'Сообщение: давно не был (иногда ходит)', msg_stopped: 'Сообщение: перестал ходить', msg_profile: 'Сообщение: дозаполнить профиль',
+  msg_fill: 'Сообщение: не хватает игроков', msg_thinking: 'Сообщение: «думаю» — придёт ли',
   vk_club_evening: 'Пост в ВК: клубный вечер',
 };
 

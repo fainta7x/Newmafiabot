@@ -52,3 +52,9 @@ export const clubVkGroupUrl = (): string | null => {
   const url = String(promo.groups?.vk ?? '').trim();
   return /^https:\/\/(vk\.com|vk\.ru)\//.test(url) ? url : null;
 };
+
+/** The promo split into parts for the welcome page. */
+export const novicePromoParts = () => ({
+  headline: String(promo.headline ?? '').trim(), firstTimeTitle: String(promo.firstTimeTitle ?? '').trim(), firstTimeText: String(promo.firstTimeText ?? '').trim(),
+  title: String(promo.title ?? '').trim(), intro: String(promo.intro ?? '').trim(), reasonsTitle: String(promo.reasonsTitle ?? '').trim(), reasons: (promo.reasons ?? []).filter((item) => item.trim()),
+});

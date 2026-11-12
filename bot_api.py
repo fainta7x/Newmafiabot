@@ -354,6 +354,30 @@ async def submit_gift_choice(collection_id: str, telegram_user_id: int, amount: 
         return {"success": False, "error": "unavailable"}
 
 
+async def add_lead(telegram_user_id: int, name: str, contact: str, source: str = "other") -> dict[str, Any]:
+    """«Новый лид» from the organizer's bot: the lead is created and the ready message comes back."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/leads"
+    payload = {"telegram_user_id": int(telegram_user_id), "name": name, "contact": contact, "source": source}
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_base_headers(), json=payload) as response:
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if response.status in (200, 201) and isinstance(data, dict) and data.get("success") is True:
+                    return {"success": True, "data": data}
+                message = data.get("error") if isinstance(data, dict) else None
+                code = data.get("code") if isinstance(data, dict) else None
+                return {"success": False, "error": code or "unavailable", "message": message}
+    except Exception as exc:
+        logger.warning("[Backend API] Add lead failed (%s)", type(exc).__name__)
+        return {"success": False, "error": "unavailable"}
+
+
 async def check_backend_connection() -> dict:
     """
     Checks the connection to the Express Webapp backend.

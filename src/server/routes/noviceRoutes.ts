@@ -1,3 +1,4 @@
+import { loadNewcomerFunnel } from '../services/newcomerFunnelService.ts';
 import { Router } from 'express';
 import { z } from 'zod';
 import { ensureNoviceSystemSchema } from '../../db/ensureNoviceSystemSchema.ts';
@@ -88,6 +89,11 @@ playerRouter.post('/novice/applications', async (req, res) => {
 });
 
 organizerRouter.use(requireOrganizerAuth);
+
+organizerRouter.get('/funnel', async (req, res) => {
+  try { return res.json(await loadNewcomerFunnel(req.db, Math.min(365, Math.max(7, Number(req.query.days) || 90)))); }
+  catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось собрать воронку' }); }
+});
 
 organizerRouter.get('/applications', async (req, res) => {
   await ensureNoviceSystemSchema(req.db);

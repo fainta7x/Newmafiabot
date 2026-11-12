@@ -61,7 +61,7 @@ describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11
     expect(item?.group).toBe('now');
     const person = item?.people?.[0];
     expect(person).toMatchObject({ nickname: 'Мария', telegram_url: 'https://t.me/maria_tg' });
-    expect(person?.message).toContain('Здравствуйте, Мария!');
+    expect(person?.message).toContain('Привет, Мария!');
     expect(person?.message).toContain('Суп с Котом');
     expect(person?.message).toMatch(/\/e\/nov/);
     await recordAgendaContact(db, { playerId: lead.playerId, reason: 'lead' });
@@ -72,7 +72,7 @@ describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11
     const app = await createApp(db);
     const page = await request(app).get('/api/public/welcome');
     expect(page.status).toBe(200);
-    expect(page.body.promo.headline).toContain('новичков');
+    expect(page.body.content.title).toContain('спортивной мафии');
     const trapped = await request(app).post('/api/public/welcome/lead').send({ name: 'Бот', contact_kind: 'telegram', contact_value: '@spam_bot_x', website: 'http://spam' });
     expect(trapped.status).toBe(200);
     expect(Number((await db.get<any>('SELECT COUNT(*) AS n FROM players WHERE source = ?', ['welcome_page']))?.n)).toBe(0);
@@ -105,7 +105,7 @@ describe('«Новый лид» from the bot and the organizer notification (own
     const ok = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: '@ivan_tg' });
     expect(ok.status, JSON.stringify(ok.body)).toBe(201);
     expect(ok.body).toMatchObject({ success: true, created: true, nickname: 'Иван', contact: '@ivan_tg', contact_kind: 'telegram' });
-    expect(ok.body.message).toContain('Здравствуйте, Иван!');
+    expect(ok.body.message).toContain('Привет, Иван!');
     expect(ok.body.welcome_url).toContain('/welcome?src=friend');
     const again = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: 't.me/ivan_tg' });
     expect(again.status).toBe(200);
@@ -122,7 +122,7 @@ describe('«Новый лид» from the bot and the organizer notification (own
     expect(String(queued?.chat_id)).toBe('777');
     expect(queued.text).toContain('Новый лид: Мария');
     expect(queued.text).toContain('Пост ВКонтакте');
-    expect(queued.text).toContain('Здравствуйте, Мария!');
+    expect(queued.text).toContain('Привет, Мария!');
     expect(String(queued.reply_markup_json)).toContain('https://t.me/maria_tg');
   });
 });

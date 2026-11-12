@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import WelcomePage from '../components/public/WelcomePage.tsx';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-const page = { promo: { headline: 'Вечер для новичков', firstTimeTitle: '', firstTimeText: 'Правила объясним с нуля.', title: 'Мафия', intro: 'Игра умов.', reasonsTitle: '', reasons: ['🧠 Думаешь'] },
-  evening: { id: 'e1', title: 'Новички', starts_at: '2026-11-14T16:00:00Z', venue: { name: 'Суп с Котом', address: 'Тула', mapUrl: 'https://yandex.ru/maps' }, schedule: 'Рассказываем правила — 18:30, первая игра — 19:00', price: '200 ₽ за игру', join_url: '/join/e1', telegram_url: 'https://t.me/bot?start=event_e1' },
+const page = { content: { title: 'Школа спортивной мафии | Тула', lead: 'Любишь азарт соревнований? Тогда тебе к нам!', about: 'Спортивная мафия — интеллектуальная дисциплина.', sections: [{ title: '🎯 Кому к нам?', items: ['Любителям шахмат и покера.'] }] },
+  evening: { id: 'e1', title: 'Новички', starts_at: '2026-11-14T16:00:00Z', venue: { name: 'Суп с Котом', address: 'Тула', mapUrl: 'https://yandex.ru/maps' }, schedule: 'Рассказываем правила — 18:30, первая игра — 19:00', price: 'Первые 2 вечера бесплатно, дальше — 200 ₽ за игру', join_url: '/join/e1', telegram_url: 'https://t.me/bot?start=event_e1' },
   contacts: [{ label: 'Telegram', url: 'https://t.me/x' }], vk_group: null, telegram_group: null };
 
 describe('welcome page for newcomers', () => {
@@ -19,9 +19,11 @@ describe('welcome page for newcomers', () => {
     }));
     render(<WelcomePage />);
     expect(await screen.findByText('Суп с Котом')).toBeTruthy();
-    expect(screen.getByText('200 ₽ за игру')).toBeTruthy();
-    fireEvent.change(screen.getByLabelText(/Как вас зовут/), { target: { value: 'Иван' } });
-    fireEvent.change(screen.getByLabelText(/Ваш ник в Telegram/), { target: { value: '@ivan_tg' } });
+    expect(screen.getByText(/Первые 2 вечера бесплатно/)).toBeTruthy();
+    expect(screen.getByText('Школа спортивной мафии | Тула')).toBeTruthy();
+    expect(screen.getByText('🎯 Кому к нам?')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Как тебя зовут/), { target: { value: 'Иван' } });
+    fireEvent.change(screen.getByLabelText(/Твой ник в Telegram/), { target: { value: '@ivan_tg' } });
     fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
     expect(await screen.findByTestId('welcome-done')).toBeTruthy();
     const lead = calls.find(([url]) => url === '/api/public/welcome/lead');
@@ -34,8 +36,8 @@ describe('welcome page for newcomers', () => {
     await screen.findByText(/пока не объявлена/);
     const button = screen.getByRole('button', { name: 'Отправить' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText(/Как вас зовут/), { target: { value: 'Иван' } });
-    fireEvent.change(screen.getByLabelText(/Ваш ник в Telegram/), { target: { value: 'x' } });
+    fireEvent.change(screen.getByLabelText(/Как тебя зовут/), { target: { value: 'Иван' } });
+    fireEvent.change(screen.getByLabelText(/Твой ник в Telegram/), { target: { value: 'x' } });
     fireEvent.click(button);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Укажите ник'));
   });

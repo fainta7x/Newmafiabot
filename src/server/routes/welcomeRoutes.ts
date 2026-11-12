@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { getDb } from '../../db/index.ts';
-import { novicePromoParts, organizerContactLinks, clubVkGroupUrl, noviceTelegramGroupFallback } from '../../lib/novicePromo.ts';
+import { organizerContactLinks, clubVkGroupUrl, noviceTelegramGroupFallback } from '../../lib/novicePromo.ts';
 import { noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails } from '../../lib/venues.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
@@ -9,6 +9,21 @@ import { telegramBotUsername } from '../services/playerClaimLinkService.ts';
 import { loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
+
+/**
+ * The text of the page is the owner's current recruitment post «Школа спортивной мафии | Тула» (2026-11-11), cut into parts the page folds.
+ * Facts that live in the data (the evening, its time, the price) come from the evening and the price settings.
+ */
+export const WELCOME_CONTENT = {
+  title: 'Школа спортивной мафии | Тула',
+  lead: 'Любишь азарт соревнований, сложные стратегии и интеллектуальные вызовы? Тогда тебе к нам!',
+  about: 'Спортивная мафия — это интеллектуальная соревновательная дисциплина, сочетающая командное противостояние и индивидуальное мастерство. Здесь решают логика, стратегия, аргументация и умение анализировать соперников. По спортивной мафии проводятся турниры и чемпионаты.',
+  sections: [
+    { title: '🎯 Кому к нам?', items: ['🎮 Любителям Dota 2, CS2 и других соревновательных игр.', '♟️ Поклонникам шахмат, стратегий и сложных настолок.', '🃏 Любителям покера, блефа и психологических игр.', '🏆 Тем, кто любит соревноваться, побеждать и совершенствовать свои навыки.'] },
+    { title: '🧠 Что ждёт за столом?', items: ['Проверка на логику, внимательность и умение разбираться в людях. Психологические манипуляции, блеф, напряжённые споры и попытки убедить других в своей правоте.', 'Здесь придётся быстро соображать, принимать непростые решения, справляться с давлением и сохранять хладнокровие.'] },
+    { title: '🎲 Как проходит обучение?', items: ['Опыт не нужен! Объясним правила, познакомим с основами игры и поможем сыграть первые партии.'] },
+  ],
+} as const;
 
 /** The public page for newcomers (owner, 2026-11-11): what the game is, the nearest novice evening, a contact or a sign-in. */
 const router = Router();
@@ -26,11 +41,11 @@ router.get('/welcome', limit, async (req, res) => {
     const base = getPublicAppBaseUrl().replace(/\/+$/, '');
     res.set('Cache-Control', 'no-store');
     return res.json({
-      promo: novicePromoParts(),
+      content: WELCOME_CONTENT,
       evening: evening ? {
         id: String(evening.id), title: String(evening.title || 'Вечер для новичков'), starts_at: evening.starts_at,
         venue: venueDetails(evening.venue), schedule: noviceScheduleLine(evening.starts_at),
-        price: `${prices.novice_game} ₽ за игру${prices.novice_cap == null ? '' : `, не больше ${prices.novice_cap} ₽ за вечер`}`,
+        price: `Первые 2 вечера бесплатно, дальше — ${prices.novice_game} ₽ за игру${prices.novice_cap == null ? '' : `, не больше ${prices.novice_cap} ₽ за вечер`}`,
         join_url: `${base}/join/${encodeURIComponent(String(evening.id))}?source=welcome`,
         telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(evening.id))}` : null,
       } : null,

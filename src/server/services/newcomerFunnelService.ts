@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { replacePlayerSlotSelection } from './eveningSlotWritesService.ts';
+import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { oncePerDatabase } from '../../db/oncePerDatabase.ts';
@@ -40,6 +42,28 @@ async function openNoviceEveningId(db: DatabaseWrapper, value: unknown): Promise
 const clean = (value: unknown, max: number) => Array.from(String(value ?? '')).map((character) => (character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127 || character === '<' || character === '>' ? ' ' : character)).join('').replace(/\s+/g, ' ').trim().slice(0, max);
 const sourceOf = (value: unknown): LeadSource | null => (LEAD_SOURCES as readonly string[]).includes(String(value)) ? String(value) as LeadSource : null;
 const dayOf = (now = new Date()) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' }).format(now);
+
+
+/**
+ * The lead's seat (owner, 2026-11-12: «заявка должна бронировать место»): all open games of the chosen novice evening, the same way the player
+ * would pick them in the app. The organizer still confirms by writing. A failure does not lose the lead: the contact is already saved.
+ */
+async function bookLeadSeats(db: DatabaseWrapper, playerId: string, eveningId: string | null, previousEveningId: string | null): Promise<boolean> {
+  try {
+    if (previousEveningId && previousEveningId !== eveningId) {
+      await replacePlayerSlotSelection(db, previousEveningId, playerId, [], { notifyOrganizer: false, source: 'welcome_page' }).catch(() => null);
+    }
+    if (!eveningId) return false;
+    await ensureSlotsForEvening(db, eveningId);
+    const slots = await db.all<{ id: string }>("SELECT id FROM evening_game_slots WHERE evening_id = ? AND status = 'open' ORDER BY slot_number", [eveningId]);
+    if (!slots.length) return false;
+    await replacePlayerSlotSelection(db, eveningId, playerId, slots.map((slot) => String(slot.id)), { notifyOrganizer: false, source: 'welcome_page' });
+    return true;
+  } catch (error) {
+    console.warn('[LEAD] Seat not booked:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}
 
 export class LeadError extends Error { constructor(message: string, readonly statusCode = 400) { super(message); } }
 
@@ -88,8 +112,11 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
   const existing = await db.get<{ player_id: string }>('SELECT player_id FROM newcomer_leads WHERE contact_kind = ? AND contact_value = ?', [contact.kind, contact.value]);
   const eveningId = await openNoviceEveningId(db, input.eveningId);
   if (existing) {
-    if (eveningId) await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, existing.player_id]);
-    return { playerId: String(existing.player_id), created: false };
+    const playerId = String(existing.player_id);
+    if (!eveningId) return { playerId, created: false, booked: false };
+    const before = await db.get<{ evening_id: string | null }>('SELECT evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]);
+    await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, playerId]);
+    return { playerId, created: false, booked: await bookLeadSeats(db, playerId, eveningId, before?.evening_id ?? null) };
   }
 
   const taken = new Set((await db.all<{ nickname: string }>('SELECT nickname FROM players WHERE lower(nickname) LIKE lower(?)', [`${name}%`])).map((row) => String(row.nickname).toLowerCase()));
@@ -110,7 +137,7 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
     await tx.run('INSERT OR IGNORE INTO newcomer_funnel_events (id, visitor_id, step, source, day, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [randomUUID(), `lead-${playerId}`, 'contact_left', source, dayOf(now), stamp]);
   });
-  return { playerId, created: true };
+  return { playerId, created: true, booked: await bookLeadSeats(db, playerId, eveningId, null) };
 }
 
 export type FunnelStep = { key: string; label: string; count: number };

@@ -67,7 +67,8 @@ def test_novice_invitation_is_the_promo_with_when_where_and_links():
         evening, [], signup_url="https://t.me/club_bot?start=event_ev-1", novice_chat_url="https://t.me/+novice",
     )
     assert text.startswith(novice_headline_html())
-    assert text.startswith("🎓 <b>Вечер для новичков")
+    assert text.startswith("🎓 <b>ШКОЛА СПОРТИВНОЙ МАФИИ | ТУЛА")
+    assert '<a href="https://2lamafia.ru">Сайт клуба</a>' in text
     assert text.endswith(novice_about_html())
     assert text.index("Записаться в приложении") < text.index("Почему") if "Почему" in text else True
     assert "🎓 Рассказываем правила — 18:30, первая игра — 19:00" in text
@@ -75,7 +76,7 @@ def test_novice_invitation_is_the_promo_with_when_where_and_links():
     assert '👥 Группа для новичков: <a href="https://t.me/+novice">Telegram</a> · <a href="https://vk.com/2lanoiremafia">VK</a>' in text
     assert '✉️ Остались вопросы? Пишите: <a href="https://t.me/Chagina7x">Telegram</a>' in text
     # The novice chat itself gets the ordinary announcement.
-    assert "Почему затягивает" not in thematic_event_text(evening, [], [])
+    assert "Что такое спортивная мафия" not in thematic_event_text(evening, [], [])
 
 
 def test_novice_invitation_fits_one_telegram_message():
@@ -85,7 +86,7 @@ def test_novice_invitation_fits_one_telegram_message():
                "starts_at": "2026-10-02T16:00:00Z"}
     text = novice_invitation_text(evening, [], signup_url="https://t.me/club_bot?start=event_ev-1")
     assert len(text) <= 4096
-    assert text.startswith("🎓 <b>Вечер для новичков")
+    assert text.startswith("🎓 <b>ШКОЛА СПОРТИВНОЙ МАФИИ | ТУЛА")
 
 
 def test_cover_comes_from_the_club_photo_the_server_picked():

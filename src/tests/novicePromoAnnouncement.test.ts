@@ -25,7 +25,8 @@ describe('novice evening promo in announcements', () => {
     const row = await evening('NOVICE');
     await db!.run("UPDATE telegram_destinations SET invite_url = 'https://t.me/+novice', active = 1 WHERE id = 'novice'");
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
-    expect(text.startsWith('🎓 Вечер для новичков: никогда не играли — приходите, всему научим!\nПравила объясним с нуля')).toBe(true);
+    expect(text.startsWith('🎓 ШКОЛА СПОРТИВНОЙ МАФИИ | ТУЛА — вечер для новичков\nЛюбишь азарт соревнований')).toBe(true);
+    expect(text).toContain('🌐 Сайт клуба: https://2lamafia.ru\n')
     expect(text.endsWith(noviceAboutText())).toBe(true);
     expect(text.indexOf('📝 Записаться')).toBeLessThan(text.indexOf(noviceAboutText()));
     expect(text).toContain('👥 Группа для новичков:\nTelegram: https://t.me/+novice\nVK: https://vk.com/2lanoiremafia');
@@ -39,7 +40,7 @@ describe('novice evening promo in announcements', () => {
     await db!.run("UPDATE telegram_destinations SET invite_url = 'https://t.me/+novice', active = 0 WHERE id = 'novice'");
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(text).toContain('Telegram: https://t.me/+novice');
-    expect(noviceHeadlineText()).toContain('Вечер для новичков');
+    expect(noviceHeadlineText()).toContain('вечер для новичков');
     await db!.run("UPDATE telegram_destinations SET invite_url = 'https://t.me/c/3925510303/128' WHERE id = 'novice'");
     const memberOnly = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(memberOnly).toContain('Telegram: https://t.me/+UBvwCzPMd4c2N2Iy');
@@ -57,6 +58,8 @@ describe('novice evening promo in announcements', () => {
       '',
       'Новички и опытные игроки — за столом найдётся место каждому. Столы ограничены, поэтому записывайтесь заранее 👇',
       'https://example.test/e/ev',
+      '',
+      '🌐 Сайт клуба: https://2lamafia.ru',
     ].join('\n'));
   });
 

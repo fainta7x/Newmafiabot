@@ -15,11 +15,11 @@ _CONTACT = re.compile(r"(@\w{4,}|(?:https?://)?(?:vk\.com|vk\.ru|t\.me|telegram\
 
 HELP = (
     "➕ <b>Новый лид</b>\n"
-    "Пришлите имя и контакт одним сообщением:\n"
+    "Пришлите имя и контакт одной строкой:\n"
     "<code>/lead Иван @ivan_tg</code>\n"
     "<code>/lead Анна vk.com/anna_k</code>\n"
     "<code>/lead Пётр +7 900 123-45-67</code>\n\n"
-    "Лид сразу появится в «Делах», а я пришлю готовое сообщение для него."
+    "Лид сразу появится в «Делах», а я пришлю текст, который останется только отправить."
 )
 
 
@@ -53,14 +53,14 @@ async def new_lead(message: Message, command: CommandObject) -> None:
         return
     data = result["data"]
     lines = [
-        f"✅ Лид добавлен: <b>{escape(str(data.get('nickname') or name))}</b> · {escape(str(data.get('contact') or contact))}" if data.get("created")
+        f"✅ Добавил: <b>{escape(str(data.get('nickname') or name))}</b> · {escape(str(data.get('contact') or contact))}" if data.get("created")
         else f"ℹ️ Этот контакт уже есть: <b>{escape(str(data.get('nickname') or name))}</b>",
         "",
-        "Готовое сообщение (скопируйте и отправьте):",
+        "Вот что можно отправить (скопируйте):",
         f"<code>{escape(str(data.get('message') or ''))}</code>",
         "",
-        f"Ссылка, чтобы лид зарегистрировался сам: {escape(str(data.get('welcome_url') or ''))}",
-        "После ответа нажмите «Написал» у лида в «Делах».",
+        f"Если человек захочет сам, вот ссылка для него: {escape(str(data.get('welcome_url') or ''))}",
+        "Ответили — нажмите «Написал» у лида в «Делах».",
     ]
     contact_value = str(data.get("contact") or "")
     url = (f"https://t.me/{contact_value.lstrip('@')}" if data.get("contact_kind") == "telegram"

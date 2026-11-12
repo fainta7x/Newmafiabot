@@ -20,9 +20,9 @@ describe('welcome page for newcomers', () => {
     render(<WelcomePage />);
     expect(await screen.findByText('Суп с Котом')).toBeTruthy();
     expect(screen.getByText('200 ₽ за игру')).toBeTruthy();
-    fireEvent.change(screen.getByLabelText(/Как к вам обращаться/), { target: { value: 'Иван' } });
+    fireEvent.change(screen.getByLabelText(/Как вас зовут/), { target: { value: 'Иван' } });
     fireEvent.change(screen.getByLabelText(/Ваш ник в Telegram/), { target: { value: '@ivan_tg' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Оставить контакт' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Хочу на вечер' }));
     expect(await screen.findByTestId('welcome-done')).toBeTruthy();
     const lead = calls.find(([url]) => url === '/api/public/welcome/lead');
     expect(lead?.[1]).toMatchObject({ name: 'Иван', contact_kind: 'telegram', contact_value: '@ivan_tg', website: '' });
@@ -31,10 +31,10 @@ describe('welcome page for newcomers', () => {
   it('keeps the button off until a name and a contact are given and shows a server error', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => url === '/api/public/welcome' ? new Response(JSON.stringify({ ...page, evening: null })) : url === '/api/public/welcome/lead' ? new Response(JSON.stringify({ error: 'Укажите ник в Telegram' }), { status: 400 }) : new Response('{}')));
     render(<WelcomePage />);
-    await screen.findByText(/объявим совсем скоро/);
-    const button = screen.getByRole('button', { name: 'Оставить контакт' }) as HTMLButtonElement;
+    await screen.findByText(/пока не объявлена/);
+    const button = screen.getByRole('button', { name: 'Хочу на вечер' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText(/Как к вам обращаться/), { target: { value: 'Иван' } });
+    fireEvent.change(screen.getByLabelText(/Как вас зовут/), { target: { value: 'Иван' } });
     fireEvent.change(screen.getByLabelText(/Ваш ник в Telegram/), { target: { value: 'x' } });
     fireEvent.click(button);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Укажите ник'));

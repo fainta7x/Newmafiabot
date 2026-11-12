@@ -20,10 +20,10 @@ export async function notifyOrganizerAboutLead(db: DatabaseWrapper, playerId: st
     `${how}: ${escapeTelegramHtml(lead.contact_value)}`,
     `Откуда: ${escapeTelegramHtml(LEAD_SOURCE_LABELS[lead.source || 'unknown'] || LEAD_SOURCE_LABELS.unknown)}${lead.referred_by ? ` · пригласил: ${escapeTelegramHtml(lead.referred_by)}` : ''}`,
     '',
-    'Готовое сообщение (скопируйте и отправьте):',
+    'Готовый текст, осталось скопировать и отправить:',
     `<code>${escapeTelegramHtml(message)}</code>`,
     '',
-    'Лид уже в «Делах» — после ответа нажмите там «Написал».',
+    'Он уже в «Делах». Ответили — нажмите там «Написал».',
   ].join('\n');
   const chatUrl = lead.contact_kind === 'telegram' ? `https://t.me/${lead.contact_value.replace(/^@/, '')}` : lead.contact_kind === 'vk' ? lead.contact_value : null;
   return enqueueOrganizerNotification(db, {

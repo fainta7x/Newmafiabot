@@ -237,8 +237,8 @@ async function leadItems(db: DatabaseWrapper): Promise<AgendaItem[]> {
     };
   });
   return [{
-    id: 'people:lead', group: 'now', kind: 'lead', title: `Новые лиды: написать · ${people.length}`,
-    why: 'Человек сам оставил контакт. Чем быстрее ответить, тем выше шанс, что он придёт на первый вечер: готовый текст ниже.',
+    id: 'people:lead', group: 'now', kind: 'lead', title: `Новые лиды: ответьте им · ${people.length}`,
+    why: 'Человек сам оставил контакт и ждёт ответа. Чем раньше ответите, тем вероятнее, что он придёт. Текст уже готов: скопируйте и отправьте.',
     people, people_total: people.length, contact_reason: 'lead',
   }];
 }

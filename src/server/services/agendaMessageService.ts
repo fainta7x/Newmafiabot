@@ -50,3 +50,13 @@ export async function withAgendaMessages(db: DatabaseWrapper, items: AgendaItem[
   }
   return out;
 }
+
+/** The ready message for one new lead (for the organizer's notification and the bot): the same text «Дела» shows. */
+export async function leadReadyMessage(db: DatabaseWrapper, nickname: string): Promise<string> {
+  const base = getPublicAppBaseUrl().replace(/\/+$/, '');
+  const evening = await nearestEvening(db, true);
+  return renderPostTemplate(await loadPostTemplate(db, 'msg_lead'), {
+    'имя': nickname, 'когда': evening ? whenLabel(evening.starts_at) : 'скоро объявим дату', 'место': String(evening?.venue || 'уточним в приглашении'),
+    'ссылка': evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : `${base}/welcome`,
+  });
+}

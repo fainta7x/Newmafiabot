@@ -83,3 +83,46 @@ describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11
     expect(Number((await db.get<any>('SELECT COUNT(*) AS n FROM players WHERE source = ?', ['welcome_page']))?.n)).toBe(1);
   });
 });
+
+describe('«Новый лид» from the bot and the organizer notification (owner, 2026-11-11)', () => {
+  let db: DatabaseWrapper;
+  beforeEach(async () => { process.env.BOT_API_SECRET = 'secret'; process.env.ORGANIZER_NOTIFICATION_IDS = '777'; db = createDatabaseConnection(':memory:'); await createApp(db); });
+  afterEach(() => { delete process.env.BOT_API_SECRET; delete process.env.ORGANIZER_NOTIFICATION_IDS; try { db.sqlite.close(); } catch {} });
+
+  it('recognizes what kind of contact the organizer typed', async () => {
+    const { detectLeadContactKind } = await import('../server/services/newcomerFunnelService.ts');
+    expect(detectLeadContactKind('@ivan_tg')).toBe('telegram');
+    expect(detectLeadContactKind('t.me/ivan_tg')).toBe('telegram');
+    expect(detectLeadContactKind('vk.com/anna_k')).toBe('vk');
+    expect(detectLeadContactKind('+7 900 123-45-67')).toBe('phone');
+    expect(detectLeadContactKind('привет')).toBeNull();
+  });
+
+  it('adds a lead from the bot for an organizer only and answers with the ready message', async () => {
+    const app = await createApp(db);
+    const stranger = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 555, name: 'Иван', contact: '@ivan_tg' });
+    expect(stranger.status).toBe(403);
+    const ok = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: '@ivan_tg' });
+    expect(ok.status, JSON.stringify(ok.body)).toBe(201);
+    expect(ok.body).toMatchObject({ success: true, created: true, nickname: 'Иван', contact: '@ivan_tg', contact_kind: 'telegram' });
+    expect(ok.body.message).toContain('Привет, Иван!');
+    expect(ok.body.welcome_url).toContain('/welcome?src=friend');
+    const again = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: 't.me/ivan_tg' });
+    expect(again.status).toBe(200);
+    expect(again.body.created).toBe(false);
+    const bad = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: 'привет' });
+    expect(bad.status).toBe(400);
+  });
+
+  it('tells the organizer about a lead who registered himself, with the ready message and a chat button', async () => {
+    const app = await createApp(db);
+    const response = await request(app).post('/api/public/welcome/lead').send({ name: 'Мария', contact_kind: 'telegram', contact_value: '@maria_tg', source: 'vk' });
+    expect(response.status).toBe(201);
+    const queued = await db.get<any>("SELECT chat_id, text, reply_markup_json FROM telegram_message_outbox WHERE event_type = 'new_lead'");
+    expect(String(queued?.chat_id)).toBe('777');
+    expect(queued.text).toContain('Новый лид: Мария');
+    expect(queued.text).toContain('Пост ВКонтакте');
+    expect(queued.text).toContain('Привет, Мария!');
+    expect(String(queued.reply_markup_json)).toContain('https://t.me/maria_tg');
+  });
+});

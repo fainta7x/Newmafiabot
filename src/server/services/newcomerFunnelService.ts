@@ -146,3 +146,13 @@ export async function markLeadContacted(db: DatabaseWrapper, playerId: string, n
   await ensure(db);
   await db.run('UPDATE newcomer_leads SET first_contact_at = COALESCE(first_contact_at, ?) WHERE player_id = ?', [now.toISOString(), playerId]);
 }
+
+/** What the organizer typed (a Telegram nick, a VK link or a phone) → the kind of contact. */
+export function detectLeadContactKind(raw: unknown): LeadContactKind | null {
+  const text = String(raw ?? '').trim();
+  if (/vk\.(com|ru)\//i.test(text)) return 'vk';
+  if (/^@|t\.me\/|telegram\.me\//i.test(text)) return 'telegram';
+  if (text.replace(/\D/g, '').length >= 10) return 'phone';
+  if (/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(text)) return 'telegram';
+  return null;
+}

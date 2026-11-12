@@ -1,3 +1,7 @@
+import { LeadError, createWelcomeLead, detectLeadContactKind } from '../services/newcomerFunnelService.ts';
+import { leadReadyMessage } from '../services/agendaMessageService.ts';
+import { isOrganizerTelegramUser } from '../services/leadNotificationService.ts';
+import { getPublicAppBaseUrl as getBaseUrlForLeads } from '../runtimeConfig.ts';
 import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
@@ -54,6 +58,29 @@ router.get('/players/by-telegram/:telegramUserId/profile', async (req, res) => {
     return res.json({ success: true, player });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить профиль игрока' });
+  }
+});
+
+/** «Новый лид» from the organizer's bot: «Иван @ivan_tg» becomes a lead at once and the bot answers with the ready message. */
+router.post('/leads', async (req, res) => {
+  try {
+    const telegramUserId = String(req.body?.telegram_user_id || '').trim();
+    if (!telegramUserId || !(await isOrganizerTelegramUser(req.db, telegramUserId))) return res.status(403).json({ error: 'Только для организатора', code: 'forbidden' });
+    const contactRaw = String(req.body?.contact || '').trim();
+    const kind = detectLeadContactKind(contactRaw);
+    if (!kind) return res.status(400).json({ error: 'Не понял контакт: пришлите ник в Telegram (@ник), ссылку на ВК или телефон', code: 'bad_contact' });
+    const source = ['vk', 'telegram', 'friend', 'other'].includes(String(req.body?.source)) ? String(req.body.source) : 'other';
+    const lead = await createWelcomeLead(req.db, { name: req.body?.name, contactKind: kind, contactValue: contactRaw, source });
+    const player = await req.db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ?', [lead.playerId]);
+    const row = await req.db.get<{ contact_value: string; contact_kind: string }>('SELECT contact_value, contact_kind FROM newcomer_leads WHERE player_id = ?', [lead.playerId]);
+    const base = getBaseUrlForLeads().replace(/\/+$/, '');
+    return res.status(lead.created ? 201 : 200).json({
+      success: true, created: lead.created, nickname: player?.nickname, contact: row?.contact_value, contact_kind: row?.contact_kind,
+      message: await leadReadyMessage(req.db, String(player?.nickname || '')), welcome_url: `${base}/welcome?src=${source === 'other' ? 'friend' : source}`,
+    });
+  } catch (error: any) {
+    if (error instanceof LeadError) return res.status(error.statusCode).json({ error: error.message, code: 'invalid' });
+    return res.status(500).json({ error: 'Не удалось добавить лида' });
   }
 });
 

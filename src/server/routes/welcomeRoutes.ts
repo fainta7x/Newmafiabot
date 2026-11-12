@@ -8,6 +8,7 @@ import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { telegramBotUsername } from '../services/playerClaimLinkService.ts';
 import { loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
+import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
 
 /** The public page for newcomers (owner, 2026-11-11): what the game is, the nearest novice evening, a contact or a sign-in. */
 const router = Router();
@@ -49,6 +50,7 @@ router.post('/welcome/lead', leadLimit, async (req, res) => {
   if (String(req.body?.website || '').trim()) return res.json({ ok: true });
   try {
     const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, referredBy: req.body?.referred_by });
+    if (lead.created) await notifyOrganizerAboutLead(req.db || await getDb(), lead.playerId, 'self').catch((error) => console.warn('[LEAD] Organizer notification failed:', error instanceof Error ? error.message : String(error)));
     return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created });
   } catch (error: any) {
     if (error instanceof LeadError) return res.status(error.statusCode).json({ error: error.message });

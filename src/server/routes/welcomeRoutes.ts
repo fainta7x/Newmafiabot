@@ -5,7 +5,7 @@ import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { organizerContactLinks, clubVkGroupUrl, noviceTelegramGroupFallback } from '../../lib/novicePromo.ts';
 import { noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails } from '../../lib/venues.ts';
-import { getPublicAppBaseUrl, getWelcomeSiteOrigins, getWelcomeSiteUrl } from '../runtimeConfig.ts';
+import { getClubAppUrl, getPublicAppBaseUrl, getWelcomeSiteOrigins, getWelcomeSiteUrl } from '../runtimeConfig.ts';
 import { telegramBotUsername } from '../services/playerClaimLinkService.ts';
 import { loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
 import { announcementPhotoPath } from '../services/announcementPhotoService.ts';
@@ -124,7 +124,7 @@ router.get('/welcome/rating', rateLimit({ windowMs: 60_000, limit: 20, standardH
  * the club's own site; a stranger gets `signed_in: false`.
  */
 router.get('/welcome/session', rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
-  const base = getPublicAppBaseUrl().replace(/\/+$/, '');
+  const base = getClubAppUrl();
   const site = getWelcomeSiteUrl() || '';
   res.set('Cache-Control', 'no-store');
   const anonymous = { signed_in: false, login_url: `${base}/player?return=${encodeURIComponent(site)}` };

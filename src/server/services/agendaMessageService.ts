@@ -1,5 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
+import { getPublicAppBaseUrl, welcomeSiteLink } from '../runtimeConfig.ts';
 import { eveningShortCode } from './announcementShortLinks.ts';
 import { loadPostTemplate, renderPostTemplate, type AgendaMessageKey } from './postTemplateService.ts';
 import type { AgendaItem } from './organizerAgendaService.ts';
@@ -43,7 +43,7 @@ export async function withAgendaMessages(db: DatabaseWrapper, items: AgendaItem[
     const template = cache.get(key) ?? await loadPostTemplate(db, key);
     cache.set(key, template);
     const evening = NOVICE_REASONS.has(reason) ? evenings.novice : evenings.club;
-    const link = reason === 'profile' ? `${base}/player` : evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : reason === 'lead' ? `${base}/welcome` : `${base}/player`;
+    const link = reason === 'profile' ? `${base}/player` : evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : reason === 'lead' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : `${base}/player`;
     out.push({ ...item, people: item.people.map((person) => ({ ...person, message: renderPostTemplate(template, {
       'имя': person.nickname, 'когда': evening ? whenLabel(evening.starts_at) : 'скоро объявим дату', 'место': String(evening?.venue || 'уточним в приглашении'), 'ссылка': link,
     }) })) });
@@ -57,6 +57,6 @@ export async function leadReadyMessage(db: DatabaseWrapper, nickname: string): P
   const evening = await nearestEvening(db, true);
   return renderPostTemplate(await loadPostTemplate(db, 'msg_lead'), {
     'имя': nickname, 'когда': evening ? whenLabel(evening.starts_at) : 'скоро объявим дату', 'место': String(evening?.venue || 'уточним в приглашении'),
-    'ссылка': evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : `${base}/welcome`,
+    'ссылка': evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : (welcomeSiteLink('friend') ?? `${base}/welcome`),
   });
 }

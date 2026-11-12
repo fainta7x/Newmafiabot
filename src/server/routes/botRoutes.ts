@@ -1,7 +1,7 @@
 import { LeadError, createWelcomeLead, detectLeadContactKind } from '../services/newcomerFunnelService.ts';
 import { leadReadyMessage } from '../services/agendaMessageService.ts';
 import { isOrganizerTelegramUser } from '../services/leadNotificationService.ts';
-import { getPublicAppBaseUrl as getBaseUrlForLeads } from '../runtimeConfig.ts';
+import { getPublicAppBaseUrl as getBaseUrlForLeads, welcomeSiteLink } from '../runtimeConfig.ts';
 import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
@@ -76,7 +76,7 @@ router.post('/leads', async (req, res) => {
     const base = getBaseUrlForLeads().replace(/\/+$/, '');
     return res.status(lead.created ? 201 : 200).json({
       success: true, created: lead.created, nickname: player?.nickname, contact: row?.contact_value, contact_kind: row?.contact_kind,
-      message: await leadReadyMessage(req.db, String(player?.nickname || '')), welcome_url: `${base}/welcome?src=${source === 'other' ? 'friend' : source}`,
+      message: await leadReadyMessage(req.db, String(player?.nickname || '')), welcome_url: welcomeSiteLink(source === 'other' ? 'friend' : source) ?? `${base}/welcome?src=${source === 'other' ? 'friend' : source}`,
     });
   } catch (error: any) {
     if (error instanceof LeadError) return res.status(error.statusCode).json({ error: error.message, code: 'invalid' });

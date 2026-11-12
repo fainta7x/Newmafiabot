@@ -106,7 +106,7 @@ describe('«Новый лид» from the bot and the organizer notification (own
     expect(ok.status, JSON.stringify(ok.body)).toBe(201);
     expect(ok.body).toMatchObject({ success: true, created: true, nickname: 'Иван', contact: '@ivan_tg', contact_kind: 'telegram' });
     expect(ok.body.message).toContain('Привет, Иван!');
-    expect(ok.body.welcome_url).toContain('/welcome?src=friend');
+    expect(ok.body.welcome_url).toBe('https://fainta7x.github.io/2la-noire-site/?src=friend#join');
     const again = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: 't.me/ivan_tg' });
     expect(again.status).toBe(200);
     expect(again.body.created).toBe(false);
@@ -151,7 +151,8 @@ describe('live seats and photos of the welcome page (owner, 2026-11-11)', () => 
     expect(seats.body.games[0]).toMatchObject({ taken: 2 });
     expect(seats.body.games[0].people).toEqual(expect.arrayContaining(['Алоэ', 'Богдан']));
     const page = await request(app).get('/api/public/welcome');
-    expect(page.body.hero_photos).toEqual(['/announce-photo/11111111-1111-1111-1111-111111111111.jpg']);
+    expect(page.body.hero_photos).toHaveLength(1);
+    expect(page.body.hero_photos[0]).toMatch(/announce-photo\/11111111-1111-1111-1111-111111111111\.jpg$/);
     expect(page.body.evening.price).toContain('Первые 2 вечера бесплатно');
   });
 
@@ -160,5 +161,31 @@ describe('live seats and photos of the welcome page (owner, 2026-11-11)', () => 
     const seats = await request(app).get('/api/public/welcome/seats');
     expect(seats.status).toBe(200);
     expect(seats.body).toMatchObject({ evening_id: null, games: [], going: 0 });
+  });
+});
+
+describe('the welcome page on the club site (owner, 2026-11-11)', () => {
+  let db: DatabaseWrapper;
+  beforeEach(async () => { db = createDatabaseConnection(':memory:'); await createApp(db); });
+  afterEach(() => { delete process.env.WELCOME_SITE_URL; try { db.sqlite.close(); } catch {} });
+
+  it('answers the site, and only the site, on the welcome routes', async () => {
+    const app = await createApp(db);
+    const preflight = await request(app).options('/api/public/welcome/lead').set('Origin', 'https://fainta7x.github.io').set('Access-Control-Request-Method', 'POST');
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://fainta7x.github.io');
+    const read = await request(app).get('/api/public/welcome').set('Origin', 'https://fainta7x.github.io');
+    expect(read.headers['access-control-allow-origin']).toBe('https://fainta7x.github.io');
+    const stranger = await request(app).get('/api/public/welcome').set('Origin', 'https://evil.example');
+    expect(stranger.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('sends the old /welcome link to the site and keeps where the person came from', async () => {
+    const app = await createApp(db);
+    const moved = await request(app).get('/welcome?src=vk&ref=%D0%90%D0%BB%D0%BE%D1%8D');
+    expect(moved.status).toBe(302);
+    expect(moved.headers.location).toBe('https://fainta7x.github.io/2la-noire-site/?src=vk&ref=%D0%90%D0%BB%D0%BE%D1%8D#join');
+    const plain = await request(app).get('/welcome');
+    expect(plain.headers.location).toBe('https://fainta7x.github.io/2la-noire-site/#join');
   });
 });

@@ -4,7 +4,7 @@ import { getDb } from '../../db/index.ts';
 import { organizerContactLinks, clubVkGroupUrl, noviceTelegramGroupFallback } from '../../lib/novicePromo.ts';
 import { noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails } from '../../lib/venues.ts';
-import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
+import { getPublicAppBaseUrl, getWelcomeSiteOrigins } from '../runtimeConfig.ts';
 import { telegramBotUsername } from '../services/playerClaimLinkService.ts';
 import { loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
 import { announcementPhotoPath } from '../services/announcementPhotoService.ts';
@@ -30,6 +30,20 @@ export const WELCOME_CONTENT = {
 
 /** The public page for newcomers (owner, 2026-11-11): what the game is, the nearest novice evening, a contact or a sign-in. */
 const router = Router();
+
+/** The club's site asks these routes from another address: only the welcome routes answer it, and only that address. */
+router.use('/welcome', (req, res, next) => {
+  const origin = String(req.headers.origin || '');
+  if (origin && getWelcomeSiteOrigins().includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '600');
+  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  return next();
+});
 const limit = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
 
 const NOVICE_EVENING_SQL = `UPPER(COALESCE(format, '')) = 'NOVICE' AND status IN ('published', 'active') AND datetime(starts_at) >= datetime('now', '-3 hours')`;

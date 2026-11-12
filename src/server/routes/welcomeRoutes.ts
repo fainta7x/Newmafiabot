@@ -7,6 +7,9 @@ import { venueDetails } from '../../lib/venues.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { telegramBotUsername } from '../services/playerClaimLinkService.ts';
 import { loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
+import { announcementPhotoPath } from '../services/announcementPhotoService.ts';
+import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
+import { createHash } from 'node:crypto';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
 
@@ -29,12 +32,22 @@ export const WELCOME_CONTENT = {
 const router = Router();
 const limit = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
 
+const NOVICE_EVENING_SQL = `UPPER(COALESCE(format, '')) = 'NOVICE' AND status IN ('published', 'active') AND datetime(starts_at) >= datetime('now', '-3 hours')`;
+
+/** Up to four club photos for the top of the page: the club's own pictures from «Публикации клуба», a stable choice per evening. */
+async function heroPhotos(db: any, seed: string): Promise<string[]> {
+  const rows = await db.all("SELECT id FROM announcement_photos WHERE audience IN ('all', 'NOVICE') ORDER BY created_at ASC, rowid ASC").catch(() => []);
+  if (!rows.length) return [];
+  const start = createHash('sha256').update(seed).digest().readUInt32BE(0) % rows.length;
+  return Array.from({ length: Math.min(4, rows.length) }, (_, index) => announcementPhotoPath(String(rows[(start + index) % rows.length].id)));
+}
+
 router.get('/welcome', limit, async (req, res) => {
   try {
     const db = req.db || await getDb();
     const evening = await db.get<any>(
       `SELECT id, title, starts_at, venue FROM game_evenings
-        WHERE UPPER(COALESCE(format, '')) = 'NOVICE' AND status IN ('published', 'active') AND datetime(starts_at) >= datetime('now', '-3 hours')
+        WHERE ${NOVICE_EVENING_SQL}
         ORDER BY datetime(starts_at) ASC LIMIT 1`);
     const prices = await loadPriceSettings(db);
     const bot = await telegramBotUsername().catch(() => null);
@@ -49,9 +62,27 @@ router.get('/welcome', limit, async (req, res) => {
         join_url: `${base}/join/${encodeURIComponent(String(evening.id))}?source=welcome`,
         telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(evening.id))}` : null,
       } : null,
+      hero_photos: await heroPhotos(db, String(evening?.id || 'welcome')),
       contacts: organizerContactLinks(), vk_group: clubVkGroupUrl(), telegram_group: noviceTelegramGroupFallback(),
     });
   } catch { return res.status(500).json({ error: 'Не удалось загрузить страницу' }); }
+});
+
+/** Who has taken seats at the nearest novice evening, read again every few seconds by the page. */
+router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
+  try {
+    const db = req.db || await getDb();
+    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${NOVICE_EVENING_SQL} ORDER BY datetime(starts_at) ASC LIMIT 1`);
+    res.set('Cache-Control', 'no-store');
+    if (!evening) return res.json({ evening_id: null, games: [], going: 0, updated_at: new Date().toISOString() });
+    const plan = await loadEveningSlotPlan(db, String(evening.id));
+    const games = plan.slots.filter((slot) => slot.status === 'open').map((slot) => ({
+      number: slot.slot_number, starts_at: slot.starts_at, target: slot.target_players, taken: slot.registered_count,
+      people: slot.participants.slice(0, 14).map((person) => String(person.nickname || 'Игрок').slice(0, 24)),
+    }));
+    const going = new Set(plan.slots.flatMap((slot) => slot.participants.map((person) => String(person.id)))).size;
+    return res.json({ evening_id: String(evening.id), games, going, updated_at: new Date().toISOString() });
+  } catch { return res.status(500).json({ error: 'Не удалось загрузить места' }); }
 });
 
 router.post('/welcome/visit', limit, async (req, res) => {

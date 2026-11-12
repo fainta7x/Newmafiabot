@@ -126,3 +126,39 @@ describe('«Новый лид» from the bot and the organizer notification (own
     expect(String(queued.reply_markup_json)).toContain('https://t.me/maria_tg');
   });
 });
+
+describe('live seats and photos of the welcome page (owner, 2026-11-11)', () => {
+  let db: DatabaseWrapper;
+  beforeEach(async () => { db = createDatabaseConnection(':memory:'); await createApp(db); });
+  afterEach(() => { try { db.sqlite.close(); } catch {} });
+
+  it('shows who has taken seats at the nearest novice evening, and club photos at the top', async () => {
+    const app = await createApp(db);
+    const stamp = new Date().toISOString();
+    const starts = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,venue,format,status,capacity,default_price,created_at,updated_at) VALUES ('nov','Новички',?,'Europe/Moscow','Суп с Котом','NOVICE','published',20,200,?,?)`, [starts, stamp, stamp]);
+    for (const [id, nick] of [['a', 'Алоэ'], ['b', 'Богдан']]) {
+      await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,created_at,updated_at) VALUES (?,?, 'normal','test',1000,0,?,?)`, [id, nick, stamp, stamp]);
+      await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES (?,'nov',?,'going','going','pending','unknown','waived',0,0,?,?)`, ['p' + id, id, stamp, stamp]);
+    }
+    await db.run("CREATE TABLE IF NOT EXISTS announcement_photos (id TEXT PRIMARY KEY, audience TEXT NOT NULL, mime TEXT NOT NULL, bytes BLOB NOT NULL, size INTEGER NOT NULL, created_at TEXT NOT NULL)");
+    await db.run("INSERT INTO announcement_photos (id, audience, mime, bytes, size, created_at) VALUES ('11111111-1111-1111-1111-111111111111','all','image/jpeg',x'00',1,?)", [stamp]);
+    const seats = await request(app).get('/api/public/welcome/seats');
+    expect(seats.status).toBe(200);
+    expect(seats.body.evening_id).toBe('nov');
+    expect(seats.body.going).toBe(2);
+    expect(seats.body.games.length).toBeGreaterThan(0);
+    expect(seats.body.games[0]).toMatchObject({ taken: 2 });
+    expect(seats.body.games[0].people).toEqual(expect.arrayContaining(['Алоэ', 'Богдан']));
+    const page = await request(app).get('/api/public/welcome');
+    expect(page.body.hero_photos).toEqual(['/announce-photo/11111111-1111-1111-1111-111111111111.jpg']);
+    expect(page.body.evening.price).toContain('Первые 2 вечера бесплатно');
+  });
+
+  it('answers with no games when there is no novice evening', async () => {
+    const app = await createApp(db);
+    const seats = await request(app).get('/api/public/welcome/seats');
+    expect(seats.status).toBe(200);
+    expect(seats.body).toMatchObject({ evening_id: null, games: [], going: 0 });
+  });
+});

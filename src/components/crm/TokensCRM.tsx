@@ -35,9 +35,9 @@ export default function TokensCRM() {
   }
 
   return <div data-testid="crm-tokens" className="mx-auto w-full max-w-2xl space-y-3">
-    <p className="text-[13px] leading-5 text-text-secondary">Жетоны клуба — внутриигровая валюта: балансы игроков, журнал операций и ручное начисление или списание. Оплата деньгами — в «Оплате и поддержке».</p>
+    <p className="text-[13px] leading-5 text-text-secondary">Жетоны клуба — внутриигровая валюта: балансы игроков, журнал операций и ручное начисление или списание.</p>
     {error ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
-    <div className="rounded-[17px] border border-border-soft bg-surface-1 p-3.5 text-[13px] text-text-secondary">У игроков сейчас: <strong className="text-text-primary">{total.toLocaleString('ru-RU')}</strong> жетонов · {players.length} игроков</div>
+    <div className="flex items-center justify-between gap-3 rounded-[17px] border border-border-soft bg-surface-1 p-3.5 text-[13px] text-text-secondary"><span className="min-w-0">У игроков сейчас: <strong className="text-text-primary">{total.toLocaleString('ru-RU')}</strong> жетонов · {players.length} игроков</span><button type="button" data-testid="crm-tokens-open-shop-list" onClick={() => openCrmSection('shop')} className="min-h-11 shrink-0 rounded-xl border border-border-soft px-3 text-[12px] font-bold text-text-primary">Магазин →</button></div>
     <input value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Поиск игрока" placeholder="Поиск по нику" className="mobile-field min-h-[44px]" />
     {!loaded ? <p className="py-6 text-center text-[13px] text-text-secondary">Загрузка…</p> : rows.length ? <div className="overflow-hidden rounded-[17px] border border-border-soft bg-surface-1">{rows.map((player, index) => <button key={player.id} type="button" onClick={() => setPlayerId(String(player.id))} className={`flex min-h-[52px] w-full items-center justify-between gap-3 px-3.5 text-left ${index ? 'border-t border-border-soft' : ''}`}>
       <span className="min-w-0 break-words text-[14px] font-semibold text-text-primary">{player.nickname}</span>

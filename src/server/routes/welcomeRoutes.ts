@@ -66,6 +66,8 @@ router.get('/welcome', limit, async (req, res) => {
       `SELECT id, title, starts_at, venue FROM game_evenings
         WHERE ${NOVICE_EVENING_SQL}
         ORDER BY datetime(starts_at) ASC LIMIT 1`);
+    const upcoming = await db.all<any>(
+      `SELECT id, title, starts_at, venue FROM game_evenings WHERE ${NOVICE_EVENING_SQL} ORDER BY datetime(starts_at) ASC LIMIT 4`).catch(() => []);
     const prices = await loadPriceSettings(db);
     const bot = await telegramBotUsername().catch(() => null);
     const base = getPublicAppBaseUrl().replace(/\/+$/, '');
@@ -80,6 +82,7 @@ router.get('/welcome', limit, async (req, res) => {
         join_url: `${base}/join/${encodeURIComponent(String(evening.id))}?source=welcome`,
         telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(evening.id))}` : null,
       } : null,
+      evenings: upcoming.map((row: any) => ({ id: String(row.id), starts_at: row.starts_at, schedule: noviceScheduleLine(row.starts_at), venue: venueDetails(row.venue) })),
       hero_photos: await heroPhotos(db, String(evening?.id || 'welcome')),
       contacts: organizerContactLinks(), vk_group: clubVkGroupUrl(), telegram_group: noviceTelegramGroupFallback(),
     });
@@ -90,7 +93,8 @@ router.get('/welcome', limit, async (req, res) => {
 router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   try {
     const db = req.db || await getDb();
-    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${NOVICE_EVENING_SQL} ORDER BY datetime(starts_at) ASC LIMIT 1`);
+    const wanted = String(req.query.evening || '').slice(0, 80);
+    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${NOVICE_EVENING_SQL}${wanted ? ' AND id = ?' : ''} ORDER BY datetime(starts_at) ASC LIMIT 1`, wanted ? [wanted] : []);
     res.set('Cache-Control', 'no-store');
     if (!evening) return res.json({ evening_id: null, games: [], going: 0, updated_at: new Date().toISOString() });
     const plan = await loadEveningSlotPlan(db, String(evening.id));
@@ -122,7 +126,7 @@ router.post('/welcome/lead', leadLimit, async (req, res) => {
   // A hidden field only a script fills in: the answer looks like success so a bot learns nothing.
   if (String(req.body?.website || '').trim()) return res.json({ ok: true });
   try {
-    const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, referredBy: req.body?.referred_by });
+    const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, eveningId: req.body?.evening_id, referredBy: req.body?.referred_by });
     if (lead.created) await notifyOrganizerAboutLead(req.db || await getDb(), lead.playerId, 'self').catch((error) => console.warn('[LEAD] Organizer notification failed:', error instanceof Error ? error.message : String(error)));
     return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created });
   } catch (error: any) {

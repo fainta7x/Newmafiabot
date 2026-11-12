@@ -15,12 +15,25 @@ const KEY_OF: Record<string, AgendaMessageKey> = {
 };
 const NOVICE_REASONS = new Set(['lead', 'novice_feedback']);
 
-const whenLabel = (startsAt: string) => {
+export const whenLabel = (startsAt: string) => {
   const date = new Date(startsAt);
   if (Number.isNaN(date.getTime())) return 'скоро объявим дату';
   const part = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', ...options }).format(date);
   return `${part({ weekday: 'long' })}, ${part({ day: 'numeric', month: 'long' })}, ${part({ hour: '2-digit', minute: '2-digit' })}`;
 };
+
+type EveningRow = { id: string; starts_at: string; venue: string | null };
+
+/** The evening each lead picked on the site (only those that are still open), by player id. */
+async function pickedEvenings(db: DatabaseWrapper, playerIds: string[]) {
+  const found = new Map<string, EveningRow>();
+  if (!playerIds.length) return found;
+  const rows = await db.all<{ player_id: string; id: string; starts_at: string; venue: string | null }>(
+    `SELECT l.player_id, e.id, e.starts_at, e.venue FROM newcomer_leads l JOIN game_evenings e ON e.id = l.evening_id
+      WHERE l.player_id IN (${playerIds.map(() => '?').join(',')}) AND ${openEveningSql('e')}`, playerIds).catch(() => []);
+  for (const row of rows) found.set(String(row.player_id), { id: row.id, starts_at: row.starts_at, venue: row.venue });
+  return found;
+}
 
 async function nearestEvening(db: DatabaseWrapper, novice: boolean) {
   const rows = await db.all<{ id: string; starts_at: string; venue: string | null; format: string | null }>(
@@ -44,18 +57,23 @@ export async function withAgendaMessages(db: DatabaseWrapper, items: AgendaItem[
     const template = cache.get(key) ?? await loadPostTemplate(db, key);
     cache.set(key, template);
     const evening = NOVICE_REASONS.has(reason) ? evenings.novice : evenings.club;
-    const link = reason === 'profile' ? `${base}/player` : evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : reason === 'lead' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : `${base}/player`;
-    out.push({ ...item, people: item.people.map((person) => ({ ...person, message: renderPostTemplate(template, {
-      'имя': person.nickname, 'когда': evening ? whenLabel(evening.starts_at) : 'скоро объявим дату', 'место': String(evening?.venue || 'уточним в приглашении'), 'ссылка': link,
-    }) })) });
+    const pickedByPerson = reason === 'lead' ? await pickedEvenings(db, item.people.map((person) => String(person.player_id))) : new Map<string, EveningRow>();
+    out.push({ ...item, people: item.people.map((person) => {
+      const own = pickedByPerson.get(String(person.player_id)) || evening;
+      const link = reason === 'profile' ? `${base}/player` : own ? `${base}/e/${encodeURIComponent(eveningShortCode(own.id))}` : reason === 'lead' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : `${base}/player`;
+      return { ...person, message: renderPostTemplate(template, {
+        'имя': person.nickname, 'когда': own ? whenLabel(own.starts_at) : 'скоро объявим дату', 'место': String(own?.venue || 'уточним в приглашении'), 'ссылка': link,
+      }) };
+    }) });
   }
   return out;
 }
 
 /** The ready message for one new lead (for the organizer's notification and the bot): the same text «Дела» shows. */
-export async function leadReadyMessage(db: DatabaseWrapper, nickname: string): Promise<string> {
+export async function leadReadyMessage(db: DatabaseWrapper, nickname: string, eveningId?: string | null): Promise<string> {
   const base = getPublicAppBaseUrl().replace(/\/+$/, '');
-  const evening = await nearestEvening(db, true);
+  const picked = eveningId ? await db.get<{ id: string; starts_at: string; venue: string | null }>('SELECT id, starts_at, venue FROM game_evenings WHERE id = ?', [eveningId]).catch(() => null) : null;
+  const evening = picked || await nearestEvening(db, true);
   return renderPostTemplate(await loadPostTemplate(db, 'msg_lead'), {
     'имя': nickname, 'когда': evening ? whenLabel(evening.starts_at) : 'скоро объявим дату', 'место': String(evening?.venue || 'уточним в приглашении'),
     'ссылка': evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : (welcomeSiteLink('friend') ?? `${base}/welcome`),

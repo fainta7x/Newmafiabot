@@ -517,3 +517,10 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 ### CRM home: birthdays and «Дела»
 
 - `MonthBirthdaysHome.tsx` + `server/services/monthBirthdaysService.ts` (`GET /api/crm/birthdays`); the folded «Дела» preview is `OrganizerAgenda.tsx` (`mode="preview"`). Coverage: `e2e/tests/crm-home-birthdays.spec.mjs`, `src/tests/monthBirthdays.test.ts`, `MonthBirthdaysHome.test.tsx`.
+
+## Newcomer funnel and welcome page
+- Public page: `src/components/public/WelcomePage.tsx` (route `/welcome`, `?src=vk|telegram|friend`, `?ref=`); API `src/server/routes/welcomeRoutes.ts` under `/api/public/welcome*`.
+- Leads and funnel: `src/server/services/newcomerFunnelService.ts`; organizer funnel `GET /api/novice/funnel` (`noviceRoutes.ts`), card in `src/components/crm/NoviceDevelopmentCRM.tsx`.
+- Ready messages in «Дела»: `src/server/services/agendaMessageService.ts`, texts in `postTemplateService.ts` (keys `msg_*`), shown by `src/components/crm/OrganizerAgenda.tsx`.
+- Quick lead from the bot: `handlers/organizer_lead.py` (`/lead`), `bot_api.add_lead`, API `POST /api/bot/leads` (`botRoutes.ts`); organizer message about a self-registered lead: `src/server/services/leadNotificationService.ts`.
+- Club site (separate repository `fainta7x/2la-noire-site`, GitHub Pages): `index.html`, `join.js` (live block, form), `join.css`. App side: CORS and redirect in `src/server/routes/welcomeRoutes.ts` / `src/app.ts`, settings in `src/server/runtimeConfig.ts`.

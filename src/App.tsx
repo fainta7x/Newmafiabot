@@ -8,6 +8,7 @@ const BroadcastCommentatorFrame = lazy(() => import("./components/public/Broadca
 const BroadcastLobbyScreen = lazy(() => import("./components/public/BroadcastLobbyScreen.tsx"));
 const ObsBridgePage = lazy(() => import("./components/public/ObsBridgePage.tsx"));
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
+import WelcomePage from "./components/public/WelcomePage.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import { PublicOffer } from "./components/public/PublicOffer.tsx";
 import TelegramLinkRedeem from "./components/player/TelegramLinkRedeem.tsx";
@@ -176,7 +177,8 @@ function AppContent() {
   const isGuideRoute = isRoutePrefix(pathname, '/guide');
   const isObsBridgeRoute = isRoutePrefix(pathname, '/obs-bridge');
   const isOfferRoute = isRoutePrefix(pathname, '/offer');
-  const isPublicRoute = isOfferRoute || isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute || isObsBridgeRoute;
+  const isWelcomeRoute = isRoutePrefix(pathname, '/welcome');
+  const isPublicRoute = isWelcomeRoute || isOfferRoute || isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute || isObsBridgeRoute;
   const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
@@ -252,6 +254,8 @@ function AppContent() {
   useEffect(() => {
     void bootstrapPlayer();
   }, [bootstrapPlayer]);
+
+  if (isWelcomeRoute) return <WelcomePage />;
 
   if (isJoinRoute) {
     const parts = pathname.split('/').filter(Boolean);

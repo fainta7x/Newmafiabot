@@ -1,3 +1,4 @@
+import { getWelcomeSiteUrl } from './server/runtimeConfig.ts';
 import { ensurePublicationDeliverySchema, importLegacyPublicationHolds } from './server/services/publicationDeliveryService.ts';
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -105,6 +106,7 @@ import clubDigestRoutes from './server/routes/clubDigestRoutes.ts';
 import developerOpsRoutes from './server/routes/developerOpsRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
+import welcomeRoutes from './server/routes/welcomeRoutes.ts';
 import { resolveEveningShortCode } from './server/services/announcementShortLinks.ts';
 import { loadAnnouncementPhoto } from './server/services/announcementPhotoService.ts';
 import announcementPhotoRoutes from './server/routes/announcementPhotoRoutes.ts';
@@ -285,6 +287,16 @@ export async function createApp(customDb?: DatabaseWrapper) {
     }
   });
 
+  // The welcome page lives on the club's site (owner, 2026-11-11): old links and the bot send people there, with where they came from.
+  app.get('/welcome', (req, res, next) => {
+    const site = getWelcomeSiteUrl();
+    if (!site) return next();
+    const src = ['vk', 'telegram', 'friend'].includes(String(req.query.src || '')) ? String(req.query.src) : '';
+    const ref = String(req.query.ref || '').slice(0, 60);
+    const query = new URLSearchParams({ ...(src ? { src } : {}), ...(ref ? { ref } : {}) }).toString();
+    return res.redirect(302, `${site}${query ? `?${query}` : ''}#join`);
+  });
+
   // Club photos above announcements: public, because Telegram fetches them for the post preview.
   app.get('/announce-photo/:file', async (req, res) => {
     try {
@@ -292,6 +304,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
       const photo = /^[0-9a-f-]{36}$/.test(id) ? await loadAnnouncementPhoto(req.db, id) : null;
       if (!photo) return res.status(404).end();
       res.setHeader('Content-Type', photo.mime);
+      // The club's site shows these photos at the top of its page (helmet would otherwise keep them to this address).
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       return res.send(Buffer.from(photo.bytes));
@@ -379,6 +393,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/crm', crmRoutes);
   app.use('/api/crm', tableScoutingRoutes);
   app.use('/api/novice', noviceOrganizerRoutes);
+  app.use('/api/public', welcomeRoutes);
   app.use('/api/public', vkJoinStartRouter);
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateRouter);

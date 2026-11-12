@@ -1,7 +1,7 @@
 import PublicationRecoveryQueue from './PublicationRecoveryQueue.tsx';
 import { useCallback, useEffect, useState } from 'react';
 import CancelEveningSheet from './CancelEveningSheet.tsx';
-import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, RefreshCw, Send } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, Copy, RefreshCw, Send } from 'lucide-react';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
 type Group = 'now' | 'week' | 'later';
@@ -13,7 +13,7 @@ type Action =
   | { type: 'task'; task_id: string }
   | { type: 'gift_collection'; player_id: string }
   | { type: 'birthday_post'; player_id: string };
-type Person = { player_id: string; nickname: string; detail?: string; telegram_url?: string | null; vk_url?: string | null };
+type Person = { player_id: string; nickname: string; detail?: string; message?: string; telegram_url?: string | null; vk_url?: string | null };
 type Item = {
   id: string; group: Group; kind: string; title: string; why: string;
   action?: Action; action_label?: string; people?: Person[]; people_total?: number;
@@ -57,6 +57,12 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [copied, setCopied] = useState('');
+  // The ready message goes to the clipboard in one tap; when the browser refuses, the text stays selectable on screen.
+  const copyMessage = async (playerId: string, text: string) => {
+    try { await navigator.clipboard.writeText(text); setCopied(playerId); window.setTimeout(() => setCopied((current) => (current === playerId ? '' : current)), 2000); }
+    catch { /* the text is shown above and can be selected by hand */ }
+  };
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [snoozeFor, setSnoozeFor] = useState('');
   const [cancelFor, setCancelFor] = useState('');
@@ -125,13 +131,21 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
             </button>
             {peopleOpen ? (
               <div className="mt-1 space-y-1.5">
-                {item.contact_reason ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Написали человеку — нажмите «Написал»: он уйдёт из этого пункта{item.contact_quiet_days ? ` на ${item.contact_quiet_days} дн.` : ' на время'} и вернётся, если ничего не изменится.</p> : null}
+                {item.contact_reason === 'lead' ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Ответили человеку — нажмите «Написал».</p> : item.contact_reason ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Написали человеку — нажмите «Написал»: он уйдёт из этого пункта{item.contact_quiet_days ? ` на ${item.contact_quiet_days} дн.` : ' на время'} и вернётся, если ничего не изменится.</p> : null}
                 {item.people.map((person) => (
                   <div key={`${item.id}:${person.player_id}`} data-testid="agenda-person" className="rounded-[11px] bg-surface-1 px-2.5 py-2">
                     <button type="button" onClick={() => onOpenPlayer(person.player_id)} className="block w-full min-w-0 text-left">
                       <strong className="block truncate text-[13px] text-text-primary">{person.nickname}</strong>
                       {person.detail ? <span className="block truncate text-[11px] text-text-muted">{person.detail}</span> : null}
                     </button>
+                    {item.contact_reason && person.message ? (
+                      <div data-testid="agenda-message" className="mt-1.5 rounded-[9px] bg-surface-2 px-2.5 py-2">
+                        <p className="whitespace-pre-wrap break-words text-[12px] leading-4 text-text-secondary">{person.message}</p>
+                        <button type="button" onClick={() => void copyMessage(person.player_id, person.message || '')} className="mt-1.5 flex min-h-9 items-center gap-1 rounded-[9px] border border-border-soft px-2.5 text-[12px] font-semibold text-text-primary">
+                          <Copy className="h-3.5 w-3.5" />{copied === person.player_id ? 'Скопировано' : 'Скопировать текст'}
+                        </button>
+                      </div>
+                    ) : null}
                     {item.contact_reason ? (
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {person.telegram_url ? <a href={person.telegram_url} target="_blank" rel="noreferrer" className="flex min-h-9 items-center gap-1 rounded-[9px] border border-border-soft px-2.5 text-[12px] font-semibold text-text-primary"><Send className="h-3.5 w-3.5" />Telegram</a> : null}

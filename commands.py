@@ -14,7 +14,7 @@ async def setup_bot_commands(bot):
         BotCommand(command="link", description="Ссылка для браузера"),
     ]
     await bot.set_my_commands(commands)
-    staff_commands = [*commands, BotCommand(command="crm", description="Кабинет организатора"), BotCommand(command="status", description="Состояние приложения")]
+    staff_commands = [*commands, BotCommand(command="crm", description="Кабинет организатора"), BotCommand(command="lead", description="Новый лид"), BotCommand(command="status", description="Состояние приложения")]
     for admin_id in sorted(config.ADMIN_IDS):
         try:
             await bot.set_my_commands(staff_commands, scope=BotCommandScopeChat(chat_id=admin_id))

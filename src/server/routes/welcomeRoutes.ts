@@ -82,7 +82,7 @@ router.get('/welcome', limit, async (req, res) => {
         join_url: `${base}/join/${encodeURIComponent(String(evening.id))}?source=welcome`,
         telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(evening.id))}` : null,
       } : null,
-      evenings: upcoming.map((row: any) => ({ id: String(row.id), starts_at: row.starts_at, schedule: noviceScheduleLine(row.starts_at), venue: venueDetails(row.venue) })),
+      evenings: upcoming.map((row: any) => ({ id: String(row.id), starts_at: row.starts_at, schedule: noviceScheduleLine(row.starts_at), venue: venueDetails(row.venue), join_url: `${base}/join/${encodeURIComponent(String(row.id))}?source=welcome`, telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(row.id))}` : null })),
       hero_photos: await heroPhotos(db, String(evening?.id || 'welcome')),
       contacts: organizerContactLinks(), vk_group: clubVkGroupUrl(), telegram_group: noviceTelegramGroupFallback(),
     });

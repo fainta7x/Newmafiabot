@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { getDb } from '../../db/index.ts';
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { organizerContactLinks, clubVkGroupUrl, noviceTelegramGroupFallback } from '../../lib/novicePromo.ts';
 import { noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails } from '../../lib/venues.ts';
@@ -46,7 +47,7 @@ router.use('/welcome', (req, res, next) => {
 });
 const limit = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
 
-const NOVICE_EVENING_SQL = `UPPER(COALESCE(format, '')) = 'NOVICE' AND status IN ('published', 'active') AND datetime(starts_at) >= datetime('now', '-3 hours')`;
+const NOVICE_EVENING_SQL = `UPPER(COALESCE(format, '')) = 'NOVICE' AND ${openEveningSql()} AND datetime(starts_at) >= datetime('now', '-3 hours')`;
 
 /** Up to four club photos for the top of the page: the club's own pictures from «Публикации клуба», a stable choice per evening. */
 async function heroPhotos(db: any, seed: string): Promise<string[]> {

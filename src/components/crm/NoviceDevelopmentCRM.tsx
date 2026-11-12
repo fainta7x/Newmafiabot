@@ -58,7 +58,8 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
       setOperations(body.operations || null);
       setAwaiting(Array.isArray(body.awaiting_players) ? body.awaiting_players : []);
       // The funnel is a view of its own: a failure here must not hide the applications.
-      setFunnel(await getJson('/api/novice/funnel', 'Не удалось собрать воронку').catch(() => null));
+      const funnelBody = await getJson('/api/novice/funnel', 'Не удалось собрать воронку').catch(() => null);
+      setFunnel(Array.isArray(funnelBody?.steps) && Array.isArray(funnelBody?.sources) ? funnelBody : null);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить воронку');
     } finally {

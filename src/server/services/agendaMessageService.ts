@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { getPublicAppBaseUrl, welcomeSiteLink } from '../runtimeConfig.ts';
 import { eveningShortCode } from './announcementShortLinks.ts';
 import { loadPostTemplate, renderPostTemplate, type AgendaMessageKey } from './postTemplateService.ts';
@@ -24,7 +25,7 @@ const whenLabel = (startsAt: string) => {
 async function nearestEvening(db: DatabaseWrapper, novice: boolean) {
   const rows = await db.all<{ id: string; starts_at: string; venue: string | null; format: string | null }>(
     `SELECT id, starts_at, venue, format FROM game_evenings
-      WHERE status IN ('published', 'active') AND datetime(starts_at) >= datetime('now', '-3 hours') ORDER BY datetime(starts_at) ASC LIMIT 20`).catch(() => []);
+      WHERE ${openEveningSql()} AND datetime(starts_at) >= datetime('now', '-3 hours') ORDER BY datetime(starts_at) ASC LIMIT 20`).catch(() => []);
   const isNovice = (row: { format: string | null }) => String(row.format || '').toUpperCase() === 'NOVICE';
   return rows.find((row) => (novice ? isNovice(row) : !isNovice(row))) || rows.find((row) => novice === isNovice(row)) || null;
 }

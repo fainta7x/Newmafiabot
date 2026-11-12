@@ -18,6 +18,11 @@ for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900],
     await browser.goto('/welcome?src=vk');
     await expect(browser.getByLabel('Ближайшее обучение').getByText('Суп с Котом')).toBeVisible();
     await expect(browser.getByTestId('welcome-seats')).toContainText('свободно 3 из 10');
+    // The audit sees only the screen as it is scrolled: check the top, then each block that lies lower.
+    expect(await browser.evaluate(auditScreen)).toEqual([]);
+    await browser.getByTestId('welcome-seats').scrollIntoViewIfNeeded();
+    expect(await browser.evaluate(auditScreen)).toEqual([]);
+    await browser.getByRole('region', { name: 'Знакомство' }).scrollIntoViewIfNeeded();
     expect(await browser.evaluate(auditScreen)).toEqual([]);
     await browser.screenshot({ path: info.outputPath(`welcome-${width}.png`), fullPage: true });
     await browser.getByLabel(/Как тебя зовут/).fill('Иван');

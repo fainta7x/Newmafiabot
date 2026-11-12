@@ -152,7 +152,7 @@ export function WelcomePage() {
   const freeTotal = seats ? seats.games.reduce((sum, game) => sum + Math.max(0, game.target - game.taken), 0) : null;
   const photos = data?.hero_photos?.length ? data.hero_photos : [];
   return <main data-testid="welcome-page" className="min-h-screen bg-[#090a0d] px-4 py-7 pb-28 text-white">
-    <style>{`@keyframes welcome-pop{0%{transform:scale(.7);box-shadow:0 0 0 0 rgba(229,56,59,.8)}60%{transform:scale(1.06);box-shadow:0 0 0 10px rgba(229,56,59,0)}100%{transform:scale(1)}}.welcome-pop{animation:welcome-pop .9s ease-out 2}@keyframes welcome-live{0%,100%{opacity:1}50%{opacity:.3}}.welcome-live{animation:welcome-live 2s ease-in-out infinite}@media (prefers-reduced-motion:reduce){.welcome-pop,.welcome-live{animation:none}}`}</style>
+    <style>{`@keyframes welcome-pop{0%{transform:scale(.7);box-shadow:0 0 0 0 rgba(229,56,59,.8)}60%{transform:scale(1.06);box-shadow:0 0 0 10px rgba(229,56,59,0)}100%{transform:scale(1)}}.welcome-pop{animation:welcome-pop .9s ease-out 2}@media (prefers-reduced-motion:reduce){.welcome-pop{animation:none}}`}</style>
     {photos.length > 0
       ? <Hero photos={photos} title={data?.content.title || 'Школа спортивной мафии | Тула'} lead={data?.content.lead || ''} />
       : <header className="space-y-2 pt-2"><p className="text-[12px] font-bold uppercase tracking-[0.16em] text-white/60">2LA Noire</p><h1 className="text-[30px] font-black leading-[1.05]">{data?.content.title || 'Школа спортивной мафии | Тула'}</h1><p className="text-[16px] font-semibold leading-6 text-white/90">{data?.content.lead}</p></header>}
@@ -171,7 +171,6 @@ export function WelcomePage() {
         {seats && seats.games.length > 0 && <div className="space-y-3 border-t border-white/10 pt-4">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[15px] font-bold">Кто уже записался{seats.going > 0 ? ` · ${seats.going}` : ''}</h3>
-            <span className="inline-flex items-center gap-1.5 text-[12px] text-white/55"><span className="welcome-live h-2 w-2 rounded-full bg-emerald-400" />обновляется само</span>
           </div>
           {seats.going === 0 && <p className="text-[13px] leading-5 text-white/60">Пока никого. Займи первое место.</p>}
           <SeatBoard seats={seats} fresh={fresh} />

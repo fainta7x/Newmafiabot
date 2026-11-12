@@ -1,3 +1,4 @@
+import { rememberSiteReturn, takeSiteReturn } from "./lib/siteReturn.ts";
 import { confirmPageLeave } from './lib/pageLeave.ts';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
@@ -192,6 +193,7 @@ function AppContent() {
   const bootstrapPlayer = useCallback(async () => {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
     setRootState({ status: 'loading' });
+    rememberSiteReturn(window.location.search);
 
     const telegramWebApp = (window as any).Telegram?.WebApp;
     const initData = getTelegramInitData();
@@ -233,6 +235,8 @@ function AppContent() {
       if (session?.linked === true) {
         if (!profileResponse.ok) throw new Error('player-profile');
         const data = await profileResponse.json() as PlayerMeResponse;
+        const backToSite = takeSiteReturn();
+        if (backToSite) { window.location.replace(backToSite); return; }
         setRootState({ status: 'player', data, canOpenAdmin, canOpenEventHost });
         return;
       }

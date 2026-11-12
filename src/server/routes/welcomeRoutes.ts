@@ -5,7 +5,7 @@ import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { organizerContactLinks, clubVkGroupUrl, noviceTelegramGroupFallback } from '../../lib/novicePromo.ts';
 import { noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails } from '../../lib/venues.ts';
-import { getPublicAppBaseUrl, getWelcomeSiteOrigins } from '../runtimeConfig.ts';
+import { getClubAppUrl, getPublicAppBaseUrl, getWelcomeSiteOrigins, getWelcomeSiteUrl } from '../runtimeConfig.ts';
 import { telegramBotUsername } from '../services/playerClaimLinkService.ts';
 import { loadPriceSettings } from '../services/eveningPriceSettingsService.ts';
 import { announcementPhotoPath } from '../services/announcementPhotoService.ts';
@@ -15,6 +15,7 @@ import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/ne
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
 import { loadSiteTexts } from '../services/siteContentService.ts';
 import { loadClubLeaderboardRows } from '../services/clubLeaderboardService.ts';
+import { hasOrganizerPlayerAccess, resolveVerifiedPlayerIdentity } from '../services/organizerPlayerAccessService.ts';
 
 /**
  * The text of the page is the owner's current recruitment post «Школа спортивной мафии | Тула» (2026-11-11), cut into parts the page folds.
@@ -43,6 +44,8 @@ router.use('/welcome', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Max-Age', '600');
+    // Only the «who is signed in» answer may carry the visitor's cookie to the site (owner, 2026-11-12: the site is the center).
+    if (req.originalUrl.split('?')[0].endsWith('/welcome/session')) res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   if (req.method === 'OPTIONS') return res.status(204).end();
   return next();
@@ -114,6 +117,26 @@ router.get('/welcome/rating', rateLimit({ windowMs: 60_000, limit: 20, standardH
     res.set('Cache-Control', 'public, max-age=60');
     return res.json({ players: rows.map((row: any, index: number) => ({ place: index + 1, nickname: String(row.nickname || 'Игрок').slice(0, 30), elo: Math.round(Number(row.elo || 1000)), games: Number(row.games || 0) })) });
   } catch { return res.status(500).json({ error: 'Не удалось загрузить рейтинг' }); }
+});
+
+/**
+ * «Who is signed in» for the site's header: a nickname and what the person may open, nothing else. It answers with the visitor's cookie only to
+ * the club's own site; a stranger gets `signed_in: false`.
+ */
+router.get('/welcome/session', rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
+  const base = getClubAppUrl();
+  const site = getWelcomeSiteUrl() || '';
+  res.set('Cache-Control', 'no-store');
+  const anonymous = { signed_in: false, login_url: `${base}/player?return=${encodeURIComponent(site)}` };
+  try {
+    const db = req.db || await getDb();
+    const identity = await resolveVerifiedPlayerIdentity(db, req);
+    if (!identity) return res.json(anonymous);
+    const player = await db.get<{ nickname: string | null }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [identity.playerId]);
+    if (!player) return res.json(anonymous);
+    const organizer = await hasOrganizerPlayerAccess(db, identity.playerId);
+    return res.json({ signed_in: true, nickname: String(player.nickname || 'Игрок').slice(0, 30), organizer, cabinet_url: `${base}/player`, crm_url: organizer ? `${base}/admin` : null, login_url: anonymous.login_url });
+  } catch { return res.json(anonymous); }
 });
 
 router.post('/welcome/visit', limit, async (req, res) => {

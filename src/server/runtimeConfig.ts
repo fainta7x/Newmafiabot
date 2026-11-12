@@ -31,6 +31,14 @@ export const getWelcomeSiteOrigins = (): string[] => {
   const site = getWelcomeSiteUrl();
   return [...new Set([...(site ? [new URL(site).origin] : []), ...CLUB_SITE_ORIGINS, ...extra])];
 };
+/**
+ * The app's address under the club's own domain. The site's «Войти», «Мой кабинет» and «CRM» use it: the visitor's sign-in cookie is the
+ * same site as `2lamafia.ru` only on this address (owner, 2026-11-12). `CLUB_APP_URL` overrides it.
+ */
+export const getClubAppUrl = (): string => {
+  const raw = String(process.env.CLUB_APP_URL || 'https://app.2lamafia.ru').trim().replace(/\/+$/, '');
+  return /^https:\/\/[^\s/]+$/i.test(raw) ? raw : 'https://app.2lamafia.ru';
+};
 /** Link to the sign-up on the site, with where the person came from. */
 export const welcomeSiteLink = (source?: string | null): string | null => {
   const site = getWelcomeSiteUrl();

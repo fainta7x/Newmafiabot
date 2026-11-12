@@ -74,3 +74,25 @@ describe('novice evening on every Friday (owner, 2026-11-12)', () => {
     expect(Number((await db.get<any>('SELECT COUNT(*) AS n FROM evening_game_slots WHERE evening_id = ?', [evening.id]))?.n)).toBe(2);
   });
 });
+
+describe('«who is signed in» for the club site', () => {
+  it('answers a stranger with signed_in false, a signed-in player with the nickname, and sends the cookie only to the club site', async () => {
+    const { default: request } = await import('supertest');
+    const { createApp } = await import('../app.ts');
+    const { generatePlayerSessionToken } = await import('../server/auth.ts');
+    const app = await createApp(db);
+    await db.run("INSERT INTO players (id, nickname, created_at, updated_at) VALUES ('p-site', 'Алоэ', datetime('now'), datetime('now'))");
+    const stranger = await request(app).get('/api/public/welcome/session').set('Origin', 'https://2lamafia.ru');
+    expect(stranger.status).toBe(200);
+    expect(stranger.body.signed_in).toBe(false);
+    expect(stranger.body.login_url).toContain('/player?return=');
+    expect(stranger.headers['access-control-allow-credentials']).toBe('true');
+    expect(stranger.headers['access-control-allow-origin']).toBe('https://2lamafia.ru');
+    const player = await request(app).get('/api/public/welcome/session').set('Origin', 'https://2lamafia.ru').set('Cookie', `player_token=${generatePlayerSessionToken('p-site')}`);
+    expect(player.body).toMatchObject({ signed_in: true, nickname: 'Алоэ', organizer: false, crm_url: null });
+    expect(JSON.stringify(player.body)).not.toContain('p-site');
+    const other = await request(app).get('/api/public/welcome/session').set('Origin', 'https://evil.example');
+    expect(other.headers['access-control-allow-origin']).toBeUndefined();
+    expect(other.headers['access-control-allow-credentials']).toBeUndefined();
+  });
+});

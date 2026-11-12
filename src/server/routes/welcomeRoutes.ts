@@ -151,7 +151,7 @@ router.post('/welcome/lead', leadLimit, async (req, res) => {
   try {
     const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, eveningId: req.body?.evening_id, referredBy: req.body?.referred_by });
     if (lead.created) await notifyOrganizerAboutLead(req.db || await getDb(), lead.playerId, 'self').catch((error) => console.warn('[LEAD] Organizer notification failed:', error instanceof Error ? error.message : String(error)));
-    return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created });
+    return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created, booked: lead.booked, already_booked: lead.alreadyBooked });
   } catch (error: any) {
     if (error instanceof LeadError) return res.status(error.statusCode).json({ error: error.message });
     return res.status(500).json({ error: 'Не удалось сохранить. Попробуйте ещё раз' });

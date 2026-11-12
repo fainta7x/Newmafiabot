@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { replacePlayerSlotSelection } from './eveningSlotWritesService.ts';
+import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { oncePerDatabase } from '../../db/oncePerDatabase.ts';
@@ -40,6 +42,49 @@ async function openNoviceEveningId(db: DatabaseWrapper, value: unknown): Promise
 const clean = (value: unknown, max: number) => Array.from(String(value ?? '')).map((character) => (character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127 || character === '<' || character === '>' ? ' ' : character)).join('').replace(/\s+/g, ' ').trim().slice(0, max);
 const sourceOf = (value: unknown): LeadSource | null => (LEAD_SOURCES as readonly string[]).includes(String(value)) ? String(value) as LeadSource : null;
 const dayOf = (now = new Date()) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' }).format(now);
+
+
+/**
+ * The lead's seat (owner, 2026-11-12: «заявка должна бронировать место»): all open games of the chosen novice evening, the same way the player
+ * would pick them in the app. The organizer still confirms by writing. A failure does not lose the lead: the contact is already saved.
+ */
+async function bookLeadSeats(db: DatabaseWrapper, playerId: string, eveningId: string | null, previousEveningId: string | null): Promise<boolean> {
+  try {
+    if (previousEveningId && previousEveningId !== eveningId) {
+      await replacePlayerSlotSelection(db, previousEveningId, playerId, [], { notifyOrganizer: false, source: 'welcome_page' }).catch(() => null);
+    }
+    if (!eveningId) return false;
+    await ensureSlotsForEvening(db, eveningId);
+    const slots = await db.all<{ id: string }>("SELECT id FROM evening_game_slots WHERE evening_id = ? AND status = 'open' ORDER BY slot_number", [eveningId]);
+    if (!slots.length) return false;
+    await replacePlayerSlotSelection(db, eveningId, playerId, slots.map((slot) => String(slot.id)), { notifyOrganizer: false, source: 'welcome_page' });
+    return true;
+  } catch (error) {
+    console.warn('[LEAD] Seat not booked:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}
+
+/**
+ * «Удалить лид» (owner, 2026-11-12: «не могу удалить лид»): a mistaken or test lead is removed with its seat. Only a lead that has never played or
+ * been marked as arrived can go; the person is archived, not erased, so nothing else in the club's history changes.
+ */
+export async function removeLead(db: DatabaseWrapper, playerIdRaw: unknown) {
+  await ensure(db);
+  const playerId = String(playerIdRaw || '').trim();
+  const lead = playerId ? await db.get<{ player_id: string; evening_id: string | null }>('SELECT player_id, evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]) : null;
+  if (!lead) throw new LeadError('Такого лида нет', 404);
+  const played = await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM evening_participants WHERE player_id = ? AND (COALESCE(attendance_status, 'pending') <> 'pending' OR COALESCE(amount_paid, 0) > 0)", [playerId]);
+  if (Number(played?.n || 0) > 0) throw new LeadError('Этот человек уже был на вечере или платил, удалить его заявку нельзя', 409);
+  if (lead.evening_id) await replacePlayerSlotSelection(db, String(lead.evening_id), playerId, [], { notifyOrganizer: false, source: 'lead_removed' }).catch(() => null);
+  const stamp = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    await tx.run("DELETE FROM evening_participants WHERE player_id = ? AND COALESCE(attendance_status, 'pending') = 'pending' AND COALESCE(amount_paid, 0) = 0", [playerId]);
+    await tx.run('DELETE FROM newcomer_leads WHERE player_id = ?', [playerId]);
+    await tx.run("UPDATE players SET lifecycle_status = 'archived', contact_status = 'blocked', updated_at = ? WHERE id = ?", [stamp, playerId]);
+  });
+  return { removed: true };
+}
 
 export class LeadError extends Error { constructor(message: string, readonly statusCode = 400) { super(message); } }
 
@@ -88,8 +133,16 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
   const existing = await db.get<{ player_id: string }>('SELECT player_id FROM newcomer_leads WHERE contact_kind = ? AND contact_value = ?', [contact.kind, contact.value]);
   const eveningId = await openNoviceEveningId(db, input.eveningId);
   if (existing) {
-    if (eveningId) await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, existing.player_id]);
-    return { playerId: String(existing.player_id), created: false };
+    // Someone's contact is not a secret, so the form never changes a booking that already exists: it keeps the old one and says so
+    // (moving to another Friday goes through the organizer or the signed-in cabinet).
+    const playerId = String(existing.player_id);
+    if (!eveningId) return { playerId, created: false, booked: false, alreadyBooked: false };
+    const before = await db.get<{ evening_id: string | null }>('SELECT evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]);
+    const bookedEvening = before?.evening_id ?? null;
+    if (bookedEvening === eveningId) return { playerId, created: false, booked: true, alreadyBooked: true };
+    if (bookedEvening) return { playerId, created: false, booked: false, alreadyBooked: true };
+    await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, playerId]);
+    return { playerId, created: false, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
   }
 
   const taken = new Set((await db.all<{ nickname: string }>('SELECT nickname FROM players WHERE lower(nickname) LIKE lower(?)', [`${name}%`])).map((row) => String(row.nickname).toLowerCase()));
@@ -110,7 +163,7 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
     await tx.run('INSERT OR IGNORE INTO newcomer_funnel_events (id, visitor_id, step, source, day, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [randomUUID(), `lead-${playerId}`, 'contact_left', source, dayOf(now), stamp]);
   });
-  return { playerId, created: true };
+  return { playerId, created: true, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
 }
 
 export type FunnelStep = { key: string; label: string; count: number };

@@ -1,7 +1,7 @@
 import PublicationRecoveryQueue from './PublicationRecoveryQueue.tsx';
 import { useCallback, useEffect, useState } from 'react';
 import CancelEveningSheet from './CancelEveningSheet.tsx';
-import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, Copy, RefreshCw, Send } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, Copy, RefreshCw, Send, Trash2 } from 'lucide-react';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
 type Group = 'now' | 'week' | 'later';
@@ -86,6 +86,8 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [load]);
 
+  // «Удалить лид» asks twice (a stray tap must not remove a person): the first tap arms the button, the second removes.
+  const [armedRemove, setArmedRemove] = useState('');
   const act = async (key: string, work: () => Promise<unknown>) => {
     if (busy) return;
     setBusy(key);
@@ -154,6 +156,13 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
                           className="flex min-h-9 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[12px] font-bold text-success disabled:opacity-50">
                           <Check className="h-3.5 w-3.5" />{busy === `${item.id}:${person.player_id}` ? '…' : 'Написал'}
                         </button>
+                        {item.contact_reason === 'lead' ? (
+                          <button type="button" data-testid="agenda-lead-remove" disabled={Boolean(busy)}
+                            onClick={() => { if (armedRemove !== person.player_id) { setArmedRemove(person.player_id); window.setTimeout(() => setArmedRemove(''), 5000); return; } setArmedRemove(''); void act(`${item.id}:${person.player_id}:rm`, () => post('/api/crm/agenda/lead-remove', { player_id: person.player_id })); }}
+                            className={`flex min-h-9 items-center gap-1 rounded-[9px] border px-2.5 text-[12px] font-semibold disabled:opacity-50 ${armedRemove === person.player_id ? 'border-danger bg-danger-soft text-danger' : 'border-border-soft text-text-secondary'}`}>
+                            <Trash2 className="h-3.5 w-3.5" />{armedRemove === person.player_id ? 'Точно удалить?' : 'Удалить'}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

@@ -53,7 +53,7 @@ BOT_API_SECRET = os.getenv('BOT_API_SECRET', '')
 
 # Player Mini App origin must stay public even in the combined container where
 # BOT_API_BASE_URL is the internal Node address.
-CANONICAL_PLAYER_APP_URL = 'https://2la-noire-chagina7x.waw0.amvera.tech'
+CANONICAL_PLAYER_APP_URL = 'https://app.2lamafia.ru'
 PLAYER_APP_URL = (os.getenv('PLAYER_APP_URL', '').strip() or WEBHOOK_URL.strip() or CANONICAL_PLAYER_APP_URL).rstrip('/')
 if PLAYER_APP_URL.endswith('/webhook'):
     PLAYER_APP_URL = PLAYER_APP_URL[:-len('/webhook')]

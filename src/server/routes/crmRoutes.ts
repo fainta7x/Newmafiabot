@@ -22,6 +22,7 @@ import { dismissClubOrderItem, loadClubOrder } from '../services/clubOrderServic
 import { closeTasksOfEndedEvenings } from '../services/eveningCloseoutService.ts';
 import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { loadAgenda, recordAgendaContact, snoozeAgendaItem } from '../services/organizerAgendaService.ts';
+import { removeLead } from '../services/newcomerFunnelService.ts';
 
 const router = Router();
 
@@ -133,6 +134,15 @@ router.post('/agenda/contacted', requireOrganizerAuth, async (req: Authenticated
     return res.json(await recordAgendaContact(db, { playerId: req.body?.player_id, reason: req.body?.reason }));
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отметить' });
+  }
+});
+
+router.post('/agenda/lead-remove', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await removeLead(db, req.body?.player_id));
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось удалить' });
   }
 });
 

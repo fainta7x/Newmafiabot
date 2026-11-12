@@ -1,4 +1,5 @@
-export const CANONICAL_PUBLIC_APP_URL = 'https://2la-noire-chagina7x.waw0.amvera.tech';
+/** The app lives at the club's own domain (owner, 2026-11-12); the old Amvera address still opens it but no link is built from it. */
+export const CANONICAL_PUBLIC_APP_URL = 'https://app.2lamafia.ru';
 export const DEFAULT_INTERNAL_BOT_SERVICE_URL = 'http://127.0.0.1:8081';
 
 const normalizeBaseUrl = (value: unknown) => String(value || '').trim().replace(/\/+$/, '');

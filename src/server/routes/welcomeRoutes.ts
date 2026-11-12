@@ -13,6 +13,8 @@ import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
 import { createHash } from 'node:crypto';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
+import { loadSiteTexts } from '../services/siteContentService.ts';
+import { loadClubLeaderboardRows } from '../services/clubLeaderboardService.ts';
 
 /**
  * The text of the page is the owner's current recruitment post «Школа спортивной мафии | Тула» (2026-11-11), cut into parts the page folds.
@@ -64,12 +66,15 @@ router.get('/welcome', limit, async (req, res) => {
       `SELECT id, title, starts_at, venue FROM game_evenings
         WHERE ${NOVICE_EVENING_SQL}
         ORDER BY datetime(starts_at) ASC LIMIT 1`);
+    const upcoming = await db.all<any>(
+      `SELECT id, title, starts_at, venue FROM game_evenings WHERE ${NOVICE_EVENING_SQL} ORDER BY datetime(starts_at) ASC LIMIT 4`).catch(() => []);
     const prices = await loadPriceSettings(db);
     const bot = await telegramBotUsername().catch(() => null);
     const base = getPublicAppBaseUrl().replace(/\/+$/, '');
     res.set('Cache-Control', 'no-store');
     return res.json({
       content: WELCOME_CONTENT,
+      site: await loadSiteTexts(db).catch(() => ({})),
       evening: evening ? {
         id: String(evening.id), title: String(evening.title || 'Вечер для новичков'), starts_at: evening.starts_at,
         venue: venueDetails(evening.venue), schedule: noviceScheduleLine(evening.starts_at),
@@ -77,6 +82,7 @@ router.get('/welcome', limit, async (req, res) => {
         join_url: `${base}/join/${encodeURIComponent(String(evening.id))}?source=welcome`,
         telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(evening.id))}` : null,
       } : null,
+      evenings: upcoming.map((row: any) => ({ id: String(row.id), starts_at: row.starts_at, schedule: noviceScheduleLine(row.starts_at), venue: venueDetails(row.venue), join_url: `${base}/join/${encodeURIComponent(String(row.id))}?source=welcome`, telegram_url: bot ? `https://t.me/${bot}?start=event_${encodeURIComponent(String(row.id))}` : null })),
       hero_photos: await heroPhotos(db, String(evening?.id || 'welcome')),
       contacts: organizerContactLinks(), vk_group: clubVkGroupUrl(), telegram_group: noviceTelegramGroupFallback(),
     });
@@ -87,7 +93,8 @@ router.get('/welcome', limit, async (req, res) => {
 router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   try {
     const db = req.db || await getDb();
-    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${NOVICE_EVENING_SQL} ORDER BY datetime(starts_at) ASC LIMIT 1`);
+    const wanted = String(req.query.evening || '').slice(0, 80);
+    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${NOVICE_EVENING_SQL}${wanted ? ' AND id = ?' : ''} ORDER BY datetime(starts_at) ASC LIMIT 1`, wanted ? [wanted] : []);
     res.set('Cache-Control', 'no-store');
     if (!evening) return res.json({ evening_id: null, games: [], going: 0, updated_at: new Date().toISOString() });
     const plan = await loadEveningSlotPlan(db, String(evening.id));
@@ -100,6 +107,15 @@ router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHe
   } catch { return res.status(500).json({ error: 'Не удалось загрузить места' }); }
 });
 
+/** The club's rating for the site (owner, 2026-11-12: nicknames of everyone with a game are shown): place, nickname, Elo and games, nothing else. */
+router.get('/welcome/rating', rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
+  try {
+    const rows = await loadClubLeaderboardRows(req.db || await getDb());
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.json({ players: rows.map((row: any, index: number) => ({ place: index + 1, nickname: String(row.nickname || 'Игрок').slice(0, 30), elo: Math.round(Number(row.elo || 1000)), games: Number(row.games || 0) })) });
+  } catch { return res.status(500).json({ error: 'Не удалось загрузить рейтинг' }); }
+});
+
 router.post('/welcome/visit', limit, async (req, res) => {
   try { await recordWelcomeVisit(req.db || await getDb(), { visitorId: req.body?.visitor_id, source: req.body?.source }); return res.json({ ok: true }); }
   catch { return res.json({ ok: false }); }
@@ -110,7 +126,7 @@ router.post('/welcome/lead', leadLimit, async (req, res) => {
   // A hidden field only a script fills in: the answer looks like success so a bot learns nothing.
   if (String(req.body?.website || '').trim()) return res.json({ ok: true });
   try {
-    const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, referredBy: req.body?.referred_by });
+    const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, eveningId: req.body?.evening_id, referredBy: req.body?.referred_by });
     if (lead.created) await notifyOrganizerAboutLead(req.db || await getDb(), lead.playerId, 'self').catch((error) => console.warn('[LEAD] Organizer notification failed:', error instanceof Error ? error.message : String(error)));
     return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created });
   } catch (error: any) {

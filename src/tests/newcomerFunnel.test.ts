@@ -189,3 +189,39 @@ describe('the welcome page on the club site (owner, 2026-11-11)', () => {
     expect(plain.headers.location).toBe('https://fainta7x.github.io/2la-noire-site/#join');
   });
 });
+
+describe('choosing a Friday on the site (owner, 2026-11-12)', () => {
+  let db: DatabaseWrapper;
+  beforeEach(async () => { db = createDatabaseConnection(':memory:'); await createApp(db); });
+  afterEach(() => { try { db.sqlite.close(); } catch {} });
+  const evening = (id: string, hours: number, status = 'published') => {
+    const stamp = new Date().toISOString();
+    return db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,venue,format,status,capacity,default_price,created_at,updated_at) VALUES (?,?,?,'Europe/Moscow','Суп с Котом','NOVICE',?,20,200,?,?)`,
+      [id, id, new Date(Date.now() + hours * 3600_000).toISOString(), status, stamp, stamp]);
+  };
+
+  it('lists the open novice evenings, takes the chosen one with the lead and names it in the organizer message; a bad id is ignored', async () => {
+    await evening('fri1', 24); await evening('fri2', 24 * 8); await evening('old', 48, 'completed');
+    const { default: request } = await import('supertest');
+    const app = await createApp(db);
+    const page = await request(app).get('/api/public/welcome');
+    expect(page.body.evenings.map((row: any) => row.id)).toEqual(['fri1', 'fri2']);
+    const seats = await request(app).get('/api/public/welcome/seats?evening=fri2');
+    expect(seats.body.evening_id).toBe('fri2');
+    expect((await request(app).get('/api/public/welcome/seats?evening=old')).body.evening_id).toBeNull();
+
+    const ok = await request(app).post('/api/public/welcome/lead').send({ name: 'Иван', contact_kind: 'telegram', contact_value: '@ivan_pick', evening_id: 'fri2' });
+    expect(ok.status).toBe(201);
+    const stored = await db.get<any>('SELECT evening_id FROM newcomer_leads');
+    expect(stored.evening_id).toBe('fri2');
+    const bad = await request(app).post('/api/public/welcome/lead').send({ name: 'Пётр', contact_kind: 'telegram', contact_value: '@petr_pick', evening_id: 'old' });
+    expect(bad.status).toBe(201);
+    expect((await db.get<any>("SELECT evening_id FROM newcomer_leads WHERE contact_value = '@petr_pick'")).evening_id).toBeNull();
+    // the same person picks another Friday later: the choice is updated, not duplicated
+    expect((await createWelcomeLead(db, { name: 'Иван', contactKind: 'telegram', contactValue: '@ivan_pick', eveningId: 'fri1' })).created).toBe(false);
+    expect((await db.get<any>("SELECT evening_id FROM newcomer_leads WHERE contact_value = '@ivan_pick'")).evening_id).toBe('fri1');
+    const agenda = await loadAgenda(db);
+    const text = JSON.stringify(agenda);
+    expect(text).toContain('Иван');
+  });
+});

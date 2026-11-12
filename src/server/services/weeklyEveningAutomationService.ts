@@ -9,6 +9,7 @@ import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEvenin
 import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishingSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
+import { updateEveningSlotSettings } from './eveningSlotWritesService.ts';
 import { ensureEveningCloseoutTask } from './eveningCloseoutService.ts';
 import { needsEveningStartConfirmation } from './eveningStartConfirmationStore.ts';
 import { assignDefaultEveningStaff } from './eveningStaffService.ts';
@@ -80,7 +81,7 @@ const titleForFriday = (date: Date) => `Игровой вечер — ${date.get
 
 const findEveningForCivilDate = (db: DatabaseWrapper, key: string) => db.get<any>(
   `SELECT * FROM game_evenings
-    WHERE substr(starts_at, 1, 10) = ?
+    WHERE substr(starts_at, 1, 10) = ? AND UPPER(COALESCE(format, '')) <> 'NOVICE'
     ORDER BY CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END, created_at ASC
     LIMIT 1`,
   [key],
@@ -150,7 +151,40 @@ async function createPublishedFridayEvening(db: DatabaseWrapper, date: Date) {
   return { evening: await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]), created: true };
 }
 
-export async function ensureRollingFridayCalendar(db: DatabaseWrapper, now: Date = new Date()) {
+
+/** How many upcoming Fridays get their novice evening ahead of time: what the club's site offers for sign-up (owner, 2026-11-12). */
+const NOVICE_FRIDAYS_AHEAD = 3;
+
+/**
+ * Every Friday has a novice evening: rules at 18:30, two games 19:00–21:00, then the club evening at 21:00 (owner, 2026-11-12: «каждую пятницу как
+ * есть сейчас, с 18:30 до 21:00»). One that is already there (made by hand, in any state, even cancelled) is left alone. The weekly announcement
+ * then treats it like any open evening; «пауза публикаций» stops it.
+ */
+async function ensureNoviceFridayEvening(db: DatabaseWrapper, date: Date) {
+  const key = dateKey(date);
+  const present = await db.get<any>(
+    `SELECT id FROM game_evenings WHERE substr(starts_at, 1, 10) = ? AND UPPER(COALESCE(format, '')) = 'NOVICE' LIMIT 1`, [key]);
+  if (present) return null;
+  const prices = await loadPriceSettings(db);
+  const template = await db.get<any>(`SELECT venue, capacity FROM game_evenings WHERE status != 'cancelled' ORDER BY starts_at DESC LIMIT 1`);
+  const id = randomUUID();
+  const stamp = new Date().toISOString();
+  const startsAt = `${key}T19:00:00+03:00`;
+  await db.run(
+    `INSERT INTO game_evenings (id, title, starts_at, ends_at, timezone, venue, format, status, capacity, default_price, notes, created_at, updated_at)
+     VALUES (?, 'Вечер для новичков', ?, ?, 'Europe/Moscow', ?, 'NOVICE', 'published', ?, ?, NULL, ?, ?)`,
+    [id, startsAt, `${key}T21:00:00+03:00`, template?.venue || 'Суп с Котом', Number(template?.capacity || 20), prices.novice_game, stamp, stamp],
+  );
+  await db.run('DELETE FROM telegram_sync_outbox WHERE sync_key = ?', [`evening:${id}`]);
+  await updateEveningSlotSettings(db, id, { planned_slots: 2, slot_duration_minutes: 60, price_per_game: prices.novice_game, starts_at: startsAt });
+  await assignDefaultEveningStaff(db, id);
+  await ensureEveningCloseoutTask(db, id);
+  return id;
+}
+
+export async function ensureRollingFridayCalendar(db: DatabaseWrapper, now: Date = new Date(), options: { noviceFridays?: boolean } = {}) {
+  // Test databases run this with the real clock; the novice Fridays are for the club's own data unless a test asks for them.
+  const noviceFridays = options.noviceFridays ?? process.env.NODE_ENV !== 'test';
   await ensureTelegramPublishingSchema(db);
   const start = civilDate(now);
   const created: string[] = [];
@@ -160,7 +194,9 @@ export async function ensureRollingFridayCalendar(db: DatabaseWrapper, now: Date
     const date = addCivilDays(start, offset);
     if (date.getUTCDay() !== 5) continue;
     const result = await createPublishedFridayEvening(db, date);
+    // A cancelled Friday stays cancelled: no novice evening is made for it either.
     if (!result.evening) continue;
+    if (noviceFridays && offset < NOVICE_FRIDAYS_AHEAD * 7 + 1) await ensureNoviceFridayEvening(db, date).catch((error) => console.warn('[NOVICE FRIDAY] not created:', error instanceof Error ? error.message : error));
     const eveningId = String(result.evening.id);
     await ensureEveningCloseoutTask(db, eveningId);
     (result.created ? created : existing).push(eveningId);

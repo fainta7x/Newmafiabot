@@ -21,7 +21,7 @@ import {
   Crown,
   Wallet,
   Settings2,
-  Sprout, ShoppingBag, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion } from 'lucide-react';
+  Sprout, ShoppingBag, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion, Globe } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
@@ -42,6 +42,7 @@ import AchievementsCRM from './AchievementsCRM.tsx';
 import VipCRM from './VipCRM.tsx';
 import TokensCRM from './TokensCRM.tsx';
 import ShopCRM from './ShopCRM.tsx';
+import SiteCRM from './SiteCRM.tsx';
 import { EveningPriceSettingsCard } from './EveningPriceSettingsCard.tsx';
 
 interface MoreCRMProps {
@@ -61,7 +62,7 @@ type Subscreen = OrganizerMoreScreen | null;
 type MenuItem = { id: string; label: string; detail: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void; };
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
-  data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', tokens: 'Жетоны', shop: 'Магазин', prices: 'Стоимость вечеров', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
+  data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', tokens: 'Жетоны', shop: 'Магазин', site: 'Сайт клуба', prices: 'Стоимость вечеров', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
   system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок',
 };
 
@@ -87,7 +88,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const [localSubscreen, setLocalSubscreen] = useState<Subscreen>(null);
   const subscreen = activeScreen === undefined ? localSubscreen : activeScreen;
   // The category stays open while one of its screens is open and closed again, so Back lands in the same list.
-  const SCREEN_CATEGORY: Record<string, string> = { tasks: 'run', game: 'run', music: 'run', analytics: 'run', development: 'people', access: 'people', learning: 'people', gifts: 'people', achievements: 'game', vip: 'game', tokens: 'game', shop: 'game', betting: 'game', telegram: 'messages', whatsnew: 'messages', botfaq: 'messages', commerce: 'money', prices: 'money', data: 'system', project: 'system', system: 'system', developer: 'system' };
+  const SCREEN_CATEGORY: Record<string, string> = { tasks: 'run', game: 'run', music: 'run', analytics: 'run', development: 'people', access: 'people', learning: 'people', gifts: 'people', achievements: 'game', vip: 'game', tokens: 'game', shop: 'game', betting: 'game', telegram: 'messages', whatsnew: 'messages', botfaq: 'messages', site: 'messages', commerce: 'money', prices: 'money', data: 'system', project: 'system', system: 'system', developer: 'system' };
   const [category, setCategory] = useState<string | null>(() => (activeScreen && SCREEN_CATEGORY[activeScreen]) || null);
   const chooseCategory = (id: string | null) => setCategory(id);
   const setSubscreen = (screen: Subscreen) => { if (activeScreen === undefined) setLocalSubscreen(screen); onScreenChange?.(screen); };
@@ -103,6 +104,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'vip' ? <VipCRM /> : null}
       {subscreen === 'tokens' ? <TokensCRM /> : null}
       {subscreen === 'shop' ? <ShopCRM /> : null}
+      {subscreen === 'site' ? <SiteCRM /> : null}
       {subscreen === 'prices' ? <div className="mx-auto w-full max-w-2xl"><EveningPriceSettingsCard /></div> : null}
       {subscreen === 'betting' ? <BettingAdminCRM /> : null}
       {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
@@ -147,6 +149,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const publicationItems: MenuItem[] = [
     { id: 'telegram', label: 'Публикации и каналы', detail: 'Объявления, сводки и каналы клуба', icon: Send, onClick: () => setSubscreen('telegram') },
     { id: 'whatsnew', label: 'Что нового', detail: 'Записи на главной странице игроков', icon: Sparkles, onClick: () => setSubscreen('whatsnew') },
+    { id: 'site', label: 'Сайт клуба', detail: 'Тексты и ссылки сайта, фото', icon: Globe, onClick: () => setSubscreen('site') },
     { id: 'botfaq', label: 'Ответы бота', detail: 'Вопросы игроков и тексты ответов в Telegram', icon: MessageCircleQuestion, onClick: () => setSubscreen('botfaq') },
   ];
   const moneyItems: MenuItem[] = [

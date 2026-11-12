@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { oncePerDatabase } from '../../db/oncePerDatabase.ts';
 import { PLAYER_VISITS_SQL } from './playerVisitsService.ts';
@@ -22,7 +23,19 @@ const ensure = oncePerDatabase(async (db: DatabaseWrapper) => {
     player_id TEXT PRIMARY KEY, contact_kind TEXT NOT NULL, contact_value TEXT NOT NULL, source TEXT, referred_by TEXT,
     created_at TEXT NOT NULL, first_contact_at TEXT)`);
   await db.run('CREATE INDEX IF NOT EXISTS idx_newcomer_leads_contact ON newcomer_leads(contact_kind, contact_value)');
+  // The evening the person picked on the site (owner, 2026-11-12: «выбираешь день, время, оставляешь контакты»).
+  const columns = await db.all<{ name: string }>('PRAGMA table_info(newcomer_leads)');
+  if (!columns.some((column) => column.name === 'evening_id')) await db.run('ALTER TABLE newcomer_leads ADD COLUMN evening_id TEXT');
 });
+
+/** The id of an open novice evening, or null: a stale or made-up id from the page is ignored, never an error for the guest. */
+async function openNoviceEveningId(db: DatabaseWrapper, value: unknown): Promise<string | null> {
+  const id = clean(value, 80);
+  if (!id) return null;
+  const row = await db.get<{ id: string }>(
+    `SELECT id FROM game_evenings WHERE id = ? AND UPPER(COALESCE(format, '')) = 'NOVICE' AND ${openEveningSql()} AND datetime(starts_at) >= datetime('now', '-3 hours')`, [id]).catch(() => null);
+  return row ? String(row.id) : null;
+}
 
 const clean = (value: unknown, max: number) => Array.from(String(value ?? '')).map((character) => (character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127 || character === '<' || character === '>' ? ' ' : character)).join('').replace(/\s+/g, ' ').trim().slice(0, max);
 const sourceOf = (value: unknown): LeadSource | null => (LEAD_SOURCES as readonly string[]).includes(String(value)) ? String(value) as LeadSource : null;
@@ -67,13 +80,17 @@ export function normalizeLeadContact(kindRaw: unknown, valueRaw: unknown): { kin
  * The contact-only path of the welcome page. The same contact never creates a second lead. The new player starts as a novice
  * (game_level novice, club stage NEW) like everyone who comes in, and appears in the organizer's «Дела» with a ready message.
  */
-export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unknown; contactKind: unknown; contactValue: unknown; source?: unknown; referredBy?: unknown }, now = new Date()) {
+export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unknown; contactKind: unknown; contactValue: unknown; source?: unknown; referredBy?: unknown; eveningId?: unknown }, now = new Date()) {
   await ensure(db);
   const name = clean(input.name, 40);
   if (name.length < 2) throw new LeadError('Напишите, как к вам обращаться');
   const contact = normalizeLeadContact(input.contactKind, input.contactValue);
   const existing = await db.get<{ player_id: string }>('SELECT player_id FROM newcomer_leads WHERE contact_kind = ? AND contact_value = ?', [contact.kind, contact.value]);
-  if (existing) return { playerId: String(existing.player_id), created: false };
+  const eveningId = await openNoviceEveningId(db, input.eveningId);
+  if (existing) {
+    if (eveningId) await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, existing.player_id]);
+    return { playerId: String(existing.player_id), created: false };
+  }
 
   const taken = new Set((await db.all<{ nickname: string }>('SELECT nickname FROM players WHERE lower(nickname) LIKE lower(?)', [`${name}%`])).map((row) => String(row.nickname).toLowerCase()));
   let nickname = name;
@@ -88,8 +105,8 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
        VALUES (?, ?, 'newcomer', 'welcome_page', 'novice', 'NEW', 1000, 0, ?, ?, ?, ?, ?)`,
       [playerId, nickname, referredBy, contact.kind === 'phone' ? contact.value : null, contact.kind === 'telegram' ? contact.value : null, stamp, stamp],
     );
-    await tx.run('INSERT INTO newcomer_leads (player_id, contact_kind, contact_value, source, referred_by, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [playerId, contact.kind, contact.value, source, referredBy, stamp]);
+    await tx.run('INSERT INTO newcomer_leads (player_id, contact_kind, contact_value, source, referred_by, created_at, evening_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [playerId, contact.kind, contact.value, source, referredBy, stamp, eveningId]);
     await tx.run('INSERT OR IGNORE INTO newcomer_funnel_events (id, visitor_id, step, source, day, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [randomUUID(), `lead-${playerId}`, 'contact_left', source, dayOf(now), stamp]);
   });

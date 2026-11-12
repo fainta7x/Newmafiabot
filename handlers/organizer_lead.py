@@ -14,12 +14,10 @@ router = Router()
 _CONTACT = re.compile(r"(@\w{4,}|(?:https?://)?(?:vk\.com|vk\.ru|t\.me|telegram\.me)/\S+|\+?\d[\d\s\-()]{8,}\d)", re.IGNORECASE)
 
 HELP = (
-    "➕ <b>Новый лид</b>\n"
-    "Пришлите имя и контакт одной строкой:\n"
+    "<b>Новый лид</b>\n"
+    "Пришлите имя и контакт:\n"
     "<code>/lead Иван @ivan_tg</code>\n"
-    "<code>/lead Анна vk.com/anna_k</code>\n"
-    "<code>/lead Пётр +7 900 123-45-67</code>\n\n"
-    "Лид сразу появится в «Делах», а я пришлю текст, который останется только отправить."
+    "Подойдёт ник Telegram, ссылка на ВК или телефон."
 )
 
 
@@ -53,17 +51,17 @@ async def new_lead(message: Message, command: CommandObject) -> None:
         return
     data = result["data"]
     lines = [
-        f"✅ Добавил: <b>{escape(str(data.get('nickname') or name))}</b> · {escape(str(data.get('contact') or contact))}" if data.get("created")
-        else f"ℹ️ Этот контакт уже есть: <b>{escape(str(data.get('nickname') or name))}</b>",
+        f"Добавил: <b>{escape(str(data.get('nickname') or name))}</b> · {escape(str(data.get('contact') or contact))}" if data.get("created")
+        else f"Этот контакт уже есть: <b>{escape(str(data.get('nickname') or name))}</b>",
         "",
-        "Вот что можно отправить (скопируйте):",
+        "Текст для ответа:",
         f"<code>{escape(str(data.get('message') or ''))}</code>",
         "",
-        f"Если человек захочет сам, вот ссылка для него: {escape(str(data.get('welcome_url') or ''))}",
-        "Ответили — нажмите «Написал» у лида в «Делах».",
+        f"Ссылка для самостоятельной записи: {escape(str(data.get('welcome_url') or ''))}",
+        "Ответили — нажмите «Написал» в «Делах».",
     ]
     contact_value = str(data.get("contact") or "")
     url = (f"https://t.me/{contact_value.lstrip('@')}" if data.get("contact_kind") == "telegram"
            else contact_value if data.get("contact_kind") == "vk" else None)
-    markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💬 Открыть чат", url=url)]]) if url else None
+    markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Открыть чат", url=url)]]) if url else None
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=markup, disable_web_page_preview=True)

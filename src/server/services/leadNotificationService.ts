@@ -16,14 +16,14 @@ export async function notifyOrganizerAboutLead(db: DatabaseWrapper, playerId: st
   const how = lead.contact_kind === 'telegram' ? 'Telegram' : lead.contact_kind === 'vk' ? 'ВКонтакте' : 'телефон';
   const message = await leadReadyMessage(db, lead.nickname);
   const text = [
-    `🆕 <b>Новый лид: ${escapeTelegramHtml(lead.nickname)}</b>`,
+    `<b>Новый лид: ${escapeTelegramHtml(lead.nickname)}</b>`,
     `${how}: ${escapeTelegramHtml(lead.contact_value)}`,
     `Откуда: ${escapeTelegramHtml(LEAD_SOURCE_LABELS[lead.source || 'unknown'] || LEAD_SOURCE_LABELS.unknown)}${lead.referred_by ? ` · пригласил: ${escapeTelegramHtml(lead.referred_by)}` : ''}`,
     '',
-    'Готовый текст, осталось скопировать и отправить:',
+    'Текст для ответа:',
     `<code>${escapeTelegramHtml(message)}</code>`,
     '',
-    'Он уже в «Делах». Ответили — нажмите там «Написал».',
+    'Ответили — нажмите «Написал» в «Делах».',
   ].join('\n');
   const chatUrl = lead.contact_kind === 'telegram' ? `https://t.me/${lead.contact_value.replace(/^@/, '')}` : lead.contact_kind === 'vk' ? lead.contact_value : null;
   return enqueueOrganizerNotification(db, {

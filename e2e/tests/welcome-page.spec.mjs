@@ -17,7 +17,7 @@ for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900],
     await browser.screenshot({ path: info.outputPath(`welcome-${width}.png`), fullPage: true });
     await browser.getByLabel(/Как вас зовут/).fill('Иван');
     await browser.getByLabel(/Ваш ник в Telegram/).fill('@ivan_tg');
-    await browser.getByRole('button', { name: 'Хочу на вечер' }).click();
+    await browser.getByRole('button', { name: 'Отправить' }).click();
     await expect(browser.getByTestId('welcome-done')).toBeVisible();
     expect(await browser.evaluate(auditScreen)).toEqual([]);
     await browser.screenshot({ path: info.outputPath(`welcome-done-${width}.png`), fullPage: true });

@@ -131,7 +131,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
             </button>
             {peopleOpen ? (
               <div className="mt-1 space-y-1.5">
-                {item.contact_reason ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Написали человеку — нажмите «Написал»: он уйдёт из этого пункта{item.contact_quiet_days ? ` на ${item.contact_quiet_days} дн.` : ' на время'} и вернётся, если ничего не изменится.</p> : null}
+                {item.contact_reason === 'lead' ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Ответили человеку — нажмите «Написал».</p> : item.contact_reason ? <p data-testid="agenda-contact-hint" className="px-1 text-[11px] leading-4 text-text-muted">Написали человеку — нажмите «Написал»: он уйдёт из этого пункта{item.contact_quiet_days ? ` на ${item.contact_quiet_days} дн.` : ' на время'} и вернётся, если ничего не изменится.</p> : null}
                 {item.people.map((person) => (
                   <div key={`${item.id}:${person.player_id}`} data-testid="agenda-person" className="rounded-[11px] bg-surface-1 px-2.5 py-2">
                     <button type="button" onClick={() => onOpenPlayer(person.player_id)} className="block w-full min-w-0 text-left">

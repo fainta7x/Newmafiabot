@@ -22,7 +22,7 @@ describe('welcome page for newcomers', () => {
     expect(screen.getByText('200 ₽ за игру')).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/Как вас зовут/), { target: { value: 'Иван' } });
     fireEvent.change(screen.getByLabelText(/Ваш ник в Telegram/), { target: { value: '@ivan_tg' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Хочу на вечер' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
     expect(await screen.findByTestId('welcome-done')).toBeTruthy();
     const lead = calls.find(([url]) => url === '/api/public/welcome/lead');
     expect(lead?.[1]).toMatchObject({ name: 'Иван', contact_kind: 'telegram', contact_value: '@ivan_tg', website: '' });
@@ -32,7 +32,7 @@ describe('welcome page for newcomers', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => url === '/api/public/welcome' ? new Response(JSON.stringify({ ...page, evening: null })) : url === '/api/public/welcome/lead' ? new Response(JSON.stringify({ error: 'Укажите ник в Telegram' }), { status: 400 }) : new Response('{}')));
     render(<WelcomePage />);
     await screen.findByText(/пока не объявлена/);
-    const button = screen.getByRole('button', { name: 'Хочу на вечер' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Отправить' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText(/Как вас зовут/), { target: { value: 'Иван' } });
     fireEvent.change(screen.getByLabelText(/Ваш ник в Telegram/), { target: { value: 'x' } });

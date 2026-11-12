@@ -21,7 +21,7 @@ import {
   Crown,
   Wallet,
   Settings2,
-  Sprout, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion } from 'lucide-react';
+  Sprout, ShoppingBag, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
@@ -41,6 +41,7 @@ import GiftCollectionCRM from './GiftCollectionCRM.tsx';
 import AchievementsCRM from './AchievementsCRM.tsx';
 import VipCRM from './VipCRM.tsx';
 import TokensCRM from './TokensCRM.tsx';
+import ShopCRM from './ShopCRM.tsx';
 import { EveningPriceSettingsCard } from './EveningPriceSettingsCard.tsx';
 
 interface MoreCRMProps {
@@ -60,7 +61,7 @@ type Subscreen = OrganizerMoreScreen | null;
 type MenuItem = { id: string; label: string; detail: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void; };
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
-  data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', tokens: 'Жетоны', prices: 'Стоимость вечеров', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
+  data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', tokens: 'Жетоны', shop: 'Магазин', prices: 'Стоимость вечеров', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
   system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок',
 };
 
@@ -86,7 +87,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const [localSubscreen, setLocalSubscreen] = useState<Subscreen>(null);
   const subscreen = activeScreen === undefined ? localSubscreen : activeScreen;
   // The category stays open while one of its screens is open and closed again, so Back lands in the same list.
-  const SCREEN_CATEGORY: Record<string, string> = { tasks: 'run', game: 'run', music: 'run', analytics: 'run', development: 'people', access: 'people', learning: 'people', gifts: 'people', achievements: 'game', vip: 'game', tokens: 'game', betting: 'game', telegram: 'messages', whatsnew: 'messages', botfaq: 'messages', commerce: 'money', prices: 'money', data: 'system', project: 'system', system: 'system', developer: 'system' };
+  const SCREEN_CATEGORY: Record<string, string> = { tasks: 'run', game: 'run', music: 'run', analytics: 'run', development: 'people', access: 'people', learning: 'people', gifts: 'people', achievements: 'game', vip: 'game', tokens: 'game', shop: 'game', betting: 'game', telegram: 'messages', whatsnew: 'messages', botfaq: 'messages', commerce: 'money', prices: 'money', data: 'system', project: 'system', system: 'system', developer: 'system' };
   const [category, setCategory] = useState<string | null>(() => (activeScreen && SCREEN_CATEGORY[activeScreen]) || null);
   const chooseCategory = (id: string | null) => setCategory(id);
   const setSubscreen = (screen: Subscreen) => { if (activeScreen === undefined) setLocalSubscreen(screen); onScreenChange?.(screen); };
@@ -101,6 +102,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'achievements' ? <AchievementsCRM /> : null}
       {subscreen === 'vip' ? <VipCRM /> : null}
       {subscreen === 'tokens' ? <TokensCRM /> : null}
+      {subscreen === 'shop' ? <ShopCRM /> : null}
       {subscreen === 'prices' ? <div className="mx-auto w-full max-w-2xl"><EveningPriceSettingsCard /></div> : null}
       {subscreen === 'betting' ? <BettingAdminCRM /> : null}
       {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
@@ -139,6 +141,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'achievements', label: 'Достижения', detail: 'Каталог, выдача вручную и награды игроков', icon: Award, onClick: () => setSubscreen('achievements') },
     { id: 'vip', label: 'VIP', detail: 'Подкрутка карт: у кого какие условия', icon: Crown, onClick: () => setSubscreen('vip') },
     { id: 'tokens', label: 'Жетоны', detail: 'Балансы игроков, журнал и ручные операции', icon: Wallet, onClick: () => setSubscreen('tokens') },
+    { id: 'shop', label: 'Магазин', detail: 'Товары за жетоны и кто что купил', icon: ShoppingBag, onClick: () => setSubscreen('shop') },
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
   ];
   const publicationItems: MenuItem[] = [
@@ -151,7 +154,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'prices', label: 'Стоимость вечеров', detail: 'Сколько стоит вечер для игроков', icon: Coins, onClick: () => setSubscreen('prices') },
   ];
   const adminItems: MenuItem[] = [
-    { id: 'data', label: 'Данные и настройки', detail: 'Магазин жетонов, экспертная правка и журнал', icon: Database, onClick: () => setSubscreen('data') },
+    { id: 'data', label: 'Данные и настройки', detail: 'Экспертная правка записей и журнал изменений', icon: Database, onClick: () => setSubscreen('data') },
     { id: 'project', label: 'Проект', detail: 'Что ждёт вас, дорожная карта и все PR', icon: KanbanSquare, onClick: () => setSubscreen('project') },
     { id: 'system', label: 'Состояние системы', detail: 'Сервисы и техническая диагностика', icon: Activity, onClick: () => setSubscreen('system') },
     { id: 'developer', label: '[TEST] Тестовый режим', detail: 'Изолированные тестовые сценарии', icon: FlaskConical, onClick: () => setSubscreen('developer') },
@@ -160,7 +163,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const categories: Array<{ id: string; title: string; detail: string; icon: React.ComponentType<{ className?: string }>; items: MenuItem[] }> = [
     { id: 'run', title: 'Ведение игр', detail: 'Дела, движок, музыка, аналитика', icon: ClipboardList, items: dailyItems },
     { id: 'people', title: 'Игроки', detail: 'Заявки, уровни, обучение, подарки', icon: Users, items: peopleItems },
-    { id: 'game', title: 'Игровая часть', detail: 'Достижения, VIP, жетоны, ставки', icon: Award, items: gameItems },
+    { id: 'game', title: 'Игровая часть', detail: 'Достижения, VIP, жетоны, магазин, ставки', icon: Award, items: gameItems },
     { id: 'messages', title: 'Сообщения', detail: 'Публикации, новости, ответы бота', icon: Send, items: publicationItems },
     { id: 'money', title: 'Деньги', detail: 'Оплата и стоимость вечеров', icon: Coins, items: moneyItems },
     { id: 'system', title: 'Система', detail: 'Данные, проект, состояние, тесты', icon: Settings2, items: adminItems },

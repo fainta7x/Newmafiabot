@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getJson } from '../../lib/requestJson.ts';
+import OrderPaymentChoice, { type OrderPayment } from './OrderPaymentChoice.tsx';
 
 type Order = { id: string; game_id: number; role: string; status: string };
 type FutureGame = { id: number; number: number };
@@ -25,6 +26,7 @@ export default function PlayerGameRolePurchase({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [transferred, setTransferred] = useState(false);
+  const [payment, setPayment] = useState<OrderPayment>('rubles');
 
   useEffect(() => {
     let active = true;
@@ -54,7 +56,7 @@ export default function PlayerGameRolePurchase({
       const response = await fetch('/api/player/role-purchases', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, role }),
+        body: JSON.stringify({ gameId, role, payment }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body?.accepted) throw new Error(body?.error || 'Не удалось оформить покупку');
@@ -116,7 +118,8 @@ export default function PlayerGameRolePurchase({
       <span className="text-xs font-semibold text-white">Купить роль для этой игры</span>
       <span className="text-xs text-white/70">150 ₽</span>
     </div>
-    <p className="mt-1 text-[11px] text-white/45">Покупка прибавится к долгу за вечер. Другие игроки её не увидят.</p>
+    <p className="mt-1 text-[11px] text-white/45">Рубли прибавятся к долгу за вечер, жетоны спишутся сразу. Другие игроки покупку не увидят.</p>
+    <OrderPaymentChoice kind="role" rubles={150} value={payment} onChange={setPayment} />
     <div className="mt-2 flex flex-wrap gap-2">
       <select aria-label="Роль для покупки" value={role} onChange={(event) => setRole(event.target.value)}
         disabled={busy} className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-[#202126] px-3 text-xs text-white">

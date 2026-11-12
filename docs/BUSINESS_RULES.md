@@ -1261,6 +1261,27 @@ Replaces the earlier «3 days after the evening is closed» (and the 24-hour run
 
 VK gives the app no right to upload wall photos. A VK wall post goes out as text by itself; its picture (club photo, MVP card, birthday card, «Мы собрались» photo) is kept in «Фото для постов ВК» on the CRM home screen, and the organizer attaches it to the post by hand and ticks it off. The text of a VK post is the same as in Telegram except where Telegram uses buttons (then VK names the app).
 
+## Club evening price by «как ходит» (owner, 2026-11-11)
+
+Applies to club (CASUAL) evenings only; novice, rating and tournament evenings keep their own prices.
+
+- «Ходит постоянно»: 100 ₽ за игру, не больше 400 ₽ за вечер (as before).
+- «Ходит иногда» and «Другой город»: 100 ₽ за игру, не больше 500 ₽ за вечер.
+- «Перестал ходить»: 200 ₽ за игру, не больше 800 ₽ за вечер.
+- The three new numbers (максимум для «иногда», цена за игру и максимум для «перестал») are edited in «Стоимость вечеров» next to the other prices and apply at once to every evening that is not closed.
+- The player's tariff is the status at the moment the amount is counted while the evening is open; it is written on the participant and stays when the evening is closed. A later change of «как ходит» never reprices a closed evening; evenings closed before this rule keep the regular price.
+- The player sees his own price, cap and a hint on the evening page of his cabinet (the slot plan for a player carries `personal_price`): which status he has, what the other statuses pay, and for a non-regular player «Приходите чаще — цена станет ниже». The public join page shows the same price and hint once the visitor is identified (VK ID / Telegram); an unidentified visitor sees the base price. The bot's personal invitation to a club evening carries the recipient's own price; group posts, being public, show the base price.
+- Coming back (owner, 2026-11-11): one visit moves «Перестал ходить» to «Ходит иногда»; «Ходит постоянно» needs 3 visits in 30 days (so a returning player is never regular at once).
+- Guests without a profile are not priced by status at all (owner, 2026-11-11: they have two gift evenings anyway); this price applies to players with a profile only.
+
+## Token shop (owner, 2026-11-11)
+
+- The shop has its own CRM section «Магазин» (Ещё → Игровая часть): products and a list of purchases (who bought what, waiting or handed over). It left «Данные и настройки», which is now only expert editing and the change log.
+- Everything in the shop must really work (owner, 2026-11-11: «он должен полностью работать»). Four kinds of product: «Бесплатный вечер» (the player spends it when paying an evening; the evening fee stays waived when the amounts are counted again), «Выдаётся вручную» (the organizer hands it over and ticks «Выдано»), and the token prices of a role and of a song bought in «Покупки перед игрой».
+- **Role and song before a game: rubles or tokens, the player chooses.** Rubles (role 150 ₽, song 50 ₽) are added to the evening debt as before. Tokens are debited at once at the shop price (`buy_role` 10 000, `order_music` 5 000 — edited in «Магазин»), the order is recorded as a purchase of the shop, and its ruble amount is not added to the debt. When the organizer cancels the order (or the evening is closed with the order unplayed or the role not dealt) the tokens return. Seat swap is paid in rubles only (no token price). If the organizer switches the product off, the token choice disappears.
+- A product with a type that delivers nothing is neither shown to players nor sold.
+- The price is in tokens, a whole number.
+- The player's «Жетоны» screen and the shop link to each other: «Жетоны игрока» on a purchase, «Покупки игрока в магазине» in the token ledger.
 ## Newcomer funnel and the welcome page (owner, 2026-11-11)
 
 - Newcomers do not register through the app by themselves, so there is a public page `/welcome` for them: what the game is (the novice promo text), the nearest novice evening (date, place, price, briefing time) and two quick ways in. **Way 1:** leave a name and a contact (Telegram, VK or phone) without any login — the page creates a lead. **Way 2:** sign in through Telegram or VK and take a seat at once (the existing sign-up). After leaving a contact the page says what happens next.

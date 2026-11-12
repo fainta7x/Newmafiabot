@@ -409,3 +409,62 @@ describe('paid reservation priority over private VIP settings',()=>{
     expect(await due(db,'buyer-1')).toBe(150);
   });
 });
+
+describe('paying a role or a song with tokens (owner, 2026-11-11)', () => {
+  const tokens = async (db: DatabaseWrapper, id: string) => Number((await db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id=?', [id]))?.tokens);
+  const fund = (db: DatabaseWrapper, id: string, amount: number) => db.run('UPDATE players SET tokens=? WHERE id=?', [amount, id]);
+
+  it('a role paid with tokens debits them, adds nothing to the debt and is refunded on cancellation', async () => {
+    const db = await setup();
+    await fund(db, 'buyer-0', 12000);
+    const order = await reserveRoleBeforeDeal(db, 817, 'buyer-0', 'sheriff', 'tokens');
+    expect(order.paidWithTokens).toBe(10000);
+    expect(await tokens(db, 'buyer-0')).toBe(2000);
+    expect(await due(db, 'buyer-0')).toBe(0);
+    await cancelPreGameRolePurchase(db, order.id);
+    expect(await tokens(db, 'buyer-0')).toBe(12000);
+    expect(await due(db, 'buyer-0')).toBe(0);
+    await cancelPreGameRolePurchase(db, order.id);
+    expect(await tokens(db, 'buyer-0')).toBe(12000);
+  });
+
+  it('a token-paid role stays covered after the card is dealt (no debt appears from the deal history)', async () => {
+    const db = await setup();
+    await fund(db, 'buyer-2', 10000);
+    await reserveRoleBeforeDeal(db, 817, 'buyer-2', 'sheriff', 'tokens');
+    const opened = await openVirtualRoleDeal(db, 817);
+    const reveal = await revealVirtualRole(db, 817, 3, opened.cards[0].id, opened.version);
+    await confirmVirtualRole(db, 817, 3, opened.cards[0].id, reveal.version);
+    expect(await due(db, 'buyer-2')).toBe(0);
+    expect(await tokens(db, 'buyer-2')).toBe(0);
+  });
+
+  it('a song paid with tokens costs 5000 tokens and no rubles; rubles stay the default', async () => {
+    const db = await setup();
+    await fund(db, 'buyer-0', 6000);
+    const paid = await orderGameMusic(db, 817, 'buyer-0', 'https://music.yandex.ru/album/1/track/2', false, 'tokens');
+    expect(paid.paidWithTokens).toBe(5000);
+    expect(await tokens(db, 'buyer-0')).toBe(1000);
+    expect(await due(db, 'buyer-0')).toBe(0);
+    await orderGameMusic(db, 817, 'buyer-1', 'https://music.yandex.ru/album/1/track/3');
+    expect(await due(db, 'buyer-1')).toBe(50);
+    await cancelGameMusicOrder(db, paid.id);
+    expect(await tokens(db, 'buyer-0')).toBe(6000);
+  });
+
+  it('refuses when there are not enough tokens and writes nothing', async () => {
+    const db = await setup();
+    await fund(db, 'buyer-0', 100);
+    await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'sheriff', 'tokens')).rejects.toMatchObject({ statusCode: 409 });
+    expect(await tokens(db, 'buyer-0')).toBe(100);
+    expect(await due(db, 'buyer-0')).toBe(0);
+    expect(Number((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM game_role_reservations'))?.n)).toBe(0);
+  });
+
+  it('is refused while the organizer has token payment switched off', async () => {
+    const db = await setup();
+    await fund(db, 'buyer-0', 12000);
+    await db.run("UPDATE shop_items SET active=0 WHERE id='buy_role'");
+    await expect(reserveRoleBeforeDeal(db, 817, 'buyer-0', 'sheriff', 'tokens')).rejects.toMatchObject({ statusCode: 409 });
+  });
+});

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { loadGameOrderTokenPrices } from '../services/gameTokenPaymentService.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { getDb } from '../../db/index.ts';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
@@ -68,6 +69,19 @@ playerRouter.get('/role-purchase-games', async (req, res) => {
   } catch (error: any) { return onError(res, error); }
 });
 
+/** Token prices of a role and a song and the player's balance, for the choice «рубли или жетоны». */
+playerRouter.get('/game-order-token-prices', async (req, res) => {
+  const playerId = getPlayerSessionId(req);
+  if (!playerId) return res.status(401).json({ error: 'Требуется вход в личный кабинет' });
+  try {
+    const db = req.db || await getDb();
+    const tokenPrices = await loadGameOrderTokenPrices(db);
+    const balance = Number((await db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id = ?', [playerId]))?.tokens || 0);
+    res.set('Cache-Control', 'private, no-store');
+    return res.json({ tokenPrices, balance });
+  } catch (error: any) { return onError(res, error); }
+});
+
 /** Unified shop choices for music (all club-evening formats), role and seat swap.
  * Contains only published seating, never role assignments or purchase data.
  */
@@ -104,7 +118,10 @@ playerRouter.get('/game-purchase-options', async (req, res) => {
       }
     }
     res.set('Cache-Control','private, no-store');
-    return res.json({ games });
+    // Token prices of a role and a song (from the shop) and the player's balance, for «рубли или жетоны».
+    const tokenPrices = await loadGameOrderTokenPrices(db);
+    const balance = Number((await db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id = ?', [playerId]))?.tokens || 0);
+    return res.json({ games, tokenPrices, balance });
   } catch (error: any) { return onError(res,error); }
 });
 
@@ -117,9 +134,9 @@ playerRouter.post('/role-purchases', async (req, res) => {
   if (!Number.isInteger(gameId) || gameId <= 0 || !role) return res.status(400).json({ error: 'Выберите игру и роль' });
   try {
     const db = req.db || await getDb();
-    const order = await reserveRoleBeforeDeal(db, gameId, playerId, role);
+    const order = await reserveRoleBeforeDeal(db, gameId, playerId, role, req.body?.payment === 'tokens' ? 'tokens' : 'rubles');
     res.set('Cache-Control', 'no-store');
-    return res.status(201).json({ orderId: order.id, accepted: true, priceRub: order.priceRub });
+    return res.status(201).json({ orderId: order.id, accepted: true, priceRub: order.priceRub, ...(order.paidWithTokens ? { paidWithTokens: order.paidWithTokens } : {}) });
   } catch (error: any) { return onError(res, error); }
 });
 
@@ -256,9 +273,9 @@ playerRouter.post('/music-orders', async (req, res) => {
   if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Укажите игру' });
   try {
     const db = req.db || await getDb();
-    const result = await orderGameMusic(db, gameId, playerId, req.body?.track);
+    const result = await orderGameMusic(db, gameId, playerId, req.body?.track, false, req.body?.payment === 'tokens' ? 'tokens' : 'rubles');
     res.set('Cache-Control', 'private, no-store');
-    return res.status(201).json({ orderId: result.id, priceRub: result.priceRub });
+    return res.status(201).json({ orderId: result.id, priceRub: result.priceRub, ...(result.paidWithTokens ? { paidWithTokens: result.paidWithTokens } : {}) });
   } catch (error: any) { return onError(res, error); }
 });
 

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { OPEN_EVENING_STATUSES } from '../../lib/eveningStatus.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getGame } from './gameService.ts';
+import { payGameOrderWithTokens, refundGameOrderTokens } from './gameTokenPaymentService.ts';
 import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 
 export const GAME_MUSIC_PRICE_RUB = 50;
@@ -53,7 +54,8 @@ async function reconcile(db: DatabaseWrapper, eveningId: string) {
 export async function orderGameMusic(
   db: DatabaseWrapper, gameId: number, playerId: string, track: unknown,
   fromJudge = false,
-): Promise<{ id: string; priceRub: number }> {
+  payment: 'rubles' | 'tokens' = 'rubles',
+): Promise<{ id: string; priceRub: number; paidWithTokens?: number }> {
   await ensureGameMusicOrderSchema(db);
   const reference = normalizeTrack(track, fromJudge);
   return db.transaction(async (tx) => {
@@ -72,8 +74,10 @@ export async function orderGameMusic(
         VALUES (?,?,?,?,?,'ordered',50,?,?)`,
       [id, gameId, game.eventId, playerId, reference, now, now],
     );
+    // Paid in tokens: the 50 ₽ of this order is covered and not added to the evening debt.
+    const paid = payment === 'tokens' ? await payGameOrderWithTokens(tx, { kind: 'music', orderId: id, playerId, eveningId: game.eventId, rubEquivalent: GAME_MUSIC_PRICE_RUB }) : null;
     await reconcile(tx, game.eventId);
-    return { id, priceRub: GAME_MUSIC_PRICE_RUB };
+    return { id, priceRub: GAME_MUSIC_PRICE_RUB, ...(paid ? { paidWithTokens: paid.tokens } : {}) };
   });
 }
 
@@ -102,6 +106,7 @@ export async function cancelGameMusicOrder(db: DatabaseWrapper, orderId: string)
     if (order.status === 'cancelled') return { cancelled: true };
     await tx.run("UPDATE game_music_orders SET status='cancelled',updated_at=? WHERE id=?",
       [new Date().toISOString(), orderId]);
+    await refundGameOrderTokens(tx, orderId);
     await reconcile(tx, order.evening_id);
     return { cancelled: true };
   });
@@ -110,10 +115,12 @@ export async function cancelGameMusicOrder(db: DatabaseWrapper, orderId: string)
 export async function cancelOutstandingGameMusicOrders(db: DatabaseWrapper, eveningId: string) {
   await ensureGameMusicOrderSchema(db);
   return db.transaction(async (tx) => {
+    const outstanding = await tx.all<{ id: string }>("SELECT id FROM game_music_orders WHERE evening_id=? AND status='ordered'", [eveningId]);
     const result = await tx.run(
       "UPDATE game_music_orders SET status='cancelled',updated_at=? WHERE evening_id=? AND status='ordered'",
       [new Date().toISOString(), eveningId],
     );
+    for (const order of outstanding) await refundGameOrderTokens(tx, String(order.id));
     if (result.changes) await reconcile(tx, eveningId);
     return Number(result.changes);
   });

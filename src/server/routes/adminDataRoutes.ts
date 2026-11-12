@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
 import { mutateTokenBalance } from '../services/tokenLedgerService.ts';
+import { isSellableShopType, listShopPurchases, loadShopOverview, markShopPurchaseIssued, normalizeShopItemType } from '../services/shopCatalogService.ts';
 import { evaluatePlayerAchievements, loadAchievementDefinitions } from '../services/playerAchievementsService.ts';
 
 const router = Router();
@@ -175,11 +176,13 @@ router.patch('/shop-items/:id', async (req, res) => {
       description: String(req.body?.description ?? before.description).trim().slice(0, 600),
       price: Math.trunc(Number(req.body?.price ?? before.price)),
       icon: String(req.body?.icon ?? before.icon).trim().slice(0, 24) || '🛍️',
-      item_type: String(req.body?.item_type ?? before.item_type).trim().slice(0, 60) || 'custom',
+      item_type: normalizeShopItemType(req.body?.item_type ?? before.item_type).slice(0, 60) || 'manual',
       active: req.body?.active === undefined ? Number(before.active || 0) : req.body.active ? 1 : 0,
       sort_order: Math.trunc(Number(req.body?.sort_order ?? before.sort_order)),
     };
     if (!next.name || !next.description) return res.status(400).json({ error: 'Название и описание обязательны' });
+    // A product whose purchase delivers nothing cannot be on sale; a type that is unchanged and not sellable may only stay switched off.
+    if (!isSellableShopType(next.item_type) && (next.active || next.item_type !== normalizeShopItemType(before.item_type))) return res.status(400).json({ error: 'Такой товар ничего не выдаёт: выберите «Бесплатный вечер» или «Выдаётся вручную»' });
     if (!Number.isSafeInteger(next.price) || next.price < 0) return res.status(400).json({ error: 'Цена должна быть целым неотрицательным числом' });
     const now = new Date().toISOString();
     await db.run(
@@ -194,6 +197,18 @@ router.patch('/shop-items/:id', async (req, res) => {
   }
 });
 
+router.get('/shop', async (req, res) => {
+  try { return res.json(await loadShopOverview(req.db)); } catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось загрузить магазин' }); }
+});
+router.get('/shop/purchases', async (req, res) => {
+  try { return res.json({ purchases: await listShopPurchases(req.db, { status: String(req.query.status || ''), playerId: String(req.query.player_id || '') || undefined }) }); }
+  catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось загрузить покупки' }); }
+});
+router.post('/shop/purchases/:id/issued', async (req, res) => {
+  try { await markShopPurchaseIssued(req.db, String(req.params.id)); return res.json({ success: true }); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось отметить выдачу' }); }
+});
+
 router.post('/shop-items', async (req, res) => {
   try {
     const db = req.db;
@@ -202,7 +217,8 @@ router.post('/shop-items', async (req, res) => {
     const description = String(req.body?.description || '').trim().slice(0, 600);
     const price = Math.trunc(Number(req.body?.price || 0));
     const icon = String(req.body?.icon || '🛍️').trim().slice(0, 24) || '🛍️';
-    const itemType = String(req.body?.item_type || 'custom').trim().slice(0, 60) || 'custom';
+    const itemType = normalizeShopItemType(req.body?.item_type || 'manual').slice(0, 60) || 'manual';
+    if (!isSellableShopType(itemType)) return res.status(400).json({ error: 'Выберите, что получает игрок: «Бесплатный вечер» или «Выдаётся вручную»' });
     const sortOrder = Math.trunc(Number(req.body?.sort_order || 100));
     if (!id || !name || !description) return res.status(400).json({ error: 'ID, название и описание обязательны' });
     if (!Number.isSafeInteger(price) || price < 0) return res.status(400).json({ error: 'Некорректная цена' });

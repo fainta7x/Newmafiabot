@@ -14,7 +14,7 @@ export interface ClubGameRoleAssignment {
 export const isLiveBettingEnabled = () => process.env.LIVE_BETTING_ENABLED !== 'false';
 
 const canonicalPlayerAppUrl = () => (
-  String(process.env.PLAYER_APP_URL || process.env.WEBHOOK_URL || 'https://2la-noire-chagina7x.waw0.amvera.tech')
+  String(process.env.PLAYER_APP_URL || process.env.WEBHOOK_URL || 'https://app.2lamafia.ru')
     .replace(/\/webhook\/?$/, '')
     .replace(/\/$/, '')
 );

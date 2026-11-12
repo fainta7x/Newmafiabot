@@ -54,17 +54,18 @@ export async function withAgendaMessages(db: DatabaseWrapper, items: AgendaItem[
     const reason = item.contact_reason;
     const key = reason ? KEY_OF[reason] : null;
     if (!reason || !key || !item.people?.length) { out.push(item); continue; }
-    const template = cache.get(key) ?? await loadPostTemplate(db, key);
-    cache.set(key, template);
     const evening = NOVICE_REASONS.has(reason) ? evenings.novice : evenings.club;
     const pickedByPerson = reason === 'lead' ? await pickedEvenings(db, item.people.map((person) => String(person.player_id))) : new Map<string, EveningRow>();
-    out.push({ ...item, people: item.people.map((person) => {
+    out.push({ ...item, people: await Promise.all(item.people.map(async (person) => {
       const own = pickedByPerson.get(String(person.player_id)) || evening;
-      const link = reason === 'profile' ? `${base}/player` : own ? `${base}/e/${encodeURIComponent(eveningShortCode(own.id))}` : reason === 'lead' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : `${base}/player`;
+      const personKey: AgendaMessageKey = reason === 'lead' && pickedByPerson.has(String(person.player_id)) ? 'msg_lead_booked' : key;
+      const template = cache.get(personKey) ?? await loadPostTemplate(db, personKey);
+      cache.set(personKey, template);
+      const link = reason === 'profile' ? `${base}/player` : reason === 'lead' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : own ? `${base}/e/${encodeURIComponent(eveningShortCode(own.id))}` : `${base}/player`;
       return { ...person, message: renderPostTemplate(template, {
         'имя': person.nickname, 'когда': own ? whenLabel(own.starts_at) : 'скоро объявим дату', 'место': String(own?.venue || 'уточним в приглашении'), 'ссылка': link,
       }) };
-    }) });
+    })) });
   }
   return out;
 }
@@ -74,8 +75,8 @@ export async function leadReadyMessage(db: DatabaseWrapper, nickname: string, ev
   const base = getPublicAppBaseUrl().replace(/\/+$/, '');
   const picked = eveningId ? await db.get<{ id: string; starts_at: string; venue: string | null }>('SELECT id, starts_at, venue FROM game_evenings WHERE id = ?', [eveningId]).catch(() => null) : null;
   const evening = picked || await nearestEvening(db, true);
-  return renderPostTemplate(await loadPostTemplate(db, 'msg_lead'), {
+  return renderPostTemplate(await loadPostTemplate(db, picked ? 'msg_lead_booked' : 'msg_lead'), {
     'имя': nickname, 'когда': evening ? whenLabel(evening.starts_at) : 'скоро объявим дату', 'место': String(evening?.venue || 'уточним в приглашении'),
-    'ссылка': evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : (welcomeSiteLink('friend') ?? `${base}/welcome`),
+    'ссылка': welcomeSiteLink('friend') ?? (evening ? `${base}/e/${encodeURIComponent(eveningShortCode(evening.id))}` : `${base}/welcome`),
   });
 }

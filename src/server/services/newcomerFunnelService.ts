@@ -65,6 +65,27 @@ async function bookLeadSeats(db: DatabaseWrapper, playerId: string, eveningId: s
   }
 }
 
+/**
+ * «Удалить лид» (owner, 2026-11-12: «не могу удалить лид»): a mistaken or test lead is removed with its seat. Only a lead that has never played or
+ * been marked as arrived can go; the person is archived, not erased, so nothing else in the club's history changes.
+ */
+export async function removeLead(db: DatabaseWrapper, playerIdRaw: unknown) {
+  await ensure(db);
+  const playerId = String(playerIdRaw || '').trim();
+  const lead = playerId ? await db.get<{ player_id: string; evening_id: string | null }>('SELECT player_id, evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]) : null;
+  if (!lead) throw new LeadError('Такого лида нет', 404);
+  const played = await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM evening_participants WHERE player_id = ? AND (COALESCE(attendance_status, 'pending') <> 'pending' OR COALESCE(amount_paid, 0) > 0)", [playerId]);
+  if (Number(played?.n || 0) > 0) throw new LeadError('Этот человек уже был на вечере или платил, удалить его заявку нельзя', 409);
+  if (lead.evening_id) await replacePlayerSlotSelection(db, String(lead.evening_id), playerId, [], { notifyOrganizer: false, source: 'lead_removed' }).catch(() => null);
+  const stamp = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    await tx.run("DELETE FROM evening_participants WHERE player_id = ? AND COALESCE(attendance_status, 'pending') = 'pending' AND COALESCE(amount_paid, 0) = 0", [playerId]);
+    await tx.run('DELETE FROM newcomer_leads WHERE player_id = ?', [playerId]);
+    await tx.run("UPDATE players SET lifecycle_status = 'archived', contact_status = 'blocked', updated_at = ? WHERE id = ?", [stamp, playerId]);
+  });
+  return { removed: true };
+}
+
 export class LeadError extends Error { constructor(message: string, readonly statusCode = 400) { super(message); } }
 
 /** A page open: one per visitor and day, so a refresh does not inflate the count. */

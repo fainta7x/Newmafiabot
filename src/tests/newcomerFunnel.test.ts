@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { createWelcomeLead, loadNewcomerFunnel, normalizeLeadContact, recordWelcomeVisit } from '../server/services/newcomerFunnelService.ts';
+import { removeLead, createWelcomeLead, loadNewcomerFunnel, normalizeLeadContact, recordWelcomeVisit } from '../server/services/newcomerFunnelService.ts';
 import { loadAgenda, recordAgendaContact } from '../server/services/organizerAgendaService.ts';
 
 describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11-11)', () => {
@@ -63,7 +63,8 @@ describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11
     expect(person).toMatchObject({ nickname: 'Мария', telegram_url: 'https://t.me/maria_tg' });
     expect(person?.message).toContain('Привет, Мария!');
     expect(person?.message).toContain('Суп с Котом');
-    expect(person?.message).toMatch(/\/e\/nov/);
+    // the lead is sent to the club site (the sign-up), not to the app
+    expect(person?.message).toContain('https://2lamafia.ru/?src=friend#join');
     await recordAgendaContact(db, { playerId: lead.playerId, reason: 'lead' });
     expect((await loadAgenda(db, now.getTime())).items.find((entry) => entry.id === 'people:lead')).toBeUndefined();
   });
@@ -232,5 +233,30 @@ describe('choosing a Friday on the site (owner, 2026-11-12)', () => {
     const agenda = await loadAgenda(db);
     const text = JSON.stringify(agenda);
     expect(text).toContain('Иван');
+  });
+});
+
+describe('removing a lead and the message for a booked lead (owner, 2026-11-12)', () => {
+  let db: DatabaseWrapper;
+  beforeEach(async () => { db = createDatabaseConnection(':memory:'); await createApp(db); });
+  afterEach(() => { try { db.sqlite.close(); } catch {} });
+
+  it('says «записали» to a lead who picked a Friday, frees the seat on removal and archives the person; a person who played cannot be removed', async () => {
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,venue,format,status,capacity,default_price,created_at,updated_at) VALUES ('fr','Новички',?,'Europe/Moscow','Суп с Котом','NOVICE','published',20,200,?,?)`, [new Date(Date.now() + 48 * 3600_000).toISOString(), stamp, stamp]);
+    const lead = await createWelcomeLead(db, { name: 'Лид Один', contactKind: 'telegram', contactValue: '@lead_one_x', eveningId: 'fr' });
+    expect(lead.booked).toBe(true);
+    const agenda = JSON.stringify(await loadAgenda(db));
+    expect(agenda).toContain('Записали тебя на');
+    expect(agenda).not.toContain('Записать тебя');
+    await removeLead(db, lead.playerId);
+    expect(await db.get<any>('SELECT 1 AS x FROM newcomer_leads WHERE player_id = ?', [lead.playerId])).toBeFalsy();
+    expect(Number((await db.get<any>('SELECT COUNT(*) AS n FROM evening_participants WHERE player_id = ?', [lead.playerId]))?.n)).toBe(0);
+    expect((await db.get<any>('SELECT lifecycle_status FROM players WHERE id = ?', [lead.playerId])).lifecycle_status).toBe('archived');
+    await expect(removeLead(db, lead.playerId)).rejects.toMatchObject({ statusCode: 404 });
+
+    const second = await createWelcomeLead(db, { name: 'Лид Два', contactKind: 'telegram', contactValue: '@lead_two_x', eveningId: 'fr' });
+    await db.run("UPDATE evening_participants SET attendance_status = 'attended' WHERE player_id = ?", [second.playerId]);
+    await expect(removeLead(db, second.playerId)).rejects.toMatchObject({ statusCode: 409 });
   });
 });

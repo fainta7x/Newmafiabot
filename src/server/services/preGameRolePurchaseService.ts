@@ -4,6 +4,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { decideRoleReservation, type RoleReservation } from '../../lib/rolePurchaseReservation.ts';
 import type { GameRole } from '../../shared/gameRoles.ts';
 import { getGame } from './gameService.ts';
+import { payGameOrderWithTokens, refundGameOrderTokens } from './gameTokenPaymentService.ts';
 import { reconcileRegularEveningPayments, reconcileOtherFormatExtensions } from './eveningPaymentPricingService.ts';
 
 export const PRE_GAME_ROLE_PRICE_RUB = 150;
@@ -60,7 +61,8 @@ export async function reserveRoleBeforeDeal(
   gameId: number,
   playerId: string,
   role: GameRole,
-): Promise<{ id: string; status: 'reserved' | 'deferred'; priceRub: number }> {
+  payment: 'rubles' | 'tokens' = 'rubles',
+): Promise<{ id: string; status: 'reserved' | 'deferred'; priceRub: number; paidWithTokens?: number }> {
   await ensurePreGameRolePurchaseSchema(db);
   return db.transaction(async (tx) => {
     const game = await getGame(tx, `club:${gameId}`);
@@ -99,8 +101,10 @@ export async function reserveRoleBeforeDeal(
        VALUES (?,?,?,?,?,?,150,?,?)`,
       [id, gameId, game.eventId, playerId, role, decision.status, now, now],
     );
+    // Paid in tokens: the ruble amount of this order is covered and not added to the evening debt.
+    const paid = payment === 'tokens' ? await payGameOrderWithTokens(tx, { kind: 'role', orderId: id, playerId, eveningId: game.eventId, rubEquivalent: PRE_GAME_ROLE_PRICE_RUB }) : null;
     await syncEvening(tx, game.eventId);
-    return { id, status: decision.status, priceRub: PRE_GAME_ROLE_PRICE_RUB };
+    return { id, status: decision.status, priceRub: PRE_GAME_ROLE_PRICE_RUB, ...(paid ? { paidWithTokens: paid.tokens } : {}) };
   });
 }
 
@@ -141,6 +145,7 @@ export async function cancelPreGameRolePurchase(db: DatabaseWrapper, orderId: st
       "UPDATE game_role_reservations SET status='cancelled', updated_at=? WHERE id=?",
       [new Date().toISOString(), orderId],
     );
+    await refundGameOrderTokens(tx, orderId);
     await syncEvening(tx, row.evening_id);
     return { cancelled: true };
   });
@@ -153,11 +158,13 @@ export async function cancelPreGameRolePurchase(db: DatabaseWrapper, orderId: st
 export async function cancelOutstandingRolePurchasesForEvening(db: DatabaseWrapper, eveningId: string) {
   await ensurePreGameRolePurchaseSchema(db);
   return db.transaction(async (tx) => {
+    const outstanding = await tx.all<{ id: string }>("SELECT id FROM game_role_reservations WHERE evening_id=? AND status IN ('reserved','deferred')", [eveningId]);
     const change = await tx.run(
       `UPDATE game_role_reservations SET status='cancelled', updated_at=?
         WHERE evening_id=? AND status IN ('reserved','deferred')`,
       [new Date().toISOString(), eveningId],
     );
+    for (const order of outstanding) await refundGameOrderTokens(tx, String(order.id));
     if (change.changes) await syncEvening(tx, eveningId);
     return { cancelled: Number(change.changes) };
   });

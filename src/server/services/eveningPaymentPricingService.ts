@@ -4,6 +4,7 @@ import { DEFAULT_EVENING_PRICES, clubPriceTierOf, clubTierPrice, isClubPriceTier
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { tokenCoverageByPlayer } from './gameTokenPaymentService.ts';
 import { calculateExtensionShares } from './eveningExtensionService.ts';
 
 /**
@@ -280,6 +281,11 @@ export async function loadRolePurchases(db: DatabaseWrapper, eveningId: string):
       const id = String(row.player_id);
       totals.set(id, (totals.get(id) || 0) + Number(row.amount || 0));
     }
+  }
+  // What the player paid for these orders in tokens is not a debt (owner, 2026-11-11).
+  for (const [playerId, covered] of await tokenCoverageByPlayer(db, eveningId)) {
+    const owed = totals.get(playerId) || 0;
+    if (owed > 0) totals.set(playerId, Math.max(0, owed - covered));
   }
   return totals;
 }

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId, isTestEnvironmentRequest } from '../auth.ts';
 import { isSettledEvening, isPaymentExpected } from '../services/playerPaymentEligibility.ts';
@@ -253,6 +254,16 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
           WHERE id = ?`,
         [now, participantId],
       );
+      // The evening fee must stay waived when the amounts are counted again (a song or a role bought later, closing the evening):
+      // an explicit waiver is what the club-evening pricing respects. Without it the next recount charged the evening again
+      // although the credit was already spent.
+      if (['CASUAL', 'NOVICE'].includes(normalizeEveningFormat(participant.evening_format))) {
+        await tx.run(
+          `INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at) VALUES (?, ?, 'Бесплатный вечер из магазина', ?, ?)
+           ON CONFLICT(participant_id) DO UPDATE SET reason = excluded.reason, updated_at = excluded.updated_at`,
+          [participantId, String(participant.evening_id), now, now],
+        ).catch(() => null);
+      }
       await tx.run(
         `UPDATE shop_purchases
             SET status = 'redeemed', redeemed_at = ?, notes = ?

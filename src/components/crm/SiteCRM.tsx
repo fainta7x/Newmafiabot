@@ -41,7 +41,7 @@ export function SiteCRM() {
             <p className="mt-0.5 text-[12px] leading-4 text-text-secondary">{block.hint}</p>
           </div>
           {block.multiline
-            ? <textarea value={text} maxLength={2000} rows={block.key === 'faq' ? 12 : 4} onChange={(event) => setDraft({ ...draft, [block.key]: event.target.value })} aria-label={block.label} className="w-full rounded-[12px] border border-border-soft bg-surface-2 p-3 text-[14px] leading-5 text-text-primary" />
+            ? <textarea value={text} maxLength={2000} rows={block.key === 'faq' || block.key === 'benefits' ? 12 : 4} onChange={(event) => setDraft({ ...draft, [block.key]: event.target.value })} aria-label={block.label} className="w-full rounded-[12px] border border-border-soft bg-surface-2 p-3 text-[14px] leading-5 text-text-primary" />
             : <input value={text} maxLength={300} onChange={(event) => setDraft({ ...draft, [block.key]: event.target.value })} aria-label={block.label} className="min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[14px] text-text-primary" />}
           <div className="flex gap-2">
             <button type="button" disabled={busy || !changed || !text.trim()} onClick={() => void run(`/api/site-content/${encodeURIComponent(block.key)}`, { method: 'PUT', body: JSON.stringify({ body: text }) }, 'Сохранили. Сайт обновится сам.')} className="min-h-11 flex-1 rounded-[12px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">Сохранить</button>

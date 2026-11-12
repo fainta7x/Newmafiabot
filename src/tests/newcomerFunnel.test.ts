@@ -106,7 +106,7 @@ describe('«Новый лид» from the bot and the organizer notification (own
     expect(ok.status, JSON.stringify(ok.body)).toBe(201);
     expect(ok.body).toMatchObject({ success: true, created: true, nickname: 'Иван', contact: '@ivan_tg', contact_kind: 'telegram' });
     expect(ok.body.message).toContain('Привет, Иван!');
-    expect(ok.body.welcome_url).toBe('https://fainta7x.github.io/2la-noire-site/?src=friend#join');
+    expect(ok.body.welcome_url).toBe('https://2lamafia.ru/?src=friend#join');
     const again = await request(app).post('/api/bot/leads').set('X-Bot-Token', 'secret').send({ telegram_user_id: 777, name: 'Иван', contact: 't.me/ivan_tg' });
     expect(again.status).toBe(200);
     expect(again.body.created).toBe(false);
@@ -184,9 +184,9 @@ describe('the welcome page on the club site (owner, 2026-11-11)', () => {
     const app = await createApp(db);
     const moved = await request(app).get('/welcome?src=vk&ref=%D0%90%D0%BB%D0%BE%D1%8D');
     expect(moved.status).toBe(302);
-    expect(moved.headers.location).toBe('https://fainta7x.github.io/2la-noire-site/?src=vk&ref=%D0%90%D0%BB%D0%BE%D1%8D#join');
+    expect(moved.headers.location).toBe('https://2lamafia.ru/?src=vk&ref=%D0%90%D0%BB%D0%BE%D1%8D#join');
     const plain = await request(app).get('/welcome');
-    expect(plain.headers.location).toBe('https://fainta7x.github.io/2la-noire-site/#join');
+    expect(plain.headers.location).toBe('https://2lamafia.ru/#join');
   });
 });
 

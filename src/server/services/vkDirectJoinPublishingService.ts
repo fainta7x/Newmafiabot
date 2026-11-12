@@ -1,4 +1,5 @@
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
+import { getWelcomeSiteUrl } from '../runtimeConfig.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
@@ -108,6 +109,12 @@ const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> 
   }
 };
 
+/** The line that sends readers to the club's site from every post (owner, 2026-11-12: the site is the center of everything). */
+export const siteSignatureLine = (): string | null => {
+  const site = getWelcomeSiteUrl();
+  return site ? `🌐 Сайт клуба: ${site.replace(/\/+$/, '')}` : null;
+};
+
 const WEEKDAYS_ON = ['В воскресенье', 'В понедельник', 'Во вторник', 'В среду', 'В четверг', 'В пятницу', 'В субботу'];
 
 /** The club evening post in the owner's words (2026-09-29), with the sign-up link instead of a button. */
@@ -126,10 +133,12 @@ const clubShortVkText = async (db: DatabaseWrapper, evening: EveningRow, prices:
   const venue = String(evening.venue || '').trim();
   const price = announcementPriceLine('CASUAL', prices).replace(/^💳 /, '');
   // The text is the organizer's: «Ещё → Публикации и каналы → Текст постов»; the default is his words of 2026-09-29.
-  return renderPostTemplate(await loadPostTemplate(db, 'vk_club_evening'), {
+  const text = renderPostTemplate(await loadPostTemplate(db, 'vk_club_evening'), {
     'когда': when, 'время': clock, 'место': venue, 'где_и_когда': [venue, clock].filter(Boolean).join(', '),
     'цена': price, 'ссылка': signupUrl, 'название': evening.title,
   });
+  const signature = siteSignatureLine();
+  return signature ? `${text}\n\n${signature}` : text;
 };
 
 /**
@@ -162,6 +171,7 @@ export const buildDirectVkEveningAnnouncement = async (
     '',
     `📝 Записывайтесь и смотрите, кто уже идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
     `👤 Личный кабинет: ${await shortCabinetLink(db, baseUrl)}`,
+    ...(siteSignatureLine() ? [siteSignatureLine() as string] : []),
   );
   if (novice) {
     const chat = await noviceChatInviteUrl(db);

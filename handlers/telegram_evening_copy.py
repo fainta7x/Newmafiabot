@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -48,6 +49,19 @@ def _load_novice_promo() -> dict:
 _NOVICE_PROMO = _load_novice_promo()
 
 
+def _promo_sections_html() -> list[str]:
+    """The titled blocks of the promo («Кому к нам?», «Что ждёт за столом?»…), each as one paragraph."""
+    blocks: list[str] = []
+    for section in _NOVICE_PROMO.get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+        items = [escape(str(item)) for item in section.get("items") or [] if str(item).strip()]
+        title = str(section.get("title") or "").strip()
+        if title or items:
+            blocks.append("\n".join(([f"<b>{escape(title)}</b>"] if title else []) + items))
+    return blocks
+
+
 def novice_promo_html() -> str:
     """The novice evening promo: headline, why the game hooks, and the first-time note."""
     promo = _NOVICE_PROMO
@@ -56,6 +70,7 @@ def novice_promo_html() -> str:
     parts = [f"🎩 <b>{escape(str(promo['title']))}</b>"]
     if promo.get("intro"):
         parts.append(escape(str(promo["intro"])))
+    parts.extend(_promo_sections_html())
     reasons = [escape(str(item)) for item in promo.get("reasons") or [] if str(item).strip()]
     if reasons:
         parts.append("\n".join([f"<b>{escape(str(promo.get('reasonsTitle') or ''))}</b>", *reasons]).strip())
@@ -81,6 +96,7 @@ def novice_about_html() -> str:
     parts = [f"🎩 <b>{escape(str(promo['title']))}</b>"]
     if promo.get("intro"):
         parts.append(escape(str(promo["intro"])))
+    parts.extend(_promo_sections_html())
     reasons = [escape(str(item)) for item in promo.get("reasons") or [] if str(item).strip()]
     if reasons:
         parts.append("\n".join([f"<b>{escape(str(promo.get('reasonsTitle') or ''))}</b>", *reasons]).strip())
@@ -95,6 +111,14 @@ def novice_telegram_group_url(configured: str | None = None) -> str | None:
         if url.startswith("https://t.me/") and not url.startswith("https://t.me/c/"):
             return url
     return None
+
+
+def club_site_url() -> str | None:
+    """The club's site, where every post sends readers (owner, 2026-11-12). `WELCOME_SITE_URL=off` switches the line off."""
+    raw = str(os.environ.get("WELCOME_SITE_URL", "https://2lamafia.ru/") or "").strip()
+    if not raw or raw.lower() == "off" or not raw.startswith("https://"):
+        return None
+    return raw.rstrip("/")
 
 
 def club_links() -> dict[str, str]:
@@ -600,6 +624,9 @@ def novice_invitation_text(
         groups.append(f'<a href="{escape(vk_group)}">VK</a>')
     if groups:
         links.append(f"👥 Группа для новичков: {' · '.join(groups)}")
+    site = club_site_url()
+    if site:
+        links.append(f'🌐 <a href="{escape(site)}">Сайт клуба</a>: запись, группы и контакты')
     sections.append("\n".join(links))
     sections.append(organizer_contacts_html())
     text = "\n\n".join(section for section in sections if section)

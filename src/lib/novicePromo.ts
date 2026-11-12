@@ -5,7 +5,7 @@ import NOVICE_PROMO from '../shared/novicePromo.json';
  * The text lives in `src/shared/novicePromo.json`, shared with the Telegram bot.
  */
 type NovicePromo = {
-  title?: string; intro?: string; reasonsTitle?: string; reasons?: string[];
+  title?: string; intro?: string; reasonsTitle?: string; reasons?: string[]; sections?: Array<{ title?: string; items?: string[] }>;
   headline?: string; firstTimeTitle?: string; firstTimeText?: string;
   contacts?: { telegram?: string; vk?: string }; groups?: { telegram?: string; vk?: string };
 };
@@ -24,9 +24,11 @@ export const noviceHeadlineText = (): string => {
 export const noviceAboutText = (): string => {
   if (!promo.title) return '';
   const reasons = (promo.reasons ?? []).filter((item) => item.trim());
+  const sections = (promo.sections ?? []).map((section) => [String(section.title ?? '').trim(), ...(section.items ?? []).filter((item) => item.trim())].filter(Boolean).join('\n')).filter(Boolean);
   return [
     `🎩 ${promo.title}`,
     promo.intro ?? '',
+    ...sections,
     reasons.length ? [promo.reasonsTitle ?? '', ...reasons].join('\n').trim() : '',
   ].filter(Boolean).join('\n\n');
 };

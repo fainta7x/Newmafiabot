@@ -507,3 +507,9 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 - Poker economy: a real table between people uses the same club-token wallet. Every canonical player gets a one-time 1,000-token starter grant; the buy-in/rebuy is chosen from 200 tokens (10 BB) upward, with 1,000 (50 BB) as the default, and the remaining stack returns on exit. Human-vs-human poker is token-only; training is a private one-human-plus-bots session with free chips and never touches the wallet.
 - Poker invitations: from a live token table a player can see likely-available clubmates (in-app now, then best-effort VK online/last seen) and invite them to that exact lobby in Telegram. Telegram-online itself is not available to the bot. Invite cooldown is 2 minutes per sender→recipient; the deep link highlights the lobby but joining and choosing a buy-in of at least 10 BB stays explicit.
 
+
+## Запись на сайте (решения владельца 2026-11-12)
+- Сайт: запись как в услуге — выбрать пятницу (каждую, 18:30–21:00), оставить имя и контакт. Регистрация не обязательна.
+- Два пути на одном экране: без регистрации (лид без профиля) и с входом через Telegram или VK (запись привязана к профилю, открывается кабинет). Организатор не привязан ни к одному.
+- Гость после записи видит подтверждение; сообщение в Telegram/VK уходит после подтверждения организатором (с профилем — сразу в бот).
+- Вход на сайте работает только на одном домене с приложением (2lamafia.ru и app.2lamafia.ru). Сначала запись без регистрации с выбором пятницы, потом вход.

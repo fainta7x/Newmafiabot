@@ -6,12 +6,13 @@ import { Calendar, Check, ExternalLink, MapPin, Sparkles } from 'lucide-react';
 import { api } from '../../lib/api.ts';
 import VenueAddress from './VenueAddress.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import PriceDependsOnActivity, { type PersonalPrice } from '../player/PriceDependsOnActivity.tsx';
 
 interface PublicJoinViewProps { eveningId: string; }
 
 type SlotPerson = { id: string; nickname: string };
 type GameSlot = { id: string; slot_number: number; starts_at: string; ends_at: string; price: number; target_players: number; registered_count: number; selected: boolean; participants: SlotPerson[] };
-type SlotPlan = { pricing?: EveningPrices; event: { format?: string; max_evening_price?: number | null; price_per_game: number; assembled: boolean; assembled_slots: number; required_slots: number; required_players_per_slot: number }; slots: GameSlot[]; selection: { slot_ids: string[]; games: number; total: number } };
+type SlotPlan = { pricing?: EveningPrices; personal_price?: PersonalPrice | null; event: { format?: string; max_evening_price?: number | null; price_per_game: number; assembled: boolean; assembled_slots: number; required_slots: number; required_players_per_slot: number }; slots: GameSlot[]; selection: { slot_ids: string[]; games: number; total: number } };
 
 const request = async (url: string, options?: RequestInit) => {
   const response = await fetch(url, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) }, ...options });
@@ -167,7 +168,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
     <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><div className="space-y-2">
       <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><Calendar className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Дата и начало</div><div className="mt-0.5 text-sm font-medium capitalize">{formattedDate}, {formattedTime}</div></div></div>
       <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><MapPin className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Место</div><VenueAddress venue={evening.venue} className="mt-0.5 block text-sm font-medium" /></div></div>
-    </div><div className="mt-3 flex items-center justify-between rounded-2xl bg-black/20 px-3 py-3 text-sm"><span className="text-white/40">Стоимость</span><strong>{price ? `${formatRubles(price)} / игра` : 'Без оплаты'}</strong></div></section>
+    </div><div className="mt-3 flex items-center justify-between rounded-2xl bg-black/20 px-3 py-3 text-sm"><span className="text-white/40">Стоимость</span><strong>{price ? `${formatRubles(price)} / игра` : 'Без оплаты'}</strong></div>{slotPlan?.personal_price ? <PriceDependsOnActivity price={slotPlan.personal_price} /> : null}</section>
 
     {params.get('vk_linked') === '1' ? <div className="rounded-2xl border border-emerald-300/10 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-5 text-emerald-100/80">VK успешно связан с игровым профилем.</div> : null}
     {oauthError && !linkPending ? <div className="rounded-2xl border border-rose-300/10 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">VK: {oauthError}</div> : null}

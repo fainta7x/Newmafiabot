@@ -335,7 +335,7 @@ Open work, in order:
 
 6. **Owner direction 2026-11-10 (CRM structure, not built):** everything about one kind of entity is managed in its own CRM section («Достижения», «Жетоны», «VIP», …), not inside the player card; the card keeps the player's own data and links into the sections. Scheme being agreed with the owner (see AUDIT_LOG PL08).
 
-7. **Owner request 2026-11-10: «как ходит» from real visits** — built (`playerActivityAutoService.ts`, «Считать само»); automatic by default for everybody (the first daily run recomputes all statuses); a manual choice makes a player manual until «Считать само». **Idea, not built:** price of an evening depends on activity (regular cheaper, rare more expensive) — to agree first.
+7. **Owner request 2026-11-10: «как ходит» from real visits** — built (`playerActivityAutoService.ts`, «Считать само»); automatic by default for everybody (the first daily run recomputes all statuses); a manual choice makes a player manual until «Считать само». **Price of a club evening by activity** — built 2026-11-11 (`docs/BUSINESS_RULES.md` → Club evening price by «как ходит»); the player sees his own price and a hint in the cabinet, on the public join page (when identified) and in the bot's personal invitation; group posts and unidentified visitors see the base price.
 
 New product work is started only after the owner's «да» (AGENTS §4).
 
@@ -352,7 +352,6 @@ Needs an answer or content from the owner before anything is built:
 - Content the owner promised (art, compendium text, teaching material).
 - Rating-evening vote goes only to the rating channel — confirmed by the owner 2026-11-10 (no action).
 - The 14-item live check (above).
-- VK wall pictures are attached by hand (owner, 2026-11-11, `docs/BUSINESS_RULES.md` → VK wall photos); open: whether to remove the «Подключить API ВК» button, and which VK posts look wrong compared to Telegram (`docs/AUDIT_LOG.md` VK06 lists two open text differences).
 
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 

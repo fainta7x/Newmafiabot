@@ -22,6 +22,8 @@ export function validateEveningPrices(input: unknown): EveningPrices {
   for (const key of Object.keys(output) as Array<keyof EveningPrices>) {
     const value = (input as Record<string, unknown>)[key];
     if (key === 'novice_cap' && value === null) { output.novice_cap = null; continue; }
+    // Prices saved before the «как ходит» tariffs have no such keys: they keep the defaults instead of resetting everything.
+    if (value === undefined && (key === 'sometimes_cap' || key === 'stopped_game' || key === 'stopped_cap')) continue;
     if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0 || value > 100000) throw Object.assign(new Error('Цена должна быть целым числом от 0 до 100 000 ₽'), { statusCode: 400 });
     output[key] = value;
   }

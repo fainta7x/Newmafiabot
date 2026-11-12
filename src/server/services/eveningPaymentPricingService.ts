@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
-import { DEFAULT_EVENING_PRICES, type EveningPrices } from '../../lib/eveningPrices.ts';
+import { DEFAULT_EVENING_PRICES, clubPriceTierOf, clubTierPrice, isClubPriceTier, type ClubPriceTier, type EveningPrices } from '../../lib/eveningPrices.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
@@ -21,9 +21,18 @@ export const isRegularFeeFreeByStaffRule = (_startsAt: unknown, playerId: string
 export const REGULAR_GAME_PRICE = DEFAULT_EVENING_PRICES.casual_game;
 export const REGULAR_EVENING_MAX_PRICE = DEFAULT_EVENING_PRICES.casual_cap;
 
-export const calculateRegularEveningPlayedAmount = (gamesPlayed: number, policy: EveningPrices = DEFAULT_EVENING_PRICES): number => {
+export const calculateRegularEveningPlayedAmount = (gamesPlayed: number, policy: EveningPrices = DEFAULT_EVENING_PRICES, tier: ClubPriceTier = 'regular'): number => {
   const count = Math.max(0, Math.floor(Number(gamesPlayed || 0)));
-  return Math.min(count * policy.casual_game, policy.casual_cap);
+  const { game, cap } = clubTierPrice(policy, tier);
+  return Math.min(count * game, cap);
+};
+
+export { clubPriceTierOf };
+
+/** The tier is written on the participant while the evening is open and then stays: a closed account is never repriced by a later change of «как ходит». Evenings closed before this rule have no tier and stay at the regular price. */
+const ensurePriceTierColumn = async (db: DatabaseWrapper) => {
+  const columns = await db.all<{ name: string }>('PRAGMA table_info(evening_participants)');
+  if (!columns.some((column) => column.name === 'price_tier')) await db.run('ALTER TABLE evening_participants ADD COLUMN price_tier TEXT');
 };
 
 const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
@@ -304,6 +313,20 @@ export async function reconcileRegularEveningPayments(
      WHERE ep.evening_id = ?
   `, [eveningId]);
   const hasExtensionColumn = participants.length > 0 && 'extension_due' in participants[0];
+  await ensurePriceTierColumn(db);
+  const closedNow = evening.status === 'completed' || Boolean(evening.settled_at);
+  // A players table without the access columns (an old or minimal database) simply prices everybody as regular, as before.
+  const playerColumns = new Set((await db.all<{ name: string }>('PRAGMA table_info(players)')).map((column) => column.name));
+  const playerSelect = ['club_role', 'attends_sometimes', 'stopped_attending', 'from_other_city'].map((column) => (playerColumns.has(column) ? `p.${column}` : `NULL AS ${column}`)).join(', ');
+  const playerRows = await db.all<any>(
+    `SELECT p.id, ${playerSelect}, ep.id AS participant_id, ep.price_tier
+       FROM evening_participants ep JOIN players p ON p.id = ep.player_id WHERE ep.evening_id = ?`, [eveningId]);
+  const tierByParticipant = new Map<string, ClubPriceTier>();
+  for (const row of playerRows) {
+    const stored = isClubPriceTier(row.price_tier) ? row.price_tier : null;
+    const known = playerColumns.has('club_role');
+    tierByParticipant.set(String(row.participant_id), stored ?? (closedNow || !known ? 'regular' : clubPriceTierOf(row)));
+  }
 
   const hasStaffAssignments = await tableExists(db, 'evening_staff_assignments');
   const staffAssignment = hasStaffAssignments
@@ -352,8 +375,9 @@ export async function reconcileRegularEveningPayments(
       const gamesPlayed = playedCounts.get(participantId) || 0;
       const extensionDue = !feeExempt ? (extensionShares.get(participantId) || 0) : 0;
       // A bought role is a purchase, not a fee: it is charged even to a player who plays free.
-      const canonicalDue = (feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed, policy) + extensionDue) + (rolePurchases.get(playerId) || 0);
+      const canonicalDue = (feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed, policy, tierByParticipant.get(participantId) ?? 'regular') + extensionDue) + (rolePurchases.get(playerId) || 0);
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
+      if (!closed && tierByParticipant.has(participantId)) await tx.run('UPDATE evening_participants SET price_tier = ? WHERE id = ? AND COALESCE(price_tier, \'\') <> ?', [tierByParticipant.get(participantId), participantId, tierByParticipant.get(participantId)]);
 
       if (closed) {
         await reconcileClosedLedger(tx, {

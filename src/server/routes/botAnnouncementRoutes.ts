@@ -10,6 +10,9 @@ import {
 import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
 import { announcementCoverUrl } from '../services/announcementPhotoService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
+import { loadEveningPrices } from '../services/eveningPriceSettingsService.ts';
+import { clubPriceTierOf, clubTierPrice } from '../../lib/eveningPrices.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -148,7 +151,20 @@ router.get('/evenings/:eveningId/announcement-recipients', async (req, res) => {
     if (!result) return res.status(404).json({ error: 'Вечер не найден' });
     const evening: any = result.evening;
     const coverUrl = await announcementCoverUrl(db, getPublicAppBaseUrl(), String(evening.id), evening.format);
-    res.json({ ...result, evening: { ...evening, cover_url: coverUrl } });
+    // A club evening shows each recipient his own price by «как ходит» (owner, 2026-11-11).
+    let recipients: any[] = (result as any).recipients || [];
+    if (normalizeEveningFormat(evening.format) === 'CASUAL' && recipients.length) {
+      const policy = await loadEveningPrices(db, String(evening.id));
+      const people = await db.all<any>(`SELECT id, club_role, attends_sometimes, stopped_attending, from_other_city FROM players WHERE id IN (${recipients.map(() => '?').join(',')})`, recipients.map((row) => String(row.id))).catch(() => []);
+      const byId = new Map(people.map((row: any) => [String(row.id), row]));
+      recipients = recipients.map((row) => {
+        const person = byId.get(String(row.id));
+        if (!person) return row;
+        const price = clubTierPrice(policy, clubPriceTierOf(person));
+        return { ...row, price_per_game: price.game, max_price: price.cap };
+      });
+    }
+    res.json({ ...result, recipients, evening: { ...evening, cover_url: coverUrl } });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось сформировать список адресатов' });
   }

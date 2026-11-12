@@ -79,7 +79,10 @@ async def _send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
         if not player_id or not telegram_user_id:
             continue
         try:
-            message = await bot.send_message(int(telegram_user_id), invitation_text, parse_mode="HTML", reply_markup=response_keyboard, link_preview_options=invitation_cover)
+            # Each recipient reads his own price of a club evening («как ходит»): the server adds price_per_game and max_price.
+            personal = {k: recipient[k] for k in ("price_per_game", "max_price") if recipient.get(k) is not None}
+            text = private_event_text({**evening, **personal}) if personal else invitation_text
+            message = await bot.send_message(int(telegram_user_id), text, parse_mode="HTML", reply_markup=response_keyboard, link_preview_options=invitation_cover)
         except Exception as exc:
             failed += 1
             failed_players.append(nickname)

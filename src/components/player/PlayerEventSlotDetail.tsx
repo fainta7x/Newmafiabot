@@ -12,6 +12,7 @@ import VenueAddress from '../public/VenueAddress.tsx';
 import PlayerEveningWorkspace from './PlayerEveningWorkspace.tsx';
 import { getJson } from '../../lib/requestJson.ts';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import PriceDependsOnActivity, { type PersonalPrice } from './PriceDependsOnActivity.tsx';
 import { DEFAULT_EVENING_PRICES, eveningSelectionPrice, type EveningPrices } from '../../lib/eveningPrices.ts';
 
 type EventItem = {
@@ -38,6 +39,7 @@ type Slot = {
 type Plan = {
   event: EventItem & { assembled: boolean; assembled_slots: number; max_evening_price?: number | null; price_per_game?: number; required_slots?: number; required_players_per_slot?: number };
   pricing?: EveningPrices;
+  personal_price?: PersonalPrice | null;
   first_application_required?: boolean;
   slots: Slot[];
   selection: { slot_ids: string[]; games: number; total: number };
@@ -265,6 +267,7 @@ export default function PlayerEventSlotDetail({
                 </div>
                 <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}{requiredSlots ? `/${requiredSlots}` : ''}</div><div className="text-[11px] text-white/25">игр</div></div>
               </div>
+              {plan.personal_price && <PriceDependsOnActivity price={plan.personal_price} />}
             </section>
 
             <section className="sticky top-16 z-20 mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">

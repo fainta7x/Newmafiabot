@@ -523,3 +523,4 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 - Leads and funnel: `src/server/services/newcomerFunnelService.ts`; organizer funnel `GET /api/novice/funnel` (`noviceRoutes.ts`), card in `src/components/crm/NoviceDevelopmentCRM.tsx`.
 - Ready messages in «Дела»: `src/server/services/agendaMessageService.ts`, texts in `postTemplateService.ts` (keys `msg_*`), shown by `src/components/crm/OrganizerAgenda.tsx`.
 - Quick lead from the bot: `handlers/organizer_lead.py` (`/lead`), `bot_api.add_lead`, API `POST /api/bot/leads` (`botRoutes.ts`); organizer message about a self-registered lead: `src/server/services/leadNotificationService.ts`.
+- Club site (separate repository `fainta7x/2la-noire-site`, GitHub Pages): `index.html`, `join.js` (live block, form), `join.css`. App side: CORS and redirect in `src/server/routes/welcomeRoutes.ts` / `src/app.ts`, settings in `src/server/runtimeConfig.ts`.

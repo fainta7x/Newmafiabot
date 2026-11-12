@@ -15,7 +15,7 @@ import database as db
 from commands import setup_bot_commands
 from database import init_db
 from handlers import achievements
-from handlers import admin_crm
+from handlers import admin_crm, organizer_lead
 from handlers import legacy_retired_actions
 from handlers import crm_booking
 from handlers import organizer_quick_actions
@@ -220,6 +220,7 @@ def setup_handlers():
         # Intercept stale Telegram keyboards/callbacks before every legacy business
         # router, including the old judge-management router backed by mafia_crm.db.
         legacy_retired_actions.router,
+        organizer_lead.router,
         admin_crm.router,
         telegram_admin_tools.router,
         github_pr_router,

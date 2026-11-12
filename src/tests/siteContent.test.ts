@@ -48,3 +48,29 @@ describe('public pages of the site read from the app', () => {
     expect(JSON.stringify(rating.body)).not.toMatch(/player_id|avatar|"id"/);
   });
 });
+
+describe('novice evening on every Friday (owner, 2026-11-12)', () => {
+  it('makes the next three novice Fridays once, keeps a hand-made or cancelled one, and leaves the club evening alone', async () => {
+    const { ensureRollingFridayCalendar } = await import('../server/services/weeklyEveningAutomationService.ts');
+    const { createApp } = await import('../app.ts');
+    await createApp(db);
+    const now = new Date('2026-11-12T09:00:00Z'); // Thursday
+    const first = await ensureRollingFridayCalendar(db, now, { noviceFridays: true });
+    expect(first.created.length).toBeGreaterThan(0);
+    const novice = await db.all<any>("SELECT starts_at, ends_at, status, venue FROM game_evenings WHERE format = 'NOVICE' ORDER BY starts_at");
+    expect(novice.map((row) => row.starts_at.slice(0, 16))).toEqual(['2026-11-13T19:00', '2026-11-20T19:00', '2026-11-27T19:00']);
+    expect(novice.every((row) => row.status === 'published' && row.ends_at.includes('T18:00'))).toBe(true);
+    const club = await db.all<any>("SELECT starts_at FROM game_evenings WHERE format = 'CASUAL' AND starts_at LIKE '2026-11-13%'");
+    expect(club.map((row) => row.starts_at.slice(11, 16))).toEqual(['21:00']);
+    // second run: nothing new
+    await ensureRollingFridayCalendar(db, now, { noviceFridays: true });
+    expect(Number((await db.get<any>("SELECT COUNT(*) AS n FROM game_evenings WHERE format = 'NOVICE'"))?.n)).toBe(3);
+    // a cancelled novice Friday is not replaced
+    await db.run("UPDATE game_evenings SET status = 'cancelled' WHERE format = 'NOVICE' AND starts_at LIKE '2026-11-20%'");
+    await ensureRollingFridayCalendar(db, now, { noviceFridays: true });
+    expect(Number((await db.get<any>("SELECT COUNT(*) AS n FROM game_evenings WHERE format = 'NOVICE' AND starts_at LIKE '2026-11-20%'"))?.n)).toBe(1);
+    // the slots exist: two games from 19:00
+    const evening = await db.get<any>("SELECT id FROM game_evenings WHERE format = 'NOVICE' AND starts_at LIKE '2026-11-13%'");
+    expect(Number((await db.get<any>('SELECT COUNT(*) AS n FROM evening_game_slots WHERE evening_id = ?', [evening.id]))?.n)).toBe(2);
+  });
+});

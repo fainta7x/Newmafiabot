@@ -13,6 +13,7 @@ import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
 import { createHash } from 'node:crypto';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
+import { loadSiteTexts } from '../services/siteContentService.ts';
 
 /**
  * The text of the page is the owner's current recruitment post «Школа спортивной мафии | Тула» (2026-11-11), cut into parts the page folds.
@@ -70,6 +71,7 @@ router.get('/welcome', limit, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     return res.json({
       content: WELCOME_CONTENT,
+      site: await loadSiteTexts(db).catch(() => ({})),
       evening: evening ? {
         id: String(evening.id), title: String(evening.title || 'Вечер для новичков'), starts_at: evening.starts_at,
         venue: venueDetails(evening.venue), schedule: noviceScheduleLine(evening.starts_at),

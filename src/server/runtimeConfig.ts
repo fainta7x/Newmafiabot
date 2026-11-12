@@ -24,10 +24,12 @@ export const getWelcomeSiteUrl = (): string | null => {
   if (!raw || raw.toLowerCase() === 'off') return null;
   try { const url = new URL(raw); return url.protocol === 'https:' || url.hostname === 'localhost' ? `${url.origin}${url.pathname.replace(/\/*$/, '/')}` : null; } catch { return null; }
 };
+/** The club's own domain (bought 2026-11-12); the site answers from it as soon as the DNS points there. */
+const CLUB_SITE_ORIGINS = ['https://2lamafia.ru', 'https://www.2lamafia.ru'];
 export const getWelcomeSiteOrigins = (): string[] => {
   const extra = String(process.env.WELCOME_SITE_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean);
   const site = getWelcomeSiteUrl();
-  return [...new Set([...(site ? [new URL(site).origin] : []), ...extra])];
+  return [...new Set([...(site ? [new URL(site).origin] : []), ...CLUB_SITE_ORIGINS, ...extra])];
 };
 /** Link to the sign-up on the site, with where the person came from. */
 export const welcomeSiteLink = (source?: string | null): string | null => {

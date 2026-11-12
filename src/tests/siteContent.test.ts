@@ -96,3 +96,29 @@ describe('«who is signed in» for the club site', () => {
     expect(other.headers['access-control-allow-credentials']).toBeUndefined();
   });
 });
+
+describe('the day and time of the games is a setting (owner, 2026-11-12)', () => {
+  it('validates, saves and shows the schedule, and the calendar follows a new day and time', async () => {
+    const { DEFAULT_GAME_SCHEDULE, loadGameSchedule, saveGameSchedule, scheduleTimes } = await import('../server/services/gameScheduleSettingsService.ts');
+    const { ensureRollingFridayCalendar } = await import('../server/services/weeklyEveningAutomationService.ts');
+    const { createApp } = await import('../app.ts');
+    await createApp(db);
+    expect(await loadGameSchedule(db)).toEqual(DEFAULT_GAME_SCHEDULE);
+    await expect(saveGameSchedule(db, { weekday: 9, novice_first_game: '19:00' })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(saveGameSchedule(db, { weekday: 4, novice_first_game: '7pm' })).rejects.toMatchObject({ statusCode: 400 });
+    expect(scheduleTimes({ weekday: 4, novice_first_game: '20:00' })).toEqual({ briefing: '19:30', first_game: '20:00', novice_end: '22:00', club_start: '22:00' });
+
+    const now = new Date('2026-11-12T09:00:00Z'); // Thursday
+    await ensureRollingFridayCalendar(db, now, { noviceFridays: true });
+    expect((await db.all<any>("SELECT starts_at FROM game_evenings WHERE format = 'NOVICE' ORDER BY starts_at")).map((row) => row.starts_at.slice(0, 16))[0]).toBe('2026-11-13T19:00');
+
+    const saved = await saveGameSchedule(db, { weekday: 4, novice_first_game: '20:00' });
+    expect(saved.schedule).toEqual({ weekday: 4, novice_first_game: '20:00' });
+    expect(saved.upcoming_on_old_day).toBeGreaterThan(0); // the Fridays made earlier are reported, not moved
+    await ensureRollingFridayCalendar(db, now, { noviceFridays: true });
+    const thursday = await db.all<any>("SELECT starts_at FROM game_evenings WHERE format = 'NOVICE' AND starts_at LIKE '2026-11-12%' OR (format = 'NOVICE' AND starts_at LIKE '2026-11-19%')");
+    expect(thursday.some((row) => row.starts_at.startsWith('2026-11-19T20:00'))).toBe(true);
+    const club = await db.all<any>("SELECT starts_at FROM game_evenings WHERE format = 'CASUAL' AND starts_at LIKE '2026-11-19%'");
+    expect(club.map((row) => row.starts_at.slice(11, 16))).toEqual(['22:00']);
+  });
+});

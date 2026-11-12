@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
 import { loadSiteTexts } from '../services/siteContentService.ts';
+import { WEEKDAY_NAMES, WEEKDAY_ON, loadGameSchedule, scheduleTimes } from '../services/gameScheduleSettingsService.ts';
 import { loadClubLeaderboardRows } from '../services/clubLeaderboardService.ts';
 import { hasOrganizerPlayerAccess, resolveVerifiedPlayerIdentity } from '../services/organizerPlayerAccessService.ts';
 
@@ -78,6 +79,7 @@ router.get('/welcome', limit, async (req, res) => {
     return res.json({
       content: WELCOME_CONTENT,
       site: await loadSiteTexts(db).catch(() => ({})),
+      schedule: await loadGameSchedule(db).then((value) => ({ weekday: value.weekday, weekday_name: WEEKDAY_NAMES[value.weekday], weekday_on: WEEKDAY_ON[value.weekday], ...scheduleTimes(value) })).catch(() => null),
       evening: evening ? {
         id: String(evening.id), title: String(evening.title || 'Вечер для новичков'), starts_at: evening.starts_at,
         venue: venueDetails(evening.venue), schedule: noviceScheduleLine(evening.starts_at),

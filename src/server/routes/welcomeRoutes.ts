@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/newcomerFunnelService.ts';
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
 import { loadSiteTexts } from '../services/siteContentService.ts';
+import { loadClubLeaderboardRows } from '../services/clubLeaderboardService.ts';
 
 /**
  * The text of the page is the owner's current recruitment post «Школа спортивной мафии | Тула» (2026-11-11), cut into parts the page folds.
@@ -100,6 +101,15 @@ router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHe
     const going = new Set(plan.slots.flatMap((slot) => slot.participants.map((person) => String(person.id)))).size;
     return res.json({ evening_id: String(evening.id), games, going, updated_at: new Date().toISOString() });
   } catch { return res.status(500).json({ error: 'Не удалось загрузить места' }); }
+});
+
+/** The club's rating for the site (owner, 2026-11-12: nicknames of everyone with a game are shown): place, nickname, Elo and games, nothing else. */
+router.get('/welcome/rating', rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
+  try {
+    const rows = await loadClubLeaderboardRows(req.db || await getDb());
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.json({ players: rows.map((row: any, index: number) => ({ place: index + 1, nickname: String(row.nickname || 'Игрок').slice(0, 30), elo: Math.round(Number(row.elo || 1000)), games: Number(row.games || 0) })) });
+  } catch { return res.status(500).json({ error: 'Не удалось загрузить рейтинг' }); }
 });
 
 router.post('/welcome/visit', limit, async (req, res) => {

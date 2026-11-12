@@ -30,3 +30,21 @@ describe('texts of the club site edited in the CRM', () => {
     expect((await listPostTemplates(db)).some((template) => template.key.startsWith('site.'))).toBe(false);
   });
 });
+
+describe('public pages of the site read from the app', () => {
+  it('sends the saved site texts with the welcome page and a rating table with nicknames only', async () => {
+    const { default: request } = await import('supertest');
+    const { createApp } = await import('../app.ts');
+    await createApp(db);
+    const app = await createApp(db);
+    await saveSiteBlock(db, 'about', 'Текст из CRM');
+    const page = await request(app).get('/api/public/welcome');
+    expect(page.status).toBe(200);
+    expect(page.body.site.about).toBe('Текст из CRM');
+    expect(page.body.site.telegram_url).toMatch(/^https:\/\//);
+    const rating = await request(app).get('/api/public/welcome/rating');
+    expect(rating.status).toBe(200);
+    expect(Array.isArray(rating.body.players)).toBe(true);
+    expect(JSON.stringify(rating.body)).not.toMatch(/player_id|avatar|"id"/);
+  });
+});

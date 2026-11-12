@@ -112,11 +112,16 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
   const existing = await db.get<{ player_id: string }>('SELECT player_id FROM newcomer_leads WHERE contact_kind = ? AND contact_value = ?', [contact.kind, contact.value]);
   const eveningId = await openNoviceEveningId(db, input.eveningId);
   if (existing) {
+    // Someone's contact is not a secret, so the form never changes a booking that already exists: it keeps the old one and says so
+    // (moving to another Friday goes through the organizer or the signed-in cabinet).
     const playerId = String(existing.player_id);
-    if (!eveningId) return { playerId, created: false, booked: false };
+    if (!eveningId) return { playerId, created: false, booked: false, alreadyBooked: false };
     const before = await db.get<{ evening_id: string | null }>('SELECT evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]);
+    const bookedEvening = before?.evening_id ?? null;
+    if (bookedEvening === eveningId) return { playerId, created: false, booked: true, alreadyBooked: true };
+    if (bookedEvening) return { playerId, created: false, booked: false, alreadyBooked: true };
     await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, playerId]);
-    return { playerId, created: false, booked: await bookLeadSeats(db, playerId, eveningId, before?.evening_id ?? null) };
+    return { playerId, created: false, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
   }
 
   const taken = new Set((await db.all<{ nickname: string }>('SELECT nickname FROM players WHERE lower(nickname) LIKE lower(?)', [`${name}%`])).map((row) => String(row.nickname).toLowerCase()));
@@ -137,7 +142,7 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
     await tx.run('INSERT OR IGNORE INTO newcomer_funnel_events (id, visitor_id, step, source, day, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [randomUUID(), `lead-${playerId}`, 'contact_left', source, dayOf(now), stamp]);
   });
-  return { playerId, created: true, booked: await bookLeadSeats(db, playerId, eveningId, null) };
+  return { playerId, created: true, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
 }
 
 export type FunnelStep = { key: string; label: string; count: number };

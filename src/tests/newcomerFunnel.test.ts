@@ -24,7 +24,7 @@ describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11
   it('creates one lead per contact, a novice player, and counts the page opens once a day', async () => {
     const first = await createWelcomeLead(db, { name: 'Иван', contactKind: 'telegram', contactValue: '@ivan_tg', source: 'vk', referredBy: 'Алоэ' }, now);
     const again = await createWelcomeLead(db, { name: 'Иван другой', contactKind: 'telegram', contactValue: 't.me/ivan_tg' }, now);
-    expect(first.created).toBe(true); expect(again).toEqual({ playerId: first.playerId, created: false, booked: false });
+    expect(first.created).toBe(true); expect(again).toEqual({ playerId: first.playerId, created: false, booked: false, alreadyBooked: false });
     const second = await createWelcomeLead(db, { name: 'Иван', contactKind: 'phone', contactValue: '+7 900 111-22-33' }, now);
     const nicknames = (await db.all<any>("SELECT nickname FROM players WHERE source = 'welcome_page' ORDER BY nickname")).map((row) => row.nickname);
     expect(nicknames).toEqual(['Иван', 'Иван 2']);
@@ -221,12 +221,14 @@ describe('choosing a Friday on the site (owner, 2026-11-12)', () => {
     const bad = await request(app).post('/api/public/welcome/lead').send({ name: 'Пётр', contact_kind: 'telegram', contact_value: '@petr_pick', evening_id: 'old' });
     expect(bad.status).toBe(201);
     expect((await db.get<any>("SELECT evening_id FROM newcomer_leads WHERE contact_value = '@petr_pick'")).evening_id).toBeNull();
-    // the same person picks another Friday later: the choice is updated, not duplicated
-    expect((await createWelcomeLead(db, { name: 'Иван', contactKind: 'telegram', contactValue: '@ivan_pick', eveningId: 'fri1' })).created).toBe(false);
-    expect((await db.get<any>("SELECT evening_id FROM newcomer_leads WHERE contact_value = '@ivan_pick'")).evening_id).toBe('fri1');
-    // the seat moved with the choice: nothing is left on the old Friday
-    expect((await request(app).get('/api/public/welcome/seats?evening=fri2')).body.going).toBe(0);
-    expect((await request(app).get('/api/public/welcome/seats?evening=fri1')).body.going).toBe(1);
+    // a stranger who knows the contact cannot move the booking: it stays on the first Friday and the answer says so
+    const moved = await createWelcomeLead(db, { name: 'Иван', contactKind: 'telegram', contactValue: '@ivan_pick', eveningId: 'fri1' });
+    expect(moved).toMatchObject({ created: false, booked: false, alreadyBooked: true });
+    expect((await db.get<any>("SELECT evening_id FROM newcomer_leads WHERE contact_value = '@ivan_pick'")).evening_id).toBe('fri2');
+    expect((await request(app).get('/api/public/welcome/seats?evening=fri2')).body.going).toBe(1);
+    expect((await request(app).get('/api/public/welcome/seats?evening=fri1')).body.going).toBe(0);
+    const same = await createWelcomeLead(db, { name: 'Иван', contactKind: 'telegram', contactValue: '@ivan_pick', eveningId: 'fri2' });
+    expect(same).toMatchObject({ booked: true, alreadyBooked: true });
     const agenda = await loadAgenda(db);
     const text = JSON.stringify(agenda);
     expect(text).toContain('Иван');

@@ -114,6 +114,7 @@ import eveningPriceSettingsRoutes from './server/routes/eveningPriceSettingsRout
 import vipProbabilityRulesRoutes from './server/routes/vipProbabilityRulesRoutes.ts';
 import postTemplateRoutes from './server/routes/postTemplateRoutes.ts';
 import siteContentRoutes from './server/routes/siteContentRoutes.ts';
+import gameScheduleRoutes from './server/routes/gameScheduleRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
 import { liveBroadcastGameRoutes, liveBroadcastPublicRoutes } from './server/routes/liveBroadcastRoutes.ts';
 import liveGameCheckpointRoutes from './server/routes/liveGameCheckpointRoutes.ts';
@@ -378,6 +379,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/announcement-photos', announcementPhotoRoutes);
   app.use('/api/post-templates', postTemplateRoutes);
   app.use('/api/site-content', siteContentRoutes);
+  app.use('/api/game-schedule', gameScheduleRoutes);
   app.use('/api/evening-prices', eveningPriceSettingsRoutes);
   app.use('/api/admin/vip-probability-rules', vipProbabilityRulesRoutes);
   app.use('/api/club-digest', clubDigestRoutes);

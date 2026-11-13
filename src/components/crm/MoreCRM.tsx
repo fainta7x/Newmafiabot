@@ -192,7 +192,6 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       <span className="grid h-10 w-10 place-items-center rounded-[14px] border border-white/[0.07] bg-white/[0.06] text-white/75"><Icon className="h-[18px] w-[18px]" /></span>
       <span className="min-w-0"><strong className="block text-[15px] font-semibold text-white">{item.title}</strong><span className="mt-0.5 block text-[11px] leading-4 text-white/65">{item.detail}</span></span>
     </button>; })}</div>
-    <a href="https://2lamafia.ru/" data-testid="crm-more-site" className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[16px] border border-white/10 bg-white/[0.04] px-4 text-[14px] font-semibold text-white/85"><Globe className="h-[17px] w-[17px]" /> На сайт клуба</a>
     <button type="button" onClick={() => void onLogout()} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[16px] border border-rose-300/15 bg-rose-300/[0.06] px-4 text-[14px] font-semibold text-rose-100/75"><LogOut className="h-[17px] w-[17px]" /> Выйти из кабинета организатора</button>
   </div>;
 };

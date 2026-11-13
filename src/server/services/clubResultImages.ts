@@ -192,72 +192,79 @@ export function eveningSummarySvg(summary: EveningSummary) {
 </svg>`;
 }
 
-/** The season of the year in one picture (owner, 2026-11-13): Elo up and down, the table by Elo change, the best by role and the MVP of the evenings. */
-export function seasonSummarySvg(summary: SeasonSummary) {
+const seasonStats = (summary: SeasonSummary) => `${summary.games} игр · ${summary.evenings} вечеров · ${summary.players} игроков`;
+const eloColor = (value: string) => (value.startsWith('−') ? '#F87171' : value === '0' ? C.mutedText : '#86EFAC');
+
+/** The season of the year, picture 1 (owner, 2026-11-13): the top-10 table by Elo change. */
+export function seasonTop10Svg(summary: SeasonSummary) {
   clipCounter = 0;
+  const top = 270;
+  const rowHeight = 88;
+  const rows = summary.table.slice(0, 10);
+  const height = top + 50 + Math.max(1, rows.length) * rowHeight + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
   const medal = [C.gold, C.silver, C.bronze];
-  const top = 340;
-  const bigRows = (items: SummaryPlayer[]) => 70 + Math.max(1, items.length) * 104;
-  const upTop = top;
-  const downTop = upTop + bigRows(summary.eloUp);
-  const tableTop = downTop + bigRows(summary.eloDown);
-  const tableRow = 80;
-  const tableHeight = 60 + Math.max(1, summary.table.length) * tableRow;
-  const rolesTop = tableTop + tableHeight + 20;
-  const mvpTop = rolesTop + 2 * 150 + 60;
-  const height = mvpTop + (summary.mvp.length ? bigRows(summary.mvp) : 0) + 20 + NOIR_EXPORT_LAYOUT.footerHeight;
-
-  const list = (title: string, items: SummaryPlayer[], y0: number, valueColor: string) => `
-    <text x="${M}" y="${y0 + 36}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">${esc(title)}</text>
-    ${items.map((item, index) => {
-      const y = y0 + 60 + index * 104;
-      return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="92" rx="20" fill="rgba(255,255,255,${index === 0 ? 0.06 : 0.03})"/>
-        <text x="${M + 26}" y="${y + 58}" font-size="30" font-weight="700" fill="${medal[index] || C.mutedText}">${index + 1}</text>
-        ${avatar(M + 70, y + 12, 68, item.nickname, item.avatar)}
-        <text x="${M + 158}" y="${y + 58}" font-size="30" font-weight="700" fill="${C.warmText}">${esc(clip(item.nickname, 24))}</text>
-        <text x="${W - M - 26}" y="${y + 50}" text-anchor="end" font-size="34" font-weight="700" fill="${valueColor}">${esc(item.value)}</text>
-        <text x="${W - M - 26}" y="${y + 76}" text-anchor="end" font-size="17" font-weight="600" fill="${C.subduedText}">${esc(item.detail)}</text>`;
-    }).join('') || `<text x="${M}" y="${y0 + 100}" font-size="24" fill="${C.subduedText}">—</text>`}`;
-
-  const tableRows = summary.table.map((row, index) => {
-    const y = tableTop + 50 + index * tableRow;
-    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${tableRow - 10}" rx="16" fill="rgba(255,255,255,${index < 3 ? 0.055 : 0.028})"/>
-      <text x="${M + 30}" y="${y + 45}" text-anchor="middle" font-size="24" font-weight="700" fill="${medal[index] || C.mutedText}">${row.place}</text>
-      ${avatar(M + 58, y + 8, 54, row.nickname, row.avatar)}
-      <text x="${M + 130}" y="${y + 45}" font-size="26" font-weight="700" fill="${C.warmText}">${esc(clip(row.nickname, 22))}</text>
-      <text x="${W - M - 24}" y="${y + 38}" text-anchor="end" font-size="28" font-weight="700" fill="${row.value.startsWith('−') ? '#F87171' : row.value === '0' ? C.mutedText : '#86EFAC'}">${esc(row.value)}</text>
-      <text x="${W - M - 24}" y="${y + 58}" text-anchor="end" font-size="15" font-weight="600" fill="${C.subduedText}">${esc(row.detail)}</text>`;
+  const rowsSvg = rows.map((row, index) => {
+    const y = top + 50 + index * rowHeight;
+    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${rowHeight - 10}" rx="18" fill="rgba(255,255,255,${index < 3 ? 0.06 : 0.028})"/>
+      <text x="${M + 30}" y="${y + 50}" text-anchor="middle" font-size="28" font-weight="700" fill="${medal[index] || C.mutedText}">${row.place}</text>
+      ${avatar(M + 62, y + 8, 62, row.nickname, row.avatar)}
+      <text x="${M + 144}" y="${y + 50}" font-size="29" font-weight="700" fill="${C.warmText}">${esc(clip(row.nickname, 22))}</text>
+      <text x="${W - M - 24}" y="${y + 42}" text-anchor="end" font-size="32" font-weight="700" fill="${eloColor(row.value)}">${esc(row.value)}</text>
+      <text x="${W - M - 24}" y="${y + 64}" text-anchor="end" font-size="16" font-weight="600" fill="${C.subduedText}">${esc(row.detail)}</text>`;
   }).join('');
-
-  const roleCells = summary.bestByRole.map((entry, index) => {
-    const column = index % 2; const row = Math.floor(index / 2);
-    const cellWidth = (W - M * 2 - 24) / 2;
-    const x = M + column * (cellWidth + 24);
-    const y = rolesTop + 50 + row * 150;
-    return `<rect x="${x}" y="${y}" width="${cellWidth}" height="136" rx="22" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.07)"/>
-      ${personRow(x + 24, y + 4, cellWidth - 48, ROLE_BEST[entry.role], entry.player, ROLE_COLORS[entry.role])}`;
-  }).join('');
-
-  const stat = (x: number, label: string, value: string) => `
-    <text x="${x}" y="${top - 84}" font-size="17" font-weight="700" letter-spacing="2" fill="${C.subduedText}">${esc(label)}</text>
-    <text x="${x}" y="${top - 40}" font-size="40" font-weight="700" fill="${C.warmText}">${esc(value)}</text>`;
-
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
   ${renderNoirExportBackground(W, height)}
-  ${renderNoirExportBrandHeader('ИТОГИ СЕЗОНА')}
+  ${renderNoirExportBrandHeader('СЕЗОН · ТОП-10')}
   <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(summary.title, 28))}</text>
   <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(summary.dateLabel)}</text>
-  ${stat(M, 'ИГР', String(summary.games))}
-  ${stat(M + 200, 'ВЕЧЕРОВ', String(summary.evenings))}
-  ${stat(M + 460, 'ИГРОКОВ', String(summary.players))}
-  ${list('ВЫШЛИ В ПЛЮС ПО ЭЛО', summary.eloUp, upTop, '#86EFAC')}
-  ${list('УШЛИ В МИНУС ПО ЭЛО', summary.eloDown, downTop, '#F87171')}
-  <text x="${M}" y="${tableTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ТАБЛИЦА СЕЗОНА · ИЗМЕНЕНИЕ ЭЛО</text>
-  ${tableRows || `<text x="${M}" y="${tableTop + 100}" font-size="24" fill="${C.subduedText}">—</text>`}
-  <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
-  ${roleCells}
-  ${summary.mvp.length ? list('MVP ВЕЧЕРОВ', summary.mvp, mvpTop, C.warmText) : ''}
-  ${renderNoirExportFooter(W, height, 'Эло за все клубные игры сезона')}
+  <text x="${M}" y="246" font-size="20" font-weight="600" fill="${C.subduedText}">${esc(seasonStats(summary))}</text>
+  <text x="${W - M}" y="${top + 32}" text-anchor="end" font-size="17" font-weight="700" letter-spacing="2" fill="#D7A0AE">ИЗМЕНЕНИЕ ЭЛО ЗА СЕЗОН</text>
+  ${rowsSvg || `<text x="${M}" y="${top + 100}" font-size="24" font-weight="500" fill="${C.subduedText}">Результатов пока нет</text>`}
+  ${renderNoirExportFooter(W, height, 'Эло за клубные и турнирные игры сезона')}
+</svg>`;
+}
+
+/** The season of the year, picture 2: the nominations (Elo growth and drop, the best by role, the MVP of the evenings). */
+export function seasonNominationsSvg(summary: SeasonSummary) {
+  clipCounter = 0;
+  type Cell = { title: string; winner: { nickname: string; avatar: string | null; value: string; color: string } | null; others: string; accent: string };
+  const pick = (title: string, list: SummaryPlayer[], color: string, accent = '#D7A0AE'): Cell => ({
+    title, accent,
+    winner: list[0] ? { nickname: list[0].nickname, avatar: list[0].avatar, value: list[0].value, color } : null,
+    others: list.slice(1).map((item) => `${item.nickname} ${item.value}`).join(' · '),
+  });
+  const cells: Cell[] = [
+    pick('ЛИДЕР РОСТА ЭЛО', summary.eloUp, '#86EFAC'),
+    pick('БОЛЬШАЯ ПРОСАДКА ЭЛО', summary.eloDown, '#F87171'),
+    ...summary.bestByRole.map((entry): Cell => ({
+      title: ROLE_BEST[entry.role], accent: ROLE_COLORS[entry.role],
+      winner: entry.player ? { nickname: entry.player.nickname, avatar: entry.player.avatar, value: entry.player.value, color: C.gold } : null,
+      others: entry.player ? [entry.player.detail, ...entry.others].filter(Boolean).join(' · ') : '',
+    })),
+    pick('MVP ВЕЧЕРОВ', summary.mvp, C.gold),
+  ];
+  const top = 270;
+  const cellHeight = 170;
+  const height = top + 40 + cells.length * cellHeight + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const cellsSvg = cells.map((cell, index) => {
+    const y = top + 40 + index * cellHeight;
+    const winner = cell.winner;
+    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${cellHeight - 16}" rx="22" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.07)"/>
+      <text x="${M + 28}" y="${y + 36}" font-size="18" font-weight="700" letter-spacing="2" fill="${cell.accent}">${esc(cell.title)}</text>
+      ${winner ? `${avatar(M + 28, y + 52, 76, winner.nickname, winner.avatar)}
+      <text x="${M + 124}" y="${y + 84}" font-size="30" font-weight="700" fill="${C.warmText}">${esc(clip(winner.nickname, 20))}</text>
+      <text x="${W - M - 28}" y="${y + 84}" text-anchor="end" font-size="32" font-weight="700" fill="${winner.color}">${esc(winner.value)}</text>
+      <text x="${M + 124}" y="${y + 118}" font-size="18" font-weight="500" fill="${C.subduedText}">${esc(clip(cell.others, 56))}</text>`
+      : `<text x="${M + 28}" y="${y + 90}" font-size="24" font-weight="500" fill="${C.subduedText}">—</text>`}`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('СЕЗОН · НОМИНАЦИИ')}
+  <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(summary.title, 28))}</text>
+  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(summary.dateLabel)}</text>
+  <text x="${M}" y="246" font-size="20" font-weight="600" fill="${C.subduedText}">${esc(seasonStats(summary))}</text>
+  ${cellsSvg}
+  ${renderNoirExportFooter(W, height, 'роли: показатели в роли, от 3 игр · MVP: вечера с победой в голосовании')}
 </svg>`;
 }
 

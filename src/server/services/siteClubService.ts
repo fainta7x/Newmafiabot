@@ -3,7 +3,7 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { loadEveningSummary, loadSeasonSummary } from './clubResultData.ts';
 import { calendarSeasonForDate, type ClubSeason } from './clubSeasonService.ts';
-import { eveningSummarySvg, renderPngAsync, seasonSummarySvg } from './clubResultImages.ts';
+import { eveningSummarySvg, renderPngAsync, seasonNominationsSvg, seasonTop10Svg } from './clubResultImages.ts';
 import { loadTournamentPictures } from './clubResultPostService.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
 
@@ -136,18 +136,22 @@ export async function loadSiteSeasons(db: DatabaseWrapper, limit = 6) {
       id: season.key, title: summary.title, date_label: summary.dateLabel, current: Date.now() >= season.start && Date.now() < season.end,
       games: summary.games, evenings: summary.evenings, players: summary.players,
       image: `/api/public/welcome/seasons/${encodeURIComponent(season.key)}/image.png`,
+      nominations_image: `/api/public/welcome/seasons/${encodeURIComponent(season.key)}/nominations.png`,
+      leader: summary.eloUp[0] ? { nickname: summary.eloUp[0].nickname, value: summary.eloUp[0].value } : null,
+      mvp: summary.mvp[0] ? { nickname: summary.mvp[0].nickname, value: summary.mvp[0].value } : null,
       rows: summary.table.map((row) => ({ place: row.place, nickname: String(row.nickname).slice(0, 30), value: row.value, detail: row.detail })),
     });
   }
   return items;
 }
 
-export async function loadSiteSeasonPicture(db: DatabaseWrapper, seasonKey: string) {
+export async function loadSiteSeasonPicture(db: DatabaseWrapper, seasonKey: string, kind: 'table' | 'nominations' = 'table') {
   const seasons = await calendarSeasonsWithGames(db, 12);
   const season = seasons.find((item) => item.key === seasonKey);
   if (!season) return null;
-  return cachedPicture(`season:${seasonKey}`, async () => {
+  return cachedPicture(`season:${seasonKey}:${kind}`, async () => {
     const summary = await loadSeasonSummary(db, season);
-    return summary ? renderPngAsync(seasonSummarySvg(summary)) : null;
+    if (!summary) return null;
+    return renderPngAsync(kind === 'table' ? seasonTop10Svg(summary) : seasonNominationsSvg(summary));
   });
 }

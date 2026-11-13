@@ -20,6 +20,7 @@ import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSch
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
 import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
+import { applyGunTownCupRename } from './db/applyGunTownCupRename.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
@@ -122,6 +123,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTelegramPublishingSchema(db);
   await ensureObsRemoteSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
+  try { await applyGunTownCupRename(db); } catch (error) { console.error('[TOURNAMENTS] Gun Town Cup titles failed (nothing changed):', error); }
   if (!process.env.VITEST && process.env.NODE_ENV !== 'test') startTelegramSyncOutboxWorker(db);
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }

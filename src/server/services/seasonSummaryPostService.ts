@@ -2,8 +2,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { getWelcomeSiteUrl } from '../runtimeConfig.ts';
 import { claim, finish, sendPhotos } from './clubResultPostService.ts';
-import { loadSeasonSummary } from './clubResultData.ts';
-import { seasonSummarySvg, renderPngAsync } from './clubResultImages.ts';
+import { loadSeasonSummary, type SeasonSummary } from './clubResultData.ts';
+import { renderPngAsync, seasonNominationsSvg, seasonTop10Svg } from './clubResultImages.ts';
 import { calendarSeasonForDate, type ClubSeason } from './clubSeasonService.ts';
 import { loadGameSchedule } from './gameScheduleSettingsService.ts';
 import { uploadVkWallPhotoBytes } from './announcementPhotoService.ts';
@@ -31,7 +31,14 @@ const siteLine = () => {
   return site ? `\n\nВсе итоги: ${site.replace(/\/$/, '')}/sezony/` : '';
 };
 
-export const seasonSummaryCaption = (title: string) => `🏆 Итоги сезона «${title}»${siteLine()}`;
+/** The caption from the season's own numbers: nothing invented, only what the pictures show. */
+export const seasonSummaryCaption = (summary: Pick<SeasonSummary, 'title' | 'games' | 'evenings' | 'players' | 'eloUp' | 'mvp'>) => {
+  const lines = [`🏆 Итоги сезона «${summary.title}»`, '', `${summary.games} игр · ${summary.evenings} вечеров · ${summary.players} игроков`];
+  if (summary.eloUp[0]) lines.push(`Лидер роста по Эло: ${summary.eloUp[0].nickname} (${summary.eloUp[0].value})`);
+  if (summary.mvp[0]) lines.push(`MVP сезона: ${summary.mvp[0].nickname} (${summary.mvp[0].value})`);
+  lines.push('', 'В картинках: таблица топ-10 и номинации.');
+  return `${lines.join('\n')}${siteLine()}`;
+};
 
 async function postTo(db: DatabaseWrapper, season: ClubSeason, destination: string, run: () => Promise<{ ok: boolean; temporary?: boolean; error?: string }>) {
   const key = `season-summary:${season.key}:${destination}`;
@@ -64,17 +71,18 @@ export async function postSeasonSummary(db: DatabaseWrapper, season: ClubSeason,
   if (!destinations.length) return 0;
   const summary = await loadSeasonSummary(db, season);
   if (!summary) return 0;
-  const png = await renderPngAsync(seasonSummarySvg(summary));
-  const caption = seasonSummaryCaption(summary.title);
+  const pngs = [await renderPngAsync(seasonTop10Svg(summary)), await renderPngAsync(seasonNominationsSvg(summary))];
+  const caption = seasonSummaryCaption(summary);
   let posted = 0;
   for (const destination of TELEGRAM_DESTINATIONS.filter((item) => destinations.includes(item))) {
-    if (await postTo(db, season, destination, () => sendPhotos(db, null, [png], caption, fetchImpl, destination, 'image/png', undefined, { key: `club:season-summary:${season.key}:${destination}`, kind: 'club-result' }))) posted += 1;
+    if (await postTo(db, season, destination, () => sendPhotos(db, null, pngs, caption, fetchImpl, destination, 'image/png', undefined, { key: `club:season-summary:${season.key}:${destination}`, kind: 'club-result' }))) posted += 1;
   }
   const groupId = vkTarget();
   if (groupId && destinations.includes('vk')) {
     if (await postTo(db, season, 'vk', async () => {
-      const attachment = await uploadVkWallPhotoBytes(png, 'image/png', groupId, fetchImpl);
-      await createVkWallPost({ groupId, message: caption, attachments: [attachment] });
+      const attachments = [];
+      for (const png of pngs) attachments.push(await uploadVkWallPhotoBytes(png, 'image/png', groupId, fetchImpl));
+      await createVkWallPost({ groupId, message: caption, attachments });
       return { ok: true };
     })) posted += 1;
   }

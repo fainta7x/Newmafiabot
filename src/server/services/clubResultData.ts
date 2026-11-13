@@ -917,7 +917,7 @@ export type SeasonSummary = {
   eloUp: SummaryPlayer[];
   eloDown: SummaryPlayer[];
   table: SeasonRow[];
-  bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
+  bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null; others: string[] }>;
   mvp: SummaryPlayer[];
 };
 
@@ -998,13 +998,18 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
 
   const bestByRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
     const candidates = all.filter((item) => item.byRole.has(role));
-    if (!candidates.length) return { role, player: null };
+    if (!candidates.length) return { role, player: null, others: [] as string[] };
     const stat = (item: Tally) => item.byRole.get(role)!;
     const seasoned = candidates.filter((item) => stat(item).games >= 3);
     const pool = seasoned.length ? seasoned : candidates;
     const average = (item: Tally) => stat(item).effect / stat(item).games;
-    const best = [...pool].sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games)[0];
-    return { role, player: person(best.playerId, '', `${stat(best).games} игр в роли · ${stat(best).wins} ${winsWord(stat(best).wins)}`) };
+    const sorted = [...pool].sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games);
+    const best = sorted[0];
+    return {
+      role,
+      player: person(best.playerId, `${stat(best).wins} ${winsWord(stat(best).wins)}`, `${stat(best).games} игр в роли`),
+      others: sorted.slice(1, 3).map((item) => `${nameOf(item.playerId)} ${stat(item).wins} ${winsWord(stat(item).wins)}`),
+    };
   });
 
   const votesWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'голос' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'голоса' : 'голосов');

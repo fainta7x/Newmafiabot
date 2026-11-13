@@ -14,7 +14,14 @@ describe('season results post', () => {
   });
 
   it('keeps the caption short and points at the site', () => {
-    expect(seasonSummaryCaption('Осень 2026')).toContain('Итоги сезона «Осень 2026»');
+    const person = (nickname: string, value: string) => ({ playerId: nickname, nickname, avatar: null, value, detail: '' });
+    const text = seasonSummaryCaption({ title: 'Осень 2026', games: 50, evenings: 9, players: 30, eloUp: [person('Богданчик', '+84')], mvp: [person('Дина', '4 вечера')] });
+    expect(text).toContain('Итоги сезона «Осень 2026»');
+    expect(text).toContain('50 игр · 9 вечеров · 30 игроков');
+    expect(text).toContain('Лидер роста по Эло: Богданчик (+84)');
+    expect(text).toContain('MVP сезона: Дина (4 вечера)');
+    // No leaders (an empty season half): the lines simply are not written.
+    expect(seasonSummaryCaption({ title: 'Зима', games: 3, evenings: 1, players: 8, eloUp: [], mvp: [] })).not.toContain('Лидер');
   });
 
   it('posts nothing before the due moment and nothing for a season without games', async () => {

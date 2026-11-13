@@ -146,7 +146,8 @@ const sendPicture = (load: (db: any, id: string) => Promise<Buffer | null>) => a
   } catch { return res.status(500).json({ error: 'Не удалось нарисовать картинку' }); }
 };
 router.get('/welcome/history/:id/image.png', pictureLimit, sendPicture(loadSiteEveningPicture));
-router.get('/welcome/seasons/:id/image.png', pictureLimit, sendPicture(loadSiteSeasonPicture));
+router.get('/welcome/seasons/:id/image.png', pictureLimit, sendPicture((db, id) => loadSiteSeasonPicture(db, id, 'table')));
+router.get('/welcome/seasons/:id/nominations.png', pictureLimit, sendPicture((db, id) => loadSiteSeasonPicture(db, id, 'nominations')));
 router.get('/welcome/tournaments/:id/image.png', pictureLimit, sendPicture((db, id) => loadSiteTournamentPicture(db, id, 'table')));
 router.get('/welcome/tournaments/:id/nominations.png', pictureLimit, sendPicture((db, id) => loadSiteTournamentPicture(db, id, 'nominations')));
 

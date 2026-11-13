@@ -257,7 +257,7 @@ export function seasonSummarySvg(summary: SeasonSummary) {
   <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
   ${roleCells}
   ${summary.mvp.length ? list('MVP ВЕЧЕРОВ', summary.mvp, mvpTop, C.warmText) : ''}
-  ${renderNoirExportFooter(W, height, 'Эло за все клубные игры сезона')}
+  ${renderNoirExportFooter(W, height, 'Эло за клубные и турнирные игры сезона')}
 </svg>`;
 }
 

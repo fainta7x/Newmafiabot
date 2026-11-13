@@ -927,9 +927,21 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
   const rows = await db.all<any>(
     `SELECT id, evening_id, protocol_text FROM games
       WHERE archived_at IS NULL AND datetime(game_date) >= datetime(?) AND datetime(game_date) < datetime(?)`, [from, to]).catch(() => []);
-  const elo = await loadClubElo(db);
+  // Elo, games and players of the season come from every rated game, club and tournament alike (the same rule as the player's season screen).
+  const timeline = (await loadPlayerEloHistory(db).catch(() => [])).filter((event) => {
+    const at = new Date(String(event.sortAt)).getTime();
+    return Number.isFinite(at) && at >= season.start && at < season.end;
+  });
+  const eloStats = new Map<string, { delta: number; games: number; wins: number }>();
+  for (const event of timeline) {
+    for (const row of event.players) {
+      const stat = eloStats.get(String(row.playerId)) || { delta: 0, games: 0, wins: 0 };
+      stat.delta += Number(row.totalDelta || 0); stat.games += 1; if (row.won) stat.wins += 1;
+      eloStats.set(String(row.playerId), stat);
+    }
+  }
+  const tournaments = await db.get<any>("SELECT COUNT(*) AS n FROM tournaments WHERE status = 'completed' AND datetime(date) >= datetime(?) AND datetime(date) < datetime(?)", [from, to]).catch(() => null);
   const tallies = new Map<string, Tally>();
-  const eloByPlayer = new Map<string, number>();
   const guestNames = new Map<string, string>();
   const evenings = new Set<string>();
   let games = 0;
@@ -938,7 +950,6 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
     if (!isCompleted(envelope)) continue;
     games += 1;
     if (row.evening_id) evenings.add(String(row.evening_id));
-    for (const [playerId, change] of elo.get(String(row.id)) || []) eloByPlayer.set(playerId, (eloByPlayer.get(playerId) || 0) + change.delta);
     const effects = seatEffectiveness(envelope);
     const roleFacts = seatRoleFacts(envelope);
     for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
@@ -963,7 +974,8 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
       tallies.set(playerId, tally);
     }
   }
-  if (!games) return null;
+  const ratedGames = timeline.length;
+  if (!games && !ratedGames) return null;
 
   const { resolveEveningMvp } = await import('./eveningMvpService.ts');
   const mvpCount = new Map<string, { titles: number; votes: number }>();
@@ -979,21 +991,21 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
   }
 
   const all = [...tallies.values()];
-  const ids = all.map((item) => item.playerId);
+  const ids = [...new Set([...all.map((item) => item.playerId), ...eloStats.keys()])];
   const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, ids)]);
   const nameOf = (id: string) => names.get(id) || guestNames.get(id) || 'Игрок';
   const person = (id: string, value: string, detail: string): SummaryPlayer => ({ playerId: id, nickname: nameOf(id), avatar: avatars.get(id) || null, value, detail });
   const winsWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'победа' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'победы' : 'побед');
   const signedElo = (delta: number) => (Math.round(delta) > 0 ? `+${Math.round(delta)}` : Math.round(delta) < 0 ? `−${Math.abs(Math.round(delta))}` : '0');
-  const detailOf = (tally: Tally) => `игр ${tally.games} · ${tally.wins} ${winsWord(tally.wins)}`;
+  const detailOf = (stat: { games: number; wins: number }) => `игр ${stat.games} · ${stat.wins} ${winsWord(stat.wins)}`;
 
-  const ranked = all.map((tally) => ({ tally, delta: eloByPlayer.get(tally.playerId) || 0 }))
-    .sort((a, b) => b.delta - a.delta || b.tally.wins - a.tally.wins || a.tally.games - b.tally.games);
-  const eloUp = ranked.filter((item) => Math.round(item.delta) > 0).slice(0, 3).map((item) => person(item.tally.playerId, signedElo(item.delta), detailOf(item.tally)));
-  const eloDown = [...ranked].reverse().filter((item) => Math.round(item.delta) < 0).slice(0, 3).map((item) => person(item.tally.playerId, signedElo(item.delta), detailOf(item.tally)));
+  const ranked = [...eloStats.entries()].map(([playerId, stat]) => ({ playerId, ...stat }))
+    .sort((a, b) => b.delta - a.delta || b.wins - a.wins || a.games - b.games);
+  const eloUp = ranked.filter((item) => Math.round(item.delta) > 0).slice(0, 3).map((item) => person(item.playerId, signedElo(item.delta), detailOf(item)));
+  const eloDown = [...ranked].reverse().filter((item) => Math.round(item.delta) < 0).slice(0, 3).map((item) => person(item.playerId, signedElo(item.delta), detailOf(item)));
   const table: SeasonRow[] = ranked.slice(0, 10).map((item, index) => ({
-    place: index + 1, playerId: item.tally.playerId, nickname: nameOf(item.tally.playerId), avatar: avatars.get(item.tally.playerId) || null,
-    value: signedElo(item.delta), detail: detailOf(item.tally),
+    place: index + 1, playerId: item.playerId, nickname: nameOf(item.playerId), avatar: avatars.get(item.playerId) || null,
+    value: signedElo(item.delta), detail: detailOf(item),
   }));
 
   const bestByRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
@@ -1018,6 +1030,6 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
     value: `${item.titles} ${titlesWord(item.titles)}`, detail: `${item.votes} ${votesWord(item.votes)} за сезон`,
   }));
 
-  const range = `${dateLabel(new Date(season.start).toISOString())} — ${dateLabel(new Date(season.end - 1).toISOString())}`;
-  return { title: season.label, dateLabel: range, games, evenings: evenings.size, players: all.length, eloUp, eloDown, table, bestByRole, mvp: mvpList };
+  const range = `${dateLabel(new Date(season.start).toISOString())} — ${dateLabel(new Date(season.end - 12 * 60 * 60 * 1000).toISOString())}`;
+  return { title: season.label, dateLabel: range, games: ratedGames || games, evenings: evenings.size + Number(tournaments?.n || 0), players: eloStats.size || all.length, eloUp, eloDown, table, bestByRole, mvp: mvpList };
 }

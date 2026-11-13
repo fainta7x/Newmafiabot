@@ -997,6 +997,7 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
   const person = (id: string, value: string, detail: string): SummaryPlayer => ({ playerId: id, nickname: nameOf(id), avatar: avatars.get(id) || null, value, detail });
   const winsWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'победа' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'победы' : 'побед');
   const signedElo = (delta: number) => (Math.round(delta) > 0 ? `+${Math.round(delta)}` : Math.round(delta) < 0 ? `−${Math.abs(Math.round(delta))}` : '0');
+  const signedEffect = (value: number) => { const rounded = Math.round(value * 10) / 10; const text = String(Math.abs(rounded)).replace('.', ','); return rounded > 0 ? `+${text}` : rounded < 0 ? `−${text}` : '0'; };
   const detailOf = (stat: { games: number; wins: number }) => `игр ${stat.games} · ${stat.wins} ${winsWord(stat.wins)}`;
 
   const ranked = [...eloStats.entries()].map(([playerId, stat]) => ({ playerId, ...stat }))
@@ -1008,19 +1009,23 @@ export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: st
     value: signedElo(item.delta), detail: detailOf(item),
   }));
 
+  // The same rule as the season table of the rating (owner, 2026-11-13): only players with at least SEASON_MIN_SHARE of the most games take part, and the best
+  // in a role is the best average effectiveness per game in that role (the points of effectiveness are the rating's own measure).
+  const maxGames = Math.max(0, ...all.map((item) => item.games));
+  const minGames = Math.max(1, Math.ceil(maxGames * SEASON_MIN_SHARE));
+  const qualified = all.filter((item) => item.games >= minGames);
+  const gamesPhrase = (count: number) => `в среднем за ${count} ${count % 10 === 1 && count % 100 !== 11 ? 'игру' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'игры' : 'игр'}`;
   const bestByRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
-    const candidates = all.filter((item) => item.byRole.has(role));
+    const candidates = qualified.filter((item) => item.byRole.has(role));
     if (!candidates.length) return { role, player: null, others: [] as string[] };
     const stat = (item: Tally) => item.byRole.get(role)!;
-    const seasoned = candidates.filter((item) => stat(item).games >= 3);
-    const pool = seasoned.length ? seasoned : candidates;
     const average = (item: Tally) => stat(item).effect / stat(item).games;
-    const sorted = [...pool].sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games);
+    const sorted = [...candidates].sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games);
     const best = sorted[0];
     return {
       role,
-      player: person(best.playerId, `${stat(best).wins} ${winsWord(stat(best).wins)}`, `${stat(best).games} игр в роли`),
-      others: sorted.slice(1, 3).map((item) => `${nameOf(item.playerId)} ${stat(item).wins} ${winsWord(stat(item).wins)}`),
+      player: person(best.playerId, signedEffect(average(best)), `${gamesPhrase(stat(best).games)} в роли`),
+      others: sorted.slice(1, 3).map((item) => `${nameOf(item.playerId)} ${signedEffect(average(item))}`),
     };
   });
 

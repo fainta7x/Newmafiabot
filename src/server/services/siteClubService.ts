@@ -66,6 +66,7 @@ export async function loadSiteTournaments(db: DatabaseWrapper, limit = 10) {
     items.push({
       id: String(row.id), title: String(row.title || ''), date: row.date, venue: row.venue || null,
       image: `/api/public/welcome/tournaments/${encodeURIComponent(String(row.id))}/image.png`,
+      nominations_image: `/api/public/welcome/tournaments/${encodeURIComponent(String(row.id))}/nominations.png`,
       standings: standings.map((entry: any) => ({
         place: Number(entry.place || 0), name: String(entry.display_name || 'Участник').slice(0, 30),
         points: Number(entry.total_points || 0), wins: Number(entry.wins || 0), games: Number(entry.games_played || 0),
@@ -96,14 +97,16 @@ export async function loadSiteEveningPicture(db: DatabaseWrapper, eveningId: str
   });
 }
 
-/** The final table of a finished tournament the organizer did not hide. */
-export async function loadSiteTournamentPicture(db: DatabaseWrapper, tournamentId: string) {
+/** The final table and the nominations of a finished tournament the organizer did not hide: always the two pictures together (owner, 2026-11-13). */
+export async function loadSiteTournamentPicture(db: DatabaseWrapper, tournamentId: string, kind: 'table' | 'nominations' = 'table') {
   const row = await db.get<any>("SELECT id, title, date FROM tournaments WHERE id = ? AND status = 'completed' AND standings_hidden_at IS NULL", [tournamentId]);
   if (!row) return null;
-  return cachedPicture(`tournament:${tournamentId}`, async () => {
+  return cachedPicture(`tournament:${tournamentId}:${kind}`, async () => {
     const dateLabel = row.date ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' }).format(new Date(String(row.date))).replace(/\s*г\.?$/, '') : '';
     const pictures = await loadTournamentPictures(db, tournamentId, String(row.title || 'Турнир'), dateLabel, new Set<string>());
-    return pictures.find(([kind]) => kind === 'table')?.[1] || null;
+    // Both are drawn in one pass; keep the other one for the next request.
+    for (const [other, png] of pictures) if (other !== kind) pictureCache.set(`tournament:${tournamentId}:${other}`, { at: Date.now(), png });
+    return pictures.find(([found]) => found === kind)?.[1] || null;
   });
 }
 

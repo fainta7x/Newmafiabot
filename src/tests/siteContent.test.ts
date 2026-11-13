@@ -154,6 +154,7 @@ describe('result pictures for the site', () => {
     expect((await request(app).get('/api/public/welcome/history/none/image.png')).status).toBe(404);
     expect((await request(app).get('/api/public/welcome/tournaments/none/image.png')).status).toBe(404);
     expect((await request(app).get('/api/public/welcome/seasons/none/image.png')).status).toBe(404);
+    expect((await request(app).get('/api/public/welcome/tournaments/none/nominations.png')).status).toBe(404);
   });
 });
 

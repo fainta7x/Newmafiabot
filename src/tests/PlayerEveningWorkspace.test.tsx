@@ -29,6 +29,24 @@ const overview = {
 describe('PlayerEveningWorkspace', () => {
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
+  it('refreshes in place after the player\'s own action: no «Загружаем…» and the same table stays on screen', async () => {
+    let calls = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
+      calls += 1;
+      const body = { ok: true, json: async () => overview } as Response;
+      return calls === 1 ? Promise.resolve(body) : new Promise((resolve) => { setTimeout(() => resolve(body), 40); });
+    });
+    const { rerender } = render(<PlayerEveningWorkspace eveningId="eve" refreshKey={0} />);
+    const table = await screen.findByText('Игра 1 · Стол А');
+    rerender(<PlayerEveningWorkspace eveningId="eve" refreshKey={1} />);
+    await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 10); }); });
+    expect(screen.queryByText('Загружаем участников и игры…')).toBeNull();
+    expect(table.isConnected).toBe(true);
+    await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 80); }); });
+    expect(calls).toBeGreaterThan(1);
+    expect(table.isConnected).toBe(true);
+  });
+
   it('offers immediate retry when the overview fails to load', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Нет связи' }), { status: 503 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...overview, roster: [], tables: [], games: [] }), { status: 200 }));

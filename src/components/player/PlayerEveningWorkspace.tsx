@@ -65,6 +65,8 @@ export default function PlayerEveningWorkspace({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
   const retry = useRef<() => void>(() => {});
+  // The workspace is replaced by «Загружаем…» only for another evening: after the player's own action it refreshes in place (owner, 2026-11-13).
+  const shownEvening = useRef('');
 
   useEffect(() => {
     let active = true;
@@ -87,8 +89,11 @@ export default function PlayerEveningWorkspace({
       }
     };
     retry.current = () => { void refresh(); };
-    setBusy(true);
-    setData(null);
+    if (shownEvening.current !== eveningId) {
+      shownEvening.current = eveningId;
+      setBusy(true);
+      setData(null);
+    }
     setError('');
     void refresh();
     const interval = window.setInterval(() => {

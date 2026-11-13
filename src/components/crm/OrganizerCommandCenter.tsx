@@ -383,13 +383,16 @@ export default function OrganizerCommandCenter({
 
     </div>
     <div className="crm-today-planning space-y-3">
+    {/* Two independent columns on a wide screen: opening «Дела» no longer pushes the left blocks down (owner, 2026-11-13). */}
+    <div className="crm-today-left space-y-3">
     <MonthBirthdaysHome onOpenPlayer={onOpenPlayer} />
     <VkManualPhotosHome />
     <ActiveGiftCollectionsHome />
     {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
+    </div>
 
     {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}
-    <div className="crm-today-agenda"><OrganizerAgenda mode="preview" hideItemPrefixes={debtorCount > 0 ? ['check:debts:'] : []} refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
+    <div className="crm-today-right"><div className="crm-today-agenda"><OrganizerAgenda mode="preview" hideItemPrefixes={debtorCount > 0 ? ['check:debts:'] : []} refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div></div>
     </div>
 
   </div>;

@@ -814,7 +814,7 @@ const TOURNAMENT_RESULTS_DESTINATIONS = clubResultTargets('TOURNAMENT', 'other')
 const tournamentResultsKey = (tournamentId: string, destination: string) => `tournament-results:${tournamentId}:${destination}`;
 
 /** The table and nominations pictures of a finished tournament; a failure in one never blocks the other or the text. */
-async function loadTournamentPictures(db: DatabaseWrapper, tournamentId: string, title: string, dateLabel: string, empty: Set<string>): Promise<Array<['table' | 'nominations', Buffer, string]>> {
+export async function loadTournamentPictures(db: DatabaseWrapper, tournamentId: string, title: string, dateLabel: string, empty: Set<string>): Promise<Array<['table' | 'nominations', Buffer, string]>> {
   const out: Array<['table' | 'nominations', Buffer, string]> = [];
   try {
     const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');

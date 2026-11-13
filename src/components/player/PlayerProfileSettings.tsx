@@ -180,8 +180,6 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
         <Button data-testid="profile-save" type="button" size="lg" disabled={saving} onClick={() => void saveProfile()} className="mt-4 w-full">{saving ? 'Сохраняем…' : 'Сохранить изменения'}</Button>
       </section>
 
-      <a href="https://2lamafia.ru/" data-testid="player-site-link" className="flex min-h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white/85">На сайт клуба</a>
-
       <ConfirmDialog open={avatarDeleteOpen} title="Удалить фото?" description="Фото будет удалено из единого профиля игрока." confirmLabel="Удалить" tone="danger" busy={avatarSaving} onCancel={() => setAvatarDeleteOpen(false)} onConfirm={deleteAvatar} />
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ClubOwnerContext } from './crm/useClubOwner.ts';
-import { Calendar, Lock, Menu, RefreshCw, Users } from 'lucide-react';
+import { Calendar, Globe, Lock, Menu, RefreshCw, Users } from 'lucide-react';
 import { api, type GameEvening } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
@@ -324,6 +324,9 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             <span className="mt-0.5 hidden truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted sm:block">2LA noire · NEWMAFIA</span>
           </button>
           <div className="flex shrink-0 items-center gap-2">
+            <a href="https://2lamafia.ru/" data-testid="crm-header-site" aria-label="На сайт клуба" title="Сайт клуба" className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-1 px-3 text-[12px] font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary">
+              <Globe className="h-4 w-4" aria-hidden="true" /><span className="hidden lg:inline">На сайт</span>
+            </a>
             {isOrganizer ? (
               <nav className="hidden items-center gap-1 rounded-[13px] border border-border-soft bg-surface-1 p-1 md:flex">
                 {ORGANIZER_PRIMARY_NAV.map((item) => {

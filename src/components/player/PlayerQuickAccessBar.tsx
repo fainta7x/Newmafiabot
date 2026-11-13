@@ -1,4 +1,4 @@
-import { Gavel, Settings } from 'lucide-react';
+import { Gavel, Globe, Settings } from 'lucide-react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import ProductModeSwitch from '../ProductModeSwitch.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
@@ -58,6 +58,16 @@ export default function PlayerQuickAccessBar({
               <span className="hidden sm:inline">Ведение</span>
             </button>
           ) : null}
+
+          <a
+            data-testid="player-quick-site"
+            href="https://2lamafia.ru/"
+            aria-label="На сайт клуба"
+            title="Сайт клуба"
+            className="ds-focus-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-white/72 transition-colors hover:bg-white/[0.08]"
+          >
+            <Globe className="h-4 w-4" aria-hidden="true" />
+          </a>
 
           <button
             data-testid="player-quick-wallet"

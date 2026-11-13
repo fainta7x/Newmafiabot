@@ -37,6 +37,7 @@ import { ensurePokerInviteSchema } from './db/ensurePokerInviteSchema.ts';
 import { ensurePokerTournamentSchema } from './db/ensurePokerTournamentSchema.ts';
 import { ensurePokerChatSchema } from './db/ensurePokerChatSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
+import { applyGunTownCupRename } from './db/applyGunTownCupRename.ts';
 import { applyBogdanaTournamentStaff, applyUnifiedTournamentFlowMigration } from './db/applyUnifiedTournamentFlowMigration.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 import { slowQueriesSnapshot } from './lib/performanceProbe.ts';
@@ -250,6 +251,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   if (db.dbPath !== ':memory:') {
     try { await applyUnifiedTournamentFlowMigration(db); } catch (error) { console.error('[TOURNAMENTS] Unified format migration failed (nothing changed):', error); }
     try { await applyBogdanaTournamentStaff(db); } catch (error) { console.error('[TOURNAMENTS] Bogdan judge/organizer update failed (nothing changed):', error); }
+    try { await applyGunTownCupRename(db); } catch (error) { console.error('[TOURNAMENTS] Gun Town Cup titles failed (nothing changed):', error); }
   }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';

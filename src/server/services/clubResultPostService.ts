@@ -318,6 +318,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
   } });
   if (await part('weekly_season', () => postWeeklySeasonTables(db, fetchImpl, now))) posted += 1;
+  posted += await part('season_summary', async () => (await import('./seasonSummaryPostService.ts')).runSeasonSummaryPosts(db, fetchImpl, now));
   posted += await part('tournament_announcements', () => runTournamentAnnouncements(db, fetchImpl, now));
   posted += await part('tournament_results', () => runTournamentResultPosts(db, fetchImpl, now));
   posted += await part('payment_reminders', () => runEveningPaymentReminders(db, now)).catch((error) => { console.error('[PAYMENT REMINDERS] scan failed:', error); return 0; });

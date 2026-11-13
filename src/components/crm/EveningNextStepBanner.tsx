@@ -12,9 +12,13 @@ type CloseoutSummary = { games: { total: number; completed: number; unfinished: 
  */
 export const EveningNextStepBanner: React.FC<{ eveningId: string; status: string | null; refreshKey?: number; onOpenCloseout: () => void }> = ({ eveningId, status, refreshKey = 0, onOpenCloseout }) => {
   const [summary, setSummary] = useState<CloseoutSummary | null>(null);
+  const shownFor = React.useRef('');
 
   useEffect(() => {
-    setSummary(null);
+    // The banner stays on screen while it is re-checked after an action (owner, 2026-11-13: blocks never reload in front of the organizer);
+    // it is cleared only when the evening or its status changes.
+    const scope = `${eveningId}:${status}`;
+    if (shownFor.current !== scope) { shownFor.current = scope; setSummary(null); }
     if (status !== 'active') return;
     let cancelled = false;
     const load = () => {

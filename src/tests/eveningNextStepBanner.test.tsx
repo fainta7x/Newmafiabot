@@ -31,6 +31,23 @@ describe('EveningNextStepBanner', () => {
     expect(container.textContent).toBe('');
   });
 
+  it('stays on screen while it is re-checked after an action (the refresh key changes)', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(() => {
+      calls += 1;
+      const body = { ok: true, json: async () => ({ games: { total: 3, completed: 3, unfinished: [] } }) };
+      return calls === 1 ? Promise.resolve(body) : new Promise((resolve) => { setTimeout(() => resolve(body), 40); });
+    }));
+    const { rerender } = render(<EveningNextStepBanner eveningId="e1" status="active" refreshKey={0} onOpenCloseout={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('Все игры сыграны')).toBeTruthy());
+    const banner = screen.getByText('Все игры сыграны');
+    rerender(<EveningNextStepBanner eveningId="e1" status="active" refreshKey={1} onOpenCloseout={() => undefined} />);
+    await new Promise((resolve) => { setTimeout(resolve, 10); });
+    expect(banner.isConnected).toBe(true);
+    await waitFor(() => expect(calls).toBeGreaterThan(1));
+    expect(banner.isConnected).toBe(true);
+  });
+
   it('appears once the last game finishes while the evening is open', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let finished = false;

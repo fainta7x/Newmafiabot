@@ -264,7 +264,7 @@ export function seasonNominationsSvg(summary: SeasonSummary) {
   <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(summary.dateLabel)}</text>
   <text x="${M}" y="246" font-size="20" font-weight="600" fill="${C.subduedText}">${esc(seasonStats(summary))}</text>
   ${cellsSvg}
-  ${renderNoirExportFooter(W, height, 'роли: показатели в роли, от 3 игр · MVP: вечера с победой в голосовании')}
+  ${renderNoirExportFooter(W, height, 'роли: средний показатель за игру в роли, от 40% игр сезона · MVP: победы в голосовании')}
 </svg>`;
 }
 

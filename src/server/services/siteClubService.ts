@@ -1,8 +1,9 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
-import { loadEveningSummary, loadSeasonTableForPeriod } from './clubResultData.ts';
-import { eveningSummarySvg, renderPngAsync, seasonTableSvg } from './clubResultImages.ts';
+import { loadEveningSummary, loadSeasonSummary } from './clubResultData.ts';
+import { calendarSeasonForDate, type ClubSeason } from './clubSeasonService.ts';
+import { eveningSummarySvg, renderPngAsync, seasonSummarySvg } from './clubResultImages.ts';
 import { loadTournamentPictures } from './clubResultPostService.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
 
@@ -110,30 +111,43 @@ export async function loadSiteTournamentPicture(db: DatabaseWrapper, tournamentI
   });
 }
 
-/** Rating seasons (periods) with games: the table the club posts each week, for the site's «Сезоны» page. A draft period is not shown. */
+/**
+ * Club seasons of the year (owner, 2026-11-13: «Осень 2026» and so on, by the calendar and automatic). A season is listed once it has completed club games.
+ * The rating periods are a different thing now: the «Рейтинговая лига».
+ */
+async function calendarSeasonsWithGames(db: DatabaseWrapper, limit: number) {
+  const months = await db.all<any>("SELECT DISTINCT substr(game_date, 1, 7) AS ym FROM games WHERE archived_at IS NULL AND game_date IS NOT NULL").catch(() => []);
+  const seasons = new Map<string, ClubSeason>();
+  for (const row of months) {
+    const [year, month] = String(row.ym || '').split('-').map(Number);
+    if (!year || !month) continue;
+    const season = calendarSeasonForDate(Date.UTC(year, month - 1, 15));
+    seasons.set(season.key, season);
+  }
+  return [...seasons.values()].sort((a, b) => b.start - a.start).slice(0, limit);
+}
+
 export async function loadSiteSeasons(db: DatabaseWrapper, limit = 6) {
-  const periods = await db.all<any>(
-    `SELECT * FROM rating_periods WHERE status IN ('active', 'completed', 'archived')
-      ORDER BY datetime(starts_at) DESC LIMIT ?`, [limit]).catch(() => []);
   const items = [];
-  for (const period of periods) {
-    const table = await loadSeasonTableForPeriod(db, period).catch(() => null);
-    if (!table || !table.rows.length) continue;
+  for (const season of await calendarSeasonsWithGames(db, limit)) {
+    const summary = await loadSeasonSummary(db, season).catch(() => null);
+    if (!summary) continue;
     items.push({
-      id: String(period.id), title: String(period.title || table.periodTitle), starts_at: period.starts_at, ends_at: period.ends_at,
-      status: String(period.status), games: table.games,
-      image: `/api/public/welcome/seasons/${encodeURIComponent(String(period.id))}/image.png`,
-      rows: table.rows.map((row) => ({ place: row.place, nickname: String(row.nickname).slice(0, 30), value: row.value, detail: row.detail })),
+      id: season.key, title: summary.title, date_label: summary.dateLabel, current: Date.now() >= season.start && Date.now() < season.end,
+      games: summary.games, evenings: summary.evenings, players: summary.players,
+      image: `/api/public/welcome/seasons/${encodeURIComponent(season.key)}/image.png`,
+      rows: summary.table.map((row) => ({ place: row.place, nickname: String(row.nickname).slice(0, 30), value: row.value, detail: row.detail })),
     });
   }
   return items;
 }
 
-export async function loadSiteSeasonPicture(db: DatabaseWrapper, periodId: string) {
-  const period = await db.get<any>("SELECT * FROM rating_periods WHERE id = ? AND status IN ('active', 'completed', 'archived')", [periodId]);
-  if (!period) return null;
-  return cachedPicture(`season:${periodId}`, async () => {
-    const table = await loadSeasonTableForPeriod(db, period);
-    return table ? renderPngAsync(seasonTableSvg(table)) : null;
+export async function loadSiteSeasonPicture(db: DatabaseWrapper, seasonKey: string) {
+  const seasons = await calendarSeasonsWithGames(db, 12);
+  const season = seasons.find((item) => item.key === seasonKey);
+  if (!season) return null;
+  return cachedPicture(`season:${seasonKey}`, async () => {
+    const summary = await loadSeasonSummary(db, season);
+    return summary ? renderPngAsync(seasonSummarySvg(summary)) : null;
   });
 }

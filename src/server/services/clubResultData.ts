@@ -903,3 +903,121 @@ export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournament
 }
 
 
+
+/**
+ * The summary of one club season of the year (owner, 2026-11-13): who gained and lost most Elo, the table by Elo change, the best by role
+ * and the MVP of the evenings, over every completed club game of the season, whatever the format.
+ */
+export type SeasonSummary = {
+  title: string;
+  dateLabel: string;
+  games: number;
+  evenings: number;
+  players: number;
+  eloUp: SummaryPlayer[];
+  eloDown: SummaryPlayer[];
+  table: SeasonRow[];
+  bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
+  mvp: SummaryPlayer[];
+};
+
+export async function loadSeasonSummary(db: DatabaseWrapper, season: { label: string; start: number; end: number }): Promise<SeasonSummary | null> {
+  const from = new Date(season.start).toISOString();
+  const to = new Date(season.end).toISOString();
+  const rows = await db.all<any>(
+    `SELECT id, evening_id, protocol_text FROM games
+      WHERE archived_at IS NULL AND datetime(game_date) >= datetime(?) AND datetime(game_date) < datetime(?)`, [from, to]).catch(() => []);
+  const elo = await loadClubElo(db);
+  const tallies = new Map<string, Tally>();
+  const eloByPlayer = new Map<string, number>();
+  const guestNames = new Map<string, string>();
+  const evenings = new Set<string>();
+  let games = 0;
+  for (const row of rows) {
+    const envelope = parse(row.protocol_text);
+    if (!isCompleted(envelope)) continue;
+    games += 1;
+    if (row.evening_id) evenings.add(String(row.evening_id));
+    for (const [playerId, change] of elo.get(String(row.id)) || []) eloByPlayer.set(playerId, (eloByPlayer.get(playerId) || 0) + change.delta);
+    const effects = seatEffectiveness(envelope);
+    const roleFacts = seatRoleFacts(envelope);
+    for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
+      const guestKey = String(result?.guest_placeholder_id || result?.display_name || '').trim();
+      const playerId = String(result?.player_id || '') || (guestKey ? `guest:${guestKey}` : '');
+      if (!playerId) continue;
+      if (playerId.startsWith('guest:')) { guestNames.set(playerId, String(result?.display_name || 'Гость без профиля')); continue; }
+      const role = normalizeGameRole(result?.role) || 'citizen';
+      const win = won(role, envelope.protocol.winner_team) ? 1 : 0;
+      const tally = tallies.get(playerId) || { playerId, games: 0, wins: 0, points: 0, byRole: new Map() };
+      tally.games += 1; tally.wins += win;
+      const byRole = tally.byRole.get(role) || { games: 0, wins: 0, points: 0, effect: 0, facts: emptyRoleFacts() };
+      byRole.games += 1; byRole.wins += win; byRole.effect += effects.get(Number(result?.seat_number)) ?? 0;
+      const seatFacts = roleFacts.get(Number(result?.seat_number));
+      if (seatFacts) {
+        const total = byRole.facts;
+        total.checks += seatFacts.checks; total.blackChecks += seatFacts.blackChecks; total.streak = Math.max(total.streak, seatFacts.streak);
+        total.votes += seatFacts.votes; total.votesAgainstBlack += seatFacts.votesAgainstBlack; total.markedRed += seatFacts.markedRed;
+        if (seatFacts.donFoundAt !== null) total.donFoundAt = total.donFoundAt === null ? seatFacts.donFoundAt : Math.min(total.donFoundAt, seatFacts.donFoundAt);
+      }
+      tally.byRole.set(role, byRole);
+      tallies.set(playerId, tally);
+    }
+  }
+  if (!games) return null;
+
+  const { resolveEveningMvp } = await import('./eveningMvpService.ts');
+  const mvpCount = new Map<string, { titles: number; votes: number }>();
+  for (const eveningId of evenings) {
+    const resolution: any = await resolveEveningMvp(db, eveningId).catch(() => null);
+    if (!resolution) continue;
+    for (const candidate of resolution.candidates || []) {
+      const entry = mvpCount.get(String(candidate.player_id)) || { titles: 0, votes: 0 };
+      entry.votes += Number(candidate.votes || 0);
+      if (resolution.status === 'winner' && String(resolution.winner?.player_id) === String(candidate.player_id)) entry.titles += 1;
+      mvpCount.set(String(candidate.player_id), entry);
+    }
+  }
+
+  const all = [...tallies.values()];
+  const ids = all.map((item) => item.playerId);
+  const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, ids)]);
+  const nameOf = (id: string) => names.get(id) || guestNames.get(id) || 'Игрок';
+  const person = (id: string, value: string, detail: string): SummaryPlayer => ({ playerId: id, nickname: nameOf(id), avatar: avatars.get(id) || null, value, detail });
+  const winsWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'победа' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'победы' : 'побед');
+  const signedElo = (delta: number) => (Math.round(delta) > 0 ? `+${Math.round(delta)}` : Math.round(delta) < 0 ? `−${Math.abs(Math.round(delta))}` : '0');
+  const detailOf = (tally: Tally) => `игр ${tally.games} · ${tally.wins} ${winsWord(tally.wins)}`;
+
+  const ranked = all.map((tally) => ({ tally, delta: eloByPlayer.get(tally.playerId) || 0 }))
+    .sort((a, b) => b.delta - a.delta || b.tally.wins - a.tally.wins || a.tally.games - b.tally.games);
+  const eloUp = ranked.filter((item) => Math.round(item.delta) > 0).slice(0, 3).map((item) => person(item.tally.playerId, signedElo(item.delta), detailOf(item.tally)));
+  const eloDown = [...ranked].reverse().filter((item) => Math.round(item.delta) < 0).slice(0, 3).map((item) => person(item.tally.playerId, signedElo(item.delta), detailOf(item.tally)));
+  const table: SeasonRow[] = ranked.slice(0, 10).map((item, index) => ({
+    place: index + 1, playerId: item.tally.playerId, nickname: nameOf(item.tally.playerId), avatar: avatars.get(item.tally.playerId) || null,
+    value: signedElo(item.delta), detail: detailOf(item.tally),
+  }));
+
+  const bestByRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
+    const candidates = all.filter((item) => item.byRole.has(role));
+    if (!candidates.length) return { role, player: null };
+    const stat = (item: Tally) => item.byRole.get(role)!;
+    const seasoned = candidates.filter((item) => stat(item).games >= 3);
+    const pool = seasoned.length ? seasoned : candidates;
+    const average = (item: Tally) => stat(item).effect / stat(item).games;
+    const best = [...pool].sort((a, b) => average(b) - average(a) || stat(b).games - stat(a).games)[0];
+    return { role, player: person(best.playerId, '', `${stat(best).games} игр в роли · ${stat(best).wins} ${winsWord(stat(best).wins)}`) };
+  });
+
+  const votesWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'голос' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'голоса' : 'голосов');
+  const titlesWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'вечер' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'вечера' : 'вечеров');
+  const mvp = [...mvpCount.entries()].filter(([, entry]) => entry.titles > 0)
+    .map(([playerId, entry]) => ({ playerId, ...entry }))
+    .sort((a, b) => b.titles - a.titles || b.votes - a.votes).slice(0, 3);
+  const mvpPeople = mvp.length ? await Promise.all([loadNicknames(db, mvp.map((item) => item.playerId)), loadAvatars(db, mvp.map((item) => item.playerId))]) : null;
+  const mvpList: SummaryPlayer[] = mvp.map((item) => ({
+    playerId: item.playerId, nickname: mvpPeople![0].get(item.playerId) || nameOf(item.playerId), avatar: mvpPeople![1].get(item.playerId) || null,
+    value: `${item.titles} ${titlesWord(item.titles)}`, detail: `${item.votes} ${votesWord(item.votes)} за сезон`,
+  }));
+
+  const range = `${dateLabel(new Date(season.start).toISOString())} — ${dateLabel(new Date(season.end - 1).toISOString())}`;
+  return { title: season.label, dateLabel: range, games, evenings: evenings.size, players: all.length, eloUp, eloDown, table, bestByRole, mvp: mvpList };
+}

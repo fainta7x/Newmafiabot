@@ -169,11 +169,8 @@ describe('tournaments and seasons on the site', () => {
     expect(await loadSiteTournaments(db)).toEqual([]);
   });
 
-  it('does not show a draft season', async () => {
+  it('shows no season until a completed club game exists', async () => {
     const { loadSiteSeasons } = await import('../server/services/siteClubService.ts');
-    await (await import('../db/ensureRatingPeriodsSchema.ts')).ensureRatingPeriodsSchema(db);
-    const now = new Date().toISOString();
-    await db.run("INSERT INTO rating_periods (id, title, type, starts_at, ends_at, status, created_at, updated_at) VALUES ('s1','Осенний сезон','CASUAL', ?, ?, 'draft', ?, ?)", [now, now, now, now]);
     expect(await loadSiteSeasons(db)).toEqual([]);
   });
 });

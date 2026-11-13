@@ -122,3 +122,26 @@ describe('the day and time of the games is a setting (owner, 2026-11-12)', () =>
     expect(club.map((row) => row.starts_at.slice(11, 16))).toEqual(['22:00']);
   });
 });
+
+describe('club agenda, evening history and tournament results for the site', () => {
+  it('shows open evenings of every format with free seats, and never a cancelled or closed one', async () => {
+    const { loadSiteAgenda } = await import('../server/services/siteClubService.ts');
+    const now = new Date(Date.now() + 86_400_000).toISOString();
+    await db.run("INSERT INTO game_evenings (id, title, starts_at, format, status, capacity, created_at, updated_at) VALUES ('a','Клубный вечер',?, 'CASUAL','published',10,?,?)", [now, now, now]);
+    await db.run("INSERT INTO game_evenings (id, title, starts_at, format, status, capacity, created_at, updated_at) VALUES ('b','Турнир',?, 'TOURNAMENT','cancelled',10,?,?)", [now, now, now]);
+    const items = await loadSiteAgenda(db);
+    expect(items.map((item) => item.id)).toEqual(['a']);
+    expect(items[0]).toMatchObject({ format: 'CASUAL', free_seats: 10 });
+  });
+
+  it('answers the three public routes without roles or contacts', async () => {
+    const { default: request } = await import('supertest');
+    const { createApp } = await import('../app.ts');
+    const app = await createApp(db);
+    for (const path of ['agenda', 'history', 'tournaments']) {
+      const response = await request(app).get(`/api/public/welcome/${path}`);
+      expect(response.status).toBe(200);
+      expect(JSON.stringify(response.body)).not.toMatch(/phone|telegram_user_id|role/i);
+    }
+  });
+});

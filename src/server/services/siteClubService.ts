@@ -1,8 +1,8 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
-import { loadEveningSummary } from './clubResultData.ts';
-import { eveningSummarySvg, renderPngAsync } from './clubResultImages.ts';
+import { loadEveningSummary, loadSeasonTableForPeriod } from './clubResultData.ts';
+import { eveningSummarySvg, renderPngAsync, seasonTableSvg } from './clubResultImages.ts';
 import { loadTournamentPictures } from './clubResultPostService.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
 
@@ -56,7 +56,7 @@ export async function loadSiteEveningHistory(db: DatabaseWrapper, limit = 12) {
 export async function loadSiteTournaments(db: DatabaseWrapper, limit = 10) {
   const rows = await db.all<any>(
     `SELECT id, title, date, venue FROM tournaments
-      WHERE status = 'completed' AND results_published_at IS NOT NULL AND standings_hidden_at IS NULL
+      WHERE status = 'completed' AND standings_hidden_at IS NULL
       ORDER BY date DESC LIMIT ?`, [limit]).catch(() => []);
   const items = [];
   for (const row of rows) {
@@ -96,13 +96,41 @@ export async function loadSiteEveningPicture(db: DatabaseWrapper, eveningId: str
   });
 }
 
-/** The final table of a tournament whose results the organizer published and did not hide. */
+/** The final table of a finished tournament the organizer did not hide. */
 export async function loadSiteTournamentPicture(db: DatabaseWrapper, tournamentId: string) {
-  const row = await db.get<any>("SELECT id, title, date FROM tournaments WHERE id = ? AND status = 'completed' AND results_published_at IS NOT NULL AND standings_hidden_at IS NULL", [tournamentId]);
+  const row = await db.get<any>("SELECT id, title, date FROM tournaments WHERE id = ? AND status = 'completed' AND standings_hidden_at IS NULL", [tournamentId]);
   if (!row) return null;
   return cachedPicture(`tournament:${tournamentId}`, async () => {
     const dateLabel = row.date ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' }).format(new Date(String(row.date))).replace(/\s*г\.?$/, '') : '';
     const pictures = await loadTournamentPictures(db, tournamentId, String(row.title || 'Турнир'), dateLabel, new Set<string>());
     return pictures.find(([kind]) => kind === 'table')?.[1] || null;
+  });
+}
+
+/** Rating seasons (periods) with games: the table the club posts each week, for the site's «Сезоны» page. A draft period is not shown. */
+export async function loadSiteSeasons(db: DatabaseWrapper, limit = 6) {
+  const periods = await db.all<any>(
+    `SELECT * FROM rating_periods WHERE status IN ('active', 'completed', 'archived')
+      ORDER BY datetime(starts_at) DESC LIMIT ?`, [limit]).catch(() => []);
+  const items = [];
+  for (const period of periods) {
+    const table = await loadSeasonTableForPeriod(db, period).catch(() => null);
+    if (!table || !table.rows.length) continue;
+    items.push({
+      id: String(period.id), title: String(period.title || table.periodTitle), starts_at: period.starts_at, ends_at: period.ends_at,
+      status: String(period.status), games: table.games,
+      image: `/api/public/welcome/seasons/${encodeURIComponent(String(period.id))}/image.png`,
+      rows: table.rows.map((row) => ({ place: row.place, nickname: String(row.nickname).slice(0, 30), value: row.value, detail: row.detail })),
+    });
+  }
+  return items;
+}
+
+export async function loadSiteSeasonPicture(db: DatabaseWrapper, periodId: string) {
+  const period = await db.get<any>("SELECT * FROM rating_periods WHERE id = ? AND status IN ('active', 'completed', 'archived')", [periodId]);
+  if (!period) return null;
+  return cachedPicture(`season:${periodId}`, async () => {
+    const table = await loadSeasonTableForPeriod(db, period);
+    return table ? renderPngAsync(seasonTableSvg(table)) : null;
   });
 }

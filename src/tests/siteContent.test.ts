@@ -138,7 +138,7 @@ describe('club agenda, evening history and tournament results for the site', () 
     const { default: request } = await import('supertest');
     const { createApp } = await import('../app.ts');
     const app = await createApp(db);
-    for (const path of ['agenda', 'history', 'tournaments']) {
+    for (const path of ['agenda', 'history', 'tournaments', 'seasons']) {
       const response = await request(app).get(`/api/public/welcome/${path}`);
       expect(response.status).toBe(200);
       expect(JSON.stringify(response.body)).not.toMatch(/phone|telegram_user_id|role/i);
@@ -153,5 +153,26 @@ describe('result pictures for the site', () => {
     const app = await createApp(db);
     expect((await request(app).get('/api/public/welcome/history/none/image.png')).status).toBe(404);
     expect((await request(app).get('/api/public/welcome/tournaments/none/image.png')).status).toBe(404);
+    expect((await request(app).get('/api/public/welcome/seasons/none/image.png')).status).toBe(404);
+  });
+});
+
+describe('tournaments and seasons on the site', () => {
+  it('lists a finished tournament without needing a published post, and drops a hidden one', async () => {
+    const { loadSiteTournaments } = await import('../server/services/siteClubService.ts');
+    await (await import('../db/ensureTournamentEveningSchema.ts')).ensureTournamentEveningSchema(db);
+    const now = new Date().toISOString();
+    await db.run("INSERT INTO tournaments (id, title, date, status, created_at, updated_at) VALUES ('t1','Gun Town Cup 4', ?, 'completed', ?, ?)", [now, now, now]);
+    await db.run("INSERT INTO tournaments (id, title, date, status, standings_hidden_at, created_at, updated_at) VALUES ('t2','Скрытый', ?, 'completed', ?, ?, ?)", [now, now, now, now]);
+    // No games yet: nothing to show, but the query must not fail on either row.
+    expect(await loadSiteTournaments(db)).toEqual([]);
+  });
+
+  it('does not show a draft season', async () => {
+    const { loadSiteSeasons } = await import('../server/services/siteClubService.ts');
+    await (await import('../db/ensureRatingPeriodsSchema.ts')).ensureRatingPeriodsSchema(db);
+    const now = new Date().toISOString();
+    await db.run("INSERT INTO rating_periods (id, title, type, starts_at, ends_at, status, created_at, updated_at) VALUES ('s1','Осенний сезон','CASUAL', ?, ?, 'draft', ?, ?)", [now, now, now, now]);
+    expect(await loadSiteSeasons(db)).toEqual([]);
   });
 });

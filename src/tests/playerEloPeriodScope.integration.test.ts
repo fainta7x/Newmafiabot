@@ -25,7 +25,7 @@ const get=async(path:string)=>{const r=await request(app).get('/api/player/'+pat
 it('resolves current-season alias to the same explicit started period and excludes old games',async()=>{
   const all=await get('elo-journey');expect(all.events).toHaveLength(14);
   const alias=await get('elo-journey?period=season');const explicit=await get('elo-journey?period=period:current');
-  expect(alias.scope.period).toBe('period:current');expect(alias.events).toHaveLength(13);
+  expect(alias.scope.period).toBe('autumn-2026');expect(alias.events).toHaveLength(13);
   expect(alias.events.map((e:any)=>e.id)).toEqual(explicit.events.map((e:any)=>e.id));
   expect(alias.summary.current).toBe(all.summary.current);
 });

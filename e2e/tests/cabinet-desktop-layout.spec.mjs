@@ -53,7 +53,7 @@ for (const width of [390, 1024, 1366, 1440]) {
     await page.getByLabel('Разделы сообщества').getByRole('button',{name:'Рейтинг',exact:true}).click();
     await expect(page.getByTestId('rating-self-row')).toBeVisible();
     await shot('community-rating');
-    for (const name of ['Сезон', 'Турниры']) {
+    for (const name of ['Лига', 'Турниры']) {
       await page.getByLabel('Разделы рейтинга').getByRole('button', { name, exact: true }).click();
       await shot(`rating-${name}`);
     }

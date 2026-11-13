@@ -220,7 +220,7 @@ export function seasonTop10Svg(summary: SeasonSummary) {
   <text x="${M}" y="246" font-size="20" font-weight="600" fill="${C.subduedText}">${esc(seasonStats(summary))}</text>
   <text x="${W - M}" y="${top + 32}" text-anchor="end" font-size="17" font-weight="700" letter-spacing="2" fill="#D7A0AE">ИЗМЕНЕНИЕ ЭЛО ЗА СЕЗОН</text>
   ${rowsSvg || `<text x="${M}" y="${top + 100}" font-size="24" font-weight="500" fill="${C.subduedText}">Результатов пока нет</text>`}
-  ${renderNoirExportFooter(W, height, 'Эло за все клубные игры сезона')}
+  ${renderNoirExportFooter(W, height, 'Эло за клубные и турнирные игры сезона')}
 </svg>`;
 }
 

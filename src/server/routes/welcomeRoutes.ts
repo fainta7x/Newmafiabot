@@ -15,7 +15,7 @@ import { LeadError, createWelcomeLead, recordWelcomeVisit } from '../services/ne
 import { notifyOrganizerAboutLead } from '../services/leadNotificationService.ts';
 import { loadSiteTexts } from '../services/siteContentService.ts';
 import { WEEKDAY_NAMES, WEEKDAY_ON, loadGameSchedule, scheduleTimes } from '../services/gameScheduleSettingsService.ts';
-import { loadSiteAgenda, loadSiteEveningHistory, loadSiteTournaments } from '../services/siteClubService.ts';
+import { loadSiteAgenda, loadSiteEveningHistory, loadSiteEveningPicture, loadSiteTournamentPicture, loadSiteTournaments } from '../services/siteClubService.ts';
 import { loadClubLeaderboardRows } from '../services/clubLeaderboardService.ts';
 import { hasOrganizerPlayerAccess, resolveVerifiedPlayerIdentity } from '../services/organizerPlayerAccessService.ts';
 
@@ -134,6 +134,18 @@ const readJson = (load: (db: any) => Promise<unknown>, key: string, error: strin
 router.get('/welcome/agenda', publicRead, readJson(loadSiteAgenda, 'evenings', 'Не удалось загрузить афишу'));
 router.get('/welcome/history', publicRead, readJson((db) => loadSiteEveningHistory(db), 'evenings', 'Не удалось загрузить историю'));
 router.get('/welcome/tournaments', publicRead, readJson((db) => loadSiteTournaments(db), 'tournaments', 'Не удалось загрузить турниры'));
+
+const pictureLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false });
+const sendPicture = (load: (db: any, id: string) => Promise<Buffer | null>) => async (req: any, res: any) => {
+  try {
+    const png = await load(req.db || await getDb(), String(req.params.id));
+    if (!png) return res.status(404).json({ error: 'Картинки нет' });
+    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=600', 'Cross-Origin-Resource-Policy': 'cross-origin' });
+    return res.send(png);
+  } catch { return res.status(500).json({ error: 'Не удалось нарисовать картинку' }); }
+};
+router.get('/welcome/history/:id/image.png', pictureLimit, sendPicture(loadSiteEveningPicture));
+router.get('/welcome/tournaments/:id/image.png', pictureLimit, sendPicture(loadSiteTournamentPicture));
 
 /**
  * «Who is signed in» for the site's header: a nickname and what the person may open, nothing else. It answers with the visitor's cookie only to

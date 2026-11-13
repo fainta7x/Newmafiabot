@@ -145,3 +145,13 @@ describe('club agenda, evening history and tournament results for the site', () 
     }
   });
 });
+
+describe('result pictures for the site', () => {
+  it('draws nothing for an unknown, open or hidden evening or tournament', async () => {
+    const { default: request } = await import('supertest');
+    const { createApp } = await import('../app.ts');
+    const app = await createApp(db);
+    expect((await request(app).get('/api/public/welcome/history/none/image.png')).status).toBe(404);
+    expect((await request(app).get('/api/public/welcome/tournaments/none/image.png')).status).toBe(404);
+  });
+});

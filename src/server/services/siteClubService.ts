@@ -2,6 +2,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
 import { loadEveningSummary } from './clubResultData.ts';
+import { eveningSummarySvg, renderPngAsync } from './clubResultImages.ts';
+import { loadTournamentPictures } from './clubResultPostService.ts';
 import { getFlexibleTournamentStandings } from './flexibleTournamentStandingsService.ts';
 
 /**
@@ -42,6 +44,7 @@ export async function loadSiteEveningHistory(db: DatabaseWrapper, limit = 12) {
     const format = normalizeEveningFormat(row.format);
     items.push({
       id: String(row.id), title: String(row.title || ''), starts_at: row.starts_at, format, format_label: EVENING_FORMAT_LABELS[format],
+      image: `/api/public/welcome/history/${encodeURIComponent(String(row.id))}/image.png`,
       games: summary.games, players: summary.players, red_wins: summary.redWins, black_wins: summary.blackWins,
       most_wins: summary.mostWins.slice(0, 3).map((player) => ({ nickname: String(player.nickname).slice(0, 30), value: player.value })),
     });
@@ -62,6 +65,7 @@ export async function loadSiteTournaments(db: DatabaseWrapper, limit = 10) {
     if (!standings.length) continue;
     items.push({
       id: String(row.id), title: String(row.title || ''), date: row.date, venue: row.venue || null,
+      image: `/api/public/welcome/tournaments/${encodeURIComponent(String(row.id))}/image.png`,
       standings: standings.map((entry: any) => ({
         place: Number(entry.place || 0), name: String(entry.display_name || 'Участник').slice(0, 30),
         points: Number(entry.total_points || 0), wins: Number(entry.wins || 0), games: Number(entry.games_played || 0),
@@ -69,4 +73,36 @@ export async function loadSiteTournaments(db: DatabaseWrapper, limit = 10) {
     });
   }
   return items;
+}
+
+const pictureCache = new Map<string, { at: number; png: Buffer }>();
+async function cachedPicture(key: string, draw: () => Promise<Buffer | null>) {
+  const hit = pictureCache.get(key);
+  if (hit && Date.now() - hit.at < 600_000) return hit.png;
+  const png = await draw();
+  if (!png) return null;
+  pictureCache.set(key, { at: Date.now(), png });
+  if (pictureCache.size > 40) pictureCache.delete(String(pictureCache.keys().next().value));
+  return png;
+}
+
+/** The same picture the club posts to its chats after an evening, for the site. Only for a finished, not cancelled evening. */
+export async function loadSiteEveningPicture(db: DatabaseWrapper, eveningId: string) {
+  const row = await db.get<any>("SELECT id FROM game_evenings WHERE id = ? AND (status = 'completed' OR settled_at IS NOT NULL) AND status != 'cancelled'", [eveningId]);
+  if (!row) return null;
+  return cachedPicture(`evening:${eveningId}`, async () => {
+    const summary = await loadEveningSummary(db, eveningId);
+    return summary && summary.games ? renderPngAsync(eveningSummarySvg(summary)) : null;
+  });
+}
+
+/** The final table of a tournament whose results the organizer published and did not hide. */
+export async function loadSiteTournamentPicture(db: DatabaseWrapper, tournamentId: string) {
+  const row = await db.get<any>("SELECT id, title, date FROM tournaments WHERE id = ? AND status = 'completed' AND results_published_at IS NOT NULL AND standings_hidden_at IS NULL", [tournamentId]);
+  if (!row) return null;
+  return cachedPicture(`tournament:${tournamentId}`, async () => {
+    const dateLabel = row.date ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' }).format(new Date(String(row.date))).replace(/\s*г\.?$/, '') : '';
+    const pictures = await loadTournamentPictures(db, tournamentId, String(row.title || 'Турнир'), dateLabel, new Set<string>());
+    return pictures.find(([kind]) => kind === 'table')?.[1] || null;
+  });
 }

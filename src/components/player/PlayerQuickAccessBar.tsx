@@ -34,11 +34,20 @@ export default function PlayerQuickAccessBar({
       className="ds-chrome-top fixed inset-x-0 top-0 z-[var(--ds-layer-sticky)] h-14 border-b"
     >
       <div className="player-cabinet-toolbar mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-2 px-3 pr-[58px]">
-        <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring min-w-0 flex-1 rounded-lg text-left">
-          {/* Next to the mode switch, «Ведение», the wallet and the gear a 360 px phone leaves little room: the lines shrink to fit. */}
-          <FitText as="div" minPx={10} className="text-sm font-semibold tracking-[0.08em] text-white/78">2LA Noire</FitText>
-          <FitText as="div" minPx={10} className="mt-0.5 text-[12px] text-white/50">{player.nickname}</FitText>
-        </button>
+        <div className="min-w-0 flex-1">
+          {/* The way back to the club site sits on the brand line, not as one more button: on a 360 px phone the buttons on the right leave no room (owner, 2026-11-13). */}
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring min-w-0 rounded-lg text-left">
+              <FitText as="div" minPx={10} className="text-sm font-semibold tracking-[0.08em] text-white/78">2LA Noire</FitText>
+            </button>
+            <a data-testid="player-quick-site" href="https://2lamafia.ru/" aria-label="На сайт клуба" title="Сайт клуба" className="ds-focus-ring -my-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/62 transition-colors hover:text-white">
+              <Globe className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+          <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring mt-0.5 block max-w-full rounded-lg text-left">
+            <FitText as="div" minPx={10} className="text-[12px] text-white/50">{player.nickname}</FitText>
+          </button>
+        </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
           {canOpenAdmin && onOpenAdmin ? (
@@ -58,16 +67,6 @@ export default function PlayerQuickAccessBar({
               <span className="hidden sm:inline">Ведение</span>
             </button>
           ) : null}
-
-          <a
-            data-testid="player-quick-site"
-            href="https://2lamafia.ru/"
-            aria-label="На сайт клуба"
-            title="Сайт клуба"
-            className="ds-focus-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-white/72 transition-colors hover:bg-white/[0.08]"
-          >
-            <Globe className="h-4 w-4" aria-hidden="true" />
-          </a>
 
           <button
             data-testid="player-quick-wallet"

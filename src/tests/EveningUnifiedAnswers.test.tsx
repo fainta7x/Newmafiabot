@@ -128,6 +128,28 @@ describe('one organizer response and delivery worklist', () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith('ep-p-failed', { response_status: 'going' }));
   });
 
+  it('does not blank the list with «Загружаю запись…» when an answer is changed', async () => {
+    const { update, fetcher } = setup();
+    render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
+    await screen.findByTestId('evening-answer-row-p-failed');
+    fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
+    const row = await screen.findByTestId('evening-answer-row-p-failed');
+    const before = fetcher.mock.calls.length;
+    // A slow network: the old code showed «Загружаю запись…» and tore the list down for the whole wait.
+    const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation((input: RequestInfo | URL) => new Promise((resolve) => { setTimeout(() => resolve(original(input)), 40); }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Ответ/ }));
+    fireEvent.click(within(row).getByRole('button', { name: 'Иду' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    await new Promise((resolve) => { setTimeout(resolve, 20); });
+    expect(screen.queryByText('Загружаю запись…')).toBeNull();
+    await waitFor(() => expect(fetcher.mock.calls.length).toBeGreaterThan(before));
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
+    // The same row stays on the screen: the list was updated in place, not torn down and drawn again.
+    expect(row.isConnected).toBe(true);
+    expect(screen.queryByText('Загружаю запись…')).toBeNull();
+  });
+
   it('allows resetting a recorded reply to unanswered', async () => {
     const { update } = setup();
     render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);

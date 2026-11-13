@@ -52,7 +52,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     `);
     res.json(rows.map((row: any) => ({ ...row, auto_include: Boolean(row.auto_include) })));
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Не удалось загрузить рейтинговые периоды' });
+    res.status(500).json({ error: err.message || 'Не удалось загрузить лигу' });
   }
 });
 
@@ -82,7 +82,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     const created = await db.get<any>('SELECT * FROM rating_periods WHERE id = ?', [id]);
     res.status(201).json({ ...created, auto_include: Boolean(created.auto_include) });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Не удалось создать рейтинговый период' });
+    res.status(500).json({ error: err.message || 'Не удалось создать лигу' });
   }
 });
 
@@ -109,7 +109,7 @@ router.patch('/:periodId', async (req: AuthenticatedRequest, res: Response) => {
     const updated = await db.get<any>('SELECT * FROM rating_periods WHERE id = ?', [req.params.periodId]);
     res.json({ ...updated, auto_include: Boolean(updated.auto_include) });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Не удалось обновить рейтинговый период' });
+    res.status(500).json({ error: err.message || 'Не удалось обновить лигу' });
   }
 });
 
@@ -121,7 +121,7 @@ router.delete('/:periodId', async (req: AuthenticatedRequest, res: Response) => 
     await db.run('DELETE FROM rating_periods WHERE id = ?', [req.params.periodId]);
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Не удалось удалить рейтинговый период' });
+    res.status(500).json({ error: err.message || 'Не удалось удалить лигу' });
   }
 });
 

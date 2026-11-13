@@ -381,7 +381,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   if (!tables.length) return false;
   if (!(await claim(db, key, 'public-season', null as any, null))) return false;
   try {
-    const caption = `🏆 Таблица сезона на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
+    const caption = `🏆 Таблица лиги на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
     const result = await sendPhotos(db, null, await Promise.all(tables.map((table) => renderPngAsync(seasonTableSvg(table)))), caption, fetchImpl, 'club_chat', undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok;

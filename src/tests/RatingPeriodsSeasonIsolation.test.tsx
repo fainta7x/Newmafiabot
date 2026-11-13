@@ -118,11 +118,11 @@ describe('CRM rating season request isolation', () => {
     selectB();
     await waitSeason('b');
     expect(screen.queryByText('Игрок А')).toBeNull();
-    expect(screen.getByText('Пересчитываем сезон…')).toBeDefined();
+    expect(screen.getByText('Пересчитываем лигу…')).toBeDefined();
 
-    fireEvent.click(screen.getByRole('button', { name: /Сезоны рейтинга/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Рейтинговая лига/ }));
     await settleSeason('b');
-    fireEvent.click(screen.getByRole('button', { name: /Сезоны рейтинга/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Рейтинговая лига/ }));
     await waitSeason('b');
     expect(screen.queryByText('Игрок А')).toBeNull();
     expect(screen.queryByText('Игрок Б')).toBeNull();

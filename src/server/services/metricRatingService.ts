@@ -4,7 +4,7 @@ import { EVENING_FORMATS, EVENING_FORMAT_LABELS, normalizeEveningFormat, type Ev
 import { winRatePercent } from '../../shared/stats.ts';
 import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
-import { loadRatingSeasons } from './clubSeasonService.ts';
+import { findSeasonByKey, loadClubSeasons } from './clubSeasonService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
 import { buildPlayerGameStatistics, createStatMemo, type PlayerGameStatistics, type StatGame, type StatMemo } from '../../lib/gameStatistics.ts';
@@ -208,8 +208,8 @@ export interface MetricRatingQuery { metric?: string; period?: string; format?: 
 
 /** The games of the chosen season and evening format (oldest first) with everything the club tables need around them. */
 export async function loadMetricScope(db: DatabaseWrapper, query: { period?: string; format?: string }) {
-  const seasons = await loadRatingSeasons(db);
-  let season = seasons.find((item) => item.key === query.period) || null;
+  const seasons = await loadClubSeasons(db);
+  let season = await findSeasonByKey(db, seasons, query.period);
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(query.format)) ? query.format as EveningFormat : 'all';
 
   const [snapshots, highlights, timeline, formatRows, playerRows] = await Promise.all([

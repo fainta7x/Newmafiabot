@@ -12,7 +12,7 @@ import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
 export type CommunitySection=PlayerRatingSection|'club'|'clubworld';
 type View='players'|'rating'|'connections'|'history'|'games';
 const NAV:Array<{value:View;label:string}>=[{value:'players',label:'Игроки'},{value:'rating',label:'Рейтинг'},{value:'connections',label:'Связи'},{value:'history',label:'История'},{value:'games',label:'Мини-игры'}];
-const PURPOSE:Record<View,string>={players:'Люди клуба, их показатели и недавние результаты.',rating:'Elo, спортивный зачёт сезона и результаты турниров.',connections:'Совместные игры, соперничество и встречи за одним столом.',history:'Итоги прошедших вечеров, игры и рекорды клуба.',games:'Клубный досуг: играем между вечерами и зовём друг друга.'};
+const PURPOSE:Record<View,string>={players:'Люди клуба, их показатели и недавние результаты.',rating:'Elo, спортивный зачёт лиги и результаты турниров.',connections:'Совместные игры, соперничество и встречи за одним столом.',history:'Итоги прошедших вечеров, игры и рекорды клуба.',games:'Клубный досуг: играем между вечерами и зовём друг друга.'};
 function destination(section:CommunitySection,target:string|null):CommunityDestination{
  if(section==='clubworld')return target==='form'?{section:'club',target:'form'}:target==='matches'?{section:'club',target:'history'}:{section:'ratingperiods',target:target==='history'?'archive':null};
  if(section==='rating'&&target==='metrics')return{section:'club',target:'metrics'};

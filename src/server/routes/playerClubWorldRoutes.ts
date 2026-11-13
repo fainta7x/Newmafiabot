@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
-import { NO_SEASON_KEY, loadRatingSeasons, previousSeason, seasonForDate, type ClubSeason } from '../services/clubSeasonService.ts';
+import { NO_SEASON_KEY, findSeasonByKey, loadClubSeasons, previousSeason, seasonForDate, type ClubSeason } from '../services/clubSeasonService.ts';
 import {
   buildPersonalHooks,
   buildRelationshipEvents,
@@ -154,7 +154,7 @@ router.get('/club-world', async (req, res) => {
     const snapshots = await loadCompletedGameSnapshots(db);
     const now = new Date();
     const nowMs = now.getTime();
-    const seasons = await loadRatingSeasons(db);
+    const seasons = await loadClubSeasons(db);
     const currentSeason = seasonForDate(seasons, now);
     const prevSeason = previousSeason(seasons, currentSeason);
     const currentGames = snapshots.filter((game) => inRange(game, currentSeason));
@@ -311,7 +311,7 @@ router.get('/club-world', async (req, res) => {
     const viewerSeason = currentStats.get(String(viewerId));
     const viewerPrevious = previousStatMap.get(String(viewerId));
 
-    const selectedSeason = typeof req.query.period==='string'?seasons.find(item=>item.key===req.query.period)||null:null;
+    const selectedSeason = typeof req.query.period==='string'?await findSeasonByKey(db,seasons,req.query.period):null;
     const selectedGames = selectedSeason?snapshots.filter(game=>inRange(game,selectedSeason)):[];
     return res.json({
       viewer_id: String(viewerId),
@@ -333,7 +333,7 @@ router.get('/club-world', async (req, res) => {
       personal_hooks: personalHooks,
       feed: feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 60),
       meta: {
-        season: 'Сезоны берутся из рейтинговых периодов клуба. Игра относится к сезону по дате завершения; официальный Elo считается отдельно.',
+        season: 'Сезоны это времена года: зима, весна, лето, осень. Игра относится к сезону по дате завершения; официальный Elo считается отдельно.',
         hall_of_fame: 'Рекорды считаются только по завершённым играм.',
         engagement: 'Лента, дайджест и персональные поводы используют только факты завершённых игр и не меняют Elo, очередь или спортивный результат.',
       },

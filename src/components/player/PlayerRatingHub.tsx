@@ -14,7 +14,7 @@ type RatingTab = 'elo' | 'season' | 'tournaments';
 // extra points, and published tournament standings.
 const TABS: Array<{ value: RatingTab; label: string }> = [
   { value: 'elo', label: 'Elo' },
-  { value: 'season', label: 'Сезон' },
+  { value: 'season', label: 'Лига' },
   { value: 'tournaments', label: 'Турниры' },
 ];
 
@@ -50,7 +50,7 @@ export default function PlayerRatingHub({
       <div className={`player-workspace mx-auto w-full max-w-[430px] space-y-2 px-3 ${embedded ? 'pt-0' : 'pt-3'}`}>
         <header className={embedded ? 'px-1' : 'px-1 pb-1 pt-1'}>
           <h1 className={embedded ? 'sr-only' : 'text-2xl font-semibold'}>Рейтинг</h1>
-          {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo · спортивные баллы сезона · результаты турниров</p>}
+          {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo · спортивные баллы лиги · результаты турниров</p>}
         </header>
         <SegmentedControl
           scrollable

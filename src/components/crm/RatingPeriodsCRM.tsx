@@ -143,7 +143,7 @@ export const RatingPeriodsCRM: React.FC = () => {
         ? currentId
         : pickDefaultRatingPeriodId(data));
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить сезоны');
+      setError(err?.message || 'Не удалось загрузить лиги');
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ export const RatingPeriodsCRM: React.FC = () => {
       setLoadedPeriodId(periodId);
     } catch (err: any) {
       if (requestId === detailsRequestSeq.current && activePeriodRef.current === periodId) {
-        setError(err?.message || 'Не удалось загрузить расчёт сезона');
+        setError(err?.message || 'Не удалось загрузить расчёт лиги');
       }
     } finally {
       if (requestId === detailsRequestSeq.current) setDetailsLoading(false);
@@ -218,7 +218,7 @@ export const RatingPeriodsCRM: React.FC = () => {
       await loadPeriods();
       setSelectedId(created.id);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось создать сезон');
+      setError(err?.message || 'Не удалось создать лигу');
     } finally {
       setCreating(false);
     }
@@ -255,12 +255,12 @@ export const RatingPeriodsCRM: React.FC = () => {
   };
 
   const deletePeriod = async (period: RatingPeriod) => {
-    if (!await appConfirm(`Удалить сезон «${period.title}»? Игры и вечера удалены не будут.`)) return;
+    if (!await appConfirm(`Удалить лигу «${period.title}»? Игры и вечера удалены не будут.`)) return;
     try {
       await apiJson(`/api/rating-periods/${period.id}`, { method: 'DELETE' });
       await loadPeriods();
     } catch (err: any) {
-      setError(err?.message || 'Не удалось удалить сезон');
+      setError(err?.message || 'Не удалось удалить лигу');
     }
   };
 
@@ -275,7 +275,7 @@ export const RatingPeriodsCRM: React.FC = () => {
           <CalendarRange className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <strong className="block text-[14px] font-bold text-text-primary">Сезоны рейтинга</strong>
+          <strong className="block text-[14px] font-bold text-text-primary">Рейтинговая лига</strong>
           <span className="mt-0.5 block text-[12px] text-text-secondary">Отдельные таблицы новичков и основного рейтинга за выбранные даты</span>
         </span>
         {expanded ? <ChevronUp className="h-5 w-5 text-text-muted" /> : <ChevronDown className="h-5 w-5 text-text-muted" />}
@@ -284,7 +284,7 @@ export const RatingPeriodsCRM: React.FC = () => {
       {expanded ? (
         <div className="space-y-4 border-t border-border-soft p-4">
           <form onSubmit={createPeriod} className="space-y-3 rounded-[16px] bg-surface-2 p-3">
-            <div className="text-[13px] font-bold text-text-primary">Новый сезон</div>
+            <div className="text-[13px] font-bold text-text-primary">Новая лига</div>
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -300,7 +300,7 @@ export const RatingPeriodsCRM: React.FC = () => {
               <label className="grid gap-1 text-[11px] font-semibold text-text-muted">Конец<input type="date" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="min-h-11 rounded-[12px] border border-border-soft bg-app-bg px-3 text-[13px] font-normal text-text-primary" /></label>
             </div>
             <button type="submit" disabled={creating || !title.trim() || !startsAt || !endsAt} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
-              <Plus className="h-4 w-4" /> {creating ? 'Создаём…' : 'Создать сезон'}
+              <Plus className="h-4 w-4" /> {creating ? 'Создаём…' : 'Создать лигу'}
             </button>
           </form>
 
@@ -317,13 +317,13 @@ export const RatingPeriodsCRM: React.FC = () => {
                       {period.type === 'NOVICE' ? 'Новички' : 'Основной'} · {formatDate(period.starts_at)} — {formatDate(period.ends_at)}
                     </div>
                   </button>
-                  <button type="button" onClick={() => void deletePeriod(period)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-text-muted hover:bg-danger-soft hover:text-danger" aria-label="Удалить сезон">
+                  <button type="button" onClick={() => void deletePeriod(period)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-text-muted hover:bg-danger-soft hover:text-danger" aria-label="Удалить лигу">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             ))}
-            {!loading && !periods.length ? <div className="rounded-[14px] bg-surface-2 px-3 py-4 text-[12px] text-text-secondary">Сезонов пока нет.</div> : null}
+            {!loading && !periods.length ? <div className="rounded-[14px] bg-surface-2 px-3 py-4 text-[12px] text-text-secondary">Рейтинговая лига пока не создана.</div> : null}
           </div>
 
           {selected ? (
@@ -333,7 +333,7 @@ export const RatingPeriodsCRM: React.FC = () => {
                 <div className="mt-1 text-[11px] text-text-secondary">Таблица пересчитывается сразу после изменения состава зачётных игр.</div>
               </div>
 
-              {detailsLoading ? <div className="text-[12px] text-text-secondary">Пересчитываем сезон…</div> : null}
+              {detailsLoading ? <div className="text-[12px] text-text-secondary">Пересчитываем лигу…</div> : null}
 
               {standings ? (
                 <div className="space-y-3">

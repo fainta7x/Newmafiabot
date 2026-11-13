@@ -136,7 +136,7 @@ export default function PlayerRatingPeriods({
     setListError(null);
     void (async () => {
       try {
-        const body = await getJson<any>('/api/player/rating-periods', 'Не удалось загрузить рейтинговые периоды');
+        const body = await getJson<any>('/api/player/rating-periods', 'Не удалось загрузить лигу');
         const next: PeriodListResponse = {
           active_periods: Array.isArray(body?.active_periods) ? body.active_periods : [],
           completed_periods: Array.isArray(body?.completed_periods) ? body.completed_periods : [],
@@ -146,7 +146,7 @@ export default function PlayerRatingPeriods({
         const firstPeriod = initialArchive?next.completed_periods[0]||next.active_periods[0]||null:next.active_periods[0]||next.completed_periods[0]||null;
         setSelectedPeriodId((current) => {let preferred=current;if(initialArchive){try{const old=sessionStorage.getItem('club-archive-season');if(old?.startsWith('period:'))preferred=old.slice(7);}catch{}}return (initialArchive?next.completed_periods:[...next.active_periods,...next.completed_periods]).some(p=>p.id===preferred)?preferred:firstPeriod?.id||null;});
       } catch (error: any) {
-        if (!cancelled) setListError(error?.message || 'Не удалось загрузить рейтинговые периоды');
+        if (!cancelled) setListError(error?.message || 'Не удалось загрузить лигу');
       }
     })();
     return () => { cancelled = true; };
@@ -191,27 +191,27 @@ export default function PlayerRatingPeriods({
   );
 
   if (listError) {
-    return <Section title="Сезоны"><div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4"><p className="text-sm text-white/60">{listError}</p><button type="button" onClick={() => setListRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div></Section>;
+    return <Section title="Рейтинговая лига"><div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4"><p className="text-sm text-white/60">{listError}</p><button type="button" onClick={() => setListRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div></Section>;
   }
 
   if (!periods) {
-    return <Section title="Сезоны"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загружаем сезоны…</p></Section>;
+    return <Section title="Рейтинговая лига"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загружаем лигу…</p></Section>;
   }
 
   const hasPeriods = periods.active_periods.length > 0 || periods.completed_periods.length > 0;
   if (!hasPeriods) {
-    return <Section title="Сезоны"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сезон ещё не открыт. Когда организатор запустит сезон с доп. баллами, таблица появится здесь.</p></Section>;
+    return <Section title="Рейтинговая лига"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Рейтинговая лига ещё не началась. Когда организатор запустит лигу с доп. баллами, таблица появится здесь.</p></Section>;
   }
 
   return (
     <>
-      <Section title="Сезон">
-        <label className="block text-xs text-white/65">Период<select aria-label="Выбрать сезон" value={selectedPeriodId||''} onChange={event=>choosePeriod(event.target.value)} className="mobile-field mt-2 w-full text-sm">{[...periods.active_periods,...periods.completed_periods].map(period=><option key={period.id} value={period.id}>{period.title} · {periodTypeLabel(period.type)} · {period.status==='active'?'идёт':'завершён'}</option>)}</select></label>
+      <Section title="Рейтинговая лига">
+        <label className="block text-xs text-white/65">Период<select aria-label="Выбрать лигу" value={selectedPeriodId||''} onChange={event=>choosePeriod(event.target.value)} className="mobile-field mt-2 w-full text-sm">{[...periods.active_periods,...periods.completed_periods].map(period=><option key={period.id} value={period.id}>{period.title} · {periodTypeLabel(period.type)} · {period.status==='active'?'идёт':'завершён'}</option>)}</select></label>
         {detail&&<><p className="mt-3 text-sm font-semibold">{detail.period.title}</p><p className="mt-1 text-xs leading-5 text-white/60">{formatRange(detail.period.starts_at,detail.period.ends_at)} · {periodTypeLabel(detail.period.type)}</p>{detail.period.notes&&<p className="mt-2 text-xs leading-5 text-white/60">{detail.period.notes}</p>}</>}
       </Section>
 
-      {detailLoading && <Section title="Таблица сезона"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Считаем таблицу…</p></Section>}
-      {detailError && <Section title="Таблица сезона"><div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4"><p className="text-sm text-white/60">{detailError}</p><button type="button" onClick={() => setDetailRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div></Section>}
+      {detailLoading && <Section title="Таблица лиги"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Считаем таблицу…</p></Section>}
+      {detailError && <Section title="Таблица лиги"><div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4"><p className="text-sm text-white/60">{detailError}</p><button type="button" onClick={() => setDetailRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div></Section>}
 
       {detail && !detailLoading && (
         <>
@@ -271,7 +271,7 @@ export default function PlayerRatingPeriods({
                 {detail.warnings.length > 0 && <div className="mt-2 text-[11px] text-white/25">{countGames(detail.warnings.length)} не вошли в расчёт из-за неполного протокола.</div>}
               </Section>
 
-              <Section title="Таблица сезона">
+              <Section title="Таблица лиги">
                 {detail.standings.length ? (
                   <div className="space-y-2">{detail.standings.map((item) => {
                     const isSelf = item.player_id === playerId;

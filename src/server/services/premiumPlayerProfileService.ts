@@ -8,7 +8,7 @@ import { loadPlayerGameProfile, type PlayerGameHistoryItem } from './playerProfi
 import { winRatePercent } from '../../shared/stats.ts';
 import { buildPlayerGameStatistics, type StatGame } from '../../lib/gameStatistics.ts';
 import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
-import { loadRatingSeasons, seasonForDate } from './clubSeasonService.ts';
+import { findSeasonByKey, loadClubSeasons, seasonForDate } from './clubSeasonService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
 import { buildRevealStats } from '../../lib/revealStats.ts';
@@ -146,7 +146,7 @@ const teamSplit = (games: PlayerGameHistoryItem[], team: 'red' | 'black') => {
  * the profile; only the place among the players needs the other players' results.
  */
 const loadSeasonBlock = async (db: DatabaseWrapper, playerId: string, games: PlayerGameHistoryItem[]) => {
-  const season = seasonForDate(await loadRatingSeasons(db), Date.now());
+  const season = seasonForDate(await loadClubSeasons(db), Date.now());
   const inSeason = (value: string | null | undefined) => { const time = dateTime(value); return time >= season.start && time < season.end; };
   const own = games.filter((game) => inSeason(game.date));
   const wins = own.filter((game) => game.won).length;
@@ -259,11 +259,11 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
   if (!canSeePrivate) for (const achievement of achievements.earned) { achievement.evidence = null; achievement.steps = undefined; }
   const games = [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date));
   // One scope for every number of the statistics block: the chosen season (or all time) and the chosen evening format.
-  const seasons = await loadRatingSeasons(db);
+  const seasons = await loadClubSeasons(db);
   // Recent form means the last ten completed games, never the last ten actions or journals.
   // Current means active or most recent started rating season; future seasons must not hijack the selection.
   const latestSeason = currentRatingSeason(seasons);
-  const chosenSeason = filter.period === 'season' ? latestSeason : seasons.find((item) => item.key === filter.period) || null;
+  const chosenSeason = filter.period === 'season' ? latestSeason : await findSeasonByKey(db, seasons, filter.period);
   const periodKey = filter.period === 'recent10' ? 'recent10' : filter.period === 'season' && chosenSeason ? 'season' : chosenSeason ? chosenSeason.key : 'all';
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format as EveningFormat : 'all';
   const inSeason = (game: PlayerGameHistoryItem, season: { start: number; end: number }) => { const time = dateTime(game.date); return time >= season.start && time < season.end; };
@@ -350,10 +350,10 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
 type GameQuery = ProfileStatFilter & { role?: string; team?: string; result?: string; from?: string; to?: string; limit?: number; offset?: number };
 /** The season and evening-format scope the overview already uses, applied to the «Игры», «Роли» and «Elo» tabs as well. */
 const scopeProfileGames = async <T extends PlayerGameHistoryItem>(db: DatabaseWrapper, games: T[], filter: ProfileStatFilter): Promise<T[]> => {
-  const seasons = filter.period && filter.period !== 'all' && filter.period !== 'recent10' ? await loadRatingSeasons(db) : [];
+  const seasons = filter.period && filter.period !== 'all' && filter.period !== 'recent10' ? await loadClubSeasons(db) : [];
   const season = filter.period === 'season'
     ? currentRatingSeason(seasons)
-    : seasons.find((item) => item.key === filter.period) || null;
+    : await findSeasonByKey(db, seasons, filter.period);
   const format = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format : null;
   const scoped = games.filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date)).filter((game) => {
     if (season) { const time = dateTime(game.date); if (time < season.start || time >= season.end) return false; }

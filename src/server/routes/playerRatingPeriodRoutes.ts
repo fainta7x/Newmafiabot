@@ -53,7 +53,7 @@ router.get('/rating-periods', async (req, res) => {
       completed_periods: periods.filter((period: any) => period.status === 'completed'),
     });
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось загрузить рейтинговые периоды' });
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить лигу' });
   }
 });
 

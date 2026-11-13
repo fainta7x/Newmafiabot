@@ -25,5 +25,5 @@ it('restores the selected historical period from the old archive address',async(
  const older={...structurePeriods.completed_periods[0],id:'demo-older',title:'Весна 2026'};
  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>{const url=String(input);if(url==='/api/player/rating-periods')return response({...structurePeriods,completed_periods:[...structurePeriods.completed_periods,older]});if(url.includes('/rating-periods/'))return response({...structurePeriodDetail('demo-past'),period:older});return response(structureClubWorld(null));}));
  render(<PlayerSeasonHub playerId="preview-player" initialArchive/>);
- expect((await screen.findByRole('combobox',{name:'Выбрать сезон'}) as HTMLSelectElement).value).toBe('demo-older');
+ expect((await screen.findByRole('combobox',{name:'Выбрать лигу'}) as HTMLSelectElement).value).toBe('demo-older');
 });

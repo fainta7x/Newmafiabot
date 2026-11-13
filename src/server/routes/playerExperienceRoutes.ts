@@ -9,7 +9,7 @@ import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { calculateCanonicalEloGame, DEFAULT_ELO, type EloTeam } from '../services/eloRatingService.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
-import { loadRatingSeasons } from '../services/clubSeasonService.ts';
+import { findSeasonByKey, loadClubSeasons } from '../services/clubSeasonService.ts';
 import { currentRatingSeason, loadPremiumProfileGames } from '../services/premiumPlayerProfileService.ts';
 import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 import { eloJourneyChartSummary, filterEloJourneyEvents } from '../../lib/eloJourneyScope.ts';
@@ -73,7 +73,7 @@ router.get('/elo-journey', async (req, res) => {
       loadPlayerEloHistory(db),
       loadCompletedGameSnapshots(db),
       db.all(`SELECT id, elo FROM players WHERE id <> ? AND elo IS NOT NULL`, [playerId]),
-      loadRatingSeasons(db),
+      loadClubSeasons(db),
     ]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -111,7 +111,7 @@ router.get('/elo-journey', async (req, res) => {
     });
 
     const requestedPeriod = typeof req.query.period === 'string' ? req.query.period : 'all';
-    const season = requestedPeriod === 'season' ? currentRatingSeason(seasons) : seasons.find((item) => item.key === requestedPeriod) || null;
+    const season = requestedPeriod === 'season' ? currentRatingSeason(seasons) : await findSeasonByKey(db, seasons, requestedPeriod);
     const requestedFormat = typeof req.query.format === 'string' ? req.query.format : 'all';
     const format: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(requestedFormat)
       ? requestedFormat as EveningFormat : 'all';

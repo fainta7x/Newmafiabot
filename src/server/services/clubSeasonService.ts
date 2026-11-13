@@ -20,7 +20,34 @@ export const calendarSeasonForDate = (value: number | string | Date): ClubSeason
   return { key: `autumn-${year}`, label: `Осень ${year}`, start: Date.UTC(year, 8, 1), end: Date.UTC(year, 11, 1) };
 };
 
-/** The season is the club's rating period (RATING type, active or completed) — the same one the rating table is built from. */
+/**
+ * The seasons of the club are the seasons of the year, by the calendar and automatic (owner, 2026-11-13): Зима, Весна, Лето, Осень. A season is listed when it has
+ * club games, and the current one always is. The rating periods are a different thing now: the «Рейтинговая лига», which does not decide what a season is.
+ */
+export const loadClubSeasons = async (db: DatabaseWrapper, now: number = Date.now()): Promise<ClubSeason[]> => {
+  const seasons = new Map<string, ClubSeason>();
+  const current = calendarSeasonForDate(now);
+  seasons.set(current.key, current);
+  const months = await db.all<any>("SELECT DISTINCT substr(game_date, 1, 7) AS ym FROM games WHERE archived_at IS NULL AND game_date IS NOT NULL").catch(() => []);
+  for (const row of months) {
+    const [year, month] = String(row.ym || '').split('-').map(Number);
+    if (!year || !month) continue;
+    const season = calendarSeasonForDate(Date.UTC(year, month - 1, 15));
+    seasons.set(season.key, season);
+  }
+  return [...seasons.values()].sort((a, b) => a.start - b.start);
+};
+
+/** A season by its key: the seasons of the year, or an old `period:<id>` key of a rating period (the «Рейтинговая лига»), which links and saved filters may still carry. */
+export const findSeasonByKey = async (db: DatabaseWrapper, seasons: ClubSeason[], key: unknown): Promise<ClubSeason | null> => {
+  const wanted = String(key ?? '');
+  const found = seasons.find((item) => item.key === wanted);
+  if (found) return found;
+  if (!wanted.startsWith('period:')) return null;
+  return (await loadRatingSeasons(db)).find((item) => item.key === wanted) || null;
+};
+
+/** The rating period as a season (the old rule, kept for the «Рейтинговая лига»): (RATING type, active or completed) — the same one the rating table is built from. */
 export const loadRatingSeasons = async (db: DatabaseWrapper): Promise<ClubSeason[]> => {
   if (!(await tableExists(db, 'rating_periods'))) return [];
   const rows = await db.all<any>(

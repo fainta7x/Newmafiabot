@@ -343,7 +343,7 @@ export function seasonTableSvg(season: SeasonTable) {
   const effectCells = cellsAt(season.bestByRoleEffect, effectTop);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
   ${renderNoirExportBackground(W, height)}
-  ${renderNoirExportBrandHeader('СЕЗОН · ПРОМЕЖУТОЧНАЯ ТАБЛИЦА')}
+  ${renderNoirExportBrandHeader('ЛИГА · ПРОМЕЖУТОЧНАЯ ТАБЛИЦА')}
   <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(season.periodTitle, 28))}</text>
   <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(`${season.minGames ? `в топе — от ${season.minGames} ${season.minGames % 10 === 1 && season.minGames % 100 !== 11 ? 'игры' : 'игр'} · ` : ''}${season.games} ${season.games % 10 === 1 && season.games % 100 !== 11 ? 'игра' : [2, 3, 4].includes(season.games % 10) && ![12, 13, 14].includes(season.games % 100) ? 'игры' : 'игр'} в зачёте`)}</text>
   <text x="${M}" y="${top + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">${season.scored ? 'ТОП-10 ПО СРЕДНЕМУ БАЛЛУ' : 'ТОП-10 ПО ПОБЕДАМ'}</text>
@@ -354,7 +354,7 @@ export function seasonTableSvg(season: SeasonTable) {
   ${roleCells}
   <text x="${M}" y="${effectTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ · ПО ПОКАЗАТЕЛЯМ</text>
   ${effectCells}
-  ${renderNoirExportFooter(W, height, season.scored ? 'средний балл = сумма баллов / число игр' : 'победы за сезон')}
+  ${renderNoirExportFooter(W, height, season.scored ? 'средний балл = сумма баллов / число игр' : 'победы за лигу')}
 </svg>`;
 }
 

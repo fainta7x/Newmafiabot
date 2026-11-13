@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { NO_SEASON_KEY, loadRatingSeasons, previousSeason, seasonForDate } from '../server/services/clubSeasonService.ts';
+import { NO_SEASON_KEY, findSeasonByKey, loadClubSeasons, loadRatingSeasons, previousSeason, seasonForDate } from '../server/services/clubSeasonService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -37,5 +37,21 @@ describe('club seasons follow rating periods', () => {
     expect(previousSeason(seasons, now).label).toBe('Весна 2026');
     const first = seasons[0];
     expect(previousSeason(seasons, first)).toMatchObject({ start: first.start, end: first.start });
+  });
+});
+
+describe('club seasons are the seasons of the year', () => {
+  it('lists the current season and every season with games, and a rating period never decides what a season is', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    await createApp(db);
+    await period(db, 'league', 'Рейтинговая лига', 'RATING', '2026-06-01T00:00:00.000Z', '2026-12-31T23:59:59.999Z', 'active');
+    const seasons = await loadClubSeasons(db, Date.UTC(2026, 10, 13));
+    expect(seasons.map((item) => item.label)).toEqual(['Осень 2026']);
+    expect(seasonForDate(seasons, Date.UTC(2026, 10, 13)).key).toBe('autumn-2026');
+    // An old link to a rating period still resolves, as a league, not as a season.
+    expect((await findSeasonByKey(db, seasons, 'period:league'))?.label).toBe('Рейтинговая лига');
+    expect(await findSeasonByKey(db, seasons, 'autumn-2026')).toMatchObject({ label: 'Осень 2026' });
+    expect(await findSeasonByKey(db, seasons, 'period:nope')).toBeNull();
+    expect(await findSeasonByKey(db, seasons, 'summer-2026')).toBeNull();
   });
 });

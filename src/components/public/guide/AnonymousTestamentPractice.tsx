@@ -66,7 +66,7 @@ export default function AnonymousTestamentPractice({ onBack }: { onBack: () => v
         <h3 className="text-lg font-semibold">Сила завещания</h3>
       </div>
     </header>
-    <p className="text-[12px] leading-5 text-white/60">Все реплики составлены для тренировки, а не записаны со слов реальных игроков. В основе части заданий — обезличенные события клубных партий.</p>
+    <p className="text-[12px] leading-5 text-white/60">Все реплики составлены для тренировки, а не записаны со слов реальных игроков. В основе части заданий — обезличенные события клубных игр.</p>
     {loading ? <p className="text-[13px] text-white/60">Подбираем ситуации…</p> :
       error ? <div className="space-y-2">
         <p role="alert" className="text-[13px] text-rose-200">{error}</p>

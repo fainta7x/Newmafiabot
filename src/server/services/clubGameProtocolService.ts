@@ -37,7 +37,7 @@ const tenthInRange = (value: unknown, min: number, max: number, label: string): 
 const referencedParticipant = (participantIds: Set<string>, value: unknown, label: string): string | null => {
   const id = String(value || '').trim();
   if (!id) return null;
-  if (!participantIds.has(id)) throw new Error(`${label}: выбран игрок не из этой партии`);
+  if (!participantIds.has(id)) throw new Error(`${label}: выбран игрок не из этой игры`);
   return id;
 };
 

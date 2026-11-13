@@ -21,7 +21,7 @@ describe('judge practice lives in «Обучение», real conducting in the c
     expect(screen.getByTestId('fake-modal').textContent).toBe('тестовая');
     expect(modal).toHaveBeenLastCalledWith(expect.objectContaining({ training: false }));
     fireEvent.click(screen.getByTestId('fake-modal'));
-    fireEvent.click(screen.getByRole('button', { name: /Начать учебную партию/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Начать учебную игру/ }));
     expect(screen.getByTestId('fake-modal').textContent).toBe('учебная');
     expect(modal).toHaveBeenLastCalledWith(expect.objectContaining({ training: true }));
   });

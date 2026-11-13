@@ -1,7 +1,7 @@
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 
 /**
- * «Разбор партии»: the live game chronology folded into one record per circle — nominations, every voting with who voted
+ * «Разбор игры»: the live game chronology folded into one record per circle — nominations, every voting with who voted
  * for whom, shots and checks of the night, who left the game and how. Pure and read-only: it only reads the events the
  * engine wrote next to the protocol.
  */

@@ -33,8 +33,8 @@ export const STORY_IDS = new Set(ACHIEVEMENT_STORIES.map(a => a.id));
 
 /** Reading context only. Conditions and evaluation remain in the existing story definitions/services. */
 export const STORY_CONTEXT_LABELS: Record<string,string> = {
-  case_closed:'В одной партии',last_argument:'В одной партии',two_shadows:'В одной партии',whole_picture:'В одной партии',trail_remains:'В одной партии',
-  two_cases:'В одной партии',case_handed_over:'В одной партии',alone_in_shadow:'В одной партии',identity_found:'В одной партии',
+  case_closed:'В одной игре',last_argument:'В одной игре',two_shadows:'В одной игре',whole_picture:'В одной игре',trail_remains:'В одной игре',
+  two_cases:'В одной игре',case_handed_over:'В одной игре',alone_in_shadow:'В одной игре',identity_found:'В одной игре',
   four_faces:'За игровую карьеру',full_shift:'За один вечер',first_distance:'В одном турнире',
   brought_to_game:'Подтверждённые приглашения',own_company:'Подтверждённые приглашения',other_side_of_table:'Игра и судейство',full_judge_evening:'За один вечер',
 };

@@ -11,7 +11,7 @@ for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Cont
   const checks=page.getByRole('region',{name:'Проверки доном',exact:true});await checks.scrollIntoViewIfNeeded();await check('checks');
   await page.getByRole('button',{name:'Связи',exact:true}).click();await page.getByRole('button',{name:'Игроки',exact:true}).click();
   await expect(page.getByText(/до 24 игроков/)).toBeVisible();await check('connections');
-  await page.getByText('Последние общие партии · 3',{exact:true}).click();
+  await page.getByText('Последние общие игры · 3',{exact:true}).click();
   await expect(page.getByRole('link',{name:/Друг против друга/})).toBeVisible();
   await expect(page.getByRole('link',{name:/Друг против друга/})).not.toContainText('проиграли');
   await check('shared-games');
@@ -22,5 +22,5 @@ for(const[width,height]of [[360,640],[390,844],[1366,768],[1440,900]])test(`Cont
   await expect(page.getByText('Роли с победой:',{exact:true}).first()).toBeVisible();await check('role-goal');
   await page.getByLabel('Путь достижений').selectOption('club');await check('club-goals');
   await page.goto('/e2e/player-profile.html?target=friend&detail=1');await page.getByRole('button',{name:'Связи',exact:true}).click();
-  await expect(page.getByText(/Последние общие партии/)).toHaveCount(0);await check('public-connections');
+  await expect(page.getByText(/Последние общие игры/)).toHaveCount(0);await check('public-connections');
 });

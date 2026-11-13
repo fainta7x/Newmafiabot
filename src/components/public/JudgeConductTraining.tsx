@@ -38,13 +38,13 @@ export default function JudgeConductTraining() {
           Сначала проведи рассадку и раздачу ролей по заданиям, затем записывай их действия в настоящем Live Game Engine.
         </p>
         <button type="button" onClick={() => setPlaying('training')} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-bold text-black active:bg-amber-100" data-testid="judge-trainer-start">
-          Начать учебную партию <ArrowRight className="h-4 w-4" />
+          Начать учебную игру <ArrowRight className="h-4 w-4" />
         </button>
         <button type="button" onClick={() => setPlaying('free')} data-testid="judge-free-test-game" className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/[0.08] px-4 text-sm font-semibold text-amber-100">
           Тестовая игра без подсказок
         </button>
         <p className="mt-2 text-center text-xs leading-5 text-white/40">Тестовая игра: тот же движок, ничего не сохраняется, можно пробовать любые действия.</p>
-        {lastResult && <p className="mt-3 text-center text-xs text-emerald-200/80">{lastResult === 'completed' ? 'Учебная партия завершена. Можно попробовать ещё раз.' : 'Тренировка прервана. Можно начать заново.'}</p>}
+        {lastResult && <p className="mt-3 text-center text-xs text-emerald-200/80">{lastResult === 'completed' ? 'Учебная игра завершена. Можно попробовать ещё раз.' : 'Тренировка прервана. Можно начать заново.'}</p>}
       </div>
       <div className="grid gap-2">
         <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-3">

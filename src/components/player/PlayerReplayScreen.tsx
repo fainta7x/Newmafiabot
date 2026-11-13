@@ -162,7 +162,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
     <audio className="mt-2 h-9 w-full" controls preload="none" src={clip.audio_url}>Браузер не поддерживает воспроизведение аудио.</audio>
   </div>;
 
-  if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="loading" icon="🎬" title="Восстанавливаем партию…" description="Собираем сохранённую хронологию игры." /></div></main>;
+  if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="loading" icon="🎬" title="Восстанавливаем игру…" description="Собираем сохранённую хронологию игры." /></div></main>;
   if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="error" icon="⚠️" title="Replay недоступен" description={error || 'Не удалось загрузить сохранённую игру.'} actionLabel="Повторить" onAction={() => setRetry(value => value + 1)} /><button type="button" onClick={goBack} className="ds-focus-ring mt-3 min-h-11 w-full rounded-xl border border-white/15 px-3 text-sm font-semibold">Назад к протоколу</button></div></main>;
 
   if (!data.replay_available) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="empty" icon="📼" title="Подробного Replay нет" description={data.analysis.join(' ') || 'Для этой игры нет полной пошаговой хронологии.'} actionLabel="Назад" onAction={goBack} /></div></main>;
@@ -207,7 +207,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
         </> : <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[11px] leading-4 text-white/25">Для этой игры сохранённых речей нет.</div>}
       </section>
 
-      <section className="mt-3 rounded-[24px] border border-sky-200/10 bg-sky-200/[0.035] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100/40">🧠 Авторазбор партии</div><div className="mt-3 space-y-2">{data.analysis.map((item, index) => <div key={index} className="rounded-xl bg-black/15 px-3 py-2 text-[11px] leading-4 text-white/40">{item}</div>)}</div><p className="mt-3 text-[11px] leading-3 text-white/18">Разбор показывает только то, что записано в протоколе, без догадок о мотивах.</p></section>
+      <section className="mt-3 rounded-[24px] border border-sky-200/10 bg-sky-200/[0.035] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100/40">🧠 Авторазбор игры</div><div className="mt-3 space-y-2">{data.analysis.map((item, index) => <div key={index} className="rounded-xl bg-black/15 px-3 py-2 text-[11px] leading-4 text-white/40">{item}</div>)}</div><p className="mt-3 text-[11px] leading-3 text-white/18">Разбор показывает только то, что записано в протоколе, без догадок о мотивах.</p></section>
 
       <p className="mt-4 text-center text-[11px] leading-3 text-white/15">{data.meta?.source}</p>
     </div>

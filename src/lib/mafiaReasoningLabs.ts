@@ -70,7 +70,7 @@ const outcomeLine = (result: VoteResult): string => {
   if (result.status === 'tie_needs_revote') return 'Ничья, потребуется переголосование';
   if (result.status === 'black_win_after_protocol') return `Заголосован красный №${result.votedOut}. После завершения обязательных процедур победит мафия`;
   if (result.status === 'red_win_after_protocol') return `Заголосован последний чёрный №${result.votedOut}. После завершения обязательных процедур победят красные`;
-  return `Заголосован №${result.votedOut}. Паритет ещё не достигнут; партия продолжается`;
+  return `Заголосован №${result.votedOut}. Паритет ещё не достигнут; игра продолжается`;
 };
 
 const statusFromCounts = (plan: VotePlan, counts: Record<number, number>): VoteResult['status'] => {
@@ -90,7 +90,7 @@ const tallyLine = (plan: VotePlan, counts: Record<number, number>): string => {
   if (status === 'tie_needs_revote') return `${score} — ничья, потребуется переголосование`;
   const votedOut = counts[first] > counts[last] ? first : last;
   const after = status === 'black_win_after_protocol' ? 'после обязательных процедур победит мафия'
-    : status === 'red_win_after_protocol' ? 'после обязательных процедур победят красные' : 'партия продолжается';
+    : status === 'red_win_after_protocol' ? 'после обязательных процедур победят красные' : 'игра продолжается';
   return `${score} — заголосован №${votedOut}, ${after}`;
 };
 
@@ -437,7 +437,7 @@ const DECIDE: LabCase[] = [
       ], 'Что делать №6?', [
         ['Вскрыться сегодня и назвать свои проверки, пока №9 не заголосован', 2, 'Цена молчания известна: красный №9 может быть заголосован уже сегодня, а проверка №6 не сработает.'],
         ['Подождать следующего круга и пока не защищать №9', 1, 'Осторожность сохраняет роль в тайне, но цена ожидания — красный №9, которого могут заголосовать сегодня.'],
-        ['Остаться тайным шерифом до конца партии: проверки будут продолжаться без риска', 0, 'Без вскрытия проверки не влияют на стол. Если красного №9 заголосуют, информация шерифа ничего не спасёт.'],
+        ['Остаться тайным шерифом до конца игры: проверки будут продолжаться без риска', 0, 'Без вскрытия проверки не влияют на стол. Если красного №9 заголосуют, информация шерифа ничего не спасёт.'],
       ]),
       question('Встречное вскрытие', [
         'После вскрытия №6 игрок №2 повторил: «Шериф я, а №6 — мафия».',
@@ -472,7 +472,7 @@ const DECIDE: LabCase[] = [
 export const REASONING_LABS: LabTopic[] = [
   { id: 'vote', title: 'Критический голос', detail: 'Посчитать руки и цену решения', cases: VOTE_PLANS.map(voteCaseFromPlan) },
   { id: 'hypotheses', title: 'Проверь свою тройку', detail: 'Искать контрпример, а не оправдание', cases: HYPOTHESES },
-  { id: 'timeline', title: 'Партия меняется', detail: 'Пересматривать версии по кругам', cases: TIMELINES },
+  { id: 'timeline', title: 'Игра меняется', detail: 'Пересматривать версии по кругам', cases: TIMELINES },
   { id: 'pressure', title: 'Речь и реакция', detail: 'Отделять факты от впечатлений', cases: PRESSURE },
   { id: 'action', title: 'Следующий ход', detail: 'Выбирать вопрос и короткий аргумент', cases: ACTIONS },
   { id: 'decide', title: 'Решить и высказаться', detail: 'Выбрать ход и назвать основание', cases: DECIDE },

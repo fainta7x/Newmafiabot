@@ -9,7 +9,7 @@ const context=(game:SharedConnectionGame)=>game.same_team===false?'Друг пр
 export default function PlayerConnectionHistory({games}:{games?:SharedConnectionGame[]}) {
   if(!games?.length)return null;
   return <details className="border-t border-white/10 px-3 pb-1">
-    <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-white/70">Последние общие партии · {games.length}</summary>
+    <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-white/70">Последние общие игры · {games.length}</summary>
     <ul className="divide-y divide-white/[.07]">{games.map((game,index)=>{
       const linked=/^(club|tournament):\S+$/.test(String(game.id||''));
       const content=<><span className="block break-words text-xs font-semibold leading-5">{game.title||'Игра'}{game.game_number>0?` · №${game.game_number}`:''}</span><span className="mt-1 block text-xs leading-5 text-white/60">{formatMoscowDate(game.played_at,'short',{empty:'Дата не указана'})} · {context(game)}</span></>;

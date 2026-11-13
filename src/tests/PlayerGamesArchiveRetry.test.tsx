@@ -14,7 +14,7 @@ const data = {
 } as unknown as PlayerMeResponse;
 
 const clubGame = {
-  id: 'club:game-1', source: 'club', title: 'Первая партия',
+  id: 'club:game-1', source: 'club', title: 'Первая игра',
   date: '2026-10-10T20:00:00+03:00', game_number: 1,
   format: 'CASUAL', winner_team: 'red', judge_name: 'Ведущий',
 };
@@ -48,7 +48,7 @@ describe('ЛК «Вечера → Мои игры» secondary archive retry', ()
     expect(screen.getByText('Мои игры')).toBeDefined();
 
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
-    await waitFor(() => expect(screen.getByText('Первая партия')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Первая игра')).toBeDefined());
     expect(screen.queryByTestId('player-games-archive-error')).toBeNull();
     expect(attempts).toBe(2);
   });
@@ -75,7 +75,7 @@ describe('ЛК «Вечера → Мои игры» secondary archive retry', ()
     const details = screen.getByText('Все игры клуба').closest('details')!;
     await act(async () => { details.open = false; fireEvent(details, new Event('toggle')); });
     await openArchive();
-    await screen.findByText('Первая партия');
+    await screen.findByText('Первая игра');
     expect(screen.queryByTestId('player-games-archive-error')).toBeNull();
     expect(attempts).toBe(2);
   });

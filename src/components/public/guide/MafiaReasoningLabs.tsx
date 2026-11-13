@@ -143,7 +143,7 @@ export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
       </button>
       <div className="min-w-0">
         <p className="text-[11px] text-white/45">Игровое мышление</p>
-        <h2 className="text-lg font-semibold">{topic ? topic.title : 'Разборы партий'}</h2>
+        <h2 className="text-lg font-semibold">{topic ? topic.title : 'Разборы игр'}</h2>
       </div>
     </header>
 

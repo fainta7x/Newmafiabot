@@ -6,7 +6,7 @@ import { getTrainingPrompt, getJudgeTrainingGate, type TrainingPrompt } from '..
 const TOUR: TrainingPrompt[] = [
   { title: 'Центральная панель', detail: 'Здесь показаны этап игры, таймер и кнопки перехода. Ведущий начинает и завершает речи именно здесь.', focus: 'live-judge-hud' },
   { title: 'Действия игрока', detail: 'Чтобы выставить кандидата или поставить фол, нажми на нужного игрока на столе — откроются его действия.', focus: 'live-judge-hud' },
-  { title: 'Назад и исправления', detail: 'Ошибся с действием? Используй кнопку «Назад» в интерфейсе. Теперь потренируемся на обычной партии.', focus: 'live-judge-hud' },
+  { title: 'Назад и исправления', detail: 'Ошибся с действием? Используй кнопку «Назад» в интерфейсе. Теперь потренируемся на обычной игре.', focus: 'live-judge-hud' },
 ];
 
 const progressKey = (s: PersistedLiveSession) => JSON.stringify([
@@ -171,7 +171,7 @@ export default function JudgeConductCoach() {
             </div>
             <p className="mt-3 text-sm leading-6 text-white/70">{task.detail}</p>
             <p className="mt-2 text-xs leading-5 text-amber-100/55">
-              {isTour ? 'Сверни подсказку, чтобы рассмотреть подсвеченный элемент настоящего игрового стола.' : 'Сверни подсказку и выполни действие на игровом столе. Его кнопки и расположение не отличаются от реальной партии.'}
+              {isTour ? 'Сверни подсказку, чтобы рассмотреть подсвеченный элемент настоящего игрового стола.' : 'Сверни подсказку и выполни действие на игровом столе. Его кнопки и расположение не отличаются от реальной игры.'}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button

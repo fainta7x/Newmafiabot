@@ -147,8 +147,8 @@ router.patch('/achievements/:id', async (req, res) => {
     if (!ACHIEVEMENT_RARITIES.has(next.rarity)) return res.status(400).json({ error: 'Некорректная редкость' });
     if (!Number.isFinite(next.threshold) || next.threshold < 0) return res.status(400).json({ error: 'Некорректный порог' });
     if (next.metric === 'role' && (!next.role || !ACHIEVEMENT_ROLES.has(next.role))) return res.status(400).json({ error: 'Для ролевого достижения укажите роль' });
-    if (next.metric === 'story' && (before.metric !== 'story' || next.threshold !== 1)) return res.status(400).json({ error: 'Условия истории партии фиксированы; можно изменить название, описание и видимость.' });
-    if (before.metric === 'story' && next.metric !== 'story') return res.status(400).json({ error: 'Историю партии нельзя заменить счётчиком.' });
+    if (next.metric === 'story' && (before.metric !== 'story' || next.threshold !== 1)) return res.status(400).json({ error: 'Условия истории игры фиксированы; можно изменить название, описание и видимость.' });
+    if (before.metric === 'story' && next.metric !== 'story') return res.status(400).json({ error: 'Историю игры нельзя заменить счётчиком.' });
     if (next.metric !== 'role') next.role = null;
     const now = new Date().toISOString();
     await db.run(

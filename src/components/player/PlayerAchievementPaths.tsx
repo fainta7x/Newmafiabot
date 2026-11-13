@@ -31,12 +31,12 @@ export default function PlayerAchievementPaths({ profile, isSelf, preferences }:
     {a.id === 'four_faces' && (isSelf || a.earned) && <div className="mt-2"><p className="text-xs text-white/60">Роли с победой:</p><div className="mt-2 flex flex-wrap gap-2">{[['citizen','Мирный'],['sheriff','Шериф'],['mafia','Мафия'],['don','Дон']].map(([id,label]) => <span key={id} className="rounded-lg bg-white/5 px-2 py-1 text-xs">{a.earned || a.steps?.includes(id) ? '✓' : '○'} {label}</span>)}</div></div>}
     {a.earned_at && <p className="mt-2 text-xs text-white/45">{new Date(a.earned_at).toLocaleDateString('ru-RU',{timeZone:'Europe/Moscow'})}</p>}
     {isSelf && a.earned && a.evidence && <p className="mt-2 text-sm text-white/60">{a.evidence.detail}</p>}
-    {isSelf && a.earned && a.evidence?.gameId && <a className="mt-2 flex min-h-11 items-center text-sm underline" href={`/player/games/${encodeURIComponent(a.evidence.gameId)}`} onClick={e => { e.preventDefault();openPlayerGame(a.evidence!.gameId!); }}>Открыть партию</a>}
+    {isSelf && a.earned && a.evidence?.gameId && <a className="mt-2 flex min-h-11 items-center text-sm underline" href={`/player/games/${encodeURIComponent(a.evidence.gameId)}`} onClick={e => { e.preventDefault();openPlayerGame(a.evidence!.gameId!); }}>Открыть игру</a>}
     {isSelf && a.earned && STORY_IDS.has(a.id) && <button disabled={busy || (!pins.includes(a.id) && pins.length >= 3)} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 px-3 text-sm disabled:opacity-40" onClick={() => void save(path,pins.includes(a.id) ? pins.filter(id => id !== a.id) : [...pins,a.id])}>{pins.includes(a.id) ? 'Убрать из закреплённых' : pins.length >= 3 ? 'Закреплено 3 достижения' : 'Закрепить достижение'}</button>}
   </article>;
   return <section data-testid="achievement-paths" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">Истории и пути</h2><span className="text-sm text-white/60">{stories.filter(a => a.earned).length}/{stories.length}</span></div>
-    <p className="mt-1 text-sm text-white/50">Цели в игре и жизни клуба. Истории открываются после завершения партии.</p>
+    <p className="mt-1 text-sm text-white/50">Цели в игре и жизни клуба. Истории открываются после завершения игры.</p>
     {error && <p role="alert" className="mt-3 text-sm text-rose-200">{error}</p>}
     <label className="mt-4 block text-sm text-white/70">Путь<select aria-label="Путь достижений" disabled={busy} value={path} onChange={e => isSelf ? void save(e.target.value,pins) : setPath(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/15 bg-[#090a0d] px-3 text-sm">{STORY_PATHS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     {pathItems.length>0&&<p data-testid="achievement-path-completion" className="mt-3 text-sm leading-6 text-white/75">Получено: {pathItems.filter(a=>a.earned).length} из {pathItems.length} историй.{pathItems.every(a=>a.earned)&&<span className="block text-amber-100">Все истории этого пути получены.</span>}</p>}
@@ -46,6 +46,6 @@ export default function PlayerAchievementPaths({ profile, isSelf, preferences }:
     {pins.length > 0 && <div className="mt-4"><h3 className="mb-2 text-sm font-semibold">Закреплённые истории</h3><div className="grid gap-3 sm:grid-cols-2">{stories.filter(a => a.earned && pins.includes(a.id)).map(card)}</div></div>}
     <details className="mt-4"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Все истории · {stories.length}</summary><div className="mt-2 grid gap-3 sm:grid-cols-2">{stories.map(card)}</div></details>
     <details className="mt-2 border-t border-white/10 pt-2"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Коллекция опыта и обучения</summary><p className="mb-3 text-sm text-white/50">Достижения за игры, победы, рейтинг и обучение. Даты показаны, когда известны.</p><div className="grid gap-3 sm:grid-cols-2">{all.filter(a => !STORY_IDS.has(a.id)).map(card)}</div></details>
-    <p className="mt-4 text-xs leading-relaxed text-white/45">Истории о ходе игры считаем по тем партиям, где сохранён полный журнал.</p>
+    <p className="mt-4 text-xs leading-relaxed text-white/45">Истории о ходе игры считаем по тем играм, где сохранён полный журнал.</p>
   </section>;
 }

@@ -1,6 +1,6 @@
 import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { countGames } from '../../lib/russianPlural';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { Check, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
@@ -173,8 +173,13 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     }
   };
 
+  // Owner rule (2026-11-13): a change inside the list never reloads it in front of the organizer. The spinner is for the first load of an evening only;
+  // later refreshes (after an answer or a game choice) update the rows quietly in place.
+  const loadedEveningRef = useRef<string | null>(null);
   useEffect(() => {
-    void load();
+    const quiet = loadedEveningRef.current === eveningId;
+    loadedEveningRef.current = eveningId;
+    void load(quiet);
   }, [eveningId, refreshKey]);
 
   const counts = useMemo(() => ({

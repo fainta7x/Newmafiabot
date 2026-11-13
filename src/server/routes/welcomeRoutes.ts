@@ -147,7 +147,8 @@ const sendPicture = (load: (db: any, id: string) => Promise<Buffer | null>) => a
 };
 router.get('/welcome/history/:id/image.png', pictureLimit, sendPicture(loadSiteEveningPicture));
 router.get('/welcome/seasons/:id/image.png', pictureLimit, sendPicture(loadSiteSeasonPicture));
-router.get('/welcome/tournaments/:id/image.png', pictureLimit, sendPicture(loadSiteTournamentPicture));
+router.get('/welcome/tournaments/:id/image.png', pictureLimit, sendPicture((db, id) => loadSiteTournamentPicture(db, id, 'table')));
+router.get('/welcome/tournaments/:id/nominations.png', pictureLimit, sendPicture((db, id) => loadSiteTournamentPicture(db, id, 'nominations')));
 
 /**
  * «Who is signed in» for the site's header: a nickname and what the person may open, nothing else. It answers with the visitor's cookie only to

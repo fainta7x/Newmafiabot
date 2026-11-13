@@ -10,7 +10,7 @@ import {
   renderNoirExportBrandHeader,
   renderNoirExportFooter,
 } from '../../lib/exportNoirTheme.ts';
-import { seatEloLines, type BlankSeat, type EveningSummary, type GameBlank, type SeasonTable, type SummaryPlayer, type TournamentAnnouncement } from './clubResultData.ts';
+import { seatEloLines, type BlankSeat, type EveningSummary, type GameBlank, type SeasonSummary, type SeasonTable, type SummaryPlayer, type TournamentAnnouncement } from './clubResultData.ts';
 
 // The club chat pictures (owner, 2026-10-01), in the same noir style as the tournament game blank.
 
@@ -189,6 +189,75 @@ export function eveningSummarySvg(summary: EveningSummary) {
   <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
   ${roleCells}
   ${renderNoirExportFooter(W, height, summary.scored ? 'средний балл = сумма баллов / число игр' : 'клубный вечер')}
+</svg>`;
+}
+
+/** The season of the year in one picture (owner, 2026-11-13): Elo up and down, the table by Elo change, the best by role and the MVP of the evenings. */
+export function seasonSummarySvg(summary: SeasonSummary) {
+  clipCounter = 0;
+  const medal = [C.gold, C.silver, C.bronze];
+  const top = 340;
+  const bigRows = (items: SummaryPlayer[]) => 70 + Math.max(1, items.length) * 104;
+  const upTop = top;
+  const downTop = upTop + bigRows(summary.eloUp);
+  const tableTop = downTop + bigRows(summary.eloDown);
+  const tableRow = 80;
+  const tableHeight = 60 + Math.max(1, summary.table.length) * tableRow;
+  const rolesTop = tableTop + tableHeight + 20;
+  const mvpTop = rolesTop + 2 * 150 + 60;
+  const height = mvpTop + (summary.mvp.length ? bigRows(summary.mvp) : 0) + 20 + NOIR_EXPORT_LAYOUT.footerHeight;
+
+  const list = (title: string, items: SummaryPlayer[], y0: number, valueColor: string) => `
+    <text x="${M}" y="${y0 + 36}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">${esc(title)}</text>
+    ${items.map((item, index) => {
+      const y = y0 + 60 + index * 104;
+      return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="92" rx="20" fill="rgba(255,255,255,${index === 0 ? 0.06 : 0.03})"/>
+        <text x="${M + 26}" y="${y + 58}" font-size="30" font-weight="700" fill="${medal[index] || C.mutedText}">${index + 1}</text>
+        ${avatar(M + 70, y + 12, 68, item.nickname, item.avatar)}
+        <text x="${M + 158}" y="${y + 58}" font-size="30" font-weight="700" fill="${C.warmText}">${esc(clip(item.nickname, 24))}</text>
+        <text x="${W - M - 26}" y="${y + 50}" text-anchor="end" font-size="34" font-weight="700" fill="${valueColor}">${esc(item.value)}</text>
+        <text x="${W - M - 26}" y="${y + 76}" text-anchor="end" font-size="17" font-weight="600" fill="${C.subduedText}">${esc(item.detail)}</text>`;
+    }).join('') || `<text x="${M}" y="${y0 + 100}" font-size="24" fill="${C.subduedText}">—</text>`}`;
+
+  const tableRows = summary.table.map((row, index) => {
+    const y = tableTop + 50 + index * tableRow;
+    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${tableRow - 10}" rx="16" fill="rgba(255,255,255,${index < 3 ? 0.055 : 0.028})"/>
+      <text x="${M + 30}" y="${y + 45}" text-anchor="middle" font-size="24" font-weight="700" fill="${medal[index] || C.mutedText}">${row.place}</text>
+      ${avatar(M + 58, y + 8, 54, row.nickname, row.avatar)}
+      <text x="${M + 130}" y="${y + 45}" font-size="26" font-weight="700" fill="${C.warmText}">${esc(clip(row.nickname, 22))}</text>
+      <text x="${W - M - 24}" y="${y + 38}" text-anchor="end" font-size="28" font-weight="700" fill="${row.value.startsWith('−') ? '#F87171' : row.value === '0' ? C.mutedText : '#86EFAC'}">${esc(row.value)}</text>
+      <text x="${W - M - 24}" y="${y + 58}" text-anchor="end" font-size="15" font-weight="600" fill="${C.subduedText}">${esc(row.detail)}</text>`;
+  }).join('');
+
+  const roleCells = summary.bestByRole.map((entry, index) => {
+    const column = index % 2; const row = Math.floor(index / 2);
+    const cellWidth = (W - M * 2 - 24) / 2;
+    const x = M + column * (cellWidth + 24);
+    const y = rolesTop + 50 + row * 150;
+    return `<rect x="${x}" y="${y}" width="${cellWidth}" height="136" rx="22" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.07)"/>
+      ${personRow(x + 24, y + 4, cellWidth - 48, ROLE_BEST[entry.role], entry.player, ROLE_COLORS[entry.role])}`;
+  }).join('');
+
+  const stat = (x: number, label: string, value: string) => `
+    <text x="${x}" y="${top - 84}" font-size="17" font-weight="700" letter-spacing="2" fill="${C.subduedText}">${esc(label)}</text>
+    <text x="${x}" y="${top - 40}" font-size="40" font-weight="700" fill="${C.warmText}">${esc(value)}</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('ИТОГИ СЕЗОНА')}
+  <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(summary.title, 28))}</text>
+  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(summary.dateLabel)}</text>
+  ${stat(M, 'ИГР', String(summary.games))}
+  ${stat(M + 200, 'ВЕЧЕРОВ', String(summary.evenings))}
+  ${stat(M + 460, 'ИГРОКОВ', String(summary.players))}
+  ${list('ВЫШЛИ В ПЛЮС ПО ЭЛО', summary.eloUp, upTop, '#86EFAC')}
+  ${list('УШЛИ В МИНУС ПО ЭЛО', summary.eloDown, downTop, '#F87171')}
+  <text x="${M}" y="${tableTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ТАБЛИЦА СЕЗОНА · ИЗМЕНЕНИЕ ЭЛО</text>
+  ${tableRows || `<text x="${M}" y="${tableTop + 100}" font-size="24" fill="${C.subduedText}">—</text>`}
+  <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
+  ${roleCells}
+  ${summary.mvp.length ? list('MVP ВЕЧЕРОВ', summary.mvp, mvpTop, C.warmText) : ''}
+  ${renderNoirExportFooter(W, height, 'Эло за все клубные игры сезона')}
 </svg>`;
 }
 

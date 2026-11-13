@@ -215,7 +215,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-100">
           <BrainCircuit className="h-5 w-5" />
         </span>
-        <span className="min-w-0 flex-1"><strong className="block text-[14px]">Разборы партий</strong>
+        <span className="min-w-0 flex-1"><strong className="block text-[14px]">Разборы игр</strong>
           <span className="block text-[12px] leading-4 text-white/55">Голоса, версии, вскрытия и решения</span>
         </span>
         <ArrowRight className="h-4 w-4 shrink-0 text-white/50" />

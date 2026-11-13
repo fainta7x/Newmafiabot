@@ -21,7 +21,7 @@ const CHECK_TEXT: Record<string, string> = { sheriff: 'Шериф', not_sheriff:
 const roundTitle = (round: number, events: LiveGameEvent[], protocol?: Pick<TournamentGameProtocolData, 'votes' | 'shots'>) => circleTitle(Math.max(0, round - 1), { events, votes: protocol?.votes, shots: protocol?.shots });
 
 /**
- * «Разбор партии» (owner, 2026-10-04): the whole live game circle by circle — who nominated whom, every voting with the
+ * «Разбор игры» (owner, 2026-10-04): the whole live game circle by circle — who nominated whom, every voting with the
  * voters, the shots and checks of the night, who left the game and how. Read-only; built from the engine chronology. An exit
  * the corrected protocol does not have (game №20: a stray vote put №3 out, the protocol says he stayed) is marked as such.
  */
@@ -122,7 +122,7 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
   return (
     <section className="mb-3 mt-4 rounded-xl border border-slate-700/70 bg-slate-900/60" data-testid="game-analysis">
       <div className="px-3 py-3">
-        <div className="text-xs font-black uppercase tracking-wide text-slate-200">Разбор партии</div>
+        <div className="text-xs font-black uppercase tracking-wide text-slate-200">Разбор игры</div>
         <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
           {analysis.winner ? <span className="rounded-full bg-slate-800 px-2 py-0.5 font-semibold text-slate-100">Победа {analysis.winner === 'red' ? 'красных' : 'чёрных'}</span> : null}
           <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-300">Кругов: {analysis.circles.length}</span>

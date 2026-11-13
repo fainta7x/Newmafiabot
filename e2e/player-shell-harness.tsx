@@ -115,7 +115,7 @@ function GamesSample() {
     <div className="mx-auto w-full max-w-[430px] space-y-3">
       <header className="px-1 pb-3 pt-1">
         <h1 className="text-2xl font-semibold">Игры</h1>
-        <p className="mt-1 text-xs leading-5 text-white/40">История партий, показатели, карьера и итоги вечеров</p>
+        <p className="mt-1 text-xs leading-5 text-white/40">История игр, показатели, карьера и итоги вечеров</p>
       </header>
 
       <SegmentedControl

@@ -77,7 +77,7 @@ if (isFlow) {
     const url = String(input);
     if (url.endsWith('/replay')) {
       if (replayFailures-- > 0) return json({ error: 'Нет связи с Replay' }, 503);
-      return json({ game_key: 'club:11', replay_available: true, game: { id: '11', number: 11, title: detail.game.title, winner_team: 'red' }, players: detail.players, events: ['Начало игры', 'Ночь', 'Игра завершена'].map((title, index) => ({ id: String(index), type: index === 1 ? 'night' : 'round', round: index, title, text: title })), analysis: ['Сохранились ключевые события партии.'] });
+      return json({ game_key: 'club:11', replay_available: true, game: { id: '11', number: 11, title: detail.game.title, winner_team: 'red' }, players: detail.players, events: ['Начало игры', 'Ночь', 'Игра завершена'].map((title, index) => ({ id: String(index), type: index === 1 ? 'night' : 'round', round: index, title, text: title })), analysis: ['Сохранились ключевые события игры.'] });
     }
     if (url.endsWith('/clips')) {
       if (clipFailures-- > 0) return json({ error: 'Записи речей временно недоступны' }, 503);
@@ -105,7 +105,7 @@ if (isRecap) window.fetch = async () => new Response(JSON.stringify({summaries:[
   id:'past-1', title:'Пятничный клубный вечер', starts_at:'2026-10-09T18:00:00Z',settled_at:'2026-10-10T00:00:00Z',venue:'Суп с Котом',
   games:4, red_wins:3, black_wins:1,score:'3:1',player:{games:3,wins:2,losses:1,win_rate:67,elo_before:1500,elo_after:1522,elo_delta:22,roles:['citizen','sheriff']},
   best_elo_rise:{player_id:'p3',nickname:'Дина',avatar_url:'',elo_delta:31}, most_games:{player_id:'p4',nickname:'Богдан',avatar_url:'',games:4},
-  awards:[{category:'mvp',label:'Игрок вечера',player_id:'p3',nickname:'Дина',avatar_url:'',votes:7}],facts:['Красные выиграли три партии из четырёх'],game_ids:['club:11','club:12','club:13','club:14'],game_links:[11,12,13,14].map((number,index)=>({id:`club:${number}`,game_number:number,winner_team:index===1?'black':'red',personal:index===3?null:{role:index===0?'sheriff':'citizen',won:index!==1}})),
+  awards:[{category:'mvp',label:'Игрок вечера',player_id:'p3',nickname:'Дина',avatar_url:'',votes:7}],facts:['Красные выиграли три игры из четырёх'],game_ids:['club:11','club:12','club:13','club:14'],game_links:[11,12,13,14].map((number,index)=>({id:`club:${number}`,game_number:number,winner_team:index===1?'black':'red',personal:index===3?null:{role:index===0?'sheriff':'citizen',won:index!==1}})),
 }]}),{headers:{'Content-Type':'application/json'}});
 ReactDOM.createRoot(document.getElementById('root')!).render(isFlow ? <ResultFlowPreview /> : isRecap ? <EveningSummaries onOpenGame={(key)=>{document.body.dataset.openedGame=key;}} /> :
   <main className="mx-auto flex max-w-[430px] flex-col gap-3 p-3 pb-24 text-white">

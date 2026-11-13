@@ -65,8 +65,8 @@ export async function guessDailyWord(db: DatabaseWrapper, playerId: string, inpu
     const guesses = guessesOf(session);
     const duplicate = guesses.find(g=>g.request_id===input.request_id);
     if (duplicate) { if (duplicate.word!==word) throw new DailyWordError(409,'Эта попытка уже сохранена с другим словом'); return; }
-    if (session?.status==='won' || session?.status==='lost') throw new DailyWordError(409,'Партия на сегодня завершена');
-    if (input.expected_count !== guesses.length) throw new DailyWordError(409,'Партия изменилась на другом устройстве. Данные обновлены.');
+    if (session?.status==='won' || session?.status==='lost') throw new DailyWordError(409,'Игра на сегодня завершена');
+    if (input.expected_count !== guesses.length) throw new DailyWordError(409,'Игра изменилась на другом устройстве. Данные обновлены.');
     if (!/^[а-я]+$/.test(word) || word.length!==p.answer.length) throw new DailyWordError(400,`Нужно слово из ${p.answer.length} букв`);
     if (word!==p.answer && !dictionary.has(word)) throw new DailyWordError(400,'Слова нет в словаре. Нужны существительные в начальной форме.');
     if (guesses.some(g=>g.word===word)) throw new DailyWordError(400,'Это слово уже было');
@@ -82,7 +82,7 @@ export async function revealDailyWord(db: DatabaseWrapper, playerId: string, day
   await ensureDailyWordSchema(db);
   if (day!==dailyWordDay(now)) throw new DailyWordError(409,'Доступно новое слово');
   const s=await db.get<Session>('SELECT * FROM daily_word_sessions WHERE day=? AND player_id=?',[day,playerId]);
-  if (!s || !['won','lost'].includes(s.status)) throw new DailyWordError(403,'Ответ доступен после завершения партии');
+  if (!s || !['won','lost'].includes(s.status)) throw new DailyWordError(403,'Ответ доступен после завершения игры');
   const p=await db.get<Puzzle>('SELECT * FROM daily_word_puzzles WHERE day=?',[day]);
   return {answer:p!.answer};
 }

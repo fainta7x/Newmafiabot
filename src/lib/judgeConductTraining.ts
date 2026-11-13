@@ -217,7 +217,7 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
       s.nightSubPhase !== 'best_move' && !s.votingFarewellQueue?.length) {
     const winner = determineLiveWinner(s.activePlayers);
     if (winner) return gate('Заверши игру — победили ' + winner,
-      'Условие победы выполнено. Нажми «Завершить игру», чтобы закрыть учебную партию. Данные виртуальных игроков в CRM не отправляются.',
+      'Условие победы выполнено. Нажми «Завершить игру», чтобы закрыть учебную игру. Данные виртуальных игроков в CRM не отправляются.',
       ['[data-testid="live-winner-confirm"]'], 'action');
   }
 

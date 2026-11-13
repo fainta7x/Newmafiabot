@@ -19,7 +19,7 @@ export default function PlayerLearningBlock() {
       <section className="space-y-2" aria-label="Разделы обучения">
         <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[.13em] text-white/45">С чего начать</h3>
         {[
-          { id:'lessons', title:'Уроки', detail:'Начинаю играть: роли, порядок партии и первые решения', Icon:BookOpenCheck },
+          { id:'lessons', title:'Уроки', detail:'Начинаю играть: роли, порядок игры и первые решения', Icon:BookOpenCheck },
           { id:'trainers', title:'Тренажёры', detail:'Хочу практиковаться: логика, попил и голосование', Icon:BookOpen },
           { id:'reference', title:'Правила и справочник', detail:'Нужно уточнить правило: термины и игровые ситуации', Icon:LibraryBig },
         ].map(({ id, title, detail, Icon })=>
@@ -36,7 +36,7 @@ export default function PlayerLearningBlock() {
           <GraduationCap className="h-4 w-4" /> Обучение
         </div>
         <h2 className="mt-2 text-xl font-semibold">Практика для игрока и судьи</h2>
-        <p className="mt-2 text-sm leading-6 text-white/60">Выбери конкретную задачу: разобрать решение за столом или потренировать ведение партии.</p>
+        <p className="mt-2 text-sm leading-6 text-white/60">Выбери конкретную задачу: разобрать решение за столом или потренировать ведение игры.</p>
         <a href={guideLink('quiz')} data-testid="player-learning-reasoning" className="mt-4 flex min-h-[74px] items-center gap-3 rounded-2xl border border-amber-100/25 bg-[#211e19] p-3 text-left">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-200"><Brain className="h-5 w-5" /></span>
           <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold">Школа игрового мышления</strong><span className="mt-1 block text-xs text-white/55">Пять ступеней: логика, мотивация, чёрные тройки</span></span>

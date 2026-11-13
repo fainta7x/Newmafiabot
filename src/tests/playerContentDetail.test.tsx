@@ -40,12 +40,12 @@ it('shows a known result from one team game and keeps missing results unknown',a
   expect(screen.getByText('Вместе: 0 побед из 1 игры')).toBeDefined();
   expect(screen.getAllByText(/Вместе:/)).toHaveLength(1);
   expect(screen.getByText(/до 24 игроков/)).toBeDefined();
-  expect(screen.getAllByText('Последние общие партии · 2')).toHaveLength(2);
+  expect(screen.getAllByText('Последние общие игры · 2')).toHaveLength(2);
 });
 it('keeps shared-game history absent on another player profile',async()=>{
   mockConnections();render(<PremiumProfileConnections playerId="other" selfPlayerId="me"/>);
   await screen.findByText('Анна');
-  expect(screen.queryByText(/Последние общие партии/)).toBeNull();
+  expect(screen.queryByText(/Последние общие игры/)).toBeNull();
 });
 it('counts the selected path and distinguishes career, evening and party conditions',()=>{
   const achievements=ACHIEVEMENT_STORIES.map(a=>({...a,earned:['case_closed','last_argument'].includes(a.id),earned_at:null}));

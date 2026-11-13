@@ -157,7 +157,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, selected
           {evenings.some((item) => item.can_create) ? 'Начать клубную игру' : 'Посмотреть вечера'}
         </button>
         <p className="mt-3 text-center text-xs leading-5 text-white/35">
-          Потренироваться без записи в клуб можно в <a href="/guide?from=conduct&tab=judge-conduct" data-testid="conduct-training-link" className="font-semibold text-amber-100/80 underline">«Обучении»</a>: учебная партия с подсказками и свободная тестовая игра.
+          Потренироваться без записи в клуб можно в <a href="/guide?from=conduct&tab=judge-conduct" data-testid="conduct-training-link" className="font-semibold text-amber-100/80 underline">«Обучении»</a>: учебная игра с подсказками и свободная тестовая игра.
         </p>
       </section>
     );

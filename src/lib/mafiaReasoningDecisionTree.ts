@@ -150,6 +150,6 @@ export const treeScenarioForAttempt = (attempt: number): TreeScenario =>
 export const outcomeName = (outcome: TreeOutcome): string => ({
   black_win: 'Победа мафии после обязательных процедур',
   red_win: 'Победа красных после обязательных процедур',
-  continue: 'Партия продолжается',
+  continue: 'Игра продолжается',
   revote: 'Ничья — переголосование',
 })[outcome];

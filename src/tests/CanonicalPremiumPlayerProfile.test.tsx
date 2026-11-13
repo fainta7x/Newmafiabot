@@ -274,12 +274,12 @@ it('reports nested tab navigation and restores the page and filters after return
   const fetcher=vi.fn((input:RequestInfo|URL)=>{
     const url=String(input);
     if(url.includes('/summary'))return response(summary('memory','Игрок с памятью'));
-    if(url.includes('/games?'))return response({games:[{id:'club:1',title:'Нужная партия',role:'sheriff'}],total:40});
+    if(url.includes('/games?'))return response({games:[{id:'club:1',title:'Нужная игра',role:'sheriff'}],total:40});
     return response({});
   });
   vi.stubGlobal('fetch',fetcher);
   const first=render(<CanonicalPremiumPlayerProfile playerId="memory" selfPlayerId="memory" mode="self" initialTab="games" onTabChange={route}/>);
-  await screen.findByText('Нужная партия');
+  await screen.findByText('Нужная игра');
   fireEvent.click(screen.getByText('Дополнительные фильтры'));
   fireEvent.change(screen.getByRole('combobox',{name:'Роль'}),{target:{value:'sheriff'}});
   await waitFor(()=>expect(fetcher.mock.calls.some(([url])=>String(url).includes('role=sheriff'))).toBe(true));
@@ -289,7 +289,7 @@ it('reports nested tab navigation and restores the page and filters after return
   expect(route).toHaveBeenLastCalledWith('roles');
   first.unmount();fetcher.mockClear();
   render(<CanonicalPremiumPlayerProfile playerId="memory" selfPlayerId="memory" mode="self" initialTab="games"/>);
-  await screen.findByText('Нужная партия');
+  await screen.findByText('Нужная игра');
   expect(fetcher.mock.calls.some(([url])=>String(url).includes('offset=15')&&String(url).includes('role=sheriff'))).toBe(true);
 });
 
@@ -338,7 +338,7 @@ it('shows the actual game range on each page and does not summarize a partial pa
     if(url.includes('/summary'))return response(summary('self','Игрок'));
     if(url.includes('/games?')){
       const offset=Number(new URL(url,'http://localhost').searchParams.get('offset')||0);
-      const games=Array.from({length:18},(_,index)=>({id:`club:range-${index}`,title:`Партия ${index+1}`}));
+      const games=Array.from({length:18},(_,index)=>({id:`club:range-${index}`,title:`Игра ${index+1}`}));
       return response({games:games.slice(offset,offset+15),total:18,offset,limit:15});
     }
     return response({});

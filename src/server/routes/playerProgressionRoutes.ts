@@ -210,7 +210,7 @@ const buildChallenges = (stats: ProgressStats) => [
   { id: 'don_5', title: 'Заработать авторитет', icon: '🎩', description: 'Одержать 5 побед Доном', progress: stats.roleWins.don, target: 5, completed: stats.roleWins.don >= 5 },
   { id: 'all_roles_5', title: 'Без слабой роли', icon: '🎭', description: 'Одержать минимум по 5 побед каждой ролью', progress: Math.min(...ROLES.map((role) => stats.roleWins[role])), target: 5, completed: ROLES.every((role) => stats.roleWins[role] >= 5) },
   { id: 'games_100', title: 'Большая дистанция', icon: '💯', description: 'Дойти до 100 завершённых игр', progress: stats.games, target: 100, completed: stats.games >= 100 },
-  { id: 'perfect_evening', title: 'Забрать вечер', icon: '🌟', description: 'Выиграть все свои игры за вечер при минимум 4 партиях', progress: stats.perfectEvenings, target: 1, completed: stats.perfectEvenings >= 1 },
+  { id: 'perfect_evening', title: 'Забрать вечер', icon: '🌟', description: 'Выиграть все свои игры за вечер при минимум 4 играх', progress: stats.perfectEvenings, target: 1, completed: stats.perfectEvenings >= 1 },
 ];
 
 const buildProgression = async (db: any, playerId: string) => {

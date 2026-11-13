@@ -61,7 +61,7 @@ export function buildAchievementStories(games: StatGame[], playerId: string): Re
     if (!facts.full || !won || !facts.ordinary) continue;
     if (mine.role === 'sheriff') {
       const checks = facts.checks.filter(c => c.kind === 'sheriff' && blackRole(facts.roleOf(c.target)));
-      if (new Set(checks.map(c => c.target)).size >= 2) award('two_cases', game, 'Две разные чёрные проверки в выигранной партии.');
+      if (new Set(checks.map(c => c.target)).size >= 2) award('two_cases', game, 'Две разные чёрные проверки в выигранной игре.');
       const death = facts.events.find(e => e.kind === 'exit' && e.seat === mine.seat && e.value === 'killed');
       if (death && checks.some(c => c.seq < death.seq && facts.events.some(e => e.kind === 'exit' && e.seat === c.target && e.value === 'voted_day' && e.seq > death.seq)))
         award('case_handed_over', game, 'Проверенный чёрный заголосован после убийства шерифа.');

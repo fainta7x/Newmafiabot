@@ -149,13 +149,13 @@ export const ResultView: React.FC<Props> = ({ api }) => {
 
       <section aria-label="Заметка судьи" className="space-y-2">
         <label htmlFor="judge-notes" className="block px-1"><Eyebrow>Заметка судьи</Eyebrow></label>
-        <textarea id="judge-notes" rows={3} disabled={locked} value={protocol.judge_notes || ''} onChange={(event) => api.setJudgeNotes(event.target.value)} placeholder="Особенности партии, тайминги" className="w-full rounded-2xl border border-white/12 bg-white/[0.04] p-3.5 text-sm leading-5 text-white placeholder:text-white/30 disabled:opacity-70" />
+        <textarea id="judge-notes" rows={3} disabled={locked} value={protocol.judge_notes || ''} onChange={(event) => api.setJudgeNotes(event.target.value)} placeholder="Особенности игры, тайминги" className="w-full rounded-2xl border border-white/12 bg-white/[0.04] p-3.5 text-sm leading-5 text-white placeholder:text-white/30 disabled:opacity-70" />
       </section>
 
       {lines.length ? (
-        <section aria-label="Журнал партии">
+        <section aria-label="Журнал игры">
           <button type="button" aria-expanded={journalOpen} onClick={() => setJournalOpen((value) => !value)} className="flex min-h-12 w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.035] px-4 text-sm font-semibold" data-testid="game-event-log-toggle">
-            <span>Журнал партии <Chip className="ml-1">{lines.length}</Chip></span><ChevronDown className={cx('h-4 w-4 text-white/50 transition-transform', journalOpen && 'rotate-180')} aria-hidden="true" />
+            <span>Журнал игры <Chip className="ml-1">{lines.length}</Chip></span><ChevronDown className={cx('h-4 w-4 text-white/50 transition-transform', journalOpen && 'rotate-180')} aria-hidden="true" />
           </button>
           {journalOpen ? (
             <ol className="mt-2 max-h-[50dvh] space-y-0.5 overflow-y-auto rounded-2xl border border-white/8 bg-black/25 px-3.5 py-3 text-[12px] leading-5" data-testid="game-event-log">

@@ -8,7 +8,7 @@ for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]]){
    await page.goto(`/e2e/daily-word.html?mode=${mode}`);
    if(mode==='error')await expect(page.getByRole('alert')).toContainText('Нет связи');
    else if(mode==='card')await expect(page.getByRole('button',{name:/Играть бесплатно/})).toBeVisible();
-   else await expect(page.getByText('Бесплатная партия',{exact:true})).toBeVisible();
+   else await expect(page.getByText('Бесплатная игра',{exact:true})).toBeVisible();
    expect(await page.evaluate(auditScreen)).toEqual([]);
    await page.screenshot({path:info.outputPath(`${mode}.png`),fullPage:true});
    if(mode==='admin'){
@@ -26,7 +26,7 @@ for(const [width,height] of [[360,640],[390,844],[1366,768],[1440,900]]){
    }
    if(mode==='error'){
     await page.getByRole('button',{name:'Повторить загрузку'}).click();
-    await expect(page.getByText('Бесплатная партия',{exact:true})).toBeVisible();
+    await expect(page.getByText('Бесплатная игра',{exact:true})).toBeVisible();
    }
   }
   await page.goto('/e2e/daily-word.html');
@@ -64,7 +64,7 @@ test('daily word reachable from home and mini-games',async({page})=>{
 test('daily word accepts a physical keyboard: letters, arrows, backspace, Enter',async({page})=>{
  await page.setViewportSize({width:1366,height:768});
  await page.goto('/e2e/daily-word.html');
- await expect(page.getByText('Бесплатная партия',{exact:true})).toBeVisible();
+ await expect(page.getByText('Бесплатная игра',{exact:true})).toBeVisible();
  // Playwright cannot press Cyrillic keys by name, so the key event is dispatched as a real keyboard would send it.
  const press=(key)=>page.evaluate((k)=>window.dispatchEvent(new KeyboardEvent('keydown',{key:k,bubbles:true})),key);
  await press('м');await press('а');

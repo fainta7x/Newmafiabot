@@ -317,7 +317,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       {!settings&&statsHidden&&['games','roles','elo'].includes(tab)&&<section className="rounded-2xl border border-white/10 p-4 text-sm text-white/60"><p>Игровая статистика скрыта игроком</p><p className="mt-1">Игры, роли и Elo недоступны.</p></section>}
       {!settings&&tab==='games'&&!statsHidden&&<>
         {scopeSelector}
-        <p className="text-xs leading-5 text-white/60">Elo — изменение рейтинга за партию. Допы судьи, протокольные допы и Ci показаны в спортивных баллах; протокольный доп отдельно на Elo не влияет.</p>
+        <p className="text-xs leading-5 text-white/60">Elo — изменение рейтинга за игру. Допы судьи, протокольные допы и Ci показаны в спортивных баллах; протокольный доп отдельно на Elo не влияет.</p>
         <div className="flex flex-wrap gap-2">{(['all','custom'] as const).map(k=><button key={k} onClick={()=>{setOffset(0);setPeriod(k);}} className={`min-h-11 rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'Любые даты':'Диапазон дат'}</button>)}</div>
         {period==='season'&&<div className="text-xs text-white/45">{activePeriod?.title||'Активный сезон не задан'}</div>}
         {period==='custom'&&<div className="grid grid-cols-2 gap-2"><label className="text-xs text-white/60">С даты<input type="date" value={from} max={to||undefined} onChange={e=>{setOffset(0);setFrom(e.target.value);}} className="mobile-field mt-1 w-full"/></label><label className="text-xs text-white/60">По дату<input type="date" value={to} min={from||undefined} onChange={e=>{setOffset(0);setTo(e.target.value);}} className="mobile-field mt-1 w-full"/></label></div>}

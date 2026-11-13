@@ -146,7 +146,7 @@ export default function PlayerEveningWorkspace({
           <div className="text-[10px] text-white/40">Красные / чёрные</div>
         </div>
       </div>
-      <p className="mt-3 text-xs text-white/45">{data.roster.length} участников · {data.tables.length} столов · {data.score.completed} завершённых партий</p>
+      <p className="mt-3 text-xs text-white/45">{data.roster.length} участников · {data.tables.length} столов · {data.score.completed} завершённых игр</p>
       {!data.participation.can_change_selection && data.evening.status !== 'completed' && <p className="mt-2 text-[11px] text-amber-100/60">Запись после отметки явки изменяет организатор.</p>}
     </div>
 
@@ -167,7 +167,7 @@ export default function PlayerEveningWorkspace({
       <h3 className="px-1 text-sm font-semibold">Игры вечера · {data.games.length}</h3>
       <p className="mt-1 px-1 text-[11px] text-white/40">После завершения игры доступен полный протокол как в CRM, но только для просмотра.</p>
       {activeGames.length > 0 && <div className="mt-3 space-y-2"><p className="px-1 text-[11px] uppercase tracking-wide text-amber-100/60">На столах сейчас</p>{activeGames.map(gameCard)}</div>}
-      {finishedGames.length > 0 && <div className="mt-3 space-y-2"><p className="px-1 text-[11px] uppercase tracking-wide text-emerald-100/60">Завершённые партии</p>{finishedGames.map(gameCard)}</div>}
+      {finishedGames.length > 0 && <div className="mt-3 space-y-2"><p className="px-1 text-[11px] uppercase tracking-wide text-emerald-100/60">Завершённые игры</p>{finishedGames.map(gameCard)}</div>}
     </div>}
     {error && <div role="alert" className="rounded-2xl border border-amber-200/15 p-3 text-xs text-amber-100/70"><p>Не удалось обновить данные: {error}. Показаны последние подтверждённые данные.</p><button type="button" disabled={busy} onClick={() => retry.current()} className="mt-2 min-h-11 w-full rounded-xl bg-white/10 px-3 font-semibold disabled:opacity-40">{busy ? 'Обновляем…' : 'Повторить'}</button></div>}
   </section>;

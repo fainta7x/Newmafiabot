@@ -3,6 +3,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
 import { eveningJudgeId } from './eveningStaffService.ts';
 import { seatingWarnings, type EveningSeat } from '../../lib/eveningSeating.ts';
+import { isEditableEvening, isOpenEvening } from '../../lib/eveningStatus.ts';
+import { assertPlayerSelfRegistration } from './eveningParticipantState.ts';
 
 const fail = (message: string, statusCode = 409): never => { throw Object.assign(new Error(message), { statusCode }); };
 
@@ -56,9 +58,14 @@ export async function saveEveningSeatBooking(
   if (!organizer && input.override) fail('Обход ограничений доступен только организатору', 403);
   try {
     return await db.transaction(async (tx) => {
-    const evening = await tx.get<any>('SELECT id, status, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
+    const evening = await tx.get<any>('SELECT id, status, settled_at, format FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) fail('Вечер не найден', 404);
-    if (evening.status === 'completed' || evening.settled_at) fail('Вечер завершён');
+    if (!(organizer ? isEditableEvening(evening) : isOpenEvening(evening))) fail('Запись на этот вечер закрыта');
+    if (!organizer) {
+      const player = await tx.get<any>('SELECT * FROM players WHERE id=?', [playerId]);
+      if (!player) fail('Игрок не найден', 404);
+      assertPlayerSelfRegistration(player, evening.format);
+    }
     if ((await eveningJudgeId(tx, eveningId)) === playerId) fail('Судья вечера не занимает место игрока за столом');
     const slot = await tx.get<any>('SELECT id, slot_number, status FROM evening_game_slots WHERE id = ? AND evening_id = ?', [input.slotId, eveningId]);
     if (!slot || slot.status !== 'open') fail('Игра недоступна', 409);
@@ -124,10 +131,15 @@ export async function saveEveningSeatBooking(
 
 export async function cancelEveningSeatBooking(db: DatabaseWrapper, eveningId: string, slotId: string, playerId: string) {
   await ensureEveningSeatingSchema(db);
-  const row = await db.get<any>('SELECT id, started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND player_id=?',
-    [eveningId,slotId,playerId]);
-  if (!row) return { removed: false };
-  if (row.started) fail('Начавшуюся игру менять нельзя');
-  await db.run('DELETE FROM evening_seat_plans WHERE id=? AND started=0', [row.id]);
-  return { removed: true };
+  return db.transaction(async tx => {
+    const evening = await tx.get<any>('SELECT status,settled_at FROM game_evenings WHERE id=?', [eveningId]);
+    if (!evening) fail('Вечер не найден', 404);
+    if (!isEditableEvening(evening)) fail('Вечер закрыт или отменён');
+    const row = await tx.get<any>('SELECT id, started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND player_id=?',
+      [eveningId,slotId,playerId]);
+    if (!row) return { removed: false };
+    if (row.started) fail('Начавшуюся игру менять нельзя');
+    const result = await tx.run('DELETE FROM evening_seat_plans WHERE id=? AND started=0', [row.id]);
+    return { removed: result.changes > 0 };
+  });
 }

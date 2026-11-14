@@ -1,3 +1,4 @@
+import { ensureNoviceSystemSchema } from '../db/ensureNoviceSystemSchema.ts';
 import crypto from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection } from '../db/index.ts';
@@ -30,11 +31,12 @@ describe('VK, Telegram and WebApp unified identity', () => {
     await ensureVkIntegrationSchema(db);
     await ensureVkJoinSchema(db);
     await ensureEveningSlotsSchema(db);
+    await ensureNoviceSystemSchema(db);
 
     const now = new Date().toISOString();
     await db.run(`
-      INSERT INTO players (id, telegram_user_id, nickname, source, created_at, updated_at)
-      VALUES ('player-1', '101', 'Кот', 'telegram', ?, ?)
+      INSERT INTO players (id, telegram_user_id, nickname, source, game_level, club_stage, created_at, updated_at)
+      VALUES ('player-1', '101', 'Кот', 'telegram', 'club', 'CLUB_PLAYER', ?, ?)
     `, [now, now]);
     await linkVkIdentity(db, { vkUserId: '202', playerId: 'player-1' });
     await db.run(`

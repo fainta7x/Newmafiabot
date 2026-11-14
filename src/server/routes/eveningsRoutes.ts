@@ -52,6 +52,7 @@ const isRegularEvening = (format: unknown) => normalizeEveningFormat(format) ===
 const ensureEditable = async (db: DatabaseWrapper, id: string) => {
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
   if (!evening) { const error: any = new Error('Игровой вечер не найден'); error.status = 404; throw error; }
+  if (evening.status === 'cancelled') { const error: any = new Error('Отменённый вечер доступен только для чтения'); error.status = 409; throw error; }
   if (evening.status === 'completed' || evening.settled_at) { const error: any = new Error('Завершённый вечер доступен только для чтения'); error.status = 400; throw error; }
   return evening;
 };

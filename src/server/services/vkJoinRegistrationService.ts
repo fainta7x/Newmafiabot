@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { findPlayersByNickname } from './playerRegistrationService.ts';
-import { isParticipantResponseLockedAfterAttendance, parseResponseStatus, setParticipantResponse } from './eveningParticipantState.ts';
+import { assertPlayerSelfRegistration, isParticipantResponseLockedAfterAttendance, parseResponseStatus, setParticipantResponse } from './eveningParticipantState.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
 
@@ -101,8 +101,9 @@ export async function saveVkJoinResponse(db: DatabaseWrapper, eveningId: string,
   if (!isOpenEvening(evening)) {
     throw Object.assign(new Error('Ответы на этот вечер уже недоступны'), { statusCode: 410 });
   }
-  const player = await db.get<any>('SELECT id, game_level FROM players WHERE id=? LIMIT 1', [playerId]);
+  const player = await db.get<any>('SELECT id, game_level, club_stage FROM players WHERE id=? LIMIT 1', [playerId]);
   if (!player) throw Object.assign(new Error('Игрок не найден'), { statusCode: 404 });
+  if (statusValue === 'going' || statusValue === 'late') assertPlayerSelfRegistration(player, evening.format);
   if (!playerLevelAllowsEveningFormat(player.game_level, evening.format)) {
     throw Object.assign(new Error('Этот формат вечера пока недоступен вашему профилю'), { statusCode: 403 });
   }

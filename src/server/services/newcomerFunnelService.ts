@@ -57,7 +57,7 @@ async function bookLeadSeats(db: DatabaseWrapper, playerId: string, eveningId: s
     await ensureSlotsForEvening(db, eveningId);
     const slots = await db.all<{ id: string }>("SELECT id FROM evening_game_slots WHERE evening_id = ? AND status = 'open' ORDER BY slot_number", [eveningId]);
     if (!slots.length) return false;
-    await replacePlayerSlotSelection(db, eveningId, playerId, slots.map((slot) => String(slot.id)), { notifyOrganizer: false, source: 'welcome_page' });
+    await replacePlayerSlotSelection(db, eveningId, playerId, slots.map((slot) => String(slot.id)), { notifyOrganizer: false, source: 'welcome_page', noviceLead: true });
     return true;
   } catch (error) {
     console.warn('[LEAD] Seat not booked:', error instanceof Error ? error.message : error);

@@ -34,8 +34,8 @@ async function setup() {
   const app = await createApp(db);
   const now = new Date().toISOString();
   await db.run(
-    `INSERT INTO players (id,nickname,telegram_user_id,contact_status,lifecycle_status,created_at,updated_at)
-     VALUES ('cross-player','Сквозной игрок','750001','normal','normal',?,?)`,
+    `INSERT INTO players (id,nickname,telegram_user_id,contact_status,lifecycle_status,game_level,club_stage,created_at,updated_at)
+     VALUES ('cross-player','Сквозной игрок','750001','normal','normal','club','CLUB_PLAYER',?,?)`,
     [now, now],
   );
   await db.run(

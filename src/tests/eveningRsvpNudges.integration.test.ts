@@ -17,8 +17,8 @@ async function setup(hoursToStart: number) {
     VALUES ('e1','Пятница',?, 'Europe/Moscow','CASUAL','published',20,100,?,?)`, [startsAt, now, now]);
   const statuses = ['unanswered', 'going', 'declined', 'thinking', 'late'];
   for (const [index, status] of statuses.entries()) {
-    await db.run(`INSERT INTO players (id,nickname,telegram_user_id,contact_status,lifecycle_status,judge_level,elo,tokens,created_at,updated_at)
-      VALUES (?,?,?,'normal','normal','none',1000,0,?,?)`, [`p-${status}`, `Игрок ${status}`, String(7000 + index), now, now]);
+    await db.run(`INSERT INTO players (id,nickname,telegram_user_id,contact_status,lifecycle_status,game_level,club_stage,judge_level,elo,tokens,created_at,updated_at)
+      VALUES (?,?,?,'normal','normal','club','CLUB_PLAYER','none',1000,0,?,?)`, [`p-${status}`, `Игрок ${status}`, String(7000 + index), now, now]);
     await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
       VALUES (?,?,?,?,?,'pending','unpaid',?,?)`, [`ep-${status}`, 'e1', `p-${status}`, status, status, now, now]);
   }

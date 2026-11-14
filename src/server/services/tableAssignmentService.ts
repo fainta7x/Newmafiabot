@@ -21,6 +21,7 @@ export async function assignParticipantToTable(
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [participant.evening_id]);
   if (!evening) throw new TableAssignmentError('Игровой вечер не найден', 404);
   if (eveningIdParam && participant.evening_id !== eveningIdParam) throw new TableAssignmentError('Участник не принадлежит этому вечеру', 400);
+  if (evening.status === 'cancelled') throw new TableAssignmentError('Отменённый вечер доступен только для чтения', 409);
   if (evening.status === 'completed' || evening.settled_at) throw new TableAssignmentError('Запрещено изменять участника на завершённом вечере', 400);
 
   let finalTableId = participant.table_id;

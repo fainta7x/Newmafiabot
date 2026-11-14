@@ -197,7 +197,7 @@ export async function addEveningWalkIn(
 ) {
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
-  if (evening.status === 'completed' || evening.settled_at) throw Object.assign(new Error('Вечер уже закрыт'), { statusCode: 409 });
+  if (evening.status === 'completed' || evening.status === 'cancelled' || evening.settled_at) throw Object.assign(new Error('Вечер уже закрыт или отменён'), { statusCode: 409 });
 
   let playerId = String(input.player_id || '').trim();
   const nickname = String(input.nickname || '').trim().replace(/\s+/g, ' ').slice(0, 80);
@@ -259,6 +259,9 @@ export async function settleEveningFromCloseout(
 ) {
   // Closing must use the same factual completed-protocol amount as post-save and
   // historical backfill. This is a durable write, not a response-time clamp.
+  const before = await db.get<any>('SELECT status FROM game_evenings WHERE id=?', [eveningId]);
+  if (!before) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  if (before.status === 'cancelled') throw Object.assign(new Error('Отменённый вечер нельзя закрыть как проведённый'), { statusCode: 409 });
   await reconcileRegularEveningPayments(db, eveningId);
   await reconcileNoviceEveningCharges(db, eveningId);
   await reconcileOtherFormatExtensions(db, eveningId);
@@ -297,6 +300,8 @@ export async function settleEveningFromCloseout(
   const participants = refreshed.participants;
 
   await db.transaction(async (tx) => {
+    const current = await tx.get<any>('SELECT status FROM game_evenings WHERE id=?', [eveningId]);
+    if (current?.status === 'cancelled') throw Object.assign(new Error('Отменённый вечер нельзя закрыть как проведённый'), { statusCode: 409 });
     if (unfinishedIds.length && options.allow_missing_game_stats) {
       const placeholders = unfinishedIds.map(() => '?').join(',');
       await tx.run(`UPDATE games SET archived_at=? WHERE id IN (${placeholders})`, [now, ...unfinishedIds]);

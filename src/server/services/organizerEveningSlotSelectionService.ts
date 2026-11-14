@@ -8,6 +8,7 @@ import {
   loadEveningSlotPlan,
 } from './eveningSlotPlanningService.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
+import { isEditableEvening } from '../../lib/eveningStatus.ts';
 
 export async function replaceOrganizerPlayerSlotSelection(
   db: DatabaseWrapper,
@@ -16,8 +17,8 @@ export async function replaceOrganizerPlayerSlotSelection(
   rawSlotIds: unknown,
 ) {
   const { evening } = await ensureSlotsForEvening(db, eveningId);
-  if (evening.status === 'completed' || evening.settled_at) {
-    throw Object.assign(new Error('Завершённый вечер менять нельзя'), { statusCode: 409 });
+  if (!isEditableEvening(evening)) {
+    throw Object.assign(new Error('Закрытый или отменённый вечер менять нельзя'), { statusCode: 409 });
   }
 
   const player = await db.get<any>('SELECT id FROM players WHERE id = ? LIMIT 1', [playerId]);
@@ -46,6 +47,8 @@ export async function replaceOrganizerPlayerSlotSelection(
   const now = new Date().toISOString();
 
   await db.transaction(async (tx) => {
+    const current = await tx.get<any>('SELECT status,settled_at FROM game_evenings WHERE id=?', [eveningId]);
+    if (!isEditableEvening(current)) throw Object.assign(new Error('Вечер закрыт или отменён'), { statusCode: 409 });
     let participant = await tx.get<any>(
       'SELECT id, amount_due, amount_paid, payment_status FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1',
       [eveningId, playerId],

@@ -1,3 +1,4 @@
+import { assertPlayerSelfRegistration } from '../services/eveningParticipantState.ts';
 
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
@@ -80,7 +81,7 @@ router.get('/evenings/:eveningId/slots', async (req,res)=>{
 
 router.post('/evenings/:eveningId/slots', async (req,res)=>{
   const playerId=requirePlayer(req,res);if(!playerId)return;const db=req.db;
-  try{const player=await db.get("SELECT game_level, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1",[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});if(String(player.club_stage)==='NEW')return res.status(403).json({error:'Сначала выберите путь: новичок записывается сразу, опытный игрок ждёт подтверждения организатора',code:'first_application_required'});const plan=await replacePlayerSlotSelection(db,String(req.params.eveningId),playerId,req.body?.slot_ids);return res.json({success:true,...plan});}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось сохранить запись на игры'});}
+  try{const player=await db.get("SELECT game_level, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1",[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});assertPlayerSelfRegistration(player,evening.format);const plan=await replacePlayerSlotSelection(db,String(req.params.eveningId),playerId,req.body?.slot_ids);return res.json({success:true,...plan});}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось сохранить запись на игры',code:error?.code});}
 });
 
 export default router;

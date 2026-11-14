@@ -21,8 +21,8 @@ const setup = async () => {
   await createApp(db);
   const now = new Date().toISOString();
   await db.run(
-    `INSERT INTO players (id,nickname,game_level,contact_status,lifecycle_status,created_at,updated_at)
-     VALUES ('vk-lock-player','VK участник','club','normal','normal',?,?)`,
+    `INSERT INTO players (id,nickname,game_level,club_stage,contact_status,lifecycle_status,created_at,updated_at)
+     VALUES ('vk-lock-player','VK участник','club','CLUB_PLAYER','normal','normal',?,?)`,
     [now, now],
   );
   await db.run(

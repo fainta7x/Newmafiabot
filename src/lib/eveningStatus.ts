@@ -1,5 +1,9 @@
 /** Owner rule: published or running, until explicitly closed; time is not a closing action. */
 export const OPEN_EVENING_STATUSES = ['published', 'active'] as const;
+/** Organizer preparation may edit a draft; cancellation and settlement end it. */
+export function isEditableEvening(evening: { status?: unknown; settled_at?: unknown } | null | undefined): boolean {
+  return Boolean(evening && !evening.settled_at && ['draft', ...OPEN_EVENING_STATUSES].some(status => status === evening.status));
+}
 export function isOpenEvening(evening: { status?: unknown; settled_at?: unknown } | null | undefined): boolean {
   return Boolean(evening && !evening.settled_at && OPEN_EVENING_STATUSES.some(status => status === evening.status));
 }

@@ -48,7 +48,7 @@ describe('Telegram late RSVP end-to-end API', () => {
     const app = await createApp(db);
     const now = new Date().toISOString();
     await db.run(
-      "INSERT INTO players (id, nickname, telegram_user_id, created_at, updated_at) VALUES ('p-late-test','Поздний игрок','711771',?,?)",
+      "INSERT INTO players (id, nickname, telegram_user_id, game_level, club_stage, created_at, updated_at) VALUES ('p-late-test','Поздний игрок','711771','club','CLUB_PLAYER',?,?)",
       [now, now],
     );
     await db.run(

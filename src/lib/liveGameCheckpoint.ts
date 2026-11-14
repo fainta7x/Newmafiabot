@@ -9,6 +9,10 @@ import { parseGameKey, type GameKey } from '../shared/game.ts';
  * engine's own session key (`club:<id>`, `tournament:<id>`).
  */
 export type LiveGameCheckpointPayload = { session: string; evidence?: string | null; death_protocols?: string | null; notes?: string | null };
+export type ServerLiveGameCheckpoint = LiveGameCheckpointPayload & { saved_at: string; revision: string };
+const revisionKey = (key: GameKey) => `mafia_checkpoint_revision:${key}`;
+export const readCheckpointRevision = (key: GameKey): string | null => read(revisionKey(key));
+export const storeCheckpointRevision = (key: GameKey, revision: string) => { localStorage.setItem(revisionKey(key), revision); };
 
 /** Undo steps kept in the server copy: enough to take back the last actions, small enough for one request. */
 const HISTORY_KEPT = 5;
@@ -54,22 +58,24 @@ export const readLiveGameCheckpoint = (key: GameKey): LiveGameCheckpointPayload 
 };
 
 /** Writes a server copy back to this device, so the engine restores it as its own saved session. */
-export const writeLiveGameCheckpoint = (key: GameKey, checkpoint: LiveGameCheckpointPayload) => {
+export const writeLiveGameCheckpoint = (key: GameKey, checkpoint: LiveGameCheckpointPayload & { revision?: string }) => {
   const keys = deviceKeys(key);
   if (!keys) return;
   localStorage.setItem(keys.session, checkpoint.session);
-  if (checkpoint.evidence) localStorage.setItem(keys.evidence, checkpoint.evidence);
-  if (keys.deathProtocols && checkpoint.death_protocols) localStorage.setItem(keys.deathProtocols, checkpoint.death_protocols);
-  if (keys.notes && checkpoint.notes !== null && checkpoint.notes !== undefined) localStorage.setItem(keys.notes, checkpoint.notes);
+  for (const [storageKey, value] of [[keys.evidence, checkpoint.evidence], [keys.deathProtocols, checkpoint.death_protocols], [keys.notes, checkpoint.notes]]) {
+    if (storageKey) { if (value != null) localStorage.setItem(storageKey, value); else localStorage.removeItem(storageKey); }
+  }
+  if (checkpoint.revision) storeCheckpointRevision(key, checkpoint.revision);
+  else localStorage.removeItem(revisionKey(key));
 };
 
 const url = (key: GameKey) => `/api/live-checkpoints/${encodeURIComponent(key)}`;
 
 export const liveGameCheckpointApi = {
-  save: async (key: GameKey, checkpoint: LiveGameCheckpointPayload) => readJsonResponse<{ ok: true }>(await fetch(url(key), {
-    method: 'PUT', credentials: 'include', headers: { ...organizerHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(checkpoint),
+  save: async (key: GameKey, checkpoint: LiveGameCheckpointPayload, expectedRevision: string | null = null) => readJsonResponse<{ ok: true; revision: string }>(await fetch(url(key), {
+    method: 'PUT', credentials: 'include', signal: AbortSignal.timeout(12_000), headers: { ...organizerHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ...checkpoint, expected_revision: expectedRevision }),
   }), 'Не удалось сохранить игру на сервере'),
-  load: async (key: GameKey) => readJsonResponse<LiveGameCheckpointPayload & { saved_at: string }>(await fetch(url(key), {
-    credentials: 'include', headers: organizerHeaders(),
+  load: async (key: GameKey) => readJsonResponse<ServerLiveGameCheckpoint>(await fetch(url(key), {
+    credentials: 'include', signal: AbortSignal.timeout(12_000), headers: organizerHeaders(),
   }), 'Сохранения игры на сервере нет'),
 };

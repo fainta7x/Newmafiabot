@@ -13,10 +13,13 @@ router.put('/:key', requireOrganizerAuth, async (req: AuthenticatedRequest, res)
     if (!parseGameKey(key)) return res.status(400).json({ error: 'Игра не найдена' });
     const checkpoint = normalizeCheckpoint(req.body);
     if (!checkpoint) return res.status(400).json({ error: 'Некорректное сохранение игры' });
-    const result = await saveLiveGameCheckpoint(req.db || (await getDb()), key, checkpoint);
-    if (result === 'missing') return res.status(404).json({ error: 'Игра не найдена' });
-    if (result === 'finished') return res.status(409).json({ error: 'Игра уже завершена' });
-    return res.json({ ok: true });
+    const revision = req.body?.expected_revision;
+    if (revision != null && (typeof revision !== 'string' || !revision || revision.length > 100)) return res.status(400).json({ error: 'Некорректная версия сохранения' });
+    const result = await saveLiveGameCheckpoint(req.db || (await getDb()), key, checkpoint, revision ?? null);
+    if (result.status === 'missing') return res.status(404).json({ error: 'Игра не найдена' });
+    if (result.status === 'finished') return res.status(409).json({ error: 'Игра уже завершена', code: 'game_finished' });
+    if (result.status === 'conflict') return res.status(409).json({ error: 'Серверная копия игры изменилась на другом устройстве.', code: 'checkpoint_conflict' });
+    return res.json({ ok: true, revision: result.revision });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить игру на сервере' });
   }

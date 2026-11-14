@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { GameKey } from '../../shared/game.ts';
-import { liveGameCheckpointApi, readDeviceSession, writeLiveGameCheckpoint, type LiveGameCheckpointPayload } from '../../lib/liveGameCheckpoint.ts';
+import { liveGameCheckpointApi, readDeviceSession, writeLiveGameCheckpoint, type ServerLiveGameCheckpoint } from '../../lib/liveGameCheckpoint.ts';
 import { markAutoRestore } from '../../lib/liveGameResume.ts';
 
 /**
@@ -12,7 +12,7 @@ const CHECKPOINT_WAIT_MS = 2000;
 
 export function LiveGameContinueGate({ gameKey, enabled, children }: { gameKey: GameKey; enabled: boolean; children: React.ReactNode }) {
   const [stage, setStage] = useState<'checking' | 'offer' | 'ready'>(() => (!enabled || readDeviceSession(gameKey) ? 'ready' : 'checking'));
-  const [checkpoint, setCheckpoint] = useState<(LiveGameCheckpointPayload & { saved_at: string }) | null>(null);
+  const [checkpoint, setCheckpoint] = useState<ServerLiveGameCheckpoint | null>(null);
   useEffect(() => {
     if (stage !== 'checking') return;
     let active = true;

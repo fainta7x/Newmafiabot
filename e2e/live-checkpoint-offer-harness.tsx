@@ -25,9 +25,14 @@ const session = JSON.stringify({
   discipline: createInitialGameDiscipline(activePlayers.map((player) => ({ id: String(player.slot_num), team: player.team === 'Чёрные' ? 'black' : 'red' }))),
   sessionKey: 'club:7', savedAt: '21:42',
 });
-globalThis.fetch = async (input: RequestInfo | URL) => {
+const backupMode = new URLSearchParams(location.search).get('backup');
+globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(typeof input === 'string' ? input : input instanceof URL ? input : input.url);
-  if (url.includes('/live-checkpoint')) return new Response(JSON.stringify({ session, saved_at: '2026-11-03T18:42:00.000Z' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  if (url.includes('/live-checkpoint')) {
+    if (init?.method === 'PUT' && backupMode === 'offline') throw new TypeError('Offline');
+    if (init?.method === 'PUT' && backupMode === 'conflict') return new Response(JSON.stringify({ error: 'Conflict', code: 'checkpoint_conflict' }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(init?.method === 'PUT' ? { ok: true, revision: 'next' } : { session, revision: 'server', saved_at: '2026-11-03T18:42:00.000Z' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
   return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
 };
 try { localStorage.clear(); } catch { /* harness */ }

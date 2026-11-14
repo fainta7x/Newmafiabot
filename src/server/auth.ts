@@ -208,6 +208,27 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
   if (!db) return false;
   const path = requestPath(req);
 
+  const checkpoint = path.match(/^\/api\/live-checkpoints\/([^/]+)\/?$/);
+  if (checkpoint && (req.method === 'GET' || req.method === 'PUT')) {
+    const game = await getGame(db, decodeURIComponent(checkpoint[1]));
+    if (!game || ['completed', 'cancelled', 'archived'].includes(game.status)) return false;
+    const player = await db.get('SELECT judge_level, host_formats, organize_formats, contact_status FROM players WHERE id = ?', [playerId]);
+    if (!player || player.contact_status === 'blocked') return false;
+    const ownJudging = String(game.judgePlayerId || '') === playerId && (game.storage === 'tournament'
+      ? normalizeJudgeLevel(player.judge_level) === 'judge' && game.eventStatus === 'active'
+      : canHostEveningFormat(player, game.format) && OPEN_EVENING_STATUSES.some(status => status === game.eventStatus));
+    let ownHosting = false;
+    if (game.eventKind === 'evening' && OPEN_EVENING_STATUSES.some(status => status === game.eventStatus)) {
+      const assignment = await db.get('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ?', [game.eventId]);
+      const hasMarks = cabinetOrganizeFormats(player.organize_formats).length > 0;
+      ownHosting = String(assignment?.organizer_player_id || '') === playerId && (!hasMarks || canOrganizeEveningFormat(player, game.format));
+    }
+    if (!ownJudging && !ownHosting) return false;
+    req.delegatedOrganizerAccess = true;
+    req.delegatedPlayerId = playerId;
+    return true;
+  }
+
   const clubCreateMatch = path.match(/^\/api\/games\/evening\/([^/]+)\/?$/);
   if (clubCreateMatch && req.method === 'POST') {
     const evening = await db.get(

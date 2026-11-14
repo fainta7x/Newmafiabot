@@ -264,6 +264,10 @@ Before destructive data work, establish target DB, reason, backup/recovery path 
 
 ## 7. Financial/payment incident procedure
 
+Functional-audit regression checks: `npx vitest run src/tests/functionalAuditRegression.test.ts src/tests/useLiveGameCheckpointSync.test.tsx src/tests/closedEveningPaymentCompatibility.test.ts src/tests/liveGameCheckpoint.test.ts`. Financial checks use synthetic in-memory data; they are not authorization to reconcile or repair real payment history.
+
+After the checkpoint revision release, refresh old open browser clients. An older/unversioned writer cannot overwrite an existing server copy. If the warning appears, the judge chooses the server copy (replaces this device's state and reloads) or explicitly keeps this device's current game (rechecks the latest server revision before writing). A subsequent competing save still conflicts; ordinary Undo does not. Failed server backups never block local gameplay. Check both an assigned judge's player session and a full organizer session when verifying access.
+
 Payment bugs are ledger/data-safety work.
 
 If the UI says “nothing happened” or SQLite reports a unique constraint on `financial_transactions`:

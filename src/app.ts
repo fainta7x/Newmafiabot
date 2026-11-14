@@ -1,3 +1,4 @@
+import { runCrmAutomationsAfterWrite } from './server/services/crmAutomationService.ts';
 import { getWelcomeSiteUrl } from './server/runtimeConfig.ts';
 import { ensurePublicationDeliverySchema, importLegacyPublicationHolds } from './server/services/publicationDeliveryService.ts';
 import express from 'express';
@@ -262,6 +263,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
     startPersonalTelegramNotificationWorker(db);
     startVkMessageOutboxWorker(db);
     startPokerTournamentWorker(db);
+    // Rebuild missed task projections after a restart; failures retry without blocking startup.
+    void runCrmAutomationsAfterWrite(db);
   }
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
   if (!isTest && db.dbPath !== ':memory:') {

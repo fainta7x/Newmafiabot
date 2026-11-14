@@ -46,6 +46,16 @@ export async function setClosedEveningParticipantPaid(
   participantId: string,
   paid: boolean,
 ) {
+  // Serialize the reads as well as the writes: two callers must not calculate
+  // their adjustment from the same unpaid ledger snapshot.
+  return db.transaction((tx) => setClosedEveningParticipantPaidInsideTransaction(tx, participantId, paid));
+}
+
+async function setClosedEveningParticipantPaidInsideTransaction(
+  db: DatabaseWrapper,
+  participantId: string,
+  paid: boolean,
+) {
   let participant = await db.get<any>(`
     SELECT ep.*, p.nickname, p.club_role, p.judge_level,
            e.title AS evening_title, e.status AS evening_status, e.settled_at
@@ -144,6 +154,10 @@ export const paymentStatusForAmount = (paid: number, due: number) => (paid >= du
  * The ledger follows the same pattern as «paid / not paid»: a rise is a `debt_paid`, a fall gives the money back to the debt.
  */
 export async function setClosedEveningParticipantPaidAmount(db: DatabaseWrapper, participantId: string, amount: number) {
+  return db.transaction((tx) => setClosedEveningParticipantPaidAmountInsideTransaction(tx, participantId, amount));
+}
+
+async function setClosedEveningParticipantPaidAmountInsideTransaction(db: DatabaseWrapper, participantId: string, amount: number) {
   await reconcileRegularEveningPayments(db, String((await db.get<any>('SELECT evening_id FROM evening_participants WHERE id = ?', [participantId]))?.evening_id || ''));
   const participant = await db.get<any>(`
     SELECT ep.*, p.nickname, e.title AS evening_title, e.status AS evening_status, e.settled_at

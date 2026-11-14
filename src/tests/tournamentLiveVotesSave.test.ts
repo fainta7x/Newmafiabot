@@ -151,7 +151,7 @@ describe('tournament Live Engine persistence audit: draft retries, finalization 
       session: JSON.stringify({ phase: 'day_voting', roundNumber: 2, activePlayers: [{ slot_num: 1 }] }),
       evidence: JSON.stringify({ votes: [], shots: [], events }),
     };
-    expect(await saveLiveGameCheckpoint(db, `tournament:${gameId}`, checkpoint)).toBe('saved');
+    expect(await saveLiveGameCheckpoint(db, `tournament:${gameId}`, checkpoint)).toMatchObject({ status: 'saved' });
     expect(await loadLiveGameCheckpoint(db, `tournament:${gameId}`)).not.toBeNull();
     const completed = await request(app).post(`${url}/complete`).set('Cookie', cookie).send(saved);
     expect(completed.status).toBe(200);

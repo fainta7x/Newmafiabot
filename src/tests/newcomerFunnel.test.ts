@@ -7,7 +7,9 @@ import { loadAgenda, recordAgendaContact } from '../server/services/organizerAge
 
 describe('newcomer funnel, welcome page leads and ready messages (owner, 2026-11-11)', () => {
   let db: DatabaseWrapper;
-  const now = new Date('2026-11-12T12:00:00Z');
+  // These are relative-date scenarios, not calendar-date tests. Keep the
+  // upcoming fixture ahead of SQLite's real datetime('now') clock as well.
+  const now = new Date();
   beforeEach(async () => { db = createDatabaseConnection(':memory:'); await createApp(db); });
   afterEach(() => { try { db.sqlite.close(); } catch {} });
 

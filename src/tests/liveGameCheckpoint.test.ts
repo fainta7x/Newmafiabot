@@ -27,8 +27,9 @@ const seed = async (clubStatus = 'draft', tournamentStatus = 'active') => {
 describe('server copy of a live game — any game', () => {
   it.each(['club:7', 'tournament:tg1'])('%s: keeps the latest copy and gives it back', async (key) => {
     const db = await seed();
-    expect(await saveLiveGameCheckpoint(db, key, { session: session(), evidence: '{"votes":[]}' })).toBe('saved');
-    expect(await saveLiveGameCheckpoint(db, key, { session: session({ roundNumber: 3 }) })).toBe('saved');
+    expect(await saveLiveGameCheckpoint(db, key, { session: session(), evidence: '{"votes":[]}' })).toMatchObject({ status: 'saved' });
+    const revision = (await loadLiveGameCheckpoint(db, key))!.revision;
+    expect(await saveLiveGameCheckpoint(db, key, { session: session({ roundNumber: 3 }) }, revision)).toMatchObject({ status: 'saved' });
     expect(JSON.parse((await loadLiveGameCheckpoint(db, key))!.session).roundNumber).toBe(3);
     await clearLiveGameCheckpoint(db, key);
     expect(await loadLiveGameCheckpoint(db, key)).toBeNull();
@@ -36,10 +37,10 @@ describe('server copy of a live game — any game', () => {
 
   it('a finished game of either kind has no copy; an unknown game is missing', async () => {
     const db = await seed('completed', 'completed');
-    expect(await saveLiveGameCheckpoint(db, 'club:7', { session: session() })).toBe('finished');
-    expect(await saveLiveGameCheckpoint(db, 'tournament:tg1', { session: session() })).toBe('finished');
-    expect(await saveLiveGameCheckpoint(db, 'club:99', { session: session() })).toBe('missing');
-    expect(await saveLiveGameCheckpoint(db, 'nonsense', { session: session() })).toBe('missing');
+    expect(await saveLiveGameCheckpoint(db, 'club:7', { session: session() })).toEqual({ status: 'finished' });
+    expect(await saveLiveGameCheckpoint(db, 'tournament:tg1', { session: session() })).toEqual({ status: 'finished' });
+    expect(await saveLiveGameCheckpoint(db, 'club:99', { session: session() })).toEqual({ status: 'missing' });
+    expect(await saveLiveGameCheckpoint(db, 'nonsense', { session: session() })).toEqual({ status: 'missing' });
   });
 
   it('moves the copies of the first, club-only table to the game key', async () => {

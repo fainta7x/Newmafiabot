@@ -3,7 +3,7 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { updateParticipantSchema } from '../validation.ts';
 import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
-import { runCrmAutomations } from '../services/crmAutomationService.ts';
+import { runCrmAutomationsAfterWrite } from '../services/crmAutomationService.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
 import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
@@ -34,7 +34,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
         if (fact) patch.attendance_fact = fact;
       }
       const updated = await updateGuestPlaceholder(db, String(guest.id), patch);
-      await runCrmAutomations(db);
+      await runCrmAutomationsAfterWrite(db);
       return res.json(updated);
     }
 
@@ -60,7 +60,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       }
 
       const updated = await setClosedEveningParticipantPaid(db, String(current.id), requestedPaid);
-      await runCrmAutomations(db);
+      await runCrmAutomationsAfterWrite(db);
       return res.json(serializeEveningParticipant(updated));
     }
 
@@ -83,7 +83,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       fields.push('updated_at = ?'); values.push(new Date().toISOString()); values.push(current.id);
       await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
     }
-    await runCrmAutomations(db);
+    await runCrmAutomationsAfterWrite(db);
     const updated = await db.get<any>(`SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo FROM evening_participants ep JOIN players p ON p.id = ep.player_id WHERE ep.id = ?`, [current.id]);
     return res.json(serializeEveningParticipant(updated));
   } catch (err: any) {
@@ -103,7 +103,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
         return res.status(409).json({ error: 'Гость уже участвует в игре. Сначала исправьте состав игры.' });
       }
       await db.run('DELETE FROM guest_player_placeholders WHERE id = ?', [String(req.params.id)]);
-      await runCrmAutomations(db);
+      await runCrmAutomationsAfterWrite(db);
       return res.json({ success: true, message: 'Гость удалён из вечера' });
     }
 
@@ -117,7 +117,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
 
     if (part.player_id) await withdrawAttendanceRewards(db, { eveningId: String(part.evening_id), playerId: String(part.player_id) });
     await db.run('DELETE FROM evening_participants WHERE id = ?', [String(req.params.id)]);
-    await runCrmAutomations(db);
+    await runCrmAutomationsAfterWrite(db);
     res.json({ success: true, message: 'Участник удален из вечера' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

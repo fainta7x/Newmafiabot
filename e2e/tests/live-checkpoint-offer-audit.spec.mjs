@@ -15,6 +15,24 @@ for (const [width, height] of VIEWPORTS) {
     if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height} ===\n${report.join('\n') || 'clean'}`);
     expect(report).toEqual([]);
   });
+  for (const mode of ['conflict', 'offline']) {
+    test(`checkpoint ${mode} at ${width}x${height}`, async ({ page }, info) => {
+      await page.setViewportSize({ width, height });
+      await page.goto(`/e2e/live-checkpoint-offer.html?backup=${mode}`);
+      await page.getByTestId('live-checkpoint-continue').click();
+      const status = page.getByRole('button', { name: 'Серверная копия игры не обновляется', exact: true });
+      await expect(status).toBeVisible();
+      // The warning fits the real game header, and does not cover its controls.
+      await expect.poll(async () => page.evaluate(auditScreen)).toEqual([]);
+      await status.click();
+      await expect(page.getByTestId('checkpoint-sync-dialog')).toBeVisible();
+      await expect.poll(async () => page.evaluate(auditScreen)).toEqual([]);
+      await page.screenshot({ path: info.outputPath(`${mode}.png`) });
+      await page.getByRole('button', { name: 'Вернуться к игре', exact: true }).click();
+      await expect(page.getByTestId('checkpoint-sync-dialog')).toHaveCount(0);
+      await expect(status).toBeVisible();
+    });
+  }
 }
 
 test('«Продолжить игру» opens the game where the server copy left it', async ({ page }) => {

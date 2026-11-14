@@ -1,3 +1,4 @@
+import { LiveGameCheckpointStatus } from '../game/LiveGameCheckpointStatus.tsx';
 import { defaultZeroRoundRule, isZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
@@ -193,7 +194,7 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
   );
   const [livePhase, setLivePhase] = useState('setup');
   // «Продолжить игру» (AR04): the server keeps a copy of this game's session for another device.
-  useLiveGameCheckpoint(gameKey('club', game.id), livePhase, resumable);
+  const checkpointSync = useLiveGameCheckpoint(gameKey('club', game.id), livePhase, resumable);
   const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
   const [trainingIdentityPositions, setTrainingIdentityPositions] = useState<Record<number, React.CSSProperties>>({});
   const [rolesHidden, setRolesHidden] = useState(true);
@@ -453,6 +454,7 @@ const EveningLiveGameModalBody: React.FC<EveningLiveGameModalProps> = ({ game, o
     <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''} ${trainingMode ? 'evening-live-training-modal' : ''}`}>
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
+          <LiveGameCheckpointStatus status={checkpointSync} />
           <div className="text-[11px] md:text-xs font-black text-white truncate">{trainingMode ? 'Учебная игра' : `Игра #${game.global_game_number}`}</div>
           {titleBadge ? <span className="hidden md:inline-flex">{titleBadge}</span> : null}
           <div className="evening-live-mobile-title-secondary text-[10px] text-slate-500 truncate">

@@ -1,3 +1,4 @@
+import { LiveGameCheckpointStatus } from '../game/LiveGameCheckpointStatus.tsx';
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
 import { tournamentRoleDealApi } from '../../lib/clubGamesApi.ts';
 import { completeLiveRosterIdentity } from '../../lib/liveRosterCorrections.ts';
@@ -214,7 +215,7 @@ function TournamentLiveGameModalBody({
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
   // «Продолжить игру»: the server keeps a copy of this game's session for another device (one mechanism for every game).
-  useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
+  const checkpointSync = useLiveGameCheckpoint(gameKey('tournament', gameId), livePhase, true);
   const [virtualSeats,setVirtualSeats]=useState<PlayerResultData[]|null>(null);
   // The deal lives on the server (the same deal as the club's, owner 2026-11-09). Only a small marker says that one is open, so a
   // reload brings the deal screen back; `open` on the server then resumes the cards already handed out.
@@ -569,7 +570,10 @@ function TournamentLiveGameModalBody({
         .tournament-live-roles-hidden .tournament-live-shell [title="Шериф"] { opacity: 0 !important; }
       `}</style>
       <div className="flex h-[38px] items-center justify-between gap-2 border-b border-slate-800 bg-slate-950/95 px-2">
-        <div className="truncate text-xs font-black text-white">Турнир · живое ведение</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <LiveGameCheckpointStatus status={checkpointSync} />
+          <div className="truncate text-xs font-black text-white">Турнир · живое ведение</div>
+        </div>
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={() => setBroadcastOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400" title="OBS-трансляция и размер графики" data-testid="tournament-obs-button"><MonitorUp className="h-4 w-4" /></button>
           <button type="button" onClick={() => setRolesHidden((value) => !value)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400" title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}>{rolesHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button>

@@ -4,6 +4,29 @@ import { registerGoingParticipantsForAllGames } from './eveningParticipantState.
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 import { decidedAboveNoviceSql, noviceLevelSql } from '../../lib/noviceRule.ts';
 
+const retries = new WeakMap<object, ReturnType<typeof setTimeout>>();
+
+/** Tasks are a rebuildable projection of persisted participation, not part of
+ * the success of a participant/payment write. Retry failures; startup also
+ * rebuilds this projection, including work interrupted by a process restart. */
+export async function runCrmAutomationsAfterWrite(db: DatabaseWrapper): Promise<void> {
+  try {
+    await runCrmAutomations(db);
+    const retry = retries.get(db);
+    if (retry) { clearTimeout(retry); retries.delete(db); }
+  } catch (error) {
+    console.warn('[CRM AUTOMATION] Saved action retained; tasks will be retried:', error);
+    if (!retries.has(db)) {
+      const retry = setTimeout(() => {
+        retries.delete(db);
+        if (db.sqlite.open) void runCrmAutomationsAfterWrite(db);
+      }, 30_000);
+      retry.unref?.();
+      retries.set(db, retry);
+    }
+  }
+}
+
 export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Date()) {
   await ensureInviteAudienceSchema(db);
   const nowIso = now.toISOString();

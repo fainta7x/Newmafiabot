@@ -44,6 +44,10 @@ This integration is implemented and is not a future architecture task.
 
 ### Canonical entity ownership
 
+Checkpoint writes use the shared game key and compare-and-set revision in `liveGameCheckpointService.ts`; `auth.ts` checks the assigned judge/host of that game. `useLiveGameCheckpoint.ts` keeps the writer's revision across game phases; `LiveGameCheckpointStatus.tsx` is the shared nonblocking warning/device-handover control for both live windows. Restore copies the server revision and removes absent stale local evidence/wills/notes. No round-number comparison is used, so Undo remains valid.
+
+Closed-evening payment services serialize the financial reads, calculation and writes in one database transaction. Received partial payments in `debtActionsService.ts` calculate the new total inside that transaction too. CRM task generation after committed participant/payment mutations uses `runCrmAutomationsAfterWrite`: failure is logged and retried after 30 seconds; startup rebuilds missing tasks from the persisted source records. It does not roll back or report failure for the already committed action.
+
 Each editable product fact should have one owner. Secondary surfaces may summarize/link, but should not create a competing save model.
 
 | Entity / action | Canonical owner |

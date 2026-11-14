@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { randomUUID } from 'node:crypto';
@@ -205,7 +206,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     }
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
       const currentEvening = await tx.get<any>('SELECT status, settled_at FROM game_evenings WHERE id=?', [eveningId]);
-      if (!currentEvening || currentEvening.settled_at || !['published', 'active'].includes(String(currentEvening.status))) {
+      if (!isOpenEvening(currentEvening)) {
         throw Object.assign(new Error('Вечер закрыт или отменён — создать игру нельзя'), { status: 409 });
       }
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);

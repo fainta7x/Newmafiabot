@@ -13,6 +13,10 @@
 
 # Audit log
 
+## 2026-11-14 — CI follow-up for functional-audit PR #1254
+
+- CI01 [fixed in candidate, 14/14 focused tests passed]: `src/tests/newcomerFunnel.test.ts:10,53–65` seeds a supposedly upcoming evening from a fixed 2026-11-12 clock, while `agendaMessageService.nearestEvening` correctly uses SQLite's current clock. After 2026-11-14 15:00 UTC the event is past the three-hour inclusion window and the venue assertion fails. Reproduced locally: 1 failed / 13 passed. Fixture dates now follow the current clock; venue/message assertions and production time filtering are unchanged. Focused suite: 14/14 passed.
+
 ## Functional audit — 2026-11-14 (local report; no implementation or production writes)
 
 Implementation approved by the owner later in this session. FA01–FA04 fixed in candidate `fix/functional-audit-reliability`: payment calculations and received-amount commands serialized with their writes; checkpoint permissions checked against the canonical game; opaque revision tokens prevent stale writers (with an explicit UI choice); task projection errors are logged/retried and rebuilt at startup without misreporting a committed participant/payment action. No financial history was changed. Local targeted regressions, project:verify:fast, production build and 16 five-size browser cases passed. CI/merge/deployment verification remains pending; this is not a claim of production completion.

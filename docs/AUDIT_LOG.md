@@ -13,7 +13,6 @@
 
 # Audit log
 
-
 ## 2026-11-14 — CI follow-up for functional-audit PR #1254
 
 - CI01 [fixed in candidate, 14/14 focused tests passed]: `src/tests/newcomerFunnel.test.ts:10,53–65` seeds a supposedly upcoming evening from a fixed 2026-11-12 clock, while `agendaMessageService.nearestEvening` correctly uses SQLite's current clock. After 2026-11-14 15:00 UTC the event is past the three-hour inclusion window and the venue assertion fails. Reproduced locally: 1 failed / 13 passed. Fixture dates now follow the current clock; venue/message assertions and production time filtering are unchanged. Focused suite: 14/14 passed.

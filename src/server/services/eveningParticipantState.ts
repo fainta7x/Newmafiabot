@@ -146,7 +146,9 @@ async function setParticipantResponseInTransaction(
 
   if (status === 'going') await registerGoingParticipantsForAllGames(db, participantId).catch((error) => console.warn('[EVENING RESPONSE] games not registered:', error instanceof Error ? error.message : String(error)));
 
-  if (status === 'declined' || (['thinking', 'late'].includes(status) && !options.preserveSlotSelection)) {
+  const clearsSlots = status === 'declined' || (['thinking', 'late'].includes(status) && !options.preserveSlotSelection);
+  // Participant state is also used before the optional slot model is initialized.
+  if (clearsSlots && await db.get("SELECT 1 AS present FROM sqlite_master WHERE type='table' AND name='evening_slot_registrations'")) {
     await db.run(
       `DELETE FROM evening_slot_registrations
         WHERE participant_id = ?

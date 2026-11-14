@@ -523,3 +523,8 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 - Poker economy: a real table between people uses the same club-token wallet. Every canonical player gets a one-time 1,000-token starter grant; the buy-in/rebuy is chosen from 200 tokens (10 BB) upward, with 1,000 (50 BB) as the default, and the remaining stack returns on exit. Human-vs-human poker is token-only; training is a private one-human-plus-bots session with free chips and never touches the wallet.
 - Poker invitations: from a live token table a player can see likely-available clubmates (in-app now, then best-effort VK online/last seen) and invite them to that exact lobby in Telegram. Telegram-online itself is not available to the bot. Invite cooldown is 2 minutes per sender→recipient; the deep link highlights the lobby but joining and choosing a buy-in of at least 10 BB stays explicit.
 
+
+
+## Continuous audit — tournament protocol commit (2026-11-15)
+
+Owner authorized ongoing functional bug discovery and fixes. The tournament path reproduced three failures: completion committed before token settlement, reopen committed before token reversal, and achievement failure preventing acknowledgement/settlement of a completed protocol. Candidate branch `fix/tournament-game-commit` makes game/protocol/token effects transactional and treats achievements as a derived post-commit update. Four new failure/retry cases and connected protocol/token tests pass (88 tests across six files). Full verification/CI/deployment are separate. No production writes or schema changes. Parallel game-lifecycle package is PR #1256; this change is independent.

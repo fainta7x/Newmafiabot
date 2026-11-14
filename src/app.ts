@@ -128,7 +128,6 @@ import tournamentSeatingShareRoutes, { tournamentSeatingPublicRoutes } from './s
 import tournamentsRoutes from './server/routes/tournamentsRoutes.ts';
 import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
-import tournamentTokenSettlementRoutes from './server/routes/tournamentTokenSettlementRoutes.ts';
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
@@ -439,7 +438,6 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tournaments', flexibleTournamentResultsRoutes);
   app.use('/api/tournaments', tournamentsRoutes);
   app.use('/api/tournaments', protocolImportsRoutes);
-  app.use('/api/tournaments', tournamentTokenSettlementRoutes);
   app.use('/api/tournaments', tournamentProtocolRoutes);
   app.use('/api/tournaments', tournamentAwardsRoutes);
   app.use('/api/bot', botRoutes);

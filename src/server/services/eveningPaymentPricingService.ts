@@ -294,6 +294,13 @@ export async function reconcileRegularEveningPayments(
   db: DatabaseWrapper,
   eveningId: string,
 ): Promise<{ applied: boolean; games_by_participant: Record<string, number> }> {
+  return db.transaction(tx => reconcileRegularEveningPaymentsInTransaction(tx, eveningId));
+}
+
+async function reconcileRegularEveningPaymentsInTransaction(
+  db: DatabaseWrapper,
+  eveningId: string,
+): Promise<{ applied: boolean; games_by_participant: Record<string, number> }> {
   const evening = await db.get<any>(
     'SELECT id, title, format, status, settled_at, starts_at FROM game_evenings WHERE id = ? LIMIT 1',
     [eveningId],
@@ -429,6 +436,10 @@ export async function reconcileRegularEveningPayments(
  * evening is closed a change is an ordinary ledger adjustment (before that the closing writes the ledger from `amount_due`). Regular (CASUAL) evenings are handled by reconcileRegularEveningPayments.
  */
 export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, eveningId: string): Promise<void> {
+  return db.transaction(tx => reconcileOtherFormatExtensionsInTransaction(tx, eveningId));
+}
+
+async function reconcileOtherFormatExtensionsInTransaction(db: DatabaseWrapper, eveningId: string): Promise<void> {
   const evening = await db.get<any>('SELECT id, title, format, status, settled_at, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening || normalizeEveningFormat(evening.format) === 'CASUAL') return;
 

@@ -6,7 +6,7 @@ import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.t
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
-import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { assertPlayerSelfRegistration, setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { listRecentCompletedGames } from '../services/gameService.ts';
 
@@ -327,9 +327,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     if (!playerLevelAllowsEveningFormat(player.game_level, evening.format)) {
       return res.status(403).json({ error: 'Этот формат вечера недоступен для вашего игрового уровня' });
     }
-    if (String(player.club_stage) === 'NEW') {
-      return res.status(403).json({ error: 'Сначала выберите путь: новичок записывается сразу, опытный игрок ждёт подтверждения организатора', code: 'first_application_required' });
-    }
+    assertPlayerSelfRegistration(player, evening.format);
 
     const existingParticipant = await db.get(
       'SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
@@ -377,7 +375,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       registration_status: responseStatus,
     });
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось сохранить ответ на вечер' });
+    return res.status(Number(error?.statusCode || error?.status || 500)).json({ error: error?.message || 'Не удалось сохранить ответ на вечер', code: error?.code });
   }
 });
 

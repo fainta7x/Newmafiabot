@@ -11,6 +11,28 @@ import {
 import { ensureEveningResponseHistorySchema } from '../../db/ensureEveningResponseHistorySchema.ts';
 import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
 import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
+import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+
+/** The same first-visit and format gate for every self-service booking path. */
+export function assertPlayerSelfRegistration(player: { club_stage?: string | null; game_level?: string | null }, format: string | null | undefined) {
+  if (String(player.club_stage || 'NEW') === 'NEW') {
+    throw Object.assign(new Error('Сначала выберите путь: новичок записывается сразу, опытный игрок ждёт подтверждения организатора'), { statusCode: 403, code: 'first_application_required' });
+  }
+  if (!playerLevelAllowsEveningFormat(player.game_level, format)) {
+    throw Object.assign(new Error('Этот формат вечера недоступен для вашего игрового уровня'), { statusCode: 403 });
+  }
+}
+
+/** Only future reservations can be released. Actual started seats are history. */
+export async function releaseUnselectedEveningSeats(db: DatabaseWrapper, eveningId: string, playerId: string) {
+  const table = await db.get("SELECT 1 AS present FROM sqlite_master WHERE type='table' AND name='evening_seat_plans'");
+  if (!table) return;
+  await db.run(`DELETE FROM evening_seat_plans
+    WHERE evening_id=? AND player_id=? AND started=0
+      AND slot_id NOT IN (SELECT r.slot_id FROM evening_slot_registrations r
+        JOIN evening_participants ep ON ep.id=r.participant_id WHERE ep.evening_id=? AND ep.player_id=?)`,
+  [eveningId, playerId, eveningId, playerId]);
+}
 
 export class EveningParticipantStateError extends Error {
   status: number;
@@ -82,7 +104,16 @@ export async function setParticipantResponse(
   db: DatabaseWrapper,
   participantId: string,
   status: EveningResponseStatus,
-  options: { byPlayer?: boolean; source?: string } = {},
+  options: { byPlayer?: boolean; source?: string; preserveSlotSelection?: boolean } = {},
+) {
+  return db.transaction(tx => setParticipantResponseInTransaction(tx, participantId, status, options));
+}
+
+async function setParticipantResponseInTransaction(
+  db: DatabaseWrapper,
+  participantId: string,
+  status: EveningResponseStatus,
+  options: { byPlayer?: boolean; source?: string; preserveSlotSelection?: boolean } = {},
 ) {
   const before = await db.get<{ response_status: string | null; evening_id: string | null; player_id: string | null }>(
     'SELECT response_status, evening_id, player_id FROM evening_participants WHERE id = ?', [participantId]);
@@ -115,7 +146,7 @@ export async function setParticipantResponse(
 
   if (status === 'going') await registerGoingParticipantsForAllGames(db, participantId).catch((error) => console.warn('[EVENING RESPONSE] games not registered:', error instanceof Error ? error.message : String(error)));
 
-  if (status === 'declined') {
+  if (status === 'declined' || (['thinking', 'late'].includes(status) && !options.preserveSlotSelection)) {
     await db.run(
       `DELETE FROM evening_slot_registrations
         WHERE participant_id = ?
@@ -123,6 +154,8 @@ export async function setParticipantResponse(
       [participantId, participantId],
     );
   }
+
+  if (before?.evening_id && before.player_id) await releaseUnselectedEveningSeats(db, before.evening_id, before.player_id);
 
   if (options.byPlayer) {
     try {

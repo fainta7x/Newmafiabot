@@ -21,6 +21,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const guest = await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [req.params.id]);
     if (guest) {
       const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [guest.evening_id]);
+      if (evening?.status === 'cancelled') return res.status(409).json({ error: 'Отменённый вечер доступен только для чтения' });
       const closed = evening?.status === 'completed' || Boolean(evening?.settled_at);
       const suppliedKeys = Object.entries(data).filter(([, value]) => value !== undefined).map(([key]) => key);
       if (closed && !suppliedKeys.every((key) => key === 'payment_status' || key === 'amount_paid')) {
@@ -41,6 +42,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const current = await db.get<any>('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     if (!current) return res.status(404).json({ error: 'Участник не найден' });
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [current.evening_id]);
+    if (evening?.status === 'cancelled') return res.status(409).json({ error: 'Отменённый вечер доступен только для чтения' });
     const closed = evening?.status === 'completed' || Boolean(evening?.settled_at);
     if (closed) {
       const suppliedKeys = Object.entries(data)
@@ -97,6 +99,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
     const guest = await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [String(req.params.id)]);
     if (guest) {
       const evening = await db.get<any>('SELECT status, settled_at FROM game_evenings WHERE id = ?', [guest.evening_id]);
+      if (evening?.status === 'cancelled') return res.status(409).json({ error: 'Отменённый вечер доступен только для чтения' });
       if (evening?.status === 'completed' || evening?.settled_at) return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
       const used = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL', [guest.evening_id]);
       if (used.some((game) => String(game.protocol_text || '').includes(String(guest.id)))) {
@@ -111,6 +114,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
     if (!part) return res.status(404).json({ error: 'Запись участника не найдена' });
 
     const evening = await db.get<any>('SELECT status, settled_at FROM game_evenings WHERE id = ?', [part.evening_id]);
+    if (evening?.status === 'cancelled') return res.status(409).json({ error: 'Отменённый вечер доступен только для чтения' });
     if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
     }

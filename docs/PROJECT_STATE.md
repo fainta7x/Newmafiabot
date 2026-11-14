@@ -12,6 +12,10 @@ This file is the canonical **current-state snapshot**: facts that are true now, 
 
 The **actual current main SHA belongs to Git**, not this document. Read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
+## Authorized functional audit — evening lifecycle (2026-11-14)
+
+Owner authorized implementation of the continued functional audit in this conversation. Candidate branch `fix/evening-lifecycle` closes four reproduced classes: first-application gate bypass across entry points, stale future seat reservations, edits to cancelled/settled evenings and settlement of a cancelled evening. Fixes reuse participant state/slot/seat owners; no new entities or product rules. The existing public newcomer form retains reservation before profile approval, limited to a saved lead for the selected NOVICE evening. Evidence and reproductions: [`AUDIT_LOG.md`](AUDIT_LOG.md), LC01–LC04. Local verification and exact PR status are recorded in the PR; deployment/runtime confirmation remain separate. No live data was changed.
+
 ## Source-of-truth model
 
 - Code/current SHA: latest remote `main`.
@@ -64,9 +68,9 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 ### Functional audit fixes — 2026-11-14
 
-Follow-up requested by the owner: after this batch is merged and deployment is checked, continue the functional audit of the complete evening lifecycle (registration/slot/seat → attendance → game/protocol → result/payment), including cancellation and interrupted/repeated actions. Produce confirmed findings and priorities before starting another implementation batch.
+Owner authorized continuation of the evening-lifecycle audit and implementation of its confirmed findings. Current candidate and scope: [evening lifecycle](#authorized-functional-audit--evening-lifecycle-2026-11-14).
 
-Owner approved implementation of FA01–FA04 from `AUDIT_LOG.md`. Candidate branch `fix/functional-audit-reliability`: serialized payment reads/writes and received partial-payment commands; game-scoped checkpoint permission for assigned judges/hosts; checkpoint compare-and-set revisions with explicit device handover; retryable CRM task projections separated from committed participant/payment actions. Local verification passed (targeted regressions, fast checks, production build, and 16 five-size checkpoint browser scenarios); CI/merge and Amvera verification are pending. No production financial history is repaired by this change. Broad entity/table migration and unrelated backlog remain outside this batch.
+Owner approved implementation of FA01–FA04 from `AUDIT_LOG.md`. Merged PR #1254 (`fix/functional-audit-reliability`): serialized payment reads/writes and received partial-payment commands; game-scoped checkpoint permission for assigned judges/hosts; checkpoint compare-and-set revisions with explicit device handover; retryable CRM task projections separated from committed participant/payment actions. Local verification passed (targeted regressions, fast checks, production build, and 16 five-size checkpoint browser scenarios); all five GitHub workflows passed and the PR is merged; Amvera deployment verification is pending. No production financial history is repaired by this change. Broad entity/table migration and unrelated backlog remain outside this batch.
 
 - **Application continuity — MERGED (#1049, 2026-10-26; verified 2026-10-27):** Home prioritizes the player's next booked evening and shows actual RSVP/reserve/exact game choices; Community/Activity/Wallet subviews restore through reload and Back; payment-summary failures offer retry and preserve clearly identified confirmed amounts; closing a draft protocol waits for a successful flush. Rating labels, meanings, hierarchy and scoring remain unchanged (Metrics changes are routing only). Final head `346064eb` passed CI, UI preview, CodeQL and Gitleaks; merged as `e9828408`. All paths are retained in main `70c3494`. #1051 was closed as duplicate. Before/after: `docs/reviews/2026-10-26-application/`. Read-only runtime health is healthy, but the mirrored runtime revision does not by itself prove this batch deployed. No new owner decision is pending for this batch; remaining verification is signed-in live use. Owner 2026-10-27 defers multi-table/load work; current single-table workflows, usability and concrete bug fixes take priority.
 

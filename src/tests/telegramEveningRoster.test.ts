@@ -1,3 +1,5 @@
+import { ensureNoviceSystemSchema } from '../db/ensureNoviceSystemSchema.ts';
+import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
@@ -15,6 +17,8 @@ describe('Telegram evening roster source', () => {
   it('keeps slot participants, arrival plan and Telegram sync in canonical slot data', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
+    await ensureInviteAudienceSchema(db);
+    await ensureNoviceSystemSchema(db);
     const now = new Date().toISOString();
 
     await db.run(
@@ -25,8 +29,8 @@ describe('Telegram evening roster source', () => {
       [now, now],
     );
     await db.run(
-      `INSERT INTO players (id, nickname, created_at, updated_at)
-       VALUES ('player-roster', 'Джокер', ?, ?)`,
+      `INSERT INTO players (id, nickname, game_level, club_stage, created_at, updated_at)
+       VALUES ('player-roster', 'Джокер', 'club', 'CLUB_PLAYER', ?, ?)`,
       [now, now],
     );
 

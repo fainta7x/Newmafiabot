@@ -80,6 +80,7 @@ A walk-in can therefore be `unanswered` (or keep an older real response) while a
 
 ### Participant write authority and read projections
 
+- Self-registration eligibility (first application and game level) is checked by `assertPlayerSelfRegistration` in `eveningParticipantState.ts` across player, Telegram and VK writes; organizer corrections retain their own authorization. Response changes and cleanup of future unselected seat reservations share the participant transaction; started seats remain history.
 - Persisted participant RSVP and physical attendance are written through `src/server/services/eveningParticipantState.ts` and the authenticated routes (including `participantRoutes.ts`). Compatibility `registration_status` is not a second source of truth.
 - Current/legacy RSVP and attendance are interpreted by `eveningDomain.ts` and `eveningResponse.ts`.
 - Two **read-only**, distinct CRM projections belong to `src/lib/eveningParticipantView.ts`: `isInOrganizerWorkingRoster` includes manually added unanswered participants; `needsEveningCloseoutAttendance` identifies only pending participants who previously answered going/late.

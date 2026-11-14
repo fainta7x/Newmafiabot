@@ -1,10 +1,10 @@
-import { isOpenEvening } from '../../lib/eveningStatus.ts';
+import { isEditableEvening, isOpenEvening } from '../../lib/eveningStatus.ts';
 import { ensureEveningSeatingSchema } from './eveningSeatBookingService.ts';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
-import { setParticipantResponse } from './eveningParticipantState.ts';
+import { assertPlayerSelfRegistration, setParticipantResponse } from './eveningParticipantState.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
 import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
 import { notifyEveningRescheduled } from './eveningRescheduleService.ts';
@@ -36,7 +36,7 @@ export async function updateEveningSlotSettings(
   options: { notAnnouncedYet?: boolean } = {},
 ) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
-  if (evening.status === 'completed' || evening.settled_at) throw Object.assign(new Error('Завершённый вечер менять нельзя'), { statusCode: 409 });
+  if (!isEditableEvening(evening)) throw Object.assign(new Error('Закрытый или отменённый вечер менять нельзя'), { statusCode: 409 });
 
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const nextCount = Math.max(1, Math.min(12, Math.round(Number(input.planned_slots ?? settings.planned_slots ?? 6))));
@@ -110,7 +110,7 @@ export async function replacePlayerSlotSelection(
   eveningId: string,
   playerId: string,
   raw: unknown,
-  options: { notifyOrganizer?: boolean; source?: string } = {},
+  options: { notifyOrganizer?: boolean; source?: string; noviceLead?: boolean } = {},
 ) {
   const { evening } = await ensureSlotsForEvening(db, eveningId);
   if (!isOpenEvening(evening)) throw Object.assign(new Error('Запись на это событие закрыта'), { statusCode: 409 });
@@ -131,6 +131,18 @@ export async function replacePlayerSlotSelection(
   await ensureEveningSeatingSchema(db);
   const now = new Date().toISOString();
   await db.transaction(async (tx: DatabaseWrapper) => {
+    const currentEvening = await tx.get<any>('SELECT status, settled_at, format FROM game_evenings WHERE id=?', [eveningId]);
+    if (!isOpenEvening(currentEvening)) throw Object.assign(new Error('Запись на это событие закрыта'), { statusCode: 409 });
+    if (ids.length) {
+      const player = await tx.get<any>('SELECT * FROM players WHERE id=?', [playerId]);
+      if (!player) throw Object.assign(new Error('Игрок не найден'), { statusCode: 404 });
+      // The public newcomer form already saved a lead for this one NOVICE evening.
+      // It reserves games before profile approval; source labels alone grant nothing.
+      const lead = options.noviceLead && normalizeEveningFormat(currentEvening.format) === 'NOVICE'
+        ? await tx.get('SELECT player_id FROM newcomer_leads WHERE player_id=? AND evening_id=?', [playerId, eveningId])
+        : null;
+      if (!lead) assertPlayerSelfRegistration(player, currentEvening.format);
+    }
     let participant = await tx.get<any>('SELECT id, attendance_status, amount_due, amount_paid, payment_status FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);
     if (participant && String(participant.attendance_status || 'pending') !== 'pending') throw Object.assign(new Error('Явка уже отмечена. Изменить запись может только организатор.'), { statusCode: 409 });
     if (!participant) {
@@ -141,12 +153,7 @@ export async function replacePlayerSlotSelection(
     }
     await tx.run('DELETE FROM evening_slot_registrations WHERE participant_id = ? AND slot_id IN (SELECT id FROM evening_game_slots WHERE evening_id = ?)', [participant.id, eveningId]);
     for (const slotId of ids) await tx.run('INSERT INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [randomUUID(), slotId, participant.id, now, now]);
-    // An unselected future game must not keep a phantom seat reservation.
-    // Actual started seating is immutable historical evidence.
-    await tx.run(`DELETE FROM evening_seat_plans
-      WHERE evening_id = ? AND player_id = ? AND started = 0
-        AND slot_id NOT IN (SELECT slot_id FROM evening_slot_registrations WHERE participant_id = ?)`,
-      [eveningId, playerId, participant.id]);
+    // The canonical response writer releases unselected future seats too.
     if (!isCasual) {
       const paid = Number(participant.amount_paid || 0);
       const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';

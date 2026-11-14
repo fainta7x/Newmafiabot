@@ -1,3 +1,5 @@
+import { ensureNoviceSystemSchema } from '../db/ensureNoviceSystemSchema.ts';
+import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
@@ -11,10 +13,12 @@ afterEach(() => { try { db?.sqlite.close(); } catch {} db = null; });
 const setup = async () => {
   db = createDatabaseConnection(':memory:');
   await ensureTelegramPublishingSchema(db);
+  await ensureInviteAudienceSchema(db);
+  await ensureNoviceSystemSchema(db);
   const now = new Date().toISOString();
   await db.run(`INSERT INTO game_evenings (id, title, starts_at, ends_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
     VALUES ('ev1', 'Игровой вечер', '2030-08-14T20:00:00+03:00', '2030-08-15T02:00:00+03:00', 'Europe/Moscow', 'Суп с Котом', 'CASUAL', 'published', 20, 400, ?, ?)`, [now, now]);
-  await db.run("INSERT INTO players (id, nickname, created_at, updated_at) VALUES ('p1', 'Денди', ?, ?)", [now, now]);
+  await db.run("INSERT INTO players (id, nickname, game_level, club_stage, created_at, updated_at) VALUES ('p1', 'Денди', 'club', 'CLUB_PLAYER', ?, ?)", [now, now]);
   const plan = await loadEveningSlotPlan(db, 'ev1');
   return plan.slots.map((slot) => slot.id);
 };

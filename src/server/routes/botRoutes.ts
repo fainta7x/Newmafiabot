@@ -14,7 +14,7 @@ import { GiftCollectionError, giftPledgeConfirmation, setPlayerGiftChoice } from
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
-import { isParticipantResponseLockedAfterAttendance, setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { assertPlayerSelfRegistration, isParticipantResponseLockedAfterAttendance, setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotificationService.ts';
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
@@ -390,19 +390,21 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     }
 
     const player = await db.get(
-      'SELECT id, nickname, telegram_user_id FROM players WHERE telegram_user_id = ?',
+      'SELECT id, nickname, telegram_user_id, game_level, club_stage FROM players WHERE telegram_user_id = ?',
       [telegramUserId],
     );
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
     const evening = await db.get(
-      'SELECT id, status, settled_at, default_price FROM game_evenings WHERE id = ?',
+      'SELECT id, status, settled_at, default_price, format FROM game_evenings WHERE id = ?',
       [req.params.eveningId],
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     if (!isOpenEvening(evening)) {
       return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны', code: 'closed' });
     }
+
+    if (responseStatus === 'going' || responseStatus === 'late') assertPlayerSelfRegistration(player, evening.format);
 
     const existingParticipant = await db.get(
       'SELECT id, attendance_status, response_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
@@ -473,7 +475,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       );
     } else if (responseStatus === 'late') {
       await replacePlayerSlotSelection(db, String(evening.id), String(player.id), lateSlotIds, { notifyOrganizer: false, source: 'telegram_quick_rsvp' });
-      await setParticipantResponse(db, String(participant.id), 'late', { source: 'telegram_quick_rsvp' });
+      await setParticipantResponse(db, String(participant.id), 'late', { source: 'telegram_quick_rsvp', preserveSlotSelection: true });
       await notifyOrganizerAboutResponse(db, String(participant.id), existingParticipant?.response_status ?? null, 'late')
         .catch((error) => console.warn('[BOT RSVP] organizer notification failed:', error instanceof Error ? error.message : String(error)));
     } else {
@@ -492,7 +494,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       registration_status: responseStatus,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error?.message || 'Не удалось сохранить ответ на вечер' });
+    res.status(Number(error?.statusCode || error?.status || 500)).json({ error: error?.message || 'Не удалось сохранить ответ на вечер', code: error?.code });
   }
 });
 

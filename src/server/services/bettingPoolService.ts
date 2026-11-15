@@ -56,12 +56,7 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
  */
 export const BETTING_WINDOW_MS = 8 * 60_000;
 
-const withTransaction = async <T>(db: DatabaseWrapper, work: (tx: DatabaseWrapper) => Promise<T>): Promise<T> => {
-  // The production Turso wrapper does not expose the local better-sqlite3
-  // `sqlite` handle.  Starting a game must still be able to open its bet pool.
-  if ((db.sqlite as any)?.inTransaction) return work(db);
-  return db.transaction(work);
-};
+const withTransaction = <T>(db: DatabaseWrapper, work: (tx: DatabaseWrapper) => Promise<T>): Promise<T> => db.transactionOwner?.() ? work(db) : db.transaction(work);
 
 export const calculatePoolCoefficient = (
   sidePool: number,

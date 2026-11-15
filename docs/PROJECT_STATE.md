@@ -1,5 +1,10 @@
 # Project state — 2LA Noire
 
+## Исправления общего аудита и производительность — 2026-11-15
+
+Владелец согласовал все AF01–AF08 из отчёта PR #1268 и проверку ускорения приложения/сайта. Кандидат `fix/functional-audit-batch` исправляет их одним пакетом; 13 диагностических/контрольных сценариев теперь проходят. Владение транзакцией определяется текущим async-контекстом обёртки БД; жетоны внутри владельца сериализуются, чужие запросы входят через общую очередь. Денежные записи и составной PATCH атомарны, повторные циклы взносов имеют отдельные ключи. История production не переписывается. Проверка доставки статических файлов выполняется отдельно в `perf/static-delivery`; улучшение времени загрузки в production не подтверждено.
+
+
 ## Continuous audit — notification payload retry (2026-11-15)
 
 Candidate `fix/notification-payload-retry` addresses NP01: a duplicate personal notification omitting optional photo/keyboard preserves the pending payload; explicit null still clears it and sent photos remain cleared. Regression reproduces the previous loss and verifies the explicit-clear control. No schema/game-rule changes or real sends. #1263 is merged (17d844c); #1266 was updated after the resulting documentation conflict and needs checks for its new head.

@@ -341,36 +341,40 @@ export async function notifyTournamentAudience(db:DatabaseWrapper,tournamentId:s
 }
 
 export async function reportTournamentPayment(db:DatabaseWrapper,tournamentId:string,playerId:string,amountRub:unknown,note?:string|null){
-  const tournament=await assertManagedTournamentEvening(db,tournamentId);if(!tournament.published_at)throw new Error('TOURNAMENT_NOT_FOUND');
-  const amount=integerRubles(amountRub);if(amount==null)throw new Error('INVALID_PAYMENT_AMOUNT');
-  const registration=await db.get<any>("SELECT id FROM tournament_registrations WHERE tournament_id=? AND player_id=? AND status IN ('confirmed','reserve') LIMIT 1",[tournamentId,playerId]);if(!registration)throw new Error('NOT_REGISTERED');
-  const current=await db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);
-  const cleanNote=note?.trim().slice(0,250)||null;
-  if(current&&['confirmed','waived','refunded'].includes(String(current.state))) throw new Error('PAYMENT_REVIEW_REQUIRED');
-  if(current?.state==='pending'&&Number(current.reported_amount_rub)===amount&&String(current.player_note||'')===String(cleanNote||''))return current;
-  const now=nowIso();
-  await db.run(`INSERT INTO tournament_payment_claims (id,tournament_id,player_id,state,reported_amount_rub,player_note,reported_at,updated_at) VALUES (?,?,?,'pending',?,?,?,?) ON CONFLICT(tournament_id,player_id) DO UPDATE SET state='pending',reported_amount_rub=excluded.reported_amount_rub,player_note=excluded.player_note,reported_at=excluded.reported_at,updated_at=excluded.updated_at`,[crypto.randomUUID(),tournamentId,playerId,amount,cleanNote,now,now]);
-  await audit(db,tournamentId,'payment_reported','player',playerId,playerId,cleanNote,{previous_state:current?.state||'unpaid',previous_reported_amount_rub:current?.reported_amount_rub??null,reported_amount_rub:amount});
-  return db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=?',[tournamentId,playerId]);
+  return db.transaction(async db => {
+    const tournament=await assertManagedTournamentEvening(db,tournamentId);if(!tournament.published_at)throw new Error('TOURNAMENT_NOT_FOUND');
+    const amount=integerRubles(amountRub);if(amount==null)throw new Error('INVALID_PAYMENT_AMOUNT');
+    const registration=await db.get<any>("SELECT id FROM tournament_registrations WHERE tournament_id=? AND player_id=? AND status IN ('confirmed','reserve') LIMIT 1",[tournamentId,playerId]);if(!registration)throw new Error('NOT_REGISTERED');
+    const current=await db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);
+    const cleanNote=note?.trim().slice(0,250)||null;
+    if(current&&['confirmed','waived','refunded'].includes(String(current.state))) throw new Error('PAYMENT_REVIEW_REQUIRED');
+    if(current?.state==='pending'&&Number(current.reported_amount_rub)===amount&&String(current.player_note||'')===String(cleanNote||''))return current;
+    const now=nowIso();
+    await db.run(`INSERT INTO tournament_payment_claims (id,tournament_id,player_id,state,reported_amount_rub,player_note,reported_at,updated_at) VALUES (?,?,?,'pending',?,?,?,?) ON CONFLICT(tournament_id,player_id) DO UPDATE SET state='pending',reported_amount_rub=excluded.reported_amount_rub,player_note=excluded.player_note,reported_at=excluded.reported_at,updated_at=excluded.updated_at`,[crypto.randomUUID(),tournamentId,playerId,amount,cleanNote,now,now]);
+    await audit(db,tournamentId,'payment_reported','player',playerId,playerId,cleanNote,{previous_state:current?.state||'unpaid',previous_reported_amount_rub:current?.reported_amount_rub??null,reported_amount_rub:amount});
+    return db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=?',[tournamentId,playerId]);
+  });
 }
 
 export async function reviewTournamentPayment(db:DatabaseWrapper,tournamentId:string,playerId:string,state:TournamentPaymentState,actorId:string|null,amountRub?:unknown,note?:string|null){
-  await assertManagedTournamentEvening(db,tournamentId);const actor=requireOrganizerActor(actorId);
-  if(!['confirmed','rejected','waived','refunded','unpaid'].includes(state))throw new Error('INVALID_PAYMENT_STATE');
-  const registration=await db.get<any>('SELECT id FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);if(!registration)throw new Error('NOT_REGISTERED');
-  const current=await db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);
-  const cleanNote=note?.trim().slice(0,250)||null;
-  let confirmedAmount:number|null=current?.confirmed_amount_rub==null?null:Number(current.confirmed_amount_rub);
-  if(state==='confirmed') { const parsed=integerRubles(amountRub); if(parsed==null)throw new Error('INVALID_PAYMENT_AMOUNT'); confirmedAmount=parsed; }
-  if(state==='waived') confirmedAmount=0;
-  if(state==='rejected'||state==='unpaid') confirmedAmount=null;
-  if(state==='refunded'&&amountRub!==undefined){const parsed=integerRubles(amountRub);if(parsed==null)throw new Error('INVALID_PAYMENT_AMOUNT');confirmedAmount=parsed;}
-  if(current?.state===state&&Number(current?.confirmed_amount_rub??-1)===Number(confirmedAmount??-1)&&String(current?.organizer_note||'')===String(cleanNote||''))return current;
-  const now=nowIso();
-  await db.run(`INSERT INTO tournament_payment_claims (id,tournament_id,player_id,state,confirmed_amount_rub,reviewed_at,reviewed_by,organizer_note,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(tournament_id,player_id) DO UPDATE SET state=excluded.state,confirmed_amount_rub=excluded.confirmed_amount_rub,reviewed_at=excluded.reviewed_at,reviewed_by=excluded.reviewed_by,organizer_note=excluded.organizer_note,updated_at=excluded.updated_at`,[crypto.randomUUID(),tournamentId,playerId,state,confirmedAmount,now,actor,cleanNote,now]);
-  await audit(db,tournamentId,`payment_${state}`,'organizer',actor,playerId,cleanNote,{previous_state:current?.state||'unpaid',previous_confirmed_amount_rub:current?.confirmed_amount_rub??null,confirmed_amount_rub:confirmedAmount,reported_amount_rub:current?.reported_amount_rub??null});
-  await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:payment:${playerId}:${state}:${confirmedAmount??'none'}:${now}`,playerId,eventType:'tournament_payment_reviewed',entityId:tournamentId,text:state==='confirmed'?`Организатор подтвердил оплату турнирного взноса: ${confirmedAmount} ₽.`:state==='rejected'?'Организатор не подтвердил оплату. Проверьте комментарий в турнире.':`Статус турнирного взноса изменён: ${state}.`,actionPath:tournamentPlayerPath(tournamentId)});
-  return db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=?',[tournamentId,playerId]);
+  return db.transaction(async db => {
+    await assertManagedTournamentEvening(db,tournamentId);const actor=requireOrganizerActor(actorId);
+    if(!['confirmed','rejected','waived','refunded','unpaid'].includes(state))throw new Error('INVALID_PAYMENT_STATE');
+    const registration=await db.get<any>('SELECT id FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);if(!registration)throw new Error('NOT_REGISTERED');
+    const current=await db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);
+    const cleanNote=note?.trim().slice(0,250)||null;
+    let confirmedAmount:number|null=current?.confirmed_amount_rub==null?null:Number(current.confirmed_amount_rub);
+    if(state==='confirmed') { const parsed=integerRubles(amountRub); if(parsed==null)throw new Error('INVALID_PAYMENT_AMOUNT'); confirmedAmount=parsed; }
+    if(state==='waived') confirmedAmount=0;
+    if(state==='rejected'||state==='unpaid') confirmedAmount=null;
+    if(state==='refunded'&&amountRub!==undefined){const parsed=integerRubles(amountRub);if(parsed==null)throw new Error('INVALID_PAYMENT_AMOUNT');confirmedAmount=parsed;}
+    if(current?.state===state&&Number(current?.confirmed_amount_rub??-1)===Number(confirmedAmount??-1)&&String(current?.organizer_note||'')===String(cleanNote||''))return current;
+    const now=nowIso();
+    await db.run(`INSERT INTO tournament_payment_claims (id,tournament_id,player_id,state,confirmed_amount_rub,reviewed_at,reviewed_by,organizer_note,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(tournament_id,player_id) DO UPDATE SET state=excluded.state,confirmed_amount_rub=excluded.confirmed_amount_rub,reviewed_at=excluded.reviewed_at,reviewed_by=excluded.reviewed_by,organizer_note=excluded.organizer_note,updated_at=excluded.updated_at`,[crypto.randomUUID(),tournamentId,playerId,state,confirmedAmount,now,actor,cleanNote,now]);
+    await audit(db,tournamentId,`payment_${state}`,'organizer',actor,playerId,cleanNote,{previous_state:current?.state||'unpaid',previous_confirmed_amount_rub:current?.confirmed_amount_rub??null,confirmed_amount_rub:confirmedAmount,reported_amount_rub:current?.reported_amount_rub??null});
+    await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:payment:${playerId}:${state}:${confirmedAmount??'none'}:${now}`,playerId,eventType:'tournament_payment_reviewed',entityId:tournamentId,text:state==='confirmed'?`Организатор подтвердил оплату турнирного взноса: ${confirmedAmount} ₽.`:state==='rejected'?'Организатор не подтвердил оплату. Проверьте комментарий в турнире.':`Статус турнирного взноса изменён: ${state}.`,actionPath:tournamentPlayerPath(tournamentId)});
+    return db.get<any>('SELECT * FROM tournament_payment_claims WHERE tournament_id=? AND player_id=?',[tournamentId,playerId]);
+  });
 }
 
 

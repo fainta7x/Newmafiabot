@@ -66,27 +66,35 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       return res.json(serializeEveningParticipant(updated));
     }
 
-    if (data.table_id !== undefined) await assignParticipantToTable(db, current.id, data.table_id);
-    const explicitResponse = data.response_status ?? (['going','late','thinking','declined','unanswered'].includes(String(data.registration_status)) ? data.registration_status : undefined);
-    if (explicitResponse !== undefined) await setParticipantResponse(db, current.id, parseResponseStatus(explicitResponse), { source: 'organizer_card' });
+    const updated = await db.transaction(async db => {
+      const current = await db.get<any>('SELECT * FROM evening_participants WHERE id=?', [req.params.id]);
+      if (!current) throw Object.assign(new Error('Участник не найден'), { statusCode: 404 });
+      const freshEvening = await db.get<any>('SELECT status, settled_at FROM game_evenings WHERE id=?', [current.evening_id]);
+      if (freshEvening?.status === 'cancelled' || freshEvening?.status === 'completed' || freshEvening?.settled_at) {
+        throw Object.assign(new Error('Вечер больше не доступен для редактирования'), { statusCode: 409 });
+      }
+      if (data.table_id !== undefined) await assignParticipantToTable(db, current.id, data.table_id);
+      const explicitResponse = data.response_status ?? (['going','late','thinking','declined','unanswered'].includes(String(data.registration_status)) ? data.registration_status : undefined);
+      if (explicitResponse !== undefined) await setParticipantResponse(db, current.id, parseResponseStatus(explicitResponse), { source: 'organizer_card' });
 
-    const fact = data.attendance_fact !== undefined
-      ? parseAttendanceFact(data.attendance_fact)
-      : legacyAttendancePatchToFact(current, data.attendance_status, data.arrival_status);
-    if (fact) await setParticipantAttendance(db, current.id, fact);
+      const fact = data.attendance_fact !== undefined
+        ? parseAttendanceFact(data.attendance_fact)
+        : legacyAttendancePatchToFact(current, data.attendance_status, data.arrival_status);
+      if (fact) await setParticipantAttendance(db, current.id, fact);
 
-    const fields: string[] = [];
-    const values: any[] = [];
-    if (data.left !== undefined) { fields.push('left_at = ?'); values.push(data.left ? new Date().toISOString() : null); }
-    for (const key of ['payment_status', 'amount_due', 'amount_paid', 'notes'] as const) {
-      if (data[key] !== undefined) { fields.push(`${key} = ?`); values.push(data[key]); }
-    }
-    if (fields.length) {
-      fields.push('updated_at = ?'); values.push(new Date().toISOString()); values.push(current.id);
-      await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
-    }
+      const fields: string[] = [];
+      const values: any[] = [];
+      if (data.left !== undefined) { fields.push('left_at = ?'); values.push(data.left ? new Date().toISOString() : null); }
+      for (const key of ['payment_status', 'amount_due', 'amount_paid', 'notes'] as const) {
+        if (data[key] !== undefined) { fields.push(`${key} = ?`); values.push(data[key]); }
+      }
+      if (fields.length) {
+        fields.push('updated_at = ?'); values.push(new Date().toISOString()); values.push(current.id);
+        await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
+      }
+      return await db.get<any>(`SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo FROM evening_participants ep JOIN players p ON p.id = ep.player_id WHERE ep.id = ?`, [current.id]);
+    });
     await runCrmAutomationsAfterWrite(db);
-    const updated = await db.get<any>(`SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo FROM evening_participants ep JOIN players p ON p.id = ep.player_id WHERE ep.id = ?`, [current.id]);
     return res.json(serializeEveningParticipant(updated));
   } catch (err: any) {
     return res.status(err.statusCode || err.status || 400).json({ error: err.message || 'Не удалось обновить участника' });

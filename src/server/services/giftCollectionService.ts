@@ -204,52 +204,57 @@ async function touchTask(db: DatabaseWrapper, row: any, done: boolean) {
 /** A player picks (or changes) the amount, or declines. Allowed until the transfer is confirmed; afterwards only the organizer edits. */
 export async function setPlayerGiftChoice(db: DatabaseWrapper, collectionId: string, playerId: string, choice: { amount?: unknown; decline?: boolean }) {
   await ensureGiftCollectionSchema(db);
-  const row = await loadContribution(db, collectionId, playerId);
-  if (row.collection_status !== 'open') throw new GiftCollectionError('Сбор закрыт', 409, 'closed');
-  if (row.status === 'paid') throw new GiftCollectionError('Перевод уже подтверждён — изменить сумму может только организатор', 409, 'already_paid');
-  const now = nowIso();
-  if (choice.decline) {
-    await db.run("UPDATE gift_contributions SET status = 'declined', pledged_amount = 0, updated_at = ? WHERE collection_id = ? AND player_id = ?", [now, collectionId, playerId]);
-    await touchTask(db, row, true);
-    return { status: 'declined' as const, amount: 0, payee: null };
-  }
-  const amount = normalizeGiftAmount(choice.amount);
-  await db.run("UPDATE gift_contributions SET status = 'pledged', pledged_amount = ?, updated_at = ? WHERE collection_id = ? AND player_id = ?", [amount, now, collectionId, playerId]);
-  return { status: 'pledged' as const, amount, payee: await payeeLine(db) };
+  return db.transaction(async db => {
+    const row = await loadContribution(db, collectionId, playerId);
+    if (row.collection_status !== 'open') throw new GiftCollectionError('Сбор закрыт', 409, 'closed');
+    if (row.status === 'paid') throw new GiftCollectionError('Перевод уже подтверждён — изменить сумму может только организатор', 409, 'already_paid');
+    const now = nowIso();
+    if (choice.decline) {
+      await db.run("UPDATE gift_contributions SET status = 'declined', pledged_amount = 0, updated_at = ? WHERE collection_id = ? AND player_id = ?", [now, collectionId, playerId]);
+      await touchTask(db, row, true);
+      return { status: 'declined' as const, amount: 0, payee: null };
+    }
+    const amount = normalizeGiftAmount(choice.amount);
+    await db.run("UPDATE gift_contributions SET status = 'pledged', pledged_amount = ?, updated_at = ? WHERE collection_id = ? AND player_id = ?", [amount, now, collectionId, playerId]);
+    return { status: 'pledged' as const, amount, payee: await payeeLine(db) };
+  });
 }
 
 /** Organizer: record a pledge taken by hand (VK), or confirm / withdraw a received transfer. Tokens follow the confirmed amount 1:1, never back to rubles. */
 export async function organizerSetContribution(db: DatabaseWrapper, collectionId: string, playerId: string, organizerId: string, change: { pledged_amount?: unknown; paid_amount?: unknown; status?: unknown }) {
   await ensureGiftCollectionSchema(db);
-  const row = await loadContribution(db, collectionId, playerId);
-  const now = nowIso();
-  let status = String(row.status);
-  let pledged = Number(row.pledged_amount) || 0;
-  let paid = Number(row.paid_amount) || 0;
-  if (change.pledged_amount !== undefined) { pledged = normalizeGiftAmount(change.pledged_amount); if (status !== 'paid') status = 'pledged'; }
-  if (change.status === 'paid') {
-    paid = change.paid_amount !== undefined ? normalizeGiftAmount(change.paid_amount) : pledged;
-    if (!paid) throw new GiftCollectionError('Сначала укажите сумму', 400, 'bad_amount');
-    status = 'paid';
-  } else if (change.status === 'unpaid') {
-    paid = 0; status = pledged ? 'pledged' : 'invited';
-  } else if (change.status === 'declined') {
-    if (paid) throw new GiftCollectionError('Сначала снимите отметку о переводе', 409, 'already_paid');
-    pledged = 0; status = 'declined';
-  }
-  const credited = Number(row.tokens_credited) || 0;
-  const delta = paid - credited;
-  if (delta !== 0) {
-    await mutateTokenBalance(db, {
-      playerId, delta, reasonType: 'gift_collection', description: delta > 0 ? 'Подарочные жетоны от клуба за взнос в сбор' : 'Корректировка подарочных жетонов за сбор',
-      sourceType: 'gift_collection', sourceId: collectionId, idempotencyKey: `gift-collection:${collectionId}:${playerId}:${credited}->${paid}`,
-      debitPolicy: 'allow_negative', actorType: 'organizer', actorId: organizerId });
-  }
-  await db.run(
-    `UPDATE gift_contributions SET status = ?, pledged_amount = ?, paid_amount = ?, tokens_credited = ?, paid_at = ?, updated_at = ? WHERE collection_id = ? AND player_id = ?`,
-    [status, pledged, paid, paid, paid ? (row.paid_at || now) : null, now, collectionId, playerId]);
-  await touchTask(db, row, status === 'paid' || status === 'declined' || (status === 'pledged' && row.channel === 'vk_manual'));
-  return { status, pledged_amount: pledged, paid_amount: paid };
+  return db.transaction(async db => {
+    const row = await loadContribution(db, collectionId, playerId);
+    const now = nowIso();
+    let status = String(row.status);
+    let pledged = Number(row.pledged_amount) || 0;
+    let paid = Number(row.paid_amount) || 0;
+    if (change.pledged_amount !== undefined) { pledged = normalizeGiftAmount(change.pledged_amount); if (status !== 'paid') status = 'pledged'; }
+    if (change.status === 'paid') {
+      paid = change.paid_amount !== undefined ? normalizeGiftAmount(change.paid_amount) : pledged;
+      if (!paid) throw new GiftCollectionError('Сначала укажите сумму', 400, 'bad_amount');
+      status = 'paid';
+    } else if (change.status === 'unpaid') {
+      paid = 0; status = pledged ? 'pledged' : 'invited';
+    } else if (change.status === 'declined') {
+      if (paid) throw new GiftCollectionError('Сначала снимите отметку о переводе', 409, 'already_paid');
+      pledged = 0; status = 'declined';
+    }
+    const credited = Number(row.tokens_credited) || 0;
+    const delta = paid - credited;
+    if (delta !== 0) {
+      const previous = await db.get<{ id: string }>("SELECT id FROM token_ledger WHERE player_id=? AND source_type='gift_collection' AND source_id=? ORDER BY rowid DESC LIMIT 1", [playerId, collectionId]);
+      await mutateTokenBalance(db, {
+        playerId, delta, reasonType: 'gift_collection', description: delta > 0 ? 'Подарочные жетоны от клуба за взнос в сбор' : 'Корректировка подарочных жетонов за сбор',
+        sourceType: 'gift_collection', sourceId: collectionId, idempotencyKey: `gift-collection:${collectionId}:${playerId}:${credited}->${paid}:${previous?.id || 'initial'}`,
+        debitPolicy: 'allow_negative', actorType: 'organizer', actorId: organizerId });
+    }
+    await db.run(
+      `UPDATE gift_contributions SET status = ?, pledged_amount = ?, paid_amount = ?, tokens_credited = ?, paid_at = ?, updated_at = ? WHERE collection_id = ? AND player_id = ?`,
+      [status, pledged, paid, paid, paid ? (row.paid_at || now) : null, now, collectionId, playerId]);
+    await touchTask(db, row, status === 'paid' || status === 'declined' || (status === 'pledged' && row.channel === 'vk_manual'));
+    return { status, pledged_amount: pledged, paid_amount: paid };
+  });
 }
 
 /** Remove an invited contributor from an open collection. Confirmed transfers are accounting records and cannot be deleted. */

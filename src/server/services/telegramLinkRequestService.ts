@@ -39,11 +39,13 @@ export async function createTelegramLinkRequest(db: DatabaseWrapper, input: { te
   const now = input.now || new Date();
   const code = crypto.randomBytes(18).toString('base64url');
   // One live request per Telegram account: a new one replaces the old one.
-  await db.run('DELETE FROM telegram_link_requests WHERE telegram_user_id = ? AND used_at IS NULL', [telegramUserId]);
-  await db.run(
-    'INSERT INTO telegram_link_requests (code_hash, telegram_user_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
-    [hash(code), telegramUserId, now.toISOString(), new Date(now.getTime() + TELEGRAM_LINK_REQUEST_TTL_MS).toISOString()],
-  );
+  await db.transaction(async tx => {
+    await tx.run('DELETE FROM telegram_link_requests WHERE telegram_user_id = ? AND used_at IS NULL', [telegramUserId]);
+    await tx.run(
+      'INSERT INTO telegram_link_requests (code_hash, telegram_user_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
+      [hash(code), telegramUserId, now.toISOString(), new Date(now.getTime() + TELEGRAM_LINK_REQUEST_TTL_MS).toISOString()],
+    );
+  });
   return { code, url: `${stripTrailingSlashes(String(input.baseUrl || '').slice(0, 300))}/player?${TELEGRAM_LINK_QUERY}=${encodeURIComponent(code)}`, expires_at: new Date(now.getTime() + TELEGRAM_LINK_REQUEST_TTL_MS).toISOString() };
 }
 

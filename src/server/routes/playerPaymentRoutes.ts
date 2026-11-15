@@ -262,7 +262,7 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
           `INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at) VALUES (?, ?, 'Бесплатный вечер из магазина', ?, ?)
            ON CONFLICT(participant_id) DO UPDATE SET reason = excluded.reason, updated_at = excluded.updated_at`,
           [participantId, String(participant.evening_id), now, now],
-        ).catch(() => null);
+        );
       }
       await tx.run(
         `UPDATE shop_purchases

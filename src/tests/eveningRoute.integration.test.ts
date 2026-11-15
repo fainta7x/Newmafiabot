@@ -53,7 +53,9 @@ describe('evening route', () => {
     expect(shortfall.detail).toContain('1-я 1/11');
     const prepare = response.body.stages.find((stage: any) => stage.id === 'prepare');
     expect(prepare.steps.find((step: any) => step.id === 'publish').status).toBe('done');
-    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['timing', 'staff', 'tables', 'posts', 'invites']));
+    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['timing', 'staff', 'posts', 'invites']));
+    // «Столы и судьи» is gone (owner, 2026-11-15): the first table is created with the evening and judged by the evening judge.
+    expect(prepare.steps.map((step: any) => step.id)).not.toContain('tables');
     expect(prepare.steps.find((step: any) => step.id === 'timing').detail).toContain('МСК');
     expect(prepare.steps.find((step: any) => step.id === 'posts').detail).toContain('План:');
     expect(prepare.steps.find((step: any) => step.id === 'posts').target).toBeUndefined();

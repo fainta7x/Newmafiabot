@@ -23,6 +23,10 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   );
   if (!tables.length) return { created: 0, reason: 'no_tables' as const };
   const judgeId = await eveningJudgeId(db, eveningId);
+  // Judges of additional tables are staff too (owner, 2026-11-15): they never get a player seat.
+  const tableJudges = new Set((await db.all<any>(
+    'SELECT host_player_id FROM evening_tables WHERE evening_id = ? AND host_player_id IS NOT NULL', [eveningId],
+  ).catch(() => [])).map((row: any) => String(row.host_player_id)));
   const registrations = await db.all<any>(`
     SELECT s.id AS slot_id, s.slot_number, ep.player_id
       FROM evening_game_slots s
@@ -38,7 +42,7 @@ export async function generateEveningSeatingPlan(db: DatabaseWrapper, eveningId:
   const numbersByPlayer = new Map<string, Set<number>>();
   for (const row of registrations) {
     const id = String(row.player_id);
-    if (judgeId && id === judgeId) continue;
+    if ((judgeId && id === judgeId) || tableJudges.has(id)) continue;
     const games = numbersByPlayer.get(id) || new Set<number>();
     games.add(Number(row.slot_number));
     numbersByPlayer.set(id, games);

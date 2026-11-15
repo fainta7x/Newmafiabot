@@ -165,12 +165,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
         <details className="min-w-0 rounded-[18px] border border-border-soft bg-surface-1" data-testid="tournament-judge-assignment">
           <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3">
             <div className="min-w-0">
-              <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Судья игры · стабильная привязка</h3>
+              <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Сменить судью игры</h3>
               <p className="mt-0.5 truncate text-[10px] text-text-muted">
                 {selectedGame ? `Игра №${selectedGame.game_number} · ${selectedGame.judge_name || 'судья не указан'}` : 'Настройка судьи'}
               </p>
             </div>
-            <span className="shrink-0 text-[10px] font-bold text-accent">Настроить</span>
+            <span className="shrink-0 text-[10px] font-bold text-accent">Сменить</span>
           </summary>
           <div className="space-y-3 border-t border-border-soft p-3.5">
             <p className="text-[11px] leading-4 text-text-muted">Судьёй из клуба можно выбрать только игрока со званием «Судья». Судью со стороны можно просто вписать по имени.</p>

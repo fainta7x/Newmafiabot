@@ -53,7 +53,19 @@ describe('evening route', () => {
     expect(shortfall.detail).toContain('1-я 1/11');
     const prepare = response.body.stages.find((stage: any) => stage.id === 'prepare');
     expect(prepare.steps.find((step: any) => step.id === 'publish').status).toBe('done');
-    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['timing', 'staff', 'tables', 'posts', 'invites']));
+    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['timing', 'staff', 'posts', 'invites']));
+    // «Столы и судьи» is gone (owner, 2026-11-15): the first table is created with the evening and judged by the evening judge.
+    expect(prepare.steps.map((step: any) => step.id)).not.toContain('tables');
+    // The staff step checks the judge too (owner, 2026-11-15).
+    const staffStep = prepare.steps.find((step: any) => step.id === 'staff');
+    expect(staffStep.title).toBe('Организатор и судья вечера');
+    const nowIso = new Date().toISOString();
+    await db.run(`INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, judge_player_id, assigned_at, updated_at) VALUES ('r1','p1',NULL,?,?)
+      ON CONFLICT(evening_id) DO UPDATE SET organizer_player_id = 'p1', judge_player_id = NULL`, [nowIso, nowIso]);
+    const again = await request(app).get('/api/evenings/r1/route').set('Cookie', organizerCookie());
+    const staffAgain = again.body.stages.find((stage: any) => stage.id === 'prepare').steps.find((step: any) => step.id === 'staff');
+    expect(staffAgain.status).toBe('attention');
+    expect(staffAgain.detail).toBe('Не назначен судья');
     expect(prepare.steps.find((step: any) => step.id === 'timing').detail).toContain('МСК');
     expect(prepare.steps.find((step: any) => step.id === 'posts').detail).toContain('План:');
     expect(prepare.steps.find((step: any) => step.id === 'posts').target).toBeUndefined();

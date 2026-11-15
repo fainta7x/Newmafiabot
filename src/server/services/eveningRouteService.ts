@@ -98,10 +98,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     ? Number((await db.get<any>("SELECT COUNT(*) AS count FROM vk_evening_publications WHERE evening_id = ? AND status = 'published'", [eveningId]))?.count || 0) : 0;
   const invitesSent = has.has('evening_announcement_dm_tracking')
     ? Number((await db.get<any>('SELECT COUNT(*) AS count FROM evening_announcement_dm_tracking WHERE evening_id = ? AND first_sent_at IS NOT NULL', [eveningId]))?.count || 0) : 0;
-  const eveningTables = has.has('evening_tables')
-    ? Number((await db.get<any>('SELECT COUNT(*) AS count FROM evening_tables WHERE evening_id = ?', [eveningId]))?.count || 0) : 0;
   const staff = has.has('evening_staff_assignments')
-    ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId]) : null;
+    ? await db.get<any>('SELECT organizer_player_id, judge_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId]) : null;
   const tasks = has.has('organizer_tasks')
     ? await db.all<any>("SELECT id, title, status, automation_key FROM organizer_tasks WHERE evening_id = ? AND status != 'cancelled' ORDER BY created_at", [eveningId]) : [];
 
@@ -128,8 +126,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     : 'понедельник, 19:00 МСК';
   steps.prepare.push(
     { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК)${['draft', 'published'].includes(String(evening.status)) ? ' · нажми, чтобы перенести' : ''}`, status: Number.isFinite(startMs) ? 'done' : 'attention' },
-    { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
-    { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
+    // Both are needed to publish (owner, 2026-11-15: the step must check the judge too, as «Команда вечера» says).
+    { id: 'staff', title: 'Организатор и судья вечера', detail: staff?.organizer_player_id && staff?.judge_player_id ? 'Назначены' : !staff?.organizer_player_id && !staff?.judge_player_id ? 'Не назначены' : !staff?.organizer_player_id ? 'Не назначен организатор' : 'Не назначен судья', status: staff?.organizer_player_id && staff?.judge_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${russianPlural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
     published
       ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }

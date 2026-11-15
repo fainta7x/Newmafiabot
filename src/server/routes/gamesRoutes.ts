@@ -18,7 +18,7 @@ import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts
 import { saveGameReplayFrames } from '../services/gameReplayFramesStore.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
-import { replaceGuestWithRegisteredPlayer, replaceSeatWithGuest, setGuestAttendance } from '../services/guestPlayerService.ts';
+import { replaceGuestWithRegisteredPlayer, replaceSeatWithGuest, setGuestAttendance, swapSeatsInClubGame } from '../services/guestPlayerService.ts';
 import { ENGINE_TEAM_NAMES, gameTeamOfRole } from '../../shared/gameRoles.ts';
 import { clearLiveGameCheckpoint } from '../services/liveGameCheckpointService.ts';
 
@@ -351,7 +351,9 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
     if (!Number.isInteger(seatNumber) || seatNumber < 1 || seatNumber > 10) return res.status(400).json({ error: 'Укажите место от 1 до 10' });
     const replacementPlayerId = String(req.body?.replacement_player_id || '').trim();
     const guestNickname = String(req.body?.guest?.nickname || '').trim();
-    if (!replacementPlayerId && !guestNickname) return res.status(400).json({ error: 'Выберите игрока или укажите имя гостя' });
+    const swapWithSeat = req.body?.swap_with_seat === undefined ? null : Number(req.body.swap_with_seat);
+    if (swapWithSeat !== null && (!Number.isInteger(swapWithSeat) || swapWithSeat < 1 || swapWithSeat > 10)) return res.status(400).json({ error: 'Укажите второе место от 1 до 10' });
+    if (!replacementPlayerId && !guestNickname && swapWithSeat === null) return res.status(400).json({ error: 'Выберите игрока или укажите имя гостя' });
     const db = req.db || (await getDb());
     const existing = await db.get<any>('SELECT * FROM games WHERE id=?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
@@ -359,7 +361,9 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
     if (existing.archived_at) return res.status(409).json({ error: 'Сначала восстановите игру из архива' });
     const previous = safeJsonParse<any>(existing.protocol_text, null);
     const previousStatus: 'draft' | 'completed' = previous?.protocol?.status === 'completed' ? 'completed' : 'draft';
-    const replacement = guestNickname && !replacementPlayerId
+    const replacement = swapWithSeat !== null
+      ? await swapSeatsInClubGame(db, { gameId, seatA: seatNumber, seatB: swapWithSeat })
+      : guestNickname && !replacementPlayerId
       ? await replaceSeatWithGuest(db, { gameId, seatNumber, nickname: guestNickname })
       : await replaceGuestWithRegisteredPlayer(db, { gameId, seatNumber, replacementPlayerId });
     if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed') {

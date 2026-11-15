@@ -60,3 +60,38 @@ export function replaceClubGameSeatIdentity(
     oldParticipantId,
   };
 }
+
+const swapStrings = (value: any, a: string, b: string): any => {
+  if (value === a) return b;
+  if (value === b) return a;
+  if (Array.isArray(value)) return value.map((item) => swapStrings(item, a, b));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, swapStrings(item, a, b)]));
+  return value;
+};
+
+/**
+ * Two players sat on each other's seats (owner, 2026-11-15: «на 5 сидит FM, а на 7 Серый — поменять местами»). The seats keep
+ * their role, fouls, votes and result; only who sat there swaps — every reference to the two participants is exchanged at once.
+ */
+export function swapClubGameSeatIdentities(envelope: any, slots: any[], seatA: number, seatB: number) {
+  if (!envelope || envelope.kind !== 'club_evening_protocol' || !Array.isArray(envelope.player_results)) {
+    throw new Error('У игры отсутствует структурированный клубный протокол');
+  }
+  if (seatA === seatB) throw new Error('Выберите два разных места');
+  const first = envelope.player_results.find((item: any) => Number(item.seat_number) === seatA);
+  const second = envelope.player_results.find((item: any) => Number(item.seat_number) === seatB);
+  if (!first || !second) throw new Error('Место не найдено в протоколе');
+  const a = String(first.participant_id || ''); const b = String(second.participant_id || '');
+  if (!a || !b) throw new Error('У места отсутствует участник');
+  const identity = (item: any) => ({ participant_id: item.participant_id, player_id: item.player_id ?? null, guest_placeholder_id: item.guest_placeholder_id ?? null, display_name: item.display_name });
+  const firstIdentity = identity(first); const secondIdentity = identity(second);
+  const swapped = swapStrings(envelope, a, b);
+  swapped.player_results = swapped.player_results.map((item: any) => Number(item.seat_number) === seatA ? { ...item, ...secondIdentity }
+    : Number(item.seat_number) === seatB ? { ...item, ...firstIdentity } : item);
+  const slotIdentity = (item: any) => ({ participant_id: item.participant_id, player_id: item.player_id ?? null, guest_placeholder_id: item.guest_placeholder_id ?? null, nickname: item.display_name });
+  const nextSlots = (Array.isArray(slots) ? slots : []).map((slot: any) => {
+    const seat = Number(slot.slot_num ?? slot.seat_number);
+    return seat === seatA ? { ...slot, ...slotIdentity(second) } : seat === seatB ? { ...slot, ...slotIdentity(first) } : slot;
+  });
+  return { envelope: swapped, slots: nextSlots, playerIds: [first.player_id, second.player_id].filter(Boolean).map(String) };
+}

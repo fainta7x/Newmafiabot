@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
-import { replaceClubGameSeatIdentity } from './clubGameSeatIdentityRepair.ts';
+import { replaceClubGameSeatIdentity, swapClubGameSeatIdentities } from './clubGameSeatIdentityRepair.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
 
 export const MAX_GUEST_PLUS = 10;
@@ -378,5 +378,20 @@ export async function replaceSeatWithGuest(db: DatabaseWrapper, input: {
     );
     await tx.run('UPDATE games SET protocol_text = ?, slots_json = ? WHERE id = ?', [JSON.stringify(repaired.envelope), JSON.stringify(repaired.slots), input.gameId]);
     return { changed: true, idempotent: false, guestId: guest.id, playerId: '', participantId: guest.id, oldPlayerId: repaired.oldPlayerId || null, envelope: repaired.envelope, slots: repaired.slots };
+  });
+}
+
+/** Two seats of a club game exchange their players (owner, 2026-11-15); roles, fouls, votes and the result stay with the seats. */
+export async function swapSeatsInClubGame(db: DatabaseWrapper, input: { gameId: number; seatA: number; seatB: number }) {
+  return db.transaction(async (tx) => {
+    const game = await tx.get<any>('SELECT * FROM games WHERE id = ?', [input.gameId]);
+    if (!game) throw new Error('Игра не найдена');
+    if (!game.evening_id) throw new Error('Это не игра обычного вечера');
+    if (game.archived_at) throw new Error('Сначала восстановите игру из архива');
+    const envelope = safeJsonParse<any>(game.protocol_text, null);
+    if (!envelope || envelope.kind !== 'club_evening_protocol' || envelope.version !== 1) throw new Error('У игры отсутствует структурированный клубный протокол');
+    const swapped = swapClubGameSeatIdentities(envelope, safeJsonParse<any[]>(game.slots_json, []), input.seatA, input.seatB);
+    await tx.run('UPDATE games SET protocol_text = ?, slots_json = ? WHERE id = ?', [JSON.stringify(swapped.envelope), JSON.stringify(swapped.slots), input.gameId]);
+    return { changed: true, idempotent: false, envelope: swapped.envelope, slots: swapped.slots, oldPlayerId: null as string | null };
   });
 }

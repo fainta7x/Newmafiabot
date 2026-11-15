@@ -20,11 +20,12 @@ export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onU
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const current = results.find((item) => item.seat_number === seat);
+  // A player already on another seat of this game is swapped with this seat (owner, 2026-11-15), not seated twice.
+  const seatOf = (id: string) => results.find((item) => item.seat_number !== seat && String(item.player_id || '') === id)?.seat_number;
   const candidates = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
-    const seatedElsewhere = new Set(results.filter((item) => item.seat_number !== seat).map((item) => String(item.player_id || '')));
     return players
-      .filter((player) => !seatedElsewhere.has(player.id) && player.id !== String(current?.player_id || '') && player.id !== String(game.judge_player_id || ''))
+      .filter((player) => player.id !== String(current?.player_id || '') && player.id !== String(game.judge_player_id || ''))
       .filter((player) => !q || `${player.nickname} ${player.full_name || ''}`.toLocaleLowerCase('ru-RU').includes(q));
   }, [players, query, results, seat, current]);
 
@@ -48,7 +49,7 @@ export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onU
     try {
       const updated = await clubGamesApi.repairSeatIdentity(game.id, guest
         ? { seat_number: seat, guest: { nickname: nickname.trim() } }
-        : { seat_number: seat, replacement_player_id: playerId });
+        : seatOf(playerId) ? { seat_number: seat, swap_with_seat: seatOf(playerId) } : { seat_number: seat, replacement_player_id: playerId });
       onUpdated(updated); onClose();
     } catch (err: any) { setError(err?.message || 'Не удалось исправить состав'); setConfirm(false); }
     finally { setSaving(false); }
@@ -61,11 +62,11 @@ export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onU
         <div className="mt-4 grid grid-cols-5 gap-2">{results.map((item) => <button type="button" key={item.seat_number} onClick={() => setSeat(item.seat_number)} className={`min-h-[52px] rounded-[11px] border px-1 text-center ${seat === item.seat_number ? 'border-warning bg-warning-soft text-warning' : 'border-border-soft bg-surface-2'}`}><span className="block text-[10px]">#{item.seat_number}</span><span className="block truncate text-[10px] font-bold">{item.display_name}</span></button>)}</div>
         <div className="mt-4 rounded-[13px] border border-warning/25 bg-warning-soft p-3 text-[11px] text-warning"><AlertTriangle className="mr-2 inline h-4 w-4" />Сейчас на месте #{seat}: <strong>{current?.display_name || '—'}</strong></div>
         <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => setGuest(false)} className={`min-h-11 rounded-[11px] border text-[11px] font-black ${!guest ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>Игрок клуба</button><button type="button" onClick={() => setGuest(true)} className={`min-h-11 rounded-[11px] border text-[11px] font-black ${guest ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>Гость без профиля</button></div>
-        {guest ? <div className="mt-3 space-y-2"><input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Имя / ник гостя" className="min-h-12 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] outline-none" /></div> : <div className="mt-3"><label className="flex min-h-12 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3"><Search className="h-4 w-4 text-text-muted" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти игрока вечера" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" /></label><div className="mt-2 max-h-52 space-y-1 overflow-y-auto">{candidates.map((player) => <button type="button" key={player.id} onClick={() => setPlayerId(player.id)} className={`flex min-h-11 w-full items-center rounded-[11px] border px-3 text-left text-[12px] font-bold ${playerId === player.id ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>{player.nickname}<span className="ml-2 truncate text-[10px] font-normal text-text-muted">{player.full_name}</span></button>)}{!candidates.length ? <p className="px-1 py-2 text-[11px] text-text-muted">Нет свободных игроков этого вечера. Сначала отметь игрока пришедшим в «Вечере».</p> : null}</div></div>}
+        {guest ? <div className="mt-3 space-y-2"><input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Имя / ник гостя" className="min-h-12 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] outline-none" /></div> : <div className="mt-3"><label className="flex min-h-12 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3"><Search className="h-4 w-4 text-text-muted" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти игрока вечера" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" /></label><div className="mt-2 max-h-52 space-y-1 overflow-y-auto">{candidates.map((player) => <button type="button" key={player.id} onClick={() => setPlayerId(player.id)} className={`flex min-h-11 w-full items-center rounded-[11px] border px-3 text-left text-[12px] font-bold ${playerId === player.id ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>{player.nickname}<span className="ml-2 truncate text-[10px] font-normal text-text-muted">{seatOf(player.id) ? `сидит на #${seatOf(player.id)} · поменять местами` : player.full_name}</span></button>)}{!candidates.length ? <p className="px-1 py-2 text-[11px] text-text-muted">Нет свободных игроков этого вечера. Сначала отметь игрока пришедшим в «Вечере».</p> : null}</div></div>}
         {error ? <p className="mt-3 text-[11px] text-danger">{error}</p> : null}
         <button type="button" disabled={!canSubmit} onClick={() => setConfirm(true)} className="mt-4 min-h-[50px] w-full rounded-[13px] bg-warning text-[12px] font-black text-slate-950 disabled:opacity-40">Проверить и заменить</button>
       </div>
     </div>
-    <ConfirmDialog open={confirm} title="Заменить игрока на этом месте?" description={`Игровые действия места #${seat} сохранятся, но статистика и связанные начисления будут пересчитаны для правильного игрока.`} confirmLabel="Исправить состав" tone="warning" busy={saving} onCancel={() => !saving && setConfirm(false)} onConfirm={save} />
+    <ConfirmDialog open={confirm} title={seatOf(playerId) ? `Поменять местами #${seat} и #${seatOf(playerId)}?` : 'Заменить игрока на этом месте?'} description={seatOf(playerId) ? 'Роли, фолы, голоса и результат останутся на местах; меняются только игроки. Статистика обоих будет пересчитана.' : `Игровые действия места #${seat} сохранятся, но статистика и связанные начисления будут пересчитаны для правильного игрока.`} confirmLabel="Исправить состав" tone="warning" busy={saving} onCancel={() => !saving && setConfirm(false)} onConfirm={save} />
   </>;
 };

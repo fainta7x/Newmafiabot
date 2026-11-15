@@ -1,3 +1,4 @@
+import { reconcileTournamentGameTokenSettlement } from '../services/tournamentGameTokenSettlementService.ts';
 import { validateBestMoves, validateFirstKilled, validatePlayerResults, validateShots } from '../../lib/protocolConsistency.ts';
 export { validateFirstKilled, validatePlayerResults, validateShots } from '../../lib/protocolConsistency.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
@@ -475,6 +476,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
 
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
     if (existingProtocol && existingProtocol.status === 'completed') {
+      await reconcileTournamentGameTokenSettlement(db, gameId, { activateIfUntracked: true, context: 'completion' });
       // Already completed, return gracefully
       const savedResultsRecords = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ?', [gameId]);
       const resultsMap = new Map<string, any>();
@@ -695,20 +697,25 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
         "UPDATE tournament_games SET status = 'completed', winner_team = ?, completed_at = ? WHERE id = ?",
         [protocol.winner_team, now, gameId]
       );
+      await reconcileTournamentGameTokenSettlement(tx, gameId, { activateIfUntracked: true, context: 'completion' });
     });
 
     // A finished game needs no server copy of its live session («Продолжить игру»).
     await clearLiveGameCheckpoint(db, `tournament:${gameId}`).catch(() => {});
 
-    const achievementPlayers = await db.all<any>(`
-      SELECT DISTINCT tp.player_id
-        FROM tournament_game_seats tgs
-        JOIN tournament_participants tp ON tp.id = tgs.participant_id
-       WHERE tgs.game_id = ? AND tp.player_id IS NOT NULL
-    `, [gameId]);
-    const achievementPlayerIds = achievementPlayers.map((row: any) => String(row.player_id));
-    if (game.judge_player_id) achievementPlayerIds.push(String(game.judge_player_id));
-    await evaluateAchievementsForPlayers(db, achievementPlayerIds);
+    try {
+      const achievementPlayers = await db.all<any>(`
+        SELECT DISTINCT tp.player_id
+          FROM tournament_game_seats tgs
+          JOIN tournament_participants tp ON tp.id = tgs.participant_id
+         WHERE tgs.game_id = ? AND tp.player_id IS NOT NULL
+      `, [gameId]);
+      const achievementPlayerIds = achievementPlayers.map((row: any) => String(row.player_id));
+      if (game.judge_player_id) achievementPlayerIds.push(String(game.judge_player_id));
+      await evaluateAchievementsForPlayers(db, achievementPlayerIds);
+    } catch (error) {
+      console.error(`[tournament-game:${gameId}] completion committed; achievements need reconciliation`, error);
+    }
 
     // Fetch and return completed protocol
     const savedProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
@@ -804,6 +811,7 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
         "UPDATE tournament_games SET status = 'active', completed_at = NULL WHERE id = ?",
         [gameId]
       );
+      await reconcileTournamentGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'reopen' });
     });
 
     const savedProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);

@@ -139,6 +139,14 @@ export async function reconcileTournamentGameTokenSettlement(
   gameId: string,
   options: { activateIfUntracked?: boolean; context: TournamentGameSettlementContext },
 ) {
+  return db.transaction(tx => reconcileTournamentGameTokenSettlementInTransaction(tx, gameId, options));
+}
+
+async function reconcileTournamentGameTokenSettlementInTransaction(
+  db: DatabaseWrapper,
+  gameId: string,
+  options: { activateIfUntracked?: boolean; context: TournamentGameSettlementContext },
+) {
   const existingRows = await db.all<SettlementRow>(
     'SELECT * FROM tournament_game_token_settlements WHERE game_id = ? ORDER BY subject_type, player_id',
     [gameId],

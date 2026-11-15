@@ -2951,3 +2951,9 @@ Scope: «Ещё → Деньги» («Оплата и поддержка», «С
 ## 2026-11-13: названия турниров Gun Town Cup 2, 3, 4
 - Владелец: прошедшие турниры серии это 2-й, 3-й и 4-й Gun Town Cup. Переименование сделано миграцией `applyGunTownCupRename` (метка `gun_town_cup_rename_v1` в `migration_history`): ищет турнир по id и точному старому названию, вручную изменённое название не трогает, старые названия хранит и возвращает функцией `revertGunTownCupRename`.
 - 1 августа «Турнир Богдана 1.08» → «Gun Town Cup 2»; 3 октября «Турнир Богдана #2 3.10.2026» → «Gun Town Cup 3»; 7 ноября «Gun Town Cup 3» → «Gun Town Cup 4».
+
+## 2026-11-15 — tournament game commit audit (continuous audit authorized)
+
+Three synthetic API reproductions fail on main ff024eb: TG01 achievement outage returns 500 after completing the protocol and prevents the response interceptor from applying tokens; TG02 token failure returns 500 but leaves game/protocol completed; TG03 token reversal failure returns 500 but leaves the game/protocol reopened with old token balances. Expected: protocol/game/token effects commit or roll back together, while optional achievements cannot reject a committed completion. Keep existing settlement calculations, retry semantics and rules.
+
+Connected suites: 88 passed across six files, including failure after the first player award, rollback of all balances, retry and idempotent repeated completion. No scoring or award amounts changed.

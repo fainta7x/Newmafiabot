@@ -9,6 +9,8 @@ const page = { hero_photos: ['/announce-photo/a.jpg', '/announce-photo/b.jpg'], 
 
 for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900], [1920, 1089]]) {
   test(`welcome page at ${width}x${height}`, async ({ page: browser }, info) => {
+    const playerChunks = [];
+    browser.on('request', request => { if (/\/assets\/PlayerCabinetShell-.*\.js$/.test(new URL(request.url()).pathname)) playerChunks.push(request.url()); });
     await browser.setViewportSize({ width, height });
     await browser.route('**/api/public/welcome', (route) => route.fulfill({ json: page }));
     await browser.route('**/announce-photo/**', (route) => route.fulfill({ body: PNG, contentType: 'image/png' }));
@@ -29,6 +31,7 @@ for (const [width, height] of [[360, 640], [390, 844], [1366, 768], [1440, 900],
     await browser.getByLabel(/Твой ник в Telegram/).fill('@ivan_tg');
     await browser.getByRole('button', { name: 'Отправить заявку' }).click();
     await expect(browser.getByTestId('welcome-done')).toBeVisible();
+    expect(playerChunks, 'the public site must not fetch the player cabinet').toHaveLength(0);
     expect(await browser.evaluate(auditScreen)).toEqual([]);
     await browser.screenshot({ path: info.outputPath(`welcome-done-${width}.png`), fullPage: true });
   });

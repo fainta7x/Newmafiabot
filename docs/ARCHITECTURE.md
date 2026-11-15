@@ -457,3 +457,8 @@ VirtualRoleDeal is a client-side fair deck using unbiased cryptographic shufflin
 ### Transaction ownership in compound commands
 
 `DatabaseWrapper.transactionOwner()` returns an identity only to the active async transaction owner. Token mutations serialize by that owner; independent requests enter the wrapper transaction queue. Native `sqlite.inTransaction` is not evidence that a request owns a transaction. Gift choice/contribution accounting, participant edits, tournament payment review/report and Telegram link replacement use their existing transaction boundaries; repeated gift confirmation cycles derive a fresh ledger key from the preceding gift entry.
+
+
+### Root-route loading
+
+App.tsx owns the lazy PlayerCabinetShell boundary. Player bootstrap starts its module fetch alongside authentication; public/admin routes do not preload it. Existing Suspense and vite:preloadError recovery stay the owners of loading/error presentation. Initial dependency-closure measurements and production-preview checks live in docs/audit/2026-11-15/route-loading.md.

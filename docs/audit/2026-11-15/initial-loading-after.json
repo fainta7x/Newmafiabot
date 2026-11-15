@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "file": "assets/createLucideIcon-DhfsJYqt.js",
+      "bytes": 1195,
+      "gzip_bytes": 690
+    },
+    {
+      "file": "assets/index-Dk2vZq4c.js",
+      "bytes": 388222,
+      "gzip_bytes": 114959
+    },
+    {
+      "file": "assets/jsx-runtime-Wy9s6hX0.js",
+      "bytes": 8911,
+      "gzip_bytes": 3383
+    },
+    {
+      "file": "assets/liveGameEvents-WOebTV_c.js",
+      "bytes": 3661,
+      "gzip_bytes": 1895
+    },
+    {
+      "file": "assets/pageLeave-Cr95_BTE.js",
+      "bytes": 148,
+      "gzip_bytes": 141
+    },
+    {
+      "file": "assets/trophy-XMUF2kni.js",
+      "bytes": 1058,
+      "gzip_bytes": 624
+    }
+  ],
+  "bytes": 403195,
+  "gzip_bytes": 121692
+}

@@ -3051,3 +3051,8 @@ Verification: 11 new regression scenarios reproduced the defects before the resp
 VF01 (fixed in candidate): `vkMessageOutboxService.ts:deliverOne/fallbackToTelegram` commits terminal VK failure and switches the ledger before Telegram enqueue. An enqueue error is swallowed; no subsequent worker retry creates the missing fallback. Acceptance: an injected Telegram INSERT failure leaves the VK attempt recoverable and the original route intact; retry creates exactly one Telegram row and commits the channel switch together. Synthetic DB/provider only.
 
 Verification: the failure-injection regression failed before the fix; afterwards 226 tests in 37 connected files, project:verify:fast and production build passed. The retry assertion also verifies a second drain cannot duplicate the committed fallback.
+
+
+## 2026-11-15 — PF02: отделить кабинет от первоначальной загрузки
+
+Профиль показал лишние экраны игрока в статическом входе публичного сайта. Кандидат perf/route-loading использует React.lazy и preload параллельно auth, сохраняя существующий Suspense/reload recovery. Полный первоначальный JS-граф: 1,234,881 → 403,195 байт, gzip level 6: 336,754 → 121,571. Восемь browser-сценариев после изменения и пять базовых до проходят, включая пять размеров layout audit, отсутствие чанка на /welcome, вход/reload и восстановление старого чанка. Код/стили экранов не менялись; только lazy-boundary. Подробности и ограничения — docs/audit/2026-11-15/route-loading.md. Реальных внешних сообщений/production-записей нет.

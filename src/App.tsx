@@ -14,7 +14,9 @@ import { PublicTournamentResults } from "./components/public/PublicTournamentRes
 import { PublicOffer } from "./components/public/PublicOffer.tsx";
 import TelegramLinkRedeem from "./components/player/TelegramLinkRedeem.tsx";
 const PublicGuideRoute = lazy(() => import("./components/public/PublicGuideRoute.tsx"));
-import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
+import type { PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
+const loadPlayerCabinet = () => import("./components/player/PlayerCabinetShell.tsx");
+const PlayerCabinetShell = lazy(loadPlayerCabinet);
 const PlayerReplayScreen = lazy(() => import("./components/player/PlayerReplayScreen.tsx"));
 import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboarding.tsx";
 import AsyncState from "./components/ui/AsyncState.tsx";
@@ -192,6 +194,8 @@ function AppContent() {
 
   const bootstrapPlayer = useCallback(async () => {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
+    // Fetch the player code alongside authentication, never after its network round trip.
+    void loadPlayerCabinet().catch(() => undefined);
     setRootState({ status: 'loading' });
     rememberSiteReturn(window.location.search);
 

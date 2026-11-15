@@ -1,0 +1,1556 @@
+[
+  {
+    "file": "assets/index-B_4mqRI7.js",
+    "bytes": 1190811,
+    "modules": [
+      {
+        "id": "node_modules/react-dom/cjs/react-dom-client.production.js",
+        "bytes": 529551
+      },
+      {
+        "id": "src/components/player/CanonicalPremiumPlayerProfile.tsx",
+        "bytes": 45077
+      },
+      {
+        "id": "src/components/player/PlayerGameDetail.tsx",
+        "bytes": 37012
+      },
+      {
+        "id": "src/components/player/PlayerEconomy.tsx",
+        "bytes": 34380
+      },
+      {
+        "id": "src/components/player/PlayerEventsCalendar.tsx",
+        "bytes": 33039
+      },
+      {
+        "id": "src/components/public/PublicTournamentResults.tsx",
+        "bytes": 30780
+      },
+      {
+        "id": "src/components/player/PremiumProfileConnections.tsx",
+        "bytes": 30075
+      },
+      {
+        "id": "src/components/crm/gameProtocol/protocolReview.ts",
+        "bytes": 29425
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/viewport/DrawerViewport.mjs",
+        "bytes": 28766
+      },
+      {
+        "id": "src/components/player/PlayerLiveCenter.tsx",
+        "bytes": 26284
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/useSwipeDismiss.mjs",
+        "bytes": 26243
+      },
+      {
+        "id": "src/components/player/PlayerHomeDashboard.tsx",
+        "bytes": 25465
+      },
+      {
+        "id": "src/components/public/WelcomePage.tsx",
+        "bytes": 25139
+      },
+      {
+        "id": "src/lib/clubGuide.ts",
+        "bytes": 23424
+      },
+      {
+        "id": "src/components/public/PublicJoinView.vk-direct.tsx",
+        "bytes": 23356
+      },
+      {
+        "id": "src/components/player/PlayerEventSlotDetail.tsx",
+        "bytes": 22999
+      },
+      {
+        "id": "src/components/player/PlayerPayments.tsx",
+        "bytes": 22801
+      },
+      {
+        "id": "src/components/player/PlayerEloJourney.tsx",
+        "bytes": 22761
+      },
+      {
+        "id": "src/components/player/PlayerGoMafiaLink.tsx",
+        "bytes": 22600
+      },
+      {
+        "id": "src/components/player/PlayerRatingPeriods.tsx",
+        "bytes": 22462
+      },
+      {
+        "id": "src/components/player/PlayerStoriesPanel.tsx",
+        "bytes": 22189
+      },
+      {
+        "id": "src/components/player/PlayerMetricRatings.tsx",
+        "bytes": 22024
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/components/FloatingFocusManager.mjs",
+        "bytes": 21167
+      },
+      {
+        "id": "src/components/player/PlayerDailyWord.tsx",
+        "bytes": 19974
+      },
+      {
+        "id": "src/components/player/PlayerTournamentView.tsx",
+        "bytes": 19108
+      },
+      {
+        "id": "src/components/player/PlayerTournamentEveningDetail.tsx",
+        "bytes": 18905
+      },
+      {
+        "id": "src/components/player/PlayerEveningSummaries.tsx",
+        "bytes": 18686
+      },
+      {
+        "id": "src/components/player/VerifiedPlayerOnboarding.tsx",
+        "bytes": 16169
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/hooks/useDismiss.mjs",
+        "bytes": 15710
+      },
+      {
+        "id": "src/components/player/PremiumProfileShowcase.tsx",
+        "bytes": 15491
+      },
+      {
+        "id": "src/App.tsx",
+        "bytes": 15316
+      },
+      {
+        "id": "src/components/player/PlayerClubActivity.tsx",
+        "bytes": 14541
+      },
+      {
+        "id": "src/lib/api.ts",
+        "bytes": 14418
+      },
+      {
+        "id": "src/components/player/PlayerEveningWorkspace.tsx",
+        "bytes": 14260
+      },
+      {
+        "id": "src/lib/protocolVotingValidation.ts",
+        "bytes": 14111
+      },
+      {
+        "id": "src/components/player/PlayerProfileSettings.tsx",
+        "bytes": 13769
+      },
+      {
+        "id": "src/components/crm/EveningDeathProtocolOverlay.tsx",
+        "bytes": 13753
+      },
+      {
+        "id": "src/components/player/PlayerSeasonsPanel.tsx",
+        "bytes": 13750
+      },
+      {
+        "id": "src/components/player/PlayerHistoryStatsView.tsx",
+        "bytes": 13640
+      },
+      {
+        "id": "src/components/player/TrophyCabinet.tsx",
+        "bytes": 13264
+      },
+      {
+        "id": "src/components/player/PlayerClubConnections.tsx",
+        "bytes": 12927
+      },
+      {
+        "id": "src/components/player/ClubConnectionStories.tsx",
+        "bytes": 12636
+      },
+      {
+        "id": "src/components/player/PlayerRatingTable.tsx",
+        "bytes": 12633
+      },
+      {
+        "id": "src/lib/protocolConsistency.ts",
+        "bytes": 12419
+      },
+      {
+        "id": "src/components/player/PlayerPokerTournamentDetail.tsx",
+        "bytes": 12412
+      },
+      {
+        "id": "src/lib/liveClubSession.ts",
+        "bytes": 11820
+      },
+      {
+        "id": "src/components/player/PlayerSmartNotifications.tsx",
+        "bytes": 11245
+      },
+      {
+        "id": "src/components/player/TournamentCupAsset.tsx",
+        "bytes": 10476
+      },
+      {
+        "id": "src/lib/liveGameEventLog.ts",
+        "bytes": 9928
+      },
+      {
+        "id": "src/components/player/PlayerAchievementPaths.tsx",
+        "bytes": 9843
+      },
+      {
+        "id": "src/components/player/PersonalTeamwork.tsx",
+        "bytes": 9562
+      },
+      {
+        "id": "src/components/TestEnvironmentGate.tsx",
+        "bytes": 9509
+      },
+      {
+        "id": "src/components/player/PlayerNotificationSettings.tsx",
+        "bytes": 9281
+      },
+      {
+        "id": "node_modules/scheduler/cjs/scheduler.production.js",
+        "bytes": 9059
+      },
+      {
+        "id": "src/components/player/PlayerEveningSeatBooking.tsx",
+        "bytes": 8943
+      },
+      {
+        "id": "src/components/player/PlayerReveals.tsx",
+        "bytes": 8727
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/popups/popupStoreUtils.mjs",
+        "bytes": 8633
+      },
+      {
+        "id": "src/components/player/PlayerCabinetShell.tsx",
+        "bytes": 8589
+      },
+      {
+        "id": "src/lib/clocktowerGuide.ts",
+        "bytes": 8582
+      },
+      {
+        "id": "src/components/player/PlayerCommunityHub.tsx",
+        "bytes": 8442
+      },
+      {
+        "id": "src/components/player/PlayerClubDirectory.tsx",
+        "bytes": 8348
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/popup/DrawerPopup.mjs",
+        "bytes": 8157
+      },
+      {
+        "id": "src/lib/gameDiscipline.ts",
+        "bytes": 8063
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/root/DrawerRoot.mjs",
+        "bytes": 7711
+      },
+      {
+        "id": "src/components/player/PlayerAwardSuggestionAction.tsx",
+        "bytes": 7711
+      },
+      {
+        "id": "src/components/player/PlayerGameRolePurchase.tsx",
+        "bytes": 7473
+      },
+      {
+        "id": "src/components/player/PlayerEveningLiveOverview.tsx",
+        "bytes": 7458
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useScrollLock.mjs",
+        "bytes": 7273
+      },
+      {
+        "id": "src/components/player/PlayerTournamentResults.tsx",
+        "bytes": 7084
+      },
+      {
+        "id": "src/components/player/PlayerCustomEventDetail.tsx",
+        "bytes": 7012
+      },
+      {
+        "id": "src/components/player/PlayerLearningBlock.tsx",
+        "bytes": 6963
+      },
+      {
+        "id": "src/components/player/TrophyIcons.tsx",
+        "bytes": 6896
+      },
+      {
+        "id": "src/components/player/EveningVotingPanel.tsx",
+        "bytes": 6879
+      },
+      {
+        "id": "src/components/player/PlayerWalletHub.tsx",
+        "bytes": 6849
+      },
+      {
+        "id": "src/components/player/PlayerProfileCareerSections.tsx",
+        "bytes": 6838
+      },
+      {
+        "id": "src/components/public/PublicOffer.tsx",
+        "bytes": 6816
+      },
+      {
+        "id": "src/components/player/ColourReadingPanel.tsx",
+        "bytes": 6743
+      },
+      {
+        "id": "src/lib/liveGameAnalysis.ts",
+        "bytes": 6699
+      },
+      {
+        "id": "src/components/player/PlayerGameNumbers.tsx",
+        "bytes": 6539
+      },
+      {
+        "id": "src/components/player/SmartFriendInviteSuggestions.tsx",
+        "bytes": 6419
+      },
+      {
+        "id": "src/components/BettingLiveBridge.tsx",
+        "bytes": 6414
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/tabbable.mjs",
+        "bytes": 5753
+      },
+      {
+        "id": "src/lib/gameActionFacts.ts",
+        "bytes": 5588
+      },
+      {
+        "id": "src/components/player/PlayerMusicSlots.tsx",
+        "bytes": 5576
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/components/FloatingPortal.mjs",
+        "bytes": 5497
+      },
+      {
+        "id": "src/components/player/PlayerProfileCompleteness.tsx",
+        "bytes": 5496
+      },
+      {
+        "id": "src/components/player/PlayerGiftCollectionCard.tsx",
+        "bytes": 5235
+      },
+      {
+        "id": "src/components/player/ConnectionPairHistory.tsx",
+        "bytes": 5132
+      },
+      {
+        "id": "src/components/player/PlayerInsightsPanel.tsx",
+        "bytes": 5057
+      },
+      {
+        "id": "src/components/player/PlayerQuickAccessBar.tsx",
+        "bytes": 4828
+      },
+      {
+        "id": "src/components/ui/PlayerAvatar.tsx",
+        "bytes": 4806
+      },
+      {
+        "id": "src/lib/guideCatalog.ts",
+        "bytes": 4737
+      },
+      {
+        "id": "src/components/player/PlayerGameMusicOrder.tsx",
+        "bytes": 4727
+      },
+      {
+        "id": "src/components/player/PlayerProfileStatsHero.tsx",
+        "bytes": 4510
+      },
+      {
+        "id": "src/lib/telegramWebAppViewport.ts",
+        "bytes": 4306
+      },
+      {
+        "id": "src/components/player/PersonalRecentEvening.tsx",
+        "bytes": 4283
+      },
+      {
+        "id": "src/components/crm/tournaments/protocol/protocolStateUtils.ts",
+        "bytes": 4262
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/use-button/useButton.mjs",
+        "bytes": 4240
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/root/useDrawerSnapPoints.mjs",
+        "bytes": 4238
+      },
+      {
+        "id": "src/components/player/PlayerGameRevealsScene.tsx",
+        "bytes": 4217
+      },
+      {
+        "id": "src/components/player/PlayerProfilePrivacySettings.tsx",
+        "bytes": 4206
+      },
+      {
+        "id": "src/components/player/VkPlayerAccess.tsx",
+        "bytes": 4181
+      },
+      {
+        "id": "src/lib/trophyCabinetModel.ts",
+        "bytes": 4173
+      },
+      {
+        "id": "src/components/player/PlayerGameSeatSwapOrder.tsx",
+        "bytes": 4138
+      },
+      {
+        "id": "src/components/player/PlayerInviteSettings.tsx",
+        "bytes": 4068
+      },
+      {
+        "id": "src/components/player/CuratorTasksCard.tsx",
+        "bytes": 3887
+      },
+      {
+        "id": "src/components/player/PlayerSettingsHub.tsx",
+        "bytes": 3880
+      },
+      {
+        "id": "src/components/ui/Sheet.tsx",
+        "bytes": 3864
+      },
+      {
+        "id": "src/lib/achievementStories.ts",
+        "bytes": 3794
+      },
+      {
+        "id": "src/components/player/PokerTournamentSchedule.tsx",
+        "bytes": 3744
+      },
+      {
+        "id": "src/components/player/PlayerRolePurchasesShop.tsx",
+        "bytes": 3687
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/markOthers.mjs",
+        "bytes": 3647
+      },
+      {
+        "id": "src/components/player/WhatsNewCard.tsx",
+        "bytes": 3507
+      },
+      {
+        "id": "node_modules/@base-ui/react/merge-props/mergeProps.mjs",
+        "bytes": 3497
+      },
+      {
+        "id": "src/lib/liveDeathProtocol.ts",
+        "bytes": 3477
+      },
+      {
+        "id": "src/components/player/PlayerGameActionJournal.tsx",
+        "bytes": 3397
+      },
+      {
+        "id": "src/lib/uiTelemetry.ts",
+        "bytes": 3381
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/hooks/useClick.mjs",
+        "bytes": 3283
+      },
+      {
+        "id": "\u0000vite/preload-helper.js",
+        "bytes": 3188
+      },
+      {
+        "id": "src/components/ui/MobileSheet.tsx",
+        "bytes": 3089
+      },
+      {
+        "id": "src/components/game/EloBreakdown.tsx",
+        "bytes": 2994
+      },
+      {
+        "id": "src/components/player/PlayerRoleResults.tsx",
+        "bytes": 2956
+      },
+      {
+        "id": "node_modules/@base-ui/utils/store/useStore.mjs",
+        "bytes": 2932
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/root/useDialogRoot.mjs",
+        "bytes": 2915
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/useRenderElement.mjs",
+        "bytes": 2816
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/popups/store.mjs",
+        "bytes": 2777
+      },
+      {
+        "id": "src/components/player/PlayerRatingHub.tsx",
+        "bytes": 2753
+      },
+      {
+        "id": "src/components/player/VotePromptCard.tsx",
+        "bytes": 2702
+      },
+      {
+        "id": "src/components/player/ClubConnectionCard.tsx",
+        "bytes": 2696
+      },
+      {
+        "id": "src/components/player/PlayerNightShots.tsx",
+        "bytes": 2680
+      },
+      {
+        "id": "src/lib/circleTitle.ts",
+        "bytes": 2611
+      },
+      {
+        "id": "src/components/player/PlayerEveningsHub.tsx",
+        "bytes": 2582
+      },
+      {
+        "id": "src/components/player/PlayerActionDistribution.tsx",
+        "bytes": 2580
+      },
+      {
+        "id": "src/components/player/TelegramLinkRedeem.tsx",
+        "bytes": 2558
+      },
+      {
+        "id": "src/lib/eveningResponse.ts",
+        "bytes": 2531
+      },
+      {
+        "id": "src/components/ui/AppConfirmHost.tsx",
+        "bytes": 2529
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/popup/DialogPopup.mjs",
+        "bytes": 2512
+      },
+      {
+        "id": "src/components/ui/Dialog.tsx",
+        "bytes": 2371
+      },
+      {
+        "id": "node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.js",
+        "bytes": 2346
+      },
+      {
+        "id": "src/components/ui/ConfirmDialog.tsx",
+        "bytes": 2343
+      },
+      {
+        "id": "src/components/player/PlayerGameGraphics.tsx",
+        "bytes": 2320
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/root/useRenderDialogRoot.mjs",
+        "bytes": 2306
+      },
+      {
+        "id": "src/components/player/PlayerCircleExits.tsx",
+        "bytes": 2304
+      },
+      {
+        "id": "node_modules/@base-ui/utils/store/ReactStore.mjs",
+        "bytes": 2301
+      },
+      {
+        "id": "src/components/player/PlayerVisualScenes.tsx",
+        "bytes": 2299
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/store/DialogStore.mjs",
+        "bytes": 2261
+      },
+      {
+        "id": "src/lib/judgeTrainingProtocols.ts",
+        "bytes": 2231
+      },
+      {
+        "id": "src/components/ui/SegmentedControl.tsx",
+        "bytes": 2158
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/useAnimationsFinished.mjs",
+        "bytes": 2091
+      },
+      {
+        "id": "src/components/player/PlayerConnectionHistory.tsx",
+        "bytes": 2065
+      },
+      {
+        "id": "src/components/ui/AsyncState.tsx",
+        "bytes": 2013
+      },
+      {
+        "id": "node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs",
+        "bytes": 1941
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useMergedRefs.mjs",
+        "bytes": 1927
+      },
+      {
+        "id": "src/lib/crmPrimaryTitleOwnership.ts",
+        "bytes": 1890
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/trigger/DialogTrigger.mjs",
+        "bytes": 1858
+      },
+      {
+        "id": "src/components/player/OrderPaymentChoice.tsx",
+        "bytes": 1848
+      },
+      {
+        "id": "src/shared/novicePromo.json",
+        "bytes": 1823
+      },
+      {
+        "id": "node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js",
+        "bytes": 1819
+      },
+      {
+        "id": "src/components/player/PlayerIdentityFields.tsx",
+        "bytes": 1755
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useAnimationFrame.mjs",
+        "bytes": 1753
+      },
+      {
+        "id": "src/lib/playerAvatarImage.ts",
+        "bytes": 1740
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/useTransitionStatus.mjs",
+        "bytes": 1719
+      },
+      {
+        "id": "src/components/player/StaffWorkStats.tsx",
+        "bytes": 1713
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/components/FloatingRootStore.mjs",
+        "bytes": 1678
+      },
+      {
+        "id": "src/components/player/PlayerBottomNavigation.tsx",
+        "bytes": 1648
+      },
+      {
+        "id": "src/components/player/DirectContactButtons.tsx",
+        "bytes": 1567
+      },
+      {
+        "id": "src/components/crm/LiveGameResumeBridge.tsx",
+        "bytes": 1509
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/useUnmountAfterClose.mjs",
+        "bytes": 1497
+      },
+      {
+        "id": "src/lib/gameProtocolView.ts",
+        "bytes": 1478
+      },
+      {
+        "id": "src/components/player/PokerTournamentParticipants.tsx",
+        "bytes": 1454
+      },
+      {
+        "id": "src/components/player/PriceDependsOnActivity.tsx",
+        "bytes": 1431
+      },
+      {
+        "id": "src/lib/revealStats.ts",
+        "bytes": 1421
+      },
+      {
+        "id": "src/lib/communityViewMemory.ts",
+        "bytes": 1402
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/scrollable.mjs",
+        "bytes": 1383
+      },
+      {
+        "id": "src/components/ui/Field.tsx",
+        "bytes": 1381
+      },
+      {
+        "id": "src/components/player/playerCabinetNavigation.ts",
+        "bytes": 1351
+      },
+      {
+        "id": "src/components/ui/Button.tsx",
+        "bytes": 1334
+      },
+      {
+        "id": "src/main.tsx",
+        "bytes": 1270
+      },
+      {
+        "id": "src/components/ProductModeSwitch.tsx",
+        "bytes": 1239
+      },
+      {
+        "id": "src/lib/liveStorageBudget.ts",
+        "bytes": 1224
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/event.mjs",
+        "bytes": 1223
+      },
+      {
+        "id": "src/lib/eveningDomain.ts",
+        "bytes": 1209
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/useFocusableWhenDisabled.mjs",
+        "bytes": 1205
+      },
+      {
+        "id": "src/lib/curatorAreas.ts",
+        "bytes": 1203
+      },
+      {
+        "id": "src/components/ui/AvatarImage.tsx",
+        "bytes": 1200
+      },
+      {
+        "id": "\u0000vite/modulepreload-polyfill.js",
+        "bytes": 1185
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/hooks/useSyncedFloatingRootContext.mjs",
+        "bytes": 1144
+      },
+      {
+        "id": "node_modules/@base-ui/utils/store/Store.mjs",
+        "bytes": 1134
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/viewport/DialogViewport.mjs",
+        "bytes": 1130
+      },
+      {
+        "id": "src/lib/maintenance.ts",
+        "bytes": 1124
+      },
+      {
+        "id": "src/components/player/PlayerLiveOnlyCenter.tsx",
+        "bytes": 1100
+      },
+      {
+        "id": "src/lib/siteReturn.ts",
+        "bytes": 1092
+      },
+      {
+        "id": "src/components/ui/TokenIcon.tsx",
+        "bytes": 1071
+      },
+      {
+        "id": "src/hooks/usePlayerDebtSummary.ts",
+        "bytes": 1058
+      },
+      {
+        "id": "src/shared/metricTable.ts",
+        "bytes": 1055
+      },
+      {
+        "id": "src/components/public/VenueAddress.tsx",
+        "bytes": 1054
+      },
+      {
+        "id": "src/lib/uiUsageNames.ts",
+        "bytes": 1052
+      },
+      {
+        "id": "src/components/player/PlayerSettingsLoadState.tsx",
+        "bytes": 1044
+      },
+      {
+        "id": "src/hooks/useUnsavedChanges.ts",
+        "bytes": 1036
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/element.mjs",
+        "bytes": 1027
+      },
+      {
+        "id": "src/components/ui/AppErrorBoundary.tsx",
+        "bytes": 997
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/backdrop/DrawerBackdrop.mjs",
+        "bytes": 986
+      },
+      {
+        "id": "src/lib/playerAvatars.ts",
+        "bytes": 980
+      },
+      {
+        "id": "node_modules/@base-ui/utils/shadowDom.mjs",
+        "bytes": 976
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/backdrop/DialogBackdrop.mjs",
+        "bytes": 890
+      },
+      {
+        "id": "node_modules/@base-ui/utils/fastHooks.mjs",
+        "bytes": 883
+      },
+      {
+        "id": "src/lib/playerHomeEvening.ts",
+        "bytes": 881
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/portal/DialogPortal.mjs",
+        "bytes": 876
+      },
+      {
+        "id": "src/components/JudgeGameMusicController.tsx",
+        "bytes": 876
+      },
+      {
+        "id": "src/components/player/PlayerSeasonHub.tsx",
+        "bytes": 854
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/getElementTransform.mjs",
+        "bytes": 805
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/close/DialogClose.mjs",
+        "bytes": 802
+      },
+      {
+        "id": "src/lib/liveGameFlow.ts",
+        "bytes": 801
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useId.mjs",
+        "bytes": 775
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/InternalBackdrop.mjs",
+        "bytes": 770
+      },
+      {
+        "id": "src/lib/presence.ts",
+        "bytes": 768
+      },
+      {
+        "id": "src/lib/russianPlural.ts",
+        "bytes": 767
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useEnhancedClickHandler.mjs",
+        "bytes": 762
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/brain.js",
+        "bytes": 747
+      },
+      {
+        "id": "src/lib/appConfirm.ts",
+        "bytes": 719
+      },
+      {
+        "id": "src/lib/moscowDate.ts",
+        "bytes": 718
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useStableCallback.mjs",
+        "bytes": 715
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/nodes.mjs",
+        "bytes": 707
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/popupStateMapping.mjs",
+        "bytes": 696
+      },
+      {
+        "id": "src/components/crm/ScopedEveningDeathProtocolBridge.tsx",
+        "bytes": 696
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/popups/popupTriggerMap.mjs",
+        "bytes": 693
+      },
+      {
+        "id": "src/components/ui/Input.tsx",
+        "bytes": 690
+      },
+      {
+        "id": "src/lib/guideProgress.ts",
+        "bytes": 689
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useTimeout.mjs",
+        "bytes": 671
+      },
+      {
+        "id": "src/lib/eveningPrices.ts",
+        "bytes": 656
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/useOpenChangeComplete.mjs",
+        "bytes": 642
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/trophy.js",
+        "bytes": 620
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/medal.js",
+        "bytes": 587
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/settings.js",
+        "bytes": 579
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/enqueueFocus.mjs",
+        "bytes": 570
+      },
+      {
+        "id": "src/components/player/PlayerEconomyPanel.tsx",
+        "bytes": 562
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/createBaseUIEventDetails.mjs",
+        "bytes": 560
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/eye-off.js",
+        "bytes": 551
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/getStateAttributesProps.mjs",
+        "bytes": 546
+      },
+      {
+        "id": "src/lib/playerResultObservations.ts",
+        "bytes": 539
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/composite.mjs",
+        "bytes": 538
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/description/DialogDescription.mjs",
+        "bytes": 537
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/FocusGuard.mjs",
+        "bytes": 537
+      },
+      {
+        "id": "src/lib/profileViewMemory.ts",
+        "bytes": 531
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/title/DialogTitle.mjs",
+        "bytes": 508
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/useOpenInteractionType.mjs",
+        "bytes": 503
+      },
+      {
+        "id": "node_modules/@base-ui/utils/formatErrorMessage.mjs",
+        "bytes": 502
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/popups/usePopupHandleStore.mjs",
+        "bytes": 498
+      },
+      {
+        "id": "src/lib/organizerAuth.ts",
+        "bytes": 485
+      },
+      {
+        "id": "node_modules/@base-ui/utils/platform/shared.mjs",
+        "bytes": 483
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/components/FloatingTree.mjs",
+        "bytes": 483
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useControlled.mjs",
+        "bytes": 471
+      },
+      {
+        "id": "node_modules/@base-ui/utils/platform/os.mjs",
+        "bytes": 470
+      },
+      {
+        "id": "node_modules/react-dom/client.js",
+        "bytes": 468
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/dispatchClickWithModifiers.mjs",
+        "bytes": 466
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/createEventEmitter.mjs",
+        "bytes": 461
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/book-open-check.js",
+        "bytes": 458
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/library-big.js",
+        "bytes": 458
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/popup/DrawerPopupDataAttributes.mjs",
+        "bytes": 455
+      },
+      {
+        "id": "src/shared/dailyWord.ts",
+        "bytes": 450
+      },
+      {
+        "id": "src/lib/venues.ts",
+        "bytes": 449
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/refresh-cw.js",
+        "bytes": 448
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/gavel.js",
+        "bytes": 447
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/crown.js",
+        "bytes": 444
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/ticket.js",
+        "bytes": 439
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/content/DrawerContent.mjs",
+        "bytes": 428
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/popup/DrawerPopupCssVars.mjs",
+        "bytes": 404
+      },
+      {
+        "id": "node_modules/@base-ui/utils/visuallyHidden.mjs",
+        "bytes": 401
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/circle-alert.js",
+        "bytes": 400
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useValueAsRef.mjs",
+        "bytes": 398
+      },
+      {
+        "id": "src/lib/gomafiaCareer.ts",
+        "bytes": 398
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/calendar.js",
+        "bytes": 397
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/root/DrawerRootContext.mjs",
+        "bytes": 393
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/reason-parts.mjs",
+        "bytes": 391
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/composite/root/CompositeRootContext.mjs",
+        "bytes": 388
+      },
+      {
+        "id": "src/components/player/PlayerProfileHub.tsx",
+        "bytes": 387
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/arrow-left-right.js",
+        "bytes": 386
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/users-round.js",
+        "bytes": 375
+      },
+      {
+        "id": "src/lib/formatRubleAmount.ts",
+        "bytes": 373
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/external-link.js",
+        "bytes": 371
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/inbox.js",
+        "bytes": 368
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/send.js",
+        "bytes": 368
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/constants.mjs",
+        "bytes": 366
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/house.js",
+        "bytes": 363
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/user-check.js",
+        "bytes": 363
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/award.js",
+        "bytes": 362
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/globe.js",
+        "bytes": 355
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/map-pin.js",
+        "bytes": 350
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/composite/composite.mjs",
+        "bytes": 350
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/root/DialogRootContext.mjs",
+        "bytes": 349
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/shield.js",
+        "bytes": 345
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/stateAttributesMapping.mjs",
+        "bytes": 344
+      },
+      {
+        "id": "node_modules/@base-ui/utils/getReactElementRef.mjs",
+        "bytes": 338
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/portal/DialogPortalContext.mjs",
+        "bytes": 338
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/message-circle.js",
+        "bytes": 331
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/getFiniteAnimations.mjs",
+        "bytes": 318
+      },
+      {
+        "id": "src/shared/gameExit.ts",
+        "bytes": 314
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/virtual-keyboard-provider/DrawerVirtualKeyboardContext.mjs",
+        "bytes": 307
+      },
+      {
+        "id": "src/lib/directContact.ts",
+        "bytes": 299
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/rotate-ccw.js",
+        "bytes": 291
+      },
+      {
+        "id": "src/lib/playerGameDate.ts",
+        "bytes": 286
+      },
+      {
+        "id": "src/lib/legalInfo.ts",
+        "bytes": 280
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/constants.mjs",
+        "bytes": 280
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/user-round.js",
+        "bytes": 277
+      },
+      {
+        "id": "node_modules/@base-ui/utils/platform/engine.mjs",
+        "bytes": 275
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/trending-up.js",
+        "bytes": 266
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/viewport/DialogViewportDataAttributes.mjs",
+        "bytes": 265
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/utils/stateAttributesMapping.mjs",
+        "bytes": 262
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/provider/DrawerProviderContext.mjs",
+        "bytes": 262
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/popup/DialogPopupDataAttributes.mjs",
+        "bytes": 261
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/viewport/DrawerViewportContext.mjs",
+        "bytes": 260
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useRefWithInit.mjs",
+        "bytes": 259
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/arrow-right.js",
+        "bytes": 258
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/arrow-left.js",
+        "bytes": 256
+      },
+      {
+        "id": "node_modules/@base-ui/utils/addEventListener.mjs",
+        "bytes": 256
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/CommonPopupDataAttributes.mjs",
+        "bytes": 253
+      },
+      {
+        "id": "node_modules/@base-ui/utils/mergeCleanups.mjs",
+        "bytes": 236
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/loader-circle.js",
+        "bytes": 232
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/x.js",
+        "bytes": 222
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useForcedRerendering.mjs",
+        "bytes": 222
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/chevron-right.js",
+        "bytes": 218
+      },
+      {
+        "id": "node_modules/use-sync-external-store/shim/with-selector.js",
+        "bytes": 218
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/chevron-left.js",
+        "bytes": 216
+      },
+      {
+        "id": "node_modules/use-sync-external-store/shim/index.js",
+        "bytes": 216
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/chevron-down.js",
+        "bytes": 214
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/chevron-up.js",
+        "bytes": 210
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/getElementAtPoint.mjs",
+        "bytes": 208
+      },
+      {
+        "id": "node_modules/@base-ui/utils/reactVersion.mjs",
+        "bytes": 207
+      },
+      {
+        "id": "src/shared/stats.ts",
+        "bytes": 203
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/resolveRef.mjs",
+        "bytes": 202
+      },
+      {
+        "id": "src/lib/playerGameResultLabels.ts",
+        "bytes": 201
+      },
+      {
+        "id": "node_modules/lucide-react/dist/esm/icons/check.js",
+        "bytes": 197
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/resolveClassName.mjs",
+        "bytes": 193
+      },
+      {
+        "id": "node_modules/@base-ui/utils/clamp.mjs",
+        "bytes": 187
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useIsoLayoutEffect.mjs",
+        "bytes": 186
+      },
+      {
+        "id": "node_modules/@base-ui/utils/mergeObjects.mjs",
+        "bytes": 184
+      },
+      {
+        "id": "node_modules/scheduler/index.js",
+        "bytes": 183
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/root/DialogRoot.mjs",
+        "bytes": 183
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/TransitionStatusDataAttributes.mjs",
+        "bytes": 177
+      },
+      {
+        "id": "node_modules/@base-ui/utils/inertValue.mjs",
+        "bytes": 171
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/resolveStyle.mjs",
+        "bytes": 169
+      },
+      {
+        "id": "src/shared/venues.json",
+        "bytes": 164
+      },
+      {
+        "id": "node_modules/@base-ui/react/floating-ui-react/utils/createAttribute.mjs",
+        "bytes": 157
+      },
+      {
+        "id": "node_modules/@base-ui/utils/empty.mjs",
+        "bytes": 150
+      },
+      {
+        "id": "node_modules/@base-ui/react/utils/CommonTriggerDataAttributes.mjs",
+        "bytes": 149
+      },
+      {
+        "id": "node_modules/@base-ui/react/internals/useBaseUiId.mjs",
+        "bytes": 149
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/content/drawerContentAttribute.mjs",
+        "bytes": 142
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/backdrop/DrawerBackdropCssVars.mjs",
+        "bytes": 135
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/description/DrawerDescription.mjs",
+        "bytes": 132
+      },
+      {
+        "id": "src/lib/playerGameRoleLabels.ts",
+        "bytes": 131
+      },
+      {
+        "id": "node_modules/@base-ui/utils/useOnMount.mjs",
+        "bytes": 131
+      },
+      {
+        "id": "node_modules/@base-ui/utils/owner.mjs",
+        "bytes": 130
+      },
+      {
+        "id": "node_modules/@base-ui/react/dialog/popup/DialogPopupCssVars.mjs",
+        "bytes": 122
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/trigger/DrawerTrigger.mjs",
+        "bytes": 116
+      },
+      {
+        "id": "node_modules/@base-ui/utils/platform/env.mjs",
+        "bytes": 114
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/portal/DrawerPortal.mjs",
+        "bytes": 112
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/close/DrawerClose.mjs",
+        "bytes": 108
+      },
+      {
+        "id": "node_modules/@base-ui/react/drawer/title/DrawerTitle.mjs",
+        "bytes": 108
+      },
+      {
+        "id": "src/shared/numbers.ts",
+        "bytes": 107
+      },
+      {
+        "id": "node_modules/@base-ui/utils/safeReact.mjs",
+        "bytes": 97
+      },
+      {
+        "id": "node_modules/@base-ui/utils/platform/screen-reader.mjs",
+        "bytes": 96
+      },
+      {
+        "id": "src/lib/cn.ts",
+        "bytes": 75
+      },
+      {
+        "id": "src/components/player/dailyWord.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/player/TrophyCabinet.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/hooks/useJudgeGameMusic.ts",
+        "bytes": 0
+      },
+      {
+        "id": "src/index.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/styles/design-system.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/styles/telegram-viewport.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/releasePolish.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameJudge.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameDesktopParity.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameCabinetShell.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameSeatCabinet.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameActionPriority.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameNightReadability.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameRecoveryPolish.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameDeathProtocolCabinet.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameTelegram.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameMobileCenterPriority.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/appWideDesktop.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameWideDesktop.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameSeatDisciplineClearance.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameFoulMeter.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveGameNightStage.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/crm/liveSeatGrid.css",
+        "bytes": 0
+      },
+      {
+        "id": "src/components/public/liveBroadcastCompact.css",
+        "bytes": 0
+      },
+      {
+        "id": "index.html",
+        "bytes": 0
+      }
+    ]
+  }
+]

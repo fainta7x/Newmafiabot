@@ -313,7 +313,8 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   // The «поднять / оставить» window opens by itself for every new decision; «Свернуть» folds it, the panel button opens it back.
   const [raiseOpenKey, setRaiseOpenKey] = React.useState<string | null>(null);
-  React.useEffect(() => { if (tableDecisionKey) setRaiseOpenKey(tableDecisionKey); }, [tableDecisionKey]);
+  // Not in the judge training (same reason as the numbers window): there it stays the «Цифрами» button.
+  React.useEffect(() => { if (tableDecisionKey && numbersAutoOpen) setRaiseOpenKey(tableDecisionKey); }, [tableDecisionKey, numbersAutoOpen]);
   React.useEffect(() => {
     if (tableDecisionKey) activateTableDecisionSelection(tableDecisionKey);
     else deactivateTableDecisionSelection();

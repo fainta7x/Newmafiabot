@@ -13,6 +13,12 @@
 
 # Audit log
 
+## 2026-11-15 — итоги вечера 13 ноября не вышли
+
+Production read only (organizer GET): вечер «Игровой вечер — 13 ноября» (CASUAL) закрыт 2026-11-15 06:58Z; назначения `club_chat` / `novice_chat` не настроены (chat_id пуст), `club_mvp` (тема 5925) и `public` настроены.
+
+- ES01 [fixed in candidate]: `clubResultTargets` слал итоги обычного/новичкового вечера в `club_chat` / `novice_chat`; отказ «Не настроена Telegram-группа» помечался `failed` навсегда, повтора нет. В ВК итоги не публиковались вовсе. Теперь итоги → тема MVP группы + входной канал и отдельный пост ВК с картинкой; новые ключи `evening-summary:` / `evening-summary-vk:`, так что вечер 13 ноября (закрыт в пределах 7 дней) выйдет после деплоя.
+
 ## 2026-11-15 — continued functional audit: game creation, archive and payment
 
 Owner authorized continuous bug discovery, reproduction and fixes. Synthetic local API tests on main ff024eb reproduce the four initial failures, then two format variants and a pricing/payment race; no production writes. Candidate fixes reuse the existing creation transaction and club-game post-save/pricing owners. Connected regression run: 108 passed across 26 files; final expanded game-lifecycle suite: 11 passed, including paid closed-evening ledger preservation, all three price formats and blocked-judge revocation. Related judge/host/role-deal suites: 94 passed across eight files.

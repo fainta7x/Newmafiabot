@@ -21,6 +21,8 @@ Typical integration flow:
 
 `src/app.ts` is authoritative for mounted APIs. Do not infer active routes from filenames alone.
 
+`src/db/index.ts` owns request isolation on its shared SQLite connection. Independent `all/get/run/exec` operations and transactions share one queue; only the active transaction's async context executes immediately and may open nested savepoints. A per-transaction owner token prevents callbacks left from an earlier transaction joining a later one. Schema guard caching is owned by `oncePerDatabase.ts`: a transaction may reuse a completed outside guard, but cannot wait for an unfinished outside guard that may itself be queued behind the transaction. Native SQLite handles remain a low-level interface for initialization and cache metadata, not the application mutation API.
+
 ### React
 
 - `src/App.tsx` — route-level product shell.

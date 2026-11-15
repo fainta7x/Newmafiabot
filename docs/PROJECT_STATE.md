@@ -14,11 +14,15 @@ The **actual current main SHA belongs to Git**, not this document. Read it from 
 
 ## Continuous functional audit — game lifecycle (2026-11-15)
 
-Owner explicitly authorized ongoing bug discovery, regression tests and fixes without re-approval for each batch; new product features and game rules still require agreement. Branch `fix/game-lifecycle-audit` covers confirmed GL01–GL06 from [`AUDIT_LOG.md`](AUDIT_LOG.md): planned-game retry, cancellation during creation, archive/restore pricing in all evening formats, post-commit Elo failure stale pricing/payment snapshots and blocked-judge delegation. No production writes or new tables. Prior evening-lifecycle batch #1255 is merged after CI, CodeQL, Gitleaks and UI preview passed; deployment/runtime confirmation remains separate.
+Owner explicitly authorized ongoing bug discovery, regression tests and fixes without re-approval for each batch; new product features and game rules still require agreement. Merged PR #1256 (`fix/game-lifecycle-audit`) covers confirmed GL01–GL06 from [`AUDIT_LOG.md`](AUDIT_LOG.md): planned-game retry, cancellation during creation, archive/restore pricing in all evening formats, post-commit Elo failure stale pricing/payment snapshots and blocked-judge delegation. No production writes or new tables. Prior evening-lifecycle batch #1255 is merged after CI, CodeQL, Gitleaks and UI preview passed; deployment/runtime confirmation remains separate.
 
 ## Authorized functional audit — evening lifecycle (2026-11-14)
 
 Owner authorized implementation of the continued functional audit in this conversation. Merged PR #1255 (`fix/evening-lifecycle`) closes four reproduced classes: first-application gate bypass across entry points, stale future seat reservations, edits to cancelled/settled evenings and settlement of a cancelled evening. Fixes reuse participant state/slot/seat owners; no new entities or product rules. The existing public newcomer form retains reservation before profile approval, limited to a saved lead for the selected NOVICE evening. Evidence and reproductions: [`AUDIT_LOG.md`](AUDIT_LOG.md), LC01–LC04. Local verification and exact PR status are recorded in the PR; deployment/runtime confirmation remain separate. No live data was changed.
+
+## Continuous audit — SQLite request isolation (2026-11-15)
+
+Owner authorized technical failure/retry/concurrency fixes. Candidate `fix/sqlite-request-isolation` addresses confirmed DB01–DB03: independent wrapper statements could join another request's open transaction, expose uncommitted reads, lose acknowledged writes on rollback or be overwritten before commit. The single connection now queues all independent all/get/run/exec calls with transactions; only the current transaction owner bypasses the queue. Ownership expires after commit, so delayed callbacks cannot join a later request. Nested savepoints are preserved. oncePerDatabase avoids joining an unfinished schema guard from another request while holding the transaction. Targeted queue/savepoint/guard tests passed; a full suite is running because the wrapper is shared across the app. No schema/rule/production-data changes. Independent rollback-cache package: #1258.
 
 ## Source-of-truth model
 
@@ -532,4 +536,9 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 
 ## Continuous audit — tournament protocol commit (2026-11-15)
 
-Owner authorized ongoing functional bug discovery and fixes. The tournament path reproduced three failures: completion committed before token settlement, reopen committed before token reversal, and achievement failure preventing acknowledgement/settlement of a completed protocol. Candidate branch `fix/tournament-game-commit` makes game/protocol/token effects transactional and treats achievements as a derived post-commit update. Four new failure/retry cases and connected protocol/token tests pass (88 tests across six files). Full verification/CI/deployment are separate. No production writes or schema changes. Parallel game-lifecycle package is PR #1256; this change is independent.
+Owner authorized ongoing functional bug discovery and fixes. The tournament path reproduced three failures: completion committed before token settlement, reopen committed before token reversal, and achievement failure preventing acknowledgement/settlement of a completed protocol. Merged PR #1257 (`fix/tournament-game-commit`) makes game/protocol/token effects transactional and treats achievements as a derived post-commit update. Four new failure/retry cases and connected protocol/token tests pass (88 tests across six files). All required GitHub checks passed before merge; deployment/runtime confirmation remains separate. No production writes or schema changes.
+
+
+## Continuous audit — rollback recovery (2026-11-15)
+
+Owner reaffirmed technical fixes across failure/retry/concurrency scenarios. Branch `fix/pregame-purchase-audit` replaces rollback-unsafe schema caches in game token checkout and participant response history with existing `oncePerDatabase`. First purchase rejected for insufficient funds or a shop-write failure now permits a funded retry; a rolled-back response no longer disables history on the next successful answer. Four regressions and 48 connected tests pass; project:verify:fast and build passed. No prices, payment rules, schema shape or production data changed. Prior game-lifecycle packages #1256/#1257 are merged with all required GitHub checks green.

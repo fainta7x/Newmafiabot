@@ -1,3 +1,4 @@
+import { oncePerDatabase } from '../../db/oncePerDatabase.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { TokenInsufficientFundsError, mutateTokenBalance } from './tokenLedgerService.ts';
@@ -12,16 +13,13 @@ export type GameOrderKind = 'role' | 'music';
 const SHOP_ITEM: Record<GameOrderKind, string> = { role: 'buy_role', music: 'order_music' };
 const LABEL: Record<GameOrderKind, string> = { role: 'Роль на игру', music: 'Заказ музыки' };
 
-const ensured = new WeakSet<object>();
-async function ensureColumns(db: DatabaseWrapper) {
-  if (ensured.has(db as object)) return;
+const ensureColumns = oncePerDatabase(async (db: DatabaseWrapper) => {
   const columns = new Set((await db.all<{ name: string }>('PRAGMA table_info(shop_purchases)')).map((column) => column.name));
   for (const [name, type] of [['evening_id', 'TEXT'], ['covers_rub', 'INTEGER NOT NULL DEFAULT 0'], ['order_kind', 'TEXT'], ['order_id', 'TEXT']] as const) {
     if (!columns.has(name)) await db.run(`ALTER TABLE shop_purchases ADD COLUMN ${name} ${type}`);
   }
   await db.exec('CREATE INDEX IF NOT EXISTS idx_shop_purchases_order ON shop_purchases(order_id)');
-  ensured.add(db as object);
-}
+});
 
 /** Token prices of the two orders from the shop; null when the organizer switched token payment off. */
 export async function loadGameOrderTokenPrices(db: DatabaseWrapper): Promise<Record<GameOrderKind, number | null>> {

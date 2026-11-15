@@ -13,6 +13,16 @@
 
 # Audit log
 
+## 2026-11-15 — UX-аудит создания игры на вечере (запрос владельца)
+
+Scope: тестовая среда (sandbox), вечер «Суп с Котом», 390 px; клубный формат, тот же лист `EveningGameCreateSheet.tsx` у новичкового и рейтингового вечера; турнир — своя ветка, не трогается. Only sandbox writes («Сформировать весь вечер»). Plan awaiting owner «да».
+
+- GC01 [open]: судья задаётся дважды — «Команда вечера» (`EveningStaffCard.tsx`) и снова в листе новой игры (три кнопки «Судья клуба / Гость» + выбор). Ожидание: судья вечера подставлен, в листе — одна строка «Судья: X · сменить».
+- GC02 [open]: рассадка на вечер сформирована (60 мест, вкладка «Игры»), но лист «Новая игра» открывается «Без привязки к плану» и пустым столом; рассадка появляется только после ручного выбора «Игра №N». Ожидание: следующая по плану игра выбрана и стол заполнен сразу.
+- GC03 [open]: при пустом плане тот же стол заполняют ещё три механизма («Подобрать 10», «Прошлая десятка», «Перемешать») плюс «Разведка стола» — вторая система подбора рядом с рассадкой вечера.
+- GC04 [open]: лист перегружен: пояснительные абзацы, «Стол · необязательно», блок «Игрок клуба / Гость без профиля / Создать профиль» раскрыт всегда, список из 10 «Гость — Пришёл · за стол». Основное (стол из 10 мест и кнопка создать) — ниже двух экранов прокрутки.
+- GC05 [open]: «Рассадка на вечер» на вкладке «Игры» не показывает места, пока не нажата вкладка «Игра N» (после «Сформировать» видны только кнопки).
+
 ## 2026-11-15 — continued functional audit: game creation, archive and payment
 
 Owner authorized continuous bug discovery, reproduction and fixes. Synthetic local API tests on main ff024eb reproduce the four initial failures, then two format variants and a pricing/payment race; no production writes. Candidate fixes reuse the existing creation transaction and club-game post-save/pricing owners. Connected regression run: 108 passed across 26 files; final expanded game-lifecycle suite: 11 passed, including paid closed-evening ledger preservation, all three price formats and blocked-judge revocation. Related judge/host/role-deal suites: 94 passed across eight files.

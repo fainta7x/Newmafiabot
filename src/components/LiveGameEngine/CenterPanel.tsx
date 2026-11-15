@@ -1,4 +1,5 @@
 import { QuickSplitPicker } from './QuickSplitPicker.tsx';
+import { RaiseDecisionOverlay } from './RaiseDecisionOverlay.tsx';
 import { toggleQuickSplitPick, useQuickSplitPick } from './quickSplitPickStore.ts';
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { circleNameByTableSize } from '../../lib/circleNames';
@@ -310,6 +311,9 @@ export default function CenterPanel(props: CenterPanelProps) {
     }
   }, [phase, votingStage, activeSpeakerSlot, timeLeft, setTimeLeft, revoteExtensionSeconds]);
 
+  // The «поднять / оставить» window opens by itself for every new decision; «Свернуть» folds it, the panel button opens it back.
+  const [raiseOpenKey, setRaiseOpenKey] = React.useState<string | null>(null);
+  React.useEffect(() => { if (tableDecisionKey) setRaiseOpenKey(tableDecisionKey); }, [tableDecisionKey]);
   React.useEffect(() => {
     if (tableDecisionKey) activateTableDecisionSelection(tableDecisionKey);
     else deactivateTableDecisionSelection();
@@ -452,7 +456,8 @@ export default function CenterPanel(props: CenterPanelProps) {
       const speaker = currentVotingResult?.winners[revoteSpeakerIndex] ?? activeSpeakerSlot;
       return speaker ? `Переголосование · речь #${speaker}` : 'Переголосование · речи';
     }
-    if (votingStage === 'round_result') return 'Голосование · итог';
+    // The pill names the step like the stage strip does (owner, 2026-11-15): a revote's raise is not «голосование · итог».
+    if (votingStage === 'round_result') return currentVotingResult?.outcome === 'requires_table_decision' ? 'Поднять / оставить' : currentRound?.is_revote ? 'Переголосование · итог' : 'Голосование · итог';
     if (votingStage === 'table_decision') return 'Голосование · решение стола';
     if (votingStage === 'resolved' && breakSpeechSlot !== null) return `Доп. речь · #${breakSpeechSlot}`;
     if (votingStage === 'resolved' && activeSpeakerSlot !== null) return `Последняя речь · #${activeSpeakerSlot}`;
@@ -900,14 +905,26 @@ export default function CenterPanel(props: CenterPanelProps) {
         };
         return (
           <div className="live-judge-hud__stack live-judge-table-decision">
-            <div className="live-judge-hud__eyebrow">Поднять / оставить · {result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
-            <div className="live-judge-hud__title">Поднять всех?</div>
-            <div className="live-judge-hud__hint">Нажимайте карточки игроков, голосующих за «поднять».</div>
+            <div className="live-judge-hud__title">Поднять {result.winners.map((seat) => `#${seat}`).join(' и ')}?</div>
             <div className="live-judge-table-decision-count">
               <span>За «поднять»</span>
               <strong>{entered}/{eligible}<small>нужно {majority}</small></strong>
             </div>
+            <button type="button" data-testid="live-raise-open" onClick={() => setRaiseOpenKey(tableDecisionKey)} className="live-judge-action">Цифрами</button>
             <button type="button" onClick={confirmTableDecision} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Зафиксировать решение</button>
+            {raiseOpenKey !== null && raiseOpenKey === tableDecisionKey ? (
+              <RaiseDecisionOverlay
+                winners={result.winners}
+                tableSize={activePlayers.length}
+                aliveSeats={eligibleVoterSeats}
+                selected={tableDecisionSelection.selectedVoterSlots}
+                entered={entered}
+                eligible={eligible}
+                majority={majority}
+                onConfirm={() => { setRaiseOpenKey(null); confirmTableDecision(); }}
+                onCollapse={() => setRaiseOpenKey(null)}
+              />
+            ) : null}
           </div>
         );
       }

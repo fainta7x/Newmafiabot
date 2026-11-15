@@ -266,8 +266,8 @@ export default function SeatCard(props: SeatCardProps) {
     if (!tableDecisionActive || !tableDecisionSelected) return null;
     return (
       <div>
-        <div className="live-seat-state__label">Поднять</div>
-        <div className="live-seat-state__value live-seat-state__value--active">За</div>
+        {/* One mark (owner, 2026-11-15): «поднять / За» on two lines read as two things. */}
+        <div className="live-seat-state__value live-seat-state__value--active">За «поднять»</div>
       </div>
     );
   };

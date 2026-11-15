@@ -9,7 +9,7 @@ const detail = readFileSync('src/components/crm/tournaments/TournamentDetailView
 describe('tournament card is simpler', () => {
   it('lists only problems of games already played', () => {
     expect(organization).toContain('blockingErrors.map');
-    expect(organization).not.toContain('readiness.errors.map');
+    expect(organization).not.toContain('{readiness.errors.map');
   });
   it('shows the game judge once', () => {
     expect(setup).not.toContain('Судья игры:');

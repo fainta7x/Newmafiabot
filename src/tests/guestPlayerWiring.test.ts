@@ -18,7 +18,7 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(eveningUi).toContain('Гость без профиля');
     expect(eveningUi).toContain("nickname: guestNickname.trim() || 'Гость без профиля'");
     expect(eveningUi).not.toContain('guestPhone');
-    expect(eveningUi).toContain('Профиль, рейтинг, жетоны и контакты игрока не создаются');
+    expect(eveningUi).toContain('Без профиля — только на этот вечер, без рейтинга.');
   });
 
   it('exposes explicit guest-to-registered-player correction and hands a seat to a guest only through the explicit guest flow', () => {

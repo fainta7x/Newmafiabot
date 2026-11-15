@@ -16,16 +16,17 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const url = new URL(raw, window.location.origin);
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  if (url.pathname.endsWith('/slots')) return json({ slots: [] });
-  if (url.pathname.endsWith('/seating')) return json({ seats: [] });
-  if (url.pathname.endsWith('/staff')) return json({});
+  // Owner, 2026-11-15: the next planned game opens with its seating and the evening judge already chosen.
+  if (url.pathname.endsWith('/slots')) return json({ slots: [{ id: 's1', slot_number: 1, status: 'open' }, { id: 's2', slot_number: 2, status: 'open' }] });
+  if (url.pathname.endsWith('/seating')) return json({ seats: names.slice(0, 10).map((_, i) => ({ slot_id: 's1', tableId: 't1', seat: i + 1, playerId: `p${i}`, started: 0 })) });
+  if (url.pathname.endsWith('/staff')) return json({ judge: { player_id: 'judge-1', nickname: 'Ольга' } });
   const participant = /participants\/([^/]+)$/.exec(url.pathname);
   if (participant && init?.method && init.method !== 'GET') {
     const body = JSON.parse(String(init.body || '{}'));
     participants = participants.map((item) => item.id === participant[1] ? { ...item, ...body } : item);
     return json(participants.find((item) => item.id === participant[1]));
   }
-  if (url.pathname.includes('/players')) return json([]);
+  if (url.pathname.includes('/players')) return json([{ id: 'judge-1', nickname: 'Ольга', club_role: 'ORGANIZER', host_formats: 'STANDARD,CASUAL,NOVICE,RATING' }]);
   return json({});
 };
 

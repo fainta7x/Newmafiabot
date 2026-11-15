@@ -13,6 +13,18 @@
 
 # Audit log
 
+## 2026-11-15 — UX-аудит создания игры на вечере (запрос владельца)
+
+Scope: тестовая среда (sandbox), вечер «Суп с Котом», 390 px; клубный формат, тот же лист `EveningGameCreateSheet.tsx` у новичкового и рейтингового вечера; турнир — своя ветка, не трогается. Only sandbox writes («Сформировать весь вечер»).  Owner approved 2026-11-15 («жду реализацию»): keep «Разведка стола», judge changed in its own window, one «Подобрать».
+
+- GC01 [fixed in candidate]: судья задаётся дважды — «Команда вечера» (`EveningStaffCard.tsx`) и снова в листе новой игры (три кнопки «Судья клуба / Гость» + выбор). Ожидание: судья вечера подставлен, в листе — одна строка «Судья: X · сменить».
+- GC02 [fixed in candidate]: рассадка на вечер сформирована (60 мест, вкладка «Игры»), но лист «Новая игра» открывается «Без привязки к плану» и пустым столом; рассадка появляется только после ручного выбора «Игра №N». Ожидание: следующая по плану игра выбрана и стол заполнен сразу.
+- GC03 [fixed in candidate]: при пустом плане тот же стол заполняют ещё три механизма («Подобрать 10», «Прошлая десятка», «Перемешать») плюс «Разведка стола» — вторая система подбора рядом с рассадкой вечера.
+- GC04 [fixed in candidate]: лист перегружен: пояснительные абзацы, «Стол · необязательно», блок «Игрок клуба / Гость без профиля / Создать профиль» раскрыт всегда, список из 10 «Гость — Пришёл · за стол». Основное (стол из 10 мест и кнопка создать) — ниже двух экранов прокрутки.
+- GC06 [fixed in candidate]: третье место судьи — поле «Ведущий» у стола (`EveningTablesView.tsx`), свободный текст; если заполнено, лист игры брал его вместо судьи вечера как «гостя». Теперь у основного стола судья = судья вечера, у дополнительного — игрок клуба (`evening_tables.host_player_id`).
+- GC07 [fixed in candidate]: основной стол можно было удалить (тогда рассадка вечера — `no_tables`); в редакторе стола лишние поля формат/места/тариф/заметка (тариф задаёт вечер). Основной стол больше не удаляется (`DELETE /api/evenings/tables/:id` → 400), редактор — название и судья.
+- GC05 [fixed in candidate]: «Рассадка на вечер» на вкладке «Игры» не показывает места, пока не нажата вкладка «Игра N» (после «Сформировать» видны только кнопки). Причина: у старого вечера стол создаётся при формировании, а страница его не перечитывала.
+
 ## 2026-11-15 — single-connection request isolation audit
 
 DB01 [confirmed on main 6ea500b]: while request A holds db.transaction across an await, independent db.run/db.exec execute on that same connection and are rolled back with A, although B's write resolved successfully. DB02 [confirmed]: independent db.get/db.all read A's uncommitted values. DB03 [confirmed]: A's later write overwrites B's already acknowledged write. Five deterministic tests fail. Expected: all wrapper operations from an independent async context wait behind the transaction; owner operations/savepoints remain available without deadlock. No production operations.

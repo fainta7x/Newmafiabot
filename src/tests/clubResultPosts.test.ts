@@ -313,7 +313,8 @@ describe('posting to the club chat', () => {
     const media = JSON.parse(String(calls[1].get('media')));
     expect(media.map((item: any) => item.media)).toEqual(['attach://p0', 'attach://p1']);
     expect(media[0].caption).toBe('🏁 Итоги вечера «Пятничный вечер» и промежуточная таблица «Осень 2026»');
-    expect(calls[1].get('message_thread_id')).toBeNull();
+    // Owner, 2026-11-15: the summary goes to the group's «Новости» topic.
+    expect(calls[1].get('message_thread_id')).toBe('5925');
     expect((calls[1].get('p1') as Blob).type).toBe('image/png');
   });
 
@@ -327,6 +328,8 @@ describe('posting to the club chat', () => {
     const { calls, fetchImpl } = telegram();
     expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
     expect(calls[0].get('caption')).toBe('🏁 Итоги вечера «Пятничный вечер»');
+    // The VK group gets the summary too (owner, 2026-11-15): its own attempt, independent of Telegram.
+    expect(await db.get("SELECT 1 FROM club_result_posts WHERE post_key = 'evening-summary-vk:ev'")).toBeTruthy();
     expect(await db.get("SELECT 1 FROM personal_notification_deliveries WHERE notification_key = 'evening-result:ev:a'")).toBeTruthy();
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
   });
@@ -405,7 +408,7 @@ describe('the entry channel', () => {
   const addPublic = (db: DatabaseWrapper) => db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)
     VALUES ('public','Вход','@noire_entry',NULL,1,?,?)`, [new Date().toISOString(), new Date().toISOString()]);
 
-  it('does not get the evening summary: the entry channel is for announcements only (owner, 2026-11-02)', async () => {
+  it('gets the evening summary like the MVP result (owner, 2026-11-15)', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const { db, addGame } = await setup('CASUAL');
     await addPublic(db);
@@ -413,9 +416,9 @@ describe('the entry channel', () => {
     await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'ev'", [new Date().toISOString()]);
     const { calls, fetchImpl } = telegram();
     await runClubResultPosts(db, fetchImpl);
-    expect(calls.filter((form) => form.get('chat_id') === '@noire_entry')).toHaveLength(0);
-    // The club chat still gets the game blank and the summary.
-    expect(calls.filter((form) => form.get('chat_id') === '-100500')).toHaveLength(2);
+    const entry = calls.filter((form) => form.get('chat_id') === '@noire_entry');
+    expect(entry).toHaveLength(1);
+    expect(String(entry[0].get('caption'))).toMatch(/^🏁 Итоги вечера/);
   });
 
   it('gets the «Мы собрались» photo once it reached the evening group', async () => {

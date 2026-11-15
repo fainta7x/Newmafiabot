@@ -69,12 +69,13 @@ export const clubResultDestination = (format: unknown) => {
   return normalized === 'NOVICE' ? 'novice_chat' : normalized === 'CASUAL' ? 'club_chat' : 'rating_chat';
 };
 
-export type ClubPostKind = 'vote' | 'mvp-result' | 'other';
+export type ClubPostKind = 'vote' | 'mvp-result' | 'evening-summary' | 'other';
 
 /** The kind of a post from its delivery key: the vote itself, the MVP result, or any other result post. */
 export const clubPostKind = (key: string | undefined): ClubPostKind => {
   if (/^club:(vote-|mvp-ask|mvp-runoff)/.test(String(key || ''))) return 'vote';
   if (/^club:mvp-result/.test(String(key || ''))) return 'mvp-result';
+  if (/^club:evening-summary:/.test(String(key || ''))) return 'evening-summary';
   return 'other';
 };
 
@@ -85,8 +86,9 @@ export const clubPostKind = (key: string | undefined): ClubPostKind => {
  */
 export const clubResultTargets = (format: unknown, kind: ClubPostKind): string[] => {
   const normalized = normalizeEveningFormat(format);
-  if (normalized === 'NOVICE') return kind === 'vote' ? ['novice_mvp'] : kind === 'mvp-result' ? ['novice_mvp', 'public'] : ['novice_chat'];
-  if (normalized === 'CASUAL') return kind === 'vote' ? ['club_mvp'] : kind === 'mvp-result' ? ['club_mvp', 'public'] : ['club_chat'];
+  // The evening summary goes where the MVP result goes (owner, 2026-11-15): the group's MVP topic and the entry channel.
+  if (normalized === 'NOVICE') return kind === 'vote' ? ['novice_mvp'] : kind === 'mvp-result' || kind === 'evening-summary' ? ['novice_mvp', 'public'] : ['novice_chat'];
+  if (normalized === 'CASUAL') return kind === 'vote' ? ['club_mvp'] : kind === 'mvp-result' || kind === 'evening-summary' ? ['club_mvp', 'public'] : ['club_chat'];
   return kind === 'vote' ? ['rating'] : ['rating', 'public', 'club_mvp'];
 };
 
@@ -192,22 +194,49 @@ export async function postGameBlank(db: DatabaseWrapper, gameId: string, format:
 }
 
 export async function postEveningSummary(db: DatabaseWrapper, eveningId: string, format: unknown, fetchImpl: typeof fetch = fetch) {
-  const key = `evening:${eveningId}`;
-  if (!(await claim(db, key, 'evening', eveningId, null))) return false;
-  try {
+  // Owner, 2026-11-15: the summary goes with its picture to the group's «Новости»/«История» topic, the entry channel and the VK group.
+  // New keys: the old `evening:` posts went to the unset club_chat / novice_chat and failed for good.
+  const key = `evening-summary:${eveningId}`;
+  const vkKey = `evening-summary-vk:${eveningId}`;
+  let drawing: Promise<{ photos: Buffer[]; caption: string } | null> | null = null;
+  const draw = () => (drawing ??= (async () => {
     const summary = await loadEveningSummary(db, eveningId);
-    if (!summary) { await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' }); return false; }
+    if (!summary) return null;
     // The season so far rides as the second picture of the same message (owner: less spam).
     const season = await loadSeasonTable(db, eveningId).catch((error) => { console.error('[CLUB RESULTS] season table failed:', error); return null; });
     const photos = [await renderPngAsync(eveningSummarySvg(summary)), ...(season ? [await renderPngAsync(seasonTableSvg(season))] : [])];
-    const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${season ? ` и промежуточная таблица «${season.periodTitle}»` : ''}`;
-    const result = await sendPhotos(db, format, photos, caption, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
-    await finish(db, key, result);
-    return result.ok;
-  } catch (error: any) {
-    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
-    return false;
+    return { photos, caption: `🏁 Итоги вечера «${summary.eveningTitle}»${season ? ` и промежуточная таблица «${season.periodTitle}»` : ''}` };
+  })());
+  let posted = false;
+  if (await claim(db, key, 'evening', eveningId, null)) {
+    try {
+      const drawn = await draw();
+      if (!drawn) await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' });
+      else {
+        const result = await sendPhotos(db, format, drawn.photos, drawn.caption, fetchImpl, undefined, undefined, undefined, { key: 'club:' + key, kind: 'club-result' });
+        await finish(db, key, result);
+        posted = result.ok;
+      }
+    } catch (error: any) {
+      await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    }
   }
+  if (await claim(db, vkKey, 'evening', eveningId, null)) {
+    try {
+      const drawn = await draw();
+      if (!drawn) await finish(db, vkKey, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' });
+      else {
+        // The summary picture goes to «Фото для постов ВК» when VK cannot take it by itself (same as the MVP result).
+        const result = await sendVk(drawn.caption, { db, eveningId, format, context: { key: 'club:' + vkKey, kind: 'club-result', entityId: eveningId },
+          image: { bytes: drawn.photos[0], mime: 'image/png' } });
+        await finish(db, vkKey, { ok: result.status === 'published', certainty: result.certainty, temporary: result.temporary, error: result.error || undefined });
+        posted = posted || result.status === 'published';
+      }
+    } catch (error: any) {
+      await finish(db, vkKey, { ok: false, temporary: true, error: error?.message || String(error) });
+    }
+  }
+  return posted;
 }
 
 /**
@@ -272,7 +301,8 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(e.starts_at) >= datetime(?)
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes')))))
+         OR EXISTS (SELECT 1 FROM (SELECT 'evening-summary:' AS prefix UNION ALL SELECT 'evening-summary-vk:') k
+                     WHERE NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = k.prefix || e.id AND (p.status IN ('sent', 'failed', 'uncertain') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))))
   `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]);
   await part('closed_evenings', async () => { for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;

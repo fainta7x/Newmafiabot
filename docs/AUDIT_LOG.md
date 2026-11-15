@@ -1,3 +1,7 @@
+## 2026-11-15 — notification payload retry audit
+
+NP01 (fixed in candidate): `enqueueTelegramMessage` overwrites pending photo/keyboard with NULL when a duplicate producer omits optional payload; `ensureExternalOutboxRow` also converts omitted payload into explicit null. Reproduction: queue a personal photo+button notification, retry same key without optional fields before delivery; expected original attachment/keyboard survive. Preserve omitted fields, retain explicit null clearing and cleanup after sent. Synthetic providers/DB only. Regression failed before the fix; 226 tests in 37 connected files and production build passed after it. Explicit null clearing is covered as a positive control.
+
 ## 2026-11-05 — детализация Elo в итогах игры
 
 - Fixed in code: общий форматтер итогов скрывал командную часть и объединял действия разных кругов. Форматтер показывает результат, поправки и круги по записанной хронологии.

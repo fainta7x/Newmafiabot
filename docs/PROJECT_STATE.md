@@ -1,5 +1,10 @@
 # Project state — 2LA Noire
 
+## Continuous audit — notification payload retry (2026-11-15)
+
+Candidate `fix/notification-payload-retry` addresses NP01: a duplicate personal notification omitting optional photo/keyboard preserves the pending payload; explicit null still clears it and sent photos remain cleared. Regression reproduces the previous loss and verifies the explicit-clear control. No schema/game-rule changes or real sends. #1263 is merged (17d844c); #1266 was updated after the resulting documentation conflict and needs checks for its new head.
+
+
 This file is the canonical **current-state snapshot**: facts that are true now, the current queue and what waits on the owner. It does not hold a chronological history; Git commits and merged PRs own history. The full text of this file before the 2026-11-10 consolidation (old queue, per-day owner notes, historical handoffs) is preserved verbatim in [`docs/archive/PROJECT_STATE_until_2026-11-10.md`](archive/PROJECT_STATE_until_2026-11-10.md) as historical evidence only.
 
 **Single planning document:** the current development queue lives here (and its owner-facing view in `docs/PROJECT_BOARD_RU.md`). Before treating a queue item as unfinished, confirm in current code that it is really absent.

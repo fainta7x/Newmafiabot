@@ -19,6 +19,12 @@ Production read only (organizer GET): вечер «Игровой вечер —
 
 - ES01 [fixed in candidate]: `clubResultTargets` слал итоги обычного/новичкового вечера в `club_chat` / `novice_chat`; отказ «Не настроена Telegram-группа» помечался `failed` навсегда, повтора нет. В ВК итоги не публиковались вовсе. Теперь итоги → тема MVP группы + входной канал и отдельный пост ВК с картинкой; новые ключи `evening-summary:` / `evening-summary-vk:`, так что вечер 13 ноября (закрыт в пределах 7 дней) выйдет после деплоя.
 
+## 2026-11-15 — single-connection request isolation audit
+
+DB01 [confirmed on main 6ea500b]: while request A holds db.transaction across an await, independent db.run/db.exec execute on that same connection and are rolled back with A, although B's write resolved successfully. DB02 [confirmed]: independent db.get/db.all read A's uncommitted values. DB03 [confirmed]: A's later write overwrites B's already acknowledged write. Five deterministic tests fail. Expected: all wrapper operations from an independent async context wait behind the transaction; owner operations/savepoints remain available without deadlock. No production operations.
+
+The same async connection identity could outlive a finished transaction in a delayed callback. Transaction ownership now uses a fresh token per transaction, not the SQLite object. Tests cover late standalone and late transactional writes during a later rollback, statement-error queue release, nested savepoints and pending schema initialization. `oncePerDatabase` must reuse only a completed outside guard from inside a transaction; joining an unfinished outside guard would deadlock behind the shared connection queue (separately reproduced in its unit test). Related game/payment/token/cache suites: 37 passed; expanded queue/savepoint/schema-guard suite: 15 passed. Network-like calls found inside transaction callbacks were traced to outbox queueing with kick guards; no external send was moved under the lock.
+
 ## 2026-11-15 — continued functional audit: game creation, archive and payment
 
 Owner authorized continuous bug discovery, reproduction and fixes. Synthetic local API tests on main ff024eb reproduce the four initial failures, then two format variants and a pricing/payment race; no production writes. Candidate fixes reuse the existing creation transaction and club-game post-save/pricing owners. Connected regression run: 108 passed across 26 files; final expanded game-lifecycle suite: 11 passed, including paid closed-evening ledger preservation, all three price formats and blocked-judge revocation. Related judge/host/role-deal suites: 94 passed across eight files.
@@ -2963,3 +2969,12 @@ Scope: «Ещё → Деньги» («Оплата и поддержка», «С
 Three synthetic API reproductions fail on main ff024eb: TG01 achievement outage returns 500 after completing the protocol and prevents the response interceptor from applying tokens; TG02 token failure returns 500 but leaves game/protocol completed; TG03 token reversal failure returns 500 but leaves the game/protocol reopened with old token balances. Expected: protocol/game/token effects commit or roll back together, while optional achievements cannot reject a committed completion. Keep existing settlement calculations, retry semantics and rules.
 
 Connected suites: 88 passed across six files, including failure after the first player award, rollback of all balances, retry and idempotent repeated completion. No scoring or award amounts changed.
+
+
+## 2026-11-15 — rollback recovery: purchases and response history
+
+PK01 [confirmed on main 6ea500b]: first token checkout creates shop_purchases coverage columns inside the purchase transaction, but gameTokenPaymentService caches completion in a WeakSet before commit. Insufficient funds or an injected shop INSERT failure rolls schema/debit/order back while leaving the cache set; a funded retry then fails with `shop_purchases has no column named evening_id`. Three synthetic tests (role, music, shop-write failure) reproduce it. Use existing transaction-aware oncePerDatabase for this schema guard; do not change prices, duplicate-song semantics or ledger rules. No production writes.
+
+PK02 [confirmed]: after injected slot cleanup failure rolls back a participant response, ensureEveningResponseHistorySchema retains a stale ready flag. A successful retry silently misses history, then history loading fails with `no such table: evening_response_history`. Use the same existing transaction-aware guard; source/history writes retain their existing owner. Regression checks the original answer survives rollback and the successful retry writes exactly one history row.
+
+Verification: four new recovery cases, 48 connected tests across six files, project:verify:fast and production build passed. Other schema caches were inspected by call path; caches already initialized outside transactions were not changed without a reproduced failure.

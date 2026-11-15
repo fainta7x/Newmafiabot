@@ -83,6 +83,8 @@ import { useLiveGameClock } from "./LiveGameEngine/useLiveGameClock.js";
 import {
   getTableDecisionSelectionSnapshot,
   restoreTableDecisionSelection,
+  toggleTableDecisionVoter,
+  useTableDecisionSelection,
 } from "./LiveGameEngine/tableDecisionSelectionStore.js";
 import {
   autoFillSetupPlayers,
@@ -125,6 +127,8 @@ import { teamOfPlayer } from '../shared/gameRoles.ts';
 import { CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS, isZeroRoundRule, type ZeroRoundRule } from '../shared/zeroRoundRule.ts';
 
 export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, roleAssignments, rosterIdentity, readProtocolEvidence, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
+  // The «поднять / оставить» selection: seat taps and seat digits mark voters while it is active.
+  const tableDecisionSelectionLive = useTableDecisionSelection();
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -1601,6 +1605,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       }
       return;
     }
+    // «Поднять / оставить»: a tap — or its digit on the keyboard — marks the player voting «поднять» (owner, 2026-11-15).
+    if (phase === 'day_voting' && getTableDecisionSelectionSnapshot().key !== null && tableDecisionSelectionLive.active) {
+      if (player.alive) toggleTableDecisionVoter(slot);
+      return;
+    }
     if (phase === 'day_voting' && votingStage === 'collecting') {
       handleInteractiveVoteToggle(slot);
       return;
@@ -1972,7 +1981,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       || activeBestMoveSource !== null || postNightStage === 'death_protocol' || revealPanelOpen || votingWill !== null,
     seats: activePlayers.map((player) => player.slot_num),
     aliveSeats: activePlayers.filter((player) => player.alive).map((player) => player.slot_num),
-    tapPhase: (phase === 'day_voting' && votingStage === 'collecting') || nightTapPhase,
+    tapPhase: (phase === 'day_voting' && (votingStage === 'collecting' || tableDecisionSelectionLive.active)) || nightTapPhase,
     quickSplitAvailable,
   }, {
     tapSeat: handleSeatClick,

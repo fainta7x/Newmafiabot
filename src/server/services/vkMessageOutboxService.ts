@@ -152,10 +152,14 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     const storedRetries = canRetry ? nextRetry : MAX_RETRIES;
     const nextAttemptAt = canRetry ? new Date(Date.now() + retryDelayMs(nextRetry)).toISOString() : null;
     const failureKind: Exclude<VkFailureKind, null> = result.permissionDenied ? 'permission_denied' : result.temporary ? 'temporary' : result.error?.includes('not configured') ? 'configuration' : 'permanent';
-    await db.run(`UPDATE vk_message_outbox SET status='failed', retry_count=?, last_attempt_at=?, next_attempt_at=?, last_error=?, failure_kind=?, updated_at=? WHERE message_key=? AND status <> 'sent'`, [storedRetries, attemptAt, nextAttemptAt, result.error || 'VK delivery failed', failureKind, attemptAt, key]);
-    if (!canRetry && await fallbackToTelegram(db, row).catch((error) => { console.error('[VK OUTBOX] Telegram fallback failed:', error); return false; })) return { sent: 0, failed: 1 };
-    await db.run(`UPDATE personal_notification_deliveries SET status='pending_channel', reason=?, updated_at=? WHERE notification_key=? AND selected_channel='vk'`, [failureKind, attemptAt, String(row.notification_key)]);
-    return { sent: 0, failed: 1 };
+    // Persist terminal failure, channel switch and fallback row atomically.
+    // A storage failure leaves the VK row eligible for the next worker pass.
+    return await db.transaction(async tx => {
+      await tx.run(`UPDATE vk_message_outbox SET status='failed', retry_count=?, last_attempt_at=?, next_attempt_at=?, last_error=?, failure_kind=?, updated_at=? WHERE message_key=? AND status <> 'sent'`, [storedRetries, attemptAt, nextAttemptAt, result.error || 'VK delivery failed', failureKind, attemptAt, key]);
+      if (!canRetry && await fallbackToTelegram(tx, row)) return { sent: 0, failed: 1 };
+      await tx.run(`UPDATE personal_notification_deliveries SET status='pending_channel', reason=?, updated_at=? WHERE notification_key=? AND selected_channel='vk'`, [failureKind, attemptAt, String(row.notification_key)]);
+      return { sent: 0, failed: 1 };
+    });
   } finally { keysInFlight.delete(key); }
 }
 

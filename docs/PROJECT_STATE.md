@@ -557,3 +557,8 @@ PR #1262 is merged (f96670e) after all four required workflows passed; deploymen
 ## Assistant work tracking (owner, 2026-11-15)
 
 Owner asked about separating ChatGPT and Claude work. Existing CRM → Ещё → Проект already displays GPT/Claude marks, as does the bot PR list; no duplicate product screen is needed. Branch convention and PR footer are defined in AGENTS.md. Audit findings and regression evidence live in AUDIT_LOG.md and linked PRs; CI verifies a commit, not authorship. Candidate `fix/project-board-check-status` corrects PB01: UI preview checks participate in the existing readiness status when present; docs-only PRs remain supported.
+
+
+## Continuous audit — VK fallback recovery (2026-11-15)
+
+Candidate `fix/vk-fallback-recovery` addresses VF01: terminal VK failure, route switch and Telegram fallback creation now commit together. A Telegram INSERT failure rolls everything back, leaving VK eligible for the next worker pass; retry creates one fallback. The external VK call remains outside the SQLite transaction. Provider refusal policy and existing retry budgets are unchanged. Synthetic DB/transport reproduction; no production writes or real messages. #1263 was rebased on current main after documentation conflicts, preserving both audit records; its previous green checks do not validate the new head.

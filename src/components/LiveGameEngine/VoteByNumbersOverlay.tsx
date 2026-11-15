@@ -48,7 +48,7 @@ export function VoteByNumbersOverlay({
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">Кандидат {nomineeIndex + 1} из {nominees.length}</div>
           <h2 className="text-lg font-semibold text-white">Голосуют за <SeatBadge seat={nominee} />{nickname ? ` ${nickname}` : ''}</h2>
           <p className="text-xs text-white/45">Проголосовали за него: <b className="text-white/80">{forThis}</b> · ещё не голосовали: <b className="text-white/80">{remaining}</b></p>
-          {isLast && <p className="text-xs text-white/30">Оставшиеся голоса достанутся #{nominee}, когда вы подведёте итог.</p>}
+          {isLast && <p className="text-xs text-white/30">Оставшиеся голоса достанутся <SeatBadge seat={nominee} size="inline" />, когда вы подведёте итог.</p>}
         </div>}
         {splitPicking && onQuickSplit ? (
           <QuickSplitPicker nominees={nominees} picked={splitPicking} nicknameOf={nicknameOf} onSplit={onQuickSplit} />

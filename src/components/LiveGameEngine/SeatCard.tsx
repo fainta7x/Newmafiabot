@@ -1,4 +1,5 @@
 import { GAME_ROLES } from '../../shared/gameRoles.ts';
+import { SeatBadge } from "./SeatBadge.tsx";
 import React, { useContext } from "react";
 import { ListPlus, Skull, Star } from "lucide-react";
 import { GameRoleIcon } from '../ui/GameRole.tsx';
@@ -288,7 +289,7 @@ export default function SeatCard(props: SeatCardProps) {
   const renderShootoutState = () => {
     if (phase !== "shootout") return null;
     if (shootoutNominees.includes(slotNum)) {
-      return <div><div className="live-seat-state__label">Переголосование</div><div className="live-seat-state__value live-seat-state__value--warning">#{slotNum}</div></div>;
+      return <div><div className="live-seat-state__label">Переголосование</div><div className="live-seat-state__value live-seat-state__value--warning"><SeatBadge seat={slotNum} size="inline" /></div></div>;
     }
     return null;
   };

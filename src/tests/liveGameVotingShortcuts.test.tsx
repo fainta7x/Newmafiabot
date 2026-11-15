@@ -86,7 +86,7 @@ describe('vote count shortcuts', () => {
     fireEvent.click(within(sheet).getByRole('button', { name: 'Поделилось также' }));
     expect(saved().votingRounds[1].vote_counts).toEqual({ 5: 5, 3: 5 });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Подвести итог' }));
-    await screen.findByText(/^Поднять #\d+ и #\d+\?$/);
+    await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')));
   });
 
   it('«Поделилось также» repeats the split of the previous round on the revote', async () => {
@@ -100,7 +100,7 @@ describe('vote count shortcuts', () => {
     expect(saved().votingRounds[1].vote_counts).toEqual({ 5: 4, 3: 4 });
     await press('Подвести итог');
     // the same split again: the table decides
-    await screen.findByText(/^Поднять #\d+ и #\d+\?$/);
+    await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')));
   });
 
   it('is not offered when someone voted for a candidate who is not on the revote', async () => {

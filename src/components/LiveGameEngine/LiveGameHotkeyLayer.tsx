@@ -1,4 +1,5 @@
 import { SEAT_ACTION_LABELS } from './hotkeyModel.js';
+import { SeatBadge } from './SeatBadge.tsx';
 import '../crm/liveGameHotkeys.css';
 
 type Props = {
@@ -31,7 +32,7 @@ export default function LiveGameHotkeyLayer({ cursor, cursorName, helpOpen, onCl
     <>
       {cursor !== null && (
         <div className="live-hotkey-bar" data-testid="live-hotkey-menu" role="status">
-          <div className="live-hotkey-bar__title">#{cursor}{cursorName ? ` · ${cursorName}` : ''}</div>
+          <div className="live-hotkey-bar__title"><SeatBadge seat={cursor} size="inline" />{cursorName ? ` · ${cursorName}` : ''}</div>
           <div className="live-hotkey-bar__actions">
             {SEAT_ACTION_LABELS.map((item) => (
               <span key={item.action} className="live-hotkey-bar__action"><kbd>{item.digit}</kbd><span>{item.label}</span><small>{item.keys}</small></span>

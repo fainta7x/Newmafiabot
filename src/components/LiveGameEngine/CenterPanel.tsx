@@ -15,7 +15,7 @@ import type { ZeroNightMusicState } from "./engineStateModel.js";
 import { VoteByNumbersOverlay } from "./VoteByNumbersOverlay.tsx";
 import { seatColorVars } from "./seatColors.ts";
 import { NumbersAutoOpenContext } from "./numbersAutoOpenContext.ts";
-import { SeatBadge } from "./SeatBadge.tsx";
+import { SeatBadge, withSeatBadges } from "./SeatBadge.tsx";
 import { FitText } from "../ui/FitText.tsx";
 import "../crm/liveGameEveningBugfixes.css";
 import "../crm/liveGameHudReadability.css";
@@ -527,7 +527,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const renderNominationChips = () => (
     <div className="live-judge-hud__meta">
-      <span className="live-judge-chip">Выставлены <strong>{nominations.length ? nominations.map((slot) => `#${slot}`).join(' · ') : '—'}</strong></span>
+      <span className="live-judge-chip">Выставлены <strong>{nominations.length ? nominations.map((seat, index) => <React.Fragment key={seat}>{index ? ' ' : ''}<SeatBadge seat={seat} size="inline" /></React.Fragment>) : '—'}</strong></span>
     </div>
   );
 
@@ -551,10 +551,10 @@ export default function CenterPanel(props: CenterPanelProps) {
     const showSpeechExtension = Boolean(onSpeechExtension && speechExtensionAvailability?.allowed);
     return (
       <div className="live-judge-timer">
-        <FitText as="div" minPx={7} className="live-judge-timer__label">{timerLabel}</FitText>
+        <FitText as="div" minPx={7} className="live-judge-timer__label">{withSeatBadges(timerLabel)}</FitText>
         {/* A night check's result is read whole — it may take two lines; a nickname fits its one line. */}
         {nightActionStatus
-          ? <div className="live-judge-timer__name live-judge-timer__name--status" data-testid="live-game-night-status">{nightActionStatus}</div>
+          ? <div className="live-judge-timer__name live-judge-timer__name--status" data-testid="live-game-night-status">{withSeatBadges(nightActionStatus)}</div>
           : <FitText as="div" className="live-judge-timer__name">{timerName}</FitText>}
         <div className={`live-judge-timer__time ${timeLeft <= 10 ? 'live-judge-timer__time--danger' : ''}`}>{timeLeft}с</div>
         <div className="live-judge-timer__bar"><div style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} /></div>
@@ -616,10 +616,10 @@ export default function CenterPanel(props: CenterPanelProps) {
     return (
       <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll" data-testid="live-voting-announcement">
         <div className="live-judge-hud__eyebrow">{isRevote ? 'Переголосование' : 'Голосование'}</div>
-        <div className="live-judge-hud__title">{title}</div>
+        <div className="live-judge-hud__title">{withSeatBadges(title)}</div>
         {seats.length > 1 && renderVotingOrder(seats)}
-        {seats.length === 1 && <div className="live-judge-hud__meta"><span className="live-judge-chip">Выставлена <strong>#{seats[0]}</strong></span></div>}
-        {hint && <div className="live-judge-hud__hint">{hint}</div>}
+        {seats.length === 1 && <div className="live-judge-hud__meta"><span className="live-judge-chip">Выставлена <SeatBadge seat={seats[0]} size="inline" /></span></div>}
+        {hint && <div className="live-judge-hud__hint">{withSeatBadges(hint)}</div>}
         <div className="live-judge-vote-actions">
           {zeroRoundSingle ? (
             <button type="button" data-testid="live-zero-single-to-night" onClick={() => onZeroRoundSingleToNight?.()} className="live-judge-action live-judge-action--primary">К ночи</button>
@@ -708,7 +708,7 @@ export default function CenterPanel(props: CenterPanelProps) {
                 data-seat={seat}
                 style={seatColorVars(seat) as React.CSSProperties}
               >
-                <span>#{seat}</span>
+                <SeatBadge seat={seat} size="inline" />
                 <b className="live-judge-vote-strip__count" data-testid={`live-vote-tally-${seat}`}>{tallyOf(seat)}</b>
               </button>
             ))}
@@ -791,8 +791,8 @@ export default function CenterPanel(props: CenterPanelProps) {
       // Under both settings the judge may name who broke the split; skipping it is fine (the protocol form still asks).
       // The seats open on demand so the primary step keeps its place in the small centre cell on a phone.
       const breakerQuestion = zeroRoundSplitBroken && onSetZeroRoundBreaker ? (
-        <button type="button" data-testid="live-zero-breaker" onClick={() => setBreakerPicking(true)} className="live-judge-action">
-          {zeroRoundBreakerSlot ? `Сломал попил: #${zeroRoundBreakerSlot}` : 'Кто сломал попил?'}
+        <button aria-label={zeroRoundBreakerSlot ? `Сломал попил: #${zeroRoundBreakerSlot}` : 'Кто сломал попил?'} type="button" data-testid="live-zero-breaker" onClick={() => setBreakerPicking(true)} className="live-judge-action">
+          {withSeatBadges(zeroRoundBreakerSlot ? `Сломал попил: #${zeroRoundBreakerSlot}` : 'Кто сломал попил?')}
         </button>
       ) : null;
 
@@ -800,8 +800,8 @@ export default function CenterPanel(props: CenterPanelProps) {
       const splitWasBroken = result.outcome === 'single_eliminated' && (currentRound?.day_number === 0 || Boolean(currentRound?.is_revote));
       const redSeats = activePlayers.filter((player) => player.alive && normalizeGameRole(player.role) !== null && ['citizen', 'sheriff'].includes(normalizeGameRole(player.role) as string)).map((player) => player.slot_num);
       const tagQuestion = splitWasBroken && onSetSplitBreakTag ? (
-        <button type="button" data-testid="live-split-break-tag" onClick={() => setTagPicking(true)} className="live-judge-action">
-          {splitBreakTagSlot ? `Сломал попил красным: #${splitBreakTagSlot}` : 'Сломал попил красным?'}
+        <button aria-label={splitBreakTagSlot ? `Сломал попил красным: #${splitBreakTagSlot}` : 'Сломал попил красным?'} type="button" data-testid="live-split-break-tag" onClick={() => setTagPicking(true)} className="live-judge-action">
+          {withSeatBadges(splitBreakTagSlot ? `Сломал попил красным: #${splitBreakTagSlot}` : 'Сломал попил красным?')}
         </button>
       ) : null;
       if (tagQuestion && tagPicking) {
@@ -814,7 +814,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             </div>
             <div className="live-judge-breaker__seats" role="group" aria-label="Красный, сломавший попил">
               {redSeats.map((seat) => (
-                <button key={seat} type="button" aria-pressed={splitBreakTagSlot === seat} onClick={() => chooseTag(seat)} className="live-judge-breaker__seat">#{seat}</button>
+                <button key={seat} type="button" aria-pressed={splitBreakTagSlot === seat} onClick={() => chooseTag(seat)} className="live-judge-breaker__seat"><SeatBadge seat={seat} size="inline" /></button>
               ))}
             </div>
           </div>
@@ -849,8 +849,8 @@ export default function CenterPanel(props: CenterPanelProps) {
         return (
           <div className="live-judge-hud__stack">
             <div className="live-judge-hud__eyebrow">Нулевой круг · клубная настройка</div>
-            <div className="live-judge-hud__title">Попил сломан в <strong>#{seat}</strong></div>
-            <div className="live-judge-hud__hint">#{seat} остаётся за столом, без ЛХ: 30 секунд дополнительной речи, затем ночь.</div>
+            <div className="live-judge-hud__title">Попил сломан в <SeatBadge seat={seat} size="inline" /></div>
+            <div className="live-judge-hud__hint"><SeatBadge seat={seat} size="inline" /> остаётся за столом, без ЛХ: 30 секунд дополнительной речи, затем ночь.</div>
             <button type="button" onClick={() => handleClubZeroRoundBreak?.(seat)} className="live-judge-action live-judge-action--primary">Доп. речь #{seat} · 30 сек</button>
             {breakerQuestion}
             {tagQuestion}
@@ -862,7 +862,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         return (
           <div className="live-judge-hud__stack">
             <div className="live-judge-hud__eyebrow">Итог голосования</div>
-            <div className="live-judge-hud__title">Заголосован <strong>#{result.winners[0]}</strong></div>
+            <div className="live-judge-hud__title">Заголосован <SeatBadge seat={result.winners[0]} size="inline" /></div>
             <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="live-judge-action live-judge-action--primary">Подтвердить</button>
             {breakerQuestion}
             {tagQuestion}
@@ -874,7 +874,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         return (
           <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
             <div className="live-judge-hud__eyebrow">Переголосование</div>
-            <div className="live-judge-hud__title">{result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
+            <div className="live-judge-hud__title">{result.winners.map((seat, index) => <React.Fragment key={seat}>{index ? ' ' : ''}<SeatBadge seat={seat} size="inline" /></React.Fragment>)}</div>
             {renderVotingOrder(result.winners)}
             <div className="live-judge-hud__hint">Перед переголосованием каждый из этих игроков получает 30 секунд.</div>
             <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="live-judge-action live-judge-action--primary">Речи по 30 секунд</button>
@@ -905,7 +905,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         };
         return (
           <div className="live-judge-hud__stack live-judge-table-decision">
-            <div className="live-judge-hud__title">Поднять {result.winners.map((seat) => `#${seat}`).join(' и ')}?</div>
+            <div className="live-judge-hud__title">Поднять {result.winners.map((seat, index) => <React.Fragment key={seat}>{index ? ' и ' : ''}<SeatBadge seat={seat} size="inline" /></React.Fragment>)}?</div>
             <div className="live-judge-table-decision-count">
               <span>За «поднять»</span>
               <strong>{entered}/{eligible}<small>нужно {majority}</small></strong>
@@ -951,12 +951,12 @@ export default function CenterPanel(props: CenterPanelProps) {
             : 'После свободной посадки начинается нулевой круг.';
       return (
         <div className="live-judge-hud__stack">
-          <div className="live-judge-hud__title">{title}</div>
-          <div className="live-judge-hud__hint">{hint}</div>
+          <div className="live-judge-hud__title">{withSeatBadges(title)}</div>
+          <div className="live-judge-hud__hint">{withSeatBadges(hint)}</div>
           {zeroNightSubPhase === 'agreement' && (
             <div className="live-judge-hud__meta">
-              <span className="live-judge-chip">Дон <strong>#{donPlayer?.slot_num || '—'}</strong></span>
-              <span className="live-judge-chip">Мафия <strong>{mafiaPlayers.map((player) => `#${player.slot_num}`).join(' · ') || '—'}</strong></span>
+              <span className="live-judge-chip">Дон {donPlayer?.slot_num ? <SeatBadge seat={donPlayer.slot_num} size="inline" /> : <strong>—</strong>}</span>
+              <span className="live-judge-chip">Мафия {mafiaPlayers.length ? mafiaPlayers.map((player) => player.slot_num).map((seat, index) => <React.Fragment key={seat}>{index ? ' ' : ''}<SeatBadge seat={seat} size="inline" /></React.Fragment>) : <strong>—</strong>}</span>
             </div>
           )}
         </div>
@@ -967,7 +967,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       return nextSpeaker ? (
         <div className="live-judge-hud__stack">
           <div className="live-judge-hud__eyebrow">{dayLabel} · следующая речь</div>
-          <div className="live-judge-hud__title"><strong>#{nextSpeaker.slot_num}</strong> · {nextSpeaker.nickname || `Игрок ${nextSpeaker.slot_num}`}</div>
+          <div className="live-judge-hud__title"><SeatBadge seat={nextSpeaker.slot_num} size="inline" /> {nextSpeaker.nickname || `Игрок ${nextSpeaker.slot_num}`}</div>
           {renderNominationChips()}
         </div>
       ) : (
@@ -985,7 +985,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       return (
         <div className="live-judge-hud__stack">
           <div className="live-judge-hud__eyebrow">Ночь {roundNumber}</div>
-          <div className="live-judge-hud__title">{nightActionStatus || 'Ночь'}</div>
+          <div className="live-judge-hud__title">{withSeatBadges(nightActionStatus || 'Ночь')}</div>
         </div>
       );
     }
@@ -1120,7 +1120,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       {topbarSlot && autoControl ? createPortal(autoControl, topbarSlot) : null}
       <div data-testid="live-judge-hud" data-night-tone={nightStage?.tone} style={nightStage ? ({ '--night-step': nightStage.index + 1 } as React.CSSProperties) : undefined} className={`live-judge-hud ${phase === 'night' ? 'live-judge-hud--night' : ''} col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none`}>
         <div className="live-judge-hud__header">
-          <span className="live-judge-hud__phase">{phaseLabel}</span>
+          <span className="live-judge-hud__phase">{withSeatBadges(phaseLabel)}</span>
           <div className="live-judge-hud__header-actions">
             {/* No timer runs while votes are counted: «Авто» steps aside so the pill can say «Переголосование 1» in full. */}
             {!topbarSlot && autoControl}
@@ -1148,14 +1148,14 @@ export default function CenterPanel(props: CenterPanelProps) {
           <div className="live-judge-hud__footer">
             {showFooterSummary && (
               <div className="live-judge-hud__summary">
-                <span>Выставлены: {nominations.length ? nominations.map((seat) => `#${seat}`).join(' · ') : '—'}</span>
+                <span>Выставлены: {nominations.length ? nominations.map((seat, index) => <React.Fragment key={seat}>{index ? ' ' : ''}<SeatBadge seat={seat} size="inline" /></React.Fragment>) : '—'}</span>
                 <span>Живых: {activePlayers.filter((player) => player.alive).length}/{activePlayers.length}</span>
               </div>
             )}
             {showFooterAction && (prevStep || nextStep) && (
               <div className={`live-judge-hud__footer-actions ${footerSingle ? 'live-judge-hud__footer-actions--single' : ''}`}>
                 {prevStep && <button type="button" onClick={prevStep.onClick} className="live-judge-hud__secondary"><ArrowLeft />Назад</button>}
-                {nextStep && <button type="button" onClick={nextStep.onClick} className="live-judge-hud__primary">{nextStep.label}<ArrowRight /></button>}
+                {nextStep && <button type="button" aria-label={nextStep.label} onClick={nextStep.onClick} className="live-judge-hud__primary">{withSeatBadges(nextStep.label)}<ArrowRight /></button>}
               </div>
             )}
           </div>

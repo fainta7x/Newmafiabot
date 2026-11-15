@@ -163,7 +163,7 @@ describe('Live Game table-decision recovery', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
 
-    expect(await screen.findByText(/^Поднять #\d+ и #\d+\?$/)).toBeTruthy();
+    expect(await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')))).toBeTruthy();
     await waitFor(() => {
       expect(seat(1)?.getAttribute('data-table-vote-selected')).toBe('true');
       expect(seat(4)?.getAttribute('data-table-vote-selected')).toBe('true');
@@ -213,7 +213,7 @@ describe('Live Game table-decision recovery', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
 
-    expect(await screen.findByText(/^Поднять #\d+ и #\d+\?$/)).toBeTruthy();
+    expect(await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')))).toBeTruthy();
     await waitFor(() => expect(screen.getByText('0/10')).toBeTruthy());
     for (const slot of [1, 2, 4, 5, 8]) {
       expect(seat(slot)?.getAttribute('data-table-vote-selected')).toBeNull();

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { withSeatBadges } from './SeatBadge.tsx';
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronUp, ClipboardList, Copy, ScrollText, X } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
@@ -198,14 +199,14 @@ export default function EventsPanel({
               const rest = log.log.substring(colonIndex + 1);
               return (
                 <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
-                  <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{rest}
+                  <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{withSeatBadges(rest)}
                 </div>
               );
             }
           }
           return (
             <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
-              <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {log.log}
+              <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {withSeatBadges(log.log)}
             </div>
           );
         })}
@@ -332,7 +333,7 @@ export default function EventsPanel({
             {/* Two lines for the latest event (2026-10-27: one line cut most of them to «…»); the whole log is under «Журнал». */}
             <div data-testid="live-events-feedback" className="relative mt-1 h-6 min-w-0 overflow-hidden">
               <p data-testid="live-events-latest" className={`absolute inset-0 line-clamp-2 text-[10px] leading-3 ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
-                {latestLog || "Журнал и заметки не мешают текущему ходу"}
+                {withSeatBadges(latestLog || "Журнал и заметки не мешают текущему ходу")}
               </p>
             </div>
           </div>

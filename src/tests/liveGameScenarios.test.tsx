@@ -229,7 +229,7 @@ describe('judge engine: whole-game scenarios', () => {
     await press('Начать голосование');
     await tie();
     // The second tie: the table decides whether both leave; six of ten raise them.
-    await screen.findByText(/^Поднять #\d+ и #\d+\?$/);
+    await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')));
     for (const slot of [1, 3, 4, 6, 7, 8]) fireEvent.click(seat(slot));
     await press('Зафиксировать решение');
     // Both give their last speech, then the game goes on into the night: the saved game holds the result.

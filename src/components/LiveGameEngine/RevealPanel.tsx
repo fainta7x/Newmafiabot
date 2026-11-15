@@ -1,4 +1,5 @@
 import { GAME_ROLES } from '../../shared/gameRoles.ts';
+import { SeatBadge } from './SeatBadge.tsx';
 import { useState } from 'react';
 import { REVEAL_COLOR_LABELS, type LiveReveal, type RevealColor } from '../../lib/liveReveals.ts';
 import type { ActivePlayerState } from './types.js';
@@ -39,7 +40,7 @@ function RevealedCard({ reveal, players, rolesVisible, onRemoveReveal, onSetChec
     <div data-testid={`live-reveal-card-${reveal.seat}`} className="space-y-3 rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-white">{seatName(owner, reveal.seat)}</div>
+          <div className="truncate text-sm font-semibold text-white"><SeatBadge seat={reveal.seat} size="inline" /> {owner?.nickname || `Игрок ${reveal.seat}`}</div>
           <div className="text-[11px] text-amber-100/60">вскрылся шерифом{rolesVisible && owner ? ` · на самом деле ${GAME_ROLES[owner.role].label}` : ''}</div>
         </div>
         <button type="button" onClick={() => onRemoveReveal(reveal.seat)} className="min-h-11 shrink-0 rounded-xl border border-white/10 bg-black/20 px-3 text-xs text-white/60">Снять вскрытие</button>
@@ -51,7 +52,7 @@ function RevealedCard({ reveal, players, rolesVisible, onRemoveReveal, onSetChec
           <ul className="mt-1.5 space-y-1.5">
             {reveal.checks.map((check) => (
               <li key={check.target} className="flex items-center justify-between gap-2 rounded-xl bg-black/25 px-3 py-2 text-sm">
-                <span className="min-w-0 truncate text-white/80">{seatName(players.find((player) => player.slot_num === check.target), check.target)}</span>
+                <span className="min-w-0 truncate text-white/80"><SeatBadge seat={check.target} size="inline" /> {players.find((player) => player.slot_num === check.target)?.nickname || `Игрок ${check.target}`}</span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${check.color === 'black' ? 'bg-slate-200/15 text-slate-100' : 'bg-rose-400/15 text-rose-100'}`}>{REVEAL_COLOR_LABELS[check.color]}</span>
                   <button type="button" aria-label={`Убрать проверку ${check.target}`} onClick={() => onRemoveCheck(reveal.seat, check.target)} className="min-h-11 min-w-11 rounded-xl border border-white/10 bg-black/20 text-sm text-white/55">✕</button>
@@ -114,7 +115,7 @@ export default function RevealPanel({ players, reveals, rolesVisible, onAddRevea
                     onClick={() => (revealed ? onRemoveReveal(player.slot_num) : onAddReveal(player.slot_num))}
                     className={`min-h-12 break-words rounded-2xl border px-3 py-1.5 text-left text-sm leading-snug ${revealed ? 'border-amber-200/30 bg-amber-200/12 text-amber-50' : 'border-white/10 bg-black/20 text-white/70'} ${player.alive ? '' : 'opacity-55'}`}
                   >
-                    <FitText minPx={11} className="block w-full">{seatName(player, player.slot_num)}{revealed ? ' · вскрылся' : ''}</FitText>
+                    <FitText minPx={11} className="block w-full"><SeatBadge seat={player.slot_num} size="inline" /> {player.nickname || `Игрок ${player.slot_num}`}{revealed ? ' · вскрылся' : ''}</FitText>
                   </button>
                 );
               })}

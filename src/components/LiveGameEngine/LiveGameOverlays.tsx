@@ -48,7 +48,7 @@ export function DisciplineConfirmationOverlay({ pending, player, onCancel, onCon
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-200/65">Требуется подтверждение</div>
           <h3 className="mt-1 text-lg font-semibold text-white">{copy.title}</h3>
-          <p className="mt-2 text-sm font-semibold text-white/72">#{pending.slot} · {player?.nickname || 'Игрок'}</p>
+          <p className="mt-2 text-sm font-semibold text-white/72"><SeatBadge seat={pending.slot} size="inline" /> {player?.nickname || 'Игрок'}</p>
           <p className="mt-2 text-xs leading-relaxed text-white/38">{copy.description}</p>
         </div>
         <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.06] px-3 py-2 text-[11px] text-amber-50/62">

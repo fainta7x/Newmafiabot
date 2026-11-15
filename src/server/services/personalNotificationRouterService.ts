@@ -122,8 +122,8 @@ async function ensureExternalOutboxRow(
       playerId,
       chatId: target,
       text: telegramTextWithAction(text, delivery.action_path, Boolean(telegramReplyMarkup)),
-      replyMarkup: telegramReplyMarkup || null,
-      photoPng: telegramPhotoPng || null,
+      replyMarkup: telegramReplyMarkup,
+      photoPng: telegramPhotoPng,
     });
     kickTelegramMessageOutbox(db);
   } else if (delivery.selected_channel === 'vk' && delivery.status === 'pending_channel') {

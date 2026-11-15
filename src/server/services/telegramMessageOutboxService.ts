@@ -58,8 +58,8 @@ export async function enqueueTelegramMessage(db: DatabaseWrapper, input: Telegra
       player_id = excluded.player_id,
       chat_id = excluded.chat_id,
       text = excluded.text,
-      reply_markup_json = excluded.reply_markup_json,
-      photo_png = CASE WHEN telegram_message_outbox.status = 'sent' THEN NULL ELSE excluded.photo_png END,
+      reply_markup_json = CASE WHEN ? THEN excluded.reply_markup_json ELSE telegram_message_outbox.reply_markup_json END,
+      photo_png = CASE WHEN telegram_message_outbox.status = 'sent' THEN NULL WHEN ? THEN excluded.photo_png ELSE telegram_message_outbox.photo_png END,
       updated_at = excluded.updated_at
   `, [
     key,
@@ -74,6 +74,8 @@ export async function enqueueTelegramMessage(db: DatabaseWrapper, input: Telegra
     now,
     now,
     now,
+    input.replyMarkup !== undefined ? 1 : 0,
+    input.photoPng !== undefined ? 1 : 0,
   ]);
   return db.get('SELECT * FROM telegram_message_outbox WHERE message_key = ?', [key]);
 }

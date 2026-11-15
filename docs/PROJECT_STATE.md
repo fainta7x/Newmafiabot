@@ -547,3 +547,8 @@ Owner reaffirmed technical fixes across failure/retry/concurrency scenarios. Mer
 ## Continuous audit — personal notification delivery (2026-11-15)
 
 Candidate `fix/personal-notification-delivery` addresses ND01–ND05 from AUDIT_LOG: concurrent producers of one notification key, incomplete Telegram acknowledgements, uncertain photo fallback, stalled provider requests, and a seating summary incorrectly deduplicated after judge reassignment. Receipt validation is shared with public Telegram delivery; existing private retry budgets and cancellation holds are preserved. Judge keys include recipient identity and reuse the same judge's legacy key to avoid replaying historical summaries. No schema or game-rule changes; no real messages sent. Prior packages #1256–#1259 are merged after all required checks; runtime deployment remains a separate verification.
+
+
+## Continuous audit — VK delivery confirmation (2026-11-15)
+
+PR #1262 is merged (f96670e) after all four required workflows passed; deployment is unconfirmed. Candidate `fix/vk-delivery-ack` addresses VK01/VK02: personal messages.send requires a positive numeric message ID; incomplete HTTP200 replies and HTTP408 retain bounded retries with the same stable random_id. Definite provider refusals, fallback routing and game rules stay with their current owners. Synthetic transport and real temporary queue tests cover failure/recovery without production writes or live messages.

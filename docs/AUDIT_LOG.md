@@ -2995,3 +2995,12 @@ ND04 [confirmed]: neither personal Telegram nor VK fetch has a deadline. A simul
 ND05 [confirmed]: judge seating-summary keys include evening/seating fingerprint but omit recipient identity. Reassigning the judge and re-queueing unchanged seating reports already queued and never notifies the new judge. Include judge identity in new keys; reuse a legacy key only when it belongs to that same judge, so historical sent summaries do not duplicate after deployment.
 
 Delivery candidate verification: 229 tests passed across 38 connected files after rebasing onto merged #1259, including 13 new audit scenarios. project:verify:fast and production build passed. Provider fixtures were corrected to contain valid Telegram message IDs; delivery/retry assertions were retained.
+
+
+## 2026-11-15 — VK acknowledgement audit
+
+VK01 (fixed in candidate): `vkMessageOutboxService.ts:sendVkCommunityMessage` accepts any defined response, including null/false/zero/object, as delivery. Missing/malformed HTTP200 bodies are instead treated as permanent failures and exhaust retries immediately. Reproduce with mocked messages.send and a synthetic queue; require a positive numeric message ID for success and retain retry with stable random_id when HTTP200 has no definite API refusal. No live messages or production writes.
+
+VK02 (fixed in candidate, confirmed before fix): HTTP408 is classified permanent and consumes the retry budget immediately. A focused transport regression fails; treat it as retryable alongside 429/5xx. Existing definite permission refusals and fallback budget stay unchanged.
+
+Verification: 11 new regression scenarios reproduced the defects before the respective fixes; 33 connected tests across five files pass after them, including valid receipt, permission refusal, restart, timeout and same-random_id recovery checks. No schema changes.

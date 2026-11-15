@@ -88,10 +88,14 @@ export async function sendVkCommunityMessage(row: any, fetchImpl: typeof fetch =
   try {
     const response = await fetchImpl('https://api.vk.com/method/messages.send', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     const payload: any = await response.json().catch(() => ({}));
-    if (response.ok && payload?.response !== undefined && !payload?.error) return { ok: true };
+    if (response.ok && Number.isSafeInteger(payload?.response) && payload.response > 0 && !payload?.error) return { ok: true };
+    // messages.send returns a numeric message ID. An incomplete HTTP200 is
+    // uncertain, so retry with the existing stable random_id.
+    const definiteApiError = Number.isSafeInteger(payload?.error?.error_code) && payload.error.error_code > 0;
+    if (response.ok && !definiteApiError) return { ok: false, temporary: true, error: 'VK не подтвердил доставку сообщения' };
     const code = Number(payload?.error?.error_code || 0);
     const permissionDenied = code === 901 || code === 902;
-    const temporary = response.status === 429 || response.status >= 500 || [6, 9, 10, 29].includes(code);
+    const temporary = response.status === 408 || response.status === 429 || response.status >= 500 || [6, 9, 10, 29].includes(code);
     return { ok: false, permissionDenied, temporary: !permissionDenied && temporary, error: `VK API ${code || response.status || 'error'}: ${String(payload?.error?.error_msg || 'delivery failed')}`.slice(0, 1000) };
   } catch (error: any) {
     return { ok: false, temporary: true, error: String(error?.message || error).slice(0, 1000) };

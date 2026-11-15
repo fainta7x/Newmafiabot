@@ -2,6 +2,7 @@ import { runCrmAutomationsAfterWrite } from './server/services/crmAutomationServ
 import { getWelcomeSiteUrl } from './server/runtimeConfig.ts';
 import { ensurePublicationDeliverySchema, importLegacyPublicationHolds } from './server/services/publicationDeliveryService.ts';
 import express from 'express';
+import { productionStatic } from './server/http/productionStatic.ts';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
@@ -460,7 +461,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const isProduction = process.env.NODE_ENV === 'production';
   const distPath = path.resolve(process.cwd(), 'dist');
   if (isProduction) {
-    app.use(express.static(distPath));
+    app.use(productionStatic(distPath));
     app.get('/{*splat}', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   } else if (!isTest || isBrowserE2E) {
     const { createServer: createViteServer } = await import('vite');

@@ -603,3 +603,10 @@ Open «Дела → Проверить публикации» and inspect the di
 Old imported attempts may have no saved request. The UI identifies these; absence releases the original publisher only, rather than inventing an old image/request or reopening completed history. If the original evening/tournament is no longer eligible, leave it closed. Never delete publication rows or clear uncertainty through ad-hoc SQL. Published rows, prior announcements and player records are not deleted.
 
 `publication_delivery_decisions` retains actor, attempt, decision and evidence; `publication_deliveries` retains frozen requests and remote IDs. Normal GETs expose readable metadata, never photo bytes. A crash between absence confirmation and replay leaves a visible ready entry; use its permitted-repeat action. Startup cutover is additive and independently marked in each selected SQLite database; no manual production migration is needed for a normal deployment.
+
+
+### Static delivery verification
+
+Production nginx compresses HTML and eligible CSS/JS/SVG above 1024 bytes with gzip, varying by Accept-Encoding. `productionStatic` sets one-year immutable caching only for hashed Vite files directly inside dist/assets; HTML, sw.js and ordinary files retain default revalidation. Both Node entry points use the helper. After deployment verify Content-Encoding/Vary on a JS request advertising gzip, Cache-Control on a hashed file, and fresh HTML/worker loading; do not infer production speed from bundle sizes.
+
+Local reproduction after npm run build, with Docker available: `python docs/audit/2026-11-15/static-delivery-probe.py`. It creates a temporary nginx container, applies the production gzip settings to static test delivery, verifies the decompressed body and cleans up. The production proxy configuration itself is checked separately with nginx -t; the local probe does not validate deployed upstreams or client CPU.

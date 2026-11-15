@@ -2100,6 +2100,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onRemoveReveal={handleRemoveReveal}
         onSetAnnouncedCheck={handleSetAnnouncedCheck}
         onRemoveAnnouncedCheck={handleRemoveAnnouncedCheck}
+        showRole={rolesAreVisible}
       />
       <BestMoveProtocolOverlay
         source={activeBestMoveSource}

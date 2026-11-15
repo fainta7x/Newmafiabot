@@ -114,15 +114,17 @@ for (const [width, height, wideFont] of VIEWPORTS) {
       for (const voter of [1, 2, 3, 4, 5, 6]) await seatCard(page, voter).click();
       await check('vote-count');
       // «Между кем попил?» takes the centre cell alone (stress walk, 2026-11-02).
+      // «Попил» opens the numbers window with the choice in it (owner, 2026-11-15); «Отмена» leaves the window open.
       await page.getByTestId('live-quick-split').click();
+      await expect(page.getByTestId('live-quick-split-picker')).toBeVisible();
       await check('quick-split-picker');
-      await page.getByRole('button', { name: 'Отмена', exact: true }).click();
-      await page.getByRole('button', { name: 'Цифрами', exact: true }).click();
+      await page.getByTestId('live-quick-split-cancel').click();
+      await expect(page.getByTestId('live-vote-numbers-sheet')).toBeVisible();
       await check('vote-numbers');
       const numbersSheet = page.getByTestId('live-vote-numbers-sheet');
       await numbersSheet.getByRole('button', { name: 'Попил', exact: true }).click();
       await check('vote-numbers-split-picker');
-      await numbersSheet.getByRole('button', { name: 'Отмена', exact: true }).click();
+      await page.getByTestId('live-quick-split-cancel').click();
       await page.getByRole('button', { name: 'Свернуть', exact: true }).click();
       await page.getByRole('button', { name: /Следующий/ }).click();
       await check('vote-count-last');

@@ -2972,3 +2972,10 @@ PK01 [confirmed on main 6ea500b]: first token checkout creates shop_purchases co
 PK02 [confirmed]: after injected slot cleanup failure rolls back a participant response, ensureEveningResponseHistorySchema retains a stale ready flag. A successful retry silently misses history, then history loading fails with `no such table: evening_response_history`. Use the same existing transaction-aware guard; source/history writes retain their existing owner. Regression checks the original answer survives rollback and the successful retry writes exactly one history row.
 
 Verification: four new recovery cases, 48 connected tests across six files, project:verify:fast and production build passed. Other schema caches were inspected by call path; caches already initialized outside transactions were not changed without a reproduced failure.
+
+
+## 2026-11-15 — personal delivery audit
+
+ND01 [confirmed]: eight concurrent queuePersonalNotification calls with one key produce one success and seven UNIQUE errors. The canonical insert must coalesce the shared notification key and return the stored delivery to every producer. ND02 [confirmed]: HTTP200 null, `{ok:true}` or message_id=0 is treated as Telegram success and permanently marks the outbox sent. ND03 [confirmed]: the photo sender also accepts an incomplete acknowledgement; correcting it must not accidentally send a second text fallback for an uncertain photo result. Five synthetic reproductions fail. Reuse the existing shared Telegram receipt validation, preserve ordinary retry/cancellation and explicit photo-refusal policies. No real messages or production writes.
+
+ND04 [confirmed]: neither personal Telegram nor VK fetch has a deadline. A simulated transport that never responds leaves send/drain pending and the worker drain-in-flight flag occupied. Two deterministic clock-controlled reproductions fail. Each HTTP call now has a 15-second abort signal; Telegram ambiguity and VK stable-random-id retry semantics are preserved. Positive provider fixtures now include the real acknowledgement shape (message_id); assertions and retry budgets are unchanged.

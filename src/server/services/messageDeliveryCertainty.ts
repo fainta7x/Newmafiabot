@@ -14,12 +14,20 @@ export function mayRetryTelegramCancellation(certainty: DeliveryCertainty, tempo
   return temporary && certainty !== 'uncertain';
 }
 
-/** Public posts require a complete acknowledgement, including every album item. */
-export function publicTelegramResult(status: number, body: any, expectedMessages = 1) {
+/** Provider acknowledgement shared by public posts and personal messages. */
+export function telegramAcknowledgedMessageIds(body: any, expectedMessages = 1): string[] | null {
   const messages = Array.isArray(body?.result) ? body.result : [body?.result];
   const ids = messages.map((message: any) => message?.message_id);
-  if (status >= 200 && status < 300 && body?.ok === true && messages.length === expectedMessages && ids.every((id: unknown) => Number.isSafeInteger(id) && Number(id) > 0)) {
-    return { ok: true, certainty: 'accepted' as const, ids: ids.map(String) };
+  return body?.ok === true && Number.isSafeInteger(expectedMessages) && expectedMessages > 0
+    && messages.length === expectedMessages && ids.every((id: unknown) => Number.isSafeInteger(id) && Number(id) > 0)
+    ? ids.map(String) : null;
+}
+
+/** Public posts require a complete acknowledgement, including every album item. */
+export function publicTelegramResult(status: number, body: any, expectedMessages = 1) {
+  const ids = telegramAcknowledgedMessageIds(body, expectedMessages);
+  if (status >= 200 && status < 300 && ids) {
+    return { ok: true, certainty: 'accepted' as const, ids };
   }
   const definite = status < 500 && status !== 408 && body?.ok === false && Number.isInteger(body?.error_code) && body.error_code >= 400 && body.error_code < 500 && body.error_code !== 408;
   return { ok: false, certainty: definite ? 'rejected' as const : 'uncertain' as const,

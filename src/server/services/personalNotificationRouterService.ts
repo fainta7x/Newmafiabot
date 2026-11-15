@@ -198,10 +198,11 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
       ? 'no_linked_delivery_channel'
       : null;
 
-  await db.run(
+  const inserted = await db.run(
     `INSERT INTO personal_notification_deliveries
       (notification_key, player_id, category, event_type, entity_id, selected_channel, channel_target, text, action_path, status, reason, created_at, updated_at)
-     VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(notification_key) DO NOTHING`,
     [
       notificationKey,
       playerId,
@@ -221,5 +222,5 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
   const delivery = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
   if (delivery) await ensureExternalOutboxRow(db, delivery, input.telegramReplyMarkup, input.telegramPhotoPng);
 
-  return { delivery, created: true };
+  return { delivery, created: inserted.changes > 0 };
 }

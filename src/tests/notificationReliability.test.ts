@@ -83,7 +83,7 @@ describe('messages queued inside a transaction', () => {
     const db = await setup();
     await db.run("UPDATE players SET telegram_user_id = '555' WHERE id = 'p1'");
     const sent: string[] = [];
-    vi.stubGlobal('fetch', (async (_url: any, init: any) => { sent.push(JSON.parse(String(init.body)).text); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as typeof fetch);
+    vi.stubGlobal('fetch', (async (_url: any, init: any) => { sent.push(JSON.parse(String(init.body)).text); return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 }); }) as typeof fetch);
 
     await expect(db.transaction(async (tx) => {
       await queuePersonalNotification(tx, note('tx:rolled-back'));

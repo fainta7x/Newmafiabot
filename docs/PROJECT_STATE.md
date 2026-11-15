@@ -2,17 +2,17 @@
 
 ## Доставка сайта и приложения — 2026-11-15
 
-По запросу владельца кандидат `perf/static-delivery` включает gzip текстовых файлов в nginx и immutable-кеш на год только для fingerprinted Vite assets. HTML, service worker и обычные файлы сохраняют перепроверку. Локальный nginx передал входной JS 1,192,399 → 320,320 байт (−73.1%); распакованный ответ совпадает побайтно. Конфигурация production проходит nginx -t. Deployed-JS read заблокирован прокси HTTP403, runtime-ускорение не подтверждено. Метрики и воспроизведение: docs/audit/2026-11-15/static-delivery-*.
+PR #1272 смёржен (bd2fde9) после всех обязательных проверок и включает gzip текстовых файлов в nginx и immutable-кеш на год только для fingerprinted Vite assets. HTML, service worker и обычные файлы сохраняют перепроверку. Локальный nginx передал входной JS 1,192,399 → 320,320 байт (−73.1%); распакованный ответ совпадает побайтно. Конфигурация production проходит nginx -t. Корректный deployed module прочитан: 1,192,399 байт, без Content-Encoding, Cache-Control public/max-age=0; новые оптимизации в публичном ответе пока не видны. Предыдущий вывод о блокировке JS был ошибкой выбора внешнего Telegram script URL. Метрики и воспроизведение: docs/audit/2026-11-15/static-delivery-*.
 
 
 ## Исправления общего аудита и производительность — 2026-11-15
 
-Владелец согласовал все AF01–AF08 из отчёта PR #1268 и проверку ускорения приложения/сайта. PR #1271 смёржен (972750c) после всех обязательных проверок и исправляет их одним пакетом; 13 диагностических/контрольных сценариев теперь проходят. Владение транзакцией определяется текущим async-контекстом обёртки БД; жетоны внутри владельца сериализуются, чужие запросы входят через общую очередь. Денежные записи и составной PATCH атомарны, повторные циклы взносов имеют отдельные ключи. История production не переписывается. Проверка доставки статических файлов выполняется отдельно в `perf/static-delivery`; улучшение времени загрузки в production не подтверждено.
+Владелец согласовал все AF01–AF08 из отчёта PR #1268 и проверку ускорения приложения/сайта. PR #1271 смёржен (972750c) после всех обязательных проверок и исправляет их одним пакетом; 13 диагностических/контрольных сценариев теперь проходят. Владение транзакцией определяется текущим async-контекстом обёртки БД; жетоны внутри владельца сериализуются, чужие запросы входят через общую очередь. Денежные записи и составной PATCH атомарны, повторные циклы взносов имеют отдельные ключи. История production не переписывается. Доставка статических файлов завершена отдельным пакетом (раздел выше); улучшение времени загрузки в production не подтверждено.
 
 
 ## Continuous audit — notification payload retry (2026-11-15)
 
-Candidate `fix/notification-payload-retry` addresses NP01: a duplicate personal notification omitting optional photo/keyboard preserves the pending payload; explicit null still clears it and sent photos remain cleared. Regression reproduces the previous loss and verifies the explicit-clear control. No schema/game-rule changes or real sends. #1263 is merged (17d844c); #1266 was updated after the resulting documentation conflict and needs checks for its new head.
+Merged PR #1267 addresses NP01: a duplicate personal notification omitting optional photo/keyboard preserves the pending payload; explicit null still clears it and sent photos remain cleared. Regression reproduces the previous loss and verifies the explicit-clear control. No schema/game-rule changes or real sends. #1263 is merged (17d844c); #1266 is merged; deployment/runtime verification remain separate.
 
 
 This file is the canonical **current-state snapshot**: facts that are true now, the current queue and what waits on the owner. It does not hold a chronological history; Git commits and merged PRs own history. The full text of this file before the 2026-11-10 consolidation (old queue, per-day owner notes, historical handoffs) is preserved verbatim in [`docs/archive/PROJECT_STATE_until_2026-11-10.md`](archive/PROJECT_STATE_until_2026-11-10.md) as historical evidence only.
@@ -21,7 +21,7 @@ This file is the canonical **current-state snapshot**: facts that are true now, 
 
 **Status date:** 2026-11-15
 
-**Latest release record:** every merged PR up to the 2026-11-10 cleanup is in `main`; Amvera auto-builds `main`. Deployment and runtime verification are separate states and are tracked per item in `docs/LIVE_CHECK_2026-11-09.md` (owner answers pending).
+**Latest release record:** AF01–AF08 (#1271), gzip/cache (#1272), and initial-route loading (#1274) are merged after all required GitHub checks. Combined source verification at 74f80d5 passes production build and 33 focused tests; all eight browser scenarios pass on the combined production preview. Amvera auto-build and runtime verification remain separate; production speed is not confirmed by local measurements.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -561,24 +561,29 @@ Owner reaffirmed technical fixes across failure/retry/concurrency scenarios. Mer
 
 ## Continuous audit — personal notification delivery (2026-11-15)
 
-Candidate `fix/personal-notification-delivery` addresses ND01–ND05 from AUDIT_LOG: concurrent producers of one notification key, incomplete Telegram acknowledgements, uncertain photo fallback, stalled provider requests, and a seating summary incorrectly deduplicated after judge reassignment. Receipt validation is shared with public Telegram delivery; existing private retry budgets and cancellation holds are preserved. Judge keys include recipient identity and reuse the same judge's legacy key to avoid replaying historical summaries. No schema or game-rule changes; no real messages sent. Prior packages #1256–#1259 are merged after all required checks; runtime deployment remains a separate verification.
+Merged PR #1262 addresses ND01–ND05 from AUDIT_LOG: concurrent producers of one notification key, incomplete Telegram acknowledgements, uncertain photo fallback, stalled provider requests, and a seating summary incorrectly deduplicated after judge reassignment. Receipt validation is shared with public Telegram delivery; existing private retry budgets and cancellation holds are preserved. Judge keys include recipient identity and reuse the same judge's legacy key to avoid replaying historical summaries. No schema or game-rule changes; no real messages sent. Prior packages #1256–#1259 are merged after all required checks; runtime deployment remains a separate verification.
 
 
 ## Continuous audit — VK delivery confirmation (2026-11-15)
 
-PR #1262 is merged (f96670e) after all four required workflows passed; deployment is unconfirmed. Candidate `fix/vk-delivery-ack` addresses VK01/VK02: personal messages.send requires a positive numeric message ID; incomplete HTTP200 replies and HTTP408 retain bounded retries with the same stable random_id. Definite provider refusals, fallback routing and game rules stay with their current owners. Synthetic transport and real temporary queue tests cover failure/recovery without production writes or live messages.
+PR #1262 is merged (f96670e) after all four required workflows passed; deployment is unconfirmed. Merged PR #1265 addresses VK01/VK02: personal messages.send requires a positive numeric message ID; incomplete HTTP200 replies and HTTP408 retain bounded retries with the same stable random_id. Definite provider refusals, fallback routing and game rules stay with their current owners. Synthetic transport and real temporary queue tests cover failure/recovery without production writes or live messages.
 
 
 ## Assistant work tracking (owner, 2026-11-15)
 
-Owner asked about separating ChatGPT and Claude work. Existing CRM → Ещё → Проект already displays GPT/Claude marks, as does the bot PR list; no duplicate product screen is needed. Branch convention and PR footer are defined in AGENTS.md. Audit findings and regression evidence live in AUDIT_LOG.md and linked PRs; CI verifies a commit, not authorship. Candidate `fix/project-board-check-status` corrects PB01: UI preview checks participate in the existing readiness status when present; docs-only PRs remain supported.
+Owner asked about separating ChatGPT and Claude work. Existing CRM → Ещё → Проект already displays GPT/Claude marks, as does the bot PR list; no duplicate product screen is needed. Branch convention and PR footer are defined in AGENTS.md. Audit findings and regression evidence live in AUDIT_LOG.md and linked PRs; CI verifies a commit, not authorship. Merged PR #1263 corrects PB01: UI preview checks participate in the existing readiness status when present; docs-only PRs remain supported.
 
 
 ## Continuous audit — VK fallback recovery (2026-11-15)
 
-Candidate `fix/vk-fallback-recovery` addresses VF01: terminal VK failure, route switch and Telegram fallback creation now commit together. A Telegram INSERT failure rolls everything back, leaving VK eligible for the next worker pass; retry creates one fallback. The external VK call remains outside the SQLite transaction. Provider refusal policy and existing retry budgets are unchanged. Synthetic DB/transport reproduction; no production writes or real messages. #1263 was rebased on current main after documentation conflicts, preserving both audit records; its previous green checks do not validate the new head.
+Merged PR #1266 addresses VF01: terminal VK failure, route switch and Telegram fallback creation now commit together. A Telegram INSERT failure rolls everything back, leaving VK eligible for the next worker pass; retry creates one fallback. The external VK call remains outside the SQLite transaction. Provider refusal policy and existing retry budgets are unchanged. Synthetic DB/transport reproduction; no production writes or real messages. #1263 is merged after its required checks; deployment/runtime verification remain separate.
 
 
 ## PF02 — первоначальная загрузка (2026-11-15)
 
-Кандидат perf/route-loading отделяет кабинет игрока от входного JS публичного сайта и запускает загрузку /player параллельно авторизации. Замер полного статического графа: 1,234,881 → 403,195 байт; gzip 336,754 → 121,571. Восемь production-preview browser-сценариев проходят. Документ замера: docs/audit/2026-11-15/route-loading.md. GitHub/merge/deploy и реальное время загрузки проверяются отдельно. AF01–AF08 уже смёржены в #1271 (972750c); gzip/cache #1272 обновлён после документального конфликта и повторно проверяется.
+PR #1274 смёржен (74f80d5) после всех обязательных проверок и отделяет кабинет игрока от входного JS публичного сайта и запускает загрузку /player параллельно авторизации. Замер полного статического графа: 1,234,881 → 403,195 байт; gzip 336,754 → 121,571. Восемь production-preview browser-сценариев проходят. Документ замера: docs/audit/2026-11-15/route-loading.md. Включённые в main пакеты прошли обязательные GitHub-проверки. AF01–AF08 завершены отдельным пакетом, gzip/cache также смёржен. Выкладка и реальное время загрузки ещё не подтверждены.
+
+
+## Завершение пакета аудита — 2026-11-15
+
+Исходный код объединённых пакетов проверен на 74f80d5: production build и 33 интеграционных/клиентских проверки прошли. Все восемь browser-сценариев объединённой production-preview сборки прошли. GET /api/health/runtime вернул ok для database/bot/telegram; опубликованный build.sha ab4e29cf9fccd5d64dd01a6435fc3e4113681769 не сопоставлен с GitHub SHA, поэтому выкладка и live-ускорение не объявляются проверенными. Корректная проверка публичного entry /assets/index-CQrlFcZ-.js: 1,192,399 байт без gzip и с max-age=0, без ссылки на отдельный PlayerCabinetShell chunk. Значит, оптимизации загрузки/доставки пока не видны в этом ответе; это не проверка состояния бизнес-данных. Записи кандидатов приведены к фактическому состоянию GitHub; новых исправлений приложения в завершающем документальном пакете нет.

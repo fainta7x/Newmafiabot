@@ -448,3 +448,7 @@ VirtualRoleDeal is a client-side fair deck using unbiased cryptographic shufflin
 ### Club game completion and archive projections
 
 `clubGamePostSaveService.ts` applies derived updates after the canonical game/token transaction. Completion, reopen, archive and restore share its pricing/Elo handling; regular played-game fees and other-format extension shares use their existing pricing readers. Pricing functions serialize their full read/calculate/write cycle with transactional payment commands. Projection failures are logged without rejecting an already committed game operation; archive retry reruns reconciliation.
+
+### Personal notification receipts and concurrent enqueue
+
+`personalNotificationRouterService.ts` coalesces the canonical notification-key insert and always reads the stored delivery before materializing the selected external outbox. Telegram receipt parsing in `messageDeliveryCertainty.ts` is shared with public publications; outbox retry/cancellation policies remain owned by their existing services. Personal Telegram and VK HTTP calls use finite abort deadlines. Judge seating-summary keys include the judge identity; an existing legacy key is reused only for that same judge.

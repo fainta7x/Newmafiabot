@@ -12,7 +12,7 @@ describe('a Telegram message with a picture', () => {
     const db = createDatabaseConnection(':memory:'); opened.push(db);
     await enqueueTelegramMessage(db, { messageKey: 'k1', category: 'personal', eventType: 'evening_vote', chatId: '5', text: '🏆 Кто сыграл лучше всех?', replyMarkup: { inline_keyboard: [[{ text: 'Аня', callback_data: 'evv:e:a' }]] }, photoPng: PNG });
     const calls: Array<{ url: string; body: any }> = [];
-    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: init.body }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: init.body }); return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 }); }) as unknown as typeof fetch;
     await drainTelegramMessageOutbox(db, { fetchImpl });
     expect(calls.length).toBe(1);
     expect(calls[0].url).toContain('/sendPhoto');
@@ -28,7 +28,7 @@ describe('a Telegram message with a picture', () => {
     const db = createDatabaseConnection(':memory:'); opened.push(db);
     await enqueueTelegramMessage(db, { messageKey: 'k2', category: 'personal', eventType: 'evening_mvp_result', chatId: '5', text: 'Итог', photoPng: PNG });
     const urls: string[] = [];
-    const refuse = (async (url: string) => { urls.push(url); return url.includes('/sendPhoto') ? new Response(JSON.stringify({ ok: false, description: 'bad' }), { status: 400 }) : new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
+    const refuse = (async (url: string) => { urls.push(url); return url.includes('/sendPhoto') ? new Response(JSON.stringify({ ok: false, description: 'bad' }), { status: 400 }) : new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 }); }) as unknown as typeof fetch;
     await drainTelegramMessageOutbox(db, { fetchImpl: refuse });
     expect(urls.map((url) => url.split('/').pop())).toEqual(['sendPhoto', 'sendMessage']);
     expect((await db.get<any>("SELECT status FROM telegram_message_outbox WHERE message_key = 'k2'")).status).toBe('sent');

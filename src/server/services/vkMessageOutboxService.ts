@@ -68,6 +68,8 @@ export async function enqueueVkMessage(db: DatabaseWrapper, input: VkMessageInpu
 
 type VkSendResult = { ok: boolean; temporary?: boolean; permissionDenied?: boolean; error?: string };
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export async function sendVkCommunityMessage(row: any, fetchImpl: typeof fetch = fetch): Promise<VkSendResult> {
   const token = String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'VK_GROUP_ACCESS_TOKEN is not configured' };
@@ -84,7 +86,7 @@ export async function sendVkCommunityMessage(row: any, fetchImpl: typeof fetch =
     body.set('message', `${String(row.text)}\n\n${baseUrl}${actionPath}`);
   }
   try {
-    const response = await fetchImpl('https://api.vk.com/method/messages.send', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body });
+    const response = await fetchImpl('https://api.vk.com/method/messages.send', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     const payload: any = await response.json().catch(() => ({}));
     if (response.ok && payload?.response !== undefined && !payload?.error) return { ok: true };
     const code = Number(payload?.error?.error_code || 0);

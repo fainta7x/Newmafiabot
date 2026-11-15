@@ -1,4 +1,4 @@
-import { mayRetryTelegramCancellation, telegramDeliveryCertainty } from './messageDeliveryCertainty.ts';
+import { mayRetryTelegramCancellation, telegramAcknowledgedMessageIds, telegramDeliveryCertainty } from './messageDeliveryCertainty.ts';
 import { PERSONAL_MESSAGE_MAX_RETRIES as MAX_RETRIES, personalMessageRetryDelayMs as retryDelayMs } from './personalMessageRetryPolicy.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -87,6 +87,8 @@ interface TelegramSendResult {
   ambiguous?: boolean;
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export async function sendTelegramMessage(
   row: any,
   fetchImpl: typeof fetch = fetch,
@@ -103,9 +105,10 @@ export async function sendTelegramMessage(
       form.set('parse_mode', 'HTML');
       if (row.reply_markup_json) form.set('reply_markup', String(row.reply_markup_json));
       form.set('photo', new Blob([new Uint8Array(photo)], { type: 'image/png' }), 'card.png');
-      const photoResponse = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form });
+      const photoResponse = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
       const photoPayload: any = await photoResponse.json().catch(() => null);
-      if (photoResponse.ok && photoPayload?.ok !== false) return { ok: true };
+      if (photoResponse.ok && telegramAcknowledgedMessageIds(photoPayload)) return { ok: true };
+      if (photoResponse.ok && photoPayload?.ok !== false) return { ok: false, temporary: true, ambiguous: true, error: 'Telegram не подтвердил доставку фото' };
       const retryable = photoResponse.status === 429 || photoResponse.status >= 500 || photoResponse.status === 408;
       if (retryable) {
         return { ok: false, temporary: true, error: String(photoPayload?.description || `Telegram HTTP ${photoResponse.status}`), retryAfterSeconds: Number(photoPayload?.parameters?.retry_after || 0) || null, ambiguous: telegramDeliveryCertainty({ ok: false, status: photoResponse.status }) === 'uncertain' };
@@ -113,6 +116,7 @@ export async function sendTelegramMessage(
     }
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: String(row.chat_id),
@@ -123,7 +127,8 @@ export async function sendTelegramMessage(
       }),
     });
     const payload: any = await response.json().catch(() => null);
-    if (response.ok && payload?.ok !== false) return { ok: true };
+    if (response.ok && telegramAcknowledgedMessageIds(payload)) return { ok: true };
+    if (response.ok && payload?.ok !== false) return { ok: false, temporary: true, ambiguous: true, error: 'Telegram не подтвердил доставку сообщения' };
     const error = String(payload?.description || `Telegram HTTP ${response.status}`);
     const retryAfterSeconds = Number(payload?.parameters?.retry_after || 0) || null;
     const temporary = response.status === 429 || response.status >= 500 || response.status === 408;

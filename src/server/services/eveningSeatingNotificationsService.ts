@@ -1,3 +1,4 @@
+import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { createHash } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -102,8 +103,14 @@ export async function queueEveningSeatingJudgeSummary(db: DatabaseWrapper, eveni
   const body = [...blocks].map(([title, lines]) => `${title}\n${lines.join('\n')}`).join('\n\n');
   const fingerprint = createHash('sha256').update(body).digest('hex').slice(0, 24);
   try {
+    await ensurePersonalNotificationRoutingSchema(db);
+    const legacyKey = `evening-seating-judge:${eveningId}:${fingerprint}`;
+    const legacy = await db.get<{ player_id: string }>('SELECT player_id FROM personal_notification_deliveries WHERE notification_key=?', [legacyKey]);
+    // Reassignment changes the recipient even when the seating is unchanged.
+    // Preserve an already recorded legacy notice for the same judge.
+    const notificationKey = legacy?.player_id === judgeId ? legacyKey : `${legacyKey}:${judgeId}`;
     const result = await queuePersonalNotification(db, {
-      notificationKey: `evening-seating-judge:${eveningId}:${fingerprint}`,
+      notificationKey,
       playerId: judgeId,
       eventType: 'evening_seating',
       entityId: eveningId,

@@ -108,8 +108,12 @@ async function publishVk(db: DatabaseWrapper, eveningId: string, photo: Buffer, 
         console.warn('[VK GATHERED POST] Photo upload failed; the picture is kept for manual attaching:', error instanceof Error ? error.message : String(error));
       }
     }
+    // Owner, 2026-11-15 (variant «А»): no bare-text post — without the picture the organizer gets the post to publish by hand.
+    if (!attachment) {
+      const taskId = await saveVkManualPhoto(db, { postKey: `gathered:${eveningId}`, title: caption.split('\n')[0] || 'Мы собрались', postUrl: null, mime, bytes: photo, postText: caption }).catch(() => null);
+      if (taskId) return { status: 'published', error: null, url: null, manual: true };
+    }
     const post = await createVkWallPost({ groupId, message: caption, attachments: attachment ? [attachment] : [] });
-    if (!attachment) await saveVkManualPhoto(db, { postKey: `gathered:${eveningId}`, title: caption.split('\n')[0] || 'Мы собрались', postUrl: post.externalUrl, mime, bytes: photo }).catch(() => null);
     return { status: 'published', error: null, url: post.externalUrl };
   } catch (error: any) {
     return { status: 'failed', error: `${error?.message || 'ВК недоступен'} — если пост всё же появился на стене, повторять не нужно`, url: null };

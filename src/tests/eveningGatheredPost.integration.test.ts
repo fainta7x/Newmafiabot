@@ -42,7 +42,9 @@ describe('«Мы собрались» post', () => {
     expect(Number((await db.get<any>('SELECT COUNT(*) AS count FROM games WHERE evening_id = ?', ['g1'])).count)).toBeGreaterThan(0);
   });
 
-  it('sends the photo to the evening Telegram group and records a failed VK leg', async () => {
+  // Owner, 2026-11-15 (variant «А»): without a key that can attach wall photos the VK post is handed to the organizer with its
+  // picture and text instead of going out as bare text.
+  it('sends the photo to the evening Telegram group and hands the VK post to the organizer', async () => {
     const { db } = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'tg-token');
     const calls: Array<{ url: string; body: FormData }> = [];
@@ -52,18 +54,21 @@ describe('«Мы собрались» post', () => {
     }) as unknown as typeof fetch;
 
     const post = await publishGatheredPost(db, 'g1', { data_url: PHOTO, caption: '' }, fetchImpl);
-    expect(post.state).toBe('partial');
+    expect(post.state).toBe('published');
     expect((post as any).telegram_status).toBe('published');
-    expect((post as any).vk_status).toBe('failed');
+    expect((post as any).vk_status).toBe('published');
+    const { listPendingVkManualPhotos } = await import('../server/services/vkManualPhotoService.ts');
+    const handed = await listPendingVkManualPhotos(db);
+    expect(handed).toHaveLength(1);
+    expect(handed[0].post_text).toContain('Мы собрались! Пятница начинается.');
     const telegram = calls.find((call) => call.url.includes('/sendPhoto'));
     expect(telegram?.body.get('chat_id')).toBe('-1001');
     expect(telegram?.body.get('message_thread_id')).toBe('7');
     expect(String(telegram?.body.get('caption'))).toContain('Мы собрались! Пятница начинается.');
 
-    // A retry without a new photo never posts to Telegram again; only the failed VK leg is attempted.
+    // A second press never posts to Telegram again.
     const sendsBefore = calls.filter((call) => call.url.includes('/sendPhoto')).length;
-    const retried = await publishGatheredPost(db, 'g1', {}, fetchImpl);
-    expect(retried.state).toBe('partial');
+    await publishGatheredPost(db, 'g1', {}, fetchImpl).catch(() => null);
     expect(calls.filter((call) => call.url.includes('/sendPhoto')).length).toBe(sendsBefore);
   });
 

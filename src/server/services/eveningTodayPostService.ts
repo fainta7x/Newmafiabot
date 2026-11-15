@@ -192,6 +192,13 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
         console.warn('[VK TODAY POST] The picture could not be prepared; the text post goes out:', error instanceof Error ? error.message : String(error));
       }
     }
+    // Owner, 2026-11-15 (variant «А»): a post whose picture VK will not take is not published as bare text. The organizer gets
+    // the text and the picture in «Посты для ВК» and posts it by hand; the post counts as handed over.
+    if (pending && photo) {
+      const taskId = await saveVkManualPhoto(photo.db, { postKey: photo.context?.key || `vk:${photo.eveningId}:${Date.now()}`, title: text.split('\n')[0] || 'Пост в ВК', postUrl: null, mime: pending.mime, bytes: pending.bytes, postText: text })
+        .catch((error) => { console.warn('[VK TODAY POST] Could not hand the post over:', error instanceof Error ? error.message : String(error)); return null; });
+      if (taskId) return { ok: true, certainty: 'accepted' as const, status: 'published', manual: true, error: null, url: null };
+    }
     const send = async (payload: { groupId:string; message:string; attachments?:string[] }): Promise<PublicationResult> => {
       try { const post = await createVkWallPost(payload); return {ok:true,certainty:'accepted',ids:[String(post.postId)],url:post.externalUrl}; }
       catch(error:any) { return {ok:false,certainty:error?.vkDefinite === true ? 'rejected' : 'uncertain',temporary:error?.vkDefinite === true,error:error?.message || 'ВК недоступен'}; }

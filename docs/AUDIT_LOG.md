@@ -2957,3 +2957,12 @@ Scope: «Ещё → Деньги» («Оплата и поддержка», «С
 Three synthetic API reproductions fail on main ff024eb: TG01 achievement outage returns 500 after completing the protocol and prevents the response interceptor from applying tokens; TG02 token failure returns 500 but leaves game/protocol completed; TG03 token reversal failure returns 500 but leaves the game/protocol reopened with old token balances. Expected: protocol/game/token effects commit or roll back together, while optional achievements cannot reject a committed completion. Keep existing settlement calculations, retry semantics and rules.
 
 Connected suites: 88 passed across six files, including failure after the first player award, rollback of all balances, retry and idempotent repeated completion. No scoring or award amounts changed.
+
+
+## 2026-11-15 — rollback recovery: purchases and response history
+
+PK01 [confirmed on main 6ea500b]: first token checkout creates shop_purchases coverage columns inside the purchase transaction, but gameTokenPaymentService caches completion in a WeakSet before commit. Insufficient funds or an injected shop INSERT failure rolls schema/debit/order back while leaving the cache set; a funded retry then fails with `shop_purchases has no column named evening_id`. Three synthetic tests (role, music, shop-write failure) reproduce it. Use existing transaction-aware oncePerDatabase for this schema guard; do not change prices, duplicate-song semantics or ledger rules. No production writes.
+
+PK02 [confirmed]: after injected slot cleanup failure rolls back a participant response, ensureEveningResponseHistorySchema retains a stale ready flag. A successful retry silently misses history, then history loading fails with `no such table: evening_response_history`. Use the same existing transaction-aware guard; source/history writes retain their existing owner. Regression checks the original answer survives rollback and the successful retry writes exactly one history row.
+
+Verification: four new recovery cases, 48 connected tests across six files, project:verify:fast and production build passed. Other schema caches were inspected by call path; caches already initialized outside transactions were not changed without a reproduced failure.

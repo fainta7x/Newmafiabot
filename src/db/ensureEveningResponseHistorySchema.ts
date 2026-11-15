@@ -1,10 +1,10 @@
+import { oncePerDatabase } from './oncePerDatabase.ts';
 import type { DatabaseWrapper } from './index.ts';
 
-let ready = new WeakSet<object>();
+let ensure = oncePerDatabase(createSchema);
 
 /** Who or what changed a player's answer to an evening, and when: so «it set itself to Не иду» can be answered from data. */
-export async function ensureEveningResponseHistorySchema(db: Pick<DatabaseWrapper, 'run'>) {
-  if (ready.has(db as object)) return;
+async function createSchema(db: DatabaseWrapper) {
   await db.run(`CREATE TABLE IF NOT EXISTS evening_response_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     participant_id TEXT NOT NULL,
@@ -17,7 +17,7 @@ export async function ensureEveningResponseHistorySchema(db: Pick<DatabaseWrappe
     created_at TEXT NOT NULL
   )`);
   await db.run('CREATE INDEX IF NOT EXISTS idx_evening_response_history_participant ON evening_response_history(participant_id, id)');
-  ready.add(db as object);
 }
 
-export const resetEveningResponseHistorySchemaForTests = () => { ready = new WeakSet<object>(); };
+export const ensureEveningResponseHistorySchema = (db: DatabaseWrapper) => ensure(db);
+export const resetEveningResponseHistorySchemaForTests = () => { ensure = oncePerDatabase(createSchema); };

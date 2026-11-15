@@ -1,0 +1,67 @@
+{
+  "main_sha": "17d844c65cef129ce80a17f3bd8ba370769238e7",
+  "expected_failure_cases": 9,
+  "positive_controls_passed": 3,
+  "cases": [
+    {
+      "scenario": "AF01: confirm, undo, confirm a gift contribution should restore tokens",
+      "status": "failed",
+      "observed": "AssertionError: expected { tokens: +0 } to deeply equal { tokens: 100 }"
+    },
+    {
+      "scenario": "AF02: failed contribution update should not commit the token credit",
+      "status": "failed",
+      "observed": "AssertionError: expected { tokens: 100 } to deeply equal { tokens: +0 }"
+    },
+    {
+      "scenario": "AF03: an unrelated active transaction must not disable token mutation rollback",
+      "status": "failed",
+      "observed": "AssertionError: expected [ Array(1) ] to have a length of +0 but got 1"
+    },
+    {
+      "scenario": "AF04: a rejected participant edit must not change the table",
+      "status": "failed",
+      "observed": "AssertionError: expected { table_id: 't' } to deeply equal { table_id: null }"
+    },
+    {
+      "scenario": "AF05: a failed persistent waiver must not consume the free-evening credit",
+      "status": "failed",
+      "observed": "AssertionError: expected { status: 'redeemed' } to deeply equal { status: 'purchased' }"
+    },
+    {
+      "scenario": "AF06: concurrent new Telegram links should leave only one live request",
+      "status": "failed",
+      "observed": "AssertionError: expected [ …(2) ] to have a length of 1 but got 2"
+    },
+    {
+      "scenario": "AF07: retrying payment confirmation after notification failure should recover its notification",
+      "status": "failed",
+      "observed": "AssertionError: expected \"queuePersonalNotification\" to be called 1 times, but got 0 times"
+    },
+    {
+      "scenario": "AF08: an older player payment report must not overwrite a newer organizer confirmation",
+      "status": "failed",
+      "observed": "AssertionError: expected { state: 'pending' } to deeply equal { state: 'confirmed' }"
+    },
+    {
+      "scenario": "CONTROL: ordinary token mutation rolls back its ledger on player update failure",
+      "status": "passed",
+      "observed": "positive control passed"
+    },
+    {
+      "scenario": "CONTROL: confirming a contribution twice without reversal credits only once",
+      "status": "passed",
+      "observed": "positive control passed"
+    },
+    {
+      "scenario": "CONTROL: sequential Telegram link creation leaves only one active request",
+      "status": "passed",
+      "observed": "positive control passed"
+    },
+    {
+      "scenario": "AF03b: a failed bet during another transaction must not consume its stake",
+      "status": "failed",
+      "observed": "AssertionError: expected { tokens: 50 } to deeply equal { tokens: 100 }"
+    }
+  ]
+}

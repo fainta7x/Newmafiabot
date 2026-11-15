@@ -1,5 +1,10 @@
 # Project state — 2LA Noire
 
+## Общий функциональный аудит — 2026-11-15
+
+Владелец попросил сначала общий список с воспроизведениями, без немедленных исправлений после каждой находки. Диагностический проход по main 17d844c завершён: AF01–AF08 открыты, отчёт и предлагаемые группы исправлений — [FUNCTIONAL_AUDIT_2026-11-15.md](FUNCTIONAL_AUDIT_2026-11-15.md). Код приложения не менялся. Браузерный/production-охват и неподтверждённые подозрения явно отделены.
+
+
 This file is the canonical **current-state snapshot**: facts that are true now, the current queue and what waits on the owner. It does not hold a chronological history; Git commits and merged PRs own history. The full text of this file before the 2026-11-10 consolidation (old queue, per-day owner notes, historical handoffs) is preserved verbatim in [`docs/archive/PROJECT_STATE_until_2026-11-10.md`](archive/PROJECT_STATE_until_2026-11-10.md) as historical evidence only.
 
 **Single planning document:** the current development queue lives here (and its owner-facing view in `docs/PROJECT_BOARD_RU.md`). Before treating a queue item as unfinished, confirm in current code that it is really absent.

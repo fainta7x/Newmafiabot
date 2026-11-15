@@ -7,6 +7,14 @@ import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 /** Progress of a running (or corrected) tournament and the button that completes it, with what still blocks it. */
 const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[]; actionLoading: boolean; label: string; onComplete: () => void }> = ({ tournament, games, actionLoading, label, onComplete }) => {
   const readiness = tournament.complete_readiness || { isReady: false, errors: ['Ошибка загрузки готовности'] };
+  // A game not played yet is the normal course of a tournament, not a problem (owner, 2026-11-15): the progress line says it.
+  // Only what blocks completion of games already played (or a general problem) is listed.
+  const unplayed = new Set(games.filter((game) => game.status !== 'completed').map((game) => Number(game.game_number)));
+  const blockingErrors = (readiness.errors || []).filter((err: string) => {
+    if (/^Ещё не сыграно/.test(err)) return false;
+    const number = /^Игра №(\d+)/.exec(err);
+    return !(number && unplayed.has(Number(number[1])));
+  });
   return (
     <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -35,14 +43,14 @@ const CompletionPanel: React.FC<{ tournament: Tournament; games: TournamentGame[
       </div>
 
       {/* Errors List if not ready */}
-      {!readiness.isReady && readiness.errors && readiness.errors.length > 0 && (
+      {!readiness.isReady && blockingErrors.length > 0 && (
         <div className="border-t border-border-soft/60 pt-3 space-y-1.5">
           <div className="flex items-center gap-1.5 text-danger font-bold text-[11px] uppercase tracking-wider">
             <AlertCircle className="w-3.5 h-3.5" />
             <span>Необходимо исправить для завершения:</span>
           </div>
           <ul className="list-disc list-inside space-y-0.5 text-[11px] text-text-secondary leading-relaxed pl-1">
-            {readiness.errors.map((err: string, idx: number) => (
+            {blockingErrors.map((err: string, idx: number) => (
               <li key={idx} className="font-sans">{err}</li>
             ))}
           </ul>

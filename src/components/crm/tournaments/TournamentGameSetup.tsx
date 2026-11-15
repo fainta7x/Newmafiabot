@@ -13,8 +13,6 @@ export interface TournamentGameSetupProps {
   tournamentStatus: string;
   isAnotherGameActive: boolean;
   activeGameNumber?: number;
-  judgeName?: string | null;
-  chiefJudgeName?: string | null;
   canEditJudgeAndRoles: boolean;
   canSwapSeats: boolean;
   onOpenSwapModal: () => void;
@@ -29,8 +27,6 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
   tournamentStatus,
   isAnotherGameActive,
   activeGameNumber,
-  judgeName,
-  chiefJudgeName,
   canEditJudgeAndRoles,
   canSwapSeats,
   onOpenSwapModal,
@@ -68,19 +64,14 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-2 p-3.5 rounded-2xl border border-border-soft">
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
-          <span className="font-semibold">Судья игры:</span>
-          <span className="font-bold text-text-primary">{judgeName || chiefJudgeName || 'Не указан'}</span>
-        </div>
-
+      {canSwapSeats ? <div className="flex justify-end">
         {canSwapSeats && (
           <button type="button" onClick={onOpenSwapModal} className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer">
             <ArrowLeftRight className="w-3.5 h-3.5 text-accent" />
             <span>Исправить игроков на местах</span>
           </button>
         )}
-      </div>
+      </div> : null}
 
       {unstarted ? (
         <div role="alert" data-testid="role-deal-unstarted" className="space-y-2 rounded-2xl border border-danger/30 bg-danger-soft p-3 text-xs text-danger">

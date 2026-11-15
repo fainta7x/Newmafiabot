@@ -216,8 +216,6 @@ export default function PlayerJudging({ onBack, evenings = [], onCreated }: { on
               tournamentStatus={tournament.status}
               isAnotherGameActive={Boolean(otherActive)}
               activeGameNumber={otherActive?.game_number}
-              judgeName={currentGame.judge_name}
-              chiefJudgeName={tournament.chief_judge_name}
               canEditJudgeAndRoles={true}
               canSwapSeats={false}
               onOpenSwapModal={() => undefined}

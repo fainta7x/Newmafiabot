@@ -163,13 +163,13 @@ export function PlayerActionOverlay({
 
   const roleLabel = showRole && player.role ? GAME_ROLE_LABELS[player.role as keyof typeof GAME_ROLE_LABELS] : '';
   const blackRole = player.role === 'don' || player.role === 'mafia';
-  const stepper = (label: string, value: number, onMinus: () => void, onPlus: () => void, ids: { plus?: string; minus?: string } = {}) => (
+  const stepper = (label: string, value: number, onMinus: () => void, onPlus: () => void, ids: { plus?: string; minus?: string } = {}, names: { plus: string; minus: string } = { plus: `Добавить: ${label}`, minus: `Снять: ${label}` }) => (
     <div className="flex min-h-[52px] items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.05] pl-4 pr-1.5">
       <span className="text-sm font-bold text-white">{label}</span>
       <span className="flex items-center gap-1.5">
-        <button type="button" data-testid={ids.minus} aria-label={`Снять: ${label}`} disabled={value <= 0} onClick={() => { onMinus(); onClose(); }} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-lg font-black text-white disabled:opacity-25">−</button>
+        <button type="button" data-testid={ids.minus} aria-label={names.minus} disabled={value <= 0} onClick={() => { onMinus(); onClose(); }} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-lg font-black text-white disabled:opacity-25">−</button>
         <span className="min-w-6 text-center font-mono text-lg font-black text-white">{value}</span>
-        <button type="button" data-testid={ids.plus} data-seat={player.slot_num} aria-label={`Добавить: ${label}`} onClick={() => { onPlus(); onClose(); }} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-lg font-black text-white">+</button>
+        <button type="button" data-testid={ids.plus} data-seat={player.slot_num} aria-label={names.plus} onClick={() => { onPlus(); onClose(); }} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-lg font-black text-white">+</button>
       </span>
     </div>
   );
@@ -207,7 +207,7 @@ export function PlayerActionOverlay({
             ) : null}
             {canEditFouls ? (
               <div className={player.alive && mode === 'standard' ? '' : 'col-span-2'}>
-                {stepper('Фол', regularFouls, () => onRemoveRegularFoul(player.slot_num), () => onAddRegularFoul(player.slot_num), { plus: 'live-player-add-regular-foul' })}
+                {stepper('Фол', regularFouls, () => onRemoveRegularFoul(player.slot_num), () => onAddRegularFoul(player.slot_num), { plus: 'live-player-add-regular-foul' }, { plus: '+ Обычный фол', minus: '− Снять фол' })}
               </div>
             ) : null}
           </div>
@@ -217,8 +217,8 @@ export function PlayerActionOverlay({
           <div className="mt-4">
             {sectionLabel('Техфолы')}
             <div className="grid gap-2">
-              {stepper('Малый техфол', minorTech, () => onRemoveTechFoul(player.slot_num, 'minor'), () => onAddTechFoul(player.slot_num, 'minor'), { minus: 'live-player-remove-minor-tech' })}
-              {stepper('Большой техфол', majorTech, () => onRemoveTechFoul(player.slot_num, 'major'), () => onAddTechFoul(player.slot_num, 'major'), { minus: 'live-player-remove-major-tech' })}
+              {stepper('Малый техфол', minorTech, () => onRemoveTechFoul(player.slot_num, 'minor'), () => onAddTechFoul(player.slot_num, 'minor'), { minus: 'live-player-remove-minor-tech' }, { plus: 'Малый тех', minus: '− Малый тех' })}
+              {stepper('Большой техфол', majorTech, () => onRemoveTechFoul(player.slot_num, 'major'), () => onAddTechFoul(player.slot_num, 'major'), { minus: 'live-player-remove-major-tech' }, { plus: 'Большой тех', minus: '− Большой тех' })}
             </div>
           </div>
         ) : null}

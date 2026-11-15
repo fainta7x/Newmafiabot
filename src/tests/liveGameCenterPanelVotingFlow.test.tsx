@@ -167,9 +167,9 @@ describe('CenterPanel live flow guardrails', () => {
 
     rerender(<CenterPanel {...props} quickSplitAvailable handleQuickSplit={quickSplit} />);
     fireEvent.click(screen.getByTestId('live-quick-split'));
-    fireEvent.click(screen.getByRole('button', { name: '#3' }));
+    fireEvent.click(screen.getByTestId('live-quick-split-seat-3'));
     expect(quickSplit).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: '#8' }));
+    fireEvent.click(screen.getByTestId('live-quick-split-seat-8'));
     expect(quickSplit).toHaveBeenCalledWith([3, 8]);
     expect(screen.getByTestId('live-quick-split')).toBeTruthy();
   });

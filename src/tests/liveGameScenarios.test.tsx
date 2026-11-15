@@ -119,6 +119,8 @@ describe('judge engine: whole-game scenarios', () => {
     await press('Завершить последние речи');
     expect(done).not.toHaveBeenCalled(); // the judge is asked first, a misclick can still be taken back
     await press('Завершить игру');
+    // Owner, 2026-11-15: before the game closes the judge is asked about blacks who claimed to be the Sheriff.
+    await press('Готово — завершить игру');
     const result = finished(done);
     expect(result?.winning_team).toBe('Красные');
     expect(exitOf(result, 8)).toBe('voted_day');
@@ -227,7 +229,7 @@ describe('judge engine: whole-game scenarios', () => {
     await press('Начать голосование');
     await tie();
     // The second tie: the table decides whether both leave; six of ten raise them.
-    await screen.findByText('Поднять всех?');
+    await screen.findByText(/^Поднять #\d+ и #\d+\?$/);
     for (const slot of [1, 3, 4, 6, 7, 8]) fireEvent.click(seat(slot));
     await press('Зафиксировать решение');
     // Both give their last speech, then the game goes on into the night: the saved game holds the result.

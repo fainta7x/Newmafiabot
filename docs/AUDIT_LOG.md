@@ -13,6 +13,12 @@
 
 # Audit log
 
+## 2026-11-15 — single-connection request isolation audit
+
+DB01 [confirmed on main 6ea500b]: while request A holds db.transaction across an await, independent db.run/db.exec execute on that same connection and are rolled back with A, although B's write resolved successfully. DB02 [confirmed]: independent db.get/db.all read A's uncommitted values. DB03 [confirmed]: A's later write overwrites B's already acknowledged write. Five deterministic tests fail. Expected: all wrapper operations from an independent async context wait behind the transaction; owner operations/savepoints remain available without deadlock. No production operations.
+
+The same async connection identity could outlive a finished transaction in a delayed callback. Transaction ownership now uses a fresh token per transaction, not the SQLite object. Tests cover late standalone and late transactional writes during a later rollback, statement-error queue release, nested savepoints and pending schema initialization. `oncePerDatabase` must reuse only a completed outside guard from inside a transaction; joining an unfinished outside guard would deadlock behind the shared connection queue (separately reproduced in its unit test). Related game/payment/token/cache suites: 37 passed; expanded queue/savepoint/schema-guard suite: 15 passed. Network-like calls found inside transaction callbacks were traced to outbox queueing with kick guards; no external send was moved under the lock.
+
 ## 2026-11-15 — continued functional audit: game creation, archive and payment
 
 Owner authorized continuous bug discovery, reproduction and fixes. Synthetic local API tests on main ff024eb reproduce the four initial failures, then two format variants and a pricing/payment race; no production writes. Candidate fixes reuse the existing creation transaction and club-game post-save/pricing owners. Connected regression run: 108 passed across 26 files; final expanded game-lifecycle suite: 11 passed, including paid closed-evening ledger preservation, all three price formats and blocked-judge revocation. Related judge/host/role-deal suites: 94 passed across eight files.

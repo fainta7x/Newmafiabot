@@ -20,6 +20,10 @@ Owner explicitly authorized ongoing bug discovery, regression tests and fixes wi
 
 Owner authorized implementation of the continued functional audit in this conversation. Merged PR #1255 (`fix/evening-lifecycle`) closes four reproduced classes: first-application gate bypass across entry points, stale future seat reservations, edits to cancelled/settled evenings and settlement of a cancelled evening. Fixes reuse participant state/slot/seat owners; no new entities or product rules. The existing public newcomer form retains reservation before profile approval, limited to a saved lead for the selected NOVICE evening. Evidence and reproductions: [`AUDIT_LOG.md`](AUDIT_LOG.md), LC01–LC04. Local verification and exact PR status are recorded in the PR; deployment/runtime confirmation remain separate. No live data was changed.
 
+## Continuous audit — SQLite request isolation (2026-11-15)
+
+Owner authorized technical failure/retry/concurrency fixes. Candidate `fix/sqlite-request-isolation` addresses confirmed DB01–DB03: independent wrapper statements could join another request's open transaction, expose uncommitted reads, lose acknowledged writes on rollback or be overwritten before commit. The single connection now queues all independent all/get/run/exec calls with transactions; only the current transaction owner bypasses the queue. Ownership expires after commit, so delayed callbacks cannot join a later request. Nested savepoints are preserved. oncePerDatabase avoids joining an unfinished schema guard from another request while holding the transaction. Targeted queue/savepoint/guard tests passed; a full suite is running because the wrapper is shared across the app. No schema/rule/production-data changes. Independent rollback-cache package: #1258.
+
 ## Source-of-truth model
 
 - Code/current SHA: latest remote `main`.

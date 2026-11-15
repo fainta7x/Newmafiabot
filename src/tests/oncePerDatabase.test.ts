@@ -35,3 +35,16 @@ describe('schema guards run once per database connection', () => {
   });
 });
 
+
+it('a transaction never waits on an unfinished guard from another async request', async () => {
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release=resolve; });
+  const guard = vi.fn().mockImplementationOnce(() => pending).mockResolvedValue(undefined);
+  const ensure=oncePerDatabase(guard);
+  const db={sqlite:{inTransaction:false}} as any;
+  const outside=ensure(db);
+  db.sqlite.inTransaction=true;
+  const inside=ensure(db);
+  try { expect(guard).toHaveBeenCalledTimes(2); }
+  finally { release(); await Promise.all([outside,inside]); }
+});

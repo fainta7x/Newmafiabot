@@ -91,17 +91,29 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   sqlite.pragma('cache_size = -32000');
   let transactionQueue: Promise<void> = Promise.resolve();
   let savepointCounter = 0;
+  let transactionOwner: object | null = null;
+  const ownsTransaction = () => transactionOwner !== null && Boolean(transactionsOpen.getStore()?.includes(transactionOwner));
+  // Independent statements share the transaction queue. Otherwise an unrelated
+  // request can read uncommitted data or have its acknowledged write rolled back.
+  const onConnection = async <T>(work: () => T): Promise<T> => {
+    if (ownsTransaction()) return work();
+    const turn = transactionQueue;
+    let finish = () => {};
+    transactionQueue = new Promise<void>(resolve => { finish = resolve; });
+    await turn;
+    try { return work(); } finally { finish(); }
+  };
   const wrapper: DatabaseWrapper = {
     sqlite, dbPath: resolvedDbPath,
-    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { const t = performance.now(); try { return sqlite.prepare(sql).all(...params) as T[]; } finally { addSqliteTime(performance.now() - t, sql); } },
-    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { const t = performance.now(); try { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; } finally { addSqliteTime(performance.now() - t, sql); } },
-    async run(sql: string, params: any[] = []) { const t = performance.now(); try { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; } finally { addSqliteTime(performance.now() - t, sql); } },
-    async exec(sql: string) { const t = performance.now(); try { sqlite.exec(sql); } finally { addSqliteTime(performance.now() - t, sql); } },
+    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { return onConnection(() => { const t = performance.now(); try { return sqlite.prepare(sql).all(...params) as T[]; } finally { addSqliteTime(performance.now() - t, sql); } }); },
+    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { return onConnection(() => { const t = performance.now(); try { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; } finally { addSqliteTime(performance.now() - t, sql); } }); },
+    async run(sql: string, params: any[] = []) { return onConnection(() => { const t = performance.now(); try { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; } finally { addSqliteTime(performance.now() - t, sql); } }); },
+    async exec(sql: string) { return onConnection(() => { const t = performance.now(); try { sqlite.exec(sql); } finally { addSqliteTime(performance.now() - t, sql); } }); },
     async transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T> {
       // One SQLite connection serves every request, and a transaction spans awaits: two overlapping transactions
       // used to fail with «cannot start a transaction within a transaction» (the weekly evening automation at startup).
       // Transactions now run one after another, and one opened inside a running transaction joins it as a savepoint.
-      if (transactionsOpen.getStore()?.includes(sqlite)) {
+      if (ownsTransaction()) {
         const savepoint = `sp_${++savepointCounter}`;
         sqlite.exec(`SAVEPOINT ${savepoint}`);
         try { const result = await cb(wrapper); sqlite.exec(`RELEASE ${savepoint}`); return result; }
@@ -117,12 +129,15 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
       await turn;
       const startedAt = performance.now();
       try {
-        return await transactionsOpen.run([...(transactionsOpen.getStore() || []), sqlite], async () => {
+        const owner = {};
+        transactionOwner = owner;
+        return await transactionsOpen.run([...(transactionsOpen.getStore() || []), owner], async () => {
           sqlite.exec('BEGIN TRANSACTION');
           try { const result = await cb(wrapper); sqlite.exec('COMMIT'); return result; }
           catch (err) { try { sqlite.exec('ROLLBACK'); } catch (_) {} throw err; }
         });
       } finally {
+        transactionOwner = null;
         finish();
         const heldMs = performance.now() - startedAt;
         const waitedMs = startedAt - queuedAt;

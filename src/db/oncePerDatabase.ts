@@ -8,12 +8,20 @@ import type { DatabaseWrapper } from './index.ts';
  */
 export function oncePerDatabase(guard: (db: DatabaseWrapper) => Promise<void>): (db: DatabaseWrapper) => Promise<void> {
   const runs = new WeakMap<object, Promise<void>>();
+  const completed = new WeakSet<object>();
   return (db) => {
     // Inside an open transaction the guard's DDL can still be rolled back, so it runs as before and is not remembered.
-    if (db.sqlite?.inTransaction) return runs.get(db as object) ?? guard(db);
+    if (db.sqlite?.inTransaction) {
+      // A pending guard from another request may be waiting behind this
+      // transaction's connection lock. Joining it would deadlock the owner.
+      return completed.has(db as object) ? Promise.resolve() : guard(db);
+    }
     let run = runs.get(db as object);
     if (!run) {
-      run = guard(db).catch((error) => { runs.delete(db as object); throw error; });
+      run = guard(db).then(
+        () => { completed.add(db as object); },
+        (error) => { runs.delete(db as object); throw error; },
+      );
       runs.set(db as object, run);
     }
     return run;

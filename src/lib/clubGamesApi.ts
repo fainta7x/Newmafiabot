@@ -412,6 +412,7 @@ export const clubGamesApi = {
     seat_number: number;
     replacement_player_id?: string;
     guest?: { nickname: string; phone?: string };
+    swap_with_seat?: number;
   }) => request<ClubGameRecord>(`/api/games/${gameId}/seat-identity`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 

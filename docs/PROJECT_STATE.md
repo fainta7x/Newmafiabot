@@ -1,5 +1,10 @@
 # Project state — 2LA Noire
 
+## Continuous audit — notification payload retry (2026-11-15)
+
+Candidate `fix/notification-payload-retry` addresses NP01: a duplicate personal notification omitting optional photo/keyboard preserves the pending payload; explicit null still clears it and sent photos remain cleared. Regression reproduces the previous loss and verifies the explicit-clear control. No schema/game-rule changes or real sends. #1263 is merged (17d844c); #1266 was updated after the resulting documentation conflict and needs checks for its new head.
+
+
 This file is the canonical **current-state snapshot**: facts that are true now, the current queue and what waits on the owner. It does not hold a chronological history; Git commits and merged PRs own history. The full text of this file before the 2026-11-10 consolidation (old queue, per-day owner notes, historical handoffs) is preserved verbatim in [`docs/archive/PROJECT_STATE_until_2026-11-10.md`](archive/PROJECT_STATE_until_2026-11-10.md) as historical evidence only.
 
 **Single planning document:** the current development queue lives here (and its owner-facing view in `docs/PROJECT_BOARD_RU.md`). Before treating a queue item as unfinished, confirm in current code that it is really absent.
@@ -552,3 +557,13 @@ Candidate `fix/personal-notification-delivery` addresses ND01–ND05 from AUDIT_
 ## Continuous audit — VK delivery confirmation (2026-11-15)
 
 PR #1262 is merged (f96670e) after all four required workflows passed; deployment is unconfirmed. Candidate `fix/vk-delivery-ack` addresses VK01/VK02: personal messages.send requires a positive numeric message ID; incomplete HTTP200 replies and HTTP408 retain bounded retries with the same stable random_id. Definite provider refusals, fallback routing and game rules stay with their current owners. Synthetic transport and real temporary queue tests cover failure/recovery without production writes or live messages.
+
+
+## Assistant work tracking (owner, 2026-11-15)
+
+Owner asked about separating ChatGPT and Claude work. Existing CRM → Ещё → Проект already displays GPT/Claude marks, as does the bot PR list; no duplicate product screen is needed. Branch convention and PR footer are defined in AGENTS.md. Audit findings and regression evidence live in AUDIT_LOG.md and linked PRs; CI verifies a commit, not authorship. Candidate `fix/project-board-check-status` corrects PB01: UI preview checks participate in the existing readiness status when present; docs-only PRs remain supported.
+
+
+## Continuous audit — VK fallback recovery (2026-11-15)
+
+Candidate `fix/vk-fallback-recovery` addresses VF01: terminal VK failure, route switch and Telegram fallback creation now commit together. A Telegram INSERT failure rolls everything back, leaving VK eligible for the next worker pass; retry creates one fallback. The external VK call remains outside the SQLite transaction. Provider refusal policy and existing retry budgets are unchanged. Synthetic DB/transport reproduction; no production writes or real messages. #1263 was rebased on current main after documentation conflicts, preserving both audit records; its previous green checks do not validate the new head.

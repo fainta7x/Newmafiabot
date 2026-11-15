@@ -552,3 +552,8 @@ Candidate `fix/personal-notification-delivery` addresses ND01–ND05 from AUDIT_
 ## Continuous audit — VK delivery confirmation (2026-11-15)
 
 PR #1262 is merged (f96670e) after all four required workflows passed; deployment is unconfirmed. Candidate `fix/vk-delivery-ack` addresses VK01/VK02: personal messages.send requires a positive numeric message ID; incomplete HTTP200 replies and HTTP408 retain bounded retries with the same stable random_id. Definite provider refusals, fallback routing and game rules stay with their current owners. Synthetic transport and real temporary queue tests cover failure/recovery without production writes or live messages.
+
+
+## Assistant work tracking (owner, 2026-11-15)
+
+Owner asked about separating ChatGPT and Claude work. Existing CRM → Ещё → Проект already displays GPT/Claude marks, as does the bot PR list; no duplicate product screen is needed. Branch convention and PR footer are defined in AGENTS.md. Audit findings and regression evidence live in AUDIT_LOG.md and linked PRs; CI verifies a commit, not authorship. Candidate `fix/project-board-check-status` corrects PB01: UI preview checks participate in the existing readiness status when present; docs-only PRs remain supported.

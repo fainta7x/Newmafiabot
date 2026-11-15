@@ -3010,3 +3010,9 @@ VK01 (fixed in candidate): `vkMessageOutboxService.ts:sendVkCommunityMessage` ac
 VK02 (fixed in candidate, confirmed before fix): HTTP408 is classified permanent and consumes the retry budget immediately. A focused transport regression fails; treat it as retryable alongside 429/5xx. Existing definite permission refusals and fallback budget stay unchanged.
 
 Verification: 11 new regression scenarios reproduced the defects before the respective fixes; 33 connected tests across five files pass after them, including valid receipt, permission refusal, restart, timeout and same-random_id recovery checks. No schema changes.
+
+
+## 2026-11-15 — PR status audit (ChatGPT/Codex)
+
+- PB01 (fixed in candidate): `projectBoardService.ts:colourOf` ignores UI preview jobs: four successful base checks plus a running/failed layout audit produce `ready`. Reproduce with a synthetic GitHub check list; expected working/failed respectively. Four synthetic cases failed before the fix; all 10 connected tests across three files pass after it. Preview shards and layout now participate when that workflow is present; docs-only PRs without preview remain supported. Production build passed. No production writes or provider messages.
+- Owner asked about separating ChatGPT and Claude work: existing CRM → Ещё → Проект already marks both authors; preserve it rather than build a duplicate screen. GitHub PRs and this log hold evidence, CI holds verification.

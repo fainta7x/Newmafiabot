@@ -5,6 +5,7 @@ import { parseProjectState, type BoardCard } from '../../lib/projectBoard.ts';
 const REPO = 'fainta7x/Newmafiabot';
 const STATE_FILE = path.resolve(process.cwd(), 'docs', 'PROJECT_BOARD_RU.md');
 const CHECKS = ['Release gate', 'Secret scan', 'Analyze (javascript-typescript)', 'Analyze (python)'];
+const PREVIEW_CHECKS = ['Mobile preview and screenshots (1)', 'Mobile preview and screenshots (2)', 'Mobile preview and screenshots (3)', 'Layout and text audit (affected pages or full)'];
 const CACHE_MS = 60_000;
 
 let boardCache: { mtime: number; cards: BoardCard[] } | null = null;
@@ -44,10 +45,13 @@ export const colourOf = (pr: any, checks: any[]): { colour: PrColour; passed: nu
   if (pr.merged_at) return { colour: 'merged', passed: 0, total: 0 };
   if (pr.state === 'closed') return { colour: 'closed', passed: 0, total: 0 };
   const found = new Map(checks.map((check) => [check.name, check]));
-  const selected = CHECKS.map((name) => found.get(name));
+  // Documentation-only changes do not trigger UI preview. Once it appears,
+  // every shard and the layout audit must finish before declaring readiness.
+  const names = PREVIEW_CHECKS.some((name) => found.has(name)) ? [...CHECKS, ...PREVIEW_CHECKS] : CHECKS;
+  const selected = names.map((name) => found.get(name));
   const passed = selected.filter((check) => check?.status === 'completed' && check?.conclusion === 'success').length;
-  if (selected.some((check) => check && ['failure', 'cancelled', 'timed_out'].includes(check.conclusion))) return { colour: 'failed', passed, total: CHECKS.length };
-  return { colour: passed === CHECKS.length ? 'ready' : 'working', passed, total: CHECKS.length };
+  if (selected.some((check) => check && ['failure', 'cancelled', 'timed_out'].includes(check.conclusion))) return { colour: 'failed', passed, total: names.length };
+  return { colour: passed === names.length ? 'ready' : 'working', passed, total: names.length };
 };
 
 let prCache: { at: number; value: BoardPullRequest[] } | null = null;

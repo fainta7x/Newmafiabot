@@ -1,3 +1,4 @@
+import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
 import { Router } from 'express';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
@@ -345,8 +346,11 @@ router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
         await tx.run('UPDATE games SET archived_at = ? WHERE id = ?', [new Date().toISOString(), gameId]);
         await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'archive' });
       });
-      if (protocol.protocol?.status === 'completed') await rebuildCanonicalEloRatings(db);
     }
+    if (protocol.protocol?.status === 'completed') await runClubGamePostSaveTasks(db, {
+      gameId, eveningId: String(existing.evening_id), previousStatus: 'completed', status: 'draft',
+      playerIds: [], judgePlayerId: existing.judge_player_id || null,
+    });
     const row = await db.get(
       `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g
        LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,
@@ -374,7 +378,11 @@ router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) =
       await tx.run('UPDATE games SET archived_at = NULL WHERE id = ?', [gameId]);
       await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'restore' });
     });
-    if (protocol.protocol?.status === 'completed') await rebuildCanonicalEloRatings(db);
+    if (protocol.protocol?.status === 'completed') await runClubGamePostSaveTasks(db, {
+      gameId, eveningId: String(existing.evening_id), previousStatus: 'draft', status: 'completed',
+      playerIds: Array.isArray(protocol.player_results) ? protocol.player_results.map((item: any) => String(item.player_id || '')).filter(Boolean) : [],
+      judgePlayerId: existing.judge_player_id || null,
+    });
     const row = await db.get(
       `SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g
        LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,

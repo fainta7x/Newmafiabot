@@ -13,6 +13,20 @@
 
 # Audit log
 
+## 2026-11-15 — continued functional audit: game creation, archive and payment
+
+Owner authorized continuous bug discovery, reproduction and fixes. Synthetic local API tests on main ff024eb reproduce the four initial failures, then two format variants and a pricing/payment race; no production writes. Candidate fixes reuse the existing creation transaction and club-game post-save/pricing owners. Connected regression run: 108 passed across 26 files; final expanded game-lifecycle suite: 11 passed, including paid closed-evening ledger preservation, all three price formats and blocked-judge revocation. Related judge/host/role-deal suites: 94 passed across eight files.
+
+- CI follow-up: `openEveningSingleOwner` caught a duplicated published/active literal in the new transaction guard. The guard now calls existing `isOpenEvening`; the architecture assertion and exception list are unchanged.
+- GL01 [confirmed]: retry POST /api/games/evening/:id with the same planned_slot_id returns 409 after successful creation, because started-seat validation runs before existing-draft reuse. Expected: return the existing draft; one game and ten actual seats.
+- GL02 [confirmed]: cancelling the evening between preflight and the creation transaction still permits a new game and marks ten people attended. Expected: recheck open/unsettled state in the transaction, reject 409 with no game or attendance changes.
+- GL03 [confirmed]: archiving a completed CASUAL game keeps its played-game fee until another reconciliation path happens. Restore has the same missing projection. Expected: archive/restore immediately run the canonical played-game pricing projection.
+- GL03 formats [confirmed]: the same archive/restore projection omits extension shares on NOVICE and RATING evenings; both reproduced 300 ₽ remaining instead of the 200 ₽ base. The shared post-save owner must reconcile other-format extensions too, including protocol saves/reopens.
+- GL06 [confirmed]: a previously assigned judge with contact_status=blocked is refused checkpoint access (401) but still saves the same game protocol (200). Check the current blocked state once before any assigned-judge delegation branch; root/organizer entitlement behavior is unchanged.
+- GL05 [confirmed]: hold a pricing participant snapshot, confirm a closed-evening payment concurrently, then release pricing: amount_paid is positive while payment_status becomes unpaid. Serialize the pricing snapshot/calculation/write with the payment command.
+- GL04 [confirmed]: injected Elo rebuild failure returns HTTP400 after archive was committed. Expected: committed archive succeeds; derived projection failure is logged by the existing shared post-save owner, and retry can reconcile it.
+
+
 ## 2026-11-14 — CI follow-up for functional-audit PR #1254
 
 - CI01 [fixed in candidate, 14/14 focused tests passed]: `src/tests/newcomerFunnel.test.ts:10,53–65` seeds a supposedly upcoming evening from a fixed 2026-11-12 clock, while `agendaMessageService.nearestEvening` correctly uses SQLite's current clock. After 2026-11-14 15:00 UTC the event is past the three-hour inclusion window and the venue assertion fails. Reproduced locally: 1 failed / 13 passed. Fixture dates now follow the current clock; venue/message assertions and production time filtering are unchanged. Focused suite: 14/14 passed.

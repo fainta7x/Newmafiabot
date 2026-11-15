@@ -1,3 +1,4 @@
+import { isOpenEvening } from '../../lib/eveningStatus.ts';
 import { Router } from 'express';
 import { isCompletedClubGame } from '../services/completedClubGame.ts';
 import { randomUUID } from 'node:crypto';
@@ -202,15 +203,21 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       const slot = await db.get<any>('SELECT id FROM evening_game_slots WHERE id=? AND evening_id=?', [plannedSlotId, eveningId]);
       if (!slot || !tableId) return res.status(400).json({ error: 'Укажите игру из плана и её стол' });
       await ensureEveningSeatingSchema(db);
-      const alreadyStarted = await db.get<any>('SELECT 1 AS started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND started=1 LIMIT 1', [eveningId, plannedSlotId, tableId]);
-      if (alreadyStarted) return res.status(409).json({ error: 'Для выбранной игры и стола уже зафиксирована фактическая рассадка' });
     }
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
+      const currentEvening = await tx.get<any>('SELECT status, settled_at FROM game_evenings WHERE id=?', [eveningId]);
+      if (!isOpenEvening(currentEvening)) {
+        throw Object.assign(new Error('Вечер закрыт или отменён — создать игру нельзя'), { status: 409 });
+      }
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
       const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
       if (judge.judge_player_id && seats.some((seat: any) => seat.player_id && String(seat.player_id) === String(judge.judge_player_id))) throw new Error('Судья этой игры не может одновременно быть игроком');
       const reusedDraft = await findOpenDraftWithSameSeats(tx, eveningId, tableId, seats);
       if (reusedDraft) return -reusedDraft;
+      if (plannedSlotId && tableId) {
+        const started = await tx.get('SELECT 1 AS started FROM evening_seat_plans WHERE evening_id=? AND slot_id=? AND table_id=? AND started=1 LIMIT 1', [eveningId, plannedSlotId, tableId]);
+        if (started) throw Object.assign(new Error('Для выбранной игры и стола уже зафиксирована фактическая рассадка'), { status: 409 });
+      }
       const now = new Date().toISOString();
       if (plannedSlotId && tableId) {
         // The actual judge-approved roster becomes the seated historical fact.
@@ -243,7 +250,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     const gameRowId = Math.abs(createdId);
     const row = await db.get(`SELECT g.*, et.name AS table_name, (SELECT ge.format FROM game_evenings ge WHERE ge.id = g.evening_id) AS evening_format FROM games g LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`, [gameRowId]);
     return res.status(reused ? 200 : 201).json(normalizeGame(row));
-  } catch (err: any) { return res.status(400).json({ error: err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось создать игру') }); }
+  } catch (err: any) { return res.status(err.status || 400).json({ error: err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось создать игру') }); }
 });
 
 /**

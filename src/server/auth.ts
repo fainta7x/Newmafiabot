@@ -206,6 +206,9 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
   if (!playerId) return false;
   const db = req.db;
   if (!db) return false;
+  // A still-valid player cookie must not retain delegated judge powers after blocking.
+  const profile = await db.get('SELECT contact_status FROM players WHERE id = ? LIMIT 1', [playerId]);
+  if (!profile || profile.contact_status === 'blocked') return false;
   const path = requestPath(req);
 
   const checkpoint = path.match(/^\/api\/live-checkpoints\/([^/]+)\/?$/);

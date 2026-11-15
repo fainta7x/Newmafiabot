@@ -1,5 +1,5 @@
 import { rebuildCanonicalEloRatings } from './eloRatingService.ts';
-import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
+import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { evaluateAchievementsForPlayers } from './playerAchievementsService.ts';
 
 type ClubGameStatus = 'draft' | 'completed';
@@ -26,7 +26,11 @@ export interface ClubGamePostSaveResult {
 const defaultDependencies: ClubGamePostSaveDependencies = {
   rebuildElo: rebuildCanonicalEloRatings,
   evaluateAchievements: evaluateAchievementsForPlayers,
-  reconcilePayments: reconcileRegularEveningPayments,
+  reconcilePayments: async (db, eveningId) => {
+    const result = await reconcileRegularEveningPayments(db, eveningId);
+    await reconcileOtherFormatExtensions(db, eveningId);
+    return result;
+  },
 };
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);

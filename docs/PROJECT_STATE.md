@@ -4,7 +4,7 @@ This file is the canonical **current-state snapshot**: facts that are true now, 
 
 **Single planning document:** the current development queue lives here (and its owner-facing view in `docs/PROJECT_BOARD_RU.md`). Before treating a queue item as unfinished, confirm in current code that it is really absent.
 
-**Status date:** 2026-11-14
+**Status date:** 2026-11-15
 
 **Latest release record:** every merged PR up to the 2026-11-10 cleanup is in `main`; Amvera auto-builds `main`. Deployment and runtime verification are separate states and are tracked per item in `docs/LIVE_CHECK_2026-11-09.md` (owner answers pending).
 
@@ -12,9 +12,13 @@ This file is the canonical **current-state snapshot**: facts that are true now, 
 
 The **actual current main SHA belongs to Git**, not this document. Read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
+## Continuous functional audit — game lifecycle (2026-11-15)
+
+Owner explicitly authorized ongoing bug discovery, regression tests and fixes without re-approval for each batch; new product features and game rules still require agreement. Branch `fix/game-lifecycle-audit` covers confirmed GL01–GL06 from [`AUDIT_LOG.md`](AUDIT_LOG.md): planned-game retry, cancellation during creation, archive/restore pricing in all evening formats, post-commit Elo failure stale pricing/payment snapshots and blocked-judge delegation. No production writes or new tables. Prior evening-lifecycle batch #1255 is merged after CI, CodeQL, Gitleaks and UI preview passed; deployment/runtime confirmation remains separate.
+
 ## Authorized functional audit — evening lifecycle (2026-11-14)
 
-Owner authorized implementation of the continued functional audit in this conversation. Candidate branch `fix/evening-lifecycle` closes four reproduced classes: first-application gate bypass across entry points, stale future seat reservations, edits to cancelled/settled evenings and settlement of a cancelled evening. Fixes reuse participant state/slot/seat owners; no new entities or product rules. The existing public newcomer form retains reservation before profile approval, limited to a saved lead for the selected NOVICE evening. Evidence and reproductions: [`AUDIT_LOG.md`](AUDIT_LOG.md), LC01–LC04. Local verification and exact PR status are recorded in the PR; deployment/runtime confirmation remain separate. No live data was changed.
+Owner authorized implementation of the continued functional audit in this conversation. Merged PR #1255 (`fix/evening-lifecycle`) closes four reproduced classes: first-application gate bypass across entry points, stale future seat reservations, edits to cancelled/settled evenings and settlement of a cancelled evening. Fixes reuse participant state/slot/seat owners; no new entities or product rules. The existing public newcomer form retains reservation before profile approval, limited to a saved lead for the selected NOVICE evening. Evidence and reproductions: [`AUDIT_LOG.md`](AUDIT_LOG.md), LC01–LC04. Local verification and exact PR status are recorded in the PR; deployment/runtime confirmation remain separate. No live data was changed.
 
 ## Source-of-truth model
 
@@ -68,7 +72,7 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 ### Functional audit fixes — 2026-11-14
 
-Owner authorized continuation of the evening-lifecycle audit and implementation of its confirmed findings. Current candidate and scope: [evening lifecycle](#authorized-functional-audit--evening-lifecycle-2026-11-14).
+Owner authorized continuation of the evening-lifecycle audit and implementation of its confirmed findings. Previous scope: [evening lifecycle](#authorized-functional-audit--evening-lifecycle-2026-11-14).
 
 Owner approved implementation of FA01–FA04 from `AUDIT_LOG.md`. Merged PR #1254 (`fix/functional-audit-reliability`): serialized payment reads/writes and received partial-payment commands; game-scoped checkpoint permission for assigned judges/hosts; checkpoint compare-and-set revisions with explicit device handover; retryable CRM task projections separated from committed participant/payment actions. Local verification passed (targeted regressions, fast checks, production build, and 16 five-size checkpoint browser scenarios); all five GitHub workflows passed and the PR is merged; Amvera deployment verification is pending. No production financial history is repaired by this change. Broad entity/table migration and unrelated backlog remain outside this batch.
 

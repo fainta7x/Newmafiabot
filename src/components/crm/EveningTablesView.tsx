@@ -136,7 +136,7 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
           </button>
           <div className="min-w-0 flex-1">
             <h2 className="text-[17px] font-black text-text-primary">Столы вечера</h2>
-            <p className="mt-1 text-[11px] leading-4 text-text-secondary">Настройки площадки. Состав игроков выбирается отдельно при создании каждой игры.</p>
+            <p className="mt-1 text-[11px] leading-4 text-text-secondary">Название стола и его судья. Рассадка игроков — на вкладке «Игры».</p>
           </div>
           {!isReadonly && (
             <button type="button" onClick={openCreate} aria-label="Добавить стол" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-accent text-white transition-colors hover:bg-accent-hover">

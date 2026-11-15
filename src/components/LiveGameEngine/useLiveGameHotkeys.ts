@@ -8,6 +8,7 @@ import {
   type SeatAction,
   type SeatRect,
 } from './hotkeyModel.js';
+import { cancelQuickSplitPick, getQuickSplitPick, pickQuickSplitSeat, startQuickSplitPick, useQuickSplitPick } from './quickSplitPickStore.ts';
 
 /** After this much silence the seat cursor and any half-typed command go away. */
 const IDLE_MS = 6000;
@@ -72,25 +73,23 @@ const readSeatRects = (seats: number[]): SeatRect[] => {
  */
 export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandlers) {
   const [cursor, setCursor] = useState<number | null>(null);
-  const [split, setSplit] = useState<number[] | null>(null);
+  // «Попил» choice is shared with the buttons on screen (owner, 2026-11-15): Й opens it, digits pick, no key needs holding.
+  const split = useQuickSplitPick();
   const [helpOpen, setHelpOpen] = useState(false);
   const contextRef = useRef(context);
   const handlersRef = useRef(handlers);
   const cursorRef = useRef(cursor);
-  const splitRef = useRef(split);
   const helpRef = useRef(helpOpen);
   contextRef.current = context;
   handlersRef.current = handlers;
   cursorRef.current = cursor;
-  splitRef.current = split;
   helpRef.current = helpOpen;
   const idleRef = useRef<number | null>(null);
 
   const clearAll = () => {
     setCursor(null);
-    setSplit(null);
+    cancelQuickSplitPick();
     cursorRef.current = null;
-    splitRef.current = null;
   };
 
   const armIdle = () => {
@@ -155,7 +154,7 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
       if (event.target instanceof HTMLElement && event.target.tagName === 'BUTTON') event.target.blur();
 
       const currentCursor = cursorRef.current;
-      const currentSplit = splitRef.current;
+      const currentSplit = getQuickSplitPick();
       const handled = () => { event.preventDefault(); armIdle(); };
       const seatExists = (slot: number) => ctx.seats.includes(slot);
 
@@ -175,10 +174,8 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
           if (currentSplit !== null) {
             const slot = seatFromDigit(command.digit);
             if (!seatExists(slot)) return handled();
-            if (!currentSplit.length) { setSplit([slot]); splitRef.current = [slot]; return handled(); }
-            if (currentSplit[0] === slot) return handled();
-            handlersRef.current.quickSplit([currentSplit[0], slot]);
-            clearAll();
+            const pair = pickQuickSplitSeat(slot);
+            if (pair) { handlersRef.current.quickSplit(pair); clearAll(); }
             return handled();
           }
           if (currentCursor !== null) {
@@ -219,8 +216,7 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
             next = ordered[(index + step + ordered.length) % ordered.length] ?? null;
           }
           if (next !== null) { setCursor(next); cursorRef.current = next; }
-          setSplit(null);
-          splitRef.current = null;
+          cancelQuickSplitPick();
           return handled();
         }
         case 'reveals':
@@ -250,8 +246,8 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
           return;
         case 'split':
           if (!ctx.quickSplitAvailable) return;
-          setSplit([]);
-          splitRef.current = [];
+          if (getQuickSplitPick() !== null) { cancelQuickSplitPick(); return handled(); }
+          startQuickSplitPick();
           setCursor(null);
           cursorRef.current = null;
           return handled();

@@ -1,3 +1,5 @@
+import { QuickSplitPicker } from './QuickSplitPicker.tsx';
+import { toggleQuickSplitPick, useQuickSplitPick } from './quickSplitPickStore.ts';
 import type { ZeroRoundRule } from '../../shared/zeroRoundRule.ts';
 import { circleNameByTableSize } from '../../lib/circleNames';
 import React from "react";
@@ -237,6 +239,9 @@ export default function CenterPanel(props: CenterPanelProps) {
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
   const [numbersOpen, setNumbersOpen] = React.useState(false);
+  // The «Попил» choice lives in the numbers window (owner, 2026-11-15): starting it — button or Й — opens the window.
+  const splitPickingForWindow = useQuickSplitPick();
+  React.useEffect(() => { if (splitPickingForWindow !== null) setNumbersOpen(true); }, [splitPickingForWindow]);
   // On a phone «Авто» lives in the game's top bar (owner, 2026-10-27: «ПЕРЕ…»): next to «Авто», «←» and «Выйти» the phase
   // pill had about 60 px and «Переголосование» needs 86. The game window offers the place as `#live-topbar-slot`; the
   // panel only portals into it and never touches the table's DOM.
@@ -260,7 +265,8 @@ export default function CenterPanel(props: CenterPanelProps) {
   }, [votingStage, numbersAutoOpen]);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
-  const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
+  // «Между кем попил?» is one choice for the panel, the numbers window and the key Й (owner, 2026-11-15).
+  const splitPicking = useQuickSplitPick();
   const [breakerPicking, setBreakerPicking] = React.useState(false);
   const [tagPicking, setTagPicking] = React.useState(false);
   React.useEffect(() => { if (votingStage !== 'round_result') setBreakerPicking(false); }, [votingStage]);
@@ -667,33 +673,14 @@ export default function CenterPanel(props: CenterPanelProps) {
         handleResolveVoting();
       };
 
-      const quickSplitButton = <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>;
+      const quickSplitButton = <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} aria-label="Попил" onClick={toggleQuickSplitPick} className="live-judge-action">Попил <kbd className="ml-1 rounded border border-white/25 px-1 font-mono text-[11px]">Й</kbd></button>;
 
       // «Между кем попил?» has the cell to itself (stress walk, 2026-11-02): next to the counters, «Цифрами» and the step buttons the
       // hint, the seat buttons and «Отмена» did not fit the centre cell on a phone and everything overlapped and was cut off.
-      if (splitPicking && quickSplitAvailable && handleQuickSplit) {
+      if (splitPicking && quickSplitAvailable && handleQuickSplit && !handleVoteToggle) {
         return (
           <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--vote-count" data-testid="live-quick-split-only">
-            <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
-              <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
-              <div className="live-judge-quick-split__seats">
-                {currentRound.nominated_seats.map((seat) => (
-                  <button
-                    key={seat}
-                    type="button"
-                    aria-pressed={splitPicking.includes(seat)}
-                    disabled={splitPicking.includes(seat)}
-                    onClick={() => {
-                      if (!splitPicking.length) return setSplitPicking([seat]);
-                      handleQuickSplit([splitPicking[0], seat]);
-                      setSplitPicking(null);
-                    }}
-                    className="live-judge-quick-split__seat"
-                  >#{seat}</button>
-                ))}
-              </div>
-              <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
-            </div>
+            <QuickSplitPicker compact nominees={currentRound.nominated_seats} picked={splitPicking} nicknameOf={(seat) => activePlayers.find((player) => player.slot_num === seat)?.nickname || ''} onSplit={handleQuickSplit} />
           </div>
         );
       }

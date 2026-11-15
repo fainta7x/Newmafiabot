@@ -1086,7 +1086,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleQuickSplit = (pair: [number, number]) => {
     const current = votingRounds[activeVotingRoundIndex];
-    if (!current || !quickSplitAvailable || !pair.every((seat) => current.nominated_seats.includes(seat))) return;
+    if (!current || !quickSplitAvailable) return;
+    if (!pair.every((seat) => current.nominated_seats.includes(seat))) {
+      showToast(`Попил только между выставленными: ${current.nominated_seats.map((seat) => `#${seat}`).join(', ')}`, 'warning');
+      return;
+    }
     const assignments = quickSplitAssignments(pair, activePlayers.filter((p) => p.alive).map((p) => p.slot_num));
     if (!assignments) return;
     saveSnapshot();
@@ -1094,7 +1098,15 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     updateCurrentRoundVotes(assignments);
     setCurrentVotingNomineeIndex(current.nominated_seats.length - 1);
     const [low, high] = [...pair].sort((x, y) => x - y);
-    showToast(`Попил #${low} и #${high}: голоса расставлены`, 'info');
+    // Owner, 2026-11-15: no separate result step — the split players go straight to their 30-second speeches.
+    const winners = current.nominated_seats.filter((seat) => pair.includes(seat));
+    setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
+      ? { ...round, outcome: 'tie_revote' }
+      : round));
+    setVotingStage('revote_speeches');
+    setRevoteSpeakerIndex(0);
+    handleStartTimer(winners[0], 30);
+    showToast(`Попил #${low} и #${high}: голоса по схеме, речи по 30 секунд`, 'info');
   };
 
   /**

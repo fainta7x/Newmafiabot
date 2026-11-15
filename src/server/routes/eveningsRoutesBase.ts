@@ -78,6 +78,16 @@ router.post('/:id/adjustments', requireOrganizerAuth, async (req, res) => {
   }
 });
 
+// A table's judge is a linked club player; its name is copied for the screens that only show text.
+async function tableHost(db: any, body: any, current: any = {}) {
+  if (body.host_player_id === undefined) return { id: current.host_player_id ?? null, name: body.host_name !== undefined ? body.host_name : (current.host_name ?? null) };
+  const id = body.host_player_id ? String(body.host_player_id) : null;
+  if (!id) return { id: null, name: null };
+  const player = await db.get('SELECT id, nickname FROM players WHERE id = ?', [id]);
+  if (!player) throw Object.assign(new Error('Судья не найден'), { statusCode: 400 });
+  return { id, name: String(player.nickname) };
+}
+
 // GET /api/evenings/:id/tables - Get tables of an evening
 router.get('/:id/tables', requireOrganizerAuth, async (req, res) => {
   try {
@@ -101,6 +111,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
     }
 
+    const host = await tableHost(db, req.body);
     const tableId = crypto.randomUUID();
     const now = new Date().toISOString();
     // Table price is owned by the parent evening pricing policy. Legacy 400/500/600
@@ -109,15 +120,16 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
       ? (await loadEveningPrices(db, String(evening.id))).casual_game
       : (req.body.default_price ?? evening.default_price ?? 500);
     await db.run(
-      `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, host_player_id, default_price, notes, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tableId,
         String(req.params.id),
         req.body.name || 'Новый стол',
         req.body.format || 'STANDARD',
         req.body.capacity || 10,
-        req.body.host_name || null,
+        host.name || null,
+        host.id,
         defaultPrice,
         req.body.notes || null,
         req.body.sort_order || 0,
@@ -129,6 +141,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
     const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [tableId]);
     res.status(201).json(table);
   } catch (err: any) {
+    if (err?.statusCode === 400) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: 'Database error', message: err.message });
   }
 });
@@ -147,19 +160,21 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
     }
 
+    const host = await tableHost(db, req.body, table);
     const now = new Date().toISOString();
     const defaultPrice = isRegularEvening(evening?.format)
       ? (await loadEveningPrices(db, String(evening.id))).casual_game
       : (req.body.default_price !== undefined ? req.body.default_price : table.default_price);
     await db.run(
       `UPDATE evening_tables 
-       SET name = ?, format = ?, capacity = ?, host_name = ?, default_price = ?, notes = ?, sort_order = ?, updated_at = ?
+       SET name = ?, format = ?, capacity = ?, host_name = ?, host_player_id = ?, default_price = ?, notes = ?, sort_order = ?, updated_at = ?
        WHERE id = ?`,
       [
         req.body.name !== undefined ? req.body.name : table.name,
         req.body.format !== undefined ? req.body.format : table.format,
         req.body.capacity !== undefined ? req.body.capacity : table.capacity,
-        req.body.host_name !== undefined ? req.body.host_name : table.host_name,
+        host.name,
+        host.id,
         defaultPrice,
         req.body.notes !== undefined ? req.body.notes : table.notes,
         req.body.sort_order !== undefined ? req.body.sort_order : table.sort_order,
@@ -171,6 +186,7 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
     const updated = await db.get('SELECT * FROM evening_tables WHERE id = ?', [String(req.params.tableId)]);
     res.json(updated);
   } catch (err: any) {
+    if (err?.statusCode === 400) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: 'Database error', message: err.message });
   }
 });
@@ -187,6 +203,12 @@ router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [table.evening_id]);
     if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
+    }
+
+    // The first table is the evening's own table with the evening judge (owner, 2026-11-15); seating needs it.
+    const primary = await db.get('SELECT id FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC LIMIT 1', [table.evening_id]);
+    if (primary && String(primary.id) === String(table.id)) {
+      return res.status(400).json({ error: 'Основной стол вечера удалить нельзя' });
     }
 
     // Set all players currently assigned to this table to "Стол не назначен" (table_id = NULL)

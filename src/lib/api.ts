@@ -256,6 +256,7 @@ export interface EveningTable {
   format: string;
   capacity: number;
   host_name?: string | null;
+  host_player_id?: string | null;
   starts_at?: string | null;
   default_price?: number | null;
   notes?: string | null;

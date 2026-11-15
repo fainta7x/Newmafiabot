@@ -3,18 +3,15 @@ import { ArrowLeft, Edit, Plus, Trash2 } from 'lucide-react';
 import { api, type EveningTable, type GameEvening } from '../../lib/api';
 import ConfirmDialog from '../ui/ConfirmDialog.tsx';
 import MobileSheet from '../ui/MobileSheet.tsx';
-import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 interface EveningTablesViewProps {
   eveningId: string;
   onBack: () => void;
 }
 
-const formatLabel = (format: string) => {
-  if (format === 'NOVICE') return 'Новичковый';
-  if (format === 'TOURNAMENT') return 'Турнирный';
-  return 'Обычный';
-};
+type StaffJudge = { id: string; nickname: string };
+type EveningStaff = { judge?: { player_id: string | null; nickname: string | null } | null; judges?: StaffJudge[] };
 
 const inputClass = 'w-full min-h-11 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent';
 
@@ -28,7 +25,9 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<EveningTable | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [form, setForm] = useState({ name: '', format: 'STANDARD', capacity: 10, host_name: '', default_price: 500, notes: '' });
+  // A table is a name and its judge (owner, 2026-11-15). The first table is the evening's own: its judge is the evening judge.
+  const [form, setForm] = useState({ name: '', host_player_id: '' });
+  const [staff, setStaff] = useState<EveningStaff | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -37,6 +36,7 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
       const data = await api.getEvening(eveningId);
       setEvening(data);
       setTables(data.tables || []);
+      setStaff(await getJson<EveningStaff>(`/api/evenings/${encodeURIComponent(eveningId)}/staff`, 'Не удалось загрузить судей').catch(() => null));
     } catch (err: any) {
       setError(err?.message || 'Не удалось загрузить столы');
     } finally {
@@ -46,26 +46,22 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
 
   useEffect(() => { void load(); }, [eveningId]);
 
+  const primaryId = tables[0]?.id || '';
+  const eveningJudge = staff?.judge?.nickname || '';
+  const tableJudge = (table: EveningTable) => table.id === primaryId ? (eveningJudge || 'Не назначен') : (table.host_name || 'Не назначен');
   const isReadonly = evening?.status === 'completed' || Boolean(evening?.settled_at);
 
   const openCreate = () => {
     setError(null);
     setEditing(null);
-    setForm({ name: 'Основной стол', format: 'STANDARD', capacity: 10, host_name: '', default_price: evening?.default_price ?? 500, notes: '' });
+    setForm({ name: `Стол ${tables.length + 1}`, host_player_id: '' });
     setShowEditor(true);
   };
 
   const openEdit = (table: EveningTable) => {
     setError(null);
     setEditing(table);
-    setForm({
-      name: table.name,
-      format: table.format,
-      capacity: table.capacity,
-      host_name: table.host_name || '',
-      default_price: table.default_price ?? evening?.default_price ?? 500,
-      notes: table.notes || '',
-    });
+    setForm({ name: table.name, host_player_id: String((table as any).host_player_id || '') });
     setShowEditor(true);
   };
 
@@ -77,20 +73,14 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
       if (editing) {
         await api.updateEveningTable(editing.id, {
           name: form.name.trim(),
-          format: form.format,
-          capacity: form.capacity,
-          host_name: form.host_name.trim() || null,
-          default_price: form.default_price,
-          notes: form.notes.trim() || null,
+          ...(editing.id === primaryId ? {} : { host_player_id: form.host_player_id || null }),
         });
       } else {
         await api.createEveningTable(eveningId, {
           name: form.name.trim(),
-          format: form.format,
-          capacity: form.capacity,
-          host_name: form.host_name.trim() || null,
-          default_price: form.default_price,
-          notes: form.notes.trim() || null,
+          format: evening?.format || 'STANDARD',
+          capacity: 10,
+          host_player_id: form.host_player_id || null,
         });
       }
       setShowEditor(false);
@@ -171,34 +161,21 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
                   <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
                   <strong className="truncate text-[14px] text-text-primary">{table.name}</strong>
                 </div>
-                <span className="mt-1 inline-block text-[10px] font-black uppercase tracking-[0.12em] text-text-muted">{formatLabel(table.format)}</span>
+                <span className="mt-1 block text-[12px] text-text-secondary">Судья: <strong className="text-text-primary">{tableJudge(table)}</strong></span>
+                {table.id === primaryId ? <span className="mt-0.5 block text-[11px] text-text-muted">Судья вечера · меняется в «Команда вечера»</span> : null}
               </div>
               {!isReadonly && (
                 <div className="flex gap-1.5">
                   <button type="button" onClick={() => openEdit(table)} aria-label={`Настроить стол ${table.name}`} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary">
                     <Edit className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => { setError(null); setPendingDelete(table); }} aria-label={`Удалить стол ${table.name}`} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border-soft bg-surface-2 text-danger transition-colors hover:bg-danger-soft">
+                  {table.id !== primaryId ? <button type="button" onClick={() => { setError(null); setPendingDelete(table); }} aria-label={`Удалить стол ${table.name}`} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border-soft bg-surface-2 text-danger transition-colors hover:bg-danger-soft">
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </button> : null}
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Ведущий</span>
-                <strong className="mt-1 block truncate text-[11px] text-text-primary">{table.host_name || 'Не назначен'}</strong>
-              </div>
-              <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Тариф</span>
-                <strong className="mt-1 block text-[11px] text-success">{formatRubles(table.default_price ?? evening.default_price)}</strong>
-              </div>
-              <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Мест</span>
-                <strong className="mt-1 block text-[11px] text-text-primary">{table.capacity}</strong>
-              </div>
-            </div>
             {table.notes && <p className="text-[10px] leading-4 text-text-muted">{table.notes}</p>}
           </section>
         ))}
@@ -206,7 +183,7 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
         {tables.length === 0 && (
           <div className="rounded-[20px] border border-dashed border-border-soft bg-surface-1/60 p-8 text-center">
             <div className="text-[13px] font-semibold text-text-secondary">Столов пока нет</div>
-            <div className="mt-1 text-[11px] text-text-muted">Добавь площадку, прежде чем создавать игры.</div>
+            <div className="mt-1 text-[11px] text-text-muted">Основной стол появится сам.</div>
             {!isReadonly && <button type="button" onClick={openCreate} className="mt-4 min-h-11 rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white">Добавить стол</button>}
           </div>
         )}
@@ -215,7 +192,7 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
       <MobileSheet
         open={showEditor && !isReadonly}
         title={editing ? 'Настроить стол' : 'Новый стол'}
-        subtitle="Эти настройки используются как значения по умолчанию при создании игр."
+        subtitle={editing?.id === primaryId ? 'Судья основного стола — судья вечера.' : 'Новая игра за этим столом сразу предложит его судью.'}
         onClose={() => { if (!saving) { setShowEditor(false); setEditing(null); setError(null); } }}
         widthClass="sm:max-w-md"
         footer={(
@@ -232,36 +209,15 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
             <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Основной стол" className={inputClass} />
           </label>
 
-          <div className="grid grid-cols-2 gap-2">
+          {editing?.id !== primaryId || !editing ? (
             <label className="block">
-              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Формат</span>
-              <select value={form.format} onChange={(event) => setForm({ ...form, format: event.target.value })} className={inputClass}>
-                <option value="STANDARD">Обычный</option>
-                <option value="NOVICE">Новичковый</option>
-                <option value="TOURNAMENT">Турнирный</option>
+              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Судья стола</span>
+              <select data-testid="table-judge-select" value={form.host_player_id} onChange={(event) => setForm({ ...form, host_player_id: event.target.value })} className={inputClass}>
+                <option value="">Не назначен</option>
+                {(staff?.judges || []).map((judge) => <option key={judge.id} value={judge.id}>{judge.nickname}</option>)}
               </select>
             </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Мест</span>
-              <input type="number" min={1} value={form.capacity} onChange={(event) => setForm({ ...form, capacity: Math.max(1, Number(event.target.value) || 10) })} className={inputClass} />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Ведущий</span>
-              <input value={form.host_name} onChange={(event) => setForm({ ...form, host_name: event.target.value })} placeholder="Не назначен" className={inputClass} />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Тариф, ₽</span>
-              <input type="number" min={0} value={form.default_price} onChange={(event) => setForm({ ...form, default_price: Math.max(0, Number(event.target.value) || 0) })} className={inputClass} />
-            </label>
-          </div>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Заметка</span>
-            <input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Необязательно" className={inputClass} />
-          </label>
+          ) : null}
         </div>
       </MobileSheet>
 

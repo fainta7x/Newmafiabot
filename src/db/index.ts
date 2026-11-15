@@ -19,6 +19,8 @@ export interface DatabaseWrapper {
   run(sql: string, params?: any[]): Promise<{ lastID: number | bigint | null; changes: number }>;
   exec(sql: string): Promise<void>;
   transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T>;
+  /** Identity only for the current async transaction owner, never another request. */
+  transactionOwner?(): object | null;
   dbPath: string;
 }
 
@@ -105,6 +107,7 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   };
   const wrapper: DatabaseWrapper = {
     sqlite, dbPath: resolvedDbPath,
+    transactionOwner: () => ownsTransaction() ? transactionOwner : null,
     async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { return onConnection(() => { const t = performance.now(); try { return sqlite.prepare(sql).all(...params) as T[]; } finally { addSqliteTime(performance.now() - t, sql); } }); },
     async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { return onConnection(() => { const t = performance.now(); try { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; } finally { addSqliteTime(performance.now() - t, sql); } }); },
     async run(sql: string, params: any[] = []) { return onConnection(() => { const t = performance.now(); try { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; } finally { addSqliteTime(performance.now() - t, sql); } }); },

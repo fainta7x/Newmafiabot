@@ -42,7 +42,6 @@ export class TokenPlayerNotFoundError extends Error {}
 export const PLAYER_STARTER_TOKEN_GRANT = 1000;
 export const PLAYER_STARTER_TOKEN_GRANT_SOURCE = 'player_starter_token_grant_v1';
 
-const mutationTails = new WeakMap<object, Promise<void>>();
 
 const canonicalize = (value: any): any => {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -91,7 +90,9 @@ const assertMutation = (input: TokenMutationInput) => {
   if (!input.idempotencyKey?.trim()) throw new TokenValidationError('Token idempotency key is required');
 };
 
-const serialized = async <T>(db: DatabaseWrapper, work: () => Promise<T>): Promise<T> => {
+const mutationTails = new WeakMap<object, Promise<void>>();
+
+const serialized = async <T>(db: object, work: () => Promise<T>): Promise<T> => {
   const previous = mutationTails.get(db) || Promise.resolve();
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -184,30 +185,11 @@ export const grantPlayerStarterTokens = async (db: DatabaseWrapper, playerId: st
 
 export const mutateTokenBalance = async (db: DatabaseWrapper, input: TokenMutationInput): Promise<TokenLedgerEntry> => {
   assertMutation(input);
-
-  // Local better-sqlite3 exposes transaction state directly. The production
-  // Turso HTTP wrapper intentionally has no native sqlite object, so optional
-  // chaining is required here instead of reading sqlite.inTransaction blindly.
-  if ((db.sqlite as any)?.inTransaction) return applyInsideTransaction(db, input);
-
-  return serialized(db, async () => {
-    try {
-      return await db.transaction((tx) => applyInsideTransaction(tx, input));
-    } catch (error) {
-      // Club-game completion already runs token settlement inside one outer
-      // transaction. A Turso transaction wrapper rejects a nested transaction
-      // before executing the callback; in that exact case, continue on the
-      // current transaction wrapper instead of opening another transaction.
-      if (
-        !(db.sqlite as any)
-        && error instanceof Error
-        && error.message === 'Nested Turso transactions are not supported'
-      ) {
-        return applyInsideTransaction(db, input);
-      }
-      throw error;
-    }
-  });
+  // The wrapper distinguishes this async owner from another request and handles
+  // nested savepoints. A native inTransaction flag cannot establish ownership.
+  const owner = db.transactionOwner?.();
+  if (owner) return serialized(owner, () => applyInsideTransaction(db, input));
+  return db.transaction(tx => applyInsideTransaction(tx, input));
 };
 
 export const reconcileTokenOpeningBalances = async (db: DatabaseWrapper): Promise<number> => {

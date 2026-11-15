@@ -452,3 +452,8 @@ VirtualRoleDeal is a client-side fair deck using unbiased cryptographic shufflin
 ### Personal notification receipts and concurrent enqueue
 
 `personalNotificationRouterService.ts` coalesces the canonical notification-key insert and always reads the stored delivery before materializing the selected external outbox. Telegram receipt parsing in `messageDeliveryCertainty.ts` is shared with public publications; outbox retry/cancellation policies remain owned by their existing services. Personal Telegram and VK HTTP calls use finite abort deadlines. Judge seating-summary keys include the judge identity; an existing legacy key is reused only for that same judge.
+
+
+### Transaction ownership in compound commands
+
+`DatabaseWrapper.transactionOwner()` returns an identity only to the active async transaction owner. Token mutations serialize by that owner; independent requests enter the wrapper transaction queue. Native `sqlite.inTransaction` is not evidence that a request owns a transaction. Gift choice/contribution accounting, participant edits, tournament payment review/report and Telegram link replacement use their existing transaction boundaries; repeated gift confirmation cycles derive a fresh ledger key from the preceding gift entry.

@@ -1,0 +1,3 @@
+import { defineConfig } from '@playwright/test';
+process.env.ROUTE_LOADING_PREVIEW = '1';
+export default defineConfig({testDir:'./tests',testMatch:['welcome-page.spec.mjs','route-loading.spec.mjs'],workers:1,retries:0,timeout:30000,expect:{timeout:10000},reporter:'line',outputDir:process.env.ROUTE_RESULTS||'../temp/route-loading-browser',use:{baseURL:process.env.ROUTE_BASE||'http://127.0.0.1:4176',viewport:{width:390,height:844},serviceWorkers:'block',launchOptions:{...(process.env.ROUTE_BROWSER?{executablePath:process.env.ROUTE_BROWSER}:{}),args:['--no-sandbox']},trace:'retain-on-failure',screenshot:'only-on-failure'}});

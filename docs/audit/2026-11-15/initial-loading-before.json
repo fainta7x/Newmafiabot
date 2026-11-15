@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "file": "assets/appNavigation-Cop28x5-.js",
+      "bytes": 6615,
+      "gzip_bytes": 1702
+    },
+    {
+      "file": "assets/circleNames-dDA7SJno.js",
+      "bytes": 13053,
+      "gzip_bytes": 5019
+    },
+    {
+      "file": "assets/createLucideIcon-DhfsJYqt.js",
+      "bytes": 1195,
+      "gzip_bytes": 690
+    },
+    {
+      "file": "assets/index-B_4mqRI7.js",
+      "bytes": 1192399,
+      "gzip_bytes": 321068
+    },
+    {
+      "file": "assets/jsx-runtime-Wy9s6hX0.js",
+      "bytes": 8911,
+      "gzip_bytes": 3383
+    },
+    {
+      "file": "assets/playerAvatarThumbnail-jY6Tj5ZX.js",
+      "bytes": 1135,
+      "gzip_bytes": 633
+    },
+    {
+      "file": "assets/playerProfileNavigation-BYvY6F3Z.js",
+      "bytes": 861,
+      "gzip_bytes": 386
+    },
+    {
+      "file": "assets/react-dom-g7hNCJoM.js",
+      "bytes": 3864,
+      "gzip_bytes": 1393
+    },
+    {
+      "file": "assets/requestJson-Bx-yw6Gh.js",
+      "bytes": 920,
+      "gzip_bytes": 459
+    },
+    {
+      "file": "assets/sparkles-ei8bDok1.js",
+      "bytes": 1655,
+      "gzip_bytes": 712
+    },
+    {
+      "file": "assets/tableComposition-CNEDxy21.js",
+      "bytes": 4273,
+      "gzip_bytes": 2156
+    }
+  ],
+  "bytes": 1234881,
+  "gzip_bytes": 337601
+}

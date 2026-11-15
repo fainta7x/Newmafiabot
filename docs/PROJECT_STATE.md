@@ -577,3 +577,8 @@ Owner asked about separating ChatGPT and Claude work. Existing CRM → Ещё �
 ## Continuous audit — VK fallback recovery (2026-11-15)
 
 Candidate `fix/vk-fallback-recovery` addresses VF01: terminal VK failure, route switch and Telegram fallback creation now commit together. A Telegram INSERT failure rolls everything back, leaving VK eligible for the next worker pass; retry creates one fallback. The external VK call remains outside the SQLite transaction. Provider refusal policy and existing retry budgets are unchanged. Synthetic DB/transport reproduction; no production writes or real messages. #1263 was rebased on current main after documentation conflicts, preserving both audit records; its previous green checks do not validate the new head.
+
+
+## PF02 — первоначальная загрузка (2026-11-15)
+
+Кандидат perf/route-loading отделяет кабинет игрока от входного JS публичного сайта и запускает загрузку /player параллельно авторизации. Замер полного статического графа: 1,234,881 → 403,195 байт; gzip 336,754 → 121,571. Восемь production-preview browser-сценариев проходят. Документ замера: docs/audit/2026-11-15/route-loading.md. GitHub/merge/deploy и реальное время загрузки проверяются отдельно. AF01–AF08 уже смёржены в #1271 (972750c); gzip/cache #1272 обновлён после документального конфликта и повторно проверяется.

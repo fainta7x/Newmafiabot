@@ -361,7 +361,6 @@ New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner
 
-- 2026-11-15: упростить создание игры на вечере (аудит GC01–GC05 в `AUDIT_LOG.md`): судья и рассадка вечера подставляются сами, лишние механизмы подбора убрать. План отправлен владельцу, ждём «да» и ответов на вопросы.
 
 - Answered 2026-11-10 (board «Проект»): redesign of the cabinet/profile is cancelled (point fixes instead); night evenings at the cafe agreed; the release was checked on the phone.
 

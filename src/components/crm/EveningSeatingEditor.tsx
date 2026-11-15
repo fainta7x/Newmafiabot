@@ -20,8 +20,10 @@ type Target = { tableId: string; seat: number };
  * a card per table with one tile per seat (number, avatar, nickname), and a sheet with a searchable list of players to put on
  * a tapped seat. No long list of places and no dropdowns.
  */
-export function EveningSeatingEditor({ eveningId, tables, participants, playedGames = 0 }: {
+export function EveningSeatingEditor({ eveningId, tables, participants, playedGames = 0, onTablesMissing }: {
   eveningId: string; tables: Table[]; participants: EveningParticipant[];
+  /** An old evening gets its first table when the seating is made; the parent reloads it so the seats show at once. */
+  onTablesMissing?: () => void;
   /** Games already recorded on this evening (owner, 2026-11-02): planned games up to this number are played, so no seating is offered for them. */
   playedGames?: number;
 }) {
@@ -64,6 +66,7 @@ export function EveningSeatingEditor({ eveningId, tables, participants, playedGa
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Не удалось сформировать план');
       await reload();
+      if (!tables.length) onTablesMissing?.();
       const sent = data.notifications_skipped === 'started'
         ? 'вечер уже начался — сообщения не отправляются'
         : `игрокам отправлено сообщений: ${Number(data.notified_players || 0)}${data.judge_notified ? ' · судье — вся рассадка' : ''}`;

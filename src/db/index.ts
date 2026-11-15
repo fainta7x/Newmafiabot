@@ -199,6 +199,8 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper, options: { isolat
 
   addColumnIfNotExists('evening_participants', 'table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('evening_participants', 'response_status', "TEXT NOT NULL DEFAULT 'unanswered'");
+  // The judge of an additional table is a club player (owner, 2026-11-15); the first table uses the evening judge.
+  addColumnIfNotExists('evening_tables', 'host_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'archived_at', 'TEXT');
   addColumnIfNotExists('games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');

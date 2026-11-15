@@ -17,12 +17,22 @@ for (const [width, height] of VIEWPORTS) {
       for (const issue of found) report.push(`${screen}: ${issue}`);
     };
     await page.goto('/e2e/crm-evening-game-create.html');
+    // The planned game's seating and the evening judge are filled without a click (owner, 2026-11-15).
+    await expect(page.getByTestId('game-judge-name')).toHaveText('Ольга');
+    await expect(page.getByTestId('planned-slot-select')).toHaveValue('s1');
+    await check('opened');
+    await page.getByTestId('change-judge').click();
+    await expect(page.getByRole('dialog', { name: 'Судья игры' })).toBeVisible();
+    await check('judge-window');
+    await expect(page.getByRole('dialog', { name: 'Судья игры' }).locator('select')).toHaveValue('judge-1');
+    await page.getByTestId('judge-picker-done').click();
     await expect(page.getByTestId('awaiting-arrival')).toBeVisible();
     await check('before-arrival');
     await page.getByTestId('awaiting-arrival').scrollIntoViewIfNeeded();
     await check('awaiting-list');
     await page.getByTestId('arrive-and-seat-ep-8').click();
     await expect(page.getByTestId('arrive-and-seat-ep-8')).toHaveCount(0);
+    await expect(page.getByTestId('game-seat-9')).toContainText('Крот');
     await check('after-arrival');
     if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height} ===\n${report.join('\n') || 'clean'}`);
     expect(report).toEqual([]);

@@ -1,8 +1,8 @@
 import { organizerHeaders } from '../../lib/organizerAuth.ts';
 import { isOpenEvening } from '../../lib/eveningStatus.ts';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { canHostEveningFormat } from '../../lib/hostFormats.ts';
-import { AlertCircle, Search, Shuffle, UserPlus, Users, X } from 'lucide-react';
+import { AlertCircle, Search, UserPlus, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { allowedTableSizes, tableRolesLabel } from '../../lib/tableComposition.ts';
@@ -38,33 +38,30 @@ const priorityLabel = (reason: ReturnType<typeof getRotationPriority>['reason'])
   return 'Кандидат на пропуск';
 };
 
-const sameOrder = <T,>(left: T[], right: T[]) => left.length === right.length && left.every((item, index) => item === right[index]);
-
-const shuffledCopy = <T,>(items: T[], forceDifferent = false): T[] => {
-  if (items.length < 2) return items.slice();
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const shuffled = items.slice();
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    if (!forceDifferent || !sameOrder(items, shuffled)) return shuffled;
+const shuffledCopy = <T,>(items: T[]): T[] => {
+  const shuffled = items.slice();
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
-  return [...items.slice(1), items[0]];
+  return shuffled;
 };
 
 export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, games, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
   const [judgeMode, setJudgeMode] = useState<JudgeIdentityMode>('linked');
   const [judgePlayerId, setJudgePlayerId] = useState('');
-  const [judgeName, setJudgeName] = useState(tables[0]?.host_name || '');
+  const [judgeName, setJudgeName] = useState('');
+  const [eveningJudgeId, setEveningJudgeId] = useState('');
+  const [judgePickerOpen, setJudgePickerOpen] = useState(false);
+  const autoPlanned = useRef(false);
   const [crmPlayers, setCrmPlayers] = useState<Player[]>([]);
   const [roster, setRoster] = useState<EveningParticipant[]>(participants);
   const [seats, setSeats] = useState<string[]>(Array(10).fill(''));
   const [plannedSlotId, setPlannedSlotId] = useState('');
-  const [planNote, setPlanNote] = useState('');
-  const [plannedSlots, setPlannedSlots] = useState<Array<{ id: string; slot_number: number }>>([]);
-  const [plannedSeats, setPlannedSeats] = useState<Array<{ slot_id: string; tableId: string; seat: number; playerId: string }>>([]);
+  const [plannedSlots, setPlannedSlots] = useState<Array<{ id: string; slot_number: number; status?: string }>>([]);
+  const [plannedSeats, setPlannedSeats] = useState<Array<{ slot_id: string; tableId: string; seat: number; playerId: string; started?: number | boolean }>>([]);
+  const [planLoaded, setPlanLoaded] = useState(false);
   useEffect(() => {
     let current = true;
     Promise.all([
@@ -74,7 +71,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
       if (!current) return;
       setPlannedSlots(plan.slots || []);
       setPlannedSeats(placement.seats || []);
-    }).catch(() => {});
+      setPlanLoaded(true);
+    }).catch(() => setPlanLoaded(true));
     return () => { current = false; };
   }, [evening.id]);
   const [query, setQuery] = useState('');
@@ -147,14 +145,6 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru'))
       .slice(0, 8);
   }, [crmPlayers, manualPlayerQuery, byPlayerId, linkedJudgePlayerId]);
-  const lastCompletedLineup = useMemo(() => {
-    if (!lastCompletedGame) return [];
-    return (lastCompletedGame.club_protocol?.player_results || [])
-      .slice()
-      .sort((a, b) => Number(a.seat_number) - Number(b.seat_number))
-      .map((result) => String(result.participant_id || ''))
-      .filter((participantId) => participantId && eligibleIds.has(participantId));
-  }, [eligibleIds, lastCompletedGame]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
     return eligible.filter((participant) => !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q));
@@ -185,7 +175,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
       .then((response) => (response.ok ? response.json() : null))
       .then((staff) => {
         const judgeId = staff?.judge?.player_id ? String(staff.judge.player_id) : '';
-        if (!judgeId || tables[0]?.host_name) return;
+        if (!judgeId) return;
+        setEveningJudgeId(judgeId);
         setJudgePlayerId((current) => current || judgeId);
       })
       .catch(() => undefined);
@@ -200,25 +191,45 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     if (!table) return;
     if (table !== selectedTableId) changeTable(table);
     const next = Array(10).fill('');
-    const absent: string[] = [];
     for (const assigned of planned.filter(item => item.tableId === table)) {
       const participant = byPlayerId.get(String(assigned.playerId));
       if (participant && eligibleIds.has(participant.id) && assigned.seat >= 1 && assigned.seat <= 10) next[assigned.seat - 1] = participant.id;
-      else if (participant) absent.push(`№${assigned.seat} ${participant.nickname}`);
     }
     setSeats(next);
-    setPlanNote(absent.length ? `Не отмечен приход — места пустые: ${absent.join(', ')}. Отметьте «Пришёл» и загрузите рассадку снова.` : '');
   };
   const choosePlannedSlot = (slotId: string) => { setPlannedSlotId(slotId); if (slotId) loadPlannedSeats(slotId); };
   const changeTable = (tableId: string) => {
     setSelectedTableId(tableId);
     const table = tables.find((item) => item.id === tableId);
-    if (table?.host_name) {
-      setJudgeMode('external');
-      setJudgePlayerId('');
-      setJudgeName(table.host_name);
+    // The first table is judged by the evening judge, another table by its own judge (owner, 2026-11-15).
+    const tableJudgeId = tableId && tableId !== tables[0]?.id ? String(table?.host_player_id || '') : eveningJudgeId;
+    if (tableJudgeId) {
+      setJudgeMode('linked');
+      changeJudgePlayer(tableJudgeId);
     }
   };
+
+  // Planned players whose arrival is not marked yet: their seats wait for «Пришёл».
+  const absentPlanned = plannedSeats
+    .filter((item) => item.slot_id === plannedSlotId && item.tableId === selectedTableId)
+    .map((item) => ({ seat: item.seat, participant: byPlayerId.get(String(item.playerId)) }))
+    .filter((item) => item.participant && !eligibleIds.has(item.participant.id));
+  const planNote = absentPlanned.length
+    ? `Не отмечен приход — места пустые: ${absentPlanned.map((item) => `№${item.seat} ${item.participant!.nickname}`).join(', ')}. Отметьте «Пришёл» — игрок сядет на своё место.`
+    : '';
+
+  // The next game of the evening plan opens with its seating already on the table (owner, 2026-11-15).
+  useEffect(() => {
+    if (autoPlanned.current || !planLoaded || roster.length === 0) return;
+    autoPlanned.current = true;
+    const startedSlots = new Set(plannedSeats.filter((item) => Number(item.started)).map((item) => item.slot_id));
+    const next = plannedSlots
+      .filter((slot) => (!slot.status || slot.status === 'open') && !startedSlots.has(slot.id))
+      .sort((a, b) => Number(a.slot_number) - Number(b.slot_number))[0];
+    if (!next) return;
+    setPlannedSlotId(next.id);
+    if (plannedSeats.some((item) => item.slot_id === next.id)) loadPlannedSeats(next.id);
+  }, [planLoaded, plannedSlots, plannedSeats, roster.length]);
 
   const changeJudgePlayer = (playerId: string) => {
     setJudgePlayerId(playerId);
@@ -253,7 +264,12 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     setError(null);
     try {
       const updated = await api.updateParticipant(participant.id, { attendance_status: 'attended' });
-      selectNewParticipant(updated);
+      // A player with a seat in the planned game takes that seat (owner, 2026-11-15).
+      const planned = plannedSeats.find((item) => item.slot_id === plannedSlotId && item.tableId === selectedTableId && String(item.playerId) === String(updated.player_id || ''));
+      if (planned && planned.seat >= 1 && planned.seat <= 10) {
+        setRoster((previous) => [...previous.filter((item) => item.id !== updated.id), updated]);
+        setSeats((previous) => previous[planned.seat - 1] ? toggleParticipantInSeats(previous, updated.id) : previous.map((value, index) => index === planned.seat - 1 ? updated.id : value));
+      } else selectNewParticipant(updated);
     } catch (err: any) {
       setError(err?.message || 'Не удалось отметить приход');
     } finally {
@@ -327,12 +343,6 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   };
 
   const clearSeat = (index: number) => setSeats((previous) => previous.map((value, seatIndex) => seatIndex === index ? '' : value));
-  const shuffleSelected = () => {
-    const selected = seats.filter(Boolean);
-    if (selected.length < 2) return;
-    const shuffled = shuffledCopy(selected, true);
-    setSeats([...shuffled, ...Array(10 - shuffled.length).fill('')]);
-  };
   const autoSelect = () => {
     const randomized = eligible.slice();
     let start = 0;
@@ -357,11 +367,6 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     if (!tableSizes.includes(selected.length)) return;
     setSeats([...selected, ...Array(Math.max(0, 10 - selected.length)).fill('')].slice(0, 10));
   };
-  const reuseLastLineup = () => {
-    if (!tableSizes.includes(lastCompletedLineup.length)) return;
-    setSeats([...lastCompletedLineup, ...Array(10 - lastCompletedLineup.length).fill('')].slice(0, 10));
-  };
-
   const create = async () => {
     if (!eveningCanStart || creating || !sizeReady || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())) return;
     if (linkedJudgePlayerId && seats.some((participantId) => String(byId.get(participantId)?.player_id || '') === linkedJudgePlayerId)) {
@@ -416,7 +421,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[24px] border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[24px] sm:pb-4">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3><p className="mt-0.5 text-[11px] text-text-secondary">Выбери площадку, ведущего и {smallTablesAllowed ? 'от 8 до 10 участников' : '10 участников'}. Добавленного здесь участника считаем фактически пришедшим при создании игры.</p></div>
+          <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-2 text-text-muted hover:text-text-primary"><X className="h-4 w-4" /></button>
         </div>
 
@@ -441,80 +446,44 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           </section>
         ) : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
-        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из ${minTable} нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь пришедших ниже в «Записаны, приход не отмечен» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
+        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из ${minTable} нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь пришедших в «Добавить игрока или гостя».` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Добавь игрока или гостя ниже.`}</span></div> : null}
 
-        {plannedSlots.length > 0 && <div className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
-          <label className="text-[10px] font-black uppercase text-text-muted">Игра из плана вечера
-            <select value={plannedSlotId} onChange={event => choosePlannedSlot(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs text-text-primary">
-              <option value="">Без привязки к плану</option>
-              {plannedSlots.map(slot => <option key={slot.id} value={slot.id}>Игра №{slot.slot_number}</option>)}
+        <div data-testid="game-setup-row" className="space-y-2 rounded-[14px] border border-border-soft bg-surface-2 p-3">
+          {plannedSlots.length > 0 ? <label className="flex min-h-11 items-center justify-between gap-3 text-[13px] text-text-secondary">Игра
+            <select data-testid="planned-slot-select" value={plannedSlotId} onChange={event => choosePlannedSlot(event.target.value)} className="min-h-11 min-w-0 rounded-xl border border-border-soft bg-surface-1 px-3 text-[13px] font-bold text-text-primary">
+              <option value="">Без плана</option>
+              {plannedSlots.map(slot => <option key={slot.id} value={slot.id}>№{slot.slot_number} по плану</option>)}
             </select>
-          </label>
-          {plannedSlotId && <button type="button" className="mt-2 min-h-11 w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-xs font-bold" onClick={() => loadPlannedSeats(plannedSlotId)}>Загрузить рассадку из плана</button>}
-          {planNote ? <p role="status" className="mt-1 text-[11px] text-warning">{planNote}</p> : null}
-          {plannedSlotId && <p className="mt-1 text-[11px] text-text-secondary">При создании игры фактическая рассадка закрепится в истории. Можно скорректировать состав вручную.</p>}
-        </div>}
-
-        <label className="text-[10px] font-black uppercase text-text-muted">Стол · необязательно<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
-
-        <div className="rounded-[16px] border border-border-soft bg-surface-2 p-3">
-          <JudgeAssignmentFields
-            mode={judgeMode}
-            players={judgePlayers}
-            judgePlayerId={judgePlayerId}
-            judgeName={judgeName}
-            disabled={creating}
-            onModeChange={(mode) => { setJudgeMode(mode); if (mode === 'external') setJudgePlayerId(''); }}
-            onJudgePlayerIdChange={changeJudgePlayer}
-            onJudgeNameChange={setJudgeName}
-          />
+          </label> : null}
+          {tables.length > 1 ? <label className="flex min-h-11 items-center justify-between gap-3 text-[13px] text-text-secondary">Стол
+            <select data-testid="table-select" value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="min-h-11 min-w-0 rounded-xl border border-border-soft bg-surface-1 px-3 text-[13px] font-bold text-text-primary">{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select>
+          </label> : null}
+          <div className="flex min-h-11 items-center justify-between gap-3 text-[13px] text-text-secondary">
+            <span className="min-w-0">Судья: <strong data-testid="game-judge-name" className="text-text-primary">{judgeMode === 'linked' ? (crmPlayers.find((player) => String(player.id) === String(judgePlayerId))?.nickname || (judgePlayerId ? '…' : 'не выбран')) : (judgeName.trim() || 'не выбран')}</strong>{judgeMode === 'external' ? ' · гость' : ''}</span>
+            <button type="button" data-testid="change-judge" onClick={() => setJudgePickerOpen(true)} className="min-h-11 shrink-0 rounded-xl border border-border-soft bg-surface-1 px-3 text-[13px] font-bold text-text-primary">Сменить</button>
+          </div>
+          {planNote ? <p role="status" className="text-[12px] text-warning">{planNote}</p> : null}
         </div>
 
-        <details open className="rounded-[16px] border border-border-soft bg-surface-2">
-          <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 text-[11px] font-black text-text-secondary"><UserPlus className="h-4 w-4" />Добавить игрока клуба или гостя</summary>
-          <div className="space-y-3 border-t border-border-soft p-3">
-            <div className="space-y-1.5">
-              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Игрок клуба — даже если его не было в рассылке Telegram</div>
-              <input value={manualPlayerQuery} onChange={(event) => setManualPlayerQuery(event.target.value)} placeholder="Например, Фандорин" className="w-full rounded-[11px] border border-border-soft bg-surface-1 px-3 py-2.5 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
-              {manualCandidates.length > 0 ? <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{manualCandidates.map((player) => {
-                const existing = byPlayerId.get(String(player.id));
-                return <button key={player.id} type="button" disabled={addingParticipant} onClick={() => addKnownPlayer(player)} className="flex min-h-11 items-center gap-2 rounded-[11px] border border-border-soft bg-surface-1 px-2.5 text-left disabled:opacity-50"><PlayerAvatar nickname={player.nickname} playerId={player.id} forceStoredLookup size="sm" /><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{player.nickname}</strong><span className="block truncate text-[10px] text-text-muted">{existing ? 'Уже на вечере · сделать доступным для игры' : 'Добавить на вечер и в игру'}</span></span></button>;
-              })}</div> : manualPlayerQuery.trim() ? <div className="text-[10px] text-text-muted">Подходящих игроков вне доступного состава не найдено.</div> : null}
-            </div>
-            <div className="space-y-1.5 rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
-              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Гость без профиля</div>
-              <p className="text-[10px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются. Чтобы игрок остался в клубе с рейтингом, введите ник и создайте профиль.</p>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_auto]">
-                <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник · можно оставить пустым" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
-                <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя в игру</button>
-              </div>
-              <button type="button" data-testid="create-profile-and-add" disabled={addingParticipant || !guestNickname.trim()} onClick={createProfileAndAdd} className="min-h-11 w-full rounded-[11px] border border-accent/40 bg-accent-soft px-4 text-[10px] font-black text-text-primary disabled:opacity-35">Создать профиль с этим ником и добавить в игру</button>
-            </div>
-          </div>
-        </details>
-
         <div className="space-y-2 rounded-[16px] border border-border-soft bg-surface-2 p-2.5">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary"><Users className="h-3.5 w-3.5" />Состав игры · {smallTablesAllowed ? `${selectedCount} из 8–10` : `${selectedCount}/10`}</div><button type="button" onClick={shuffleSelected} disabled={selectedCount < 2} className="flex items-center gap-1 text-[10px] font-black text-text-muted disabled:opacity-30"><Shuffle className="h-3 w-3" />Перемешать</button></div>
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] font-black text-text-secondary"><Users className="h-3.5 w-3.5" />Рассадка · {smallTablesAllowed ? `${selectedCount} из 8–10` : `${selectedCount}/10`}</div>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
             {seats.map((participantId, index) => {
               const participant = participantId ? byId.get(participantId) : null;
               const isGuest = Boolean(participant && ((participant as any).is_guest || !String(participant.player_id || '').trim()));
-              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[10px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[10px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="mt-0.5 block text-[10px] font-black uppercase text-text-muted">без профиля</span> : null}</button>;
+              return <button key={index} type="button" data-testid={`game-seat-${index + 1}`} onClick={() => participantId && clearSeat(index)} className={`flex min-h-11 min-w-0 items-center gap-2 rounded-[11px] border px-2 py-1.5 text-left ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="shrink-0 font-mono text-[11px] font-black text-text-muted">{index + 1}</span><span className="min-w-0 flex-1"><span className={`block break-words text-[12px] font-bold leading-tight ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="block text-[10px] font-black uppercase text-text-muted">без профиля</span> : null}</span></button>;
             })}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={autoSelect} disabled={eligible.length < minTable} className="min-h-10 rounded-[11px] bg-accent px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать {Math.max(minTable, Math.min(10, eligible.length))}</button>
-            <button type="button" onClick={reuseLastLineup} disabled={!tableSizes.includes(lastCompletedLineup.length)} className="min-h-10 rounded-[11px] border border-border-soft bg-surface-1 px-2 text-[10px] font-black text-text-secondary disabled:opacity-30">{smallTablesAllowed ? 'Прошлый состав' : 'Прошлая десятка'}</button>
-          </div>
+          <p className="text-[11px] text-text-muted">Нажми на место, чтобы освободить его; игрока — в списке ниже.</p>
+          {selectedCount === 0 ? <button type="button" data-testid="auto-select" onClick={autoSelect} disabled={eligible.length < minTable} className="min-h-11 w-full rounded-[11px] bg-accent px-2 text-[13px] font-black text-white disabled:opacity-30">Подобрать</button> : null}
           {smallTablesAllowed && tableSizes.includes(selectedCount) ? (
             <p data-testid="table-roles" className="rounded-[10px] bg-surface-1 px-2.5 py-2 text-[11px] font-semibold leading-4 text-text-secondary">Стол на {selectedCount}: {tableRolesLabel(selectedCount)}.</p>
           ) : null}
-          <p className="text-[10px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. При равном приоритете выбор перемешивается, чтобы состав не повторялся из-за алфавитного порядка.</p>
         </div>
 
         <TableScoutingCard participantIds={selectedParticipantIds} />
 
-        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-text-muted"><span>Доступны для игры · приоритет ротации</span><span>{visible.length} участников</span></div>
+        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-text-muted"><span>Пришли · можно посадить</span><span>{visible.length}</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск участника" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>
         <div className="grid shrink-0 grid-cols-2 content-start gap-2 pr-1">
           {visible.map((participant) => {
@@ -525,7 +494,11 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Участников не найдено</div>}
         </div>
-        {awaitingList.length > 0 ? <section data-testid="awaiting-arrival" className="space-y-2 rounded-[16px] border border-border-soft bg-surface-2 p-2.5">
+
+        <details open={eveningCanStart && missingPresent > 0} data-testid="add-player-section" className="rounded-[16px] border border-border-soft bg-surface-2">
+          <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 text-[12px] font-black text-text-secondary"><UserPlus className="h-4 w-4" />Добавить игрока или гостя{awaitingList.length ? ` · не отмечены ${awaitingList.length}` : ''}</summary>
+          <div className="space-y-3 border-t border-border-soft p-3">
+            {awaitingList.length > 0 ? <section data-testid="awaiting-arrival" className="space-y-2 rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
           <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wide text-text-muted"><span>Записаны, приход не отмечен</span><span>{awaitingList.length}</span></div>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {awaitingList.map((participant) => <div key={participant.id} className="flex min-w-0 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 p-2">
@@ -535,8 +508,46 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             </div>)}
           </div>
         </section> : null}
-        <button type="button" disabled={!eveningCanStart || !sizeReady || creating || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount < minTable ? `Выбери ещё ${minTable - selectedCount}` : !seatsContiguous ? 'Заполни места подряд с #1' : selectedCount === 10 || !smallTablesAllowed ? 'Создать игру' : `Создать игру на ${selectedCount}`}</button>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Игрок клуба</div>
+              <input value={manualPlayerQuery} onChange={(event) => setManualPlayerQuery(event.target.value)} placeholder="Например, Фандорин" className="w-full rounded-[11px] border border-border-soft bg-surface-1 px-3 py-2.5 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
+              {manualCandidates.length > 0 ? <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{manualCandidates.map((player) => {
+                const existing = byPlayerId.get(String(player.id));
+                return <button key={player.id} type="button" disabled={addingParticipant} onClick={() => addKnownPlayer(player)} className="flex min-h-11 items-center gap-2 rounded-[11px] border border-border-soft bg-surface-1 px-2.5 text-left disabled:opacity-50"><PlayerAvatar nickname={player.nickname} playerId={player.id} forceStoredLookup size="sm" /><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{player.nickname}</strong><span className="block truncate text-[10px] text-text-muted">{existing ? 'Уже на вечере · сделать доступным для игры' : 'Добавить на вечер и в игру'}</span></span></button>;
+              })}</div> : manualPlayerQuery.trim() ? <div className="text-[10px] text-text-muted">Подходящих игроков вне доступного состава не найдено.</div> : null}
+            </div>
+            <div className="space-y-1.5 rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
+              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Гость без профиля</div>
+              <p className="text-[11px] leading-4 text-text-muted">Без профиля — только на этот вечер, без рейтинга.</p>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_auto]">
+                <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник · можно оставить пустым" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
+                <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя в игру</button>
+              </div>
+              <button type="button" data-testid="create-profile-and-add" disabled={addingParticipant || !guestNickname.trim()} onClick={createProfileAndAdd} className="min-h-11 w-full rounded-[11px] border border-accent/40 bg-accent-soft px-4 text-[10px] font-black text-text-primary disabled:opacity-35">Создать профиль с этим ником и добавить в игру</button>
+            </div>
+          </div>
+        </details>
+
+        <button type="button" disabled={!eveningCanStart || !sizeReady || creating || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())} onClick={create} data-testid="create-game" className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount < minTable ? `Выбери ещё ${minTable - selectedCount}` : !seatsContiguous ? 'Заполни места подряд с #1' : selectedCount === 10 || !smallTablesAllowed ? 'Создать игру' : `Создать игру на ${selectedCount}`}</button>
       </div>
+      {judgePickerOpen ? (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 sm:items-center sm:p-4" role="dialog" aria-label="Судья игры">
+          <div className="w-full max-w-md space-y-3 rounded-t-[20px] border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-[20px]">
+            <div className="flex items-center justify-between gap-3"><h4 className="text-[16px] font-black">Судья игры</h4><button type="button" aria-label="Закрыть" onClick={() => setJudgePickerOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-surface-2 text-text-muted"><X className="h-4 w-4" /></button></div>
+            <JudgeAssignmentFields
+              mode={judgeMode}
+              players={judgePlayers}
+              judgePlayerId={judgePlayerId}
+              judgeName={judgeName}
+              disabled={creating}
+              onModeChange={(mode) => { setJudgeMode(mode); if (mode === 'external') setJudgePlayerId(''); }}
+              onJudgePlayerIdChange={changeJudgePlayer}
+              onJudgeNameChange={setJudgeName}
+            />
+            <button type="button" data-testid="judge-picker-done" onClick={() => setJudgePickerOpen(false)} className="min-h-12 w-full rounded-[12px] bg-accent text-[13px] font-black text-white">Готово</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

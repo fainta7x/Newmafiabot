@@ -23,7 +23,12 @@ for (const [width, height] of VIEWPORTS) {
     await page.goto('/e2e/crm-evening-games.html');
     await expect(page.getByTestId('evening-games-summary')).toContainText('Игр: 2');
     await expect(page.getByTestId('evening-seating-folded')).not.toHaveAttribute('open', '');
+    // Extras of a game fold into one line; the judge is called «Судья» (owner, 2026-11-15).
+    await expect(page.getByTestId('game-extras-2')).not.toHaveAttribute('open', '');
+    await expect(page.getByText('Судья: Ольга').first()).toBeVisible();
     await check('with-games');
+    await page.getByTestId('game-extras-2').locator('summary').click();
+    await check('extras-open');
     await page.getByTestId('evening-seating-folded').locator('summary').click();
     await check('seating-open');
     if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height} ===\n${report.join('\n') || 'clean'}`);

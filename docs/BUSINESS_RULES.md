@@ -347,6 +347,7 @@ The global Elo formulas are not changed (owner decision after the balance simula
 
 - **«Вскрылся шерифом с шерифом красным»** — −20 Elo: дон/мафия лжевскрылся шерифом и объявил настоящего шерифа красной проверкой. Судья ставит/снимает тег вручную.
 - Теги протокола доступны в карточке выбранного игрока с указанием круга; карточка и круг изменяют одни события.
+- **End of the game: blacks who revealed (owner, 2026-11-15).** Before a live game closes, the engine asks about every black player (Don, mafia) whether he claimed to be the Sheriff and which checks he announced. The checks are listed in order — one a night — as «Круг 1», «Круг 2»…; what the judge recorded during the game is shown and can be corrected. «Готово» with nothing marked means nobody revealed. Training games skip the question.
 - Like «Сломал попил», the judge puts the tag on a player in the live game (player sheet) and in the protocol (circle card).
 - **«Вскрылся чёрному»** — −10 Elo, on any circle. **«Убил шерифа в нуле»** — +10 Elo, the zero circle only (this is the positive tag).
 - Fixed amounts after every personal limit (like the split-break cut), club games, any role; a tag taken off is undone. Who may be tagged is the judge's call — the program does not check the role.
@@ -367,6 +368,7 @@ The global Elo formulas are not changed (owner decision after the balance simula
 - «Попил»: on the first day, while all 10 (or 8) are at the table, the town often splits the votes evenly between two players and then leaves both, so nobody is voted out on day one. It applies to tables of 10 or 8; nine votes cannot split evenly between two players. Mafia wins at parity, so a blind first-day vote almost always removes a red; keeping everyone gives the town an extra day and one mistake to spare.
 
 - **Live game: one-button «Попил»** (owner, 2026-10-10). In the zero-round voting of a full table of ten, the judge presses «Попил» and names the two split players; the program raises the hands by the same scheme as the trainers (`splitVoteGroups`: five for each, other nominees none) and the judge finishes the voting as usual. What matters is the fact of the split, not which hands the room actually raised. Only a split of two, only the zero round, only a full table; any other voting is recorded by hand. The two-sheriffs and three-way splits are not part of it.
+  **Owner, 2026-11-15:** after the two split players are chosen there is no result step — the votes are recorded by the same scheme and the 30-second revote speeches start at once. «Попил» is the button in the voting window or the key Й (Q); the key does not need to be held: Й opens the choice, then the two seats' digits (0 is №10).
 
 Training patterns for **ten players in the zero round** (user examples 2026-09-25): a question lists all nominees, the chosen two for the split, and the learner's seat; the answer is which **nominated player receives the learner's vote**. Other nominees get no votes in these exercises. Exactly five voters vote for each split candidate.
 

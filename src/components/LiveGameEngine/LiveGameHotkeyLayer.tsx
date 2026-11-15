@@ -1,4 +1,5 @@
 import { SEAT_ACTION_LABELS } from './hotkeyModel.js';
+import { SeatBadge } from './SeatBadge.tsx';
 import '../crm/liveGameHotkeys.css';
 
 type Props = {
@@ -18,7 +19,7 @@ const HELP_ROWS: Array<[string, string]> = [
   ['Пробел', 'Пауза и старт таймера; в голосовании и ночью — клик по подсвеченному игроку'],
   ['Backspace', 'Назад'],
   ['Cmd/Ctrl + Z', 'Отменить последнее действие'],
-  ['Q, затем два места', '«Попил» в нулевом круге'],
+  ['Й (Q), затем два места', '«Попил» в нулевом круге: сразу речи по 30 секунд'],
   ['V', '«Вскрытие»: кто назвал себя шерифом и какие проверки объявил (для выбранного игрока — цифра 6 или У/Ш)'],
   ['[  ·  +  ·  M', 'Таймер −10 с · +30 с за 2 фола · звук'],
   ['A', 'Авторежим вкл/выкл'],
@@ -26,12 +27,12 @@ const HELP_ROWS: Array<[string, string]> = [
 ];
 
 /** The seat action menu, the «Попил» prompt and the key cheat sheet. Only ever visible after a key was pressed. */
-export default function LiveGameHotkeyLayer({ cursor, cursorName, split, helpOpen, onCloseHelp }: Props) {
+export default function LiveGameHotkeyLayer({ cursor, cursorName, helpOpen, onCloseHelp }: Props) {
   return (
     <>
       {cursor !== null && (
         <div className="live-hotkey-bar" data-testid="live-hotkey-menu" role="status">
-          <div className="live-hotkey-bar__title">#{cursor}{cursorName ? ` · ${cursorName}` : ''}</div>
+          <div className="live-hotkey-bar__title"><SeatBadge seat={cursor} size="inline" />{cursorName ? ` · ${cursorName}` : ''}</div>
           <div className="live-hotkey-bar__actions">
             {SEAT_ACTION_LABELS.map((item) => (
               <span key={item.action} className="live-hotkey-bar__action"><kbd>{item.digit}</kbd><span>{item.label}</span><small>{item.keys}</small></span>
@@ -40,12 +41,7 @@ export default function LiveGameHotkeyLayer({ cursor, cursorName, split, helpOpe
           <div className="live-hotkey-bar__hint">← ↑ ↓ → другой игрок · Esc отмена</div>
         </div>
       )}
-      {split !== null && (
-        <div className="live-hotkey-bar" data-testid="live-hotkey-split" role="status">
-          <div className="live-hotkey-bar__title">Попил: выберите двоих{split.length ? ` · #${split[0]} и…` : ''}</div>
-          <div className="live-hotkey-bar__hint">цифры мест · Esc отмена</div>
-        </div>
-      )}
+      {/* The «Попил» choice is shown in the numbers window itself (owner, 2026-11-15), so no second prompt here. */}
       {helpOpen && (
         <div className="live-hotkey-help" data-testid="live-hotkey-help" role="dialog" aria-label="Клавиши управления" onClick={onCloseHelp}>
           <div className="live-hotkey-help__card" onClick={(event) => event.stopPropagation()}>

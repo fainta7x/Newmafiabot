@@ -140,12 +140,12 @@ describe('live game emergency recovery', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
     expect(onGameFinished).not.toHaveBeenCalled();
-    expect(await screen.findByText('Последняя речь #3')).toBeTruthy();
+    expect(await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-timer__label') && element.textContent === 'Последняя речь #3'))).toBeTruthy();
     expect(screen.getByText('60с')).toBeTruthy();
 
     fireEvent.click(await screen.findByRole('button', { name: /Протокол убитого · 20с/i }));
     expect(onGameFinished).not.toHaveBeenCalled();
-    expect(await screen.findByText('Протокол убитого #3')).toBeTruthy();
+    expect(await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-timer__label') && element.textContent === 'Протокол убитого #3'))).toBeTruthy();
     expect(await screen.findByText('20с')).toBeTruthy();
     expect(await screen.findByRole('button', { name: 'Завершить игру' })).toBeTruthy();
   });
@@ -159,7 +159,7 @@ describe('live game emergency recovery', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Назад' }));
 
-    expect(await screen.findByText('Последняя речь #3')).toBeTruthy();
+    expect(await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-timer__label') && element.textContent === 'Последняя речь #3'))).toBeTruthy();
     expect(screen.getByText('60с')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Завершить игру' })).toBeNull();
   });

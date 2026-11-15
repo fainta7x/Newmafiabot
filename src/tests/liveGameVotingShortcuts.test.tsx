@@ -3,6 +3,7 @@
  * Two shortcuts of the judge's vote count (owner, 2026-10-27): «Поделилось также» repeats the previous round on a revote where
  * nobody changed a vote, and «Цифрами» counts a voting in a window with the seat numbers, like the best-move entry.
  */
+import { cancelQuickSplitPick } from '../components/LiveGameEngine/quickSplitPickStore';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import LiveGameEngine from '../components/LiveGameEngine';
@@ -62,7 +63,7 @@ const toRevote = async () => {
   await press('Начать голосование');
 };
 
-beforeEach(() => { localStorage.clear(); sessionStorage.clear(); deactivateTableDecisionSelection(); });
+beforeEach(() => { localStorage.clear(); sessionStorage.clear(); deactivateTableDecisionSelection(); cancelQuickSplitPick(); });
 afterEach(() => { cleanup(); deactivateTableDecisionSelection(); localStorage.clear(); sessionStorage.clear(); });
 
 describe('vote count shortcuts', () => {
@@ -73,18 +74,19 @@ describe('vote count shortcuts', () => {
     await play(snapshot);
     let sheet = await screen.findByTestId('live-vote-numbers-sheet');
     fireEvent.click(within(sheet).getByRole('button', { name: 'Попил' }));
-    const picker = within(screen.getByTestId('live-vote-numbers-split'));
-    fireEvent.click(picker.getByRole('button', { name: '#5' }));
-    fireEvent.click(picker.getByRole('button', { name: '#3' }));
+    fireEvent.click(screen.getByTestId('live-quick-split-seat-5'));
+    fireEvent.click(screen.getByTestId('live-quick-split-seat-3'));
     expect(saved().votingRounds[0].vote_counts).toEqual({ 5: 5, 3: 5 });
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Подвести итог' }));
-    await toRevote();
+    // Owner, 2026-11-15: no result step after «Попил» — the 30-second speeches start at once.
+    expect(saved().votingStage).toBe('revote_speeches');
+    for (let speech = 0; speech < 4 && !screen.queryByRole('button', { name: 'Начать голосование' }); speech += 1) await press(/Следующий игрок|К переголосованию/);
+    await press('Начать голосование');
     sheet = await screen.findByTestId('live-vote-numbers-sheet');
     expect(within(sheet).queryByRole('button', { name: 'Попил' })).toBeNull();
     fireEvent.click(within(sheet).getByRole('button', { name: 'Поделилось также' }));
     expect(saved().votingRounds[1].vote_counts).toEqual({ 5: 5, 3: 5 });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Подвести итог' }));
-    await screen.findByText('Поднять всех?');
+    await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')));
   });
 
   it('«Поделилось также» repeats the split of the previous round on the revote', async () => {
@@ -98,7 +100,7 @@ describe('vote count shortcuts', () => {
     expect(saved().votingRounds[1].vote_counts).toEqual({ 5: 4, 3: 4 });
     await press('Подвести итог');
     // the same split again: the table decides
-    await screen.findByText('Поднять всех?');
+    await screen.findByText((_, element) => Boolean(element?.classList.contains('live-judge-hud__title') && /^Поднять #\d+ и #\d+\?$/.test(element.textContent || '')));
   });
 
   it('is not offered when someone voted for a candidate who is not on the revote', async () => {

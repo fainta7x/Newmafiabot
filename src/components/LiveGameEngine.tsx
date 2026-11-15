@@ -80,9 +80,12 @@ import {
   writeLiveSession,
 } from "./LiveGameEngine/liveSessionStorage.js";
 import { useLiveGameClock } from "./LiveGameEngine/useLiveGameClock.js";
+import { EndGameRevealsOverlay } from "./LiveGameEngine/EndGameRevealsOverlay.tsx";
 import {
   getTableDecisionSelectionSnapshot,
   restoreTableDecisionSelection,
+  toggleTableDecisionVoter,
+  useTableDecisionSelection,
 } from "./LiveGameEngine/tableDecisionSelectionStore.js";
 import {
   autoFillSetupPlayers,
@@ -125,6 +128,8 @@ import { teamOfPlayer } from '../shared/gameRoles.ts';
 import { CLUB_ZERO_ROUND_BREAK_SPEECH_SECONDS, isZeroRoundRule, type ZeroRoundRule } from '../shared/zeroRoundRule.ts';
 
 export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, sessionKey, trainingRoles, roleAssignments, rosterIdentity, readProtocolEvidence, zeroRoundRule: initialZeroRoundRule = 'tournament' }: LiveGameEngineProps) {
+  // The «поднять / оставить» selection: seat taps and seat digits mark voters while it is active.
+  const tableDecisionSelectionLive = useTableDecisionSelection();
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -140,6 +145,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
   const [pendingDisciplineConfirmation, setPendingDisciplineConfirmation] = useState<PendingDisciplineConfirmation | null>(null);
   const [pendingWinner, setPendingWinner] = useState<'Красные' | 'Чёрные' | null>(null);
+  // Owner, 2026-11-15: before the game closes, the judge is asked about blacks who claimed to be the Sheriff.
+  const [endRevealsWinner, setEndRevealsWinner] = useState<'Красные' | 'Чёрные' | null>(null);
   // «Завещание» of a player voted out: the same red / black / sheriff marks as the death protocol, asked after his farewell minute
   // (owner, 2026-11-01). Club evening games only; the guided training has its own scripted flow.
   const [votingWill, setVotingWill] = useState<{ slot: number; value: DeathProtocolSelection } | null>(null);
@@ -1082,7 +1089,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleQuickSplit = (pair: [number, number]) => {
     const current = votingRounds[activeVotingRoundIndex];
-    if (!current || !quickSplitAvailable || !pair.every((seat) => current.nominated_seats.includes(seat))) return;
+    if (!current || !quickSplitAvailable) return;
+    if (!pair.every((seat) => current.nominated_seats.includes(seat))) {
+      showToast(`Попил только между выставленными: ${current.nominated_seats.map((seat) => `#${seat}`).join(', ')}`, 'warning');
+      return;
+    }
     const assignments = quickSplitAssignments(pair, activePlayers.filter((p) => p.alive).map((p) => p.slot_num));
     if (!assignments) return;
     saveSnapshot();
@@ -1090,7 +1101,15 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     updateCurrentRoundVotes(assignments);
     setCurrentVotingNomineeIndex(current.nominated_seats.length - 1);
     const [low, high] = [...pair].sort((x, y) => x - y);
-    showToast(`Попил #${low} и #${high}: голоса расставлены`, 'info');
+    // Owner, 2026-11-15: no separate result step — the split players go straight to their 30-second speeches.
+    const winners = current.nominated_seats.filter((seat) => pair.includes(seat));
+    setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
+      ? { ...round, outcome: 'tie_revote' }
+      : round));
+    setVotingStage('revote_speeches');
+    setRevoteSpeakerIndex(0);
+    handleStartTimer(winners[0], 30);
+    showToast(`Попил #${low} и #${high}: голоса по схеме, речи по 30 секунд`, 'info');
   };
 
   /**
@@ -1575,6 +1594,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setActionPlayerSlot(slot);
       return;
     }
+    // «Поднять / оставить»: a tap — or its digit on the keyboard — marks the player voting «поднять» (owner, 2026-11-15).
+    if (phase === 'day_voting' && getTableDecisionSelectionSnapshot().key !== null && tableDecisionSelectionLive.active) {
+      if (player.alive) toggleTableDecisionVoter(slot);
+      return;
+    }
     if (phase === 'night') {
       if (postNightStage !== 'none') return;
       // Only the shot needs a living player: the Don and the Sheriff may check a player who has already left the table (owner, 2026-11-07).
@@ -1968,11 +1992,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     && (nightSubPhase === 'shooting' || nightSubPhase === 'don' || nightSubPhase === 'sheriff');
   const hotkeys = useLiveGameHotkeys({
     enabled: !trainingRoles && phase !== 'setup',
-    blocked: actionPlayerSlot !== null || pendingDisciplineConfirmation !== null || pendingWinner !== null
+    blocked: actionPlayerSlot !== null || pendingDisciplineConfirmation !== null || pendingWinner !== null || endRevealsWinner !== null
       || activeBestMoveSource !== null || postNightStage === 'death_protocol' || revealPanelOpen || votingWill !== null,
     seats: activePlayers.map((player) => player.slot_num),
     aliveSeats: activePlayers.filter((player) => player.alive).map((player) => player.slot_num),
-    tapPhase: (phase === 'day_voting' && votingStage === 'collecting') || nightTapPhase,
+    tapPhase: (phase === 'day_voting' && (votingStage === 'collecting' || tableDecisionSelectionLive.active)) || nightTapPhase,
     quickSplitAvailable,
   }, {
     tapSeat: handleSeatClick,
@@ -2031,8 +2055,22 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         winner={pendingWinner}
         canUndo={historyStack.length > 0}
         onUndo={() => { setPendingWinner(null); handleUndoAction(); }}
-        onConfirm={() => { const winner = pendingWinner; setPendingWinner(null); if (winner) handleEndGameWithWinner(winner); }}
+        onConfirm={() => { const winner = pendingWinner; setPendingWinner(null); if (winner) { if (trainingRoles) handleEndGameWithWinner(winner); else setEndRevealsWinner(winner); } }}
       />
+      {endRevealsWinner ? (
+        <EndGameRevealsOverlay
+          blacks={activePlayers.filter((player) => player.role === 'don' || player.role === 'mafia').map((player) => player.slot_num)}
+          nicknameOf={(seat) => activePlayers.find((player) => player.slot_num === seat)?.nickname || ''}
+          roleLabelOf={(seat) => (activePlayers.find((player) => player.slot_num === seat)?.role === 'don' ? 'Дон' : 'Мафия')}
+          seats={activePlayers.map((player) => player.slot_num)}
+          reveals={reveals}
+          onReveal={handleAddReveal}
+          onRemoveReveal={handleRemoveReveal}
+          onSetCheck={handleSetAnnouncedCheck}
+          onRemoveCheck={handleRemoveAnnouncedCheck}
+          onDone={() => { const winner = endRevealsWinner; setEndRevealsWinner(null); if (winner) handleEndGameWithWinner(winner); }}
+        />
+      ) : null}
       <DisciplineConfirmationOverlay
         pending={pendingDisciplineConfirmation}
         player={pendingConfirmationPlayer}
@@ -2079,6 +2117,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onRemoveReveal={handleRemoveReveal}
         onSetAnnouncedCheck={handleSetAnnouncedCheck}
         onRemoveAnnouncedCheck={handleRemoveAnnouncedCheck}
+        showRole={rolesAreVisible}
       />
       <BestMoveProtocolOverlay
         source={activeBestMoveSource}

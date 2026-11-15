@@ -1,4 +1,5 @@
 import VirtualRoleDeal from '../game/VirtualRoleDeal.tsx';
+import { SeatBadge } from "./SeatBadge.tsx";
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import React from "react";
 import { Shield, Info } from "lucide-react";
@@ -187,7 +188,7 @@ export default function SetupPhase({
               const isRed = roleText === "Мирный" || roleText === "Шериф";
               return (
                 <div className="space-y-5">
-                  <div><h3 className="text-xl font-black text-white">Игрок #{passSlot}: {currentP.nickname || `Игрок ${passSlot}`}</h3><p className="text-xs text-slate-400 mt-1">{!isCardRevealed ? "Передайте устройство этому игроку. Убедитесь, что никто не подсматривает!" : "Ваша роль зафиксирована! Запомните её и не показывайте другим."}</p></div>
+                  <div><h3 className="text-xl font-black text-white"><SeatBadge seat={passSlot} size="inline" /> {currentP.nickname || `Игрок ${passSlot}`}</h3><p className="text-xs text-slate-400 mt-1">{!isCardRevealed ? "Передайте устройство этому игроку. Убедитесь, что никто не подсматривает!" : "Ваша роль зафиксирована! Запомните её и не показывайте другим."}</p></div>
                   {!isCardRevealed ? (
                     <div className="py-8 bg-slate-950/80 rounded-2xl border border-slate-850 space-y-4"><div className="text-4xl animate-bounce">📱</div><button type="button" onClick={() => setIsCardRevealed(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-lg border border-purple-400/40 cursor-pointer transition-all active:scale-95">👁️ Посмотреть мою карту</button></div>
                   ) : (

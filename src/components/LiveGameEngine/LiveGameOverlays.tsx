@@ -5,6 +5,8 @@ import type { PendingActionType, PlayerDiscipline } from "../../lib/gameDiscipli
 import type { BestMoveSource } from "../../lib/gameProtocolCore.js";
 import { nextTrainingBestMoveSeat, TRAINING_BEST_MOVE_SEATS } from "../../lib/judgeTrainingProtocols.ts";
 import type { ActivePlayerState } from "./types.js";
+import { SeatBadge } from "./SeatBadge.tsx";
+import { GAME_ROLE_LABELS } from "../../shared/gameRoles.ts";
 
 interface DisciplineConfirmationOverlayProps {
   pending: { slot: number; action: PendingActionType } | null;
@@ -46,7 +48,7 @@ export function DisciplineConfirmationOverlay({ pending, player, onCancel, onCon
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-200/65">Требуется подтверждение</div>
           <h3 className="mt-1 text-lg font-semibold text-white">{copy.title}</h3>
-          <p className="mt-2 text-sm font-semibold text-white/72">#{pending.slot} · {player?.nickname || 'Игрок'}</p>
+          <p className="mt-2 text-sm font-semibold text-white/72"><SeatBadge seat={pending.slot} size="inline" /> {player?.nickname || 'Игрок'}</p>
           <p className="mt-2 text-xs leading-relaxed text-white/38">{copy.description}</p>
         </div>
         <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.06] px-3 py-2 text-[11px] text-amber-50/62">
@@ -119,6 +121,8 @@ interface PlayerActionOverlayProps {
   /** Elo tags of the judge (owner, 2026-11-03): «Вскрылся чёрному» −10 on this circle, «Убил шерифа в нуле» +10. */
   eloTags?: Array<'revealed_to_black' | 'killed_sheriff_zero' | 'false_sheriff_red_sheriff'>;
   onToggleEloTag?: (slot: number, tag: 'revealed_to_black' | 'killed_sheriff_zero' | 'false_sheriff_red_sheriff') => void;
+  /** The role in the header only when the roles are not hidden (owner, 2026-11-15). */
+  showRole?: boolean;
 }
 
 export function PlayerActionOverlay({
@@ -146,6 +150,7 @@ export function PlayerActionOverlay({
   onRemoveAnnouncedCheck,
   eloTags = [],
   onToggleEloTag,
+  showRole = false,
 }: PlayerActionOverlayProps) {
   if (!player) return null;
   const isNominated = nominations.includes(player.slot_num);
@@ -156,123 +161,154 @@ export function PlayerActionOverlay({
   const canEditFouls = player.alive || mode === 'farewell';
   const canDirectRemove = !disciplinePlayer?.isRemoved && !player.removal_reason && !player.kick;
 
+  const roleLabel = showRole && player.role ? GAME_ROLE_LABELS[player.role as keyof typeof GAME_ROLE_LABELS] : '';
+  const blackRole = player.role === 'don' || player.role === 'mafia';
+  const stepper = (label: string, value: number, onMinus: () => void, onPlus: () => void, ids: { plus?: string; minus?: string } = {}, names: { plus: string; minus: string } = { plus: `Добавить: ${label}`, minus: `Снять: ${label}` }) => (
+    <div className="flex min-h-[52px] items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.05] pl-4 pr-1.5">
+      <span className="text-sm font-bold text-white">{label}</span>
+      <span className="flex items-center gap-1.5">
+        <button type="button" data-testid={ids.minus} aria-label={names.minus} disabled={value <= 0} onClick={() => { onMinus(); onClose(); }} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-lg font-black text-white disabled:opacity-25">−</button>
+        <span className="min-w-6 text-center font-mono text-lg font-black text-white">{value}</span>
+        <button type="button" data-testid={ids.plus} data-seat={player.slot_num} aria-label={names.plus} onClick={() => { onPlus(); onClose(); }} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-lg font-black text-white">+</button>
+      </span>
+    </div>
+  );
+  const sectionLabel = (text: string) => <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-white/45">{text}</div>;
+
   return (
     <div className="fixed inset-0 z-[112] bg-slate-950/60 flex items-end md:items-center justify-center md:p-4" onClick={onClose}>
-      <div className="live-player-action-sheet w-full max-w-md rounded-t-3xl md:rounded-3xl border p-4 space-y-4" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3">
+      {/* Owner, 2026-11-15: the old grid of mixed buttons looked dated. One header, the frequent actions large, the rest in calm rows. */}
+      <div data-testid="live-player-action-sheet" className="live-player-action-sheet max-h-[100dvh] w-full max-w-md overflow-y-auto rounded-t-3xl md:rounded-3xl border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" onClick={(event) => event.stopPropagation()}>
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15 md:hidden" />
+        <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <div className="text-base font-black text-white truncate">#{player.slot_num} · {player.nickname}</div>
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/[.06] px-2 py-1.5 text-center">
-                <div className="text-[10px] uppercase font-black tracking-wider text-slate-500">Фолы</div>
-                <div className="text-sm font-mono font-black text-amber-300">{regularFouls}</div>
-              </div>
-              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/[.05] px-2 py-1.5 text-center">
-                <div className="text-[10px] uppercase font-black tracking-wider text-slate-500">Малый техфол</div>
-                <div className="text-sm font-mono font-black text-yellow-300">{minorTech}</div>
-              </div>
-              <div className="rounded-lg border border-rose-500/20 bg-rose-500/[.05] px-2 py-1.5 text-center">
-                <div className="text-[10px] uppercase font-black tracking-wider text-slate-500">Большой техфол</div>
-                <div className="text-sm font-mono font-black text-rose-300">{majorTech}</div>
-              </div>
+            <div className="flex items-center gap-2 text-lg font-black text-white"><SeatBadge seat={player.slot_num} /><span className="min-w-0 break-words">{player.nickname}</span></div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-white/55">
+              {roleLabel ? <span className={`rounded-full px-2 py-0.5 font-bold ${blackRole ? 'bg-rose-500/15 text-rose-300' : 'bg-white/10 text-white/75'}`}>{roleLabel}</span> : null}
+              <span className="inline-flex items-center gap-1">Фолы <span className="inline-flex gap-0.5">{[0, 1, 2, 3].map((index) => <i key={index} className={`block h-2 w-2 rounded-full ${index < regularFouls ? 'bg-amber-400' : 'bg-white/15'}`} />)}</span></span>
+              {activeSpeakerSlot ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-bold text-amber-300">Говорит #{activeSpeakerSlot}</span> : null}
+              {!player.alive ? <span className="rounded-full bg-white/10 px-2 py-0.5 font-bold text-white/60">Не за столом</span> : null}
             </div>
             <div className="sr-only">Фолы: {regularFouls} · Малый тех: {minorTech} · Большой тех: {majorTech}</div>
-            {activeSpeakerSlot && <div className="text-[10px] text-amber-300 mt-2">Речь #{activeSpeakerSlot}</div>}
           </div>
-          <button type="button" data-testid="live-player-actions-close" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 font-black shrink-0">×</button>
+          <button type="button" data-testid="live-player-actions-close" aria-label="Закрыть" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.05] text-white/70">✕</button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {canEditFouls && (
-            <>
-              <button type="button" data-testid="live-player-add-regular-foul" data-seat={player.slot_num} onClick={() => { onAddRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-amber-950/60 border border-amber-700/70 text-amber-200 text-xs font-black">+ Обычный фол</button>
-              <button type="button" disabled={regularFouls <= 0} onClick={() => { onRemoveRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black disabled:opacity-30">− Снять фол</button>
-              <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'minor'); onClose(); }} className="min-h-12 rounded-xl bg-yellow-950/45 border border-yellow-700/60 text-yellow-200 text-xs font-black">Малый тех</button>
-              <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'major'); onClose(); }} className="min-h-12 rounded-xl bg-rose-950/55 border border-rose-700/70 text-rose-200 text-xs font-black">Большой тех</button>
-              <button type="button" data-testid="live-player-remove-minor-tech" disabled={minorTech <= 0} onClick={() => { onRemoveTechFoul(player.slot_num, 'minor'); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-yellow-700/45 text-yellow-200 text-xs font-black disabled:opacity-30">− Малый тех</button>
-              <button type="button" data-testid="live-player-remove-major-tech" disabled={majorTech <= 0} onClick={() => { onRemoveTechFoul(player.slot_num, 'major'); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-rose-700/45 text-rose-200 text-xs font-black disabled:opacity-30">− Большой тех</button>
-            </>
-          )}
-          {player.alive && mode === 'standard' && (
-            <button
-              type="button"
-              disabled={nominationDisabled}
-              onClick={() => { onToggleNomination(player.slot_num); onClose(); }}
-              className={`min-h-12 rounded-xl border text-xs font-black disabled:opacity-30 ${isNominated ? 'bg-slate-950 border-slate-600 text-slate-300' : 'bg-fuchsia-950/40 border-fuchsia-700/60 text-fuchsia-200'}`}
-            >
-              {isNominated ? 'Снять выставление' : 'Выставить'}
-            </button>
-          )}
-          {mode === 'standard' && (
-            <label className="col-span-2 block">
-              <span className="text-[10px] uppercase font-black tracking-wider text-slate-500">Заметка о игроке</span>
-              <textarea
-                key={player.slot_num}
-                data-testid="live-player-note"
-                rows={2}
-                maxLength={300}
-                defaultValue={player.note || ''}
-                onBlur={(event) => { if (event.target.value.trim() !== (player.note || '')) onEditNote(player, event.target.value); }}
-                placeholder="Что заметили за столом"
-                className="mt-1 w-full resize-none rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-600"
-              />
-            </label>
-          )}
-          {canDirectRemove && (
-            <button type="button" onClick={() => onDirectRemove(player.slot_num)} className="min-h-12 rounded-xl bg-red-950/60 border border-red-700/70 text-red-200 text-xs font-black">Удалить</button>
-          )}
-          <button type="button" aria-label="ППК" onClick={() => onPpk(player.slot_num)} className="min-h-12 rounded-xl bg-purple-950/60 border border-purple-700/70 text-purple-200 text-xs font-black">ППК</button>
-          {!player.alive && (
-            <button type="button" onClick={() => onRestorePlayer(player.slot_num)} className="col-span-2 min-h-12 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-200 text-xs font-black">Вернуть за стол</button>
-          )}
-        </div>
-
-        {mode === 'standard' && onToggleEloTag && (
-          <div data-testid="live-player-elo-tags" className="grid grid-cols-2 gap-2">
-            {([['false_sheriff_red_sheriff', 'Вскрылся шерифом с шерифом красным · −20'], ['revealed_to_black', 'Вскрылся чёрному · −10'], ['killed_sheriff_zero', 'Убил шерифа в нуле · +10']] as const).map(([tag, label]) => (
-              <button key={tag} type="button" data-testid={`live-player-tag-${tag}`} aria-pressed={eloTags.includes(tag)} onClick={() => onToggleEloTag(player.slot_num, tag)}
-                className={`min-h-12 rounded-xl border px-2 text-xs font-black ${eloTags.includes(tag) ? (tag !== 'killed_sheriff_zero' ? 'border-rose-300 bg-rose-500/30 text-white' : 'border-emerald-300 bg-emerald-500/30 text-white') : 'border-slate-700 bg-slate-950 text-slate-200'}`}>{label}</button>
-            ))}
+        {(player.alive && mode === 'standard') || canEditFouls ? (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {player.alive && mode === 'standard' ? (
+              <button
+                type="button"
+                aria-label={isNominated ? 'Снять выставление' : 'Выставить'}
+                disabled={nominationDisabled}
+                onClick={() => { onToggleNomination(player.slot_num); onClose(); }}
+                className={`min-h-[52px] rounded-2xl text-sm font-black disabled:opacity-35 ${isNominated ? 'border border-white/15 bg-white/[0.05] text-white/80' : 'bg-[#e5484d] text-white'}`}
+              >{isNominated ? 'Снять выставление' : 'Выставить'}</button>
+            ) : null}
+            {canEditFouls ? (
+              <div className={player.alive && mode === 'standard' ? '' : 'col-span-2'}>
+                {stepper('Фол', regularFouls, () => onRemoveRegularFoul(player.slot_num), () => onAddRegularFoul(player.slot_num), { plus: 'live-player-add-regular-foul' }, { plus: '+ Обычный фол', minus: '− Снять фол' })}
+              </div>
+            ) : null}
           </div>
-        )}
-        {mode === 'standard' && onReveal && (
-          <div data-testid="live-player-reveal-section" className="space-y-2 rounded-2xl border border-amber-700/40 bg-amber-950/25 p-3">
-            {reveal ? (
-              <>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-black text-amber-200">Вскрылся шерифом</div>
-                  <button type="button" data-testid="live-player-reveal-remove" onClick={() => onRemoveReveal?.(player.slot_num)} className="min-h-9 rounded-lg border border-white/10 bg-black/20 px-3 text-[11px] font-bold text-white/60">Снять вскрытие</button>
-                </div>
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Объявленные проверки — один тап по номеру</div>
-                {(['red', 'black'] as const).map((color) => (
-                  <div key={color} className="space-y-1">
-                    <div className={`text-[11px] font-bold ${color === 'red' ? 'text-rose-200' : 'text-slate-200'}`}>{REVEAL_COLOR_LABELS[color] === 'красный' ? 'Назвал красным' : 'Назвал чёрным'}</div>
-                    <div className="grid grid-cols-9 gap-1">
-                      {seats.filter((seat) => seat !== player.slot_num).map((seat) => {
-                        const current = reveal.checks.find((check) => check.target === seat);
-                        const active = current?.color === color;
-                        return (
-                          <button
-                            key={seat}
-                            type="button"
-                            data-testid={`live-player-reveal-${color}-${seat}`}
-                            aria-pressed={active}
-                            onClick={() => (active ? onRemoveAnnouncedCheck?.(player.slot_num, seat) : onSetAnnouncedCheck?.(player.slot_num, seat, color))}
-                            className={`min-h-10 rounded-lg border text-xs font-black ${active
-                              ? color === 'red' ? 'border-rose-300 bg-rose-500/35 text-white' : 'border-slate-100 bg-slate-100 text-slate-900'
-                              : current ? 'border-white/5 bg-black/30 text-white/25' : 'border-white/10 bg-black/25 text-white/75'}`}
-                          >{seat}</button>
-                        );
-                      })}
+        ) : null}
+
+        {canEditFouls ? (
+          <div className="mt-4">
+            {sectionLabel('Техфолы')}
+            <div className="grid gap-2">
+              {stepper('Малый техфол', minorTech, () => onRemoveTechFoul(player.slot_num, 'minor'), () => onAddTechFoul(player.slot_num, 'minor'), { minus: 'live-player-remove-minor-tech' }, { plus: 'Малый тех', minus: '− Малый тех' })}
+              {stepper('Большой техфол', majorTech, () => onRemoveTechFoul(player.slot_num, 'major'), () => onAddTechFoul(player.slot_num, 'major'), { minus: 'live-player-remove-major-tech' }, { plus: 'Большой тех', minus: '− Большой тех' })}
+            </div>
+          </div>
+        ) : null}
+
+        {mode === 'standard' && (onToggleEloTag || onReveal) ? (
+          <div className="mt-4">
+            {sectionLabel('Отметки')}
+            <div className="overflow-hidden rounded-2xl border border-white/10">
+              {onToggleEloTag ? <div data-testid="live-player-elo-tags">
+                {([['false_sheriff_red_sheriff', 'Вскрылся шерифом с шерифом красным', '−20'], ['revealed_to_black', 'Вскрылся чёрному', '−10'], ['killed_sheriff_zero', 'Убил шерифа в нуле', '+10']] as const).map(([tag, label, points], index) => {
+                  const on = eloTags.includes(tag);
+                  return (
+                    <button key={tag} type="button" data-testid={`live-player-tag-${tag}`} aria-pressed={on} onClick={() => onToggleEloTag(player.slot_num, tag)}
+                      className={`flex min-h-12 w-full items-center gap-3 px-4 text-left text-sm text-white ${index ? 'border-t border-white/[0.07]' : ''}`}>
+                      <span className="min-w-0 flex-1 break-words">{label}</span>
+                      <span className={`w-10 text-right font-mono text-xs font-black ${points.startsWith('+') ? 'text-emerald-400' : 'text-rose-300'}`}>{points}</span>
+                      <span className={`relative h-[22px] w-[38px] shrink-0 rounded-full ${on ? 'bg-[#e5484d]' : 'bg-white/15'}`}><span className={`absolute top-[3px] h-4 w-4 rounded-full ${on ? 'left-[19px] bg-white' : 'left-[3px] bg-white/55'}`} /></span>
+                    </button>
+                  );
+                })}
+              </div> : null}
+              {onReveal ? (
+                <div data-testid="live-player-reveal-section" className={onToggleEloTag ? 'border-t border-white/[0.07]' : ''}>
+                  {reveal ? (
+                    <div className="space-y-2 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-bold text-amber-200">Вскрылся шерифом</div>
+                        <button type="button" data-testid="live-player-reveal-remove" onClick={() => onRemoveReveal?.(player.slot_num)} className="min-h-9 rounded-lg border border-white/10 bg-black/20 px-3 text-[11px] font-bold text-white/60">Снять вскрытие</button>
+                      </div>
+                      <div className="text-[11px] text-white/45">Объявленные проверки — один тап по номеру</div>
+                      {(['red', 'black'] as const).map((color) => (
+                        <div key={color} className="space-y-1">
+                          <div className={`text-[11px] font-bold ${color === 'red' ? 'text-rose-200' : 'text-slate-200'}`}>{REVEAL_COLOR_LABELS[color] === 'красный' ? 'Назвал красным' : 'Назвал чёрным'}</div>
+                          <div className="grid grid-cols-9 gap-1">
+                            {seats.filter((seat) => seat !== player.slot_num).map((seat) => {
+                              const current = reveal.checks.find((check) => check.target === seat);
+                              const active = current?.color === color;
+                              return (
+                                <button
+                                  key={seat}
+                                  type="button"
+                                  data-testid={`live-player-reveal-${color}-${seat}`}
+                                  aria-pressed={active}
+                                  onClick={() => (active ? onRemoveAnnouncedCheck?.(player.slot_num, seat) : onSetAnnouncedCheck?.(player.slot_num, seat, color))}
+                                  className={`min-h-10 rounded-lg border text-xs font-black ${active
+                                    ? color === 'red' ? 'border-rose-300 bg-rose-500/35 text-white' : 'border-slate-100 bg-slate-100 text-slate-900'
+                                    : current ? 'border-white/5 bg-black/30 text-white/25' : 'border-white/10 bg-black/25 text-white/75'}`}
+                                >{seat}</button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <button type="button" data-testid="live-player-reveal" onClick={() => onReveal(player.slot_num)} className="min-h-12 w-full rounded-xl bg-amber-950/60 border border-amber-700 text-amber-200 text-xs font-black">Вскрылся шерифом (и объявил проверки)</button>
-            )}
+                  ) : (
+                    <button type="button" data-testid="live-player-reveal" onClick={() => onReveal(player.slot_num)} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm text-white">
+                      <span className="flex-1">Вскрылся шерифом <span className="text-white/45">· объявил проверки</span></span><span className="text-white/45">›</span>
+                    </button>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
-        )}
+        ) : null}
+
+        {mode === 'standard' ? (
+          <label className="mt-4 block">
+            {sectionLabel('Заметка')}
+            <textarea
+              key={player.slot_num}
+              data-testid="live-player-note"
+              rows={2}
+              maxLength={300}
+              defaultValue={player.note || ''}
+              onBlur={(event) => { if (event.target.value.trim() !== (player.note || '')) onEditNote(player, event.target.value); }}
+              placeholder="Что заметили за столом"
+              className="w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/35"
+            />
+          </label>
+        ) : null}
+
+        <div className="mt-4 flex gap-2 border-t border-white/[0.07] pt-4">
+          {!player.alive ? (
+            <button type="button" onClick={() => onRestorePlayer(player.slot_num)} className="min-h-11 flex-1 rounded-2xl border border-emerald-500/40 text-sm font-bold text-emerald-300">Вернуть за стол</button>
+          ) : null}
+          {canDirectRemove ? (
+            <button type="button" aria-label="Удалить" onClick={() => onDirectRemove(player.slot_num)} className="min-h-11 flex-1 rounded-2xl border border-rose-500/35 text-sm font-bold text-rose-300">Удалить из игры</button>
+          ) : null}
+          <button type="button" aria-label="ППК" onClick={() => onPpk(player.slot_num)} className="min-h-11 flex-1 rounded-2xl border border-violet-500/35 text-sm font-bold text-violet-300">ППК</button>
+        </div>
       </div>
     </div>
   );

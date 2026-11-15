@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
-import { useState } from "react";
+import { QuickSplitPicker } from "./QuickSplitPicker.tsx";
+import { toggleQuickSplitPick, useQuickSplitPick } from "./quickSplitPickStore.ts";
 import { SEAT_COLORS } from "./seatColors.ts";
 import { SeatBadge } from "./SeatBadge.tsx";
 
@@ -32,7 +33,7 @@ export function VoteByNumbersOverlay({
   nominees, nomineeIndex, votesByPlayer, voterSeats, tableSize, nicknameOf, remaining, busy = false,
   onToggle, onSelectNominee, onFinish, onCollapse, onQuickSplit, onSameSplit,
 }: VoteByNumbersOverlayProps) {
-  const [splitPicking, setSplitPicking] = useState<number[] | null>(null);
+  const splitPicking = useQuickSplitPick();
   const nominee = nominees[nomineeIndex];
   if (nominee === undefined || typeof document === 'undefined') return null;
   const isLast = nomineeIndex >= nominees.length - 1;
@@ -43,30 +44,14 @@ export function VoteByNumbersOverlay({
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/82 p-4 backdrop-blur-md">
       <div data-testid="live-vote-numbers-sheet" role="dialog" aria-label="Голоса цифрами" className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-[#121318] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
-        <div className="space-y-1.5 text-center">
+        {splitPicking ? <div className="text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">Нулевой круг · попил</div> : <div className="space-y-1.5 text-center">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">Кандидат {nomineeIndex + 1} из {nominees.length}</div>
           <h2 className="text-lg font-semibold text-white">Голосуют за <SeatBadge seat={nominee} />{nickname ? ` ${nickname}` : ''}</h2>
           <p className="text-xs text-white/45">Проголосовали за него: <b className="text-white/80">{forThis}</b> · ещё не голосовали: <b className="text-white/80">{remaining}</b></p>
-          {isLast && <p className="text-xs text-white/30">Оставшиеся голоса достанутся #{nominee}, когда вы подведёте итог.</p>}
-        </div>
-        {onQuickSplit || onSameSplit ? (
-          <div className="flex flex-wrap gap-2">
-            {onQuickSplit && <button type="button" disabled={busy} onClick={() => setSplitPicking([])} className="min-h-11 rounded-2xl border border-white/15 px-3 text-xs text-white">Попил</button>}
-            {onSameSplit && <button type="button" disabled={busy} onClick={onSameSplit} className="min-h-11 rounded-2xl border border-white/15 px-3 text-xs text-white">Поделилось также</button>}
-          </div>
-        ) : null}
+          {isLast && <p className="text-xs text-white/30">Оставшиеся голоса достанутся <SeatBadge seat={nominee} size="inline" />, когда вы подведёте итог.</p>}
+        </div>}
         {splitPicking && onQuickSplit ? (
-          <div className="space-y-2" data-testid="live-vote-numbers-split">
-            <p className="text-sm text-white">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</p>
-            <div className="flex flex-wrap gap-2">
-              {nominees.map((candidate) => <button key={candidate} type="button" disabled={busy || splitPicking.includes(candidate)} aria-pressed={splitPicking.includes(candidate)} onClick={() => {
-                if (!splitPicking.length) return setSplitPicking([candidate]);
-                onQuickSplit([splitPicking[0], candidate]);
-                setSplitPicking(null);
-              }} className="min-h-11 min-w-11 rounded-xl border border-white/15 text-white">#{candidate}</button>)}
-            </div>
-            <button type="button" disabled={busy} onClick={() => setSplitPicking(null)} className="min-h-11 px-3 text-sm text-white">Отмена</button>
-          </div>
+          <QuickSplitPicker nominees={nominees} picked={splitPicking} nicknameOf={nicknameOf} onSplit={onQuickSplit} />
         ) : <div className="mx-auto grid max-w-sm grid-cols-5 gap-2">
           {Array.from({ length: tableSize }, (_, index) => index + 1).map((seat) => {
             const votesFor = votesByPlayer[seat];
@@ -100,7 +85,7 @@ export function VoteByNumbersOverlay({
           })}
         </div>}
         {/* The history of this voting (owner, 2026-10-27): every candidate with who voted for them so far, in their colours. */}
-        <div data-testid="live-vote-numbers-history" className="space-y-1.5 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
+        {splitPicking ? null : <div data-testid="live-vote-numbers-history" className="space-y-1.5 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
           {nominees.map((candidate, index) => {
             const voted = voterSeats.filter((seat) => votesByPlayer[seat] === candidate);
             const current = index === nomineeIndex;
@@ -127,8 +112,14 @@ export function VoteByNumbersOverlay({
               </button>
             );
           })}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
+        </div>}
+        {!splitPicking && (onQuickSplit || onSameSplit) ? (
+          <div className="grid grid-cols-1 gap-2">
+            {onQuickSplit && <button type="button" data-testid="live-vote-numbers-split-start" aria-label="Попил" disabled={busy} onClick={toggleQuickSplitPick} className="min-h-11 rounded-2xl border border-amber-400/70 px-3 text-sm font-semibold text-amber-300 disabled:opacity-35">Попил <kbd className="ml-1 rounded border border-amber-400/50 px-1 font-mono text-[11px]">Й</kbd></button>}
+            {onSameSplit && <button type="button" disabled={busy} onClick={onSameSplit} className="min-h-11 rounded-2xl border border-amber-400/70 px-3 text-sm font-semibold text-amber-300 disabled:opacity-35">Поделилось также</button>}
+          </div>
+        ) : null}
+        {splitPicking ? null : <div className="grid grid-cols-2 gap-2">
           <button type="button" disabled={nomineeIndex === 0 || busy} onClick={() => onSelectNominee(nomineeIndex - 1)} className="min-h-11 rounded-2xl border border-white/[0.10] bg-black/30 px-3 text-xs font-semibold text-white/72 disabled:opacity-35">← Назад</button>
           {isLast ? (
             <button type="button" data-testid="live-vote-numbers-finish" disabled={busy} onClick={onFinish} className="min-h-11 rounded-2xl bg-white px-3 text-xs font-semibold text-[#090a0d] disabled:opacity-35">Подвести итог</button>
@@ -136,7 +127,7 @@ export function VoteByNumbersOverlay({
             <button type="button" data-testid="live-vote-numbers-next" disabled={busy} onClick={() => onSelectNominee(nomineeIndex + 1)} className="min-h-11 rounded-2xl bg-white px-3 text-xs font-semibold text-[#090a0d] disabled:opacity-35">Далее →</button>
           )}
           <button type="button" data-testid="live-vote-numbers-collapse" onClick={onCollapse} className="col-span-2 min-h-10 rounded-2xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/60">Свернуть</button>
-        </div>
+        </div>}
       </div>
     </div>,
     document.body,

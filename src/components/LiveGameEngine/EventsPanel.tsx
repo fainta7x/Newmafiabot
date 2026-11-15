@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { withSeatBadges } from './SeatBadge.tsx';
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronUp, ClipboardList, Copy, ScrollText, X } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
@@ -198,14 +199,14 @@ export default function EventsPanel({
               const rest = log.log.substring(colonIndex + 1);
               return (
                 <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
-                  <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{rest}
+                  <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{withSeatBadges(rest)}
                 </div>
               );
             }
           }
           return (
             <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
-              <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {log.log}
+              <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {withSeatBadges(log.log)}
             </div>
           );
         })}

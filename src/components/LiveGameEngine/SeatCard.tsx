@@ -1,4 +1,5 @@
 import { GAME_ROLES } from '../../shared/gameRoles.ts';
+import { SeatBadge } from "./SeatBadge.tsx";
 import React, { useContext } from "react";
 import { ListPlus, Skull, Star } from "lucide-react";
 import { GameRoleIcon } from '../ui/GameRole.tsx';
@@ -266,8 +267,8 @@ export default function SeatCard(props: SeatCardProps) {
     if (!tableDecisionActive || !tableDecisionSelected) return null;
     return (
       <div>
-        <div className="live-seat-state__label">Поднять</div>
-        <div className="live-seat-state__value live-seat-state__value--active">За</div>
+        {/* One mark (owner, 2026-11-15): «поднять / За» on two lines read as two things. */}
+        <div className="live-seat-state__value live-seat-state__value--active">За «поднять»</div>
       </div>
     );
   };
@@ -288,7 +289,7 @@ export default function SeatCard(props: SeatCardProps) {
   const renderShootoutState = () => {
     if (phase !== "shootout") return null;
     if (shootoutNominees.includes(slotNum)) {
-      return <div><div className="live-seat-state__label">Переголосование</div><div className="live-seat-state__value live-seat-state__value--warning">#{slotNum}</div></div>;
+      return <div><div className="live-seat-state__label">Переголосование</div><div className="live-seat-state__value live-seat-state__value--warning"><SeatBadge seat={slotNum} size="inline" /></div></div>;
     }
     return null;
   };

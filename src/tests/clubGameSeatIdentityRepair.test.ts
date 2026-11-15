@@ -100,3 +100,27 @@ describe('replaceClubGameSeatIdentity', () => {
     expect(() => replaceClubGameSeatIdentity(envelope, [], 1, { participantId: 'p2', playerId: 'player-2', nickname: 'Два' })).toThrow('уже занимает другое место');
   });
 });
+
+describe('swapClubGameSeatIdentities', () => {
+  it('exchanges the two players and every reference, the seats keep role, fouls, votes and result', async () => {
+    const { swapClubGameSeatIdentities } = await import('../server/services/clubGameSeatIdentityRepair');
+    const envelope = {
+      version: 1, kind: 'club_evening_protocol',
+      protocol: { status: 'completed', votes: [{ voter_participant_id: 'p5', target_participant_id: 'p7' }], best_move: ['p7'] },
+      player_results: [
+        { seat_number: 5, participant_id: 'p5', player_id: 'fm', display_name: 'ФМ', role: 'mafia', fouls: 1 },
+        { seat_number: 7, participant_id: 'p7', player_id: 'grey', display_name: 'Серый', role: 'citizen', fouls: 0, exit_reason: 'killed' },
+      ],
+    };
+    const slots = [{ slot_num: 5, participant_id: 'p5', player_id: 'fm', nickname: 'ФМ', role: 'mafia' }, { slot_num: 7, participant_id: 'p7', player_id: 'grey', nickname: 'Серый', role: 'citizen' }];
+    const result = swapClubGameSeatIdentities(envelope, slots, 5, 7);
+    expect(result.envelope.player_results[0]).toMatchObject({ seat_number: 5, participant_id: 'p7', player_id: 'grey', display_name: 'Серый', role: 'mafia', fouls: 1 });
+    expect(result.envelope.player_results[1]).toMatchObject({ seat_number: 7, participant_id: 'p5', player_id: 'fm', display_name: 'ФМ', role: 'citizen', exit_reason: 'killed' });
+    // A reference follows the seat: what seat 5 did now belongs to Серый, who sat there.
+    expect(result.envelope.protocol.votes[0]).toEqual({ voter_participant_id: 'p7', target_participant_id: 'p5' });
+    expect(result.envelope.protocol.best_move).toEqual(['p5']);
+    expect(result.slots[0]).toMatchObject({ slot_num: 5, player_id: 'grey', nickname: 'Серый', role: 'mafia' });
+    expect(result.slots[1]).toMatchObject({ slot_num: 7, player_id: 'fm', nickname: 'ФМ', role: 'citizen' });
+    expect(envelope.player_results[0].player_id).toBe('fm');
+  });
+});

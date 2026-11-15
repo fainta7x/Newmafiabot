@@ -126,3 +126,25 @@ describe('GUEST-PLAYER-001 edge regressions', () => {
       .toMatchObject({ reason: 'migration_requires_review' });
   });
 });
+
+describe('swapping two seats of a club game (owner, 2026-11-15)', () => {
+  it('exchanges the two players in the stored protocol and slots, and refuses an archived game', async () => {
+    const { swapSeatsInClubGame } = await import('../server/services/guestPlayerService.ts');
+    const database = await initialize();
+    await seedEvening(database, 'e-swap');
+    const envelope = { version: 1, kind: 'club_evening_protocol', protocol: { status: 'completed' }, player_results: [
+      { seat_number: 5, participant_id: 'ep-fm', player_id: 'fm', display_name: 'ФМ', role: 'mafia' },
+      { seat_number: 7, participant_id: 'ep-grey', player_id: 'grey', display_name: 'Серый', role: 'citizen' },
+    ] };
+    const slots = [{ slot_num: 5, participant_id: 'ep-fm', player_id: 'fm', nickname: 'ФМ', role: 'mafia' }, { slot_num: 7, participant_id: 'ep-grey', player_id: 'grey', nickname: 'Серый', role: 'citizen' }];
+    await database.run(`INSERT INTO games (id, evening_id, global_game_number, game_date, winner_team, winner_label, protocol_text, slots_json, created_at)
+      VALUES (37, 'e-swap', 37, '2026-11-13', 'red', 'Мирные', ?, ?, '2026-11-13T18:00:00Z')`, [JSON.stringify(envelope), JSON.stringify(slots)]);
+    await swapSeatsInClubGame(database, { gameId: 37, seatA: 5, seatB: 7 });
+    const row = await database.get<any>('SELECT protocol_text, slots_json FROM games WHERE id = 37');
+    const saved = JSON.parse(row.protocol_text);
+    expect(saved.player_results.map((item: any) => [item.seat_number, item.display_name, item.role])).toEqual([[5, 'Серый', 'mafia'], [7, 'ФМ', 'citizen']]);
+    expect(JSON.parse(row.slots_json).map((item: any) => [item.slot_num, item.nickname])).toEqual([[5, 'Серый'], [7, 'ФМ']]);
+    await database.run("UPDATE games SET archived_at = '2026-11-14' WHERE id = 37");
+    await expect(swapSeatsInClubGame(database, { gameId: 37, seatA: 5, seatB: 7 })).rejects.toThrow('архива');
+  });
+});

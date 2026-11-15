@@ -333,7 +333,7 @@ export default function EventsPanel({
             {/* Two lines for the latest event (2026-10-27: one line cut most of them to «…»); the whole log is under «Журнал». */}
             <div data-testid="live-events-feedback" className="relative mt-1 h-6 min-w-0 overflow-hidden">
               <p data-testid="live-events-latest" className={`absolute inset-0 line-clamp-2 text-[10px] leading-3 ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
-                {withSeatBadges(latestLog || "Журнал и заметки не мешают текущему ходу")}
+                {latestLog || "Журнал и заметки не мешают текущему ходу"}
               </p>
             </div>
           </div>

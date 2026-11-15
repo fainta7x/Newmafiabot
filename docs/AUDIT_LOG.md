@@ -3031,3 +3031,10 @@ Verification: 11 new regression scenarios reproduced the defects before the resp
 
 - PB01 (fixed in candidate): `projectBoardService.ts:colourOf` ignores UI preview jobs: four successful base checks plus a running/failed layout audit produce `ready`. Reproduce with a synthetic GitHub check list; expected working/failed respectively. Four synthetic cases failed before the fix; all 10 connected tests across three files pass after it. Preview shards and layout now participate when that workflow is present; docs-only PRs without preview remain supported. Production build passed. No production writes or provider messages.
 - Owner asked about separating ChatGPT and Claude work: existing CRM → Ещё → Проект already marks both authors; preserve it rather than build a duplicate screen. GitHub PRs and this log hold evidence, CI holds verification.
+
+
+## 2026-11-15 — VK fallback recovery audit
+
+VF01 (fixed in candidate): `vkMessageOutboxService.ts:deliverOne/fallbackToTelegram` commits terminal VK failure and switches the ledger before Telegram enqueue. An enqueue error is swallowed; no subsequent worker retry creates the missing fallback. Acceptance: an injected Telegram INSERT failure leaves the VK attempt recoverable and the original route intact; retry creates exactly one Telegram row and commits the channel switch together. Synthetic DB/provider only.
+
+Verification: the failure-injection regression failed before the fix; afterwards 226 tests in 37 connected files, project:verify:fast and production build passed. The retry assertion also verifies a second drain cannot duplicate the committed fallback.

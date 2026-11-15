@@ -23,11 +23,14 @@ export async function ensureVkManualPhotoSchema(db: Pick<DatabaseWrapper, 'run'>
     created_at TEXT NOT NULL,
     done_at TEXT
   )`);
+  // Owner, 2026-11-15 (variant «А»): a post with a picture is not published as bare text — the organizer gets its text and
+  // picture and posts it by hand. The text lives with the picture; old rows (text already on the wall) have none.
+  await db.run('ALTER TABLE vk_manual_photos ADD COLUMN post_text TEXT').catch(() => undefined);
   ready.add(db as object);
 }
 export const resetVkManualPhotoSchemaForTests = () => { ready = new WeakSet<object>(); };
 
-export type VkManualPhotoInput = { postKey: string; title: string; postUrl?: string | null; mime: string; bytes: Buffer | Uint8Array };
+export type VkManualPhotoInput = { postKey: string; title: string; postUrl?: string | null; mime: string; bytes: Buffer | Uint8Array; postText?: string | null };
 
 /** Keeps the picture for a post that went out as text. A second save for the same post is ignored. */
 export async function saveVkManualPhoto(db: DatabaseWrapper, input: VkManualPhotoInput) {
@@ -36,18 +39,21 @@ export async function saveVkManualPhoto(db: DatabaseWrapper, input: VkManualPhot
   await ensureVkManualPhotoSchema(db);
   const id = randomUUID();
   const created = await db.run(
-    'INSERT OR IGNORE INTO vk_manual_photos (id, post_key, title, post_url, mime, image_base64, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, input.postKey.slice(0, 200), input.title.slice(0, 200), input.postUrl || null, input.mime, bytes.toString('base64'), new Date().toISOString()],
+    'INSERT OR IGNORE INTO vk_manual_photos (id, post_key, title, post_url, mime, image_base64, created_at, post_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, input.postKey.slice(0, 200), input.title.slice(0, 200), input.postUrl || null, input.mime, bytes.toString('base64'), new Date().toISOString(), input.postText ? input.postText.slice(0, 15000) : null],
   );
   await db.run("DELETE FROM vk_manual_photos WHERE done_at IS NOT NULL AND done_at < datetime('now', ?)", [`-${KEEP_DONE_DAYS} days`]);
-  return created.changes ? id : null;
+  if (created.changes) return id;
+  // The same post again (a retry): the task that already exists stands for it.
+  const existing = await db.get<{ id: string }>('SELECT id FROM vk_manual_photos WHERE post_key = ?', [input.postKey.slice(0, 200)]);
+  return existing?.id ?? null;
 }
 
 /** Not-yet-attached pictures, newest first, without the image bytes (the picture has its own URL). */
 export async function listPendingVkManualPhotos(db: DatabaseWrapper) {
   await ensureVkManualPhotoSchema(db);
-  return db.all<{ id: string; title: string; post_url: string | null; created_at: string }>(
-    'SELECT id, title, post_url, created_at FROM vk_manual_photos WHERE done_at IS NULL ORDER BY created_at DESC LIMIT 30',
+  return db.all<{ id: string; title: string; post_url: string | null; created_at: string; post_text: string | null }>(
+    'SELECT id, title, post_url, created_at, post_text FROM vk_manual_photos WHERE done_at IS NULL ORDER BY created_at DESC LIMIT 30',
   );
 }
 

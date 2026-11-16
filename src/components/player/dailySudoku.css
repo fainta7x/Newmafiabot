@@ -28,3 +28,4 @@
 .sd-results li span{min-width:0;overflow-wrap:anywhere}
 .sd-results li strong{flex-shrink:0;font-weight:500}
 .sd-dot{color:#ffffff38;font-weight:400}
+.dw-content button.sd-cell.sd-pending{opacity:.7}

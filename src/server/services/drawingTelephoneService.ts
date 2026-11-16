@@ -66,11 +66,13 @@ export async function loadTelephoneList(db: DatabaseWrapper, playerId: string): 
   await ensureDrawingTelephoneSchema(db);
   const turns = await db.all<Chain & { done: number }>(`SELECT c.*, (SELECT COUNT(*) FROM telephone_links l WHERE l.chain_id = c.id) AS done FROM telephone_chains c WHERE c.status = 'active' AND c.current_player_id = ? ORDER BY c.deadline_at`, [playerId]);
   const active = await db.get<Chain & { done: number }>(`SELECT c.*, (SELECT COUNT(*) FROM telephone_links l WHERE l.chain_id = c.id) AS done FROM telephone_chains c WHERE c.status = 'active' AND c.author_player_id = ? LIMIT 1`, [playerId]);
+  const running = await db.all<Chain & { author: string; guesser: string; done: number }>(`SELECT c.*, a.nickname AS author, g.nickname AS guesser, (SELECT COUNT(*) FROM telephone_links l WHERE l.chain_id = c.id) AS done FROM telephone_chains c JOIN players a ON a.id = c.author_player_id JOIN players g ON g.id = c.guesser_player_id WHERE c.status = 'active' ORDER BY c.created_at DESC LIMIT 50`);
   const finished = await db.all<Chain & { author: string; guesser: string }>(`SELECT c.*, a.nickname AS author, g.nickname AS guesser FROM telephone_chains c JOIN players a ON a.id = c.author_player_id JOIN players g ON g.id = c.guesser_player_id WHERE c.status = 'done' ORDER BY c.finished_at DESC LIMIT 30`);
   const covers = new Map((await Promise.all(finished.map(async (chain) => [chain.id, (await db.get<{ image_png: string }>(`SELECT image_png FROM telephone_links WHERE chain_id = ? AND kind = 'drawing' ORDER BY position LIMIT 1`, [chain.id]))?.image_png || null] as const))));
   return {
     my_turns: await Promise.all(turns.map(async (chain) => ({ id: chain.id, step: chain.step!, position: Number(chain.done) + 1, length: chain.length, author: await nicknameOf(db, chain.author_player_id), deadline_at: chain.deadline_at }))),
     my_active: active ? { id: active.id, done_links: Number(active.done), length: active.length, current: active.current_player_id ? await nicknameOf(db, active.current_player_id) : null } : null,
+    running: await Promise.all(running.map(async (chain) => ({ id: chain.id, author: chain.author, guesser: chain.guesser, done_links: Number(chain.done), length: chain.length, step: chain.step, current: chain.current_player_id ? await nicknameOf(db, chain.current_player_id) : null, deadline_at: chain.deadline_at }))),
     finished: finished.map((chain) => ({ id: chain.id, author: chain.author, guesser: chain.guesser, phrase: chain.phrase, guess: chain.guess, length: chain.length, finished_at: chain.finished_at!, cover: covers.get(chain.id) || null })),
     reward: TELEPHONE_REWARD,
   };

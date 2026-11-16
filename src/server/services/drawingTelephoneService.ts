@@ -46,6 +46,9 @@ async function blockedIds(db: DatabaseWrapper, chain: Chain) {
 async function pay(tx: DatabaseWrapper, playerId: string, chainId: string, what: string) {
   await mutateTokenBalance(tx, { playerId, delta: TELEPHONE_REWARD, debitPolicy: 'allow_negative', reasonType: 'telephone_move', description: 'Испорченный телефон: ход', sourceType: 'telephone', sourceId: chainId, idempotencyKey: `telephone:${chainId}:${what}`, actorType: 'system', metadata: { chain_id: chainId, move: what } });
 }
+/** Request fields are taken only as plain strings or numbers (an array or an object counts as missing). */
+const idOf = (value: unknown) => typeof value === 'string' ? value : '';
+const numberOf = (value: unknown) => typeof value === 'number' ? value : typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
 const cleanText = (value: unknown, field: string) => {
   const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
   if (!text) throw new TelephoneError(400, `Напишите ${field}`);
@@ -102,7 +105,7 @@ export async function loadTelephoneChain(db: DatabaseWrapper, playerId: string, 
     step: chain.step, deadline_at: chain.deadline_at, created_at: chain.created_at, finished_at: chain.finished_at,
     my_task: !mine ? null : chain.step === 'guess' ? { step: 'guess', kind: 'guess', position, last: true }
       : chain.step === 'move' ? { step: 'move', kind: telephoneLinkKind(position), position, last: position === chain.length }
-      : { step: 'choose', kind: null, position, last: false },
+      : { step: chain.step!, kind: null, position, last: false },
     items,
     players: await Promise.all([...new Set(links.map((link) => link.player_id))].map(async (id) => ({ id, nickname: await name(id) }))),
   };
@@ -119,6 +122,7 @@ export async function telephoneCandidates(db: DatabaseWrapper, playerId: string,
 }
 
 const notice = (playerId: string, key: string, chainId: string, text: string): TelephoneNotice => ({ playerId, key, chainId, text });
+const guessNotice = (chainId: string, to: string) => notice(to, `telephone:${chainId}:guess:${to}`, chainId, `🔎 Твоя очередь отгадывать в «Испорченном телефоне с рисунками»: посмотри последний рисунок и подпись и напиши, какой была исходная фраза. На ответ ${TELEPHONE_TURN_HOURS} часов.`);
 const moveText = (position: number) => telephoneLinkKind(position) === 'drawing' ? 'нарисуй, что написано' : 'подпиши, что нарисовано';
 
 export async function startTelephoneChain(db: DatabaseWrapper, playerId: string, input: { phrase?: unknown; length?: unknown; guesser_id?: unknown; next_id?: unknown }, now = new Date()) {
@@ -126,9 +130,9 @@ export async function startTelephoneChain(db: DatabaseWrapper, playerId: string,
   const phrase = cleanText(input.phrase, 'фразу');
   const key = normalizeTelephonePhrase(phrase);
   if (!key) throw new TelephoneError(400, 'Напишите фразу словами');
-  const length = Number(input.length);
+  const length = numberOf(input.length);
   if (!Number.isInteger(length) || length < TELEPHONE_MIN_LINKS || length > TELEPHONE_MAX_LINKS) throw new TelephoneError(400, `Звеньев — от ${TELEPHONE_MIN_LINKS} до ${TELEPHONE_MAX_LINKS}`);
-  const guesser = String(input.guesser_id || ''), next = String(input.next_id || '');
+  const guesser = idOf(input.guesser_id), next = idOf(input.next_id);
   const allowed = new Set((await telephonePlayers(db)).map((player) => player.id));
   if (!allowed.has(guesser) || guesser === playerId) throw new TelephoneError(400, 'Выберите, кто будет отгадывать');
   if (!allowed.has(next) || next === playerId || next === guesser) throw new TelephoneError(400, 'Выберите, кому передать первый ход');
@@ -153,20 +157,20 @@ export async function moveTelephoneChain(db: DatabaseWrapper, playerId: string, 
     if (chain.status !== 'active' || chain.current_player_id !== playerId || chain.step !== 'move') throw new TelephoneError(409, 'Сейчас не ваш ход');
     const links = await linksOf(tx, chainId);
     const position = links.length + 1;
-    if (input.position !== undefined && Number(input.position) !== position) throw new TelephoneError(409, 'Цепочка изменилась. Данные обновлены.');
+    if (input.position !== undefined && numberOf(input.position) !== position) throw new TelephoneError(409, 'Цепочка изменилась. Данные обновлены.');
     const kind = telephoneLinkKind(position);
     let text: string | null = null, image: string | null = null;
     if (kind === 'drawing') image = cleanImage(input.image);
     else {
       text = cleanText(input.text, 'подпись');
-      const used = new Set(links.filter((link) => link.kind === 'caption').flatMap((link) => [...telephoneWords(link.text || '')]));
-      const repeated = [...telephoneWords(text)].filter((word) => used.has(word));
-      if (repeated.length) throw new TelephoneError(400, `Слово «${repeated[0]}» уже было в подписях этой цепочки. Опишите другими словами.`);
+      const used = new Set(links.filter((link) => link.kind === 'caption').flatMap((link) => [...telephoneWords(link.text || '').keys()]));
+      const repeated = [...telephoneWords(text)].filter(([stem]) => used.has(stem)).map(([, word]) => word);
+      if (repeated.length) throw new TelephoneError(400, `Слово «${repeated[0]}» уже было в подписях этой цепочки (в этой или другой форме). Опишите другими словами.`);
     }
     const last = position === chain.length;
     let next: string | null = null;
     if (!last) {
-      next = String(input.next_id || '');
+      next = idOf(input.next_id);
       const blocked = await blockedIds(tx, chain);
       blocked.add(playerId);
       if (!next || blocked.has(next) || !(await telephonePlayers(tx)).some((player) => player.id === next)) throw new TelephoneError(400, 'Выберите, кому передать ход: тому, кто ещё не ходил');
@@ -178,25 +182,34 @@ export async function moveTelephoneChain(db: DatabaseWrapper, playerId: string, 
       [last ? 'guess' : 'move', to, stamp, new Date(now.getTime() + TURN_MS).toISOString(), stamp, chainId]);
     await pay(tx, playerId, chainId, `link-${position}`);
     notices.push(last
-      ? notice(to, `telephone:${chainId}:guess:${to}`, chainId, `🔎 Твоя очередь отгадывать в «Испорченном телефоне с рисунками»: посмотри последний рисунок и подпись и напиши, какой была исходная фраза. На ответ ${TELEPHONE_TURN_HOURS} часов.`)
+      ? guessNotice(chainId, to)
       : notice(to, `telephone:${chainId}:turn:${position + 1}:${to}`, chainId, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(position + 1)}. На ход ${TELEPHONE_TURN_HOURS} часов.`));
   });
   return { chain: await loadTelephoneChain(db, playerId, chainId), notices };
 }
 
-/** After a return (the next player declined or let 8 hours pass) the previous player chooses somebody else. */
+/**
+ * After a return the chooser picks somebody else (8 hours): for a link — who has not moved yet; for the guesser (the
+ * author, owner 2026-11-16) — a new last link who has not been in the chain.
+ */
 export async function chooseTelephoneNext(db: DatabaseWrapper, playerId: string, chainId: string, input: { next_id?: unknown }, now = new Date()) {
   await ensureDrawingTelephoneSchema(db);
   const notices: TelephoneNotice[] = [];
   await db.transaction(async (tx) => {
     const chain = await loadChain(tx, chainId);
-    if (chain.status !== 'active' || chain.current_player_id !== playerId || chain.step !== 'choose') throw new TelephoneError(409, 'Сейчас не нужно выбирать');
-    const next = String(input.next_id || '');
+    if (chain.status !== 'active' || chain.current_player_id !== playerId || (chain.step !== 'choose' && chain.step !== 'choose_guesser')) throw new TelephoneError(409, 'Сейчас не нужно выбирать');
+    const next = idOf(input.next_id);
     const blocked = await blockedIds(tx, chain);
-    if (!next || blocked.has(next) || !(await telephonePlayers(tx)).some((player) => player.id === next)) throw new TelephoneError(400, 'Выберите, кому передать ход: тому, кто ещё не ходил');
+    if (!next || blocked.has(next) || !(await telephonePlayers(tx)).some((player) => player.id === next)) throw new TelephoneError(400, chain.step === 'choose' ? 'Выберите, кому передать ход: тому, кто ещё не ходил' : 'Выберите того, кто ещё не был в этой цепочке');
     const position = (await linksOf(tx, chainId)).length + 1;
     const stamp = now.toISOString();
-    await tx.run(`UPDATE telephone_chains SET step = 'move', current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`, [next, stamp, new Date(now.getTime() + TURN_MS).toISOString(), stamp, chainId]);
+    const deadline = new Date(now.getTime() + TURN_MS).toISOString();
+    if (chain.step === 'choose_guesser') {
+      await tx.run(`UPDATE telephone_chains SET step = 'guess', guesser_player_id = ?, current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`, [next, next, stamp, deadline, stamp, chainId]);
+      notices.push(guessNotice(chainId, next));
+      return;
+    }
+    await tx.run(`UPDATE telephone_chains SET step = 'move', current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`, [next, stamp, deadline, stamp, chainId]);
     notices.push(notice(next, `telephone:${chainId}:turn:${position}:${next}`, chainId, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(position)}. На ход ${TELEPHONE_TURN_HOURS} часов.`));
   });
   return { chain: await loadTelephoneChain(db, playerId, chainId), notices };
@@ -234,17 +247,40 @@ async function finishChain(tx: DatabaseWrapper, chain: Chain, guess: string | nu
   for (const id of everyone) notices.push(notice(id, `telephone:${chain.id}:done:${id}`, chain.id, '🎉 Цепочка «Испорченного телефона с рисунками» готова — посмотри, во что превратилась фраза!'));
 }
 
-/** The next player declined or the time ran out: the turn goes back to whoever passed it; the guesser's turn ends the chain without a guess. */
+/**
+ * Somebody declined or let 8 hours pass (owner, 2026-11-16: «логика всегда одна и та же»):
+ * - a link → the one who passed him the turn chooses another player;
+ * - a chooser → choosing goes one link back, up to the author;
+ * - the guesser → the author chooses another last link, not one of the chain;
+ * - the author himself does not choose → the chain waits for him and he is reminded every 8 hours.
+ */
 async function returnTurn(tx: DatabaseWrapper, chain: Chain, now: Date, notices: TelephoneNotice[], why: string) {
   const late = chain.current_player_id!;
   const lateName = await nicknameOf(tx, late);
-  if (chain.step === 'guess') { await finishChain(tx, chain, null, now, notices); return; }
   const links = await linksOf(tx, chain.id);
-  const back = links.length ? links[links.length - 1].player_id : chain.author_player_id;
-  const excluded = [...new Set([...(JSON.parse(chain.excluded_json) as string[]), late])];
   const stamp = now.toISOString();
-  await tx.run(`UPDATE telephone_chains SET step = 'choose', current_player_id = ?, turn_started_at = ?, deadline_at = NULL, reminded = 0, excluded_json = ?, updated_at = ? WHERE id = ?`, [back, stamp, JSON.stringify(excluded), stamp, chain.id]);
-  notices.push(notice(back, `telephone:${chain.id}:back:${links.length + 1}:${late}`, chain.id, `↩️ Ход в «Испорченном телефоне с рисунками» вернулся к тебе: ${lateName} ${why}. Выбери, кому передать его теперь.`));
+  const deadline = new Date(now.getTime() + TURN_MS).toISOString();
+  const excluded = JSON.parse(chain.excluded_json) as string[];
+  const set = async (step: TelephoneStep, to: string, addExcluded: boolean) => {
+    const list = addExcluded ? [...new Set([...excluded, late])] : excluded;
+    await tx.run(`UPDATE telephone_chains SET step = ?, current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, excluded_json = ?, updated_at = ? WHERE id = ?`, [step, to, stamp, deadline, JSON.stringify(list), stamp, chain.id]);
+  };
+  if (chain.step === 'move') {
+    const back = links.length ? links[links.length - 1].player_id : chain.author_player_id;
+    await set('choose', back, true);
+    notices.push(notice(back, `telephone:${chain.id}:back:${links.length + 1}:${late}`, chain.id, `↩️ Ход в «Испорченном телефоне с рисунками» вернулся к тебе: ${lateName} ${why}. Выбери, кому передать его теперь. На выбор ${TELEPHONE_TURN_HOURS} часов.`));
+  } else if (chain.step === 'guess') {
+    await set('choose_guesser', chain.author_player_id, true);
+    notices.push(notice(chain.author_player_id, `telephone:${chain.id}:guesser-back:${late}`, chain.id, `↩️ ${lateName} ${why} отгадать твою цепочку в «Испорченном телефоне с рисунками». Выбери другого отгадывающего — того, кто не был в цепочке. На выбор ${TELEPHONE_TURN_HOURS} часов.`));
+  } else if (late === chain.author_player_id) {
+    await set(chain.step!, late, false);
+    notices.push(notice(late, `telephone:${chain.id}:author-wait:${stamp}`, chain.id, '⏳ Твоя цепочка в «Испорченном телефоне с рисунками» ждёт тебя: выбери, кому передать ход.'));
+  } else {
+    const at = links.findIndex((link) => link.player_id === late);
+    const up = at > 0 ? links[at - 1].player_id : chain.author_player_id;
+    await set('choose', up, false);
+    notices.push(notice(up, `telephone:${chain.id}:up:${links.length + 1}:${late}:${stamp}`, chain.id, `↩️ В «Испорченном телефоне с рисунками» ${lateName} не выбрал, кому передать ход. Выбери ты — того, кто ещё не ходил. На выбор ${TELEPHONE_TURN_HOURS} часов.`));
+  }
 }
 
 /** Every minute: a reminder halfway through the 8 hours, and the return of a turn whose time has run out. */

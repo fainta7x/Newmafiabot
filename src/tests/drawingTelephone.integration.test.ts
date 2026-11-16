@@ -56,7 +56,7 @@ describe('drawing telephone', () => {
     expect(JSON.stringify(forC)).not.toContain('гитаре');
     await moveTelephoneChain(db, 'c', chain.id, { text: 'Кошка с гитарой', next_id: 'd' }, t0);
     await moveTelephoneChain(db, 'd', chain.id, { image: PNG, next_id: 'e' }, t0);
-    await expect(moveTelephoneChain(db, 'e', chain.id, { text: 'Кошка поёт', next_id: 'f' }, t0)).rejects.toThrow('«кошка» уже было');
+    await expect(moveTelephoneChain(db, 'e', chain.id, { text: 'Кошки поют', next_id: 'f' }, t0)).rejects.toThrow('«кошки» уже было');
     await expect(moveTelephoneChain(db, 'e', chain.id, { text: 'Котёнок поёт', next_id: 'b' }, t0)).rejects.toThrow('кто ещё не ходил');
     await moveTelephoneChain(db, 'e', chain.id, { text: 'Котёнок поёт', next_id: 'f' }, t0);
     expect(await tokens('c')).toBe(50);
@@ -103,14 +103,49 @@ describe('drawing telephone', () => {
     expect(state.step).toBe('choose');
   });
 
-  it('a guesser who lets the time pass ends the chain without a guess', async () => {
+  it('a silent guesser: the author chooses another last link, not one of the chain (owner, 2026-11-16)', async () => {
     const { chain } = await start();
     const order = ['b', 'c', 'd', 'e', 'f'];
     for (let i = 0; i < 5; i++) await moveTelephoneChain(db, order[i], chain.id, telephoneLinkKind(i + 1) === 'drawing' ? { image: PNG, next_id: order[i + 1] } : { text: `подпись${i}`, next_id: order[i + 1] }, t0);
-    await runTelephoneTimers(db, later(8 * 60 + 1));
-    const state = await loadTelephoneChain(db, 'g', chain.id);
-    expect(state.status).toBe('done');
-    expect(state.items.some((i) => i.kind === 'guess')).toBe(false);
+    const back = await runTelephoneTimers(db, later(8 * 60 + 1));
+    expect(back.map((n) => n.playerId)).toEqual(['a']);
+    const forA = await loadTelephoneChain(db, 'a', chain.id);
+    expect(forA).toMatchObject({ status: 'active', step: 'choose_guesser', my_task: { step: 'choose_guesser' } });
+    await expect(chooseTelephoneNext(db, 'a', chain.id, { next_id: 'c' }, later(8 * 60 + 2))).rejects.toThrow('не был в этой цепочке');
+    await expect(chooseTelephoneNext(db, 'a', chain.id, { next_id: 'h' }, later(8 * 60 + 2))).rejects.toThrow('не был в этой цепочке');
+    const { notices } = await chooseTelephoneNext(db, 'a', chain.id, { next_id: 'g' }, later(8 * 60 + 2));
+    expect(notices.map((n) => n.playerId)).toEqual(['g']);
+    const forG = await loadTelephoneChain(db, 'g', chain.id);
+    expect(forG).toMatchObject({ step: 'guess', guesser: { id: 'g' }, my_task: { step: 'guess' } });
+    expect(forG.items.map((i) => i.kind)).toEqual(['caption', 'drawing']);
+  });
+
+  it('a silent chooser: choosing goes one link back, up to the author; the author is only reminded', async () => {
+    const { chain } = await start();
+    await moveTelephoneChain(db, 'b', chain.id, { image: PNG, next_id: 'c' }, t0);
+    await moveTelephoneChain(db, 'c', chain.id, { text: 'Шар', next_id: 'd' }, t0);
+    await declineTelephoneTurn(db, 'd', chain.id, t0); // the turn returns to c
+    expect((await loadTelephoneChain(db, 'c', chain.id)).my_task).toMatchObject({ step: 'choose' });
+    const up = await runTelephoneTimers(db, later(8 * 60 + 1)); // c silent → b chooses
+    expect(up.map((n) => n.playerId)).toEqual(['b']);
+    expect((await loadTelephoneChain(db, 'b', chain.id)).my_task).toMatchObject({ step: 'choose', position: 3 });
+    const top = await runTelephoneTimers(db, later(16 * 60 + 2)); // b silent → the author chooses
+    expect(top.map((n) => n.playerId)).toEqual(['a']);
+    const wait = await runTelephoneTimers(db, later(24 * 60 + 3)); // the author silent → he is reminded, the chain waits
+    expect(wait.map((n) => n.playerId)).toEqual(['a']);
+    expect((await loadTelephoneChain(db, 'a', chain.id))).toMatchObject({ status: 'active', step: 'choose', current: { id: 'a' } });
+    await chooseTelephoneNext(db, 'a', chain.id, { next_id: 'e' }, later(24 * 60 + 4));
+    expect((await loadTelephoneChain(db, 'e', chain.id)).my_task).toMatchObject({ step: 'move', kind: 'drawing', position: 3 });
+  });
+
+  it('one word in any form: «кот», «кота», «котом» are one word, «котлета» is another', async () => {
+    const { chain } = await start();
+    await moveTelephoneChain(db, 'b', chain.id, { image: PNG, next_id: 'c' }, t0);
+    await moveTelephoneChain(db, 'c', chain.id, { text: 'Кот на крыше', next_id: 'd' }, t0);
+    await moveTelephoneChain(db, 'd', chain.id, { image: PNG, next_id: 'e' }, t0);
+    await expect(moveTelephoneChain(db, 'e', chain.id, { text: 'Два кота', next_id: 'f' }, t0)).rejects.toThrow('«кота» уже было');
+    await expect(moveTelephoneChain(db, 'e', chain.id, { text: 'Птица над крышами', next_id: 'f' }, t0)).rejects.toThrow('«крышами» уже было');
+    await moveTelephoneChain(db, 'e', chain.id, { text: 'Котлета на тарелке', next_id: 'f' }, t0);
   });
 
   it('posts a finished chain to «Новости» once, as an album of the drawings', async () => {

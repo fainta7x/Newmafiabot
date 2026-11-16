@@ -1124,14 +1124,14 @@ The owner wanted a game played in turns where after one's move the turn is passe
 - **Chain:** the author writes a phrase → drawing → caption → drawing → … Each player sees only the previous link. **5 to 20 links** («не меньше 5», «до 20»), chosen by the author.
 - **Guesser:** the author chooses him at the start; he takes no part in the chain and at the end sees **the last drawing and the last caption** («чтобы он видел последнюю подпись и рисунок») and writes what the starting phrase was. Then the chain opens for everybody.
 - **Passing:** only to somebody **who has not moved yet** in this chain (not the author, not the guesser).
-- **Time:** **8 hours** per move. Not done in time, or «Не хочу / нет времени» — the turn returns to the one who passed it, and he chooses somebody else («оба варианта, но срок давай 8 часов»).
-- **Forbidden:** a starting phrase used before in the club; **in a caption, a word of an earlier caption of the same chain**; **letters on a drawing** (a rule for players, not checked automatically).
+- **Time (owner, 2026-11-16, corrected the same day: «логика всегда одна и та же»):** every step has **8 hours** — a move (draw or caption, then choose the next), a choice after a return, the guess. A link who declines («Не хочу / нет времени») or lets 8 hours pass → the turn returns to the one who passed it, and he chooses another player. A chooser who lets 8 hours pass → choosing goes one link back, up to the author. **The guesser is the last link:** if he declines or is silent, the author chooses another guesser who has not been in the chain.
+- **Forbidden:** a starting phrase used before in the club; **in a caption, a word of an earlier caption of the same chain in any form** — «кот, кота, коты» are one word, but «котлета» is another and must stay allowed (owner, 2026-11-16: «нельзя блокировать написать котлета»); forms are matched by the Russian Snowball stemmer (`src/shared/russianStem.ts`), so «кошка» counts as a separate word; **letters on a drawing** (a rule for players, not checked automatically).
 - **Tokens: 50 for every move** (the author's phrase, each link, the guess).
 - **Shown:** every finished chain to everybody in the app and **posted to «Новости»** (album of the drawings, the way of the phrase in the caption).
 - **One active chain per author** at a time.
 - **Drawing:** 8 colours, thin/thick, eraser, undo, clear.
 - **Name: «Испорченный телефон с рисунками»** (owner).
-- **Assistant's defaults, not named by the owner (to confirm):** a reminder 4 hours into the 8; a returned turn has no time limit for choosing; a guesser who lets the 8 hours pass or declines ends the chain without a guess; the word ban compares whole words of 3+ letters (Ё = Е) and does not include the author's phrase; players are those with Telegram or VK linked; who declined or let the time run out cannot get the same chain again.
+- **Assistant's defaults, not named by the owner (to confirm):** a reminder 4 hours into each 8; when the author himself does not choose for 8 hours the chain waits for him and he is reminded every 8 hours; the author's phrase is not part of the word ban; players are those with Telegram or VK linked; who declined or let the time run out cannot get the same chain again.
 
 ## Daily sudoku (owner, 2026-11-16)
 

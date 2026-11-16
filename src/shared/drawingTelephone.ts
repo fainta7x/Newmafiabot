@@ -1,3 +1,5 @@
+import { russianStem } from './russianStem.ts';
+
 /**
  * «Испорченный телефон с рисунками» (owner, 2026-11-16). Rules agreed with the owner are in docs/BUSINESS_RULES.md.
  * A chain: the author's phrase → drawing → caption → drawing → … (5–20 links, each link a different player chosen by the
@@ -15,7 +17,9 @@ export type TelephoneLinkKind = 'drawing' | 'caption';
 export const telephoneLinkKind = (position: number): TelephoneLinkKind => (position % 2 === 1 ? 'drawing' : 'caption');
 export type TelephoneItem = { kind: 'phrase' | TelephoneLinkKind | 'guess'; position: number; nickname: string; text: string | null; image: string | null };
 export type TelephonePlayer = { id: string; nickname: string };
-export type TelephoneStep = 'move' | 'choose' | 'guess';
+/** move — draw or caption and choose the next; choose — a turn came back, choose another player; guess — the last link;
+ * choose_guesser — the guesser did not answer, the author chooses another one. Every step has 8 hours. */
+export type TelephoneStep = 'move' | 'choose' | 'guess' | 'choose_guesser';
 export type TelephoneChainState = {
   id: string; status: 'active' | 'done'; length: number; done_links: number;
   author: TelephonePlayer; guesser: TelephonePlayer; current: TelephonePlayer | null; step: TelephoneStep | null;
@@ -33,7 +37,10 @@ export type TelephoneListState = {
   finished: Array<{ id: string; author: string; guesser: string; phrase: string; guess: string | null; length: number; finished_at: string; cover: string | null }>;
   reward: number;
 };
-/** Words of a caption, for the «no word of an earlier caption» rule: letters only, Ё = Е, words of 3+ letters. */
-export const telephoneWords = (text: string) => new Set((text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').match(/[a-zа-я0-9]+/g) || []).filter((word) => word.length >= 3));
+/**
+ * Words of a caption for the «no word of an earlier caption» rule: words of 3+ letters, each reduced to its stem, so
+ * «кот», «кота», «котом» are one word and «котлета» another (owner, 2026-11-16). Map: stem → the word as written.
+ */
+export const telephoneWords = (text: string) => new Map((text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').match(/[a-zа-я0-9]+/g) || []).filter((word) => word.length >= 3).map((word) => [russianStem(word), word] as const));
 /** The key that keeps a starting phrase from being used twice in the club: words only, Ё = Е, one space between. */
 export const normalizeTelephonePhrase = (text: string) => (text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').match(/[a-zа-я0-9]+/g) || []).join(' ');

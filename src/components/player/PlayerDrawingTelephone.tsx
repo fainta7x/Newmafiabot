@@ -28,9 +28,9 @@ export default function PlayerDrawingTelephone({ chainId, onOpen, onExit, onToke
 function Rules() {
   return <details className="dw-rules"><summary>Как играть</summary>
     <p>Автор пишет фразу и передаёт ход. Первый рисует фразу, следующий видит только рисунок и подписывает его, потом снова рисунок, и так по цепочке. Каждый видит только предыдущее звено.</p>
-    <p>Ход можно передать любому, кто ещё не ходил в этой цепочке. На ход {TELEPHONE_TURN_HOURS} часов; кто не успел или отказался — ход возвращается, и предыдущий выбирает другого.</p>
+    <p>Ход можно передать любому, кто ещё не ходил в этой цепочке. На ход {TELEPHONE_TURN_HOURS} часов. Кто не успел или отказался — ход возвращается, и предыдущий выбирает другого (тоже за {TELEPHONE_TURN_HOURS} часов, иначе выбирать будет звено перед ним). Если не ответил отгадывающий, автор выбирает нового.</p>
     <p>В конце отгадывающий, которого автор выбрал сразу, видит последний рисунок и последнюю подпись и пишет, какой была исходная фраза. Потом цепочка открывается всем и уходит в «Новости».</p>
-    <p>На рисунке нельзя писать буквы. В подписи нельзя слова из прошлых подписей этой цепочки. Стартовую фразу нельзя повторять. За каждый ход — 50 жетонов.</p>
+    <p>На рисунке нельзя писать буквы. В подписи нельзя слова из прошлых подписей этой цепочки — ни в какой форме («кот», «кота», «котом» — одно слово). Стартовую фразу нельзя повторять. За каждый ход — 50 жетонов.</p>
   </details>;
 }
 
@@ -47,7 +47,7 @@ function ListView({ onOpen, onMoved }: { onOpen: (id: string | null) => void; on
     {state && <>
       {state.my_turns.length > 0 && <section className="dw-result" data-testid="telephone-my-turns"><h2>Твой ход</h2>{state.my_turns.map((turn) =>
         <button type="button" key={turn.id} className="tp-row tp-row--accent" onClick={() => onOpen(turn.id)}>
-          <span><strong>{turn.step === 'guess' ? 'Отгадать фразу' : turn.step === 'choose' ? 'Выбрать, кому передать ход' : `Звено ${turn.position} из ${turn.length}`}</strong><small>Цепочка {turn.author}{turn.deadline_at ? ` · осталось ${timeLeft(turn.deadline_at)}` : ''}</small></span><span aria-hidden="true">→</span>
+          <span><strong>{turn.step === 'guess' ? 'Отгадать фразу' : turn.step === 'choose' ? 'Выбрать, кому передать ход' : turn.step === 'choose_guesser' ? 'Выбрать другого отгадывающего' : `Звено ${turn.position} из ${turn.length}`}</strong><small>Цепочка {turn.author}{turn.deadline_at ? ` · осталось ${timeLeft(turn.deadline_at)}` : ''}</small></span><span aria-hidden="true">→</span>
         </button>)}</section>}
       <section className="dw-result">
         {state.my_active ? <><h2>Моя цепочка идёт</h2><p>Готово звеньев: {state.my_active.done_links} из {state.my_active.length}{state.my_active.current ? ` · сейчас ход у ${state.my_active.current}` : ''}</p>
@@ -128,15 +128,17 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
   };
   if (!state) return error ? <div className="dw-error" role="alert"><p>{error}</p><button type="button" onClick={() => void load()}>Повторить загрузку</button></div> : <p>Загружаем цепочку…</p>;
   const task = state.my_task;
-  const header = <header><div className="dw-eyebrow">{TITLE}</div><h1>{state.status === 'done' ? 'Цепочка готова' : task ? (task.step === 'guess' ? 'Отгадай фразу' : task.step === 'choose' ? 'Кому передать ход?' : task.kind === 'drawing' ? 'Нарисуй' : 'Подпиши рисунок') : 'Цепочка идёт'}</h1>
-    <p>{state.status === 'done' ? `Автор ${state.author.nickname} · отгадывал ${state.guesser.nickname}` : `Звено ${Math.min(state.done_links + 1, state.length)} из ${state.length} · автор ${state.author.nickname} · отгадывает ${state.guesser.nickname}`}{task?.step !== 'choose' && state.deadline_at && task ? ` · осталось ${timeLeft(state.deadline_at)}` : ''}</p></header>;
+  const header = <header><div className="dw-eyebrow">{TITLE}</div><h1>{state.status === 'done' ? 'Цепочка готова' : task ? (task.step === 'guess' ? 'Отгадай фразу' : task.step === 'choose' ? 'Кому передать ход?' : task.step === 'choose_guesser' ? 'Кто отгадает?' : task.kind === 'drawing' ? 'Нарисуй' : 'Подпиши рисунок') : 'Цепочка идёт'}</h1>
+    <p>{state.status === 'done' ? `Автор ${state.author.nickname} · отгадывал ${state.guesser.nickname}` : `Звено ${Math.min(state.done_links + 1, state.length)} из ${state.length} · автор ${state.author.nickname} · отгадывает ${state.guesser.nickname}`}{state.deadline_at && task ? ` · осталось ${timeLeft(state.deadline_at)}` : ''}</p></header>;
   const picker = (label: string) => <PlayerPicker label={label} chainId={chainId} exclude={[]} value={next} onChange={setNext} testId="telephone-next" />;
   const errorBox = error && <div className="dw-error" role="alert"><p>{error}</p></div>;
   const decline = <button type="button" className="tp-decline" disabled={busy} onClick={() => void act('decline', {})}>Не хочу / нет времени</button>;
   if (state.status === 'done') return <>{header}<div className="tp-chain" data-testid="telephone-chain">{state.items.map((item) => <Item key={`${item.kind}-${item.position}`} item={item} />)}</div>
     {!state.items.some((i) => i.kind === 'guess') && <p>{state.guesser.nickname} не успел отгадать.</p>}<button type="button" onClick={() => onOpen(null)}>Ко всем цепочкам</button><Rules /></>;
-  if (task?.step === 'choose') return <>{header}<p>Предыдущий игрок не взял ход. Выберите другого — того, кто ещё не ходил в этой цепочке.</p>{picker('Кому передать ход')}{errorBox}
-    <button type="button" className="tp-primary" disabled={busy || !next} onClick={() => void act('choose', { next_id: next })}>Передать ход</button></>;
+  if (task?.step === 'choose' || task?.step === 'choose_guesser') return <>{header}
+    <p>{task.step === 'choose' ? 'Ход не взяли. Выберите другого — того, кто ещё не ходил в этой цепочке.' : 'Отгадывающий не ответил. Выберите другого — того, кто не был в цепочке.'}</p>
+    {picker(task.step === 'choose' ? 'Кому передать ход' : 'Кто будет отгадывать')}{errorBox}
+    <button type="button" className="tp-primary" data-testid="telephone-choose" disabled={busy || !next} onClick={() => void act('choose', { next_id: next })}>{task.step === 'choose' ? 'Передать ход' : 'Передать отгадку'}</button></>;
   if (task?.step === 'guess') return <>{header}<p>Перед вами последняя подпись и последний рисунок. Какой была исходная фраза?</p><div className="tp-chain">{state.items.map((item) => <Item key={item.position} item={item} />)}</div>
     <label className="tp-field">Ваша отгадка<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => setText(e.target.value)} /></label>{errorBox}
     <div className="tp-actions">{decline}<button type="button" className="tp-primary" data-testid="telephone-guess" disabled={busy || !text.trim()} onClick={() => void act('guess', { text })}>Отгадать</button></div></>;
@@ -144,7 +146,7 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
     const previous = state.items[0];
     const body = task.kind === 'drawing'
       ? <><div className="tp-prompt"><small>Нарисуйте:</small><strong>«{previous?.text}»</strong></div><DrawingPad ref={pad} /><p className="dw-hint">Буквы и слова на рисунке писать нельзя.</p></>
-      : <><Item item={previous} /><label className="tp-field">Что нарисовано?<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => setText(e.target.value)} /></label><p className="dw-hint">Нельзя слова, которые уже были в подписях этой цепочки.</p></>;
+      : <><Item item={previous} /><label className="tp-field">Что нарисовано?<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => setText(e.target.value)} /></label><p className="dw-hint">Нельзя слова, которые уже были в подписях этой цепочки, в любой форме.</p></>;
     const submit = () => {
       const payload: Record<string, unknown> = { position: task.position, ...(task.last ? {} : { next_id: next }) };
       if (task.kind === 'drawing') { const image = pad.current?.export(); if (!image) { setError('Нарисуйте что-нибудь'); return; } payload.image = image; } else payload.text = text;

@@ -14,7 +14,8 @@ const chains:Record<string,TelephoneChainState>={
  draw:base({my_task:{step:'move',kind:'drawing',position:3,last:false},items:[item('caption',2,'Дина','Кошка играет на большой гитаре у костра')]}),
  caption:base({done_links:3,my_task:{step:'move',kind:'caption',position:4,last:false},items:[item('drawing',3,'ФМ',null,drawing)]}),
  last:base({done_links:6,my_task:{step:'move',kind:'caption',position:7,last:true},items:[item('drawing',6,'ФМ',null,drawing)]}),
- choose:base({step:'choose',deadline_at:null,my_task:{step:'choose',kind:null,position:3,last:false}}),
+ choose:base({step:'choose',my_task:{step:'choose',kind:null,position:3,last:false}}),
+ chooseguesser:base({step:'choose_guesser',done_links:7,my_task:{step:'choose_guesser',kind:null,position:8,last:false}}),
  guess:base({step:'guess',done_links:7,my_task:{step:'guess',kind:'guess',position:8,last:true},items:[item('caption',6,'Дина','Шар над рекой'),item('drawing',7,'Алоэ',null,drawing)]}),
  waiting:base({current:{id:'p5',nickname:'Алоэ'},items:[item('phrase',0,'Богданчик','Кот играет на гитаре')]}),
  done:base({status:'done',step:null,current:null,deadline_at:null,length:5,done_links:5,finished_at:'2026-11-16T18:00:00Z',items:[item('phrase',0,'Богданчик','Кот играет на гитаре'),item('drawing',1,'ФМ',null,drawing),item('caption',2,'Очень длинный никнейм игрока клуба','Луна над рекой'),item('drawing',3,'Дина',null,drawing),item('caption',4,'Алоэ','Шар над водой'),item('drawing',5,'Перец',null,drawing),item('guess',6,'Серый','Мяч на пляже')]}),
@@ -32,7 +33,7 @@ globalThis.fetch=async(input:RequestInfo|URL,init?:RequestInit)=>{
  if(id)return json(chains[mode]||chains.done);
  return json(list);
 };
-const chainId=['draw','caption','last','choose','guess','waiting','done'].includes(mode)?'c1':null;
+const chainId=['draw','caption','last','choose','chooseguesser','guess','waiting','done'].includes(mode)?'c1':null;
 function App(){const[open,setOpen]=React.useState<string|null>(chainId);const[create]=React.useState(mode==='create');return <PlayerDrawingTelephone key={String(open)+create} chainId={open} onOpen={setOpen} onExit={()=>location.assign('/e2e/player-cabinet.html?route=/player/club/games')}/>;}
 createRoot(document.getElementById('root')!).render(<App/>);
 if(mode==='create')setTimeout(()=>(document.querySelector('[data-testid="telephone-create"]') as HTMLButtonElement|null)?.click(),300);

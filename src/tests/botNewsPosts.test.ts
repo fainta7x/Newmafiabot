@@ -3,7 +3,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureDailyWordSchema } from '../db/ensureDailyWordSchema.ts';
 import { ensureDailySudokuSchema } from '../db/ensureDailySudokuSchema.ts';
 import { ensureClubResultPostSchema } from '../server/services/clubResultPostService.ts';
-import { runBotChangesDigest, runDailyWordInvitation, dailyWordInviteText, runSudokuLaunchPost, SUDOKU_LAUNCH_TEXT } from '../server/services/botNewsPostService.ts';
+import { runBotChangesDigest, runDailyWordInvitation, dailyWordInviteText, runSudokuLaunchPost, SUDOKU_LAUNCH_TEXT, runTelephoneLaunchPost, TELEPHONE_LAUNCH_TEXT } from '../server/services/botNewsPostService.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -69,6 +69,30 @@ describe('«Новости»: daily word invitation and bot changes digest', () 
     expect(calls[0].reply_markup.inline_keyboard[0][0].url).toBe('https://club.example/player/sudoku');
     await runBotChangesDigest(db, fetchImpl, at('2026-11-16T15:30:00Z'));
     expect(calls.slice(1).map((c) => c.text).join('\n')).not.toContain('судоку');
+  });
+
+  it('one-off «Испорченный телефон» post: once, 16–17.11 from 10:00 to 22:00 Moscow, the digest does not repeat it', async () => {
+    const db = await setup();
+    vi.stubEnv('PUBLIC_APP_URL', 'https://club.example');
+    const { calls, fetchImpl } = recorder();
+    expect(await runTelephoneLaunchPost(db, fetchImpl, at('2026-11-16T19:30:00Z'))).toBe(0); // 22:30 Moscow
+    expect(await runTelephoneLaunchPost(db, fetchImpl, at('2026-11-18T08:00:00Z'))).toBe(0); // too late
+    expect(await runTelephoneLaunchPost(db, fetchImpl, at('2026-11-16T15:00:00Z'))).toBe(1);
+    expect(await runTelephoneLaunchPost(db, fetchImpl, at('2026-11-17T08:00:00Z'))).toBe(0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toBe(TELEPHONE_LAUNCH_TEXT);
+    expect(calls[0].message_thread_id).toBe(5925);
+    expect(calls[0].reply_markup.inline_keyboard[0][0].url).toBe('https://club.example/player/telephone');
+    await runBotChangesDigest(db, fetchImpl, at('2026-11-16T15:30:00Z'));
+    expect(calls.slice(1).map((c) => c.text).join('\n')).not.toContain('Испорченный');
+  });
+
+  it('no «Испорченный телефон» post when the digest already told about the game', async () => {
+    const db = await setup();
+    const { calls, fetchImpl } = recorder();
+    await db.run("INSERT INTO club_result_posts (post_key, kind, status, attempts, sent_at, created_at, updated_at) VALUES ('bot-digest-entry:2026-11-drawing-telephone','bot-digest-entry','sent',1,'x','x','x')");
+    expect(await runTelephoneLaunchPost(db, fetchImpl, at('2026-11-16T15:00:00Z'))).toBe(0);
+    expect(calls).toHaveLength(0);
   });
 
   it('text without a puzzle yesterday has no result line', async () => {

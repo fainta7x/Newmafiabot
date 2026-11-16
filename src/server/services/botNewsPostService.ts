@@ -112,8 +112,46 @@ export async function runSudokuLaunchPost(db: DatabaseWrapper, fetchImpl: typeof
   }
 }
 
+/**
+ * One-off post inviting the club to «Испорченный телефон с рисунками» (owner, 2026-11-16: «пост в новости сделать и
+ * позвать людей попробовать»). Once, on 16 or 17.11 between 10:00 and 22:00 Moscow; skipped if the «Что нового» digest
+ * already told about the game, and it marks that digest line as told so the game is not announced twice.
+ */
+export const TELEPHONE_LAUNCH_DAYS = ['2026-11-16', '2026-11-17'];
+const TELEPHONE_LAUNCH_ENTRY = '2026-11-drawing-telephone';
+export const TELEPHONE_LAUNCH_TEXT = [
+  '🎨 Новая игра — «Испорченный телефон с рисунками»!',
+  '',
+  'Пишешь фразу и передаёшь ход другу. Он рисует её, следующий видит только рисунок и подписывает, потом снова рисунок — и так по цепочке. В конце отгадывающий пытается угадать, с чего всё началось. Ход передаёшь кому хочешь, на ход 8 часов.',
+  '',
+  'За каждый ход — 50 жетонов, а готовые цепочки появляются здесь, в «Новостях». Начни свою цепочку и позови друзей 👇',
+].join('\n');
+export async function runTelephoneLaunchPost(db: DatabaseWrapper, fetchImpl: typeof fetch, now: number) {
+  if (!TELEPHONE_LAUNCH_DAYS.includes(dailyWordDay(new Date(now)))) return 0;
+  const hour = mskHour(now);
+  if (hour < INVITE_HOUR_MSK || hour >= 22) return 0;
+  const told = await db.get(`SELECT 1 FROM club_result_posts WHERE post_key = ? AND status = 'sent'`, [`bot-digest-entry:${TELEPHONE_LAUNCH_ENTRY}`]);
+  if (told) return 0;
+  const key = 'telephone-launch:2026-11';
+  if (!(await claim(db, key, 'telephone-launch', '', null))) return 0;
+  try {
+    const link = appUrl('/player/telephone');
+    const result = await sendText(db, NEWS_DESTINATION, TELEPHONE_LAUNCH_TEXT, fetchImpl, undefined,
+      link ? { inline_keyboard: [[{ text: '🎨 Играть', url: link }]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
+    await finish(db, key, result);
+    if (result.ok) {
+      const stamp = new Date(now).toISOString();
+      await db.run(`INSERT OR IGNORE INTO club_result_posts (post_key, kind, status, attempts, sent_at, created_at, updated_at) VALUES (?, 'bot-digest-entry', 'sent', 1, ?, ?, ?)`, [`bot-digest-entry:${TELEPHONE_LAUNCH_ENTRY}`, stamp, stamp, stamp]);
+    }
+    return result.ok ? 1 : 0;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return 0;
+  }
+}
+
 export async function runBotNewsPosts(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch, now = Date.now()) {
   if (isEveningPublishingPaused()) return 0;
   await ensureClubResultPostSchema(db);
-  return (await runDailyWordInvitation(db, fetchImpl, now)) + (await runSudokuLaunchPost(db, fetchImpl, now)) + (await runBotChangesDigest(db, fetchImpl, now));
+  return (await runDailyWordInvitation(db, fetchImpl, now)) + (await runSudokuLaunchPost(db, fetchImpl, now)) + (await runTelephoneLaunchPost(db, fetchImpl, now)) + (await runBotChangesDigest(db, fetchImpl, now));
 }

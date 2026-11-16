@@ -1131,6 +1131,7 @@ The owner wanted a game played in turns where after one's move the turn is passe
 - **One active chain per author** at a time; many chains of different players run at once (owner, 2026-11-16: «цепочек может быть много от разных игроков одновременно, но не больше 1 созданной»).
 - **Drawing:** 8 colours, thin/thick, eraser, undo, clear.
 - **Name: «Испорченный телефон с рисунками»** (owner).
+- **Launch post (owner, 2026-11-16: «пост в новости сделать и позвать людей попробовать»):** one «Новости» post with a «🎨 Играть» button, once on 16 or 17.11 between 10:00 and 22:00 Moscow (`runTelephoneLaunchPost`); skipped if the «Что нового» digest already told about the game, and it marks that line as told.
 - **Author silent on a returned choice:** the chain waits for him and he is reminded every 8 hours (it blocks only his own one chain; the owner kept the current behaviour, 2026-11-16).
 - **Related words with alternation** («кот» – «кошка») are separate words; the owner: «оставляй как есть» (2026-11-16).
 - **Assistant's defaults, not named by the owner:** a reminder 4 hours into each 8; the author's phrase is not part of the word ban; players are those with Telegram or VK linked; who declined or let the time run out cannot get the same chain again.

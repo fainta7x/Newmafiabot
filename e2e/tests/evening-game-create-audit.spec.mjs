@@ -25,6 +25,8 @@ for (const [width, height] of VIEWPORTS) {
     await expect(page.getByRole('dialog', { name: 'Судья игры' })).toBeVisible();
     await check('judge-window');
     await expect(page.getByRole('dialog', { name: 'Судья игры' }).locator('select')).toHaveValue('judge-1');
+    // Only people of this evening can be chosen (owner, 2026-11-16).
+    await expect(page.getByRole('dialog', { name: 'Судья игры' }).locator('option', { hasText: 'Чужой судья' })).toHaveCount(0);
     await page.getByTestId('judge-picker-done').click();
     await expect(page.getByTestId('awaiting-arrival')).toBeVisible();
     await check('before-arrival');

@@ -705,4 +705,6 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   await verifyRegularEveningPaymentIntegrity(db);
 
   ensuredDatabases.add(db as object);
+  // Owner, 2026-11-16: the judges of games 40 and 41 of 13.11 (gameJudgeFixes).
+  await (await import('../server/services/gameJudgeFixes.ts')).fixGameJudges20261113Once(db);
 }

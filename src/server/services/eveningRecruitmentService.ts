@@ -44,7 +44,8 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
   const thinking = participants.filter((row: any) => getEveningResponse(row) === 'thinking');
 
   const slots: EveningRecruitmentSlot[] = (slotPlan.slots || []).map((slot: any) => {
-    const target = Math.max(1, Number(slotPlan.event.required_players_per_slot || slot.target_players || 11));
+    // 10 players (novices 8) with an assigned judge; without one, one more person to judge (owner, 2026-11-16).
+    const target = Math.max(1, Number(slotPlan.event.required_players_per_slot || slot.target_players || 10) + ((slotPlan.event as any).judge ? 0 : 1));
     // A stale selection must not occupy a recruitment seat after the player switches
     // to "thinking" or "declined". Exact registrations stay in history, while the
     // current RSVP status decides whether that registration counts toward readiness.

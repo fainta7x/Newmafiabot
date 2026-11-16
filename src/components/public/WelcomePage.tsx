@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { judgeLine } from '../../lib/eveningSlotStaff.ts';
 import { CalendarDays, Check, ExternalLink, MapPin, MessageCircle, Send, Ticket } from 'lucide-react';
 
 type Evening = {
@@ -11,7 +12,7 @@ type Welcome = {
   evening: Evening | null; contacts: Array<{ label: 'Telegram' | 'VK'; url: string }>; vk_group: string | null; telegram_group: string | null;
 };
 type SeatGame = { number: number; starts_at: string; target: number; taken: number; people: string[] };
-type Seats = { evening_id: string | null; games: SeatGame[]; going: number; updated_at: string };
+type Seats = { evening_id: string | null; games: SeatGame[]; going: number; judge?: string | null; updated_at: string };
 type Kind = 'telegram' | 'vk' | 'phone';
 
 const VISITOR_KEY = 'welcome_visitor';
@@ -67,10 +68,12 @@ function SeatBoard({ seats, fresh }: { seats: Seats; fresh: Set<string> }) {
   return <div className="space-y-4" data-testid="welcome-seats">
     {seats.games.map((game) => {
       const free = Math.max(0, game.target - game.taken);
+      const gathered = free === 0 && Boolean(seats.judge);
       const cells = Array.from({ length: Math.max(game.target, game.taken) }, (_, i) => game.people[i] ?? null);
       return <div key={game.number} className="space-y-2" data-testid={`welcome-game-${game.number}`}>
         <div className="flex items-baseline justify-between gap-2"><strong className="text-[14px]">Игра {game.number} · {clock(game.starts_at)}</strong>
-          <span className={`text-[13px] font-semibold ${free === 0 ? 'text-emerald-300' : 'text-white/70'}`}>{free === 0 ? 'Стол собран' : `свободно ${free} из ${game.target}`}</span></div>
+          <span className={`text-[13px] font-semibold ${gathered ? 'text-emerald-300' : 'text-white/70'}`}>{gathered ? 'Стол собран' : free === 0 ? 'Игроки собраны' : `свободно ${free} из ${game.target}`}</span></div>
+        <div className="text-[12px] text-white/55" data-testid={`welcome-judge-${game.number}`}>{judgeLine(seats.judge ? { id: '', nickname: seats.judge } : null)}</div>
         <ol className="grid grid-cols-5 gap-1.5">
           {cells.map((name, i) => {
             const isFresh = name ? fresh.has(name) : false;

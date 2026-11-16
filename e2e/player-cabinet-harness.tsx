@@ -38,9 +38,9 @@ let slotFailures = Number(new URLSearchParams(location.search).get('slotFailures
 let saveFailures = Number(new URLSearchParams(location.search).get('saveFailures') || 0);
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));
 const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: booking === 'rating' ? 500 : 100, slots: eventSlots };
-const bookingSlots = (booking === 'novice' ? eventSlots.slice(0,2) : eventSlots).map((slot) => ({ ...slot, price: booking === 'novice' ? 200 : 100, target_players: booking === 'novice' ? 9 : 11, registered_count: booking === 'novice' ? 9 : slot.registered_count, participants: [] }));
+const bookingSlots = (booking === 'novice' ? eventSlots.slice(0,2) : eventSlots).map((slot) => ({ ...slot, price: booking === 'novice' ? 200 : 100, target_players: booking === 'novice' ? 8 : 10, registered_count: booking === 'novice' ? 8 : slot.registered_count, participants: [] }));
 let slotPlan = {
- event: { ...evening, event_type: 'evening', assembled: true, assembled_slots: booking === 'novice' ? 2 : 1, required_slots: booking === 'novice' ? 2 : 4, required_players_per_slot: booking === 'novice' ? 9 : 11, price_per_game: booking === 'rating' ? 500 : booking === 'novice' ? 200 : 100, max_evening_price: booking ? null : 400 },
+ event: { ...evening, event_type: 'evening', assembled: true, assembled_slots: booking === 'novice' ? 2 : 1, required_slots: booking === 'novice' ? 2 : 4, required_players_per_slot: booking === 'novice' ? 8 : 10, judge: { id: 'judge-preview', nickname: 'Очень длинный ник ведущего вечера' }, price_per_game: booking === 'rating' ? 500 : booking === 'novice' ? 200 : 100, max_evening_price: booking ? null : 400 },
  pricing: DEFAULT_EVENING_PRICES, slots: bookingSlots,
  selection: { slot_ids: bookingSlots.filter(s=>s.selected).map(s=>s.id), games: 2, total: booking === 'rating' ? 500 : booking === 'novice' ? 400 : 200 },
 };

@@ -7,9 +7,9 @@ vi.mock('../components/player/PlayerEveningWorkspace.tsx', () => ({ default: () 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const event = { id: 'a', title: 'Вечер А', starts_at: '2027-01-15T16:00:00Z', format: 'NOVICE', event_type: 'evening' as const };
 const plan = (id = 'a', format = 'NOVICE', selected = ['s1','s2']) => ({
- event: { ...event, id, format, assembled: true, assembled_slots: 2, required_slots: 2, required_players_per_slot: 9, price_per_game: format === 'RATING' ? 500 : 200, max_evening_price: null },
+ event: { ...event, id, format, assembled: true, assembled_slots: 2, required_slots: 2, required_players_per_slot: 8, judge: { id: 'j', nickname: 'Ольга' }, price_per_game: format === 'RATING' ? 500 : 200, max_evening_price: null },
  pricing: { ...DEFAULT_EVENING_PRICES },
- slots: [1,2].map((n) => ({ id: `s${n}`, slot_number: n, starts_at: event.starts_at, price: format === 'RATING' ? 100 : 200, registered_count: 9, target_players: 9, participants: [] })),
+ slots: [1,2].map((n) => ({ id: `s${n}`, slot_number: n, starts_at: event.starts_at, price: format === 'RATING' ? 100 : 200, registered_count: 8, target_players: 8, participants: [] })),
  selection: { slot_ids: selected, games: selected.length, total: format === 'RATING' ? 500 : 400 },
 });
 const props = { onBack: vi.fn(), onSaved: vi.fn(), onFirstApplication: vi.fn() };
@@ -21,7 +21,8 @@ describe('existing booking screen correctness', () => {
   render(<PlayerEventSlotDetail event={event} {...props} />);
   await screen.findByText('Стол собран');
   expect(screen.getByText('2/2')).toBeTruthy();
-  expect(screen.getAllByText(/9 игроков · собрано/)).toHaveLength(2);
+  // «1 ведущий» with his nickname and the 8 novice players (owner, 2026-11-16).
+  expect(screen.getAllByText(/Ведущий: Ольга · Игроки: 8 из 8 · собрано/)).toHaveLength(2);
   expect(screen.queryByText(/нужно 4/)).toBeNull();
  });
  it('quotes one configured rating entry fee rather than adding slot prices', async () => {

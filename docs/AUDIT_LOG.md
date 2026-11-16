@@ -3104,3 +3104,9 @@ Owner: the digest of bot changes should come out once in 3 days but did not.
 
 ND01 (process, fixed): `botNewsPostService.ts:runBotChangesDigest` posts only entries of `src/server/data/botChangesDigest.ts` not sent yet. After the first digest (entries of 2026-11-10) nobody added new entries until 16.11, so there was nothing to post. Code works as designed. Now added: «Испорченный телефон» (#1282) and, chosen by the owner from a draft list, the voted-out opinion in Elo; the owner judged the other candidates («Вордли» keyboard, MVP on Saturday, results in «Новости») not interesting. Rule reminder: a fun player-facing change gets its digest line in the same PR.
 
+## 2026-11-16 — набор игроков по слотам вечера
+
+Owner: on the site registration the slot counts looked wrong and different for each viewer.
+
+SL01 (fixed): `eveningSlotPlanningService.ts` treated the evening judge as the judge only when he had answered «Иду»; otherwise the judge was counted as a player and the players needed became 11 instead of 10 (novices 9 instead of 8). SL02 (fixed): every registration showed its own number — the join page «N/11» with the judge inside, CRM «N/10», the novice page «из 9», the cabinet only «N игроков»; none named the judge. Now the plan takes the assigned judge, needs 10/8 players and carries `event.judge`; the join page, the cabinet and the welcome page show «Ведущий: ник · Игроки: N из 10/8» (`src/lib/eveningSlotStaff.ts`). Tests: `ownerEveningSheet.test.ts`, `PlayerBookingUsability.test.tsx`, `eveningTodayPost.test.ts`, `eveningRecruitmentService.test.ts`; e2e `current-booking-preview.spec.mjs`.
+

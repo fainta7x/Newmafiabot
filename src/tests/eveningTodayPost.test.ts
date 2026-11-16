@@ -60,7 +60,7 @@ describe('NOVICE gathering rules', () => {
     // First two games now have nine participants, including existing confirmed arrivals.
     const plan = await loadEveningSlotPlan(db, 'ev');
     expect(plan.event.required_slots).toBe(2);
-    expect(plan.event.required_players_per_slot).toBe(9);
+    expect(plan.event.required_players_per_slot).toBe(8); // 8 novice players + 1 judge (owner, 2026-11-16)
     const firstTwo = plan.slots.slice(0, 2);
     for (let i = 0; i < 7; i++) {
       const id = `nv${i}`;

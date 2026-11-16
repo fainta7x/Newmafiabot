@@ -109,7 +109,8 @@ router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHe
       people: slot.participants.slice(0, 14).map((person) => String(person.nickname || 'Игрок').slice(0, 24)),
     }));
     const going = new Set(plan.slots.flatMap((slot) => slot.participants.map((person) => String(person.id)))).size;
-    return res.json({ evening_id: String(evening.id), games, going, updated_at: new Date().toISOString() });
+    // «1 ведущий» and his nickname next to the players (owner, 2026-11-16).
+    return res.json({ evening_id: String(evening.id), games, going, judge: plan.event.judge?.nickname ?? null, updated_at: new Date().toISOString() });
   } catch { return res.status(500).json({ error: 'Не удалось загрузить места' }); }
 });
 

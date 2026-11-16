@@ -3084,3 +3084,10 @@ Verification: the failure-injection regression failed before the fix; afterwards
 ## 2026-11-15 — PF02: отделить кабинет от первоначальной загрузки
 
 Профиль показал лишние экраны игрока в статическом входе публичного сайта. Кандидат perf/route-loading использует React.lazy и preload параллельно auth, сохраняя существующий Suspense/reload recovery. Полный первоначальный JS-граф: 1,234,881 → 403,195 байт, gzip level 6: 336,754 → 121,571. Восемь browser-сценариев после изменения и пять базовых до проходят, включая пять размеров layout audit, отсутствие чанка на /welcome, вход/reload и восстановление старого чанка. Код/стили экранов не менялись; только lazy-boundary. Подробности и ограничения — docs/audit/2026-11-15/route-loading.md. Реальных внешних сообщений/production-записей нет.
+
+## 2026-11-16 — Elo за мнение заголосованного игрока
+
+Owner report: the opinion of a voted-out player is recorded (colour window after the last speech) but earns no Elo.
+
+VO01 (fixed): `src/lib/playerContribution.ts` — only `killed` exits counted as will moments, so a voted-out player's opinion neither paid its author nor judged the blacks. Now a `voted_day` exit with a recorded opinion counts exactly like a death protocol (owner rule in BUSINESS_RULES, 2026-11-16). Regression: `src/tests/playerContribution.test.ts` «the opinion of a red voted out counts like a death protocol».
+

@@ -527,3 +527,39 @@ describe('GPT review 2026-10-26: cancelled exits and repeated checks', () => {
   });
 });
 
+
+// Owner, 2026-11-16: the opinion of the player voted out («мнение заголосованного») earns like the death protocol.
+describe('the opinion of a red voted out counts like a death protocol', () => {
+  const roles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
+  const results = () => roles.map((role, i) => ({ seat_number: i + 1, role, player_id: `p${i + 1}`, participant_id: `p${i + 1}`,
+    exit_type: i === 1 ? 'voted_day' : 'alive', color_protocol: i === 1 ? [{ mark: 'black', seat_numbers: [8] }, { mark: 'red', seat_numbers: [9] }] : [] as any[] }));
+  const events = [
+    { seq: 1, at: 'x', round: 1, phase: 'zero_night', kind: 'game_start' },
+    { seq: 2, at: 'x', round: 2, phase: 'day_voting', kind: 'exit', seat: 2, value: 'voted_day' },
+  ];
+  const of = (seat: number, withEvents = true) => gameContribution({ protocol: { winner_team: 'red', events: withEvents ? events : [] }, player_results: results() }).find((item) => item.seat === seat)!;
+
+  it('the blacks are judged by it: named black, named red, not named', () => {
+    for (const withEvents of [true, false]) {
+      expect(of(8, withEvents).items.some((item) => item.kind === 'named_black' && item.seat === 2)).toBe(true);
+      expect(of(9, withEvents).items.some((item) => item.kind === 'named_red' && item.seat === 2)).toBe(true);
+      expect(of(10, withEvents).items.some((item) => item.kind === 'not_named' && item.seat === 2)).toBe(true);
+    }
+  });
+
+  it('the author gets the will colours with the circle of his opinion', () => {
+    // With an error (#9 is mafia, called red) every plus of the will is taken away — as for a death protocol.
+    expect(of(2).items.some((item) => item.kind === 'will_wrong' && item.seat === 9)).toBe(true);
+    const rows = results(); rows[1].color_protocol = [{ mark: 'black', seat_numbers: [8] }, { mark: 'red', seat_numbers: [3] }];
+    const me = gameContribution({ protocol: { winner_team: 'red', events }, player_results: rows }).find((item) => item.seat === 2)!;
+    const right = me.items.find((item) => item.kind === 'will_right' && item.seat === 8);
+    expect(right).toBeTruthy();
+    expect(right!.round).toBe(2);
+  });
+
+  it('a red voted out with no opinion recorded gives the blacks nothing', () => {
+    const rows = results(); rows[1].color_protocol = [];
+    const black = gameContribution({ protocol: { winner_team: 'red', events }, player_results: rows }).find((item) => item.seat === 10)!;
+    expect(black.items.some((item) => item.kind === 'not_named')).toBe(false);
+  });
+});

@@ -3120,4 +3120,7 @@ GJ02 (fixed by the owner's decision): production read showed «Точка» only
 Owner: on the site registration the slot counts looked wrong and different for each viewer.
 
 SL01 (fixed): `eveningSlotPlanningService.ts` treated the evening judge as the judge only when he had answered «Иду»; otherwise the judge was counted as a player and the players needed became 11 instead of 10 (novices 9 instead of 8). SL02 (fixed): every registration showed its own number — the join page «N/11» with the judge inside, CRM «N/10», the novice page «из 9», the cabinet only «N игроков»; none named the judge. Now the plan takes the assigned judge, needs 10/8 players and carries `event.judge`; the join page, the cabinet and the welcome page show «Ведущий: ник · Игроки: N из 10/8» (`src/lib/eveningSlotStaff.ts`). Tests: `ownerEveningSheet.test.ts`, `PlayerBookingUsability.test.tsx`, `eveningTodayPost.test.ts`, `eveningRecruitmentService.test.ts`; e2e `current-booking-preview.spec.mjs`.
+## Запись гостя с сайта — 2026-11-16
+
+- **GB01, fixed in code; merge/deploy pending.** `src/server/routes/welcomeRoutes.ts`, `src/server/services/newcomerFunnelService.ts`: лид мог записаться без аккаунта, но не получал доступа к собственной записи. По просьбе владельца добавлены персональный секрет, общие операции записи и проверки чужого контакта, отмены, переноса, отзыва ссылки и отката при ошибке. Для старых лидов — выдача новой ссылки полным организатором. Интеграционная проверка сайта проходит с локальным API и отдельной БД в памяти; production-записи не создаются.
 

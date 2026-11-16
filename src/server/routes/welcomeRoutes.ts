@@ -18,6 +18,7 @@ import { WEEKDAY_NAMES, WEEKDAY_ON, loadGameSchedule, scheduleTimes } from '../s
 import { loadSiteAgenda, loadSiteEveningHistory, loadSiteEveningPicture, loadSiteSeasonPicture, loadSiteSeasons, loadSiteTournamentPicture, loadSiteTournaments } from '../services/siteClubService.ts';
 import { loadClubLeaderboardRows } from '../services/clubLeaderboardService.ts';
 import { hasOrganizerPlayerAccess, resolveVerifiedPlayerIdentity } from '../services/organizerPlayerAccessService.ts';
+import { guestBookingTokenMatches, loadGuestBooking, updateGuestBooking } from '../services/guestBookingService.ts';
 
 /**
  * The text of the page is the owner's current recruitment post «Школа спортивной мафии | Тула» (2026-11-11), cut into parts the page folds.
@@ -44,7 +45,7 @@ router.use('/welcome', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Max-Age', '600');
     // Only the «who is signed in» answer may carry the visitor's cookie to the site (owner, 2026-11-12: the site is the center).
     if (req.originalUrl.split('?')[0].endsWith('/welcome/session')) res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -78,6 +79,7 @@ router.get('/welcome', limit, async (req, res) => {
     const base = getPublicAppBaseUrl().replace(/\/+$/, '');
     res.set('Cache-Control', 'no-store');
     return res.json({
+      booking_management: true,
       content: WELCOME_CONTENT,
       site: await loadSiteTexts(db).catch(() => ({})),
       schedule: await loadGameSchedule(db).then((value) => ({ weekday: value.weekday, weekday_name: WEEKDAY_NAMES[value.weekday], weekday_on: WEEKDAY_ON[value.weekday], ...scheduleTimes(value) })).catch(() => null),
@@ -178,13 +180,33 @@ router.post('/welcome/visit', limit, async (req, res) => {
 });
 
 const leadLimit = rateLimit({ windowMs: 10 * 60_000, limit: 6, standardHeaders: 'draft-7', legacyHeaders: false });
+const managementToken = (req: any) => /^Bearer ([A-Za-z0-9_-]{43})$/.exec(String(req.headers.authorization || ''))?.[1];
+const bookingReadLimit = rateLimit({ windowMs: 60_000, limit: 40, standardHeaders: 'draft-7', legacyHeaders: false });
+const bookingWriteLimit = rateLimit({ windowMs: 10 * 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
+const bookingError = (res: any, error: unknown) => error instanceof LeadError
+  ? res.status(error.statusCode).json({ error: error.message })
+  : res.status(500).json({ error: 'Не получилось изменить запись. Попробуй ещё раз.' });
+router.get('/welcome/booking', bookingReadLimit, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { return res.json(await loadGuestBooking(req.db || await getDb(), managementToken(req))); }
+  catch (error) { return bookingError(res, error); }
+});
+router.post('/welcome/booking', bookingWriteLimit, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { return res.json({ ok: true, ...await updateGuestBooking(req.db || await getDb(), managementToken(req), req.body || {}) }); }
+  catch (error) { return bookingError(res, error); }
+});
 router.post('/welcome/lead', leadLimit, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   // A hidden field only a script fills in: the answer looks like success so a bot learns nothing.
   if (String(req.body?.website || '').trim()) return res.json({ ok: true });
   try {
-    const lead = await createWelcomeLead(req.db || await getDb(), { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, eveningId: req.body?.evening_id, referredBy: req.body?.referred_by });
+    const db = req.db || await getDb();
+    const token = managementToken(req);
+    const lead = await createWelcomeLead(db, { name: req.body?.name, contactKind: req.body?.contact_kind, contactValue: req.body?.contact_value, source: req.body?.source, eveningId: req.body?.evening_id, referredBy: req.body?.referred_by, managementToken: token });
     if (lead.created) await notifyOrganizerAboutLead(req.db || await getDb(), lead.playerId, 'self').catch((error) => console.warn('[LEAD] Organizer notification failed:', error instanceof Error ? error.message : String(error)));
-    return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created, booked: lead.booked, already_booked: lead.alreadyBooked });
+    const ownToken = lead.managementToken || (token && await guestBookingTokenMatches(db, token, lead.playerId) ? token : null);
+    return res.status(lead.created ? 201 : 200).json({ ok: true, created: lead.created, booked: lead.booked, already_booked: lead.alreadyBooked, ...(ownToken ? { management_token: ownToken } : {}), ...(lead.managementRequired ? { management_required: true } : {}) });
   } catch (error: any) {
     if (error instanceof LeadError) return res.status(error.statusCode).json({ error: error.message });
     return res.status(500).json({ error: 'Не удалось сохранить. Попробуйте ещё раз' });

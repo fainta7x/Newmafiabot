@@ -140,6 +140,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     ] });
     return reply({ ok: true });
   }
+  if (/^\/api\/crm\/leads\/[^/]+\/booking-link$/.test(url.pathname) && method === 'POST') return new Response(JSON.stringify({ url: 'https://2lamafia.ru/igry/#booking=' + 'a'.repeat(43) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   // «Лиды» (owner, 2026-11-16): three leads at different stages and one open novice evening.
   if (url.pathname === '/api/crm/leads' && method === 'GET') {
     const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();

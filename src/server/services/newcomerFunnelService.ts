@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { replacePlayerSlotSelection } from './eveningSlotWritesService.ts';
 import { ensureSlotsForEvening } from './eveningSlotPlanningService.ts';
 import { openEveningSql } from '../../lib/eveningStatus.ts';
@@ -33,7 +33,14 @@ const ensure = oncePerDatabase(async (db: DatabaseWrapper) => {
   for (const [name, type] of [['status', "TEXT NOT NULL DEFAULT 'active'"], ['recall_count', 'INTEGER NOT NULL DEFAULT 0'], ['recall_evening_id', 'TEXT'], ['status_changed_at', 'TEXT'], ['added_by', 'TEXT']] as const) {
     if (!columns.some((column) => column.name === name)) await db.run(`ALTER TABLE newcomer_leads ADD COLUMN ${name} ${type}`);
   }
+  for (const name of ['management_token_hash', 'management_expires_at']) {
+    if (!columns.some((column) => column.name === name)) await db.run(`ALTER TABLE newcomer_leads ADD COLUMN ${name} TEXT`);
+  }
+  await db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_management_token ON newcomer_leads(management_token_hash)');
 });
+export const ensureNewcomerFunnelSchema = ensure;
+export const leadManagementTokenHash = (value: unknown): string | null => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value)
+  ? createHash('sha256').update(value).digest('hex') : null;
 
 /** The id of an open novice evening, or null: a stale or made-up id from the page is ignored, never an error for the guest. */
 async function openNoviceEveningId(db: DatabaseWrapper, value: unknown): Promise<string | null> {
@@ -130,17 +137,20 @@ export function normalizeLeadContact(kindRaw: unknown, valueRaw: unknown): { kin
  * The contact-only path of the welcome page. The same contact never creates a second lead. The new player starts as a novice
  * (game_level novice, club stage NEW) like everyone who comes in, and appears in the organizer's «Дела» with a ready message.
  */
-export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unknown; contactKind: unknown; contactValue: unknown; source?: unknown; referredBy?: unknown; eveningId?: unknown; addedBy?: 'site' | 'bot' | 'crm' }, now = new Date()) {
+export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unknown; contactKind: unknown; contactValue: unknown; source?: unknown; referredBy?: unknown; eveningId?: unknown; addedBy?: 'site' | 'bot' | 'crm'; managementToken?: unknown }, now = new Date()): Promise<{ playerId: string; created: boolean; booked: boolean; alreadyBooked: boolean; managementToken?: string; managementRequired?: boolean }> {
   await ensure(db);
   const name = clean(input.name, 40);
   if (name.length < 2) throw new LeadError('Напишите, как к вам обращаться');
   const contact = normalizeLeadContact(input.contactKind, input.contactValue);
-  const existing = await db.get<{ player_id: string }>('SELECT player_id FROM newcomer_leads WHERE contact_kind = ? AND contact_value = ?', [contact.kind, contact.value]);
+  const existing = await db.get<{ player_id: string; management_token_hash: string | null; management_expires_at: string | null; status: string; lifecycle_status: string | null }>('SELECT l.player_id,l.management_token_hash,l.management_expires_at,l.status,p.lifecycle_status FROM newcomer_leads l JOIN players p ON p.id=l.player_id WHERE l.contact_kind=? AND l.contact_value=?', [contact.kind, contact.value]);
   const eveningId = await openNoviceEveningId(db, input.eveningId);
   if (existing) {
     // Someone's contact is not a secret, so the form never changes a booking that already exists: it keeps the old one and says so
     // (moving to another Friday goes through the organizer or the signed-in cabinet).
     const playerId = String(existing.player_id);
+    if (existing.management_token_hash && (existing.status === 'converted' || ['archived', 'merged', 'blocked', 'guest_placeholder'].includes(existing.lifecycle_status || '') || leadManagementTokenHash(input.managementToken) !== existing.management_token_hash || !existing.management_expires_at || existing.management_expires_at <= now.toISOString())) {
+      return { playerId, created: false, booked: false, alreadyBooked: false, managementRequired: true };
+    }
     if (!eveningId) return { playerId, created: false, booked: false, alreadyBooked: false };
     const before = await db.get<{ evening_id: string | null }>('SELECT evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]);
     const bookedEvening = before?.evening_id ?? null;
@@ -157,7 +167,12 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
   const stamp = now.toISOString();
   const source = sourceOf(input.source);
   const referredBy = clean(input.referredBy, 60) || null;
+  const proposedHash = leadManagementTokenHash(input.managementToken);
+  const tokenAlreadyUsed = proposedHash ? await db.get('SELECT player_id FROM newcomer_leads WHERE management_token_hash=?', [proposedHash]) : null;
+  const managementToken = (input.addedBy || 'site') === 'site'
+    ? (proposedHash && !tokenAlreadyUsed ? String(input.managementToken) : randomBytes(32).toString('base64url')) : undefined;
   await db.transaction(async (tx) => {
+    if (await tx.get('SELECT player_id FROM newcomer_leads WHERE contact_kind=? AND contact_value=?', [contact.kind, contact.value])) throw new LeadError('Запись для этого контакта уже существует. Открой персональную ссылку или повтори отправку.', 409);
     await tx.run(
       `INSERT INTO players (id, nickname, lifecycle_status, source, game_level, club_stage, elo, tokens, referred_by, phone, telegram_username, created_at, updated_at)
        VALUES (?, ?, 'newcomer', 'welcome_page', 'novice', 'NEW', 1000, 0, ?, ?, ?, ?, ?)`,
@@ -165,10 +180,12 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
     );
     await tx.run('INSERT INTO newcomer_leads (player_id, contact_kind, contact_value, source, referred_by, created_at, evening_id, added_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [playerId, contact.kind, contact.value, source, referredBy, stamp, eveningId, input.addedBy || 'site']);
+    if (managementToken) await tx.run('UPDATE newcomer_leads SET management_token_hash = ?, management_expires_at = ? WHERE player_id = ?',
+      [leadManagementTokenHash(managementToken), new Date(now.getTime() + 90 * 86400_000).toISOString(), playerId]);
     await tx.run('INSERT OR IGNORE INTO newcomer_funnel_events (id, visitor_id, step, source, day, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [randomUUID(), `lead-${playerId}`, 'contact_left', source, dayOf(now), stamp]);
   });
-  return { playerId, created: true, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
+  return { playerId, created: true, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false, ...(managementToken ? { managementToken } : {}) };
 }
 
 export type FunnelStep = { key: string; label: string; count: number };

@@ -1,5 +1,7 @@
 # 2LA Noire — Feature Map
 
+- Управление своей записью с сайта без регистрации: `guestBookingService.ts` (токен, чтение, атомарная отмена/перенос), `welcomeRoutes.ts` (`/welcome/booking`), `newcomerFunnelService.ts` (первичная выдача). Для старых лидов: `crmRoutes.ts` (`/leads/:playerId/booking-link`) и меню `LeadsPanel.tsx`. Проверки: `guestBooking.test.ts`, `leads-tab-audit.spec.mjs`; сайт — отдельный репозиторий `2la-noire-site`, `booking.js`.
+
 Fast first-hop map for known features. For fuzzy terms use `npm run project:find -- "<query>"`; after edits use `npm run project:affected -- <files>`.
 
 This map reflects current `main`. Do not use old roadmap text to infer that a subsystem is missing when it is listed here as implemented.

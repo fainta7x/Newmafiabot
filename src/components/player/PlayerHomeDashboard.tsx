@@ -1,7 +1,6 @@
 import { getJsonIfOk } from '../../lib/requestJson.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DailyWordCard } from './PlayerDailyWord.tsx';
-import { DailySudokuCard } from './PlayerDailySudoku.tsx';
 import WhatsNewCard from './WhatsNewCard.tsx';
 import VotePromptCard from './VotePromptCard.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -68,7 +67,6 @@ export default function PlayerHomeDashboard({
   onOpenWallet,
   onOpenLearning,
   onOpenDailyWord,
-  onOpenSudoku,
 }: {
   data: PlayerMeResponse;
   onOpenEvents: (eventId?: string | null) => void;
@@ -83,7 +81,6 @@ export default function PlayerHomeDashboard({
   /** «Прогресс → Обучение». */
   onOpenLearning?: () => void;
   onOpenDailyWord?: () => void;
-  onOpenSudoku?: () => void;
 }) {
   const [evenings, setEvenings] = useState<HomeEvening[] | null>(null);
   const [eveningsError, setEveningsError] = useState(false);
@@ -255,7 +252,6 @@ export default function PlayerHomeDashboard({
         </section>
 
         {onOpenDailyWord && <DailyWordCard onOpen={onOpenDailyWord} />}
-        {onOpenSudoku && <DailySudokuCard onOpen={onOpenSudoku} />}
         <VotePromptCard />
         <CuratorTasksCard />
 

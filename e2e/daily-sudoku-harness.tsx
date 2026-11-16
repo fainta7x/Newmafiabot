@@ -1,7 +1,7 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import './appStyles.ts';
-import PlayerDailySudoku,{DailySudokuCard} from '../src/components/player/PlayerDailySudoku.tsx';
+import PlayerDailySudoku from '../src/components/player/PlayerDailySudoku.tsx';
 import type {DailySudokuState} from '../src/shared/dailySudoku.ts';
 
 // A fixed solved grid for the preview; the harness answers like the server (right digit stays, wrong one is a mistake).
@@ -32,4 +32,4 @@ globalThis.fetch=async(input:RequestInfo|URL,init?:RequestInit)=>{
  }
  return json(state);
 };
-createRoot(document.getElementById('root')!).render(mode==='card'?<div style={{maxWidth:430,padding:12,margin:'auto',background:'#090a0d',color:'white'}}><DailySudokuCard onOpen={()=>location.assign('/e2e/daily-sudoku.html')}/></div>:<PlayerDailySudoku onExit={()=>location.assign('/e2e/player-cabinet.html?route=/player/club/games')}/>);
+createRoot(document.getElementById('root')!).render(<PlayerDailySudoku onExit={()=>location.assign('/e2e/player-cabinet.html?route=/player/club/games')}/>);

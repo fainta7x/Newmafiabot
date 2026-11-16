@@ -38,18 +38,6 @@ function useDailySudoku() {
   return { state, setState, error, setError, load };
 }
 
-export function DailySudokuCard({ onOpen }: { onOpen: () => void }) {
-  const { state, error, load } = useDailySudoku();
-  const text = !state ? 'Одно судоку для всего клуба и награда за решение.'
-    : state.status === 'won' ? `Решено за ${formatSudokuTime(state.seconds ?? 0)} · +${state.reward_earned} жетонов`
-    : state.status === 'lost' ? 'Игра завершена. Завтра — новое судоку.'
-    : `Сегодня ${SUDOKU_LEVEL_LABEL[state.level]} · ${state.reward} жетонов за решение`;
-  return <section className="dw-card" aria-label="Судоку"><div className="dw-eyebrow">Каждый день · бесплатно</div><h2>Судоку</h2><p>{text}</p>
-    {error ? <><p role="alert">{error}</p><button type="button" onClick={() => void load()}>Повторить загрузку</button></>
-      : <button type="button" onClick={onOpen}>{state?.status === 'playing' ? 'Продолжить' : state?.status === 'won' || state?.status === 'lost' ? 'Мой результат' : 'Играть бесплатно'} <span aria-hidden="true">→</span></button>}
-  </section>;
-}
-
 export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { onExit: () => void; onTokenBalanceChange?: (balance: number) => void }) {
   const { state, setState, error, setError, load } = useDailySudoku();
   const [selected, setSelected] = useState<number | null>(null);

@@ -69,10 +69,10 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 ### Daily sudoku
 
-- Player page and home card: `PlayerDailySudoku.tsx` + `dailySudoku.css` (frame shared with `dailyWord.css`), at `/player/sudoku` through `PlayerCabinetShell.tsx`; entry from Home and Community → Mini-games.
+- Player page: `PlayerDailySudoku.tsx` + `dailySudoku.css` (frame shared with `dailyWord.css`), at `/player/sudoku` through `PlayerCabinetShell.tsx`; entry from Community → Mini-games and the morning «Новости» post (no Home card: not asked by the owner).
 - Contract/levels/share: `shared/dailySudoku.ts`; generator with uniqueness check `server/services/sudokuGenerator.ts`.
 - API `dailySudokuRoutes.ts` under `/api/player/daily-sudoku` (GET, `/start`, `/move`); service `dailySudokuService.ts`, schema `ensureDailySudokuSchema.ts`; reward through `tokenLedgerService.ts`. Morning post line: `botNewsPostService.ts`.
-- Coverage: `dailySudoku.integration.test.ts`, `botNewsPosts.test.ts`; all-app audit includes new/playing/notes/won/lost/card/error.
+- Coverage: `dailySudoku.integration.test.ts`, `botNewsPosts.test.ts`; all-app audit includes new/playing/notes/won/lost/error.
 
 ### Daily word
 

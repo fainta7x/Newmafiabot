@@ -128,3 +128,14 @@ describe('drawing telephone', () => {
     expect(albums).toHaveLength(1);
   });
 });
+
+import { appBackTarget, parsePlayerRoute, playerPathForSection } from '../lib/appNavigation.ts';
+describe('drawing telephone pages', () => {
+  it('lives at /player/telephone and a chain at /player/telephone/<id>', () => {
+    expect(playerPathForSection('telephone')).toBe('/player/telephone');
+    expect(playerPathForSection('telephone', 'c 1')).toBe('/player/telephone/c%201');
+    expect(parsePlayerRoute('/player/telephone/c%201')).toMatchObject({ section: 'telephone', target: 'c 1' });
+    expect(appBackTarget('/player/telephone/c1')).toBe('/player/telephone');
+    expect(appBackTarget('/player/telephone')).toBe('/player/club/games');
+  });
+});

@@ -380,6 +380,8 @@ Open work, in order:
 
 11. **Built (PR #1278): Elo for the opinion of the player voted out** — counts like the death protocol (owner, 2026-11-16; BUSINESS_RULES).
 
+13. **«Испорченный телефон с рисунками» (owner, 2026-11-16): built** — a turn game passed to anyone; rules in BUSINESS_RULES. The assistant's defaults listed there are to be confirmed by the owner.
+
 12. **Daily mini-games (owner, 2026-11-16):** «Вордли» took off — everyone comes daily. The owner wants another daily logic game of a well-known kind (not about Mafia). **Sudoku: built** (rules in BUSINESS_RULES «Daily sudoku»). Saved for later, by the owner's request: «Быки и коровы» (guess a 4-digit number), nonogram (японский кроссворд), «Слова из слова».
 
 New product work is started only after the owner's «да» (AGENTS §4).
@@ -403,6 +405,8 @@ Needs an answer or content from the owner before anything is built:
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 
 ### Player-facing changes not yet announced
+
+- 2026-11-16: новая игра «Испорченный телефон с рисунками»: фраза → рисунок → подпись → …, ход передаёшь кому хочешь, в конце отгадка; 50 жетонов за ход, готовые цепочки — в приложении и в «Новостях».
 
 - 2026-11-16: новая мини-игра «Судоку» — одно судоку в день на весь клуб, к выходным сложнее, 200 жетонов за решение, таблица дня по времени; приглашение в утреннем посте «Новостей».
 

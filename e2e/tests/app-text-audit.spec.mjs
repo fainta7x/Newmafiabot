@@ -11,6 +11,7 @@ export const PAGES = [
   ['player-avatar', '/e2e/player-avatar.html'],
   ...['new','long','playing','won','lost','admin','card','error'].map(mode=>[`daily-word-${mode}`,`/e2e/daily-word.html?mode=${mode}`]),
   ...['new','playing','notes','won','lost','error'].map(mode=>[`daily-sudoku-${mode}`,`/e2e/daily-sudoku.html?mode=${mode}`]),
+  ...['list','empty','active','create','draw','caption','last','choose','guess','waiting','done','error'].map(mode=>[`telephone-${mode}`,`/e2e/drawing-telephone.html?mode=${mode}`]),
   ['cabinet-home', cabinet('/player')],
   ['cabinet-home-live', '/e2e/player-cabinet.html?scenario=live'],
   ['cabinet-events', cabinet('/player/events')],

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
 import {
   TELEPHONE_COLORS, TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS,
@@ -159,7 +159,6 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
 }
 
 type DrawingPadHandle = { export: () => string | null };
-import { forwardRef, useImperativeHandle } from 'react';
 const SIZE = 480;
 const DrawingPad = forwardRef<DrawingPadHandle>(function DrawingPad(_, ref) {
   const canvas = useRef<HTMLCanvasElement | null>(null);

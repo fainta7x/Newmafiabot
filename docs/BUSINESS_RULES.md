@@ -1118,6 +1118,21 @@ These are the owner's answers to the questions where copies in the code disagree
 10. **Open evening** (owner, 2026-10-23). An evening is open when it is **published or in progress and not yet closed**. Players see only open evenings in «Актуальное» and in the bot; drafts are never shown to players. Players can be invited and can sign up **until the evening is closed**, including during it (someone may come later).
 
 
+## «Испорченный телефон с рисунками» (owner, 2026-11-16)
+
+The owner wanted a game played in turns where after one's move the turn is passed **to whomever one wants**, and which cannot be won by quick googling. Answers of 2026-11-16:
+- **Chain:** the author writes a phrase → drawing → caption → drawing → … Each player sees only the previous link. **5 to 20 links** («не меньше 5», «до 20»), chosen by the author.
+- **Guesser:** the author chooses him at the start; he takes no part in the chain and at the end sees **the last drawing and the last caption** («чтобы он видел последнюю подпись и рисунок») and writes what the starting phrase was. Then the chain opens for everybody.
+- **Passing:** only to somebody **who has not moved yet** in this chain (not the author, not the guesser).
+- **Time:** **8 hours** per move. Not done in time, or «Не хочу / нет времени» — the turn returns to the one who passed it, and he chooses somebody else («оба варианта, но срок давай 8 часов»).
+- **Forbidden:** a starting phrase used before in the club; **in a caption, a word of an earlier caption of the same chain**; **letters on a drawing** (a rule for players, not checked automatically).
+- **Tokens: 50 for every move** (the author's phrase, each link, the guess).
+- **Shown:** every finished chain to everybody in the app and **posted to «Новости»** (album of the drawings, the way of the phrase in the caption).
+- **One active chain per author** at a time.
+- **Drawing:** 8 colours, thin/thick, eraser, undo, clear.
+- **Name: «Испорченный телефон с рисунками»** (owner).
+- **Assistant's defaults, not named by the owner (to confirm):** a reminder 4 hours into the 8; a returned turn has no time limit for choosing; a guesser who lets the 8 hours pass or declines ends the chain without a guess; the word ban compares whole words of 3+ letters (Ё = Е) and does not include the author's phrase; players are those with Telegram or VK linked; who declined or let the time run out cannot get the same chain again.
+
 ## Daily sudoku (owner, 2026-11-16)
 
 The owner: «Вордли… прям хайпанула… Давай судоку пока сделаем». Answers of 2026-11-16:

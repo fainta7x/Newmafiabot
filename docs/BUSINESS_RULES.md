@@ -1306,6 +1306,8 @@ VK gives the app no right to upload wall photos. A VK wall post goes out as text
 
 Applies to club (CASUAL) evenings only; novice, rating and tournament evenings keep their own prices.
 
+**Owner correction, 2026-11-16 («дороже только после 3 недель пропуска»):** the price tier no longer follows «как ходит» but **the last visit before the evening**: a visit in the 21 days before the evening → the regular price (400); no visit for more than 21 days → the «иногда» price (500); no visit for more than 60 days → the «перестал» price (200 per game, up to 800). «Из другого города» keeps the «иногда» price; a player who has never come is priced by his «как ходит» as before. The «как ходит» status itself (CRM labels, mailing pause) is not changed by this. One visit is enough to return to the regular price at the next evening. The closed evening of 13.11 was repriced once by this rule at the owner's request (Знак, Кавасаки: 527 → 427). Code: `src/server/services/clubPriceTierService.ts`.
+
 - «Ходит постоянно»: 100 ₽ за игру, не больше 400 ₽ за вечер (as before).
 - «Ходит иногда» and «Другой город»: 100 ₽ за игру, не больше 500 ₽ за вечер.
 - «Перестал ходить»: 200 ₽ за игру, не больше 800 ₽ за вечер.

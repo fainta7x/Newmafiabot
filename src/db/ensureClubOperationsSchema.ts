@@ -705,4 +705,6 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   await verifyRegularEveningPaymentIntegrity(db);
 
   ensuredDatabases.add(db as object);
+  // Owner, 2026-11-16: the closed evening of 13.11 is repriced once by the «3 weeks» rule (clubPriceTierService).
+  await (await import('../server/services/clubPriceTierService.ts')).repriceEvening20261113Once(db);
 }

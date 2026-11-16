@@ -376,6 +376,8 @@ Open work, in order:
 
 9. **Open question (owner, 2026-11-11):** «Резерв клуба» on «Управление ставками» — per game it is the bank minus the payouts to winners (`bettingPoolService.ts`: `reserve = totalPool − totalPayout`), shown summed over all games; the owner does not know what it is for: keep, rename or remove.
 
+10. **Next (owner, 2026-11-16): make adding leads to the app simpler** — «сейчас это всё ещё неудобно»; audit the current lead path first and agree the plan with the owner (relates to item 8b).
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner
@@ -392,10 +394,13 @@ Needs an answer or content from the owner before anything is built:
 - Content the owner promised (art, compendium text, teaching material).
 - Rating-evening vote goes only to the rating channel — confirmed by the owner 2026-11-10 (no action).
 - The 14-item live check (above).
+- Tasks between games (owner, 2026-11-15, postponed): which tasks (photo, recording…), a hint or a block before the next game, tied to a game or to the evening.
 
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 
 ### Player-facing changes not yet announced
+
+- 2026-11-15: итоги вечера теперь выходят и в теме «Новости» основной группы (вечер новичков — «История» в группе новичков), и во входном канале.
 
 - 2026-11-10: «Вордли» удобнее на телефоне: клавиатура сразу под полем, клавиши одного размера, буквы можно вписывать в любую клетку (нажмите на неё), нет отдельного текстового поля.
 

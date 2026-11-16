@@ -175,8 +175,11 @@ export function PlayerActionOverlay({
   );
   const sectionLabel = (text: string) => <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-white/45">{text}</div>;
 
-  return (
-    <div className="fixed inset-0 z-[112] bg-slate-950/60 flex items-end md:items-center justify-center md:p-4" onClick={onClose}>
+  // On the page itself, like the voting windows, and above them (z 130 > 120): opened from a voting by Shift+digit, the sheet
+  // was hidden under the «Поднять / оставить» window (2026-11-16). The class keeps z-[112], which the browser checks use to find it.
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div data-testid="live-player-action-backdrop" className="fixed inset-0 z-[112] bg-slate-950/60 flex items-end md:items-center justify-center md:p-4" style={{ zIndex: 130 }} onClick={onClose}>
       {/* Owner, 2026-11-15: the old grid of mixed buttons looked dated. One header, the frequent actions large, the rest in calm rows. */}
       <div data-testid="live-player-action-sheet" className="live-player-action-sheet max-h-[100dvh] w-full max-w-md overflow-y-auto rounded-t-3xl md:rounded-3xl border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" onClick={(event) => event.stopPropagation()}>
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15 md:hidden" />
@@ -310,7 +313,8 @@ export function PlayerActionOverlay({
           <button type="button" aria-label="ППК" onClick={() => onPpk(player.slot_num)} className="min-h-11 flex-1 rounded-2xl border border-violet-500/35 text-sm font-bold text-violet-300">ППК</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

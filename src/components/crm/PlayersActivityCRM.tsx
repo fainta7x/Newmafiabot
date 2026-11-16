@@ -6,8 +6,10 @@ import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import { PlayersCRM } from './PlayersCRM.tsx';
 import { FitText } from '../ui/FitText.tsx';
+import { LeadsPanel } from './LeadsPanel.tsx';
+import { getJsonIfOk } from '../../lib/requestJson.ts';
 
-type QuickFilter = PlayerStatusSegment | 'all';
+type QuickFilter = 'leads' | PlayerStatusSegment | 'all';
 type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
 type ProfileFilter = '' | 'incomplete' | 'missing_avatar' | 'missing_birthday' | 'missing_contact';
 type Completeness = { percentage: number; complete: boolean; missing_fields: string[]; fields: Record<string, { label: string; state: string }> };
@@ -15,6 +17,8 @@ type Birthday = { id: string; nickname: string; days_until: number; birth_day: n
 
 // Tabs = the organizer's own statuses from «Роли» (owner, 2026-09-30); «Вся база» last.
 const QUICK_FILTERS: Array<{ id: QuickFilter; label: string; caption: string }> = [
+  // «Лиды» first (owner, 2026-11-16): people who are not club players yet; they appear in the other tabs once made a player.
+  { id: 'leads', label: 'Лиды', caption: 'ещё не игроки клуба' },
   { id: 'regular', label: 'Постоянные', caption: 'ходят постоянно' }, { id: 'sometimes', label: 'Иногда', caption: 'ходят иногда' }, { id: 'other_city', label: 'Другие города', caption: 'из других городов' },
   { id: 'novice', label: 'Новички', caption: 'уровень «Новичок»' },
   { id: 'stopped', label: 'Перестали', caption: 'перестали ходить' }, { id: 'all', label: 'Вся база', caption: 'все записи' },
@@ -48,6 +52,16 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   const [profileFilter, setProfileFilter] = useState<ProfileFilter>('');
   const [localPlayerId, setLocalPlayerId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Leads not made players yet stay out of the club tabs (a search still finds them).
+  const [leadIds, setLeadIds] = useState<Set<string>>(new Set());
+  const [leadCount, setLeadCount] = useState(0);
+  const loadLeadIds = useCallback(async () => {
+    const body = await getJsonIfOk<{ leads?: Array<{ player_id: string; status: string }> }>('/api/crm/leads', { cache: 'no-store' }).catch(() => null);
+    const leads = Array.isArray(body?.leads) ? body!.leads : [];
+    setLeadIds(new Set(leads.filter((lead) => lead.status !== 'converted').map((lead) => String(lead.player_id))));
+    setLeadCount(leads.filter((lead) => lead.status === 'active').length);
+  }, []);
+  useEffect(() => { void loadLeadIds(); }, [loadLeadIds]);
   const [newNickname, setNewNickname] = useState(''); const [newFullName, setNewFullName] = useState(''); const [newPhone, setNewPhone] = useState(''); const [newTgUsername, setNewTgUsername] = useState('');
   const [addSaving, setAddSaving] = useState(false); const [addError, setAddError] = useState<string | null>(null);
   const requestSeq = useRef(0);
@@ -104,13 +118,18 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   useEffect(() => { void loadPlayers(); }, [loadPlayers]);
 
   const segmentCounts = useMemo(() => {
-    const counts: Record<QuickFilter, number> = { regular: 0, sometimes: 0, other_city: 0, novice: 0, stopped: 0, all: players.length };
-    for (const player of players) if (isClubPlayer(player)) counts[getPlayerStatusSegment(player)] += 1;
+    const counts: Record<QuickFilter, number> = { leads: leadCount, regular: 0, sometimes: 0, other_city: 0, novice: 0, stopped: 0, all: 0 };
+    for (const player of players) {
+      if (leadIds.has(String(player.id))) continue;
+      counts.all += 1;
+      if (isClubPlayer(player)) counts[getPlayerStatusSegment(player)] += 1;
+    }
     return counts;
-  }, [players]);
+  }, [players, leadIds, leadCount]);
 
   const filteredPlayers = useMemo(() => players.filter((player) => {
     // A search looks through the whole base, whatever tab is open.
+    if (!debouncedSearch && leadIds.has(String(player.id))) return false;
     if (!debouncedSearch && activeQuickFilter !== 'all' && (!isClubPlayer(player) || getPlayerStatusSegment(player) !== activeQuickFilter)) return false;
     const completion = profileMap[player.id];
     if (!profileFilter) return true;
@@ -120,7 +139,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
     if (profileFilter === 'missing_birthday') return completion.missing_fields.includes('birthday');
     if (profileFilter === 'missing_contact') return completion.missing_fields.includes('phone') && completion.missing_fields.includes('telegram');
     return true;
-  }), [activeQuickFilter, debouncedSearch, players, profileFilter, profileMap]);
+  }), [activeQuickFilter, debouncedSearch, players, profileFilter, profileMap, leadIds]);
 
   const selectedCardPlayerId = selectedPlayerId || localPlayerId;
   const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(advancedSegment)) + Number(Boolean(profileFilter));
@@ -140,15 +159,16 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
 
   return (
     <div className="min-w-0 space-y-3.5 sm:space-y-4">
-      <div className="flex items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2><p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : profileFilterUnavailable ? (profileSummaryState === 'loading' ? 'Проверяем заполненность профилей…' : 'Не удалось проверить заполненность профилей') : `${filteredPlayers.length} человек · ${segmentCaption}`}</p></div><button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button></div>
+      <div className="flex items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2><p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : profileFilterUnavailable ? (profileSummaryState === 'loading' ? 'Проверяем заполненность профилей…' : 'Не удалось проверить заполненность профилей') : (activeQuickFilter === 'leads' && !debouncedSearch ? `Лидов: ${leadCount} · ${segmentCaption}` : `${filteredPlayers.length} человек · ${segmentCaption}`)}</p></div>{activeQuickFilter === 'leads' && !debouncedSearch ? null : <button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button>}</div>
 
       {birthdays.length ? <section data-testid="crm-upcoming-birthdays" className="rounded-[16px] border border-warning/20 bg-warning-soft p-3"><div className="flex items-center gap-2 text-[12px] font-semibold text-warning"><Cake className="h-4 w-4" /> Ближайшие дни рождения</div><div className="mt-2 flex flex-wrap gap-1.5">{birthdays.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={() => setLocalPlayerId(item.id)} className="min-h-[36px] rounded-full bg-black/10 px-3 text-[11px] font-semibold text-text-primary">{item.nickname} · {item.days_until === 0 ? 'сегодня' : `${item.days_until} дн.`}</button>)}</div></section> : null}
 
       <div className="flex gap-2"><label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label><button type="button" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${activeFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" />{activeFilterCount ? <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">{activeFilterCount}</span> : null}</button></div>
 
-      <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item) => { const isActive = !debouncedSearch && activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} aria-label={item.label} onClick={() => handleQuickFilterChange(item.id)} className={`col-span-2 min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}{loading ? null : <span className="ml-1 text-text-muted">{segmentCounts[item.id]}</span>}</button>; })}</div>
-      <p className="-mt-1 px-0.5 text-[11px] leading-4 text-text-muted">Вкладки — по статусам, которые вы ставите в карточке игрока. Визит — отметка «пришёл» или место за столом в игре. Зелёные TG и VK — игрок вошёл через бота или VK.</p>
+      <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item) => { const isActive = !debouncedSearch && activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} aria-label={item.label} onClick={() => handleQuickFilterChange(item.id)} className={`${item.id === 'leads' ? 'col-span-6' : 'col-span-2'} min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}{loading ? null : <span className="ml-1 text-text-muted">{segmentCounts[item.id]}</span>}</button>; })}</div>
+      {activeQuickFilter === 'leads' && !debouncedSearch ? null : <p className="-mt-1 px-0.5 text-[11px] leading-4 text-text-muted">Вкладки — по статусам, которые вы ставите в карточке игрока. Визит — отметка «пришёл» или место за столом в игре. Зелёные TG и VK — игрок вошёл через бота или VK.</p>}
 
+      {activeQuickFilter === 'leads' && !debouncedSearch ? <LeadsPanel onCountChange={setLeadCount} onChanged={() => { void loadLeadIds(); void loadPlayers(true); onCrmChanged?.(); }} /> : <>
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
       {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : listError && !players.length ? null : profileFilterUnavailable ? (
         <div data-testid="crm-profile-filter-unavailable" className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
@@ -171,6 +191,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
           })}
         </div>
       )}
+      </>}
 
       <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" widthClass="sm:max-w-md"><div className="space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Заполненность профиля</span><select value={profileFilter} onChange={(event) => setProfileFilter(event.target.value as ProfileFilter)} className="mobile-field"><option value="">Все профили</option><option value="incomplete">Незаполненные</option><option value="missing_avatar">Без аватара</option><option value="missing_birthday">Без дня рождения</option><option value="missing_contact">Нет контактов</option></select></label>

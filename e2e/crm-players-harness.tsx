@@ -140,6 +140,18 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     ] });
     return reply({ ok: true });
   }
+  // «Лиды» (owner, 2026-11-16): three leads at different stages and one open novice evening.
+  if (url.pathname === '/api/crm/leads' && method === 'GET') {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    const lead = (id: string, nickname: string, extra: Record<string, unknown>) => ({ player_id: id, nickname, contact_kind: 'vk', contact_value: `https://vk.com/${id}`, source: 'vk', source_label: 'Пост ВКонтакте',
+      referred_by: null, added_by: 'crm', created_at: new Date(Date.now() - 2 * 3_600_000).toISOString(), status: 'active', recall_count: 0, evening: null, stage: 'new', last_visit_at: null, message: `Привет, ${nickname}!`, ...extra });
+    return new Response(JSON.stringify({ evenings: [{ id: 'novice-1', starts_at: soon, title: 'Вечер новичков' }], leads: [
+      lead('ivan_k', 'Иван', { evening: { id: 'novice-1', starts_at: soon }, stage: 'booked' }),
+      lead('marina_s', 'Марина Длиннофамильная', { contact_kind: 'telegram', contact_value: '@marina_s', source: 'site', source_label: 'Сайт', stage: 'written' }),
+      lead('oleg', 'Олег', { contact_kind: 'phone', contact_value: '+79101112233', source: 'friend', source_label: 'Привёл знакомый', referred_by: 'Богданчик', stage: 'came', last_visit_at: new Date(Date.now() - 2 * 86_400_000).toISOString() }),
+      lead('anna', 'Анна', { status: 'recall', recall_count: 1 }),
+    ] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
   if (url.pathname.includes('/tokens')) {
     return new Response(JSON.stringify({ player_id: url.pathname.split('/')[3] || 'bogdan', balance: 120, ledger: { items: [], total: 0, limit: 5, offset: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }

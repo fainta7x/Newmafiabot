@@ -521,6 +521,7 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 
 ## Newcomer funnel and welcome page
 - Public page: `src/components/public/WelcomePage.tsx` (route `/welcome`, `?src=vk|telegram|friend`, `?ref=`); API `src/server/routes/welcomeRoutes.ts` under `/api/public/welcome*`.
+- «Лиды» tab of «Игроки» (owner, 2026-11-16): `src/components/crm/LeadsPanel.tsx` inside `PlayersActivityCRM.tsx` (tab `leads`); API `GET/POST /api/crm/leads`, `/api/crm/leads/:id/{status,book,written}` in `crmRoutes.ts`; statuses, «Позвать снова» and auto-archive in `newcomerFunnelService.ts` (`listLeads`, `setLeadStatus`, `bookLead`, `loadLeadsToRecall`, `markLeadRecalled`), «Дела» item `leadRecallItems` in `organizerAgendaService.ts`; tests `leadsTab.test.ts`, audit `e2e/tests/leads-tab-audit.spec.mjs`.
 - Leads and funnel: `src/server/services/newcomerFunnelService.ts`; organizer funnel `GET /api/novice/funnel` (`noviceRoutes.ts`), card in `src/components/crm/NoviceDevelopmentCRM.tsx`.
 - Ready messages in «Дела»: `src/server/services/agendaMessageService.ts`, texts in `postTemplateService.ts` (keys `msg_*`), shown by `src/components/crm/OrganizerAgenda.tsx`.
 - Quick lead from the bot: `handlers/organizer_lead.py` (`/lead`), `bot_api.add_lead`, API `POST /api/bot/leads` (`botRoutes.ts`); organizer message about a self-registered lead: `src/server/services/leadNotificationService.ts`.

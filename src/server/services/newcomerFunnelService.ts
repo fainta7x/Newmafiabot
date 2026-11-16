@@ -13,9 +13,9 @@ import { PLAYER_VISITS_SQL } from './playerVisitsService.ts';
  * read from the data the club already has, so nothing is entered by hand.
  */
 export type LeadContactKind = 'telegram' | 'vk' | 'phone';
-export const LEAD_SOURCES = ['vk', 'telegram', 'friend', 'other'] as const;
+export const LEAD_SOURCES = ['vk', 'telegram', 'site', 'friend', 'other'] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
-export const LEAD_SOURCE_LABELS: Record<string, string> = { vk: 'Пост ВКонтакте', telegram: 'Пост в Telegram', friend: 'Привёл знакомый', other: 'Другое', unknown: 'Неизвестно' };
+export const LEAD_SOURCE_LABELS: Record<string, string> = { vk: 'Пост ВКонтакте', telegram: 'Пост в Telegram', site: 'Сайт', friend: 'Привёл знакомый', other: 'Другое', unknown: 'Неизвестно' };
 
 const ensure = oncePerDatabase(async (db: DatabaseWrapper) => {
   await db.run(`CREATE TABLE IF NOT EXISTS newcomer_funnel_events (
@@ -28,6 +28,11 @@ const ensure = oncePerDatabase(async (db: DatabaseWrapper) => {
   // The evening the person picked on the site (owner, 2026-11-12: «выбираешь день, время, оставляешь контакты»).
   const columns = await db.all<{ name: string }>('PRAGMA table_info(newcomer_leads)');
   if (!columns.some((column) => column.name === 'evening_id')) await db.run('ALTER TABLE newcomer_leads ADD COLUMN evening_id TEXT');
+  // The «Лиды» tab (owner, 2026-11-16): a lead is active, «Позвать снова» (invited again before each next novice evening, archived by itself
+  // after two invitations without a sign-up), archived, or made a player by hand. `added_by` tells a lead typed in the CRM from the site / bot.
+  for (const [name, type] of [['status', "TEXT NOT NULL DEFAULT 'active'"], ['recall_count', 'INTEGER NOT NULL DEFAULT 0'], ['recall_evening_id', 'TEXT'], ['status_changed_at', 'TEXT'], ['added_by', 'TEXT']] as const) {
+    if (!columns.some((column) => column.name === name)) await db.run(`ALTER TABLE newcomer_leads ADD COLUMN ${name} ${type}`);
+  }
 });
 
 /** The id of an open novice evening, or null: a stale or made-up id from the page is ignored, never an error for the guest. */
@@ -125,7 +130,7 @@ export function normalizeLeadContact(kindRaw: unknown, valueRaw: unknown): { kin
  * The contact-only path of the welcome page. The same contact never creates a second lead. The new player starts as a novice
  * (game_level novice, club stage NEW) like everyone who comes in, and appears in the organizer's «Дела» with a ready message.
  */
-export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unknown; contactKind: unknown; contactValue: unknown; source?: unknown; referredBy?: unknown; eveningId?: unknown }, now = new Date()) {
+export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unknown; contactKind: unknown; contactValue: unknown; source?: unknown; referredBy?: unknown; eveningId?: unknown; addedBy?: 'site' | 'bot' | 'crm' }, now = new Date()) {
   await ensure(db);
   const name = clean(input.name, 40);
   if (name.length < 2) throw new LeadError('Напишите, как к вам обращаться');
@@ -141,7 +146,7 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
     const bookedEvening = before?.evening_id ?? null;
     if (bookedEvening === eveningId) return { playerId, created: false, booked: true, alreadyBooked: true };
     if (bookedEvening) return { playerId, created: false, booked: false, alreadyBooked: true };
-    await db.run('UPDATE newcomer_leads SET evening_id = ? WHERE player_id = ?', [eveningId, playerId]);
+    await db.run("UPDATE newcomer_leads SET evening_id = ?, status = 'active', recall_count = 0, recall_evening_id = NULL WHERE player_id = ? AND status <> 'converted'", [eveningId, playerId]);
     return { playerId, created: false, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
   }
 
@@ -158,8 +163,8 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
        VALUES (?, ?, 'newcomer', 'welcome_page', 'novice', 'NEW', 1000, 0, ?, ?, ?, ?, ?)`,
       [playerId, nickname, referredBy, contact.kind === 'phone' ? contact.value : null, contact.kind === 'telegram' ? contact.value : null, stamp, stamp],
     );
-    await tx.run('INSERT INTO newcomer_leads (player_id, contact_kind, contact_value, source, referred_by, created_at, evening_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [playerId, contact.kind, contact.value, source, referredBy, stamp, eveningId]);
+    await tx.run('INSERT INTO newcomer_leads (player_id, contact_kind, contact_value, source, referred_by, created_at, evening_id, added_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [playerId, contact.kind, contact.value, source, referredBy, stamp, eveningId, input.addedBy || 'site']);
     await tx.run('INSERT OR IGNORE INTO newcomer_funnel_events (id, visitor_id, step, source, day, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [randomUUID(), `lead-${playerId}`, 'contact_left', source, dayOf(now), stamp]);
   });
@@ -208,7 +213,7 @@ export async function loadLeadsToContact(db: DatabaseWrapper) {
   return db.all<{ player_id: string; nickname: string; contact_kind: LeadContactKind; contact_value: string; source: string | null; created_at: string }>(
     `SELECT l.player_id, p.nickname, l.contact_kind, l.contact_value, l.source, l.created_at
        FROM newcomer_leads l JOIN players p ON p.id = l.player_id
-      WHERE l.first_contact_at IS NULL AND COALESCE(p.lifecycle_status, '') NOT IN ('archived', 'merged', 'blocked')
+      WHERE l.first_contact_at IS NULL AND COALESCE(l.status, 'active') = 'active' AND COALESCE(p.lifecycle_status, '') NOT IN ('archived', 'merged', 'blocked')
       ORDER BY l.created_at ASC LIMIT 50`);
 }
 
@@ -225,4 +230,131 @@ export function detectLeadContactKind(raw: unknown): LeadContactKind | null {
   if (text.replace(/\D/g, '').length >= 10) return 'phone';
   if (/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(text)) return 'telegram';
   return null;
+}
+
+
+/* ------------------------------------------------------------------------------------------------------------------------------
+ * The «Лиды» tab of «Игроки» (owner, 2026-11-16, agreed with mock-ups): every lead — from the site, the bot or typed in the CRM — in one
+ * list. The stage is read from what already happens (written to, booked, came); «Позвать снова», the archive and «Сделать игроком» are
+ * the organizer's buttons. A lead is booked only on a novice evening.
+ * ------------------------------------------------------------------------------------------------------------------------------ */
+export type LeadStatus = 'active' | 'recall' | 'archived' | 'converted';
+export const LEAD_RECALL_LIMIT = 2;
+
+export async function listLeads(db: DatabaseWrapper) {
+  await ensure(db);
+  await archiveExhaustedRecalls(db);
+  const rows = await db.all<any>(`
+    SELECT l.player_id, p.nickname, l.contact_kind, l.contact_value, l.source, l.referred_by, l.created_at, l.first_contact_at,
+           COALESCE(l.status, 'active') AS status, COALESCE(l.recall_count, 0) AS recall_count, l.added_by, l.status_changed_at,
+           e.id AS evening_id, e.starts_at AS evening_starts_at,
+           (SELECT COUNT(*) FROM (${PLAYER_VISITS_SQL}) v WHERE v.player_id = CAST(p.id AS TEXT)) AS visits,
+           (SELECT MAX(ge.starts_at) FROM evening_participants ep JOIN game_evenings ge ON ge.id = ep.evening_id
+             WHERE ep.player_id = p.id AND COALESCE(ep.attendance_status, 'pending') = 'attended') AS last_visit_at
+      FROM newcomer_leads l
+      JOIN players p ON p.id = l.player_id
+      LEFT JOIN game_evenings e ON e.id = l.evening_id AND ${openEveningSql('e')}
+     WHERE COALESCE(p.lifecycle_status, '') NOT IN ('merged')
+     ORDER BY l.created_at DESC`);
+  return rows.map((row) => ({
+    player_id: String(row.player_id), nickname: String(row.nickname || ''), contact_kind: row.contact_kind as LeadContactKind, contact_value: String(row.contact_value),
+    source: row.source as string | null, source_label: row.source ? (LEAD_SOURCE_LABELS[row.source] || null) : null, referred_by: row.referred_by as string | null,
+    added_by: (row.added_by || 'site') as string, created_at: String(row.created_at), status: row.status as LeadStatus, recall_count: Number(row.recall_count || 0),
+    evening: row.evening_id ? { id: String(row.evening_id), starts_at: String(row.evening_starts_at) } : null,
+    // The stage shown on the card: what already happened, not something the organizer ticks.
+    stage: Number(row.visits) > 0 ? 'came' : row.evening_id ? 'booked' : row.first_contact_at ? 'written' : 'new',
+    last_visit_at: row.last_visit_at as string | null,
+  }));
+}
+
+/** The open novice evenings a lead can be booked on, nearest first. */
+export async function noviceEveningsForLeads(db: DatabaseWrapper) {
+  return db.all<{ id: string; starts_at: string; title: string }>(
+    `SELECT id, starts_at, title FROM game_evenings WHERE UPPER(COALESCE(format, '')) = 'NOVICE' AND ${openEveningSql()}
+       AND datetime(starts_at) >= datetime('now', '-3 hours') ORDER BY datetime(starts_at) LIMIT 4`);
+}
+
+async function leadRow(db: DatabaseWrapper, playerIdRaw: unknown) {
+  await ensure(db);
+  const playerId = String(playerIdRaw || '').trim();
+  const lead = playerId ? await db.get<{ player_id: string; evening_id: string | null; status: string }>("SELECT player_id, evening_id, COALESCE(status, 'active') AS status FROM newcomer_leads WHERE player_id = ?", [playerId]) : null;
+  if (!lead) throw new LeadError('Такого лида нет', 404);
+  return lead;
+}
+
+/** «Записать» / another evening: the lead's own seat moves to this novice evening; a lead who was in «Позвать снова» is active again. */
+export async function bookLead(db: DatabaseWrapper, playerIdRaw: unknown, eveningIdRaw: unknown) {
+  const lead = await leadRow(db, playerIdRaw);
+  const eveningId = await openNoviceEveningId(db, eveningIdRaw);
+  if (!eveningId) throw new LeadError('Лида записываем только на открытый вечер новичков');
+  const booked = await bookLeadSeats(db, lead.player_id, eveningId, lead.evening_id);
+  await db.run("UPDATE newcomer_leads SET evening_id = ?, status = 'active', recall_count = 0, recall_evening_id = NULL, status_changed_at = ? WHERE player_id = ?",
+    [eveningId, new Date().toISOString(), lead.player_id]);
+  return { booked };
+}
+
+/**
+ * «Позвать снова», «В архив», «Вернуть», «Сделать игроком». A lead put off or archived loses the seat he had not used; a lead made a
+ * player keeps everything and leaves the tab (he is in «Игроки» from now on).
+ */
+export async function setLeadStatus(db: DatabaseWrapper, playerIdRaw: unknown, statusRaw: unknown, now = new Date()) {
+  const lead = await leadRow(db, playerIdRaw);
+  const status = String(statusRaw) as LeadStatus;
+  if (!['active', 'recall', 'archived', 'converted'].includes(status)) throw new LeadError('Неизвестный статус');
+  if ((status === 'recall' || status === 'archived') && lead.evening_id) {
+    const used = await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM evening_participants WHERE player_id = ? AND evening_id = ? AND COALESCE(attendance_status, 'pending') <> 'pending'", [lead.player_id, lead.evening_id]);
+    if (!Number(used?.n || 0)) await replacePlayerSlotSelection(db, String(lead.evening_id), lead.player_id, [], { notifyOrganizer: false, source: 'lead_status' }).catch(() => null);
+  }
+  const keepEvening = status === 'active' || status === 'converted';
+  await db.run(`UPDATE newcomer_leads SET status = ?, status_changed_at = ?, recall_count = CASE WHEN ? = 'recall' THEN 0 ELSE recall_count END,
+                  recall_evening_id = CASE WHEN ? = 'recall' THEN NULL ELSE recall_evening_id END${keepEvening ? '' : ', evening_id = NULL'} WHERE player_id = ?`,
+    [status, now.toISOString(), status, status, lead.player_id]);
+  return { status };
+}
+
+/** «Написал» on the card: the same mark «Дела» makes. */
+export async function markLeadWritten(db: DatabaseWrapper, playerIdRaw: unknown) {
+  const lead = await leadRow(db, playerIdRaw);
+  await markLeadContacted(db, lead.player_id);
+  return { written: true };
+}
+
+/** The novice evening the «Позвать снова» leads are invited to now: the nearest open one. */
+async function nextNoviceEvening(db: DatabaseWrapper) {
+  return (await noviceEveningsForLeads(db))[0] ?? null;
+}
+
+/**
+ * Two invitations without a sign-up and the lead goes to the archive by itself (owner, 2026-11-16: «после 2»). Counted when the next
+ * evening to invite to is not the one he was last invited to: his last invitation had its chance.
+ */
+async function archiveExhaustedRecalls(db: DatabaseWrapper) {
+  const next = await nextNoviceEvening(db).catch(() => null);
+  await db.run(`UPDATE newcomer_leads SET status = 'archived', status_changed_at = ?
+                 WHERE COALESCE(status, 'active') = 'recall' AND COALESCE(recall_count, 0) >= ? AND COALESCE(recall_evening_id, '') <> ?`,
+    [new Date().toISOString(), LEAD_RECALL_LIMIT, next?.id ?? '']);
+}
+
+/** «Позвать снова» leads to invite to the next novice evening (for «Дела»): not invited to it yet. */
+export async function loadLeadsToRecall(db: DatabaseWrapper) {
+  await ensure(db);
+  await archiveExhaustedRecalls(db);
+  const evening = await nextNoviceEvening(db);
+  if (!evening) return { evening: null, leads: [] as Array<{ player_id: string; nickname: string; contact_kind: LeadContactKind; contact_value: string; recall_count: number }> };
+  const leads = await db.all<{ player_id: string; nickname: string; contact_kind: LeadContactKind; contact_value: string; recall_count: number }>(
+    `SELECT l.player_id, p.nickname, l.contact_kind, l.contact_value, COALESCE(l.recall_count, 0) AS recall_count
+       FROM newcomer_leads l JOIN players p ON p.id = l.player_id
+      WHERE COALESCE(l.status, 'active') = 'recall' AND COALESCE(l.recall_evening_id, '') <> ?
+        AND COALESCE(p.lifecycle_status, '') NOT IN ('archived', 'merged', 'blocked')
+      ORDER BY l.status_changed_at ASC LIMIT 50`, [evening.id]);
+  return { evening, leads };
+}
+
+/** «Написал» on a «Позвать снова» item: one more invitation, to this evening. */
+export async function markLeadRecalled(db: DatabaseWrapper, playerId: string) {
+  await ensure(db);
+  const evening = await nextNoviceEvening(db);
+  if (!evening) return;
+  await db.run(`UPDATE newcomer_leads SET recall_count = COALESCE(recall_count, 0) + 1, recall_evening_id = ?
+                 WHERE player_id = ? AND COALESCE(status, 'active') = 'recall' AND COALESCE(recall_evening_id, '') <> ?`, [evening.id, playerId, evening.id]);
 }

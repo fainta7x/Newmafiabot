@@ -376,7 +376,9 @@ Open work, in order:
 
 9. **Open question (owner, 2026-11-11):** «Резерв клуба» on «Управление ставками» — per game it is the bank minus the payouts to winners (`bettingPoolService.ts`: `reserve = totalPool − totalPayout`), shown summed over all games; the owner does not know what it is for: keep, rename or remove.
 
-10. **Next (owner, 2026-11-16): make adding leads to the app simpler** — «сейчас это всё ещё неудобно»; audit the current lead path first and agree the plan with the owner (relates to item 8b).
+10. **Leads (owner, 2026-11-16): built** — the «Лиды» tab of «Игроки» (rules in `docs/BUSINESS_RULES.md`); refine after the owner uses it.
+
+11. **Next (owner, 2026-11-16): Elo for the opinion of the player voted out** — the voting will is recorded like the death protocol but earns no Elo; make it count like the death protocol.
 
 New product work is started only after the owner's «да» (AGENTS §4).
 

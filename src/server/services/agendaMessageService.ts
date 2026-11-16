@@ -10,10 +10,10 @@ import type { AgendaItem } from './organizerAgendaService.ts';
  * it and opens the chat. The wording is the club's own template (CRM «Текст постов»); the evening is the nearest open one that fits the person.
  */
 const KEY_OF: Record<string, AgendaMessageKey> = {
-  lead: 'msg_lead', novice_feedback: 'msg_novice_feedback', absent_regular: 'msg_absent_regular', absent_sometimes: 'msg_absent_sometimes',
+  lead: 'msg_lead', lead_recall: 'msg_lead', novice_feedback: 'msg_novice_feedback', absent_regular: 'msg_absent_regular', absent_sometimes: 'msg_absent_sometimes',
   stopped: 'msg_stopped', profile: 'msg_profile', fill: 'msg_fill', thinking: 'msg_thinking',
 };
-const NOVICE_REASONS = new Set(['lead', 'novice_feedback']);
+const NOVICE_REASONS = new Set(['lead', 'lead_recall', 'novice_feedback']);
 
 export const whenLabel = (startsAt: string) => {
   const date = new Date(startsAt);
@@ -61,7 +61,7 @@ export async function withAgendaMessages(db: DatabaseWrapper, items: AgendaItem[
       const personKey: AgendaMessageKey = reason === 'lead' && pickedByPerson.has(String(person.player_id)) ? 'msg_lead_booked' : key;
       const template = cache.get(personKey) ?? await loadPostTemplate(db, personKey);
       cache.set(personKey, template);
-      const link = reason === 'profile' ? `${base}/player` : reason === 'lead' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : own ? `${base}/e/${encodeURIComponent(eveningShortCode(own.id))}` : `${base}/player`;
+      const link = reason === 'profile' ? `${base}/player` : reason === 'lead' || reason === 'lead_recall' ? (welcomeSiteLink('friend') ?? `${base}/welcome`) : own ? `${base}/e/${encodeURIComponent(eveningShortCode(own.id))}` : `${base}/player`;
       return { ...person, message: renderPostTemplate(template, {
         'имя': person.nickname, 'когда': own ? whenLabel(own.starts_at) : 'скоро объявим дату', 'место': String(own?.venue || 'уточним в приглашении'), 'ссылка': link,
       }) };

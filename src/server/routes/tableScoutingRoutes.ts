@@ -37,7 +37,7 @@ const participantView = (row: any, playCount = 0) => ({
 });
 
 export const needsCurrentCommunicationAttention = (player: any) => (
-  Boolean(player?.eligible_now) && player?.attention_status !== 'answered'
+  Boolean(player?.eligible_now) && player?.attention_status !== 'answered' && player?.attention_status !== 'not_published'
 );
 
 router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {

@@ -378,7 +378,7 @@ Open work, in order:
 
 10. **Leads (owner, 2026-11-16): built** — the «Лиды» tab of «Игроки» (rules in `docs/BUSINESS_RULES.md`); refine after the owner uses it.
 
-11. **Next (owner, 2026-11-16): Elo for the opinion of the player voted out** — the voting will is recorded like the death protocol but earns no Elo; make it count like the death protocol.
+11. **Built (PR #1278): Elo for the opinion of the player voted out** — counts like the death protocol (owner, 2026-11-16; BUSINESS_RULES).
 
 New product work is started only after the owner's «да» (AGENTS §4).
 
@@ -401,6 +401,8 @@ Needs an answer or content from the owner before anything is built:
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 
 ### Player-facing changes not yet announced
+
+- 2026-11-16: мнение заголосованного игрока теперь учитывается в Эло так же, как протокол убитого.
 
 - 2026-11-15: итоги вечера теперь выходят и в теме «Новости» основной группы (вечер новичков — «История» в группе новичков), и во входном канале.
 

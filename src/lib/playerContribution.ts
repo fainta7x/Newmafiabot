@@ -222,10 +222,13 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       .flatMap((entry) => seatList(entry?.seat_numbers)).filter((seat) => mentioned.has(seat)));
     return [item.seat, { red: marks('red'), sheriff: marks('sheriff'), black: marks('black'), mentioned, conflicts }] as const;
   }));
+  // The moment of a will: the night kill (death protocol) or, owner 2026-11-16, the day vote that took out a player whose opinion
+  // («мнение заголосованного») was recorded — it counts like the death protocol.
+  const hasWill = (seat: number) => (colorsBySeat.get(seat)?.mentioned.size ?? 0) > 0;
   const deaths = new Map<number, typeof facts.events[number]>();
   for (const event of facts.events) {
     if (!event.seat) continue;
-    if (event.kind === 'exit' && event.value === 'killed') deaths.set(event.seat, event);
+    if (event.kind === 'exit' && (event.value === 'killed' || (event.value === 'voted_day' && hasWill(event.seat)))) deaths.set(event.seat, event);
     else if (event.kind === 'restored') deaths.delete(event.seat);
   }
   const killedEvent = (seat: number) => deaths.get(seat);
@@ -533,7 +536,7 @@ export function gameContribution(envelope: any, mode: 'club' | 'wills' = 'club')
       }
       for (const other of seats.filter((item) => redRole(item.role) && item.colors.length)) {
         const colors = colorsBySeat.get(other.seat)!;
-        if ((other.exitType !== 'killed' && !killedEvent(other.seat)) || !colors.mentioned.size
+        if ((other.exitType !== 'killed' && other.exitType !== 'voted_day' && !killedEvent(other.seat)) || !colors.mentioned.size
           || colors.conflicts.has(me.seat) || !wasAliveForWill(me, other)) continue;
         if (colors.red.has(me.seat) || colors.sheriff.has(me.seat)) items.push({ kind: 'named_red', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNamedRed });
         else if (colors.black.has(me.seat)) items.push({ kind: 'named_black', seat: other.seat, round: killedEvent(other.seat)?.round, points: W.blackNamedBlack });

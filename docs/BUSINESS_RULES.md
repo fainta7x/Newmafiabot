@@ -10,6 +10,8 @@ An evening's player may reserve an exact game, table, and seat as soon as they h
 
 ## Evening judge and default portraits (owner, 2026-10-30)
 
+**Judge of a game from the evening's list (owner, 2026-11-16: «чтобы ведущий игры выбирался из списка вечера (а то сейчас там можно любого выбрать)»; «когда я нажимаю «Иду» это значит я подтверждаю себя как участник вечера в роли ведущего»).** When a game is created, its judge is chosen only among the evening's people: who answered «Иду»/«Опоздаю» or came, the evening judge and the judges of its tables (a judge who is not a player of the club is still entered by name). The evening judge's «Иду» confirms him as the judge, never as a player.
+
 The person assigned as the evening judge («ведущий»/«судья вечера» refer to the same function here) remains visible in the evening roster and may retain their RSVP, but must not occupy a playing seat, be auto-seated, or count toward playable game-slot readiness. All profiles without a stored or repository avatar display the same neutral illustrated fallback; a real avatar takes precedence immediately when available.
 
 # 2LA Noire — Canonical Business Rules

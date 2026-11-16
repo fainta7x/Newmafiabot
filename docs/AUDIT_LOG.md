@@ -3110,3 +3110,8 @@ Owner report: Знак (last visit 16.10 by the owner's memory) and Каваса
 
 PT01 (rule changed by the owner, fixed): the owner's rule is «дороже только после 3 недель пропуска». The tier now follows the last visit before the evening (`clubPriceTierService.ts`), used by payments, the player's evening page and the bot's invitation. The closed evening 13.11 is repriced once (`repriceEvening20261113Once`). Tests: `clubPriceByActivity.test.ts`.
 
+## 2026-11-16 — судья игры не из вечера; судьи 13.11
+
+GJ01 (fixed): `EveningGameCreateSheet.tsx` offered every club player who may judge, not only the evening's people — «Точка», who had declined 13.11, was recorded as the judge of games 40 and 41. Now the list is the evening's people (answered «Иду»/«Опоздаю» or came), the evening judge and the table judges; e2e `evening-game-create-audit.spec.mjs` checks an outsider is not offered.
+GJ02 (fixed by the owner's decision): production read showed «Точка» only as `judge_name/judge_player_id` of games 40 and 41 of 13.11; Millourt played game 41 (Дон, seat 10), Насон played 37–40. Owner: game 40 — Millourt, game 41 — Насон. One-time `fixGameJudges20261113Once` (`gameJudgeFixes.ts`), test `gameJudgeFixes.test.ts`.
+

@@ -126,10 +126,17 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     roster.filter((participant) => String(participant.player_id || '').trim()).map((participant) => [String(participant.player_id), participant]),
   ), [roster]);
   const eligibleIds = useMemo(() => new Set(eligible.map((participant) => participant.id)), [eligible]);
+  // The judge of a game is chosen from the evening's own list (owner, 2026-11-16: «чтобы ведущий игры выбирался из списка
+  // вечера (а то сейчас там можно любого выбрать)»): who answered «Иду»/«Опоздаю» or came, the evening judge and the
+  // judges of its tables. A judge chosen earlier stays in the list so an open game never loses him.
+  const eveningPeopleIds = useMemo(() => new Set([
+    ...roster.filter((participant) => !participant.left_at && (isEveningGameEligible(participant) || ['going', 'late'].includes(String(participant.response_status || '')))).map((participant) => String(participant.player_id || '')),
+    eveningJudgeId, judgePlayerId, ...tables.map((table) => String(table.host_player_id || '')),
+  ].filter(Boolean)), [roster, eveningJudgeId, judgePlayerId, tables]);
   const judgePlayers = useMemo(() => crmPlayers
-    .filter((player) => playerCanJudgeFormat(player, evening.format))
+    .filter((player) => eveningPeopleIds.has(String(player.id)) && playerCanJudgeFormat(player, evening.format))
     .slice()
-    .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')), [crmPlayers, evening.format]);
+    .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')), [crmPlayers, evening.format, eveningPeopleIds]);
   const manualCandidates = useMemo(() => {
     const q = manualPlayerQuery.trim().toLocaleLowerCase('ru-RU');
     if (!q) return [];

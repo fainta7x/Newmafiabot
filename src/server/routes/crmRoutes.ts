@@ -22,7 +22,8 @@ import { dismissClubOrderItem, loadClubOrder } from '../services/clubOrderServic
 import { closeTasksOfEndedEvenings } from '../services/eveningCloseoutService.ts';
 import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { loadAgenda, recordAgendaContact, snoozeAgendaItem } from '../services/organizerAgendaService.ts';
-import { removeLead } from '../services/newcomerFunnelService.ts';
+import { LeadError, bookLead, createWelcomeLead, detectLeadContactKind, listLeads, markLeadWritten, noviceEveningsForLeads, removeLead, setLeadStatus } from '../services/newcomerFunnelService.ts';
+import { leadReadyMessage } from '../services/agendaMessageService.ts';
 
 const router = Router();
 
@@ -135,6 +136,49 @@ router.post('/agenda/contacted', requireOrganizerAuth, async (req: Authenticated
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отметить' });
   }
+});
+
+// «Лиды» in «Игроки» (owner, 2026-11-16): the list, the quick form, and the card buttons.
+const leadError = (res: Response, error: any, fallback: string) => res.status(error instanceof LeadError ? error.statusCode : error?.statusCode || 500).json({ error: error?.message || fallback });
+router.get('/leads', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const leads = await listLeads(db);
+    const messages = new Map<string, string>();
+    for (const lead of leads.filter((item) => item.status === 'active' || item.status === 'recall')) {
+      messages.set(lead.player_id, await leadReadyMessage(db, lead.nickname, lead.evening?.id ?? null).catch(() => ''));
+    }
+    res.set('Cache-Control', 'no-store');
+    return res.json({ leads: leads.map((lead) => ({ ...lead, message: messages.get(lead.player_id) || null })), evenings: await noviceEveningsForLeads(db) });
+  } catch (error: any) { return leadError(res, error, 'Не удалось загрузить лидов'); }
+});
+router.post('/leads', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const contact = String(req.body?.contact || '').trim();
+    const kind = detectLeadContactKind(contact);
+    if (!kind) throw new LeadError('Вставьте ссылку ВК, @ник в Telegram или телефон');
+    if (!String(req.body?.evening_id || '').trim() && req.body?.no_evening !== true) throw new LeadError('Выберите вечер новичков или «Пока никуда»');
+    let referredBy: string | null = null;
+    if (req.body?.referred_by_player_id) {
+      const inviter = await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ?', [String(req.body.referred_by_player_id)]);
+      referredBy = inviter?.nickname || null;
+    }
+    const lead = await createWelcomeLead(db, { name: req.body?.name, contactKind: kind, contactValue: contact, source: req.body?.source || (kind === 'vk' ? 'vk' : null), referredBy, eveningId: req.body?.no_evening === true ? null : req.body?.evening_id, addedBy: 'crm' });
+    return res.status(lead.created ? 201 : 200).json(lead);
+  } catch (error: any) { return leadError(res, error, 'Не удалось добавить лида'); }
+});
+router.post('/leads/:playerId/status', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try { return res.json(await setLeadStatus(req.db || (await getDb()), req.params.playerId, req.body?.status)); }
+  catch (error: any) { return leadError(res, error, 'Не удалось изменить статус'); }
+});
+router.post('/leads/:playerId/book', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try { return res.json(await bookLead(req.db || (await getDb()), req.params.playerId, req.body?.evening_id)); }
+  catch (error: any) { return leadError(res, error, 'Не удалось записать'); }
+});
+router.post('/leads/:playerId/written', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try { return res.json(await markLeadWritten(req.db || (await getDb()), req.params.playerId)); }
+  catch (error: any) { return leadError(res, error, 'Не удалось отметить'); }
 });
 
 router.post('/agenda/lead-remove', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {

@@ -1,4 +1,4 @@
-import { loadLeadsToContact, markLeadContacted } from './newcomerFunnelService.ts';
+import { loadLeadsToContact, loadLeadsToRecall, markLeadContacted, markLeadRecalled } from './newcomerFunnelService.ts';
 import { withAgendaMessages } from './agendaMessageService.ts';
 import {birthdayTaskTitle} from '../../shared/birthdayTask.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
@@ -58,7 +58,7 @@ export type AgendaItem = {
   can_complete?: boolean;
   dismiss_label?: string;
 };
-export type ContactReason = 'lead' | 'absent_regular' | 'absent_sometimes' | 'stopped' | 'profile' | 'novice_feedback' | 'fill' | 'thinking' | 'curator';
+export type ContactReason = 'lead' | 'lead_recall' | 'absent_regular' | 'absent_sometimes' | 'stopped' | 'profile' | 'novice_feedback' | 'fill' | 'thinking' | 'curator';
 
 export const AGENDA_GROUP_LABELS: Record<AgendaGroup, string> = {
   now: 'Срочно',
@@ -75,6 +75,8 @@ export const FILL_DAYS = 3;
 export const CURATOR_QUIET_DAYS = 14;
 const CONTACT_QUIET_DAYS: Record<ContactReason, number> = {
   lead: 365,
+  // Invited once per novice evening; the evening itself decides when he shows up again, not a quiet period.
+  lead_recall: 0,
   absent_regular: ABSENCE_DAYS.regular,
   absent_sometimes: ABSENCE_DAYS.sometimes,
   stopped: ABSENCE_DAYS.stopped,
@@ -240,6 +242,26 @@ async function leadItems(db: DatabaseWrapper): Promise<AgendaItem[]> {
     id: 'people:lead', group: 'now', kind: 'lead', title: `Новые лиды · ${people.length}`,
     why: 'Оставили контакт и ждут ответа. Текст готов: скопируйте и отправьте.',
     people, people_total: people.length, contact_reason: 'lead',
+  }];
+}
+
+/** «Позвать снова» (owner, 2026-11-16): before each next novice evening the put-off leads come back with an invitation to it. */
+async function leadRecallItems(db: DatabaseWrapper): Promise<AgendaItem[]> {
+  const { evening, leads } = await loadLeadsToRecall(db);
+  if (!evening || !leads.length) return [];
+  const people: AgendaPerson[] = leads.map((lead) => {
+    const how = lead.contact_kind === 'telegram' ? 'Telegram' : lead.contact_kind === 'vk' ? 'ВКонтакте' : 'телефон';
+    return {
+      player_id: String(lead.player_id), nickname: String(lead.nickname),
+      detail: `${how}: ${lead.contact_value.replace(/^https:\/\/vk\.com\//, 'vk.com/')} · ${lead.recall_count ? 'зовём второй раз' : 'зовём снова'}`,
+      telegram_url: lead.contact_kind === 'telegram' ? `https://t.me/${lead.contact_value.replace(/^@/, '')}` : null,
+      vk_url: lead.contact_kind === 'vk' ? lead.contact_value : null,
+    };
+  });
+  return [{
+    id: 'people:lead_recall', group: 'now', kind: 'lead_recall', title: `Позвать снова · ${people.length}`,
+    why: 'Лиды, у которых в прошлый раз сорвалось. Позовите на ближайший вечер новичков; после двух приглашений без записи лид уйдёт в архив.',
+    people, people_total: people.length, contact_reason: 'lead_recall',
   }];
 }
 
@@ -460,7 +482,7 @@ async function taskItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
 }
 
 const GROUP_ORDER: AgendaGroup[] = ['now', 'week', 'later'];
-const PEOPLE_RANK: Record<string, number> = { lead: 1, novice_feedback: 35, absent_regular: 40, absent_sometimes: 20, stopped: 25, profile: 10, curator: 5 };
+const PEOPLE_RANK: Record<string, number> = { lead: 1, lead_recall: 2, novice_feedback: 35, absent_regular: 40, absent_sometimes: 20, stopped: 25, profile: 10, curator: 5 };
 
 export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
   await ensureAgendaSchema(db);
@@ -484,6 +506,7 @@ export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
     novices: await safely('новички', async () => (await noviceFeedbackItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.novice_feedback }))),
     fill: await safely('добор на вечер', () => fillItems(db, nowMs)),
     leads: await safely('новые лиды', async () => (await leadItems(db)).map((item) => ({ ...item, rank: PEOPLE_RANK.lead }))),
+    leadRecalls: await safely('позвать снова', async () => (await leadRecallItems(db)).map((item) => ({ ...item, rank: PEOPLE_RANK.lead_recall }))),
     curators: await safely('кураторы', async () => (await curatorItems(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.curator }))),
   };
   const candidates: Array<AgendaItem & { rank: number }> = Object.values(sources).flat();
@@ -537,6 +560,7 @@ export async function snoozeAgendaItem(db: DatabaseWrapper, itemId: unknown, day
 
 const CONTACT_LABELS: Record<ContactReason, string> = {
   lead: 'написал новому лиду',
+  lead_recall: 'позвал лида снова на вечер новичков',
   absent_regular: 'позвал вернуться (давно не был)',
   absent_sometimes: 'позвал на вечер (приходит иногда)',
   stopped: 'позвал вернуться (перестал ходить)',
@@ -561,6 +585,7 @@ export async function recordAgendaContact(db: DatabaseWrapper, input: { playerId
     [`act_${crypto.randomUUID()}`, playerId, `agenda:${reason}`, `Организатор ${CONTACT_LABELS[reason]}`, now, now],
   );
   if (reason === 'lead') await markLeadContacted(db, playerId);
+  if (reason === 'lead_recall') await markLeadRecalled(db, playerId);
   if (reason === 'novice_feedback') {
     await db.run(
       `UPDATE organizer_tasks SET status = 'done', completed_at = ?, updated_at = ?

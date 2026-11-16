@@ -70,7 +70,7 @@ router.post('/leads', async (req, res) => {
     const kind = detectLeadContactKind(contactRaw);
     if (!kind) return res.status(400).json({ error: 'Не понял контакт: пришлите ник в Telegram (@ник), ссылку на ВК или телефон', code: 'bad_contact' });
     const source = ['vk', 'telegram', 'friend', 'other'].includes(String(req.body?.source)) ? String(req.body.source) : 'other';
-    const lead = await createWelcomeLead(req.db, { name: req.body?.name, contactKind: kind, contactValue: contactRaw, source });
+    const lead = await createWelcomeLead(req.db, { name: req.body?.name, contactKind: kind, contactValue: contactRaw, source, addedBy: 'bot' });
     const player = await req.db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ?', [lead.playerId]);
     const row = await req.db.get<{ contact_value: string; contact_kind: string }>('SELECT contact_value, contact_kind FROM newcomer_leads WHERE player_id = ?', [lead.playerId]);
     const base = getBaseUrlForLeads().replace(/\/+$/, '');

@@ -3104,6 +3104,12 @@ Owner: the digest of bot changes should come out once in 3 days but did not.
 
 ND01 (process, fixed): `botNewsPostService.ts:runBotChangesDigest` posts only entries of `src/server/data/botChangesDigest.ts` not sent yet. After the first digest (entries of 2026-11-10) nobody added new entries until 16.11, so there was nothing to post. Code works as designed. Now added: «Испорченный телефон» (#1282) and, chosen by the owner from a draft list, the voted-out opinion in Elo; the owner judged the other candidates («Вордли» keyboard, MVP on Saturday, results in «Новости») not interesting. Rule reminder: a fun player-facing change gets its digest line in the same PR.
 
+## 2026-11-16 — цена клубного вечера для «иногда» (Знак, Кавасаки)
+
+Owner report: Знак (last visit 16.10 by the owner's memory) and Кавасаки (came last week) paid 527 on 13.11. Production read (organizer GET only): both are «Ходит иногда»; 527 = the «иногда» cap 500 + 27 extension share; regulars paid 427. Visits before 13.11: Знак 16.10 and 23.10, Кавасаки 9.10 and 3.11 — fewer than 3 in 30 days, so the rule of 2026-11-11 priced them «иногда» correctly.
+
+PT01 (rule changed by the owner, fixed): the owner's rule is «дороже только после 3 недель пропуска». The tier now follows the last visit before the evening (`clubPriceTierService.ts`), used by payments, the player's evening page and the bot's invitation. The closed evening 13.11 is repriced once (`repriceEvening20261113Once`). Tests: `clubPriceByActivity.test.ts`.
+
 ## 2026-11-16 — судья игры не из вечера; судьи 13.11
 
 GJ01 (fixed): `EveningGameCreateSheet.tsx` offered every club player who may judge, not only the evening's people — «Точка», who had declined 13.11, was recorded as the judge of games 40 and 41. Now the list is the evening's people (answered «Иду»/«Опоздаю» or came), the evening judge and the table judges; e2e `evening-game-create-audit.spec.mjs` checks an outsider is not offered.

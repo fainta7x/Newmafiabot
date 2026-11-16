@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
+import { clubPriceTiers } from './clubPriceTierService.ts';
 import { DEFAULT_EVENING_PRICES, clubPriceTierOf, clubTierPrice, isClubPriceTier, type ClubPriceTier, type EveningPrices } from '../../lib/eveningPrices.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -30,7 +31,7 @@ export const calculateRegularEveningPlayedAmount = (gamesPlayed: number, policy:
 export { clubPriceTierOf };
 
 /** The tier is written on the participant while the evening is open and then stays: a closed account is never repriced by a later change of «как ходит». Evenings closed before this rule have no tier and stay at the regular price. */
-const ensurePriceTierColumn = async (db: DatabaseWrapper) => {
+export const ensurePriceTierColumn = async (db: DatabaseWrapper) => {
   const columns = await db.all<{ name: string }>('PRAGMA table_info(evening_participants)');
   if (!columns.some((column) => column.name === 'price_tier')) await db.run('ALTER TABLE evening_participants ADD COLUMN price_tier TEXT');
 };
@@ -329,10 +330,12 @@ async function reconcileRegularEveningPaymentsInTransaction(
     `SELECT p.id, ${playerSelect}, ep.id AS participant_id, ep.price_tier
        FROM evening_participants ep JOIN players p ON p.id = ep.player_id WHERE ep.evening_id = ?`, [eveningId]);
   const tierByParticipant = new Map<string, ClubPriceTier>();
+  const known = playerColumns.has('club_role');
+  // While the evening is open the tier follows the last visit before it (owner, 2026-11-16); a closed evening keeps what it had.
+  const openTiers = !closedNow && known ? await clubPriceTiers(db, playerRows, String(evening.starts_at || new Date().toISOString()), eveningId) : new Map<string, ClubPriceTier>();
   for (const row of playerRows) {
     const stored = isClubPriceTier(row.price_tier) ? row.price_tier : null;
-    const known = playerColumns.has('club_role');
-    tierByParticipant.set(String(row.participant_id), stored ?? (closedNow || !known ? 'regular' : clubPriceTierOf(row)));
+    tierByParticipant.set(String(row.participant_id), closedNow ? (stored ?? 'regular') : !known ? 'regular' : (openTiers.get(String(row.id)) ?? clubPriceTierOf(row)));
   }
 
   const hasStaffAssignments = await tableExists(db, 'evening_staff_assignments');

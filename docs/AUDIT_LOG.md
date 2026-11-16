@@ -3097,3 +3097,10 @@ VO01 (fixed): `src/lib/playerContribution.ts` — only `killed` exits counted as
 Owner report (screenshot of «Требует уточнения» on the CRM home): before the novice evening was published it listed «Алоэ: Анонс не отправлен · Дина: … · Диссонанс: …».
 
 DA01 (fixed): `eveningAnnouncementTrackingService.ts:loadAnnouncementOverview` marked every eligible player of a **draft** evening as `not_sent`, and `tableScoutingRoutes.ts:needsCurrentCommunicationAttention` put them into «Требует уточнения». A draft is not announced yet, so this is no problem. Now a draft gives `not_published` (left out of the attention list) and `summary.not_sent` counts only published evenings. Regression: `commandCenterCommunicationAttention.test.ts`.
+
+## 2026-11-16 — «Что нового» не выходила
+
+Owner: the digest of bot changes should come out once in 3 days but did not.
+
+ND01 (process, fixed): `botNewsPostService.ts:runBotChangesDigest` posts only entries of `src/server/data/botChangesDigest.ts` not sent yet. After the first digest (entries of 2026-11-10) nobody added new entries until 16.11, so there was nothing to post. Code works as designed. Now added: «Испорченный телефон» (#1282) and, chosen by the owner from a draft list, the voted-out opinion in Elo; the owner judged the other candidates («Вордли» keyboard, MVP on Saturday, results in «Новости») not interesting. Rule reminder: a fun player-facing change gets its digest line in the same PR.
+

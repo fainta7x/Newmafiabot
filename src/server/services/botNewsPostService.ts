@@ -76,8 +76,44 @@ export async function runBotChangesDigest(db: DatabaseWrapper, fetchImpl: typeof
   }
 }
 
+/**
+ * One-off post about the new daily sudoku (owner, 2026-11-16: «Да, сделай разовый пост про судоку»). The morning post of
+ * 16.11 had already gone out before sudoku was deployed. Sent once, only on 16.11 between 10:00 and 22:00 Moscow, so it
+ * never doubles tomorrow's morning post; it also marks the sudoku line of the «Что нового» digest as told.
+ */
+export const SUDOKU_LAUNCH_DAY = '2026-11-16';
+const SUDOKU_LAUNCH_ENTRY = '2026-11-daily-sudoku';
+export const SUDOKU_LAUNCH_TEXT = [
+  '🔢 Новая мини-игра — Судоку!',
+  '',
+  'Каждый день одно судоку на весь клуб: в понедельник лёгкое, к воскресенью сложнее. Три ошибки — игра на сегодня закончена. Решил — 200 жетонов, а в таблице дня видно, кто справился быстрее всех.',
+  '',
+  'Сегодняшнее уже ждёт 👇',
+].join('\n');
+export async function runSudokuLaunchPost(db: DatabaseWrapper, fetchImpl: typeof fetch, now: number) {
+  if (dailyWordDay(new Date(now)) !== SUDOKU_LAUNCH_DAY) return 0;
+  const hour = mskHour(now);
+  if (hour < INVITE_HOUR_MSK || hour >= 22) return 0;
+  const key = `sudoku-launch:${SUDOKU_LAUNCH_DAY}`;
+  if (!(await claim(db, key, 'sudoku-launch', '', null))) return 0;
+  try {
+    const link = appUrl('/player/sudoku');
+    const result = await sendText(db, NEWS_DESTINATION, SUDOKU_LAUNCH_TEXT, fetchImpl, undefined,
+      link ? { inline_keyboard: [[{ text: '🔢 Играть в судоку', url: link }]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
+    await finish(db, key, result);
+    if (result.ok) {
+      const stamp = new Date(now).toISOString();
+      await db.run(`INSERT OR IGNORE INTO club_result_posts (post_key, kind, status, attempts, sent_at, created_at, updated_at) VALUES (?, 'bot-digest-entry', 'sent', 1, ?, ?, ?)`, [`bot-digest-entry:${SUDOKU_LAUNCH_ENTRY}`, stamp, stamp, stamp]);
+    }
+    return result.ok ? 1 : 0;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return 0;
+  }
+}
+
 export async function runBotNewsPosts(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch, now = Date.now()) {
   if (isEveningPublishingPaused()) return 0;
   await ensureClubResultPostSchema(db);
-  return (await runDailyWordInvitation(db, fetchImpl, now)) + (await runBotChangesDigest(db, fetchImpl, now));
+  return (await runDailyWordInvitation(db, fetchImpl, now)) + (await runSudokuLaunchPost(db, fetchImpl, now)) + (await runBotChangesDigest(db, fetchImpl, now));
 }

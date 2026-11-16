@@ -3,7 +3,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureDailyWordSchema } from '../db/ensureDailyWordSchema.ts';
 import { ensureDailySudokuSchema } from '../db/ensureDailySudokuSchema.ts';
 import { ensureClubResultPostSchema } from '../server/services/clubResultPostService.ts';
-import { runBotChangesDigest, runDailyWordInvitation, dailyWordInviteText } from '../server/services/botNewsPostService.ts';
+import { runBotChangesDigest, runDailyWordInvitation, dailyWordInviteText, runSudokuLaunchPost, SUDOKU_LAUNCH_TEXT } from '../server/services/botNewsPostService.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -52,6 +52,23 @@ describe('«Новости»: daily word invitation and bot changes digest', () 
     expect(calls[0].text).toContain('Судоку вчера решили 2 из 3, быстрее всех — Борис (5:07).');
     expect(calls[0].reply_markup.inline_keyboard[0].map((b: any) => b.text)).toEqual(['🔤 Слово дня', '🔢 Судоку']);
     expect(calls[0].reply_markup.inline_keyboard[0][1].url).toContain('/player/sudoku');
+  });
+
+  it('one-off sudoku post: once, only on 16.11 from 10:00 to 22:00 Moscow, and the digest does not repeat it', async () => {
+    const db = await setup();
+    vi.stubEnv('PUBLIC_APP_URL', 'https://club.example');
+    const { calls, fetchImpl } = recorder();
+    expect(await runSudokuLaunchPost(db, fetchImpl, at('2026-11-16T06:30:00Z'))).toBe(0); // 09:30 Moscow
+    expect(await runSudokuLaunchPost(db, fetchImpl, at('2026-11-16T19:30:00Z'))).toBe(0); // 22:30 Moscow
+    expect(await runSudokuLaunchPost(db, fetchImpl, at('2026-11-17T08:00:00Z'))).toBe(0); // the next day
+    expect(await runSudokuLaunchPost(db, fetchImpl, at('2026-11-16T12:00:00Z'))).toBe(1);
+    expect(await runSudokuLaunchPost(db, fetchImpl, at('2026-11-16T13:00:00Z'))).toBe(0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toBe(SUDOKU_LAUNCH_TEXT);
+    expect(calls[0].message_thread_id).toBe(5925);
+    expect(calls[0].reply_markup.inline_keyboard[0][0].url).toBe('https://club.example/player/sudoku');
+    await runBotChangesDigest(db, fetchImpl, at('2026-11-16T15:30:00Z'));
+    expect(calls.slice(1).map((c) => c.text).join('\n')).not.toContain('судоку');
   });
 
   it('text without a puzzle yesterday has no result line', async () => {

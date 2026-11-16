@@ -1127,6 +1127,7 @@ The owner: «Вордли… прям хайпанула… Давай судо�
 - **Table of the day by time** — opens after one's own game: solvers ordered by time (then fewer mistakes), unsolved last. Time runs from «Начать»; the grid opens only then.
 - **Morning post:** the same 10:00 «Новости» post as the daily word — both games, two buttons, and yesterday's sudoku result (how many solved and the fastest).
 - **Name: «Судоку»** (owner).
+- **Launch post (owner, 2026-11-16: «Да, сделай разовый пост про судоку»):** the 16.11 morning post went out before sudoku was deployed, so one extra «Новости» post with a «Играть в судоку» button is sent once on 16.11 between 10:00 and 22:00 Moscow (`runSudokuLaunchPost`); it marks the sudoku line of «Что нового» as told so the digest does not repeat it.
 - New day at 00:00 Moscow; streaks are informational, as in the daily word.
 - Saved for later by the owner (not built): «Быки и коровы», nonogram (японский кроссворд), «Слова из слова».
 

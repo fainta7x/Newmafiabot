@@ -12,6 +12,7 @@ import { announcementCoverUrl } from '../services/announcementPhotoService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { loadEveningPrices } from '../services/eveningPriceSettingsService.ts';
 import { clubPriceTierOf, clubTierPrice } from '../../lib/eveningPrices.ts';
+import { clubPriceTiers } from '../services/clubPriceTierService.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
 const router = Router();
@@ -157,10 +158,11 @@ router.get('/evenings/:eveningId/announcement-recipients', async (req, res) => {
       const policy = await loadEveningPrices(db, String(evening.id));
       const people = await db.all<any>(`SELECT id, club_role, attends_sometimes, stopped_attending, from_other_city FROM players WHERE id IN (${recipients.map(() => '?').join(',')})`, recipients.map((row) => String(row.id))).catch(() => []);
       const byId = new Map(people.map((row: any) => [String(row.id), row]));
+      const tiers = await clubPriceTiers(db, people, String(evening.starts_at || new Date().toISOString()), String(evening.id));
       recipients = recipients.map((row) => {
         const person = byId.get(String(row.id));
         if (!person) return row;
-        const price = clubTierPrice(policy, clubPriceTierOf(person));
+        const price = clubTierPrice(policy, tiers.get(String(row.id)) ?? clubPriceTierOf(person));
         return { ...row, price_per_game: price.game, max_price: price.cap };
       });
     }

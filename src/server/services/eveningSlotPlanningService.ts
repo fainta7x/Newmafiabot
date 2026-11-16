@@ -6,6 +6,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { loadEveningPrices } from './eveningPriceSettingsService.ts';
+import { clubPriceTiers } from './clubPriceTierService.ts';
 import { DEFAULT_EVENING_PRICES, clubPriceTierOf, clubTierPrice, eveningSelectionPrice, type EveningPrices } from '../../lib/eveningPrices.ts';
 
 export const SLOT_PRICE = DEFAULT_EVENING_PRICES.casual_game;
@@ -363,8 +364,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   let personalClub: { tier: string; game: number; cap: number } | null = null;
   if (playerId && normalizeEveningFormat(evening.format) === 'CASUAL') {
     // A players table without the access columns (an old or minimal database) simply means the base price.
-    const person = await db.get<any>('SELECT club_role, attends_sometimes, stopped_attending, from_other_city FROM players WHERE id = ?', [playerId]).catch(() => null);
-    if (person) { const tier = clubPriceTierOf(person); personalClub = { tier, ...clubTierPrice(basePolicy, tier) }; }
+    const person = await db.get<any>('SELECT id, club_role, attends_sometimes, stopped_attending, from_other_city FROM players WHERE id = ?', [playerId]).catch(() => null);
+    if (person) { const tier = (await clubPriceTiers(db, [person], String(evening.starts_at || new Date().toISOString()), String(evening.id))).get(String(person.id)) ?? clubPriceTierOf(person); personalClub = { tier, ...clubTierPrice(basePolicy, tier) }; }
   }
   const policy = personalClub ? { ...basePolicy, casual_game: personalClub.game, casual_cap: personalClub.cap } : basePolicy;
   const personalNovicePrice = playerId && normalizeEveningFormat(evening.format) === 'NOVICE'

@@ -3115,3 +3115,9 @@ PT01 (rule changed by the owner, fixed): the owner's rule is «дороже то
 GJ01 (fixed): `EveningGameCreateSheet.tsx` offered every club player who may judge, not only the evening's people — «Точка», who had declined 13.11, was recorded as the judge of games 40 and 41. Now the list is the evening's people (answered «Иду»/«Опоздаю» or came), the evening judge and the table judges; e2e `evening-game-create-audit.spec.mjs` checks an outsider is not offered.
 GJ02 (fixed by the owner's decision): production read showed «Точка» only as `judge_name/judge_player_id` of games 40 and 41 of 13.11; Millourt played game 41 (Дон, seat 10), Насон played 37–40. Owner: game 40 — Millourt, game 41 — Насон. One-time `fixGameJudges20261113Once` (`gameJudgeFixes.ts`), test `gameJudgeFixes.test.ts`.
 
+## 2026-11-16 — набор игроков по слотам вечера
+
+Owner: on the site registration the slot counts looked wrong and different for each viewer.
+
+SL01 (fixed): `eveningSlotPlanningService.ts` treated the evening judge as the judge only when he had answered «Иду»; otherwise the judge was counted as a player and the players needed became 11 instead of 10 (novices 9 instead of 8). SL02 (fixed): every registration showed its own number — the join page «N/11» with the judge inside, CRM «N/10», the novice page «из 9», the cabinet only «N игроков»; none named the judge. Now the plan takes the assigned judge, needs 10/8 players and carries `event.judge`; the join page, the cabinet and the welcome page show «Ведущий: ник · Игроки: N из 10/8» (`src/lib/eveningSlotStaff.ts`). Tests: `ownerEveningSheet.test.ts`, `PlayerBookingUsability.test.tsx`, `eveningTodayPost.test.ts`, `eveningRecruitmentService.test.ts`; e2e `current-booking-preview.spec.mjs`.
+

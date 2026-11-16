@@ -1,4 +1,5 @@
 import { loadEveningPeople } from './eveningPeopleService.ts';
+import { eveningJudgeId } from './eveningStaffService.ts';
 import { eveningGatheringSize } from '../../lib/eveningGathering.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -332,9 +333,11 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     }
   }
 
-  // The evening judge is staff, not an extra player. If they also answered
-  // «Иду», keep that RSVP but exclude their identity from playable slots.
-  const judgeId = eveningPeople.find((person) => person.is_assigned_judge)?.player_id;
+  // The evening judge is staff, not an extra player: whatever he answered, he never fills a playing seat. The judge is
+  // the one assigned to the evening (owner, 2026-11-16: every registration shows «1 ведущий» and his nickname), not
+  // only one who also answered «Иду» — that made the needed number jump between 10 and 11.
+  const judgeId = (await eveningJudgeId(db, eveningId).catch(() => null)) ?? eveningPeople.find((person) => person.is_assigned_judge)?.player_id ?? null;
+  const judge = judgeId ? await db.get<{ id: string; nickname: string }>('SELECT id, nickname FROM players WHERE id = ?', [judgeId]).catch(() => null) : null;
   if (judgeId) {
     for (const slot of rows) {
       const slotId = String(slot.id);
@@ -375,16 +378,21 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     starts_at: row.starts_at,
     ends_at: row.ends_at,
     price: personalNovicePrice == null ? (personalClub ? personalClub.game : Number(row.price_rub ?? SLOT_PRICE)) : personalNovicePrice,
-    target_players: Number(row.target_players || TABLE_MIN_PLAYERS),
+    // Players needed for this game, the judge not counted (the stored target includes him).
+    target_players: Math.max(1, Number(row.target_players || TABLE_MIN_PLAYERS) - 1),
     registered_count: Number(row.registered_count || 0),
     selected: selectedSlotIds.has(String(row.id)),
     participants: peopleBySlot.get(String(row.id)) || [],
   }));
 
-  // Gathering thresholds historically include the judge, but playable slot counts do not.
-  const requiredPlayers = Math.max(1, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS) - (judgeId ? 1 : 0));
+  // Every game needs 1 judge and the players (owner, 2026-11-16: 10, novices 8). The gathering size includes the judge,
+  // so the players are always one less — whether the judge is already assigned or not.
+  const requiredPlayers = Math.max(1, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS) - 1);
   const requiredSlots = Number(settings.ready_slots_required || TABLE_MIN_READY_SLOTS);
-  const ready = slots.filter((slot) => slot.registered_count >= requiredPlayers).length;
+  // A game is gathered with its judge and all its players (owner, 2026-11-16: «минимум 1 ведущий, 10 игроков»). Without an
+  // assigned judge one more person is needed to judge (11 people, novices 9), as the gathering rule of 2026-10-16 says,
+  // so the 17:00 decision and the auto-cancel keep working when the organizer has not assigned the judge yet.
+  const ready = slots.filter((slot) => slot.registered_count >= requiredPlayers + (judge ? 0 : 1)).length;
   const selected = slots.filter((slot) => slot.selected);
   return {
     pricing: policy,
@@ -407,6 +415,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       assembled_slots: ready,
       required_slots: requiredSlots,
       required_players_per_slot: requiredPlayers,
+      // «1 ведущий»: who judges the evening, shown in every registration (owner, 2026-11-16).
+      judge: judge ? { id: String(judge.id), nickname: String(judge.nickname || 'Ведущий') } : null,
       assembled: ready >= requiredSlots,
     },
     slots,

@@ -95,12 +95,13 @@ router.get('/welcome', limit, async (req, res) => {
   } catch { return res.status(500).json({ error: 'Не удалось загрузить страницу' }); }
 });
 
-/** Who has taken seats at the nearest novice evening, read again every few seconds by the page. */
+/** Public nick-only roster for a selected upcoming evening; the default remains the nearest novice evening. */
 router.get('/welcome/seats', rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   try {
     const db = req.db || await getDb();
     const wanted = String(req.query.evening || '').slice(0, 80);
-    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${NOVICE_EVENING_SQL}${wanted ? ' AND id = ?' : ''} ORDER BY datetime(starts_at) ASC LIMIT 1`, wanted ? [wanted] : []);
+    const eligible = wanted ? `${openEveningSql()} AND datetime(starts_at) >= datetime('now', '-3 hours') AND id = ?` : NOVICE_EVENING_SQL;
+    const evening = await db.get<any>(`SELECT id FROM game_evenings WHERE ${eligible} ORDER BY datetime(starts_at) ASC LIMIT 1`, wanted ? [wanted] : []);
     res.set('Cache-Control', 'no-store');
     if (!evening) return res.json({ evening_id: null, games: [], going: 0, updated_at: new Date().toISOString() });
     const plan = await loadEveningSlotPlan(db, String(evening.id));

@@ -47,7 +47,11 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
   const [busy, setBusy] = useState(false);
   const [share, setShare] = useState('');
   const [now, setNow] = useState(Date.now());
-  const inFlight = useRef(false);
+  // A digit shows at once and the next one can be put while the server checks the earlier ones in order (owner,
+  // 2026-11-16: «судоку подлагивает при вводе чистовых цифр» — every digit used to lock the pad until the answer came).
+  const [pending, setPending] = useState<Record<number, number>>({});
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const generation = useRef(0);
   const finished = state?.status === 'won' || state?.status === 'lost';
   const playing = state?.status === 'playing';
 
@@ -57,8 +61,9 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
 
   const board = state?.board || '';
   const givens = state?.givens || '';
-  const valueAt = (i: number) => finished && state?.solution ? state.solution[i] : board[i];
-  const placed = (digit: number) => [...board].filter(c => c === String(digit)).length;
+  const valueAt = (i: number) => finished && state?.solution ? state.solution[i] : board[i] && board[i] !== '0' ? board[i] : pending[i] ? String(pending[i]) : (board[i] || '0');
+  const placed = (digit: number) => [...board].filter(c => c === String(digit)).length + Object.values(pending).filter(d => d === digit).length;
+  const dropPending = (cell: number) => setPending((current) => { const { [cell]: _, ...rest } = current; return rest; });
   const saveNotes = (next: Record<number, number[]>) => { setNotes(next); if (state) writeNotes(state.day, next); };
 
   const start = async () => {
@@ -69,19 +74,24 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
     finally { setBusy(false); }
   };
   const put = async (digit: number) => {
-    if (!state || !playing || selected === null || board[selected] !== '0' || inFlight.current) return;
+    if (!state || !playing || selected === null || board[selected] !== '0' || pending[selected] !== undefined) return;
     setError('');
     if (notesMode) {
       const own = notes[selected] || [];
       saveNotes({ ...notes, [selected]: own.includes(digit) ? own.filter(d => d !== digit) : [...own, digit].sort() });
       return;
     }
-    inFlight.current = true; setBusy(true);
-    const cell = selected;
+    const cell = selected, day = state.day, round = generation.current;
+    setPending((current) => ({ ...current, [cell]: digit }));
+    queue.current = queue.current.then(async () => {
+    if (round !== generation.current) return;
     try {
-      const next = await sendJson<MoveResult>(`${API}/move`, 'POST', { day: state.day, cell, digit, request_id: crypto.randomUUID() }, 'Не удалось сохранить ход');
+      const next = await sendJson<MoveResult>(`${API}/move`, 'POST', { day, cell, digit, request_id: crypto.randomUUID() }, 'Не удалось сохранить ход');
       const { last_move, ...rest } = next;
-      setState(rest); onTokenBalanceChange?.(rest.token_balance);
+      if (round !== generation.current) return;
+      setState(rest); onTokenBalanceChange?.(rest.token_balance); dropPending(cell);
+      // The game is over (the third mistake or the last digit): the digits still waiting are not sent.
+      if (rest.status !== 'playing') { generation.current += 1; setPending({}); }
       if (last_move && !last_move.ok) setWrong({ cell, digit });
       else {
         // A right digit clears the notes of its cell and this digit from the notes of its row, column and box.
@@ -93,8 +103,13 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
         }
         saveNotes(cleaned);
       }
-    } catch (e) { if (e instanceof RequestJsonError && e.status === 409) await load(); setError(message(e)); }
-    finally { inFlight.current = false; setBusy(false); }
+    } catch (e) {
+      // A failed check puts the board back to what the server knows: the waiting digits are dropped, nothing is guessed.
+      generation.current += 1; setPending({});
+      if (e instanceof RequestJsonError && e.status === 409) await load();
+      setError(message(e));
+    }
+    });
   };
   const erase = () => { if (selected !== null && notes[selected]?.length) { const { [selected]: _, ...rest } = notes; saveNotes(rest); } };
 
@@ -145,7 +160,8 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
           const showWrong = wrong?.cell === i;
           const related = selected !== null && (rowOf(i) === rowOf(selected) || colOf(i) === colOf(selected) || boxOf(i) === boxOf(selected));
           const same = selectedValue !== '0' && value === selectedValue;
-          const cls = ['sd-cell', given ? 'sd-given' : revealed ? 'sd-revealed' : value !== '0' ? 'sd-entered' : '', related ? 'sd-related' : '', same ? 'sd-same' : '', selected === i ? 'sd-selected' : '', showWrong ? 'sd-wrong' : '', colOf(i) % 3 === 2 && colOf(i) < 8 ? 'sd-edge-r' : '', rowOf(i) % 3 === 2 && rowOf(i) < 8 ? 'sd-edge-b' : ''].filter(Boolean).join(' ');
+          const waiting = !finished && board[i] === '0' && pending[i] !== undefined;
+          const cls = ['sd-cell', given ? 'sd-given' : revealed ? 'sd-revealed' : value !== '0' ? 'sd-entered' : '', waiting ? 'sd-pending' : '', related ? 'sd-related' : '', same ? 'sd-same' : '', selected === i ? 'sd-selected' : '', showWrong ? 'sd-wrong' : '', colOf(i) % 3 === 2 && colOf(i) < 8 ? 'sd-edge-r' : '', rowOf(i) % 3 === 2 && rowOf(i) < 8 ? 'sd-edge-b' : ''].filter(Boolean).join(' ');
           const cellNotes = value === '0' ? notes[i] || [] : [];
           const label = `Ряд ${rowOf(i) + 1}, столбец ${colOf(i) + 1}: ${showWrong ? `${wrong!.digit} — ошибка` : value !== '0' ? value : 'пусто'}`;
           return <button type="button" role="gridcell" key={i} className={cls} aria-label={label} aria-selected={selected === i} disabled={!playing} onClick={() => setSelected(i)} data-testid={`sudoku-cell-${i}`}>
@@ -155,7 +171,7 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
         {playing ? <div className="sd-pad">
           <div className="sd-digits" aria-label="Цифры">{Array.from({ length: 9 }, (_, d) => {
             const digit = d + 1; const done = placed(digit) >= 9;
-            return <button type="button" key={digit} data-testid={`sudoku-digit-${digit}`} disabled={busy || done} aria-label={done ? `${digit}: все расставлены` : `Цифра ${digit}`} onClick={() => void put(digit)}>{done ? '' : digit}</button>;
+            return <button type="button" key={digit} data-testid={`sudoku-digit-${digit}`} disabled={done} aria-label={done ? `${digit}: все расставлены` : `Цифра ${digit}`} onClick={() => void put(digit)}>{done ? '' : digit}</button>;
           })}</div>
           <div className="sd-tools">
             <button type="button" aria-pressed={notesMode} className={notesMode ? 'sd-on' : ''} data-testid="sudoku-notes" onClick={() => setNotesMode(on => !on)}>✎ Заметки: {notesMode ? 'вкл' : 'выкл'}</button>

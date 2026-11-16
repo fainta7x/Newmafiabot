@@ -3121,3 +3121,7 @@ Owner: on the site registration the slot counts looked wrong and different for e
 
 SL01 (fixed): `eveningSlotPlanningService.ts` treated the evening judge as the judge only when he had answered «Иду»; otherwise the judge was counted as a player and the players needed became 11 instead of 10 (novices 9 instead of 8). SL02 (fixed): every registration showed its own number — the join page «N/11» with the judge inside, CRM «N/10», the novice page «из 9», the cabinet only «N игроков»; none named the judge. Now the plan takes the assigned judge, needs 10/8 players and carries `event.judge`; the join page, the cabinet and the welcome page show «Ведущий: ник · Игроки: N из 10/8» (`src/lib/eveningSlotStaff.ts`). Tests: `ownerEveningSheet.test.ts`, `PlayerBookingUsability.test.tsx`, `eveningTodayPost.test.ts`, `eveningRecruitmentService.test.ts`; e2e `current-booking-preview.spec.mjs`.
 
+## 2026-11-16 — судоку подлагивает при вводе цифр
+
+SD01 (fixed): `PlayerDailySudoku.tsx:put` locked the whole pad (`busy`) for every final digit until the server answered the move, so each digit waited a round trip (about 0.4–1.5 s measured from the test environment to Amvera). Now the digit shows at once, moves go to the server in order, a wrong one turns red when the answer comes; a failed check drops the unchecked digits. Verified in the harness with a slowed server (`?delay=800`): 4 digits in 0.36 s, 1 mistake counted, the wrong digit cleared after the red flash.
+

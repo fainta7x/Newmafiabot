@@ -380,6 +380,8 @@ Open work, in order:
 
 11. **Built (PR #1278): Elo for the opinion of the player voted out** — counts like the death protocol (owner, 2026-11-16; BUSINESS_RULES).
 
+12. **Daily mini-games (owner, 2026-11-16):** «Вордли» took off — everyone comes daily. The owner wants another daily logic game of a well-known kind (not about Mafia). **Sudoku: built** (rules in BUSINESS_RULES «Daily sudoku»). Saved for later, by the owner's request: «Быки и коровы» (guess a 4-digit number), nonogram (японский кроссворд), «Слова из слова».
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner
@@ -401,6 +403,8 @@ Needs an answer or content from the owner before anything is built:
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 
 ### Player-facing changes not yet announced
+
+- 2026-11-16: новая мини-игра «Судоку» — одно судоку в день на весь клуб, к выходным сложнее, 200 жетонов за решение, таблица дня по времени; приглашение в утреннем посте «Новостей».
 
 - 2026-11-16: мнение заголосованного игрока теперь учитывается в Эло так же, как протокол убитого.
 

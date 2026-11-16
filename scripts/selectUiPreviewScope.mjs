@@ -12,6 +12,7 @@ const targeted = [
   { match: /^src\/components\/crm\/GiftCollectionCRM\.tsx$|^src\/server\/(services\/birthdayPostService|routes\/giftCollectionRoutes)\.ts$/, pages: ['crm-more'], specs: ['crm-visual-audit.spec.mjs'] },
   { match: /^src\/components\/player\/(PlayerEventSlotDetail|PlayerEveningSeatBooking)\.tsx$|^src\/server\/services\/eveningSeatBookingService\.ts$/, pages: ['cabinet-evening', 'cabinet-events'], specs: ['current-booking-preview.spec.mjs', 'mobile-usability.spec.mjs'] },
   { match: /^src\/components\/player\/PlayerDailyWord[^/]*\.tsx$|^src\/server\/services\/dailyWordService\.ts$/, pages: ['daily-word-'], specs: ['ui-preview.spec.mjs'] },
+  { match: /^src\/components\/player\/(PlayerDailySudoku\.tsx|dailySudoku\.css)$|^src\/server\/services\/(dailySudokuService|sudokuGenerator)\.ts$/, pages: ['daily-sudoku-'], specs: ['ui-preview.spec.mjs'] },
 ];
 // Reviewed backend-only paths have no rendered preview dependencies. Keep this
 // allowlist narrow: an unfamiliar file still triggers the complete visual audit.

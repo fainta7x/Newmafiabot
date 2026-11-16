@@ -218,6 +218,10 @@ Before changing voting/fouls/removals/PPK/speech timing/zero round/game completi
 
 Current canonical launcher passes controlled hidden-role state. A bare direct `LiveGameEngine` fallback still starts internal role visibility as visible; treat this as low-priority cleanup, not evidence that the real club launcher exposes roles.
 
+### Daily sudoku persistence
+
+`dailySudokuRoutes.ts` → `dailySudokuService.ts` → `daily_sudoku_puzzles` / `daily_sudoku_sessions`. The day's grid is generated once (`sudokuGenerator.ts`, unique solution, open cells by weekday) and stored with its solution; the solution leaves the server only after the player's game ends, the grid only after «Начать». Each move is checked on the server; the session row, request id and the token-ledger reward commit in one transaction. Notes («заметки») are client-only (localStorage).
+
 ### Daily word persistence
 
 `dailyWordRoutes.ts` → `dailyWordService.ts` → `daily_word_puzzles` / `daily_word_sessions`. Server-only dictionaries choose and validate words; `shared/dailyWord.ts` owns public marks/contracts only. The session row, request id and canonical token-ledger reward commit atomically through the DB transaction queue. Shell routing owns `/player/daily-word`; the existing Home/Community surfaces link to it. Future answer assignment uses existing club-owner authorization.

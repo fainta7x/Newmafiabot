@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { createWelcomeLead, leadManagementTokenHash } from '../server/services/newcomerFunnelService.ts';
-import { loadGuestBooking, updateGuestBooking } from '../server/services/guestBookingService.ts';
+import { issueGuestBookingToken, loadGuestBooking, updateGuestBooking } from '../server/services/guestBookingService.ts';
 import { ensureSlotsForEvening } from '../server/services/eveningSlotPlanningService.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 
@@ -23,7 +23,7 @@ describe('a lead manages their own booking without an account', () => {
       await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,venue,format,status,capacity,default_price,created_at,updated_at) VALUES (?,?,?,'Europe/Moscow','Суп с Котом',?,?,20,200,?,?)`, [id, id, new Date(Date.now() + days * 86400_000).toISOString(), format, status, stamp, stamp]);
     }
   });
-  afterEach(() => { db.sqlite.close(); });
+  afterEach(() => { vi.restoreAllMocks(); db.sqlite.close(); });
   const signUp = async () => {
     const result = await client.post('/api/public/welcome/lead').send(input);
     expect(result.status).toBe(201);
@@ -151,5 +151,24 @@ describe('a lead manages their own booking without an account', () => {
     const attempts = await Promise.allSettled([createWelcomeLead(db, input), createWelcomeLead(db, input)]);
     expect(attempts.filter(item => item.status === 'fulfilled')).toHaveLength(1);
     expect(Number((await db.get<any>('SELECT COUNT(*) n FROM newcomer_leads')).n)).toBe(1);
+  });
+
+  it('honours token revocation while a repeat submission is being processed', async () => {
+    const token = await signUp();
+    await updateGuestBooking(db, token, { action: 'cancel' });
+    const lead = await db.get<{ player_id: string }>('SELECT player_id FROM newcomer_leads');
+    const originalGet = db.get.bind(db);
+    let replacement = '';
+    vi.spyOn(db, 'get').mockImplementation(async (sql, args) => {
+      const row = await originalGet(sql, args);
+      if (!replacement && sql.startsWith('SELECT l.player_id,l.management_token_hash')) {
+        replacement = await issueGuestBookingToken(db, lead!.player_id);
+      }
+      return row;
+    });
+    const retried = await createWelcomeLead(db, { name: 'Аня', contactKind: 'telegram', contactValue: input.contact_value, eveningId: 'next', managementToken: token });
+    expect(retried.managementRequired).toBe(true);
+    expect((await loadGuestBooking(db, replacement)).evening).toBeNull();
+    expect(await answer('next')).not.toBe('going');
   });
 });

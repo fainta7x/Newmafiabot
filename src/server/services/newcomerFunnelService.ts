@@ -142,22 +142,27 @@ export async function createWelcomeLead(db: DatabaseWrapper, input: { name: unkn
   const name = clean(input.name, 40);
   if (name.length < 2) throw new LeadError('Напишите, как к вам обращаться');
   const contact = normalizeLeadContact(input.contactKind, input.contactValue);
-  const existing = await db.get<{ player_id: string; management_token_hash: string | null; management_expires_at: string | null; status: string; lifecycle_status: string | null }>('SELECT l.player_id,l.management_token_hash,l.management_expires_at,l.status,p.lifecycle_status FROM newcomer_leads l JOIN players p ON p.id=l.player_id WHERE l.contact_kind=? AND l.contact_value=?', [contact.kind, contact.value]);
+  type ExistingLead = { player_id: string; management_token_hash: string | null; management_expires_at: string | null; status: string; lifecycle_status: string | null; evening_id: string | null };
+  const existingSql = 'SELECT l.player_id,l.management_token_hash,l.management_expires_at,l.status,p.lifecycle_status,l.evening_id FROM newcomer_leads l JOIN players p ON p.id=l.player_id WHERE l.contact_kind=? AND l.contact_value=?';
+  const existing = await db.get<ExistingLead>(existingSql, [contact.kind, contact.value]);
   const eveningId = await openNoviceEveningId(db, input.eveningId);
   if (existing) {
-    // Someone's contact is not a secret, so the form never changes a booking that already exists: it keeps the old one and says so
-    // (moving to another Friday goes through the organizer or the signed-in cabinet).
-    const playerId = String(existing.player_id);
-    if (existing.management_token_hash && (existing.status === 'converted' || ['archived', 'merged', 'blocked', 'guest_placeholder'].includes(existing.lifecycle_status || '') || leadManagementTokenHash(input.managementToken) !== existing.management_token_hash || !existing.management_expires_at || existing.management_expires_at <= now.toISOString())) {
-      return { playerId, created: false, booked: false, alreadyBooked: false, managementRequired: true };
-    }
-    if (!eveningId) return { playerId, created: false, booked: false, alreadyBooked: false };
-    const before = await db.get<{ evening_id: string | null }>('SELECT evening_id FROM newcomer_leads WHERE player_id = ?', [playerId]);
-    const bookedEvening = before?.evening_id ?? null;
-    if (bookedEvening === eveningId) return { playerId, created: false, booked: true, alreadyBooked: true };
-    if (bookedEvening) return { playerId, created: false, booked: false, alreadyBooked: true };
-    await db.run("UPDATE newcomer_leads SET evening_id = ?, status = 'active', recall_count = 0, recall_evening_id = NULL WHERE player_id = ? AND status <> 'converted'", [eveningId, playerId]);
-    return { playerId, created: false, booked: await bookLeadSeats(db, playerId, eveningId, null), alreadyBooked: false };
+    // A contact is not a secret. Read the current access again inside the write
+    // transaction so a concurrent organizer revocation cannot authorize a retry.
+    return db.transaction(async tx => {
+      const current = await tx.get<ExistingLead>(existingSql, [contact.kind, contact.value]);
+      if (!current) throw new LeadError('Запись изменилась. Повтори отправку.', 409);
+      const playerId = String(current.player_id);
+      if (current.management_token_hash && (current.status === 'converted' || ['archived', 'merged', 'blocked', 'guest_placeholder'].includes(current.lifecycle_status || '') || leadManagementTokenHash(input.managementToken) !== current.management_token_hash || !current.management_expires_at || current.management_expires_at <= now.toISOString())) {
+        return { playerId, created: false, booked: false, alreadyBooked: false, managementRequired: true };
+      }
+      if (!eveningId) return { playerId, created: false, booked: false, alreadyBooked: false };
+      const bookedEvening = current.evening_id;
+      if (bookedEvening === eveningId) return { playerId, created: false, booked: true, alreadyBooked: true };
+      if (bookedEvening) return { playerId, created: false, booked: false, alreadyBooked: true };
+      await tx.run("UPDATE newcomer_leads SET evening_id = ?, status = 'active', recall_count = 0, recall_evening_id = NULL WHERE player_id = ? AND status <> 'converted'", [eveningId, playerId]);
+      return { playerId, created: false, booked: await bookLeadSeats(tx, playerId, eveningId, null), alreadyBooked: false };
+    });
   }
 
   const taken = new Set((await db.all<{ nickname: string }>('SELECT nickname FROM players WHERE lower(nickname) LIKE lower(?)', [`${name}%`])).map((row) => String(row.nickname).toLowerCase()));

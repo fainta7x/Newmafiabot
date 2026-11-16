@@ -14,7 +14,7 @@ const table=[{nickname:'Богданчик',won:true,seconds:312,mistakes:0},{ni
 let state:DailySudokuState=base();
 if(mode==='playing'||notes)state={...state,status:'playing',givens:PUZZLE,board:PUZZLE.split('').map((c,i)=>i===2?'4':c).join(''),mistakes:1,started_at:new Date(Date.now()-185000).toISOString()};
 if(mode==='won')state={...state,status:'won',givens:PUZZLE,board:SOLUTION,solution:SOLUTION,mistakes:1,started_at:new Date(Date.now()-600000).toISOString(),seconds:482,reward_earned:200,token_balance:300,streak:3,results:table};
-if(mode==='lost')state={...state,status:'lost',givens:PUZZLE,board:PUZZLE,solution:SOLUTION,mistakes:3,started_at:new Date(Date.now()-600000).toISOString(),seconds:null,results:table};
+if(mode==='lost')state={...state,status:'lost',givens:PUZZLE,board:PUZZLE,solution:SOLUTION,mistakes:3,started_at:new Date(Date.now()-600000).toISOString(),seconds:410,results:table};
 if(notes){try{localStorage.setItem('daily-sudoku-notes:2026-11-16',JSON.stringify({3:[1,2,6],5:[2,4,6,8],6:[1,2,3,4,5,6,7,8,9]}));}catch{/* preview only */}}
 let fail=mode==='error';
 globalThis.fetch=async(input:RequestInfo|URL,init?:RequestInit)=>{

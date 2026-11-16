@@ -161,7 +161,7 @@ export default function PlayerDailySudoku({ onExit, onTokenBalanceChange }: { on
           const cellNotes = value === '0' ? notes[i] || [] : [];
           const label = `Ряд ${rowOf(i) + 1}, столбец ${colOf(i) + 1}: ${showWrong ? `${wrong!.digit} — ошибка` : value !== '0' ? value : 'пусто'}`;
           return <button type="button" role="gridcell" key={i} className={cls} aria-label={label} aria-selected={selected === i} disabled={!playing} onClick={() => setSelected(i)} data-testid={`sudoku-cell-${i}`}>
-            {showWrong ? wrong!.digit : value !== '0' ? value : cellNotes.length ? <span className="sd-notes" aria-hidden="true">{Array.from({ length: 9 }, (_, d) => <span key={d}>{cellNotes.includes(d + 1) ? d + 1 : ''}</span>)}</span> : ''}
+            {showWrong ? wrong!.digit : value !== '0' ? value : cellNotes.length ? <span className="sd-notes" aria-hidden="true">{Array.from({ length: 9 }, (_, d) => <span key={d}>{cellNotes.includes(d + 1) ? d + 1 : ''}</span>)}</span> : <span className="sd-dot" aria-hidden="true">·</span>}
           </button>;
         })}</div>
         {playing ? <div className="sd-pad">

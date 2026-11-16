@@ -53,6 +53,7 @@ import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
 import musicLibraryRoutes from './server/routes/musicLibraryRoutes.ts';
 import dailyWordRoutes from './server/routes/dailyWordRoutes.ts';
 import dailySudokuRoutes from './server/routes/dailySudokuRoutes.ts';
+import drawingTelephoneRoutes from './server/routes/drawingTelephoneRoutes.ts';
 import { birthdayPostRouter, organizerGiftRouter, playerGiftRouter } from './server/routes/giftCollectionRoutes.ts';
 import pokerRoutes from './server/routes/pokerRoutes.ts';
 import clocktowerRoutes from './server/routes/clocktowerRoutes.ts';
@@ -348,6 +349,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', musicLibraryRoutes);
   app.use('/api/player', dailyWordRoutes);
   app.use('/api/player', dailySudokuRoutes);
+  app.use('/api/player', drawingTelephoneRoutes);
   app.use('/api/player/gift-collections', playerGiftRouter);
   app.use('/api/gift-collections', organizerGiftRouter);
   app.use('/api/birthday-posts', birthdayPostRouter);

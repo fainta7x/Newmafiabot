@@ -12,6 +12,17 @@ const API = '/api/player/telephone';
 const TITLE = 'Испорченный телефон с рисунками';
 const message = (error: unknown) => error instanceof Error ? error.message : 'Не удалось загрузить';
 const png = (base64: string) => `data:image/png;base64,${base64}`;
+/**
+ * A move in progress survives an accidental close of Telegram (owner, 2026-11-16: «случайно сворачиваю телеграм и
+ * перерисовываю картину заново»): the strokes and the text are kept on the phone until the move is sent, and while
+ * something is drawn Telegram asks before closing.
+ */
+const draftKey = (chainId: string, position: number) => `telephone-draft:${chainId}:${position}`;
+const readDraft = <T,>(key: string): T | null => { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) as T : null; } catch { return null; } };
+const writeDraft = (key: string, value: unknown) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage full or blocked: drawing still works */ } };
+type TelegramClosing = { enableClosingConfirmation?: () => void; disableClosingConfirmation?: () => void };
+const telegramApp = () => (window as unknown as { Telegram?: { WebApp?: TelegramClosing } }).Telegram?.WebApp;
+const askBeforeClosing = (on: boolean) => { try { if (on) telegramApp()?.enableClosingConfirmation?.(); else telegramApp()?.disableClosingConfirmation?.(); } catch { /* not inside Telegram */ } };
 const timeLeft = (deadline: string | null) => {
   if (!deadline) return '';
   const minutes = Math.max(0, Math.round((Date.parse(deadline) - Date.now()) / 60000));
@@ -55,6 +66,10 @@ function ListView({ onOpen, onMoved }: { onOpen: (id: string | null) => void; on
           : <><h2>Начать свою цепочку</h2><p>Придумайте фразу, выберите, кто будет отгадывать, и кому передать первый ход.</p>
             <button type="button" className="tp-primary" data-testid="telephone-create" onClick={() => setCreating(true)}>Начать цепочку</button></>}
       </section>
+      <section className="dw-social" data-testid="telephone-running"><h2>Идут сейчас</h2>{state.running.length ? <ul className="tp-finished">{state.running.map((chain) =>
+        <li key={chain.id}><button type="button" className="tp-row" onClick={() => onOpen(chain.id)}>
+          <span><strong>Цепочка {chain.author}</strong><small>{stageLine(chain)}</small></span><span aria-hidden="true">→</span>
+        </button></li>)}</ul> : <p>Сейчас ни одна цепочка не идёт.</p>}</section>
       <section className="dw-social"><h2>Готовые цепочки</h2>{state.finished.length ? <ul className="tp-finished">{state.finished.map((chain) =>
         <li key={chain.id}><button type="button" className="tp-row" onClick={() => onOpen(chain.id)}>
           {chain.cover ? <img src={png(chain.cover)} alt="" className="tp-thumb" /> : <span className="tp-thumb" aria-hidden="true" />}
@@ -63,6 +78,15 @@ function ListView({ onOpen, onMoved }: { onOpen: (id: string | null) => void; on
     </>}
     <Rules />
   </>;
+}
+
+/** The stage of a running chain in plain words: which link of how many, whose turn and what he does. */
+const STEP_WORDS: Record<string, string> = { guess: 'отгадывает', choose: 'выбирает, кому передать ход', choose_guesser: 'автор выбирает нового отгадывающего' };
+function stageLine(chain: TelephoneListState['running'][number]) {
+  const link = Math.min(chain.done_links + 1, chain.length);
+  const doing = chain.step === 'move' ? (link % 2 === 1 ? 'рисует' : 'подписывает') : STEP_WORDS[chain.step || ''] || '';
+  const stage = chain.step === 'guess' || chain.step === 'choose_guesser' ? `все ${chain.length} звеньев готовы` : `звено ${link} из ${chain.length}`;
+  return `${stage}${chain.current ? ` · ${chain.step === 'choose_guesser' ? doing : `${chain.current} ${doing}`}` : ''}${chain.deadline_at ? ` · осталось ${timeLeft(chain.deadline_at)}` : ''}`;
 }
 
 function PlayerPicker({ label, chainId, exclude, value, onChange, testId }: { label: string; chainId: string | null; exclude: string[]; value: string; onChange: (id: string) => void; testId: string }) {
@@ -121,9 +145,19 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
   const pad = useRef<DrawingPadHandle | null>(null);
   const load = useCallback(async () => { try { setState(await getJson<TelephoneChainState>(`${API}/${encodeURIComponent(chainId)}`, 'Не удалось загрузить цепочку')); setError(''); } catch (e) { setError(message(e)); } }, [chainId]);
   useEffect(() => { void load(); }, [load]);
+  const taskPosition = state?.my_task ? state.my_task.position : null;
+  const textKey = taskPosition !== null ? `${draftKey(chainId, taskPosition)}:text` : null;
+  useEffect(() => { if (textKey) setText(readDraft<string>(textKey) ?? ''); }, [textKey]);
+  const changeText = (value: string) => { setText(value); if (textKey) writeDraft(textKey, value || null); };
   const act = async (path: string, body: Record<string, unknown>) => {
     if (busy) return; setBusy(true); setError('');
-    try { await sendJson(`${API}/${encodeURIComponent(chainId)}/${path}`, 'POST', body, 'Не удалось сохранить'); onMoved?.(); setText(''); setNext(''); await load(); }
+    try {
+      await sendJson(`${API}/${encodeURIComponent(chainId)}/${path}`, 'POST', body, 'Не удалось сохранить');
+      // The move is on the server: the saved drawing and text are not needed any more.
+      if (taskPosition !== null) { writeDraft(draftKey(chainId, taskPosition), null); writeDraft(`${draftKey(chainId, taskPosition)}:text`, null); }
+      askBeforeClosing(false);
+      onMoved?.(); setText(''); setNext(''); await load();
+    }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
   if (!state) return error ? <div className="dw-error" role="alert"><p>{error}</p><button type="button" onClick={() => void load()}>Повторить загрузку</button></div> : <p>Загружаем цепочку…</p>;
@@ -140,13 +174,13 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
     {picker(task.step === 'choose' ? 'Кому передать ход' : 'Кто будет отгадывать')}{errorBox}
     <button type="button" className="tp-primary" data-testid="telephone-choose" disabled={busy || !next} onClick={() => void act('choose', { next_id: next })}>{task.step === 'choose' ? 'Передать ход' : 'Передать отгадку'}</button></>;
   if (task?.step === 'guess') return <>{header}<p>Перед вами последняя подпись и последний рисунок. Какой была исходная фраза?</p><div className="tp-chain">{state.items.map((item) => <Item key={item.position} item={item} />)}</div>
-    <label className="tp-field">Ваша отгадка<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => setText(e.target.value)} /></label>{errorBox}
+    <label className="tp-field">Ваша отгадка<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => changeText(e.target.value)} /></label>{errorBox}
     <div className="tp-actions">{decline}<button type="button" className="tp-primary" data-testid="telephone-guess" disabled={busy || !text.trim()} onClick={() => void act('guess', { text })}>Отгадать</button></div></>;
   if (task?.step === 'move') {
     const previous = state.items[0];
     const body = task.kind === 'drawing'
-      ? <><div className="tp-prompt"><small>Нарисуйте:</small><strong>«{previous?.text}»</strong></div><DrawingPad ref={pad} /><p className="dw-hint">Буквы и слова на рисунке писать нельзя.</p></>
-      : <><Item item={previous} /><label className="tp-field">Что нарисовано?<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => setText(e.target.value)} /></label><p className="dw-hint">Нельзя слова, которые уже были в подписях этой цепочки, в любой форме.</p></>;
+      ? <><div className="tp-prompt"><small>Нарисуйте:</small><strong>«{previous?.text}»</strong></div><DrawingPad ref={pad} storageKey={draftKey(chainId, task.position)} /><p className="dw-hint">Буквы и слова на рисунке писать нельзя.</p></>
+      : <><Item item={previous} /><label className="tp-field">Что нарисовано?<textarea rows={2} maxLength={TELEPHONE_TEXT_MAX} value={text} onChange={(e) => changeText(e.target.value)} /></label><p className="dw-hint">Нельзя слова, которые уже были в подписях этой цепочки, в любой форме.</p></>;
     const submit = () => {
       const payload: Record<string, unknown> = { position: task.position, ...(task.last ? {} : { next_id: next }) };
       if (task.kind === 'drawing') { const image = pad.current?.export(); if (!image) { setError('Нарисуйте что-нибудь'); return; } payload.image = image; } else payload.text = text;
@@ -162,9 +196,14 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
 
 type DrawingPadHandle = { export: () => string | null };
 const SIZE = 480;
-const DrawingPad = forwardRef<DrawingPadHandle>(function DrawingPad(_, ref) {
+type Stroke = { color: string; width: number; points: Array<[number, number]> };
+const DrawingPad = forwardRef<DrawingPadHandle, { storageKey: string }>(function DrawingPad({ storageKey }, ref) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
-  const strokes = useRef<Array<{ color: string; width: number; points: Array<[number, number]> }>>([]);
+  const strokes = useRef<Stroke[]>([]);
+  // A drawing kept from an earlier visit is offered back, not forced: «Продолжить рисунок» or «Начать заново».
+  const [saved, setSaved] = useState<Stroke[] | null>(() => { const draft = readDraft<Stroke[]>(storageKey); return Array.isArray(draft) && draft.length ? draft : null; });
+  const keep = () => { writeDraft(storageKey, strokes.current.length ? strokes.current : null); askBeforeClosing(strokes.current.length > 0); };
+  useEffect(() => () => askBeforeClosing(false), []);
   const [color, setColor] = useState(TELEPHONE_COLORS[0]);
   const [width, setWidth] = useState(6);
   const [eraser, setEraser] = useState(false);
@@ -181,19 +220,23 @@ const DrawingPad = forwardRef<DrawingPadHandle>(function DrawingPad(_, ref) {
   };
   useEffect(redraw, []);
   useImperativeHandle(ref, () => ({ export: () => strokes.current.length && canvas.current ? canvas.current.toDataURL('image/png') : null }));
-  const point = (event: React.PointerEvent<HTMLCanvasElement>): [number, number] => { const r = event.currentTarget.getBoundingClientRect(); return [(event.clientX - r.left) * SIZE / r.width, (event.clientY - r.top) * SIZE / r.height]; };
+  const point = (event: React.PointerEvent<HTMLCanvasElement>): [number, number] => { const r = event.currentTarget.getBoundingClientRect(); return [Math.round((event.clientX - r.left) * SIZE / r.width * 10) / 10, Math.round((event.clientY - r.top) * SIZE / r.height * 10) / 10]; };
   const down = (event: React.PointerEvent<HTMLCanvasElement>) => { event.currentTarget.setPointerCapture(event.pointerId); strokes.current.push({ color: eraser ? '#ffffff' : color, width: eraser ? width * 4 : width, points: [point(event)] }); redraw(); };
   const move = (event: React.PointerEvent<HTMLCanvasElement>) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; strokes.current[strokes.current.length - 1]?.points.push(point(event)); redraw(); };
-  const up = () => setCount(strokes.current.length);
+  const up = () => { setCount(strokes.current.length); keep(); };
+  const restore = () => { strokes.current = saved || []; setSaved(null); setCount(strokes.current.length); redraw(); askBeforeClosing(strokes.current.length > 0); };
+  const startOver = () => { writeDraft(storageKey, null); setSaved(null); };
   return <div className="tp-pad">
-    <canvas ref={canvas} width={SIZE} height={SIZE} data-testid="telephone-canvas" aria-label="Поле для рисунка" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} />
+    {saved && <div className="tp-saved" role="status" data-testid="telephone-draft-offer"><strong>У вас есть незаконченный рисунок</strong>
+      <div className="tp-actions"><button type="button" onClick={startOver}>Начать заново</button><button type="button" className="tp-primary" data-testid="telephone-draft-restore" onClick={restore}>Продолжить рисунок</button></div></div>}
+    <canvas ref={canvas} width={SIZE} height={SIZE} data-testid="telephone-canvas" aria-label="Поле для рисунка" className={saved ? 'tp-waiting' : ''} onPointerDown={(event) => { if (!saved) down(event); }} onPointerMove={move} onPointerUp={up} onPointerCancel={up} />
     <div className="tp-colors" role="group" aria-label="Цвет">{TELEPHONE_COLORS.map((c) => <button type="button" key={c} aria-label={`Цвет ${c}`} aria-pressed={!eraser && color === c} className={!eraser && color === c ? 'tp-on' : ''} style={{ background: c }} onClick={() => { setColor(c); setEraser(false); }}><span aria-hidden="true">●</span></button>)}</div>
     <div className="tp-tools">
       <button type="button" aria-pressed={width === 6} className={width === 6 ? 'tp-on' : ''} onClick={() => setWidth(6)}>Тонко</button>
       <button type="button" aria-pressed={width === 16} className={width === 16 ? 'tp-on' : ''} onClick={() => setWidth(16)}>Толсто</button>
       <button type="button" aria-pressed={eraser} className={eraser ? 'tp-on' : ''} onClick={() => setEraser((on) => !on)}>Ластик</button>
-      <button type="button" disabled={!count} onClick={() => { strokes.current.pop(); setCount(strokes.current.length); redraw(); }}>↶ Отменить</button>
-      <button type="button" disabled={!count} onClick={() => { strokes.current = []; setCount(0); redraw(); }}>Очистить</button>
+      <button type="button" disabled={!count} onClick={() => { strokes.current.pop(); setCount(strokes.current.length); redraw(); keep(); }}>↶ Отменить</button>
+      <button type="button" disabled={!count} onClick={() => { strokes.current = []; setCount(0); redraw(); keep(); }}>Очистить</button>
     </div>
   </div>;
 });

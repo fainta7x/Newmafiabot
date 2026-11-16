@@ -39,3 +39,7 @@
 .tp-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .dw-content .tp-tools button{min-height:44px;padding:6px 4px;font-size:13px;background:transparent}
 .dw-content .tp-tools button.tp-on{background:#e6c78733;border-color:#e6c787}
+.tp-saved{border:1px solid #e6c78788;border-radius:14px;padding:10px 12px;background:#e6c7871a;display:grid;gap:8px}
+.tp-saved strong{font-size:14px;color:#fff}
+.tp-pad canvas{overscroll-behavior:contain}
+.tp-pad canvas.tp-waiting{opacity:.35;pointer-events:none}

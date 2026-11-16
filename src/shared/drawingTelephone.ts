@@ -34,6 +34,8 @@ export type TelephoneChainState = {
 export type TelephoneListState = {
   my_turns: Array<{ id: string; step: TelephoneStep; position: number; length: number; author: string; deadline_at: string | null }>;
   my_active: { id: string; done_links: number; length: number; current: string | null } | null;
+  /** Every chain under way, for everybody (owner, 2026-11-16: «все видели все начатые звенья с этапом»); no content until the end. */
+  running: Array<{ id: string; author: string; guesser: string; done_links: number; length: number; step: TelephoneStep | null; current: string | null; deadline_at: string | null }>;
   finished: Array<{ id: string; author: string; guesser: string; phrase: string; guess: string | null; length: number; finished_at: string; cover: string | null }>;
   reward: number;
 };

@@ -103,6 +103,14 @@ describe('drawing telephone', () => {
     expect(state.step).toBe('choose');
   });
 
+  it('everybody sees every running chain with its stage, never its content (owner, 2026-11-16)', async () => {
+    const { chain } = await start();
+    await moveTelephoneChain(db, 'b', chain.id, { image: PNG, next_id: 'c' }, t0);
+    const list = await loadTelephoneList(db, 'g');
+    expect(list.running).toEqual([expect.objectContaining({ id: chain.id, author: 'A', guesser: 'H', done_links: 1, length: 5, step: 'move', current: 'C' })]);
+    expect(JSON.stringify(list.running)).not.toContain('гитаре');
+  });
+
   it('a silent guesser: the author chooses another last link, not one of the chain (owner, 2026-11-16)', async () => {
     const { chain } = await start();
     const order = ['b', 'c', 'd', 'e', 'f'];

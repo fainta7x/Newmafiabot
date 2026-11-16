@@ -125,12 +125,12 @@ const notice = (playerId: string, key: string, chainId: string, text: string): T
 const guessNotice = (chainId: string, to: string) => notice(to, `telephone:${chainId}:guess:${to}`, chainId, `🔎 Твоя очередь отгадывать в «Испорченном телефоне с рисунками»: посмотри последний рисунок и подпись и напиши, какой была исходная фраза. На ответ ${TELEPHONE_TURN_HOURS} часов.`);
 const moveText = (position: number) => telephoneLinkKind(position) === 'drawing' ? 'нарисуй, что написано' : 'подпиши, что нарисовано';
 
-export async function startTelephoneChain(db: DatabaseWrapper, playerId: string, input: { phrase?: unknown; length?: unknown; guesser_id?: unknown; next_id?: unknown }, now = new Date()) {
+export async function startTelephoneChain(db: DatabaseWrapper, playerId: string, input: { phrase?: unknown; links?: unknown; guesser_id?: unknown; next_id?: unknown }, now = new Date()) {
   await ensureDrawingTelephoneSchema(db);
   const phrase = cleanText(input.phrase, 'фразу');
   const key = normalizeTelephonePhrase(phrase);
   if (!key) throw new TelephoneError(400, 'Напишите фразу словами');
-  const length = numberOf(input.length);
+  const length = numberOf(input.links);
   if (!Number.isInteger(length) || length < TELEPHONE_MIN_LINKS || length > TELEPHONE_MAX_LINKS) throw new TelephoneError(400, `Звеньев — от ${TELEPHONE_MIN_LINKS} до ${TELEPHONE_MAX_LINKS}`);
   const guesser = idOf(input.guesser_id), next = idOf(input.next_id);
   const allowed = new Set((await telephonePlayers(db)).map((player) => player.id));

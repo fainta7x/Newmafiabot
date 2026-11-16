@@ -91,7 +91,7 @@ function CreateForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
   const [error, setError] = useState('');
   const submit = async () => {
     if (busy) return; setBusy(true); setError('');
-    try { const result = await sendJson<{ chain: TelephoneChainState }>(API, 'POST', { phrase, length, guesser_id: guesser, next_id: next }, 'Не удалось начать цепочку'); onCreated(result.chain.id); }
+    try { const result = await sendJson<{ chain: TelephoneChainState }>(API, 'POST', { phrase, links: length, guesser_id: guesser, next_id: next }, 'Не удалось начать цепочку'); onCreated(result.chain.id); }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
   return <>

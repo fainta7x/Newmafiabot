@@ -24,12 +24,12 @@ describe('drawing telephone', () => {
     await db.run("INSERT INTO players(id,nickname,tokens,created_at,updated_at) VALUES ('nolink','Без связи',0,'x','x')");
   });
   afterEach(() => { vi.unstubAllEnvs(); db.sqlite.close(); });
-  const start = (over: Record<string, unknown> = {}) => startTelephoneChain(db, 'a', { phrase: 'Кот играет на гитаре', length: 5, guesser_id: 'h', next_id: 'b', ...over }, t0);
+  const start = (over: Record<string, unknown> = {}) => startTelephoneChain(db, 'a', { phrase: 'Кот играет на гитаре', links: 5, guesser_id: 'h', next_id: 'b', ...over }, t0);
   const tokens = async (id: string) => Number((await db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id=?', [id]))!.tokens);
 
   it('starts: phrase, 5–20 links, a guesser and the first player; one active chain per author; a phrase is never reused', async () => {
-    await expect(start({ length: 4 })).rejects.toThrow('от 5 до 20');
-    await expect(start({ length: 21 })).rejects.toThrow('от 5 до 20');
+    await expect(start({ links: 4 })).rejects.toThrow('от 5 до 20');
+    await expect(start({ links: 21 })).rejects.toThrow('от 5 до 20');
     await expect(start({ guesser_id: 'a' })).rejects.toThrow('отгадывать');
     await expect(start({ next_id: 'h' })).rejects.toThrow('первый ход');
     await expect(start({ next_id: 'nolink' })).rejects.toThrow('первый ход');
@@ -38,11 +38,11 @@ describe('drawing telephone', () => {
     expect(notices.map((n) => n.playerId)).toEqual(['b']);
     expect(await tokens('a')).toBe(50);
     await expect(start({ phrase: 'другая' })).rejects.toThrow('ещё идёт');
-    await expect(startTelephoneChain(db, 'c', { phrase: 'кот, играет на ГИТАРЕ!', length: 5, guesser_id: 'h', next_id: 'd' }, t0)).rejects.toThrow('уже начинали');
+    await expect(startTelephoneChain(db, 'c', { phrase: 'кот, играет на ГИТАРЕ!', links: 5, guesser_id: 'h', next_id: 'd' }, t0)).rejects.toThrow('уже начинали');
   });
 
   it('a player sees only the previous link; captions may not reuse words of earlier captions; nobody moves twice', async () => {
-    const { chain } = await start({ length: 6 });
+    const { chain } = await start({ links: 6 });
     expect(chain.items.map((i) => i.kind)).toEqual(['phrase']); // the author sees his own phrase only
     expect((await loadTelephoneChain(db, 'g', chain.id)).items).toEqual([]); // an outsider sees nothing until the end
     const forB = await loadTelephoneChain(db, 'b', chain.id);
@@ -63,7 +63,7 @@ describe('drawing telephone', () => {
   });
 
   it('after the last link the guesser sees the last drawing and caption, guesses, and everything opens for everyone', async () => {
-    const { chain } = await start({ length: 5 });
+    const { chain } = await start({ links: 5 });
     const order = ['b', 'c', 'd', 'e', 'f'];
     for (let i = 0; i < 5; i++) {
       const position = i + 1;

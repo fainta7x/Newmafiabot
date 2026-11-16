@@ -86,6 +86,7 @@ body {
 [data-testid="canonical-player-profile-overlay"],
 .crm-premium > .fixed.inset-0.z-50,
 [data-testid="live-game-engine"] .fixed.inset-0:has(> .live-player-action-sheet),
+[data-testid="live-player-action-backdrop"],
 [data-testid="live-game-engine"] .fixed.inset-0:has(> [data-testid="live-discipline-confirmation"]),
 [data-testid="live-game-engine"] .fixed.inset-0:has(> [data-testid="live-best-move-sheet"]) {
   max-height: var(--tg-viewport-height) !important;

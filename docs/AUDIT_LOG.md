@@ -3091,3 +3091,9 @@ Owner report: the opinion of a voted-out player is recorded (colour window after
 
 VO01 (fixed): `src/lib/playerContribution.ts` — only `killed` exits counted as will moments, so a voted-out player's opinion neither paid its author nor judged the blacks. Now a `voted_day` exit with a recorded opinion counts exactly like a death protocol (owner rule in BUSINESS_RULES, 2026-11-16). Regression: `src/tests/playerContribution.test.ts` «the opinion of a red voted out counts like a death protocol».
 
+
+## 2026-11-16 — «Анонс не отправлен» до публикации вечера
+
+Owner report (screenshot of «Требует уточнения» on the CRM home): before the novice evening was published it listed «Алоэ: Анонс не отправлен · Дина: … · Диссонанс: …».
+
+DA01 (fixed): `eveningAnnouncementTrackingService.ts:loadAnnouncementOverview` marked every eligible player of a **draft** evening as `not_sent`, and `tableScoutingRoutes.ts:needsCurrentCommunicationAttention` put them into «Требует уточнения». A draft is not announced yet, so this is no problem. Now a draft gives `not_published` (left out of the attention list) and `summary.not_sent` counts only published evenings. Regression: `commandCenterCommunicationAttention.test.ts`.

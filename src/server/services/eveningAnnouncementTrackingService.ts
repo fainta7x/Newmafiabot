@@ -181,7 +181,8 @@ export async function loadAnnouncementOverview(db: Db, eveningId: string) {
     && player.delivery_status === 'failed'
   ));
   const notSent = players.filter((player: any) => (
-    player.response_status === 'unanswered'
+    evening.status !== 'draft'
+    && player.response_status === 'unanswered'
     && player.eligible_now
     && !player.first_sent_at
     && player.delivery_status !== 'failed'
@@ -206,7 +207,10 @@ export async function loadAnnouncementOverview(db: Db, eveningId: string) {
           ? 'unanswered'
           : player.delivery_status === 'failed'
             ? 'failed'
-            : 'not_sent',
+            // A draft evening is not announced yet: «Анонс не отправлен» is no problem before publication (owner, 2026-11-16).
+            : evening.status === 'draft'
+              ? 'not_published'
+              : 'not_sent',
     })),
   };
 }

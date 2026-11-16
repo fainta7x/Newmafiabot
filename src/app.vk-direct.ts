@@ -1,6 +1,7 @@
 import express from 'express';
 import { productionStatic } from './server/http/productionStatic.ts';
 import cookieParser from 'cookie-parser';
+import { cookieCsrfProtection } from './server/middleware/cookieCsrfProtection.ts';
 import helmet from 'helmet';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -103,6 +104,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
     next(err);
   });
   app.use(cookieParser());
+  app.use(cookieCsrfProtection);
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

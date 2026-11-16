@@ -136,6 +136,8 @@ describe('a lead manages their own booking without an account', () => {
     const path = `/api/crm/leads/${lead.playerId}/booking-link`;
     expect((await client.post(path).send({})).status).toBe(401);
     const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const crossSite = await client.post(path).set('Host', 'app.2lamafia.ru').set('Origin', 'https://untrusted.2lamafia.ru').set('Cookie', cookie);
+    expect(crossSite.status).toBe(403);
     const first = await client.post(path).set('Cookie', cookie).send({});
     expect(first.status).toBe(200);
     const token = new URL(first.body.url).hash.slice('#booking='.length);

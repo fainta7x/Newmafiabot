@@ -24,6 +24,8 @@ import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { loadAgenda, recordAgendaContact, snoozeAgendaItem } from '../services/organizerAgendaService.ts';
 import { LeadError, bookLead, createWelcomeLead, detectLeadContactKind, listLeads, markLeadWritten, noviceEveningsForLeads, removeLead, setLeadStatus } from '../services/newcomerFunnelService.ts';
 import { leadReadyMessage } from '../services/agendaMessageService.ts';
+import { issueGuestBookingToken } from '../services/guestBookingService.ts';
+import { getWelcomeSiteUrl } from '../runtimeConfig.ts';
 
 const router = Router();
 
@@ -179,6 +181,16 @@ router.post('/leads/:playerId/book', requireOrganizerAuth, async (req: Authentic
 router.post('/leads/:playerId/written', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try { return res.json(await markLeadWritten(req.db || (await getDb()), req.params.playerId)); }
   catch (error: any) { return leadError(res, error, 'Не удалось отметить'); }
+});
+router.post('/leads/:playerId/booking-link', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.userRole !== 'ORGANIZER' || req.delegatedOrganizerAccess) return res.status(403).json({ error: 'Нужен доступ организатора клуба' });
+  try {
+    const token = await issueGuestBookingToken(req.db || await getDb(), String(req.params.playerId));
+    const url = new URL('/igry/', getWelcomeSiteUrl() || 'https://2lamafia.ru');
+    url.hash = 'booking=' + token;
+    return res.json({ url: url.href });
+  } catch (error: any) { return leadError(res, error, 'Не удалось создать ссылку'); }
 });
 
 router.post('/agenda/lead-remove', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {

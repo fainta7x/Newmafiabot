@@ -4,6 +4,7 @@ import { ensurePublicationDeliverySchema, importLegacyPublicationHolds } from '.
 import express from 'express';
 import { productionStatic } from './server/http/productionStatic.ts';
 import cookieParser from 'cookie-parser';
+import { cookieCsrfProtection } from './server/middleware/cookieCsrfProtection.ts';
 import helmet from 'helmet';
 import path from 'path';
 import { DatabaseWrapper, getDb, getIsolatedTestDb } from './db/index.ts';
@@ -182,6 +183,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
     next(err);
   });
   app.use(cookieParser());
+  app.use(cookieCsrfProtection);
   app.use(performanceMiddleware);
   startPerformanceWatchdog();
 

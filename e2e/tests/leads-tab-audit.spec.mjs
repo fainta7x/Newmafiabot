@@ -7,6 +7,7 @@ const VIEWPORTS = [[360, 640], [390, 844], [1366, 768], [1440, 900], [1920, 1089
 for (const [width, height] of VIEWPORTS) {
   test(`leads tab at ${width}x${height}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height });
+    const bookingUrl = 'https://2lamafia.ru/igry/#booking=' + 'a'.repeat(43);
     const report = [];
     let shot = 0;
     const check = async (screen) => {
@@ -34,6 +35,9 @@ for (const [width, height] of VIEWPORTS) {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Ещё: Иван' }).click().catch(async () => { await page.locator('[aria-label="Ещё: Иван"]').click(); });
     await check('lead-menu');
+    await page.getByRole('button', { name: 'Создать новую ссылку на запись' }).click();
+    await expect(page.getByLabel('Ссылка на запись')).toHaveValue(bookingUrl);
+    await check('lead-booking-link');
     if (process.env.LIVE_TEXT_AUDIT_REPORT) console.log(`\n=== ${width}x${height} ===\n${report.join('\n') || 'clean'}`);
     expect(report).toEqual([]);
   });

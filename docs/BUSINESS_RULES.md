@@ -1128,10 +1128,12 @@ The owner wanted a game played in turns where after one's move the turn is passe
 - **Forbidden:** a starting phrase used before in the club; **in a caption, a word of an earlier caption of the same chain in any form** — «кот, кота, коты» are one word, but «котлета» is another and must stay allowed (owner, 2026-11-16: «нельзя блокировать написать котлета»); forms are matched by the Russian Snowball stemmer (`src/shared/russianStem.ts`), so «кошка» counts as a separate word; **letters on a drawing** (a rule for players, not checked automatically).
 - **Tokens: 50 for every move** (the author's phrase, each link, the guess).
 - **Shown:** every finished chain to everybody in the app and **posted to «Новости»** (album of the drawings, the way of the phrase in the caption).
-- **One active chain per author** at a time.
+- **One active chain per author** at a time; many chains of different players run at once (owner, 2026-11-16: «цепочек может быть много от разных игроков одновременно, но не больше 1 созданной»).
 - **Drawing:** 8 colours, thin/thick, eraser, undo, clear.
 - **Name: «Испорченный телефон с рисунками»** (owner).
-- **Assistant's defaults, not named by the owner (to confirm):** a reminder 4 hours into each 8; when the author himself does not choose for 8 hours the chain waits for him and he is reminded every 8 hours; the author's phrase is not part of the word ban; players are those with Telegram or VK linked; who declined or let the time run out cannot get the same chain again.
+- **Author silent on a returned choice:** the chain waits for him and he is reminded every 8 hours (it blocks only his own one chain; the owner kept the current behaviour, 2026-11-16).
+- **Related words with alternation** («кот» – «кошка») are separate words; the owner: «оставляй как есть» (2026-11-16).
+- **Assistant's defaults, not named by the owner:** a reminder 4 hours into each 8; the author's phrase is not part of the word ban; players are those with Telegram or VK linked; who declined or let the time run out cannot get the same chain again.
 
 ## Daily sudoku (owner, 2026-11-16)
 

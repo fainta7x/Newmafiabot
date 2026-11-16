@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureDailyWordSchema } from '../../db/ensureDailyWordSchema.ts';
 import { BOT_CHANGES_DIGEST } from '../data/botChangesDigest.ts';
 import { dailyWordDay } from './dailyWordService.ts';
+import { dailySudokuYesterdayLine } from './dailySudokuService.ts';
 import { appUrl } from './gameResultCardService.ts';
 import { claim, ensureClubResultPostSchema, finish, sendText } from './clubResultPostService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
@@ -19,12 +20,15 @@ export async function dailyWordInviteText(db: DatabaseWrapper, day: string) {
   await ensureDailyWordSchema(db);
   const yesterday = previousDayOf(day);
   const puzzle = await db.get<{ answer: string }>('SELECT answer FROM daily_word_puzzles WHERE day = ?', [yesterday]);
-  const lines = ['🔤 Слово дня уже ждёт! Угадаешь за 6 попыток — получишь 200 жетонов.'];
+  // One morning post for both daily games (owner, 2026-11-16): word and sudoku, two buttons, yesterday's results of both.
+  const lines = ['🔤 Слово дня уже ждёт! Угадаешь за 6 попыток — получишь 200 жетонов.', '🔢 И судоку дня: решишь — ещё 200 жетонов.'];
   if (puzzle) {
     const stats = await db.get<{ total: number; won: number }>(`SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END), 0) AS won FROM daily_word_sessions WHERE day = ?`, [yesterday]);
     const total = Number(stats?.total || 0);
     lines.push('', total > 0 ? `Вчера слово было «${puzzle.answer}»: отгадали ${Number(stats?.won || 0)} из ${total}.` : `Вчера слово было «${puzzle.answer}».`);
   }
+  const sudoku = await dailySudokuYesterdayLine(db, day);
+  if (sudoku) lines.push(puzzle ? sudoku : `\n${sudoku}`);
   return lines.join('\n');
 }
 
@@ -35,8 +39,9 @@ export async function runDailyWordInvitation(db: DatabaseWrapper, fetchImpl: typ
   if (!(await claim(db, key, 'daily-word-invite', '', null))) return 0;
   try {
     const link = appUrl('/player/daily-word');
+    const sudokuLink = appUrl('/player/sudoku');
     const result = await sendText(db, NEWS_DESTINATION, await dailyWordInviteText(db, day), fetchImpl, undefined,
-      link ? { inline_keyboard: [[{ text: '🔤 Играть', url: link }]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
+      link ? { inline_keyboard: [[{ text: '🔤 Слово дня', url: link }, ...(sudokuLink ? [{ text: '🔢 Судоку', url: sudokuLink }] : [])]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
     await finish(db, key, result);
     return result.ok ? 1 : 0;
   } catch (error: any) {

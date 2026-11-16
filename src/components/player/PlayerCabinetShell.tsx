@@ -27,6 +27,7 @@ export type { PlayerCabinetSection } from './playerCabinetNavigation.ts';
 // Heavy sections few players open load on demand: the judge's game screen (engine, protocols) and the mini-games.
 const PlayerConductCenter = lazy(() => import('./PlayerConductCenter.tsx'));
 const PlayerDailyWord = lazy(() => import('./PlayerDailyWord.tsx'));
+const PlayerDailySudoku = lazy(() => import('./PlayerDailySudoku.tsx'));
 const PlayerPoker = lazy(() => import('./PlayerPoker.tsx'));
 const PlayerClocktower = lazy(() => import('./PlayerClocktower.tsx'));
 
@@ -86,6 +87,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
 
   if (section === 'clocktower') return <PlayerClocktower initialRoomId={initialTarget} onExit={() => open('club', 'games')} onOpenRules={() => { window.location.assign('/guide?tab=clocktower'); }} onOpenRoom={(roomId) => open('clocktower', roomId)} />;
   if (section === 'dailyword') return <PlayerDailyWord onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
+  if (section === 'sudoku') return <PlayerDailySudoku onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
   if (section === 'poker') return <PlayerPoker initialLobbyId={initialTarget} onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
 
   return (
@@ -102,7 +104,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : isPlayerEveningSection(section) ? (
         <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={target} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
       ) : isPlayerCommunitySection(section) ? (
-        <PlayerCommunityHub onOpenDailyWord={() => open('dailyword')} data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} onOpenMyConnections={() => open('profile','tab:connections')} />
+        <PlayerCommunityHub onOpenDailyWord={() => open('dailyword')} onOpenSudoku={() => open('sudoku')} data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} onOpenMyConnections={() => open('profile','tab:connections')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} target={target} onOpen={(view) => open('wallet', view)} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (

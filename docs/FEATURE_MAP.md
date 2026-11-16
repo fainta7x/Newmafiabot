@@ -67,6 +67,13 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Club game protocol window (check / correct / confirm; two places «Протокол» + «Ход игры», sheets, tags, «Вы изменили»): `src/components/crm/gameProtocol/` — frame `ProtocolWindow.tsx`, views `OverviewView.tsx` / `GameFlowView.tsx` / `PlayersView.tsx` / `ResultView.tsx`, tag language `tags.tsx`, primitives `ui.tsx`, pure model (circles, ballots from the chronology, issues, changes with undo) `protocolReview.ts`; legacy-record repair `src/lib/legacyClubProtocol.ts`. Tests `gameProtocolReview.test.ts`, `EveningGameProtocolModalAutosave.test.tsx`; browser `e2e/tests/protocol-window-preview.spec.mjs` (+ `e2e/protocol-window.html`). One protocol for both kinds of game (owner, 2026-10-24): every edit is `useProtocolEditing.ts`, the autosave `useProtocolAutosave.ts`, the window with its checks is `ProtocolWorkspace.tsx`, reveals `RevealsCard.tsx`; `EveningGameProtocolModal.tsx` (club) and `tournaments/GameProtocolModal.tsx` (tournament) only load, save, confirm and reopen, and the tournament adds the judge's points (`tournaments/protocol/TournamentPointsView.tsx`) and its confirmation dialogs. Tests `tournamentProtocolWindow.test.tsx`, `protocolRevealsCard.test.tsx`.
 - API: `gamesRoutes.ts`, `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 
+### Daily sudoku
+
+- Player page: `PlayerDailySudoku.tsx` + `dailySudoku.css` (frame shared with `dailyWord.css`), at `/player/sudoku` through `PlayerCabinetShell.tsx`; entry from Community → Mini-games and the morning «Новости» post (no Home card: not asked by the owner).
+- Contract/levels/share: `shared/dailySudoku.ts`; generator with uniqueness check `server/services/sudokuGenerator.ts`.
+- API `dailySudokuRoutes.ts` under `/api/player/daily-sudoku` (GET, `/start`, `/move`); service `dailySudokuService.ts`, schema `ensureDailySudokuSchema.ts`; reward through `tokenLedgerService.ts`. Morning post line: `botNewsPostService.ts`.
+- Coverage: `dailySudoku.integration.test.ts`, `botNewsPosts.test.ts`; all-app audit includes new/playing/notes/won/lost/error.
+
 ### Daily word
 
 - «Новости» invitation and bot-changes digest: `botNewsPostService.ts` (called from `runClubResultPosts`), digest entries `server/data/botChangesDigest.ts`, target destination `club_mvp`.

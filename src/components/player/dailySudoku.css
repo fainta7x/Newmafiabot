@@ -1,0 +1,30 @@
+/* Daily sudoku (owner, 2026-11-16): the page shares the daily-word frame (dailyWord.css) and adds the grid and the pad. */
+.sd-grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));width:100%;max-width:min(100%,432px);margin:0 auto;border:2px solid #e6c787aa;border-radius:10px;overflow:hidden;background:#ffffff26;gap:1px}
+.dw-content button.sd-cell{aspect-ratio:1;min-height:0;min-width:0;padding:0;border:0;border-radius:0;background:#0d0f14;display:flex;align-items:center;justify-content:center;font-size:clamp(17px,5.2vw,24px);line-height:1;font-weight:500;color:#e6c787;cursor:pointer;overflow:hidden}
+.dw-content button.sd-cell:disabled{opacity:1;cursor:default}
+/* Box lines are drawn with shadows, so every cell keeps the same size (borders of 2 px shifted the lines). */
+.dw-content button.sd-cell{box-shadow:inset var(--sd-er,0 0 0 0 transparent),inset var(--sd-eb,0 0 0 0 transparent)}
+.dw-content button.sd-cell.sd-edge-r{--sd-er:-1px 0 0 0 #e6c787aa}
+.dw-content button.sd-cell.sd-edge-b{--sd-eb:0 -1px 0 0 #e6c787aa}
+.dw-content button.sd-cell.sd-given{color:#f4f4f5;font-weight:700}
+.dw-content button.sd-cell.sd-revealed{color:#8d8f99}
+.dw-content button.sd-cell.sd-related{background:#1a1c22}
+.dw-content button.sd-cell.sd-same{background:#2c281f}
+.dw-content button.sd-cell.sd-selected{background:#4a4130;outline:2px solid #e6c787;outline-offset:-2px}
+.dw-content button.sd-cell.sd-wrong{background:#8f2c2c;color:#fff}
+.dw-content button.sd-cell:focus-visible{outline:2px solid #e6c787;outline-offset:-2px}
+.sd-notes{display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%;padding:1px;font-size:clamp(8px,2.3vw,11px);line-height:1;font-weight:500;color:#bfc0c7}
+.sd-notes span{display:flex;align-items:center;justify-content:center}
+.sd-pad{display:flex;flex-direction:column;gap:8px}
+.sd-digits{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+.dw-content .sd-digits button{min-height:52px;padding:0;font-size:22px;font-weight:600;background:#20232c;border-radius:8px}
+.sd-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dw-content .sd-tools button{background:transparent;font-size:14px}
+.dw-content .sd-tools button.sd-on{background:#e6c78733;border-color:#e6c787}
+.dw-content .sd-primary{background:#f4f4f5;color:#16130d;font-weight:650}
+.sd-start{text-align:left}
+.sd-results{display:grid;gap:8px;margin-top:12px}
+.sd-results li{display:flex;gap:12px;justify-content:space-between;font-size:13px;line-height:1.6}
+.sd-results li span{min-width:0;overflow-wrap:anywhere}
+.sd-results li strong{flex-shrink:0;font-weight:500}
+.sd-dot{color:#ffffff38;font-weight:400}

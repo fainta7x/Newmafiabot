@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureDailyWordSchema } from '../db/ensureDailyWordSchema.ts';
+import { ensureDailySudokuSchema } from '../db/ensureDailySudokuSchema.ts';
 import { ensureClubResultPostSchema } from '../server/services/clubResultPostService.ts';
 import { runBotChangesDigest, runDailyWordInvitation, dailyWordInviteText } from '../server/services/botNewsPostService.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
@@ -35,6 +36,22 @@ describe('«Новости»: daily word invitation and bot changes digest', () 
     expect(calls[0].chat_id).toBe('-1001628595679');
     expect(calls[0].message_thread_id).toBe(5925);
     expect(calls[0].text).toContain('Вчера слово было «камень»: отгадали 1 из 2.');
+  });
+
+  it('one morning post for both daily games: two buttons and yesterday\'s fastest sudoku (owner, 2026-11-16)', async () => {
+    const db = await setup();
+    await db.run("INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('a','Аня',0,'x','x'),('b','Борис',0,'x','x'),('c','Вера',0,'x','x')");
+    await ensureDailySudokuSchema(db);
+    await db.run("INSERT INTO daily_sudoku_puzzles (day,level,puzzle,solution,reward,created_at) VALUES ('2026-11-11','easy','0','1',200,'x')");
+    await db.run(`INSERT INTO daily_sudoku_sessions (day,player_id,board,status,started_at,finished_at,updated_at) VALUES
+      ('2026-11-11','a','1','won','2026-11-11T10:00:00Z','2026-11-11T10:09:30Z','x'),('2026-11-11','b','1','won','2026-11-11T11:00:00Z','2026-11-11T11:05:07Z','x'),('2026-11-11','c','0','lost','2026-11-11T12:00:00Z','2026-11-11T12:03:00Z','x')`);
+    vi.stubEnv('PUBLIC_APP_URL', 'https://club.example');
+    const { calls, fetchImpl } = recorder();
+    expect(await runDailyWordInvitation(db, fetchImpl, at('2026-11-12T08:00:00Z'))).toBe(1);
+    expect(calls[0].text).toContain('судоку дня');
+    expect(calls[0].text).toContain('Судоку вчера решили 2 из 3, быстрее всех — Борис (5:07).');
+    expect(calls[0].reply_markup.inline_keyboard[0].map((b: any) => b.text)).toEqual(['🔤 Слово дня', '🔢 Судоку']);
+    expect(calls[0].reply_markup.inline_keyboard[0][1].url).toContain('/player/sudoku');
   });
 
   it('text without a puzzle yesterday has no result line', async () => {

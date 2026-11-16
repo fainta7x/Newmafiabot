@@ -1118,6 +1118,18 @@ These are the owner's answers to the questions where copies in the code disagree
 10. **Open evening** (owner, 2026-10-23). An evening is open when it is **published or in progress and not yet closed**. Players see only open evenings in «Актуальное» and in the bot; drafts are never shown to players. Players can be invited and can sign up **until the evening is closed**, including during it (someone may come later).
 
 
+## Daily sudoku (owner, 2026-11-16)
+
+The owner: «Вордли… прям хайпанула… Давай судоку пока сделаем». Answers of 2026-11-16:
+- One classic 9×9 sudoku per Moscow day, the same for the whole club, with exactly one solution. **Difficulty grows over the week** («растёт по неделе»): Monday easiest, Sunday hardest (open cells Mon–Sun: 40, 37, 34, 32, 30, 28, 26 — the assistant's default; labels лёгкое / среднее / сложное / очень сложное).
+- **Reward: 200 tokens, as the daily word** — once per player and day, the same for any day and any time. Free, no entry fee.
+- **Mistakes: a wrong digit is a mistake, the third mistake loses** for the day (no tokens). A right digit stays in its cell. Pencil notes are not checked and are not mistakes.
+- **Table of the day by time** — opens after one's own game: solvers ordered by time (then fewer mistakes), unsolved last. Time runs from «Начать»; the grid opens only then.
+- **Morning post:** the same 10:00 «Новости» post as the daily word — both games, two buttons, and yesterday's sudoku result (how many solved and the fastest).
+- **Name: «Судоку»** (owner).
+- New day at 00:00 Moscow; streaks are informational, as in the daily word.
+- Saved for later by the owner (not built): «Быки и коровы», nonogram (японский кроссворд), «Слова из слова».
+
 ## Daily word (owner-approved, 2026-10-28)
 
 - Purpose: a fun daily reason to open the app, independent of Mafia performance. One common Russian noun per Moscow day; the owner explicitly requested variable length. Initial supported range4–8 letters and6 guesses are implementation defaults stated in the conversation. Е and Ё are equivalent.

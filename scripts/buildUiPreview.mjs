@@ -21,6 +21,7 @@ const pages = [
   'e2e/player-cabinet.html',
   'e2e/player-avatar.html',
   'e2e/daily-word.html',
+  'e2e/daily-sudoku.html',
   'e2e/player-profile.html',
   'e2e/gomafia-career.html',
   'e2e/crm-overview.html',

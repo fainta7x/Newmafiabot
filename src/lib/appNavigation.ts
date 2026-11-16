@@ -19,7 +19,8 @@ export type PlayerRouteSection =
   | 'clubworld'
   | 'poker'
   | 'clocktower'
-  | 'dailyword';
+  | 'dailyword'
+  | 'sudoku';
 
 export type ParsedPlayerRoute = {
   section: PlayerRouteSection;
@@ -56,6 +57,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     career: '/player/career',
     clubworld: target === 'form' ? '/player/club/form' : target === 'matches' ? '/player/club/history' : target === 'history' ? '/player/rating/periods/archive' : target === 'season' ? '/player/rating/periods' : '/player/seasons',
     dailyword: '/player/daily-word',
+    sudoku: '/player/sudoku',
     poker: target ? `/player/poker/${encodeURIComponent(target)}` : '/player/poker',
     clocktower: target ? `/player/clocktower/${encodeURIComponent(target)}` : '/player/clocktower',
   };
@@ -118,6 +120,7 @@ export const parsePlayerRoute = (pathname: string, search = ''): ParsedPlayerRou
     return { section: 'games', target, replayGameKey: null, canonicalPath: playerPathForSection('games', target) };
   }
   if (parts[1] === 'daily-word') return { section: 'dailyword', target: null, replayGameKey: null, canonicalPath: '/player/daily-word' };
+  if (parts[1] === 'sudoku') return { section: 'sudoku', target: null, replayGameKey: null, canonicalPath: '/player/sudoku' };
   if (parts[1] === 'poker') {
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'poker', target, replayGameKey: null, canonicalPath: playerPathForSection('poker', target) };
@@ -162,7 +165,7 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'replay') return parts[2] ? playerPathForSection('games', safeDecode(parts[2])) : '/player/games';
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
-    if (parts[1] === 'daily-word') return '/player/club/games';
+    if (parts[1] === 'daily-word' || parts[1] === 'sudoku') return '/player/club/games';
     if (parts[1] === 'poker' && parts.length > 2) return '/player/poker';
     if (parts[1] === 'poker') return '/player/club/games';
     if (parts[1] === 'clocktower') return parts.length > 2 ? '/player/clocktower' : '/player/club/games';

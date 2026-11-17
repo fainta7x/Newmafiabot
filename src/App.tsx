@@ -22,6 +22,15 @@ import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboardi
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
+import { clearScreenCache, readScreenCache, writeScreenCache } from './lib/screenCache.ts';
+
+/** The player's last cabinet on this device, per Telegram account («Экраны без подгрузки», 2026-11-17). */
+type CachedPlayerRoot = { data: PlayerMeResponse; canOpenAdmin: boolean; canOpenEventHost: boolean };
+const playerRootCacheKey = () => {
+  let telegramId = '';
+  try { telegramId = String((window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || ''); } catch { /* no Telegram */ }
+  return `player:root:${telegramId || 'web'}`;
+};
 import { MAINTENANCE_TEXT, MAINTENANCE_TITLE, ServerRestartingError, fetchOrRestarting, isRestartingStatus, maintenanceContacts } from './lib/maintenance.ts';
 
 type RootState =
@@ -196,7 +205,10 @@ function AppContent() {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
     // Fetch the player code alongside authentication, never after its network round trip.
     void loadPlayerCabinet().catch(() => undefined);
-    setRootState({ status: 'loading' });
+    // The last cabinet is shown at once; the checks below replace it with the fresh one.
+    const cachedRoot = readScreenCache<CachedPlayerRoot>(playerRootCacheKey());
+    // While the server restarts (retry every 20 s) the restart screen stays instead of blinking the old cabinet.
+    setRootState((previous) => (cachedRoot && previous.status !== 'restarting' && previous.status !== 'error' ? { status: 'player', ...cachedRoot } : { status: 'loading' }));
     rememberSiteReturn(window.location.search);
 
     const telegramWebApp = (window as any).Telegram?.WebApp;
@@ -241,10 +253,12 @@ function AppContent() {
         const data = await profileResponse.json() as PlayerMeResponse;
         const backToSite = takeSiteReturn();
         if (backToSite) { window.location.replace(backToSite); return; }
+        writeScreenCache(playerRootCacheKey(), { data, canOpenAdmin, canOpenEventHost });
         setRootState({ status: 'player', data, canOpenAdmin, canOpenEventHost });
         return;
       }
 
+      clearScreenCache('player:');
       setRootState({ status: 'unlinked', canOpenAdmin });
     } catch (error) {
       // No answer at all (TypeError from fetch) or a gateway error: the server is restarting.

@@ -26,6 +26,7 @@ import { LeadError, bookLead, createWelcomeLead, detectLeadContactKind, listLead
 import { leadReadyMessage } from '../services/agendaMessageService.ts';
 import { issueGuestBookingToken } from '../services/guestBookingService.ts';
 import { getWelcomeSiteUrl } from '../runtimeConfig.ts';
+import { cachedScreen, registerScreen } from '../services/screenPrecomputeService.ts';
 
 const router = Router();
 
@@ -101,11 +102,12 @@ router.post('/vk-manual-photos/:id/done', requireOrganizerAuth, async (req: Auth
   } catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось отметить' }); }
 });
 
+registerScreen('crm-agenda', loadAgenda);
 router.get('/agenda', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   res.setHeader('Cache-Control', CRM_READ_CACHE_CONTROL);
   try {
     const db: DatabaseWrapper = req.db || (await getDb());
-    return res.json(await loadAgenda(db));
+    return res.json(await cachedScreen(db, 'crm-agenda', loadAgenda));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось собрать дела' });
   }
@@ -237,9 +239,8 @@ router.post('/debts/:playerId/paid', requireOrganizerAuth, async (req: Authentic
   }
 });
 
-router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const db: DatabaseWrapper = req.db || (await getDb());
+/** «Обзор» CRM; computed in the background every minute (screenPrecomputeService) and on request when stale. */
+export async function loadCrmOverview(db: DatabaseWrapper) {
     const nowIso = new Date().toISOString();
     const nextEvening = await db.get<any>(`SELECT e.* FROM game_evenings e WHERE e.status NOT IN ('cancelled','completed') AND e.starts_at >= ? ORDER BY e.starts_at ASC LIMIT 1`, [nowIso]);
     let tables: any[] = []; let participants: any[] = [];
@@ -324,7 +325,7 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
     // whenever the organizer opens or resumes the CRM.
     const unpaidParticipants = await db.all<any>(`SELECT ep.*,p.nickname,p.phone,p.telegram_username,ge.title AS evening_title,ge.starts_at AS evening_date FROM evening_participants ep JOIN players p ON p.id=ep.player_id JOIN game_evenings ge ON ge.id=ep.evening_id WHERE (ge.status='completed' OR ge.settled_at IS NOT NULL) AND ep.attendance_status='attended' AND ep.payment_status!='waived' AND ep.amount_due>ep.amount_paid ORDER BY ge.starts_at DESC`);
     const totalUnpaidAmount = unpaidParticipants.reduce((sum: number, p: any) => sum + Number(p.amount_due || 0) - Number(p.amount_paid || 0), 0);
-    return res.json({
+    return {
       nextEvening: nextEvening ? {
         ...nextEvening,
         tables,
@@ -351,12 +352,20 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
       } : null,
       actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants, pendingOnboardingLinks, levelDecisions },
       summary: { openTasksCount: activeTasks.length, overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount, pendingOnboardingLinksCount: pendingOnboardingLinks.length, levelDecisionsCount: levelDecisions.length },
-    });
+    };
+}
+
+router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    // A copy: the freshness middleware adds payment scopes to the body, the stored screen stays as computed.
+    return res.json(structuredClone(await cachedScreen(db, 'crm-overview', loadCrmOverview)));
   } catch (err: any) {
     console.error('[CRM] Overview database error:', err);
     return res.status(500).json({ error: 'Database error', message: err.message });
   }
 });
+registerScreen('crm-overview', loadCrmOverview);
 
 router.post('/onboarding-links/:id/resolve', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {

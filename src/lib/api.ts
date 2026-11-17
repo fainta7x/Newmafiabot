@@ -1,5 +1,6 @@
 import { organizerHeaders } from './organizerAuth.ts';
 import type { GameExitType, RemovalReason } from '../shared/gameExit.ts';
+import { clearScreenCache } from './screenCache.ts';
 
 export interface Player {
   id: string;
@@ -760,6 +761,7 @@ export const api = {
   logout: async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('organizer_token');
+      clearScreenCache();
     }
     return request<{ success: boolean }>('/api/auth/logout', { method: 'POST' });
   },

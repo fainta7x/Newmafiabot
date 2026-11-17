@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
+import { invalidateScreens } from '../server/services/screenPrecomputeService.ts';
 import { skipGatheredPost } from '../server/services/eveningGatheredPostService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -65,6 +66,8 @@ describe('organizer «Сегодня»: unfinished games of past evenings', () =
     expect(listed.body.unfinished_games).toEqual([{ id, global_number: 17, evening: expect.objectContaining({ id: 'ev', title: 'Вечер' }) }]);
     stored.protocol.status = 'completed';
     await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(stored), id]);
+    // A write past the API: the ready «Сегодня» is made old by hand (the API does it on every change).
+    invalidateScreens(db, { recompute: false });
     expect((await request(app).get('/api/crm/command-center').set('Cookie', cookie())).body.unfinished_games).toEqual([]);
   });
 

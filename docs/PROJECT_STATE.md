@@ -390,7 +390,7 @@ Open work, in order:
 
 12. **Daily mini-games (owner, 2026-11-16):** «Вордли» took off — everyone comes daily. The owner wants another daily logic game of a well-known kind (not about Mafia). **Sudoku: built** (rules in BUSINESS_RULES «Daily sudoku»). Saved for later, by the owner's request: «Быки и коровы» (guess a 4-digit number), nonogram (японский кроссворд), «Слова из слова».
 
-14. **Owner request 2026-11-16: no waiting for loading** — «постоянные везде подгрузки… сегодня в CRM… чтобы сразу информация показывалась без прогрузок, а прогрузки совершались независимо от того, зашёл ли человек». Plan to be agreed with the owner before work.
+14. **Owner request 2026-11-16: no waiting for loading — built (both parts agreed 2026-11-17: «Да, делай оба пункта»)** — «постоянные везде подгрузки… сегодня в CRM… чтобы сразу информация показывалась без прогрузок, а прогрузки совершались независимо от того, зашёл ли человек». Server: «Сегодня», «Дела» and «Обзор» are computed every minute and kept ready (`screenPrecomputeService.ts`); device: the last screen is shown at once and refreshed in the background (`src/lib/screenCache.ts`). Rules in BUSINESS_RULES «Экраны без подгрузки».
 
 New product work is started only after the owner's «да» (AGENTS §4).
 

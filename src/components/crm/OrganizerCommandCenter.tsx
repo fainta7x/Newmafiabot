@@ -13,6 +13,7 @@ import VkManualPhotosHome from './VkManualPhotosHome.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
 import { sendJson } from '../../lib/requestJson.ts';
+import { readScreenCache, writeScreenCache } from '../../lib/screenCache.ts';
 
 type OpsPlayer = {
   participant_id: string;
@@ -127,8 +128,10 @@ export default function OrganizerCommandCenter({
   const requestGenerationRef = useRef(0);
   const requestAbortRef = useRef<AbortController | null>(null);
   const resumeTimerRef = useRef<number | null>(null);
-  const [data, setData] = useState<CommandCenterResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  // The last «Сегодня» of this device is shown at once and refreshed in the background («Экраны без подгрузки»).
+  const [data, setData] = useState<CommandCenterResponse | null>(() => readScreenCache<CommandCenterResponse>('crm:command-center'));
+  const [loading, setLoading] = useState(() => data === null);
+  const hasDataRef = useRef(data !== null);
   const [paymentsFresh, setPaymentsFresh] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -142,7 +145,7 @@ export default function OrganizerCommandCenter({
     const controller = new AbortController();
     requestAbortRef.current = controller;
 
-    if (!silent) setLoading(true);
+    if (!silent && !hasDataRef.current) setLoading(true);
     if (options.invalidatePayments) setPaymentsFresh(false);
     setError(null);
     try {
@@ -155,6 +158,8 @@ export default function OrganizerCommandCenter({
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить пульт');
       if (generation !== requestGenerationRef.current) return false;
       setData(body as CommandCenterResponse);
+      hasDataRef.current = true;
+      writeScreenCache('crm:command-center', body);
       setPaymentsFresh(true);
       return true;
     } catch (err: any) {

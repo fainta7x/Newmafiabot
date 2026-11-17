@@ -149,6 +149,9 @@ Main areas:
 
 Broad CRM UX redesign is product work, not an architecture prerequisite. It is currently deferred by user preference.
 
+### Ready screens
+`screenPrecomputeService.ts` keeps `loadCommandCenter` (tableScoutingRoutes), `loadAgenda` and `loadCrmOverview` (crmRoutes) computed per database: a generation counter is bumped by `screenInvalidationMiddleware` on every non-GET `/api` request (before and after it), a result computed across a bump is not kept, max age 90 s, warm-up every minute for the club database (`startScreenPrecomputeWorker`). Writes that bypass the API rely on the minute warm-up; tests call `invalidateScreens`. The client keeps the last answers in localStorage (`src/lib/screenCache.ts`, cleared by `api.logout`).
+
 ### Novice funnel ownership
 
 The canonical first-visit/novice funnel is Node/WebApp-owned. `novice_applications` records the first route; novices self-activate, while experienced visitors await organizer review. `players.club_stage` owns the relationship with 2LA Noire; neither Telegram nor VK keeps a parallel funnel. `players.game_level` remains the independent playing-skill/access classification. Player entry lives in the events calendar, experienced-player decisions live in CRM **Ещё → Люди и обучение → Заявки новых игроков** (internal id `development`), and both external channels receive organizer decisions through the existing personal notification router.

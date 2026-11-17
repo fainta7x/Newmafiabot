@@ -43,3 +43,5 @@
 .tp-saved strong{font-size:14px;color:#fff}
 .tp-pad canvas{overscroll-behavior:contain}
 .tp-pad canvas.tp-waiting{opacity:.35;pointer-events:none}
+.tp-blocked{color:#ffb4a8;font-weight:500}
+.tp-blocked-note{font-size:12px;line-height:1.5;color:#ffcaca;margin:4px 0 0}

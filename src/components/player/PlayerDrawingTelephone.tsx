@@ -23,6 +23,35 @@ const writeDraft = (key: string, value: unknown) => { try { if (value === null) 
 type TelegramClosing = { enableClosingConfirmation?: () => void; disableClosingConfirmation?: () => void };
 const telegramApp = () => (window as unknown as { Telegram?: { WebApp?: TelegramClosing } }).Telegram?.WebApp;
 const askBeforeClosing = (on: boolean) => { try { if (on) telegramApp()?.enableClosingConfirmation?.(); else telegramApp()?.disableClosingConfirmation?.(); } catch { /* not inside Telegram */ } };
+/**
+ * The next player blocked the bot (owner, 2026-11-16): he may still get the turn, and the one who passed it is offered
+ * to write him in Telegram with a ready link to the chain. Kept for the chain's page in this tab only.
+ */
+type ContactNotice = { nickname: string; username: string | null };
+const contactKey = (chainId: string) => `telephone-contact:${chainId}`;
+const rememberContact = (chainId: string, player: TelephonePlayer | null | undefined) => {
+  try { if (player?.bot_blocked) sessionStorage.setItem(contactKey(chainId), JSON.stringify({ nickname: player.nickname, username: player.telegram_username || null })); } catch { /* the notice is a convenience */ }
+};
+const openTelegram = (url: string) => {
+  const app = (window as unknown as { Telegram?: { WebApp?: { openTelegramLink?: (link: string) => void } } }).Telegram?.WebApp;
+  try { if (app?.openTelegramLink) { app.openTelegramLink(url); return; } } catch { /* fall back to a new tab */ }
+  window.open(url, '_blank', 'noopener');
+};
+function ContactBlocked({ chainId, notice, onClose }: { chainId: string; notice: ContactNotice; onClose: () => void }) {
+  const link = `${window.location.origin}/player/telephone/${encodeURIComponent(chainId)}`;
+  const text = `Тебе передали ход в «Испорченном телефоне с рисунками»: ${link}`;
+  const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Тебе передали ход в «Испорченном телефоне с рисунками»')}`;
+  return <section className="tp-saved" role="status" data-testid="telephone-contact">
+    <strong>{notice.nickname} заблокировал бота — напишите ему сами</strong>
+    <p className="dw-hint">Сообщение «твой ход» от бота до него не дойдёт. Отправьте ему ссылку на цепочку.</p>
+    <div className="tp-actions">
+      {notice.username ? <button type="button" className="tp-primary" onClick={() => openTelegram(`https://t.me/${encodeURIComponent(notice.username!)}`)}>Написать в Telegram</button> : null}
+      <button type="button" className={notice.username ? '' : 'tp-primary'} onClick={() => openTelegram(share)}>Отправить ссылку</button>
+    </div>
+    <button type="button" onClick={() => { try { void navigator.clipboard?.writeText(text); } catch { /* not allowed */ } }}>Скопировать ссылку</button>
+    <button type="button" onClick={onClose}>Готово</button>
+  </section>;
+}
 const timeLeft = (deadline: string | null) => {
   if (!deadline) return '';
   const minutes = Math.max(0, Math.round((Date.parse(deadline) - Date.now()) / 60000));
@@ -89,7 +118,7 @@ function stageLine(chain: TelephoneListState['running'][number]) {
   return `${stage}${chain.current ? ` · ${chain.step === 'choose_guesser' ? doing : `${chain.current} ${doing}`}` : ''}${chain.deadline_at ? ` · осталось ${timeLeft(chain.deadline_at)}` : ''}`;
 }
 
-function PlayerPicker({ label, chainId, exclude, value, onChange, testId }: { label: string; chainId: string | null; exclude: string[]; value: string; onChange: (id: string) => void; testId: string }) {
+function PlayerPicker({ label, chainId, exclude, value, onChange, testId }: { label: string; chainId: string | null; exclude: string[]; value: string; onChange: (id: string, player?: TelephonePlayer) => void; testId: string }) {
   const [players, setPlayers] = useState<TelephonePlayer[]>([]);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
@@ -97,10 +126,11 @@ function PlayerPicker({ label, chainId, exclude, value, onChange, testId }: { la
   const list = useMemo(() => players.filter((p) => !exclude.includes(p.id) && p.nickname.toLocaleLowerCase('ru-RU').includes(query.trim().toLocaleLowerCase('ru-RU'))), [players, exclude, query]);
   const chosen = players.find((p) => p.id === value);
   return <fieldset className="tp-picker" data-testid={testId}><legend>{label}</legend>
-    {chosen ? <div className="tp-chosen"><strong>{chosen.nickname}</strong><button type="button" onClick={() => onChange('')}>Изменить</button></div> : <>
+    {chosen ? <><div className="tp-chosen"><strong>{chosen.nickname}</strong><button type="button" onClick={() => onChange('')}>Изменить</button></div>
+      {chosen.bot_blocked && <p className="tp-blocked-note" data-testid="telephone-blocked-note">{chosen.nickname} заблокировал бота: сообщение «твой ход» до него не дойдёт. После передачи хода напишите ему сами — дадим ссылку.</p>}</> : <>
       <input type="search" placeholder="Найти по нику" value={query} onChange={(e) => setQuery(e.target.value)} aria-label={`${label}: поиск`} />
       {error && <p role="alert">{error}</p>}
-      <ul>{list.slice(0, 40).map((p) => <li key={p.id}><button type="button" onClick={() => onChange(p.id)}>{p.nickname}</button></li>)}</ul>
+      <ul>{list.slice(0, 40).map((p) => <li key={p.id}><button type="button" onClick={() => onChange(p.id, p)}>{p.nickname}{p.bot_blocked ? <span className="tp-blocked"> · бот не пишет</span> : null}</button></li>)}</ul>
       {!list.length && !error && <p>Никого не нашли.</p>}
     </>}
   </fieldset>;
@@ -111,11 +141,12 @@ function CreateForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
   const [length, setLength] = useState(7);
   const [guesser, setGuesser] = useState('');
   const [next, setNext] = useState('');
+  const [nextPlayer, setNextPlayer] = useState<TelephonePlayer | undefined>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const submit = async () => {
     if (busy) return; setBusy(true); setError('');
-    try { const result = await sendJson<{ chain: TelephoneChainState }>(API, 'POST', { phrase, links: length, guesser_id: guesser, next_id: next }, 'Не удалось начать цепочку'); onCreated(result.chain.id); }
+    try { const result = await sendJson<{ chain: TelephoneChainState }>(API, 'POST', { phrase, links: length, guesser_id: guesser, next_id: next }, 'Не удалось начать цепочку'); rememberContact(result.chain.id, nextPlayer); onCreated(result.chain.id); }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
   return <>
@@ -124,7 +155,7 @@ function CreateForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
     <div className="tp-field"><span>Сколько звеньев (от {TELEPHONE_MIN_LINKS} до {TELEPHONE_MAX_LINKS})</span>
       <div className="tp-stepper"><button type="button" aria-label="Меньше звеньев" disabled={length <= TELEPHONE_MIN_LINKS} onClick={() => setLength((n) => n - 1)}>−</button><strong data-testid="telephone-length">{length}</strong><button type="button" aria-label="Больше звеньев" disabled={length >= TELEPHONE_MAX_LINKS} onClick={() => setLength((n) => n + 1)}>+</button></div></div>
     <PlayerPicker label="Кто будет отгадывать в конце" chainId={null} exclude={next ? [next] : []} value={guesser} onChange={setGuesser} testId="telephone-guesser" />
-    <PlayerPicker label="Кому передать первый ход" chainId={null} exclude={guesser ? [guesser] : []} value={next} onChange={setNext} testId="telephone-first" />
+    <PlayerPicker label="Кому передать первый ход" chainId={null} exclude={guesser ? [guesser] : []} value={next} onChange={(id, player) => { setNext(id); setNextPlayer(player); }} testId="telephone-first" />
     {error && <div className="dw-error" role="alert"><p>{error}</p></div>}
     <div className="tp-actions"><button type="button" onClick={onCancel}>Отмена</button><button type="button" className="tp-primary" data-testid="telephone-start" disabled={busy || !phrase.trim() || !guesser || !next} onClick={() => void submit()}>{busy ? 'Запускаем…' : 'Запустить цепочку'}</button></div>
   </>;
@@ -141,6 +172,9 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
   const [error, setError] = useState('');
   const [text, setText] = useState('');
   const [next, setNext] = useState('');
+  const [nextPlayer, setNextPlayer] = useState<TelephonePlayer | undefined>();
+  const [contact, setContact] = useState<ContactNotice | null>(() => { try { const raw = sessionStorage.getItem(contactKey(chainId)); return raw ? JSON.parse(raw) as ContactNotice : null; } catch { return null; } });
+  const closeContact = () => { setContact(null); try { sessionStorage.removeItem(contactKey(chainId)); } catch { /* nothing kept */ } };
   const [busy, setBusy] = useState(false);
   const pad = useRef<DrawingPadHandle | null>(null);
   const load = useCallback(async () => { try { setState(await getJson<TelephoneChainState>(`${API}/${encodeURIComponent(chainId)}`, 'Не удалось загрузить цепочку')); setError(''); } catch (e) { setError(message(e)); } }, [chainId]);
@@ -156,7 +190,8 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
       // The move is on the server: the saved drawing and text are not needed any more.
       if (taskPosition !== null) { writeDraft(draftKey(chainId, taskPosition), null); writeDraft(`${draftKey(chainId, taskPosition)}:text`, null); }
       askBeforeClosing(false);
-      onMoved?.(); setText(''); setNext(''); await load();
+      if (body.next_id && nextPlayer?.bot_blocked && nextPlayer.id === body.next_id) { rememberContact(chainId, nextPlayer); setContact({ nickname: nextPlayer.nickname, username: nextPlayer.telegram_username || null }); }
+      onMoved?.(); setText(''); setNext(''); setNextPlayer(undefined); await load();
     }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
@@ -164,7 +199,7 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
   const task = state.my_task;
   const header = <header><div className="dw-eyebrow">{TITLE}</div><h1>{state.status === 'done' ? 'Цепочка готова' : task ? (task.step === 'guess' ? 'Отгадай фразу' : task.step === 'choose' ? 'Кому передать ход?' : task.step === 'choose_guesser' ? 'Кто отгадает?' : task.kind === 'drawing' ? 'Нарисуй' : 'Подпиши рисунок') : 'Цепочка идёт'}</h1>
     <p>{state.status === 'done' ? `Автор ${state.author.nickname} · отгадывал ${state.guesser.nickname}` : `Звено ${Math.min(state.done_links + 1, state.length)} из ${state.length} · автор ${state.author.nickname} · отгадывает ${state.guesser.nickname}`}{state.deadline_at && task ? ` · осталось ${timeLeft(state.deadline_at)}` : ''}</p></header>;
-  const picker = (label: string) => <PlayerPicker label={label} chainId={chainId} exclude={[]} value={next} onChange={setNext} testId="telephone-next" />;
+  const picker = (label: string) => <PlayerPicker label={label} chainId={chainId} exclude={[]} value={next} onChange={(id, player) => { setNext(id); setNextPlayer(player); }} testId="telephone-next" />;
   const errorBox = error && <div className="dw-error" role="alert"><p>{error}</p></div>;
   const decline = <button type="button" className="tp-decline" disabled={busy} onClick={() => void act('decline', {})}>Не хочу / нет времени</button>;
   if (state.status === 'done') return <>{header}<div className="tp-chain" data-testid="telephone-chain">{state.items.map((item) => <Item key={`${item.kind}-${item.position}`} item={item} />)}</div>
@@ -189,7 +224,7 @@ function ChainView({ chainId, onOpen, onMoved }: { chainId: string; onOpen: (id:
     return <>{header}{body}{task.last ? <p>Это последнее звено — дальше ход перейдёт к отгадывающему ({state.guesser.nickname}).</p> : picker('Кому передать ход дальше')}{errorBox}
       <div className="tp-actions">{decline}<button type="button" className="tp-primary" data-testid="telephone-submit" disabled={busy || (!task.last && !next) || (task.kind === 'caption' && !text.trim())} onClick={submit}>{busy ? 'Отправляем…' : 'Отдать ход'}</button></div></>;
   }
-  return <>{header}{state.items.map((item) => <Item key={item.position} item={item} />)}
+  return <>{header}{contact && <ContactBlocked chainId={chainId} notice={contact} onClose={closeContact} />}{state.items.map((item) => <Item key={item.position} item={item} />)}
     <p>{state.current ? `Сейчас ход у ${state.current.nickname}.` : ''} Цепочка откроется всем, когда её отгадают.</p>
     {state.players.length > 0 && <p>Уже сходили: {state.players.map((p) => p.nickname).join(', ')}</p>}<Rules /></>;
 }

@@ -16,7 +16,8 @@ export type TelephoneLinkKind = 'drawing' | 'caption';
 /** Link 1 is a drawing of the phrase, link 2 a caption of that drawing, and so on. */
 export const telephoneLinkKind = (position: number): TelephoneLinkKind => (position % 2 === 1 ? 'drawing' : 'caption');
 export type TelephoneItem = { kind: 'phrase' | TelephoneLinkKind | 'guess'; position: number; nickname: string; text: string | null; image: string | null };
-export type TelephonePlayer = { id: string; nickname: string };
+/** `bot_blocked`: the player blocked the club bot, so «твой ход» will not reach him (owner, 2026-11-16). */
+export type TelephonePlayer = { id: string; nickname: string; bot_blocked?: boolean; telegram_username?: string | null };
 /** move — draw or caption and choose the next; choose — a turn came back, choose another player; guess — the last link;
  * choose_guesser — the guesser did not answer, the author chooses another one. Every step has 8 hours. */
 export type TelephoneStep = 'move' | 'choose' | 'guess' | 'choose_guesser';

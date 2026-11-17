@@ -67,7 +67,7 @@ describe('organizer «Сегодня»: unfinished games of past evenings', () =
     stored.protocol.status = 'completed';
     await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(stored), id]);
     // A write past the API: the ready «Сегодня» is made old by hand (the API does it on every change).
-    invalidateScreens(db, { recompute: false });
+    invalidateScreens(db);
     expect((await request(app).get('/api/crm/command-center').set('Cookie', cookie())).body.unfinished_games).toEqual([]);
   });
 

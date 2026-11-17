@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
-import { cachedScreen, invalidateScreens, SCREEN_MAX_AGE_MS, warmScreens } from '../server/services/screenPrecomputeService.ts';
+import { cachedScreen, invalidateScreens, registerScreen, screenChangingRequest, SCREEN_MAX_AGE_MS, warmScreens, warmScreensIfNeeded } from '../server/services/screenPrecomputeService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -17,7 +17,7 @@ describe('«Экраны без подгрузки»: ready organizer screens', 
     expect(await cachedScreen(db, 'x', compute)).toEqual({ run: 1 });
     expect(await cachedScreen(db, 'x', compute)).toEqual({ run: 1 });
     expect(await cachedScreen(db, 'x', compute, Date.now() + SCREEN_MAX_AGE_MS + 1)).toEqual({ run: 2 });
-    invalidateScreens(db, { recompute: false });
+    invalidateScreens(db);
     expect(await cachedScreen(db, 'x', compute)).toEqual({ run: 3 });
   });
 
@@ -27,7 +27,7 @@ describe('«Экраны без подгрузки»: ready organizer screens', 
     let release!: () => void;
     const slow = () => new Promise<number>((resolve) => { release = () => resolve(++runs); });
     const pending = cachedScreen(db, 'y', slow);
-    invalidateScreens(db, { recompute: false });
+    invalidateScreens(db);
     release();
     expect(await pending).toBe(1);
     const next = cachedScreen(db, 'y', slow);
@@ -61,4 +61,31 @@ describe('«Экраны без подгрузки»: ready organizer screens', 
     expect(after.body.snapshot?.evening?.id).toBe('ev');
     expect(after.body.snapshot?.payment_context?.scope).toBe('current_or_upcoming_evening');
   });
+
+  it('telemetry and mini-games do not make the screens old (2026-11-17: a recompute after every presence ping stalled the server)', () => {
+    for (const path of ['/api/presence', '/api/ui-events', '/api/player/daily-sudoku/move', '/api/player/daily-word/guess', '/api/player/telephone/x/move', '/api/games/betting/reconcile']) {
+      expect(screenChangingRequest('POST', path)).toBe(false);
+    }
+    expect(screenChangingRequest('GET', '/api/crm/overview')).toBe(false);
+    expect(screenChangingRequest('POST', '/api/evenings/e1/participants')).toBe(true);
+    expect(screenChangingRequest('PATCH', '/api/crm/tasks/1')).toBe(true);
+    expect(screenChangingRequest('POST', '/api/presenceX')).toBe(true);
+  });
+
+  it('the minute check recomputes only after a change or before the screens get too old', async () => {
+    const db = fresh();
+    let runs = 0;
+    registerScreen('counted-test-screen', async () => { runs += 1; return runs; });
+    const t = Date.now();
+    await warmScreens(db, t);
+    const afterWarm = runs;
+    expect(await warmScreensIfNeeded(db, t + 60_000)).toBe(false);
+    expect(runs).toBe(afterWarm);
+    invalidateScreens(db);
+    expect(await warmScreensIfNeeded(db, t + 120_000)).toBe(true);
+    expect(runs).toBe(afterWarm + 1);
+    expect(await warmScreensIfNeeded(db, t + 180_000)).toBe(false);
+    expect(await warmScreensIfNeeded(db, t + 120_000 + SCREEN_MAX_AGE_MS)).toBe(true);
+  });
 });
+

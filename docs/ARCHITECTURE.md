@@ -225,6 +225,9 @@ Current canonical launcher passes controlled hidden-role state. A bare direct `L
 
 `drawingTelephoneRoutes.ts` → `drawingTelephoneService.ts` → `telephone_chains` / `telephone_links`. A chain row holds the step (`move` / `choose` / `guess`), the current player and the 8-hour deadline; links hold the drawings (PNG, base64) and captions. Each response shows the viewer only what the rules allow. Rewards go through `tokenLedgerService.ts` with one idempotency key per move. `drawingTelephoneNotifyService.ts` queues personal messages through `personalNotificationRouterService.ts` and posts finished chains to «Новости» through `clubResultPostService.ts` (claim/finish, once).
 
+### Secret Santa persistence
+`santa_events` (exchange evening, status open → drawn | cancelled, `posted`), `santa_participants`, `santa_pairs` (giver → receiver). `secretSantaService.ts` owns the rules; `santaCircle` (src/shared/secretSanta.ts) makes one cycle with `crypto.randomInt`. The «Новости» post is sent by the personal-notification minute scan (`runSecretSantaPosts`, claim key `secret-santa:<id>`); the result messages are queued with `queuePersonalNotification` (`santa:<event>:<giver>`). Routes: `/api/player/santa*` (player session), `/api/crm/santa*` (organizer).
+
 ### Daily sudoku persistence
 
 `dailySudokuRoutes.ts` → `dailySudokuService.ts` → `daily_sudoku_puzzles` / `daily_sudoku_sessions`. The day's grid is generated once (`sudokuGenerator.ts`, unique solution, open cells by weekday) and stored with its solution; the solution leaves the server only after the player's game ends, the grid only after «Начать». Each move is checked on the server; the session row, request id and the token-ledger reward commit in one transaction. Notes («заметки») are client-only (localStorage).

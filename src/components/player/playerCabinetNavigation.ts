@@ -21,7 +21,8 @@ export type PlayerCabinetSection =
   | 'clocktower'
   | 'dailyword'
   | 'sudoku'
-  | 'telephone';
+  | 'telephone'
+  | 'santa';
 
 /*
  * The bottom menu (owner decision 2026-10-06): four places.
@@ -74,7 +75,7 @@ export const isPlayerCabinetNavActive = (
 ): boolean => {
   const normalized = normalizePlayerCabinetSection(section);
   if (navId === 'evenings') return isPlayerEveningSection(normalized);
-  if (navId === 'community') return isPlayerCommunitySection(normalized) || normalized === 'dailyword' || normalized === 'sudoku' || normalized === 'telephone';
+  if (navId === 'community') return isPlayerCommunitySection(normalized) || normalized === 'dailyword' || normalized === 'sudoku' || normalized === 'telephone' || normalized === 'santa';
   if (navId === 'progress') return normalized === 'profile';
   return normalized === navId;
 };

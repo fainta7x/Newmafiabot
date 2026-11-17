@@ -1417,3 +1417,14 @@ The owner: «постоянные везде подгрузки… чтобы с
 - **On the server:** «Сегодня» (пульт), «Дела» and «Обзор» CRM are computed every minute whether anyone opens them or not, and a request gets the ready answer (`src/server/services/screenPrecomputeService.ts`). Any change through the app or the bot (every non-GET API request) makes them old at once and recomputes them 1.5 s later, so nobody sees data from before their own action. Changes made in the background (sent messages, reminders) reach the screens within a minute; a ready answer older than 90 s is never served.
 - **On the device:** the last «Сегодня», «Дела», the CRM cabinet (обзор, вечера, игроки) and the player's cabinet are kept on the phone; after a reload or reopening they show at once, and the fresh data replaces them in the background without a loader (`src/lib/screenCache.ts`). Kept data older than 3 days is not shown. It is removed on logout and when the server no longer lets the person in; the player's cabinet is kept per Telegram account.
 
+## Тайный Санта (owner, 2026-11-17)
+
+The owner: «Игроки хотят тайного санту в боте… подарки до 1000 рублей… шафл только между теми, кто участвует… подтвержденная регистрация внутри приложения на ивент и потом, когда я нажму кнопку, чтобы выдало того, кому тебе нужно будет дарить подарок». Answers of 2026-11-17:
+- **Gift up to 1000 ₽** (owner).
+- **Registration in the app, confirmed by the player himself:** «Участвую» works only with the ticked «Обязуюсь подготовить подарок до 1000 ₽ и прийти с ним на вечер обмена». Before the draw a player may leave («Не смогу участвовать»); after it joining and leaving are closed.
+- **Exchange at a club evening:** the organizer chooses a future evening when he opens the registration (CRM «Ещё → Игроки → Тайный Санта»).
+- **No wishes** to the gift (owner).
+- **«Новости» post with the «🎅 Участвовать» button** when the registration opens (the text is shown to the organizer before he opens it), and **the result in a personal message** of the bot after the draw; the same is shown in the app («Сообщество → Мини-игры → Тайный Санта», `/player/santa`).
+- **The draw is the organizer's button**, only among those who joined: one shuffled circle, so nobody gets himself (owner: «шафл только между теми, кто участвует»).
+- **Assistant's defaults, not named by the owner:** at least 3 participants for the draw; the circle also means no two people give to each other; **who gives to whom is shown to nobody but the giver, the organizer included** (he may take part himself); everybody sees the list of participants; one Тайный Санта at a time, cancel only before the draw; the event stays visible until a day after the exchange evening; the CRM shows who blocked the bot or cannot get a message (they see the result in the app); the card «Тайный Санта» is always in «Мини-игры».
+

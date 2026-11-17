@@ -23,6 +23,7 @@ const pages = [
   'e2e/daily-word.html',
   'e2e/daily-sudoku.html',
   'e2e/drawing-telephone.html',
+  'e2e/secret-santa.html',
   'e2e/player-profile.html',
   'e2e/gomafia-career.html',
   'e2e/crm-overview.html',

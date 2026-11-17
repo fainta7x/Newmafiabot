@@ -29,6 +29,7 @@ const PlayerConductCenter = lazy(() => import('./PlayerConductCenter.tsx'));
 const PlayerDailyWord = lazy(() => import('./PlayerDailyWord.tsx'));
 const PlayerDailySudoku = lazy(() => import('./PlayerDailySudoku.tsx'));
 const PlayerDrawingTelephone = lazy(() => import('./PlayerDrawingTelephone.tsx'));
+const PlayerSecretSanta = lazy(() => import('./PlayerSecretSanta.tsx'));
 const PlayerPoker = lazy(() => import('./PlayerPoker.tsx'));
 const PlayerClocktower = lazy(() => import('./PlayerClocktower.tsx'));
 
@@ -89,6 +90,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   if (section === 'clocktower') return <PlayerClocktower initialRoomId={initialTarget} onExit={() => open('club', 'games')} onOpenRules={() => { window.location.assign('/guide?tab=clocktower'); }} onOpenRoom={(roomId) => open('clocktower', roomId)} />;
   if (section === 'dailyword') return <PlayerDailyWord onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
   if (section === 'sudoku') return <PlayerDailySudoku onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
+  if (section === 'santa') return <PlayerSecretSanta onExit={() => open('club', 'games')} />;
   if (section === 'telephone') return <PlayerDrawingTelephone chainId={initialTarget} onOpen={(chainId) => open('telephone', chainId)} onExit={() => open('club', 'games')} />;
   if (section === 'poker') return <PlayerPoker initialLobbyId={initialTarget} onExit={() => open('club', 'games')} onTokenBalanceChange={setTokenBalance} />;
 
@@ -106,7 +108,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : isPlayerEveningSection(section) ? (
         <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={target} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
       ) : isPlayerCommunitySection(section) ? (
-        <PlayerCommunityHub onOpenDailyWord={() => open('dailyword')} onOpenSudoku={() => open('sudoku')} onOpenTelephone={() => open('telephone')} data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} onOpenMyConnections={() => open('profile','tab:connections')} />
+        <PlayerCommunityHub onOpenDailyWord={() => open('dailyword')} onOpenSudoku={() => open('sudoku')} onOpenTelephone={() => open('telephone')} onOpenSanta={() => open('santa')} data={currentData} section={section as CommunitySection} target={target} onOpen={open} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} onOpenMyConnections={() => open('profile','tab:connections')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} target={target} onOpen={(view) => open('wallet', view)} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (

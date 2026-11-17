@@ -45,3 +45,8 @@
 .tp-pad canvas.tp-waiting{opacity:.35;pointer-events:none}
 .tp-blocked{color:#ffb4a8;font-weight:500}
 .tp-blocked-note{font-size:12px;line-height:1.5;color:#ffcaca;margin:4px 0 0}
+/* «Тайный Санта»: the promise to bring a gift, ticked before joining. */
+.tp-promise{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;color:#e4e4e7;cursor:pointer;margin:10px 0}
+.dw-content .tp-promise input{width:22px;height:22px;min-height:0;flex-shrink:0;padding:0;margin-top:1px;accent-color:#e6c787}
+.dw-card .tp-primary{justify-content:center}
+.dw-card button.tp-quiet{background:transparent;color:#f4f4f5;justify-content:center}

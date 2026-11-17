@@ -1410,3 +1410,9 @@ Applies to club (CASUAL) evenings only; novice, rating and tournament evenings k
 
 The owner: «чтобы я видел тех, кто бота в ЧС добавили». A player counts as having blocked the club bot when Telegram answered «Forbidden: bot was blocked by the user» to a personal message (the message outbox or the evening invitation journal) and no later message reached him (`src/server/services/botBlockedService.ts`). CRM «Игроки» shows the mark «Бот заблокирован» next to TG/VK, and «Фильтры → Дополнительно → Бот заблокирован» lists only them. In «Испорченный телефон» such a player can be chosen (see its rules).
 
+## Экраны без подгрузки (владелец, 2026-11-17)
+
+The owner: «постоянные везде подгрузки… чтобы сразу информация показывалась без прогрузок, а прогрузки совершались независимо от того, зашёл ли человек»; both parts agreed («Да, делай оба пункта»).
+- **On the server:** «Сегодня» (пульт), «Дела» and «Обзор» CRM are computed every minute whether anyone opens them or not, and a request gets the ready answer (`src/server/services/screenPrecomputeService.ts`). Any change through the app or the bot (every non-GET API request) makes them old at once and recomputes them 1.5 s later, so nobody sees data from before their own action. Changes made in the background (sent messages, reminders) reach the screens within a minute; a ready answer older than 90 s is never served.
+- **On the device:** the last «Сегодня», «Дела», the CRM cabinet (обзор, вечера, игроки) and the player's cabinet are kept on the phone; after a reload or reopening they show at once, and the fresh data replaces them in the background without a loader (`src/lib/screenCache.ts`). Kept data older than 3 days is not shown. It is removed on logout and when the server no longer lets the person in; the player's cabinet is kept per Telegram account.
+

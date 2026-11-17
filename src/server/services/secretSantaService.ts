@@ -7,7 +7,7 @@ import {
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadBotBlockedPlayers } from './botBlockedService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
-import { appUrl } from './gameResultCardService.ts';
+import { appUrl, miniAppLink } from './gameResultCardService.ts';
 import { claim, ensureClubResultPostSchema, finish, sendText } from './clubResultPostService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 
@@ -271,7 +271,7 @@ async function postAnnouncement(db: DatabaseWrapper, row: EventRow, fetchImpl: t
     return 0;
   }
   try {
-    const link = appUrl(PATH);
+    const link = await miniAppLink(PATH);
     const result = await sendText(db, NEWS_DESTINATION, santaAnnouncementText(), fetchImpl, undefined,
       link ? { inline_keyboard: [[{ text: '🎅 Участвовать', url: link }]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
     await finish(db, key, result);

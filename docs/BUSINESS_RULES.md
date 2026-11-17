@@ -1433,4 +1433,4 @@ The owner: «Игроки хотят тайного санту в боте… п
 ## Кнопки бота открывают приложение внутри Telegram (2026-11-17)
 
 Players complained «авторизации сбрасываются». A button to the club app in a personal message of the bot opens the app as a Telegram Mini App (signed in through Telegram), never as a page in Telegram's browser, where on iPhone the player is not signed in. A personal message about something in the app has the button «📱 Открыть в приложении» instead of a link in its text. When the Telegram sign-in is refused (Telegram's data older than 24 hours), the app uses the player's saved sign-in instead of an error.
-
+- **Group posts** («Новости»: слово дня, судоку, телефон, Тайный Санта): Telegram allows no `web_app` buttons in groups, so their buttons are links `t.me/<бот>?startapp=<страница>` that open the bot's Main Mini App on that page (the owner enabled «Main App» for @MafiaTulaBot with `https://app.2lamafia.ru/`, 2026-11-17). Without a known bot the plain app link stays.

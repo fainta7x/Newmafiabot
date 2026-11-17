@@ -22,6 +22,7 @@ import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboardi
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
+import { startParamToPlayerPath } from './shared/miniAppStart.ts';
 import { clearScreenCache, readScreenCache, writeScreenCache } from './lib/screenCache.ts';
 
 /** The player's last cabinet on this device, per Telegram account («Экраны без подгрузки», 2026-11-17). */
@@ -44,6 +45,28 @@ function getTelegramInitData(): string {
   const telegramWebApp = (window as any).Telegram?.WebApp;
   return typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
 }
+
+/**
+ * Opened from a group post as the bot's Main Mini App (`t.me/<bot>?startapp=telephone__<id>`): go straight to that page
+ * of the player cabinet. Done once, before the first render, and only on the app's start page.
+ */
+function openTelegramStartPage() {
+  try {
+    if (window.location.pathname !== '/' && window.location.pathname !== '/player') return;
+    const telegramWebApp = (window as any).Telegram?.WebApp;
+    const fromHash = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tgWebAppStartParam');
+    const param = telegramWebApp?.initDataUnsafe?.start_param ?? new URLSearchParams(window.location.search).get('tgWebAppStartParam') ?? fromHash;
+    const path = startParamToPlayerPath(param);
+    if (!path) return;
+    const handled = `telegram-start:${param}`;
+    if (window.sessionStorage.getItem(handled)) return;
+    window.sessionStorage.setItem(handled, '1');
+    window.history.replaceState(window.history.state, '', `${path}${window.location.hash}`);
+  } catch {
+    // Not inside Telegram or storage blocked: the app opens its start page as before.
+  }
+}
+if (typeof window !== 'undefined') openTelegramStartPage();
 
 function currentPlayerReturnPath() {
   const url = new URL(window.location.href);

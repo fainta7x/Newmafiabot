@@ -38,7 +38,7 @@ export async function ensureSecretSantaSchema(db: DatabaseWrapper) {
       posted INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL, drawn_at TEXT, updated_at TEXT NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS santa_participants (
+    CREATE TABLE IF NOT EXISTS santa_members (
       event_id TEXT NOT NULL REFERENCES santa_events(id),
       player_id TEXT NOT NULL REFERENCES players(id),
       joined_at TEXT NOT NULL,
@@ -69,7 +69,7 @@ async function currentEvent(db: DatabaseWrapper, now: Date): Promise<EventRow | 
 }
 
 const participantsOf = (db: DatabaseWrapper, eventId: string) => db.all<{ id: string; nickname: string; joined_at: string }>(`
-  SELECT p.id, p.nickname, sp.joined_at FROM santa_participants sp JOIN players p ON p.id = sp.player_id
+  SELECT p.id, p.nickname, sp.joined_at FROM santa_members sp JOIN players p ON p.id = sp.player_id
    WHERE sp.event_id = ? ORDER BY p.nickname COLLATE NOCASE`, [eventId]);
 const player = (row: { id: unknown; nickname: unknown }): SantaPlayer => ({ id: String(row.id), nickname: String(row.nickname) });
 
@@ -77,7 +77,7 @@ const player = (row: { id: unknown; nickname: unknown }): SantaPlayer => ({ id: 
 async function shmurdyakPool(db: DatabaseWrapper, eventId: string, eveningId: string): Promise<SantaPlayer[]> {
   const rows = await db.all<any>(`
     SELECT ep.*, p.nickname FROM evening_participants ep JOIN players p ON p.id = ep.player_id
-     WHERE ep.evening_id = ? AND ep.player_id NOT IN (SELECT player_id FROM santa_participants WHERE event_id = ?)
+     WHERE ep.evening_id = ? AND ep.player_id NOT IN (SELECT player_id FROM santa_members WHERE event_id = ?)
      ORDER BY p.nickname COLLATE NOCASE`, [eveningId, eventId]);
   return rows.filter((row) => ['going', 'late'].includes(getEveningResponse(row))).map((row) => player({ id: row.player_id, nickname: row.nickname }));
 }
@@ -171,7 +171,7 @@ export async function joinSanta(db: DatabaseWrapper, playerId: string, input: { 
   if (!row) throw new SantaError(404, 'Сейчас Тайного Санты нет');
   if (row.status !== 'open') throw new SantaError(409, 'Запись закрыта: жеребьёвка уже проведена');
   if (input.confirm !== true) throw new SantaError(400, 'Подтвердите, что подготовите подарок и придёте на вечер обмена');
-  await db.run('INSERT OR IGNORE INTO santa_participants (event_id, player_id, joined_at) VALUES (?,?,?)', [row.id, playerId, now.toISOString()]);
+  await db.run('INSERT OR IGNORE INTO santa_members (event_id, player_id, joined_at) VALUES (?,?,?)', [row.id, playerId, now.toISOString()]);
   return loadSantaForPlayer(db, playerId, now);
 }
 
@@ -179,7 +179,7 @@ export async function leaveSanta(db: DatabaseWrapper, playerId: string, now = ne
   const row = await currentEvent(db, now);
   if (!row) throw new SantaError(404, 'Сейчас Тайного Санты нет');
   if (row.status !== 'open') throw new SantaError(409, 'После жеребьёвки выйти нельзя: тебе уже выпал человек. Напиши организатору.');
-  await db.run('DELETE FROM santa_participants WHERE event_id = ? AND player_id = ?', [row.id, playerId]);
+  await db.run('DELETE FROM santa_members WHERE event_id = ? AND player_id = ?', [row.id, playerId]);
   return loadSantaForPlayer(db, playerId, now);
 }
 

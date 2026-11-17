@@ -390,6 +390,8 @@ Open work, in order:
 
 12. **Daily mini-games (owner, 2026-11-16):** «Вордли» took off — everyone comes daily. The owner wants another daily logic game of a well-known kind (not about Mafia). **Sudoku: built** (rules in BUSINESS_RULES «Daily sudoku»). Saved for later, by the owner's request: «Быки и коровы» (guess a 4-digit number), nonogram (японский кроссворд), «Слова из слова».
 
+14. **Owner request 2026-11-16: no waiting for loading** — «постоянные везде подгрузки… сегодня в CRM… чтобы сразу информация показывалась без прогрузок, а прогрузки совершались независимо от того, зашёл ли человек». Plan to be agreed with the owner before work.
+
 New product work is started only after the owner's «да» (AGENTS §4).
 
 ## Waiting on the owner

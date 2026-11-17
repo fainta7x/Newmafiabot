@@ -7,7 +7,9 @@ import type {TelephoneChainState, TelephoneItem, TelephoneListState} from '../sr
 // Preview of every state of «Испорченный телефон с рисунками»; the harness answers like the server.
 const mode=new URLSearchParams(location.search).get('mode')||'list';
 const drawing=(()=>{const c=document.createElement('canvas');c.width=c.height=480;const x=c.getContext('2d')!;x.fillStyle='#fff';x.fillRect(0,0,480,480);x.strokeStyle='#1e88e5';x.lineWidth=10;x.beginPath();x.arc(240,220,120,0,Math.PI*2);x.stroke();x.strokeStyle='#e53935';x.beginPath();x.moveTo(140,400);x.lineTo(340,400);x.stroke();return c.toDataURL('image/png').split(',')[1];})();
-const players=['Богданчик','Очень длинный никнейм игрока клуба','Серый','ФМ','Дина','Алоэ','Перец','Ольга'].map((nickname,i)=>({id:`p${i}`,nickname}));
+const players=['Богданчик','Очень длинный никнейм игрока клуба','Серый','ФМ','Дина','Алоэ','Перец','Ольга'].map((nickname,i)=>({id:`p${i}`,nickname,telegram_username:i===1?'long_nick':null,bot_blocked:i===1}));
+// A player who blocked the bot got the turn: the offer to write him (owner, 2026-11-16).
+if(mode==='contact'){try{sessionStorage.setItem('telephone-contact:c1',JSON.stringify({nickname:'Очень длинный никнейм игрока клуба',username:'long_nick'}));}catch{/* preview only */}}
 const item=(kind:TelephoneItem['kind'],position:number,nickname:string,text:string|null,image:string|null=null):TelephoneItem=>({kind,position,nickname,text,image});
 const base=(over:Partial<TelephoneChainState>):TelephoneChainState=>({id:'c1',status:'active',length:7,done_links:2,author:{id:'p0',nickname:'Богданчик'},guesser:{id:'p2',nickname:'Серый'},current:{id:'me',nickname:'Я'},step:'move',deadline_at:new Date(Date.now()+5*3600000).toISOString(),created_at:'2026-11-16T10:00:00Z',finished_at:null,my_task:null,items:[],players:[{id:'p3',nickname:'ФМ'},{id:'p4',nickname:'Дина'}],...over});
 const chains:Record<string,TelephoneChainState>={
@@ -18,6 +20,7 @@ const chains:Record<string,TelephoneChainState>={
  choose:base({step:'choose',my_task:{step:'choose',kind:null,position:3,last:false}}),
  chooseguesser:base({step:'choose_guesser',done_links:7,my_task:{step:'choose_guesser',kind:null,position:8,last:false}}),
  guess:base({step:'guess',done_links:7,my_task:{step:'guess',kind:'guess',position:8,last:true},items:[item('caption',6,'Дина','Шар над рекой'),item('drawing',7,'Алоэ',null,drawing)]}),
+ contact:base({current:{id:'p1',nickname:'Очень длинный никнейм игрока клуба'},items:[item('phrase',0,'Богданчик','Кот играет на гитаре')]}),
  waiting:base({current:{id:'p5',nickname:'Алоэ'},items:[item('phrase',0,'Богданчик','Кот играет на гитаре')]}),
  done:base({status:'done',step:null,current:null,deadline_at:null,length:5,done_links:5,finished_at:'2026-11-16T18:00:00Z',items:[item('phrase',0,'Богданчик','Кот играет на гитаре'),item('drawing',1,'ФМ',null,drawing),item('caption',2,'Очень длинный никнейм игрока клуба','Луна над рекой'),item('drawing',3,'Дина',null,drawing),item('caption',4,'Алоэ','Шар над водой'),item('drawing',5,'Перец',null,drawing),item('guess',6,'Серый','Мяч на пляже')]}),
 };
@@ -37,7 +40,7 @@ globalThis.fetch=async(input:RequestInfo|URL,init?:RequestInit)=>{
 };
 // A drawing kept from an earlier visit: the offer to continue it (owner, 2026-11-16).
 if(mode==='draft'){try{localStorage.setItem('telephone-draft:c1:3',JSON.stringify([{color:'#1e88e5',width:6,points:[[60,60],[300,260]]}]));}catch{/* preview only */}}
-const chainId=['draft','draw','caption','last','choose','chooseguesser','guess','waiting','done'].includes(mode)?'c1':null;
+const chainId=['contact','draft','draw','caption','last','choose','chooseguesser','guess','waiting','done'].includes(mode)?'c1':null;
 function App(){const[open,setOpen]=React.useState<string|null>(chainId);const[create]=React.useState(mode==='create');return <PlayerDrawingTelephone key={String(open)+create} chainId={open} onOpen={setOpen} onExit={()=>location.assign('/e2e/player-cabinet.html?route=/player/club/games')}/>;}
 createRoot(document.getElementById('root')!).render(<App/>);
 if(mode==='create')setTimeout(()=>(document.querySelector('[data-testid="telephone-create"]') as HTMLButtonElement|null)?.click(),300);

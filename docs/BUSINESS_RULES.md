@@ -1134,6 +1134,7 @@ The owner wanted a game played in turns where after one's move the turn is passe
 - **Shown:** every finished chain to everybody in the app and **posted to «Новости»** (album of the drawings, the way of the phrase in the caption).
 - **A move in progress is kept (owner, 2026-11-16: «случайно сворачиваю телеграм и перерисовываю картину заново»):** the drawing (stroke by stroke) and the typed caption or guess are kept on the phone until the move is sent; on return the player is offered «Продолжить рисунок» or «Начать заново». While something is drawn, Telegram asks before closing the app (the sideways «back» swipe cannot be switched off in Telegram).
 - **Everybody sees every running chain with its stage (owner, 2026-11-16: «все видели все начатые звенья с этапом»):** «Идут сейчас» lists each chain under way — the author, «звено N из M» (or «все звенья готовы»), whose turn it is and what he does (рисует / подписывает / выбирает / отгадывает), time left. The drawings and captions stay hidden until the chain is finished.
+- **A player who blocked the bot (owner, 2026-11-16: «чтобы предлагалось им самому в лс написать и дать ссылку»):** he can still get the turn; the picker marks him «бот не пишет», and after the turn is passed to him the one who passed it gets «Написать в Telegram» (his @username), «Отправить ссылку» and «Скопировать ссылку» to the chain.
 - **One active chain per author** at a time; many chains of different players run at once (owner, 2026-11-16: «цепочек может быть много от разных игроков одновременно, но не больше 1 созданной»).
 - **Drawing:** 8 colours, thin/thick, eraser, undo, clear.
 - **Name: «Испорченный телефон с рисунками»** (owner).
@@ -1404,3 +1405,8 @@ Applies to club (CASUAL) evenings only; novice, rating and tournament evenings k
 - В CRM раздел называется «Рейтинговая лига»; в кабинете вкладка «Лига».
 ## Блоки не перезагружаются на глазах (владелец, 2026-11-13)
 - После действия (ответ игрока, выбор игр, запись, смена шага вечера) блок обновляет данные на месте: без «Загружаем…» и без исчезновения. Загрузка с экраном ожидания только при первом открытии или смене объекта (другой вечер, другой игрок). Проход по приложению: исправлены «Ответы игроков», панель «Следующий шаг» вечера в CRM и рабочая область вечера в кабинете игрока; остальные экраны уже обновляются тихо.
+
+## «Бот заблокирован» (owner, 2026-11-16)
+
+The owner: «чтобы я видел тех, кто бота в ЧС добавили». A player counts as having blocked the club bot when Telegram answered «Forbidden: bot was blocked by the user» to a personal message (the message outbox or the evening invitation journal) and no later message reached him (`src/server/services/botBlockedService.ts`). CRM «Игроки» shows the mark «Бот заблокирован» next to TG/VK, and «Фильтры → Дополнительно → Бот заблокирован» lists only them. In «Испорченный телефон» such a player can be chosen (see its rules).
+

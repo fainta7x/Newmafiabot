@@ -58,6 +58,8 @@ const props = {
 };
 
 beforeEach(() => {
+  // «Сегодня» keeps its last answer on the device; every test starts on a clean one.
+  window.localStorage.clear();
   debtsBody = { debtors: [] };
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
 });
@@ -251,5 +253,17 @@ describe('OrganizerCommandCenter payment freshness', () => {
     const previous = await screen.findByTestId('debts-panel');
     const actions = screen.getByLabelText('Действия сегодня');
     expect(previous.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the last «Сегодня» of the device at once and replaces it with the fresh one', async () => {
+    window.localStorage.setItem('screen-cache:v1:crm:command-center', JSON.stringify({ at: Date.now(), value: responseBody({ currentDue: 400, previousDue: 0 }) }));
+    let resolveFresh!: (value: Response) => void;
+    vi.stubGlobal('fetch', withClubOrder(() => new Promise<Response>((resolve) => { resolveFresh = resolve; })));
+    render(<OrganizerCommandCenter {...props} />);
+    // No loader: the kept screen is there before the server answered.
+    expect(screen.getByText(/11 сентября/)).toBeDefined();
+    resolveFresh(await jsonResponse(responseBody({ currentDue: 0, previousDue: 0 })));
+    await waitFor(() => expect(screen.queryByText('400 ₽', { exact: false })).toBeNull());
+    expect(JSON.parse(window.localStorage.getItem('screen-cache:v1:crm:command-center') || '{}').value.snapshot.stats.unpaid_amount).toBe(0);
   });
 });

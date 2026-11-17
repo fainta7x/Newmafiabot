@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import CancelEveningSheet from './CancelEveningSheet.tsx';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, Copy, RefreshCw, Send, Trash2 } from 'lucide-react';
 import type { EveningSection } from './EveningWorkspace.tsx';
+import { readScreenCache, writeScreenCache } from '../../lib/screenCache.ts';
 
 type Group = 'now' | 'week' | 'later';
 type Action =
@@ -54,7 +55,8 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   /** Items whose id starts with one of these are shown elsewhere on the screen (the Today debts panel). */
   hideItemPrefixes?: string[];
 }) {
-  const [data, setData] = useState<Payload | null>(null);
+  // The last list of this device is shown at once and refreshed in the background («Экраны без подгрузки»).
+  const [data, setData] = useState<Payload | null>(() => readScreenCache<Payload>('crm:agenda'));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [copied, setCopied] = useState('');
@@ -73,6 +75,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !Array.isArray(body?.items)) throw new Error(body?.error || 'Не удалось загрузить дела');
       setData(body as Payload);
+      writeScreenCache('crm:agenda', body);
       setError('');
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить дела');

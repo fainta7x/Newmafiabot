@@ -2,7 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
-import { telegramTextWithAction } from './personalNotificationText.ts';
+import { miniAppButtons, telegramActionMarkup, telegramTextWithAction } from './personalNotificationText.ts';
 import { enqueueVkMessage, kickVkMessageOutbox, startVkMessageOutboxWorker } from './vkMessageOutboxService.ts';
 
 export type PersonalNotificationChannel = 'telegram' | 'vk';
@@ -121,8 +121,9 @@ async function ensureExternalOutboxRow(
       entityId: delivery.entity_id,
       playerId,
       chatId: target,
-      text: telegramTextWithAction(text, delivery.action_path, Boolean(telegramReplyMarkup)),
-      replyMarkup: telegramReplyMarkup,
+      text: telegramTextWithAction(text, delivery.action_path, true),
+      // Buttons to the app open it as a Mini App, signed in through Telegram (miniAppButtons).
+      replyMarkup: telegramReplyMarkup ? miniAppButtons(telegramReplyMarkup) : (telegramActionMarkup(delivery.action_path) ?? undefined),
       photoPng: telegramPhotoPng,
     });
     kickTelegramMessageOutbox(db);

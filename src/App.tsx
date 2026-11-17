@@ -231,7 +231,10 @@ function AppContent() {
           body: JSON.stringify({ initData, return_to: currentPlayerReturnPath() }),
         });
         if (isRestartingStatus(telegramResponse.status)) throw new ServerRestartingError();
-        if (!telegramResponse.ok) throw new Error('telegram-auth');
+        // A refused Telegram sign-in (its data is older than 24 hours when the app stayed open in Telegram) is not the
+        // end: the player's session from the last sign-in is checked below, and only without it does he see the entry
+        // screen (owner, 2026-11-17: «авторизации сбрасываются»).
+        if (!telegramResponse.ok) console.warn('[auth] Telegram sign-in refused, trying the saved session:', telegramResponse.status);
       }
 
       // After Telegram auth the session cookie is already set. These reads are

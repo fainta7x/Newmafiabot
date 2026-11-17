@@ -38,7 +38,7 @@ describe('«Экраны без подгрузки»: ready organizer screens', 
   it('two requests at once share one computation', async () => {
     const db = fresh();
     let runs = 0;
-    const compute = async () => { runs += 1; await new Promise((r) => setTimeout(r, 5)); return runs; };
+    const compute = async () => { runs += 1; await new Promise((r) => { setTimeout(r, 5); }); return runs; };
     await Promise.all([cachedScreen(db, 'z', compute), cachedScreen(db, 'z', compute)]);
     expect(runs).toBe(1);
   });

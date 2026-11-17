@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureDrawingTelephoneSchema } from '../../db/ensureDrawingTelephoneSchema.ts';
 import {
-  TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_REWARD, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS,
+  TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_REWARD, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS, TELEPHONE_NIGHT_FROM_HOUR, TELEPHONE_NIGHT_TO_HOUR, telephoneDayMsBetween, telephoneDeadline,
   normalizeTelephonePhrase, telephoneLinkKind, telephoneWords,
   type TelephoneChainState, type TelephoneItem, type TelephoneListState, type TelephonePlayer, type TelephoneStep,
 } from '../../shared/drawingTelephone.ts';
@@ -22,6 +22,7 @@ type Chain = {
 type Link = { position: number; player_id: string; kind: 'drawing' | 'caption'; text: string | null; image_png: string | null };
 export type TelephoneNotice = { playerId: string; key: string; text: string; chainId: string };
 const TURN_MS = TELEPHONE_TURN_HOURS * 3_600_000;
+const NIGHT_MS = (TELEPHONE_NIGHT_TO_HOUR - TELEPHONE_NIGHT_FROM_HOUR) * 3_600_000;
 const MAX_PNG_BYTES = 400_000;
 
 /** Players who can take part: a profile with Telegram or VK linked, so the bot can tell them «твой ход». */
@@ -128,7 +129,7 @@ export async function telephoneCandidates(db: DatabaseWrapper, playerId: string,
 }
 
 const notice = (playerId: string, key: string, chainId: string, text: string): TelephoneNotice => ({ playerId, key, chainId, text });
-const guessNotice = (chainId: string, to: string) => notice(to, `telephone:${chainId}:guess:${to}`, chainId, `🔎 Твоя очередь отгадывать в «Испорченном телефоне с рисунками»: посмотри последний рисунок и подпись и напиши, какой была исходная фраза. На ответ ${TELEPHONE_TURN_HOURS} часов.`);
+const guessNotice = (chainId: string, to: string) => notice(to, `telephone:${chainId}:guess:${to}`, chainId, `🔎 Твоя очередь отгадывать в «Испорченном телефоне с рисунками»: посмотри последний рисунок и подпись и напиши, какой была исходная фраза. На ответ ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`);
 const moveText = (position: number) => telephoneLinkKind(position) === 'drawing' ? 'нарисуй, что написано' : 'подпиши, что нарисовано';
 
 export async function startTelephoneChain(db: DatabaseWrapper, playerId: string, input: { phrase?: unknown; links?: unknown; guesser_id?: unknown; next_id?: unknown }, now = new Date()) {
@@ -148,10 +149,10 @@ export async function startTelephoneChain(db: DatabaseWrapper, playerId: string,
     if (await tx.get(`SELECT id FROM telephone_chains WHERE author_player_id = ? AND status = 'active'`, [playerId])) throw new TelephoneError(409, 'Ваша цепочка ещё идёт. Новую можно начать, когда она закончится.');
     if (await tx.get('SELECT id FROM telephone_chains WHERE phrase_key = ?', [key])) throw new TelephoneError(409, 'С такой фразы уже начинали. Придумайте другую.');
     await tx.run(`INSERT INTO telephone_chains (id, author_player_id, guesser_player_id, phrase, phrase_key, length, status, step, current_player_id, turn_started_at, deadline_at, created_at, updated_at) VALUES (?,?,?,?,?,?,'active','move',?,?,?,?,?)`,
-      [id, playerId, guesser, phrase, key, length, next, stamp, new Date(now.getTime() + TURN_MS).toISOString(), stamp, stamp]);
+      [id, playerId, guesser, phrase, key, length, next, stamp, telephoneDeadline(now).toISOString(), stamp, stamp]);
     await pay(tx, playerId, id, 'phrase');
   });
-  return { chain: await loadTelephoneChain(db, playerId, id), notices: [notice(next, `telephone:${id}:turn:1:${next}`, id, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(1)}. На ход ${TELEPHONE_TURN_HOURS} часов.`)] };
+  return { chain: await loadTelephoneChain(db, playerId, id), notices: [notice(next, `telephone:${id}:turn:1:${next}`, id, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(1)}. На ход ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`)] };
 }
 
 /** A drawing or a caption, then the turn goes to the chosen player (or to the guesser after the last link). */
@@ -185,11 +186,11 @@ export async function moveTelephoneChain(db: DatabaseWrapper, playerId: string, 
     await tx.run('INSERT INTO telephone_links (chain_id, position, player_id, kind, text, image_png, created_at) VALUES (?,?,?,?,?,?,?)', [chainId, position, playerId, kind, text, image, stamp]);
     const to = last ? chain.guesser_player_id : next!;
     await tx.run(`UPDATE telephone_chains SET step = ?, current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`,
-      [last ? 'guess' : 'move', to, stamp, new Date(now.getTime() + TURN_MS).toISOString(), stamp, chainId]);
+      [last ? 'guess' : 'move', to, stamp, telephoneDeadline(now).toISOString(), stamp, chainId]);
     await pay(tx, playerId, chainId, `link-${position}`);
     notices.push(last
       ? guessNotice(chainId, to)
-      : notice(to, `telephone:${chainId}:turn:${position + 1}:${to}`, chainId, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(position + 1)}. На ход ${TELEPHONE_TURN_HOURS} часов.`));
+      : notice(to, `telephone:${chainId}:turn:${position + 1}:${to}`, chainId, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(position + 1)}. На ход ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`));
   });
   return { chain: await loadTelephoneChain(db, playerId, chainId), notices };
 }
@@ -209,14 +210,14 @@ export async function chooseTelephoneNext(db: DatabaseWrapper, playerId: string,
     if (!next || blocked.has(next) || !(await telephonePlayers(tx)).some((player) => player.id === next)) throw new TelephoneError(400, chain.step === 'choose' ? 'Выберите, кому передать ход: тому, кто ещё не ходил' : 'Выберите того, кто ещё не был в этой цепочке');
     const position = (await linksOf(tx, chainId)).length + 1;
     const stamp = now.toISOString();
-    const deadline = new Date(now.getTime() + TURN_MS).toISOString();
+    const deadline = telephoneDeadline(now).toISOString();
     if (chain.step === 'choose_guesser') {
       await tx.run(`UPDATE telephone_chains SET step = 'guess', guesser_player_id = ?, current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`, [next, next, stamp, deadline, stamp, chainId]);
       notices.push(guessNotice(chainId, next));
       return;
     }
     await tx.run(`UPDATE telephone_chains SET step = 'move', current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`, [next, stamp, deadline, stamp, chainId]);
-    notices.push(notice(next, `telephone:${chainId}:turn:${position}:${next}`, chainId, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(position)}. На ход ${TELEPHONE_TURN_HOURS} часов.`));
+    notices.push(notice(next, `telephone:${chainId}:turn:${position}:${next}`, chainId, `🎨 Тебе передали ход в «Испорченном телефоне с рисунками»: ${moveText(position)}. На ход ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`));
   });
   return { chain: await loadTelephoneChain(db, playerId, chainId), notices };
 }
@@ -265,7 +266,7 @@ async function returnTurn(tx: DatabaseWrapper, chain: Chain, now: Date, notices:
   const lateName = await nicknameOf(tx, late);
   const links = await linksOf(tx, chain.id);
   const stamp = now.toISOString();
-  const deadline = new Date(now.getTime() + TURN_MS).toISOString();
+  const deadline = telephoneDeadline(now).toISOString();
   const excluded = JSON.parse(chain.excluded_json) as string[];
   const set = async (step: TelephoneStep, to: string, addExcluded: boolean) => {
     const list = addExcluded ? [...new Set([...excluded, late])] : excluded;
@@ -274,10 +275,10 @@ async function returnTurn(tx: DatabaseWrapper, chain: Chain, now: Date, notices:
   if (chain.step === 'move') {
     const back = links.length ? links[links.length - 1].player_id : chain.author_player_id;
     await set('choose', back, true);
-    notices.push(notice(back, `telephone:${chain.id}:back:${links.length + 1}:${late}`, chain.id, `↩️ Ход в «Испорченном телефоне с рисунками» вернулся к тебе: ${lateName} ${why}. Выбери, кому передать его теперь. На выбор ${TELEPHONE_TURN_HOURS} часов.`));
+    notices.push(notice(back, `telephone:${chain.id}:back:${links.length + 1}:${late}`, chain.id, `↩️ Ход в «Испорченном телефоне с рисунками» вернулся к тебе: ${lateName} ${why}. Выбери, кому передать его теперь. На выбор ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`));
   } else if (chain.step === 'guess') {
     await set('choose_guesser', chain.author_player_id, true);
-    notices.push(notice(chain.author_player_id, `telephone:${chain.id}:guesser-back:${late}`, chain.id, `↩️ ${lateName} ${why} отгадать твою цепочку в «Испорченном телефоне с рисунками». Выбери другого отгадывающего — того, кто не был в цепочке. На выбор ${TELEPHONE_TURN_HOURS} часов.`));
+    notices.push(notice(chain.author_player_id, `telephone:${chain.id}:guesser-back:${late}`, chain.id, `↩️ ${lateName} ${why} отгадать твою цепочку в «Испорченном телефоне с рисунками». Выбери другого отгадывающего — того, кто не был в цепочке. На выбор ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`));
   } else if (late === chain.author_player_id) {
     await set(chain.step!, late, false);
     notices.push(notice(late, `telephone:${chain.id}:author-wait:${stamp}`, chain.id, '⏳ Твоя цепочка в «Испорченном телефоне с рисунками» ждёт тебя: выбери, кому передать ход.'));
@@ -285,7 +286,7 @@ async function returnTurn(tx: DatabaseWrapper, chain: Chain, now: Date, notices:
     const at = links.findIndex((link) => link.player_id === late);
     const up = at > 0 ? links[at - 1].player_id : chain.author_player_id;
     await set('choose', up, false);
-    notices.push(notice(up, `telephone:${chain.id}:up:${links.length + 1}:${late}:${stamp}`, chain.id, `↩️ В «Испорченном телефоне с рисунками» ${lateName} не выбрал, кому передать ход. Выбери ты — того, кто ещё не ходил. На выбор ${TELEPHONE_TURN_HOURS} часов.`));
+    notices.push(notice(up, `telephone:${chain.id}:up:${links.length + 1}:${late}:${stamp}`, chain.id, `↩️ В «Испорченном телефоне с рисунками» ${lateName} не выбрал, кому передать ход. Выбери ты — того, кто ещё не ходил. На выбор ${TELEPHONE_TURN_HOURS} часов, ночь с 0 до 8 не считается.`));
   }
 }
 
@@ -293,12 +294,15 @@ async function returnTurn(tx: DatabaseWrapper, chain: Chain, now: Date, notices:
 export async function runTelephoneTimers(db: DatabaseWrapper, now = new Date()) {
   await ensureDrawingTelephoneSchema(db);
   const notices: TelephoneNotice[] = [];
-  const due = await db.all<Chain>(`SELECT * FROM telephone_chains WHERE status = 'active' AND deadline_at IS NOT NULL AND (deadline_at <= ? OR (reminded = 0 AND deadline_at <= ?))`, [now.toISOString(), new Date(now.getTime() + TURN_MS / 2).toISOString()]);
+  // A night (8 hours) can lie between now and a deadline 4 day hours away; the exact check is below.
+  const due = await db.all<Chain>(`SELECT * FROM telephone_chains WHERE status = 'active' AND deadline_at IS NOT NULL AND (deadline_at <= ? OR (reminded = 0 AND deadline_at <= ?))`, [now.toISOString(), new Date(now.getTime() + TURN_MS / 2 + NIGHT_MS).toISOString()]);
   for (const row of due) {
     await db.transaction(async (tx) => {
       const chain = await tx.get<Chain>('SELECT * FROM telephone_chains WHERE id = ?', [row.id]);
       if (!chain || chain.status !== 'active' || chain.deadline_at !== row.deadline_at || chain.current_player_id !== row.current_player_id) return;
       if (chain.deadline_at! <= now.toISOString()) { await returnTurn(tx, chain, now, notices, `не успел за ${TELEPHONE_TURN_HOURS} часов`); return; }
+      // The reminder comes when half of the day hours is left, so never at night.
+      if (chain.reminded || telephoneDayMsBetween(now, new Date(chain.deadline_at!)) > TURN_MS / 2) return;
       await tx.run('UPDATE telephone_chains SET reminded = 1 WHERE id = ?', [chain.id]);
       notices.push(notice(chain.current_player_id!, `telephone:${chain.id}:remind:${chain.turn_started_at}`, chain.id, `⏳ Напоминание: твой ход в «Испорченном телефоне с рисунками». Осталось около ${TELEPHONE_TURN_HOURS / 2} часов, потом ход вернётся.`));
     });

@@ -1,6 +1,9 @@
 ## 2026-11-17 — экраны без подгрузки
 
 Сервер: готовые ответы `/api/crm/command-center`, `/api/crm/agenda`, `/api/crm/overview` с поколением, сбрасываемым любым не-GET запросом, пересчётом через 1,5 с и прогревом раз в минуту. Клиент: последний экран из localStorage без лоадера, очистка при выходе и отказе в доступе. Тесты: screenPrecompute (4), useOrganizerCrmSessionFreshness (+2), OrganizerCommandCenterPaymentFreshness (+1); полный прогон зелёный, кроме 3 тестов входа по паролю, которые падают и на main в этом контейнере. Замеры production до: command-center ≈0,8–1,0 с, agenda ≈1,4–1,6 с, overview ≈1,0 с.
+## 2026-11-17 — ночь в «Испорченном телефоне»
+
+Сроки цепочки (ход, выбор, отгадка) считаются без ночи 00:00–08:00 МСК (`telephoneDeadline`, `src/shared/drawingTelephone.ts`); напоминание — при 4 оставшихся дневных часах. Тесты: drawingTelephone.integration (11).
 
 ## 2026-11-15 — завершение согласованных пакетов
 

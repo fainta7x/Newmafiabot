@@ -20,7 +20,7 @@ const evening = {
 } as any;
 
 const players = [
-  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: true },
+  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: true , telegram_linked: true, bot_blocked_at: '2026-11-15T10:00:00Z' },
   { id: 'kinder', nickname: 'Киндер', full_name: null, contact_status: 'normal', days_since_last_visit: 6, open_tasks_count: 0, attendance_count: 3, avatar_updated_at: null, game_level: 'novice', club_role: 'member', judge_level: 'none', organizer_player_access: false },
   { id: 'pristan', nickname: 'Пристань', full_name: null, contact_status: 'normal', days_since_last_visit: 9, open_tasks_count: 0, attendance_count: 12, avatar_updated_at: null, game_level: 'tournament', club_role: 'team', judge_level: 'host', organizer_player_access: false },
   { id: 'matroskina', nickname: 'Матроскина', full_name: 'Анна', contact_status: 'normal', days_since_last_visit: 32, open_tasks_count: 0, attendance_count: 5, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: false },

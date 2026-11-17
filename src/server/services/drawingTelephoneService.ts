@@ -7,6 +7,7 @@ import {
   type TelephoneChainState, type TelephoneItem, type TelephoneListState, type TelephonePlayer, type TelephoneStep,
 } from '../../shared/drawingTelephone.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
+import { loadBotBlockedPlayers } from './botBlockedService.ts';
 
 /** «Испорченный телефон с рисунками» (owner, 2026-11-16); rules in docs/BUSINESS_RULES.md. */
 export class TelephoneError extends Error {
@@ -25,11 +26,14 @@ const MAX_PNG_BYTES = 400_000;
 
 /** Players who can take part: a profile with Telegram or VK linked, so the bot can tell them «твой ход». */
 export async function telephonePlayers(db: DatabaseWrapper): Promise<TelephonePlayer[]> {
-  return db.all<TelephonePlayer>(`
-    SELECT DISTINCT p.id, p.nickname FROM players p
+  const players = await db.all<TelephonePlayer>(`
+    SELECT DISTINCT p.id, p.nickname, p.telegram_username FROM players p
       LEFT JOIN player_external_identities vk ON vk.player_id = p.id AND vk.platform = 'vk'
      WHERE (p.telegram_user_id IS NOT NULL AND TRIM(p.telegram_user_id) != '') OR (vk.external_user_id IS NOT NULL AND TRIM(vk.external_user_id) != '')
-     ORDER BY p.nickname COLLATE NOCASE`).catch(async () => db.all<TelephonePlayer>(`SELECT id, nickname FROM players WHERE telegram_user_id IS NOT NULL AND TRIM(telegram_user_id) != '' ORDER BY nickname COLLATE NOCASE`));
+     ORDER BY p.nickname COLLATE NOCASE`).catch(async () => db.all<TelephonePlayer>(`SELECT id, nickname, telegram_username FROM players WHERE telegram_user_id IS NOT NULL AND TRIM(telegram_user_id) != '' ORDER BY nickname COLLATE NOCASE`));
+  // Who blocked the bot can still get the turn, but the one passing it is asked to write him himself (owner, 2026-11-16).
+  const blocked = await loadBotBlockedPlayers(db).catch(() => new Map<string, string>());
+  return players.map((player) => ({ ...player, telegram_username: player.telegram_username ? String(player.telegram_username).replace(/^@/, '') : null, bot_blocked: blocked.has(String(player.id)) }));
 }
 const nicknameOf = async (db: DatabaseWrapper, id: string | null) => id ? (await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ?', [id]))?.nickname || '—' : '—';
 const linksOf = (db: DatabaseWrapper, chainId: string) => db.all<Link>('SELECT position, player_id, kind, text, image_png FROM telephone_links WHERE chain_id = ? ORDER BY position', [chainId]);

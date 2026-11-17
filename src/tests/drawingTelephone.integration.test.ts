@@ -7,7 +7,7 @@ import {
 import { runDrawingTelephone } from '../server/services/drawingTelephoneNotifyService.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 import { ensureClubResultPostSchema } from '../server/services/clubResultPostService.ts';
-import { telephoneLinkKind } from '../shared/drawingTelephone.ts';
+import { telephoneDayMsBetween, telephoneDeadline, telephoneLinkKind } from '../shared/drawingTelephone.ts';
 
 // «Испорченный телефон с рисунками» (owner, 2026-11-16): pass to anyone who has not moved yet, 8 hours or «не хочу» and
 // the turn returns, 5–20 links, the guesser chosen at the start sees the last drawing and caption, no repeated start
@@ -103,6 +103,25 @@ describe('drawing telephone', () => {
     expect(state.step).toBe('choose');
   });
 
+  it('the night 00:00–08:00 Moscow does not count in the 8 hours (owner, 2026-11-17)', async () => {
+    const msk = (text: string) => new Date(`${text}+03:00`);
+    expect(telephoneDeadline(msk('2026-11-16T13:00:00')).toISOString()).toBe(msk('2026-11-16T21:00:00').toISOString());
+    expect(telephoneDeadline(msk('2026-11-16T22:00:00')).toISOString()).toBe(msk('2026-11-17T14:00:00').toISOString());
+    expect(telephoneDeadline(msk('2026-11-17T03:00:00')).toISOString()).toBe(msk('2026-11-17T16:00:00').toISOString());
+    expect(telephoneDeadline(msk('2026-11-16T16:00:00')).toISOString()).toBe(msk('2026-11-17T00:00:00').toISOString());
+    expect(telephoneDayMsBetween(msk('2026-11-16T22:00:00'), msk('2026-11-17T14:00:00'))).toBe(8 * 3_600_000);
+
+    // A turn passed at 22:00 Moscow: back at 14:00 the next day, the reminder at 10:00, never at night.
+    const evening = msk('2026-11-16T22:00:00');
+    const { chain } = await startTelephoneChain(db, 'a', { phrase: 'Ночной кот', links: 5, guesser_id: 'h', next_id: 'b' }, evening);
+    expect((await loadTelephoneChain(db, 'b', chain.id)).deadline_at).toBe(msk('2026-11-17T14:00:00').toISOString());
+    expect(await runTelephoneTimers(db, msk('2026-11-17T06:00:00'))).toEqual([]);
+    expect(await runTelephoneTimers(db, msk('2026-11-17T09:59:00'))).toEqual([]);
+    expect((await runTelephoneTimers(db, msk('2026-11-17T10:00:00'))).map((n) => n.playerId)).toEqual(['b']);
+    expect(await runTelephoneTimers(db, msk('2026-11-17T13:59:00'))).toEqual([]);
+    expect((await runTelephoneTimers(db, msk('2026-11-17T14:00:00'))).map((n) => n.playerId)).toEqual(['a']);
+  });
+
   it('everybody sees every running chain with its stage, never its content (owner, 2026-11-16)', async () => {
     const { chain } = await start();
     await moveTelephoneChain(db, 'b', chain.id, { image: PNG, next_id: 'c' }, t0);
@@ -137,12 +156,14 @@ describe('drawing telephone', () => {
     const up = await runTelephoneTimers(db, later(8 * 60 + 1)); // c silent → b chooses
     expect(up.map((n) => n.playerId)).toEqual(['b']);
     expect((await loadTelephoneChain(db, 'b', chain.id)).my_task).toMatchObject({ step: 'choose', position: 3 });
-    const top = await runTelephoneTimers(db, later(16 * 60 + 2)); // b silent → the author chooses
+    // b got the choice at 21:01 Moscow: 3 hours before midnight, the night does not count, 5 more hours from 08:00.
+    expect(await runTelephoneTimers(db, later(16 * 60 + 2))).toEqual([]);
+    const top = await runTelephoneTimers(db, later(24 * 60 + 2)); // b silent → the author chooses
     expect(top.map((n) => n.playerId)).toEqual(['a']);
-    const wait = await runTelephoneTimers(db, later(24 * 60 + 3)); // the author silent → he is reminded, the chain waits
+    const wait = await runTelephoneTimers(db, later(32 * 60 + 3)); // the author silent → he is reminded, the chain waits
     expect(wait.map((n) => n.playerId)).toEqual(['a']);
     expect((await loadTelephoneChain(db, 'a', chain.id))).toMatchObject({ status: 'active', step: 'choose', current: { id: 'a' } });
-    await chooseTelephoneNext(db, 'a', chain.id, { next_id: 'e' }, later(24 * 60 + 4));
+    await chooseTelephoneNext(db, 'a', chain.id, { next_id: 'e' }, later(32 * 60 + 4));
     expect((await loadTelephoneChain(db, 'e', chain.id)).my_task).toMatchObject({ step: 'move', kind: 'drawing', position: 3 });
   });
 

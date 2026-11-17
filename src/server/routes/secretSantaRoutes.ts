@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import {
-  SantaError, cancelSantaEvent, createSantaEvent, drawSanta, joinSanta, leaveSanta, loadSantaForOrganizer, loadSantaForPlayer, santaEveningChoices,
+  SantaError, bindSantaEvening, cancelSantaEvent, createSantaEvent, drawSanta, joinSanta, leaveSanta, loadSantaForOrganizer, loadSantaForPlayer, santaEveningChoices,
 } from '../services/secretSantaService.ts';
 
 /** «Тайный Санта» (owner, 2026-11-17). */
@@ -27,6 +27,7 @@ playerSantaRouter.post('/santa/leave', asPlayer((req, id) => leaveSanta(req.db!,
 export const organizerSantaRouter = Router();
 organizerSantaRouter.use('/santa', requireOrganizerAuth);
 organizerSantaRouter.get('/santa', (req, res, next) => send(res, next, async () => ({ ...(await loadSantaForOrganizer(req.db!)), evenings: await santaEveningChoices(req.db!) })));
-organizerSantaRouter.post('/santa', (req, res, next) => send(res, next, () => createSantaEvent(req.db!, bodyOf(req))));
+organizerSantaRouter.post('/santa', (req, res, next) => send(res, next, () => createSantaEvent(req.db!)));
+organizerSantaRouter.post('/santa/:id/evening', (req, res, next) => send(res, next, () => bindSantaEvening(req.db!, String(req.params.id), bodyOf(req))));
 organizerSantaRouter.post('/santa/:id/draw', (req, res, next) => send(res, next, () => drawSanta(req.db!, String(req.params.id))));
 organizerSantaRouter.post('/santa/:id/cancel', (req, res, next) => send(res, next, () => cancelSantaEvent(req.db!, String(req.params.id))));

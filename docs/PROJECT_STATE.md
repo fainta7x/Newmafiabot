@@ -392,7 +392,7 @@ Open work, in order:
 
 14. **Owner request 2026-11-16: no waiting for loading — built (both parts agreed 2026-11-17: «Да, делай оба пункта»)** — «постоянные везде подгрузки… сегодня в CRM… чтобы сразу информация показывалась без прогрузок, а прогрузки совершались независимо от того, зашёл ли человек». Server: «Сегодня», «Дела» and «Обзор» are computed every minute and kept ready (`screenPrecomputeService.ts`); device: the last screen is shown at once and refreshed in the background (`src/lib/screenCache.ts`). Rules in BUSINESS_RULES «Экраны без подгрузки».
 
-15. **«Тайный Санта» (owner, 2026-11-17): built** — registration in the app with the player's own confirmation, the draw at the organizer's button among participants only, a «Новости» post and the result in a personal message; gifts up to 1000 ₽ at a club evening. The assistant's defaults listed in BUSINESS_RULES are to be confirmed by the owner.
+15. **«Тайный Санта» (owner, 2026-11-17): built** — registration in the app first (player's own confirmation, «Новости» post at once), then the organizer binds the exchange evening and starts the draw among participants only; result and reminders (on the result, Mondays, 24 h before) in personal messages; «Подарок шмурдяку» — an anti-gift to someone with «Иду» outside Santa; gifts up to 1000 ₽. The assistant's defaults listed in BUSINESS_RULES are to be confirmed by the owner.
 
 New product work is started only after the owner's «да» (AGENTS §4).
 

@@ -39,6 +39,8 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   + (await step('bot_news', async () => (await import('./botNewsPostService.ts')).runBotNewsPosts(db)).catch((error) => { console.error('[BOT NEWS] failed:', error); return 0; }))
   // «Испорченный телефон с рисунками»: reminders, returned turns and the «Новости» post of finished chains.
   + (await step('drawing_telephone', async () => (await import('./drawingTelephoneNotifyService.ts')).runDrawingTelephone(db)).catch((error) => { console.error('[TELEPHONE] failed:', error); return 0; }))
+  // «Тайный Санта»: the «Новости» post when the organizer opens the registration, and the reminders (secretSantaService).
+  + (await step('secret_santa', async () => (await import('./secretSantaService.ts')).runSecretSanta(db)).catch((error) => { console.error('[SANTA] failed:', error); return 0; }))
   // «Как часто ходит» from the real visits, once a day (playerActivityAutoService).
   + (await step('player_activity_auto', async () => (await import('./playerActivityAutoService.ts')).runAutoPlayerActivity(db).then((changes) => changes.length)).catch((error) => { console.error('[ACTIVITY AUTO] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).

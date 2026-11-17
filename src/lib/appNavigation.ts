@@ -21,7 +21,8 @@ export type PlayerRouteSection =
   | 'clocktower'
   | 'dailyword'
   | 'sudoku'
-  | 'telephone';
+  | 'telephone'
+  | 'santa';
 
 export type ParsedPlayerRoute = {
   section: PlayerRouteSection;
@@ -59,6 +60,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     clubworld: target === 'form' ? '/player/club/form' : target === 'matches' ? '/player/club/history' : target === 'history' ? '/player/rating/periods/archive' : target === 'season' ? '/player/rating/periods' : '/player/seasons',
     dailyword: '/player/daily-word',
     sudoku: '/player/sudoku',
+    santa: '/player/santa',
     telephone: target ? `/player/telephone/${encodeURIComponent(target)}` : '/player/telephone',
     poker: target ? `/player/poker/${encodeURIComponent(target)}` : '/player/poker',
     clocktower: target ? `/player/clocktower/${encodeURIComponent(target)}` : '/player/clocktower',
@@ -123,6 +125,7 @@ export const parsePlayerRoute = (pathname: string, search = ''): ParsedPlayerRou
   }
   if (parts[1] === 'daily-word') return { section: 'dailyword', target: null, replayGameKey: null, canonicalPath: '/player/daily-word' };
   if (parts[1] === 'sudoku') return { section: 'sudoku', target: null, replayGameKey: null, canonicalPath: '/player/sudoku' };
+  if (parts[1] === 'santa') return { section: 'santa', target: null, replayGameKey: null, canonicalPath: '/player/santa' };
   if (parts[1] === 'telephone') {
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'telephone', target, replayGameKey: null, canonicalPath: playerPathForSection('telephone', target) };
@@ -171,7 +174,7 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'replay') return parts[2] ? playerPathForSection('games', safeDecode(parts[2])) : '/player/games';
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
-    if (parts[1] === 'daily-word' || parts[1] === 'sudoku') return '/player/club/games';
+    if (parts[1] === 'daily-word' || parts[1] === 'sudoku' || parts[1] === 'santa') return '/player/club/games';
     if (parts[1] === 'telephone') return parts.length > 2 ? '/player/telephone' : '/player/club/games';
     if (parts[1] === 'poker' && parts.length > 2) return '/player/poker';
     if (parts[1] === 'poker') return '/player/club/games';

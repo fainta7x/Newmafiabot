@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
-import { appUrl } from './gameResultCardService.ts';
+import { appUrl, miniAppLink } from './gameResultCardService.ts';
 import { claim, finish, sendPhotos, sendText } from './clubResultPostService.ts';
 import { ensureClubResultPostSchema } from './clubResultPostService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
@@ -35,7 +35,7 @@ export async function runDrawingTelephone(db: DatabaseWrapper, fetchImpl: typeof
     if (!(await claim(db, key, 'telephone-chain', '', null))) { await markTelephonePublished(db, id); continue; }
     try {
       const { caption, photos } = await telephonePost(db, id);
-      const link = appUrl(`/player/telephone/${encodeURIComponent(id)}`);
+      const link = await miniAppLink(`/player/telephone/${encodeURIComponent(id)}`);
       const markup = link ? { inline_keyboard: [[{ text: '🎨 Смотреть цепочку', url: link }]] } : undefined;
       const result = photos.length
         ? await sendPhotos(db, null, photos, caption, fetchImpl, NEWS_DESTINATION, 'image/png', photos.length > 1 ? undefined : markup, { key: `club:${key}`, kind: 'club-result' })

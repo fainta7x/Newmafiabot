@@ -1,4 +1,5 @@
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
+import { playerPathToStartParam } from '../../shared/miniAppStart.ts';
 import { calculateBestMovePoints } from './bestMovePoints.ts';
 import { roundToTwo } from '../utils/ciHelper.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
@@ -54,6 +55,18 @@ export async function inviteFriendUrl(playerId: string, botUsername?: string | n
   if (!bot || !/^[A-Za-z0-9_-]{1,64}$/.test(start)) return null;
   const link = `https://t.me/${bot}?start=${start}`;
   return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Пойдём со мной играть в мафию в 2LA Noire!')}`;
+}
+
+/**
+ * A link for a group post: the bot's Main Mini App opened on this page (signed in through Telegram), or the plain app
+ * link when the bot is unknown or the page cannot be put into a start parameter. Personal messages use `web_app`
+ * buttons instead (personalNotificationText.miniAppButtons).
+ */
+export async function miniAppLink(path: string, botUsername?: string | null): Promise<string | null> {
+  const bot = botUsername === undefined ? await telegramBotUsername().catch(() => null) : botUsername;
+  const param = playerPathToStartParam(path);
+  if (bot && /^[A-Za-z0-9_]{3,64}$/.test(bot) && param !== null) return `https://t.me/${bot}?startapp${param ? `=${param}` : ''}`;
+  return appUrl(path);
 }
 
 export const appUrl = (path: string) => {

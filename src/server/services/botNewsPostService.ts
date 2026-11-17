@@ -3,7 +3,7 @@ import { ensureDailyWordSchema } from '../../db/ensureDailyWordSchema.ts';
 import { BOT_CHANGES_DIGEST } from '../data/botChangesDigest.ts';
 import { dailyWordDay } from './dailyWordService.ts';
 import { dailySudokuYesterdayLine } from './dailySudokuService.ts';
-import { appUrl } from './gameResultCardService.ts';
+import { miniAppLink } from './gameResultCardService.ts';
 import { claim, ensureClubResultPostSchema, finish, sendText } from './clubResultPostService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 
@@ -38,8 +38,8 @@ export async function runDailyWordInvitation(db: DatabaseWrapper, fetchImpl: typ
   const key = `daily-word-invite:${day}`;
   if (!(await claim(db, key, 'daily-word-invite', '', null))) return 0;
   try {
-    const link = appUrl('/player/daily-word');
-    const sudokuLink = appUrl('/player/sudoku');
+    const link = await miniAppLink('/player/daily-word');
+    const sudokuLink = await miniAppLink('/player/sudoku');
     const result = await sendText(db, NEWS_DESTINATION, await dailyWordInviteText(db, day), fetchImpl, undefined,
       link ? { inline_keyboard: [[{ text: '🔤 Слово дня', url: link }, ...(sudokuLink ? [{ text: '🔢 Судоку', url: sudokuLink }] : [])]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
     await finish(db, key, result);
@@ -97,7 +97,7 @@ export async function runSudokuLaunchPost(db: DatabaseWrapper, fetchImpl: typeof
   const key = `sudoku-launch:${SUDOKU_LAUNCH_DAY}`;
   if (!(await claim(db, key, 'sudoku-launch', '', null))) return 0;
   try {
-    const link = appUrl('/player/sudoku');
+    const link = await miniAppLink('/player/sudoku');
     const result = await sendText(db, NEWS_DESTINATION, SUDOKU_LAUNCH_TEXT, fetchImpl, undefined,
       link ? { inline_keyboard: [[{ text: '🔢 Играть в судоку', url: link }]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
     await finish(db, key, result);
@@ -135,7 +135,7 @@ export async function runTelephoneLaunchPost(db: DatabaseWrapper, fetchImpl: typ
   const key = 'telephone-launch:2026-11';
   if (!(await claim(db, key, 'telephone-launch', '', null))) return 0;
   try {
-    const link = appUrl('/player/telephone');
+    const link = await miniAppLink('/player/telephone');
     const result = await sendText(db, NEWS_DESTINATION, TELEPHONE_LAUNCH_TEXT, fetchImpl, undefined,
       link ? { inline_keyboard: [[{ text: '🎨 Играть', url: link }]] } : undefined, { key: `club:${key}`, kind: 'club-result' });
     await finish(db, key, result);

@@ -27,6 +27,7 @@ const MAX_PNG_BYTES = 400_000;
 
 /** Players who can take part: a profile with Telegram or VK linked, so the bot can tell them «твой ход». */
 export async function telephonePlayers(db: DatabaseWrapper): Promise<TelephonePlayer[]> {
+  await ensureDrawingTelephoneSchema(db); // the opt-out table is read below
   const players = await db.all<TelephonePlayer>(`
     SELECT DISTINCT p.id, p.nickname, p.telegram_username FROM players p
       LEFT JOIN player_external_identities vk ON vk.player_id = p.id AND vk.platform = 'vk'

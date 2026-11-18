@@ -14,7 +14,7 @@ import './appStyles.ts';
 import {wordFixture} from './daily-word-fixture.ts';
 
 const data: PlayerMeResponse = {
- player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: 100, game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },
+ player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: Number(new URLSearchParams(location.search).get('tokens') || 100), game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },
  achievements: { earned: 0, total: 0, percentage: 0, categories: [] },
  games: { all: [], stats: { totalGames: 24, completedGames: 24, wins: 14, losses: 10, winRate: 58.3, clubGames: 24, tournamentGames: 0, redGames: 16, blackGames: 8, bestMoves: 2, firstKilled: 3, zeroRoundVoted: 0, lastGameAt: null, roleCounts: { citizen: 12, sheriff: 4, mafia: 5, don: 3, unknown: 0 } } },
  tournaments: { games: [], awards: [], award_stats: { firstPlaces: 0, secondPlaces: 0, thirdPlaces: 0, nominations: 0 }, completed_participations: [] },
@@ -152,7 +152,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
    return json(paymentData);
   }
   case '/api/rating': return json({ players: NAMES.map((nickname,index) => ({ player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, place: index+1 })) });
-  case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, club_games: [], tournament_games: [] });
+  case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, permissions: { novice: true, casual: true, rating: true, tournament: false }, club_games: [], tournament_games: [] });
   case '/api/player/evening-journey': return json({ journey: new URLSearchParams(location.search).get('scenario') === 'live' ? liveJourney : { phase: 'idle' } });
   case '/api/player/evening-live-status': return json({ live: new URLSearchParams(location.search).get('scenario') === 'live' });
   case '/api/player/notifications': return json({ items: [], unread_count: 0 });

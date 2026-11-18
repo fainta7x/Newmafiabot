@@ -34,22 +34,24 @@ export default function PlayerQuickAccessBar({
       className="ds-chrome-top fixed inset-x-0 top-0 z-[var(--ds-layer-sticky)] h-14 border-b"
     >
       <div className="player-cabinet-toolbar mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-2 px-3 pr-[58px]">
-        <div className="min-w-0 flex-1">
+        {/* The club name keeps its room (owner, 2026-11-18: with CRM, «Ведение» and a five-digit balance «2LA Noire» broke
+            into letters); the buttons on the right give way instead — narrower, the balance figure shrinks a little. */}
+        <div className="min-w-[88px] flex-1">
           {/* The way back to the club site sits on the brand line, not as one more button: on a 360 px phone the buttons on the right leave no room (owner, 2026-11-13). */}
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring min-w-0 rounded-lg text-left">
-              <FitText as="div" minPx={10} className="text-sm font-semibold tracking-[0.08em] text-white/78">2LA Noire</FitText>
+              <FitText as="div" minPx={10} className="whitespace-nowrap text-sm font-semibold tracking-[0.06em] text-white/78">2LA Noire</FitText>
             </button>
-            <a data-testid="player-quick-site" href="https://2lamafia.ru/" aria-label="На сайт клуба" title="Сайт клуба" className="ds-focus-ring -my-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/62 transition-colors hover:text-white">
+            <a data-testid="player-quick-site" href="https://2lamafia.ru/" aria-label="На сайт клуба" title="Сайт клуба" className="ds-focus-ring -my-2 inline-flex h-8 w-7 shrink-0 items-center justify-center rounded-lg text-white/62 transition-colors hover:text-white">
               <Globe className="h-4 w-4" aria-hidden="true" />
             </a>
           </div>
           <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring mt-0.5 block max-w-full rounded-lg text-left">
-            <FitText as="div" minPx={10} className="text-[12px] text-white/50">{player.nickname}</FitText>
+            <FitText as="div" minPx={10} className="whitespace-nowrap text-[12px] text-white/50">{player.nickname}</FitText>
           </button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1">
           {canOpenAdmin && onOpenAdmin ? (
             <ProductModeSwitch activeMode="player" onSwitch={onOpenAdmin} />
           ) : null}
@@ -61,7 +63,7 @@ export default function PlayerQuickAccessBar({
               onClick={onOpenConduct}
               aria-label="Открыть ведение игр"
               title="Ведение"
-              className="ds-focus-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-200/15 bg-amber-200/[0.07] text-[11px] font-bold text-amber-50/85 transition-colors hover:bg-amber-200/[0.11] sm:w-auto sm:gap-1.5 sm:px-2.5"
+              className="ds-focus-ring inline-flex h-11 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-200/15 bg-amber-200/[0.07] text-[11px] font-bold text-amber-50/85 transition-colors hover:bg-amber-200/[0.11] sm:w-auto sm:gap-1.5 sm:px-2.5"
             >
               <Gavel className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Ведение</span>
@@ -75,14 +77,15 @@ export default function PlayerQuickAccessBar({
             aria-label={`Открыть кошелёк. Баланс ${Math.trunc(Number(tokenBalance || 0)).toLocaleString('ru-RU')} жетонов`}
             title="Кошелёк"
             aria-pressed={active === 'wallet'}
-            className={`ds-focus-ring flex min-h-11 items-center gap-1.5 rounded-2xl border px-2.5 text-sm font-semibold tabular-nums transition ${
+            className={`ds-focus-ring flex min-h-11 min-w-0 items-center gap-1 rounded-2xl border px-2 text-sm font-semibold tabular-nums transition ${
               active === 'wallet'
                 ? 'border-amber-200/20 bg-amber-200/[0.10] text-amber-50'
                 : 'border-white/10 bg-white/[0.045] text-white/72'
             }`}
           >
-            <TokenIcon />
-            <span>{Math.trunc(Number(tokenBalance || 0)).toLocaleString('ru-RU')}</span>
+            {/* Below 375 px the coin gives its place to the figure, which must stay on one line. */}
+            <TokenIcon className="max-[374px]:hidden" />
+            <FitText as="span" minPx={11} className="min-w-0 whitespace-nowrap" style={{ whiteSpace: 'nowrap' }}>{Math.trunc(Number(tokenBalance || 0)).toLocaleString('ru-RU')}</FitText>
           </button>
 
           <button
@@ -92,7 +95,7 @@ export default function PlayerQuickAccessBar({
             aria-label="Настройки"
             title="Настройки"
             aria-pressed={active === 'settings'}
-            className={`ds-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition ${
+            className={`ds-focus-ring grid h-11 w-10 shrink-0 place-items-center rounded-2xl border transition ${
               active === 'settings'
                 ? 'border-white/30 bg-white/[0.12] ring-1 ring-white/20 text-white'
                 : 'border-white/10 bg-white/[0.045] text-white/72'

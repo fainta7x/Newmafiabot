@@ -14,6 +14,8 @@ export const PAGES = [
   ...['none','nodate','open','joined','drawn','closed','error','crm-new','crm-open','crm-bound','crm-drawn'].map(mode=>[`santa-${mode}`,`/e2e/secret-santa.html?mode=${mode}`]),
   ...['list','empty','active','create','contact','draft','draw','caption','last','choose','chooseguesser','guess','waiting','done','error'].map(mode=>[`telephone-${mode}`,`/e2e/drawing-telephone.html?mode=${mode}`]),
   ['cabinet-home', cabinet('/player')],
+  // An organizer with «Ведение» and a five-digit balance: «2LA Noire» broke into letters (owner, 2026-11-18).
+  ['cabinet-home-busy-topbar', cabinet('/player', '&tokens=26280')],
   ['cabinet-home-live', '/e2e/player-cabinet.html?scenario=live'],
   ['cabinet-events', cabinet('/player/events')],
   ['cabinet-evening', cabinet('/player/events/preview-evening', '&booking=novice')],

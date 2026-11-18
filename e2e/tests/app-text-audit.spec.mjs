@@ -66,6 +66,7 @@ export const PAGES = [
   ['protocol-window-completed', '/e2e/protocol-window.html'],
   ['protocol-window-tournament', '/e2e/protocol-window.html?kind=tournament&draft=1'],
   ['tournament-live-game', '/e2e/tournament-live-game.html?mode=audit'],
+  ['free-game', '/e2e/live-game.html?mode=free'],
   ...['games-open','games-hidden','results-hidden','seating-choice'].map(mode=>[`player-tournament-${mode}`,`/e2e/player-tournament.html?mode=${mode}`]),
   ['live-game-cabinet', '/e2e/live-game-cabinet.html', 'phone'],
   ['live-game-cabinet-night', '/e2e/live-game-cabinet.html?phase=night', 'phone'],

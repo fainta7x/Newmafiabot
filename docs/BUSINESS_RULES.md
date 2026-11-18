@@ -1442,3 +1442,7 @@ The owner: «после заполнения игры сразу видеть е
 - **table open:** everybody's доп in every game;
 - **table closed** («Скрыть таблицу»): the winner and roles stay as before, the table and nominations are hidden, and the player sees **only his own доп** of each game — in «Игры» and as the list «Твой доп по играм» in «Итоги». A viewer who does not play sees no доп while the table is closed.
 
+## Игра без вечера (owner, 2026-11-18)
+
+The owner: «просто создать игру отдельно без ничего… выбрать кто судья кто играет и запустить её в движке… мне не нужны рейтинги, регистрации… карты раздавались… можно даже не сохранять». CRM «Ещё → Ведение игр → Игра без вечера»: the judge's name, the table (10, 9 or 8 seats), the names by seat (an empty seat is «Игрок N»; «Перемешать места»), «Начать игру». The full live engine runs: the roster check, the virtual deal on the phone, physical cards or roles set by hand, nights, votes, the end of the game. Nothing is saved or sent: no evening, no Elo, no statistics, no messages, no protocol; the game runs in the same sandbox as the judge's test game, so a game interrupted by closing the app starts again. The names stay on that device for the next time.
+

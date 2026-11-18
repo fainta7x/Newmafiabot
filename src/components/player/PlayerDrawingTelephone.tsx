@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { getJson, sendJson } from '../../lib/requestJson.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
 import {
   TELEPHONE_COLORS, TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS,
   type TelephoneChainState, type TelephoneItem, type TelephoneListState, type TelephonePlayer,
@@ -104,9 +105,31 @@ function ListView({ onOpen, onMoved }: { onOpen: (id: string | null) => void; on
           {chain.cover ? <img src={png(chain.cover)} alt="" className="tp-thumb" /> : <span className="tp-thumb" aria-hidden="true" />}
           <span><strong>«{chain.phrase}»</strong><small>{chain.guess !== null ? `→ «${chain.guess}»` : '→ без отгадки'} · {chain.author} · {chain.length} звеньев</small></span>
         </button></li>)}</ul> : <p>Пока ни одной. Начните первую!</p>}</section>
+      <OptOut optedOut={state.opted_out} turns={state.my_turns.length} onChanged={setState} />
     </>}
     <Rules />
   </>;
+}
+
+/**
+ * «Не зовите меня в цепочки» (owner, 2026-11-18, players asked for it): the player is in no list of whom to pass the
+ * turn or who guesses; turning it on returns his current turns at once, as «Не хочу». His own chain goes on as usual.
+ */
+function OptOut({ optedOut, turns, onChanged }: { optedOut: boolean; turns: number; onChanged: (state: TelephoneListState) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const change = async (on: boolean) => {
+    if (busy) return;
+    if (on && turns > 0 && !(await appConfirm(`Твои ходы (${turns}) вернутся тем, кто их передал, как после «Не хочу».`, { title: 'Не звать тебя в цепочки?', confirmLabel: 'Да, не звать' }))) return;
+    setBusy(true); setError('');
+    try { onChanged(await sendJson<TelephoneListState>(`${API}/opt-out`, 'POST', { on }, 'Не удалось сохранить')); } catch (e) { setError(message(e)); } finally { setBusy(false); }
+  };
+  return <section className="dw-social" data-testid="telephone-opt-out">
+    <label className="tp-promise"><input type="checkbox" checked={optedOut} disabled={busy} onChange={(e) => void change(e.target.checked)} data-testid="telephone-opt-out-toggle" />
+      <span>Не зовите меня в цепочки</span></label>
+    <p className="dw-hint">{optedOut ? 'Тебя нет в списках, кому передать ход и кто отгадывает. Свою цепочку можно начать как обычно.' : 'Если включить, тебя уберут из списков, кому передать ход и кто отгадывает.'}</p>
+    {error ? <p className="dw-error" role="alert">{error}</p> : null}
+  </section>;
 }
 
 /** The stage of a running chain in plain words: which link of how many, whose turn and what he does. */

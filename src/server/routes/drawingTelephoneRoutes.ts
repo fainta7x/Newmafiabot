@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import {
   TelephoneError, chooseTelephoneNext, declineTelephoneTurn, guessTelephoneChain, loadTelephoneChain, loadTelephoneList,
-  moveTelephoneChain, startTelephoneChain, telephoneCandidates,
+  moveTelephoneChain, setTelephoneOptOut, startTelephoneChain, telephoneCandidates,
 } from '../services/drawingTelephoneService.ts';
 import { deliverTelephoneNotices } from '../services/drawingTelephoneNotifyService.ts';
 
@@ -24,6 +24,7 @@ const withNotices = async (req: AuthenticatedRequest, result: { notices: Paramet
 };
 router.get('/telephone', handle((req, id) => loadTelephoneList(req.db!, id)));
 router.get('/telephone/players', handle(async (req, id) => ({ items: await telephoneCandidates(req.db!, id, typeof req.query.chain === 'string' ? req.query.chain : null) })));
+router.post('/telephone/opt-out', handle(async (req, id) => { await deliverTelephoneNotices(req.db!, (await setTelephoneOptOut(req.db!, id, bodyOf(req))).notices); return loadTelephoneList(req.db!, id); }));
 router.get('/telephone/:id', handle((req, id) => loadTelephoneChain(req.db!, id, String(req.params.id))));
 router.post('/telephone', handle(async (req, id) => withNotices(req, await startTelephoneChain(req.db!, id, bodyOf(req)))));
 router.post('/telephone/:id/move', handle(async (req, id) => withNotices(req, await moveTelephoneChain(req.db!, id, String(req.params.id), bodyOf(req)))));

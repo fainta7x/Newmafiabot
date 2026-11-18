@@ -65,8 +65,10 @@ test.describe('Игра без вечера', () => {
       await next.click();
     }
     await expect(page.getByRole('button', { name: /Включите музыку/ })).toBeVisible();
+    // The engine writes the game to the device every 75 ms: wait until the night is saved.
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('mafia_live_session:club:-2147483000') || '{}').phase || null), { timeout: 10000 }).not.toBe(null);
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('mafia_live_session:club:-2147483000') || '{}').phase)).not.toBe('setup');
     const rolesBefore = await page.evaluate(() => localStorage.getItem('mafia_live_session:club:-2147483000'));
-    expect(rolesBefore).toBeTruthy();
 
     // The app is killed: a fresh page load, the sandbox is recovered on start and the game is parked.
     await page.reload();

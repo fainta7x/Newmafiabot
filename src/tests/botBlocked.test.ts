@@ -27,7 +27,9 @@ describe('players who blocked the bot', () => {
     const blocked = await loadBotBlockedPlayers(db);
     expect([...blocked.keys()].sort()).toEqual(['a', 'd']);
     const list = await telephonePlayers(db);
-    expect(list.find((p) => p.id === 'a')).toMatchObject({ bot_blocked: true, telegram_username: 'user_a' });
+    // Who blocked the bot is not in the «Испорченный телефон» lists (owner, 2026-11-18).
+    expect(list.find((p) => p.id === 'a')).toBeUndefined();
+    expect(list.find((p) => p.id === 'd')).toBeUndefined();
     expect(list.find((p) => p.id === 'b')).toMatchObject({ bot_blocked: false });
   });
 });

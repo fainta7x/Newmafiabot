@@ -34,9 +34,11 @@ export async function telephonePlayers(db: DatabaseWrapper): Promise<TelephonePl
      WHERE ((p.telegram_user_id IS NOT NULL AND TRIM(p.telegram_user_id) != '') OR (vk.external_user_id IS NOT NULL AND TRIM(vk.external_user_id) != ''))
        AND p.id NOT IN (SELECT player_id FROM telephone_optouts)
      ORDER BY p.nickname COLLATE NOCASE`).catch(async () => db.all<TelephonePlayer>(`SELECT id, nickname, telegram_username FROM players WHERE telegram_user_id IS NOT NULL AND TRIM(telegram_user_id) != '' AND id NOT IN (SELECT player_id FROM telephone_optouts) ORDER BY nickname COLLATE NOCASE`));
-  // Who blocked the bot can still get the turn, but the one passing it is asked to write him himself (owner, 2026-11-16).
+  // Who blocked the bot is not in the lists (owner, 2026-11-18; before that he could be chosen with «напиши ему сам»):
+  // the bot cannot tell him «твой ход».
   const blocked = await loadBotBlockedPlayers(db).catch(() => new Map<string, string>());
-  return players.map((player) => ({ ...player, telegram_username: player.telegram_username ? String(player.telegram_username).replace(/^@/, '') : null, bot_blocked: blocked.has(String(player.id)) }));
+  return players.filter((player) => !blocked.has(String(player.id)))
+    .map((player) => ({ ...player, telegram_username: player.telegram_username ? String(player.telegram_username).replace(/^@/, '') : null, bot_blocked: false }));
 }
 const nicknameOf = async (db: DatabaseWrapper, id: string | null) => id ? (await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ?', [id]))?.nickname || '—' : '—';
 const linksOf = (db: DatabaseWrapper, chainId: string) => db.all<Link>('SELECT position, player_id, kind, text, image_png FROM telephone_links WHERE chain_id = ? ORDER BY position', [chainId]);

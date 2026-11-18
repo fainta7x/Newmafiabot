@@ -1017,8 +1017,9 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ game_count: gameCount }),
     }),
-  generateTournamentSeating: (id: string) =>
-    request<{ success: boolean; games: TournamentGame[] }>(`/api/tournaments/${id}/generate-seating`, { method: 'POST' }),
+  /** mode: «Уникальная рассадка» (unique) or «Полностью случайная» (random), owner 2026-11-18. */
+  generateTournamentSeating: (id: string, mode: 'unique' | 'random' = 'unique') =>
+    request<{ success: boolean; games: TournamentGame[] }>(`/api/tournaments/${id}/generate-seating`, { method: 'POST', body: JSON.stringify({ mode }) }),
   correctTournamentParticipant: (tournamentId: string, participantId: string, playerId: string) =>
     request<{ success: boolean; participant: TournamentParticipant }>(
       `/api/tournaments/${tournamentId}/participants/${participantId}/correct-player`,

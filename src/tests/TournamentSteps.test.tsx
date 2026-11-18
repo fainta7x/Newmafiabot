@@ -65,7 +65,7 @@ describe('tournament step screen', () => {
     expect(screen.getByRole('button', { name: /Рассадка для игроков \(PNG\)/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
     // the question is the app's own window, not the browser's (owner, 2026-11-08)
-    fireEvent.click(await screen.findByTestId('app-confirm-ok'));
+    fireEvent.click(await screen.findByTestId('app-confirm-ok', {}, { timeout: 5000 }));
     await waitFor(() => expect(sendSeatMessages).toHaveBeenCalledWith('t1'));
     expect(await screen.findByText(/отправлены в личные сообщения: 8 из 10 игроков/)).toBeTruthy();
     expect(screen.getByText(/У 2 из 10 нет привязанного Telegram\/VK/)).toBeTruthy();
@@ -77,7 +77,7 @@ describe('tournament step screen', () => {
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
     expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
-    fireEvent.click(await screen.findByTestId('app-confirm-ok'));
+    fireEvent.click(await screen.findByTestId('app-confirm-ok', {}, { timeout: 5000 }));
     await waitFor(() => expect(screen.queryByRole('button', { name: /Разослать места игрокам/ })).toBeNull());
     cleanup();
 

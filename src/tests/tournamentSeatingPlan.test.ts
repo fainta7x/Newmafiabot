@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalancedSeatingPlan, seatParticipants } from '../server/services/tournamentSeatingPlan.ts';
+import { buildBalancedSeatingPlan, parseSeatingMode, seatParticipants, seatParticipantsByMode } from '../server/services/tournamentSeatingPlan.ts';
 
 const seeded = (seed: number) => () => {
   seed = (seed * 1664525 + 1013904223) % 4294967296;
@@ -56,4 +56,22 @@ describe('balanced tournament seating', () => {
     const seatOfFirst = games.map((game) => game.findIndex((p) => p.id === 'p0'));
     expect(new Set(seatOfFirst).size).toBe(10);
   });
+
+  it('«Полностью случайная» (owner, 2026-11-18): every game is a full shuffle of the ten, with no seat rule', () => {
+    const players = Array.from({ length: 10 }, (_, index) => `p${index}`);
+    let repeated = false;
+    for (let seed = 1; seed <= 30; seed += 1) {
+      const games = seatParticipantsByMode(players, 10, 'random', seeded(seed));
+      expect(games).toHaveLength(10);
+      games.forEach((game) => expect([...game].sort()).toEqual([...players].sort()));
+      const seatsOfFirst = games.map((game) => game.indexOf('p0'));
+      if (new Set(seatsOfFirst).size < 10) repeated = true;
+    }
+    // Without the rule a seat repeats for somebody, unlike the unique seating.
+    expect(repeated).toBe(true);
+    expect(parseSeatingMode('random')).toBe('random');
+    expect(parseSeatingMode('anything')).toBe('unique');
+    expect(parseSeatingMode(undefined)).toBe('unique');
+  });
 });
+

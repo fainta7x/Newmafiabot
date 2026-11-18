@@ -14,6 +14,8 @@ import { api } from '../../../lib/api.ts';
 export const TournamentSeatMessagesCard: React.FC<{ tournamentId: string; status: string; games: Array<{ status?: string }>; tournament?: Tournament; onChanged?: () => void }> = ({ tournamentId, status, games, tournament, onChanged }) => {
   const [showPng, setShowPng] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
+  // «Перегенерировать рассадку» asks which one (owner, 2026-11-18): unique seats or a fully random draw.
+  const [choosingMode, setChoosingMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   // The parent's game list is a snapshot: when the server says nothing is left to play, the block hides itself.
@@ -22,14 +24,16 @@ export const TournamentSeatMessagesCard: React.FC<{ tournamentId: string; status
   const canSend = !nothingLeft && ['draft', 'active', 'correction'].includes(status) && games.length > 0 && hasGameToPlay;
   if (!games.length) return null;
 
-  const regenerate = async () => {
+  const regenerate = async (mode: 'unique' | 'random') => {
     if (regenBusy) return;
-    if (!(await appConfirm(`Текущая рассадка всех ${games.length || 10} игр будет заменена случайной.`, { title: 'Перегенерировать рассадку?', confirmLabel: 'Перегенерировать', danger: true }))) return;
+    const label = mode === 'random' ? 'полностью случайной' : 'уникальной';
+    if (!(await appConfirm(`Текущая рассадка всех ${games.length || 10} игр будет заменена ${label}.`, { title: 'Перегенерировать рассадку?', confirmLabel: 'Перегенерировать', danger: true }))) return;
+    setChoosingMode(false);
     setRegenBusy(true);
     setNote(null);
     try {
-      await api.generateTournamentSeating(tournamentId);
-      setNote({ type: 'success', text: 'Случайная рассадка перегенерирована.' });
+      await api.generateTournamentSeating(tournamentId, mode);
+      setNote({ type: 'success', text: mode === 'random' ? 'Рассадка перегенерирована: полностью случайная.' : 'Рассадка перегенерирована: уникальная.' });
       onChanged?.();
     } catch (err: any) {
       setNote({ type: 'error', text: err?.message || 'Ошибка генерации рассадки' });
@@ -92,12 +96,27 @@ export const TournamentSeatMessagesCard: React.FC<{ tournamentId: string; status
             Рассадка для игроков (PNG)
           </button>
         ) : null}
-        {status === 'draft' ? (
-          <button type="button" disabled={regenBusy} onClick={() => void regenerate()}
+        {status === 'draft' && !choosingMode ? (
+          <button type="button" disabled={regenBusy} onClick={() => setChoosingMode(true)} data-testid="tournament-seating-regenerate"
             className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-border-soft bg-surface-2 px-4 text-[11px] font-bold text-text-primary disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 text-accent ${regenBusy ? 'animate-spin' : ''}`} />
             Перегенерировать рассадку
           </button>
+        ) : null}
+        {status === 'draft' && choosingMode ? (
+          <div className="grid gap-2 rounded-xl border border-border-soft bg-surface-2 p-2.5" data-testid="tournament-seating-mode">
+            <button type="button" disabled={regenBusy} onClick={() => void regenerate('unique')} data-testid="tournament-seating-unique"
+              className="min-h-[44px] w-full rounded-xl bg-accent px-3 py-2 text-left text-white disabled:opacity-50">
+              <strong className="block text-[12px]">Уникальная рассадка</strong>
+              <span className="mt-0.5 block text-[11px] leading-4 text-white/85">Каждый игрок садится на каждое место по разу, без одних и тех же соседей подряд</span>
+            </button>
+            <button type="button" disabled={regenBusy} onClick={() => void regenerate('random')} data-testid="tournament-seating-random"
+              className="min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 py-2 text-left text-text-primary disabled:opacity-50">
+              <strong className="block text-[12px]">Полностью случайная</strong>
+              <span className="mt-0.5 block text-[11px] leading-4 text-text-muted">Каждая игра перемешивается заново: место и соседи могут повторяться</span>
+            </button>
+            <button type="button" onClick={() => setChoosingMode(false)} className="min-h-[40px] w-full rounded-xl px-3 text-[11px] font-bold text-text-muted">Отмена</button>
+          </div>
         ) : null}
       </div>
       {tournament ? <SeatingExportModal isOpen={showPng} onClose={() => setShowPng(false)} tournament={tournament} /> : null}

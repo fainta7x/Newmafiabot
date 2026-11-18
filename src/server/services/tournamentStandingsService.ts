@@ -264,6 +264,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         ci_points: gameCi,
         ci_rate: playerRate,
         ci_reason: ciReason,
+        // «Доп» of this game: everything but the win point and the compensation (shown per game in the cabinet).
+        additional_points: addTotalGame,
         game_total: gameTotal,
       });
     }

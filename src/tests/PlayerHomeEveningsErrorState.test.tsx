@@ -44,6 +44,8 @@ function renderHome(eveningsFetch: () => Promise<Response>, paymentsFetch = asyn
 }
 
 afterEach(() => {
+  // The home screen keeps the last evenings on the device («Экраны без подгрузки»); every test starts on a clean one.
+  window.localStorage.clear();
   cleanup();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -107,4 +109,14 @@ describe('Player Cabinet Главная — ближайший вечер, ош�
     expect((await screen.findByTestId('player-home-evenings-error')).textContent).toContain('Не удалось');
     expect(screen.queryByText('Ближайших игровых вечеров пока нет.')).toBeNull();
   });
+
+  it('shows the last evenings of the device at once and keeps them when a refresh fails (owner, 2026-11-18)', async () => {
+    window.localStorage.setItem('screen-cache:v1:player:evenings:p1', JSON.stringify({ at: Date.now(), value: [{ id: 'kept', title: 'Сохранённый вечер', starts_at: new Date(Date.now() + 86400000).toISOString(), format: 'CASUAL', status: 'published', response_status: 'unanswered', attending_count: 3, thinking_count: 0 }] }));
+    renderHome(async () => new Response('{}', { status: 500 }));
+    expect(screen.queryByText('Загрузка…')).toBeNull();
+    expect(await screen.findByText('Сохранённый вечер')).toBeDefined();
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
+    expect(screen.queryByTestId('player-home-evenings-error')).toBeNull();
+  });
 });
+

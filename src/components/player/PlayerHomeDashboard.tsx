@@ -1,4 +1,5 @@
 import { getJsonIfOk } from '../../lib/requestJson.ts';
+import { readScreenCache, writeScreenCache } from '../../lib/screenCache.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DailyWordCard } from './PlayerDailyWord.tsx';
 import WhatsNewCard from './WhatsNewCard.tsx';
@@ -82,7 +83,10 @@ export default function PlayerHomeDashboard({
   onOpenLearning?: () => void;
   onOpenDailyWord?: () => void;
 }) {
-  const [evenings, setEvenings] = useState<HomeEvening[] | null>(null);
+  // «Следующий вечер» shows the last list of this device at once and refreshes it in the background (owner, 2026-11-18:
+  // everything else on the home screen came at once, the next evening kept loading; «Экраны без подгрузки»).
+  const eveningsCacheKey = `player:evenings:${data.player.id}`;
+  const [evenings, setEvenings] = useState<HomeEvening[] | null>(() => readScreenCache<HomeEvening[]>(eveningsCacheKey));
   const [eveningsError, setEveningsError] = useState(false);
   const eveningRequestSeq = useRef(0);
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
@@ -111,18 +115,19 @@ export default function PlayerHomeDashboard({
 
   const loadEvenings = useCallback(async () => {
     const requestId = ++eveningRequestSeq.current;
-    setEvenings(null);
+    // With a kept list on screen the refresh is silent; without one the loader shows as before.
+    setEvenings((current) => (current && readScreenCache(eveningsCacheKey) ? current : null));
     setEveningsError(false);
     try {
       const body = await getJsonIfOk<any>('/api/player/evenings');
       if (!body) throw new Error('Evenings request failed');
       if (!Array.isArray(body?.evenings)) throw new Error('Invalid evenings response');
-      if (requestId === eveningRequestSeq.current) setEvenings(body.evenings);
+      if (requestId === eveningRequestSeq.current) { setEvenings(body.evenings); writeScreenCache(eveningsCacheKey, body.evenings); }
     } catch {
-      // An unavailable schedule is not evidence that the club has no evenings.
-      if (requestId === eveningRequestSeq.current) setEveningsError(true);
+      // An unavailable schedule is not evidence that the club has no evenings; a kept list stays on screen.
+      if (requestId === eveningRequestSeq.current && !readScreenCache(eveningsCacheKey)) setEveningsError(true);
     }
-  }, []);
+  }, [eveningsCacheKey]);
 
   useEffect(() => {
     void loadEvenings();

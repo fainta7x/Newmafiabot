@@ -17,6 +17,13 @@ const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === '
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 /** «Игра без вечера» in the CRM (owner, 2026-11-18). */
 const FREE_MODE = new URLSearchParams(window.location.search).get('mode') === 'free';
+// ?parked=1: a free game left unfinished, for the layout audit of «Продолжить игру».
+if (FREE_MODE && new URLSearchParams(window.location.search).get('parked') === '1') {
+  try {
+    localStorage.setItem('free-game:parked:v1', JSON.stringify({ judge: 'Ведущий с очень длинным ником', parkedAt: new Date().toISOString(),
+      lineup: ['Очень длинный никнейм игрока клуба', 'Боря', 'Вика', 'Гена', 'Даша', 'Егор', 'Жора', 'Зоя', 'Илья', 'Катя'], keys: { '': '{"phase":"night"}' } }));
+  } catch { /* preview only */ }
+}
 const TRAINING_MODE = new URLSearchParams(window.location.search).get('mode') === 'training';
 const TRAINING_FINISH_MODE = new URLSearchParams(window.location.search).get('mode') === 'training-finish';
 /** A zero-round vote where the split was broken into #2 (six against four); `zeroRule` picks the game setting. */

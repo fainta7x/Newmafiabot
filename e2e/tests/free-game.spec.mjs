@@ -45,4 +45,41 @@ test.describe('Игра без вечера', () => {
     await page.reload();
     await expect(page.getByTestId('free-game-seat-1')).toHaveValue('Аня');
   });
+
+  test('a game closed by accident (the app killed mid-game) is continued from the same place', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.addInitScript(() => sessionStorage.setItem('role_deal_card_seconds', '1'));
+    await page.goto('/e2e/live-game.html?mode=free');
+    const names = ['Аня', 'Боря', 'Вика', 'Гена', 'Даша', 'Егор', 'Жора', 'Зоя', 'Илья', 'Катя'];
+    for (let seat = 1; seat <= 10; seat += 1) await page.getByTestId(`free-game-seat-${seat}`).fill(names[seat - 1]);
+    await page.getByTestId('free-game-start').click();
+    await page.getByRole('button', { name: 'Подтвердить состав' }).click();
+    await page.getByTestId('club-game-start-role-deal').click();
+    const deal = page.getByTestId('virtual-role-deal');
+    await deal.getByRole('button', { name: 'Начать раздачу' }).click();
+    await deal.getByTestId('virtual-deal-go').click();
+    for (let remaining = 10; remaining > 0; remaining -= 1) {
+      await deal.getByRole('button', { name: /^Карта №/ }).first().click();
+      const next = deal.getByTestId('virtual-deal-next-player');
+      await expect(next).toBeEnabled({ timeout: 9000 });
+      await next.click();
+    }
+    await expect(page.getByRole('button', { name: /Включите музыку/ })).toBeVisible();
+    const rolesBefore = await page.evaluate(() => localStorage.getItem('mafia_live_session:club:-2147483000'));
+    expect(rolesBefore).toBeTruthy();
+
+    // The app is killed: a fresh page load, the sandbox is recovered on start and the game is parked.
+    await page.reload();
+    const parked = page.getByTestId('free-game-parked');
+    await expect(parked).toContainText('Аня');
+    await page.getByTestId('free-game-resume').click();
+    const restore = page.getByRole('button', { name: 'Восстановить' });
+    if (await restore.isVisible().catch(() => false)) await restore.click();
+    // Back in the same game: past the deal, at the night, with the same roles.
+    await expect(page.getByRole('button', { name: 'Подтвердить состав' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Включите музыку/ })).toBeVisible({ timeout: 10000 });
+    const rolesAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('mafia_live_session:club:-2147483000') || '{}').activePlayers?.map((p) => `${p.nickname}:${p.role}`));
+    expect(rolesAfter).toEqual(JSON.parse(rolesBefore).activePlayers.map((p) => `${p.nickname}:${p.role}`));
+  });
 });
+

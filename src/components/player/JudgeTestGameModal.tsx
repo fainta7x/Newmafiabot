@@ -121,6 +121,8 @@ export default function JudgeTestGameModal({
   training = false,
   lineup,
   badge,
+  free = false,
+  resume = false,
 }: {
   judge: { id: string; nickname: string };
   onClose: (completed?: boolean) => void;
@@ -129,6 +131,9 @@ export default function JudgeTestGameModal({
   lineup?: string[];
   /** The mark in the window's top bar; a test game says «Тест · не сохраняется». */
   badge?: React.ReactNode;
+  /** «Игра без вечера»: the game is parked when the window or the app closes, and `resume` continues it. */
+  free?: boolean;
+  resume?: boolean;
 }) {
   const seatPlan = useMemo(() => createJudgeTrainingSeatingPlan(), []);
   const [trainingLineup, setTrainingLineup] = useState<string[] | null>(training ? null : (lineup || TRAINING_PEOPLE));
@@ -139,7 +144,7 @@ export default function JudgeTestGameModal({
   useLayoutEffect(() => {
     if (!trainingLineup) return;
     completedRef.current = false;
-    beginTestGameSandbox();
+    beginTestGameSandbox({ free, resume });
     const restoreFetch = installTestSaveInterceptor(game);
     setReady(true);
 

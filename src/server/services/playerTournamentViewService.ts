@@ -99,6 +99,21 @@ export async function loadPlayerTournamentView(db: DatabaseWrapper, tournamentId
     list.push(seat);
     seatsByGame.set(String(seat.game_id), list);
   }
+  const hidden = Boolean(tournament.standings_hidden_at);
+  // The table and every game's «доп» once games are played (owner, 2026-11-18): with the table open everybody's доп
+  // in every game; with the table hidden only the viewer's own доп, nothing of the others.
+  let standingsData: any = null;
+  if (phase === 'live' || phase === 'finished') {
+    try { standingsData = await getFlexibleTournamentStandings(db, tournamentId); } catch { standingsData = null; }
+  }
+  const additionalOf = new Map<string, number>();
+  for (const row of standingsData?.standings || []) {
+    if (!row.player_id) continue;
+    for (const game of Array.isArray(row.games) ? row.games : []) {
+      if (game?.additional_points == null) continue;
+      additionalOf.set(`${row.player_id}:${Number(game.game_number)}`, round(game.additional_points));
+    }
+  }
   const gameItems = games.map((game) => {
     const finished = game.status === 'completed';
     return {
@@ -112,18 +127,18 @@ export async function loadPlayerTournamentView(db: DatabaseWrapper, tournamentId
         nickname: String(seat.nickname || 'Участник'),
         role: finished ? (seat.role || null) : null,
         is_me: String(seat.player_id) === viewerId,
+        additional: finished && (!hidden || String(seat.player_id) === viewerId)
+          ? (additionalOf.get(`${seat.player_id}:${Number(game.game_number)}`) ?? null) : null,
       })),
     };
   });
 
-  const hidden = Boolean(tournament.standings_hidden_at);
   let standings: any[] | null = null;
   let nominations: any[] | null = null;
   let provisional = phase !== 'finished';
   if (!hidden && (phase === 'live' || phase === 'finished')) {
-    try {
-      const data = await getFlexibleTournamentStandings(db, tournamentId);
-      standings = (data.standings || []).map((row: any) => ({
+    {
+      standings = (standingsData?.standings || []).map((row: any) => ({
         place: Number(row.official_place || row.place || row.calculated_place || 0),
         nickname: String(row.display_name || 'Участник'),
         is_me: Boolean(row.player_id) && String(row.player_id) === viewerId,
@@ -132,7 +147,7 @@ export async function loadPlayerTournamentView(db: DatabaseWrapper, tournamentId
         total_points: round(row.total_points),
         additional_total: round(row.additional_total),
       }));
-    } catch { standings = []; }
+    }
     try {
       const data = await internalGetNominations(db, tournamentId);
       provisional = Boolean(data.provisional);

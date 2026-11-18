@@ -1,3 +1,4 @@
+import { parseSeatingMode } from '../services/tournamentSeatingPlan.ts';
 import crypto from 'crypto';
 import { Router, type NextFunction, type Response } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -52,7 +53,7 @@ router.post('/evenings/:id/reserve/:playerId/promote',requireOrganizerAuth,async
 
 router.put('/:id/participants',requireOrganizerAuth,async(req:AuthenticatedRequest,res:Response,next:NextFunction)=>{if(!(await isManagedTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))))return next();return res.status(409).json({error:'Состав этого турнира управляется регистрацией. Используйте блок «Участники · 10 мест».'});});
 router.patch('/:id/participants/:participantId/correct-player',requireOrganizerAuth,async(req:AuthenticatedRequest,res:Response,next:NextFunction)=>{if(!(await isManagedTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))))return next();return res.status(409).json({error:'Участника турнира можно поменять только через запись на турнир.'});});
-const prepareSeating=async(req:AuthenticatedRequest,res:Response,regenerate=false)=>{const actor=actorId(req);if(!actor)return res.status(401).json({error:'ACTOR_REQUIRED'});try{const result=await prepareTournamentEveningSeating(req.db as DatabaseWrapper,String(req.params.id),actor,{regenerate});return res.json({...result,tournament:await loadTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))});}catch(e:any){return res.status(statusFor(e?.message)).json({error:e?.message});}};
+const prepareSeating=async(req:AuthenticatedRequest,res:Response,regenerate=false)=>{const mode=parseSeatingMode(req.body?.mode);const actor=actorId(req);if(!actor)return res.status(401).json({error:'ACTOR_REQUIRED'});try{const result=await prepareTournamentEveningSeating(req.db as DatabaseWrapper,String(req.params.id),actor,{regenerate,mode});return res.json({...result,tournament:await loadTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))});}catch(e:any){return res.status(statusFor(e?.message)).json({error:e?.message});}};
 router.post('/evenings/:id/prepare-seating',requireOrganizerAuth,(req:AuthenticatedRequest,res:Response)=>prepareSeating(req,res));
 router.post('/:id/generate-seating',requireOrganizerAuth,async(req:AuthenticatedRequest,res:Response,next:NextFunction)=>{if(!(await isManagedTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))))return next();return prepareSeating(req,res,true);});
 

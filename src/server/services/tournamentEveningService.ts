@@ -5,7 +5,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
-import { seatParticipants } from './tournamentSeatingPlan.ts';
+import { seatParticipantsByMode, type SeatingMode } from './tournamentSeatingPlan.ts';
 import { normalizeTournamentGameCount } from './tournamentDistanceService.ts';
 
 export const TOURNAMENT_PLAYER_CAPACITY = 10;
@@ -153,7 +153,7 @@ async function syncCanonicalParticipants(db: DatabaseWrapper,tournamentId:string
  * still a draft with nothing played, the whole seating is thrown away and drawn again. Without it an already
  * prepared seating is kept (the idempotent «prepare» used when the tournament is set up).
  */
-export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tournamentId: string, actorId?: string | null, options: { regenerate?: boolean } = {}) {
+export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tournamentId: string, actorId?: string | null, options: { regenerate?: boolean; mode?: SeatingMode } = {}) {
   const actor = requireOrganizerActor(actorId);
   return serializeTournamentMutation(db, () => db.transaction(async (tx) => {
     const tournament = await assertManagedTournamentEvening(tx, tournamentId);
@@ -186,7 +186,7 @@ export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tourn
     const canonicalIds = participants.map((row) => String(row.player_id));
     if (participants.length !== 10 || !registrationIds.every((id, index) => id === canonicalIds[index])) throw new Error('ROSTER_MISMATCH');
     // Every player takes each seat once in the ten games (owner, 2026-10-03; see tournamentSeatingPlan.ts).
-    const seatingByGame = seatParticipants(participants, distanceGames);
+    const seatingByGame = seatParticipantsByMode(participants, distanceGames, options.mode || 'unique');
     for (let gameNumber = 1; gameNumber <= distanceGames; gameNumber += 1) {
       const gameId = crypto.randomUUID();
       await tx.run(`INSERT INTO tournament_games (id,tournament_id,game_number,judge_name,status) VALUES (?,?,?,?, 'planned')`, [gameId, tournamentId, gameNumber, tournament.chief_judge_name || null]);

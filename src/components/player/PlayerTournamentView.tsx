@@ -8,7 +8,7 @@ type ViewData = {
   tournament: { id: string; title: string; date: string | null; venue: string | null; stage: string | null; phase: Phase; judge: string | null; organizer: string | null; entry_fee_rub: number; prize_fund_rub: number; games_planned: number; games_completed: number };
   registration: { capacity: number; confirmed_count: number; reserve_count: number; open: boolean; mine: { status: string; slot: number | null } | null; participated: boolean };
   roster: Array<{ number: number; nickname: string; is_me: boolean }>;
-  games: Array<{ game_number: number; status: string; winner_team: string | null; judge: string | null; seats: Array<{ seat: number; nickname: string; role: string | null; is_me: boolean }> }>;
+  games: Array<{ game_number: number; status: string; winner_team: string | null; judge: string | null; seats: Array<{ seat: number; nickname: string; role: string | null; is_me: boolean; additional?: number | null }> }>;
   table_hidden: boolean;
   provisional: boolean;
   standings: Array<{ place: number; nickname: string; is_me: boolean; games_played: number; wins: number; total_points: number; additional_total: number }> | null;
@@ -21,6 +21,8 @@ const rememberedSection = (id: string): Section | null => {
 
 const PHASE_LABEL: Record<Phase, string> = { registration: 'Идёт регистрация', registration_closed: 'Регистрация закрыта', live: 'Турнир идёт', finished: 'Завершён' };
 const GAME_STATUS: Record<string, string> = { planned: 'Ожидает', active: 'Идёт', completed: 'Завершена' };
+/** «Доп» of a game as players read it: «+0,5», «0», «−0,3». */
+const formatAdditional = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}`;
 const WINNER: Record<string, string> = { red: 'Победили красные', black: 'Победили чёрные' };
 const POLL_MS = 15_000;
 
@@ -70,6 +72,8 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
 
   const phase = data?.tournament.phase;
   const current: Section = section || (phase === 'live' || phase === 'finished' ? 'results' : 'roster');
+  // With the table hidden the viewer still sees his own доп of every played game (owner, 2026-11-18).
+  const myAdditional = (data?.games || []).flatMap((game) => game.seats.filter((seat) => seat.is_me && seat.additional != null).map((seat) => ({ game: game.game_number, additional: Number(seat.additional) })));
   const SECTIONS: Array<{ id: Section; label: string }> = [{ id: 'roster', label: 'Состав' }, { id: 'games', label: 'Игры' }, { id: 'results', label: 'Итоги' }];
 
   return (
@@ -117,7 +121,7 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
                   {data.roster.map((item) => (
                     <li key={`${item.number}-${item.nickname}`} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 ${item.is_me ? 'bg-violet-400/15' : 'bg-white/[0.03]'}`}>
                       <span className="w-6 text-[13px] font-bold text-white/40">{item.number}</span>
-                      <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{item.nickname}</span>
+                      <span className="min-w-0 flex-1 break-words py-1 text-[14px] font-semibold">{item.nickname}</span>
                       {item.is_me ? <span className="text-[12px] font-bold text-violet-200">это я</span> : null}
                     </li>
                   ))}
@@ -141,8 +145,9 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
                         {game.seats.map((seat) => (
                           <li key={seat.seat} className={`flex min-h-10 items-center gap-3 rounded-lg px-2.5 ${seat.is_me ? 'bg-violet-400/15' : 'bg-white/[0.03]'}`}>
                             <span className="w-5 text-[12px] font-bold text-white/40">{seat.seat}</span>
-                            <span className="min-w-0 flex-1 truncate text-[13px]">{seat.nickname}</span>
+                            <span className="min-w-0 flex-1 break-words py-1 text-[13px]">{seat.nickname}</span>
                             {seat.role ? <GameRoleBadge role={seat.role} /> : null}
+                            {seat.additional != null ? <span className="shrink-0 text-[12px] font-bold tabular-nums text-white/70" data-testid="player-tournament-seat-additional">доп {formatAdditional(seat.additional)}</span> : null}
                           </li>
                         ))}
                       </ul>
@@ -159,6 +164,14 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
               <section className="rounded-[20px] border border-amber-200/15 bg-amber-200/[0.06] p-4" data-testid="player-tournament-table-hidden">
                 <div className="flex items-center gap-2 text-[14px] font-bold text-amber-100"><EyeOff className="h-4 w-4" /> Таблица закрыта</div>
                 <p className="mt-1.5 text-[13px] leading-5 text-amber-50/70">Организатор закрыл таблицу и номинации перед последними играми. Они откроются к финалу.</p>
+                {myAdditional.length ? <div className="mt-3" data-testid="player-tournament-my-additional">
+                  <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-amber-50/60">Твой доп по играм</div>
+                  <ul className="mt-1.5 grid grid-cols-1 gap-1">
+                    {myAdditional.map((item) => <li key={item.game} className="flex min-h-10 items-center justify-between gap-3 rounded-lg bg-black/15 px-2.5 text-[13px] text-amber-50">
+                      <span>Игра {item.game}</span><strong className="tabular-nums">{formatAdditional(item.additional)}</strong>
+                    </li>)}
+                  </ul>
+                </div> : null}
               </section>
             ) : data.standings === null ? (
               <section className="rounded-[20px] border border-white/10 bg-white/[0.035] p-4 text-[13px] leading-5 text-white/55">Таблица появится, когда начнётся турнир.</section>
@@ -174,7 +187,7 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
                       {data.standings.map((row) => (
                         <li key={`${row.place}-${row.nickname}`} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 ${row.is_me ? 'bg-violet-400/15' : 'bg-white/[0.03]'}`}>
                           <span className="w-6 text-[14px] font-black text-amber-200">{row.place}</span>
-                          <span className="min-w-0 flex-1"><span className="block truncate text-[14px] font-semibold">{row.nickname}</span><span className="block text-[12px] text-white/45">игр: {row.games_played} · побед: {row.wins}</span></span>
+                          <span className="min-w-0 flex-1"><span className="block break-words text-[14px] font-semibold">{row.nickname}</span><span className="block text-[12px] text-white/45">игр: {row.games_played} · побед: {row.wins}</span></span>
                           <span className="text-right"><span className="block text-[15px] font-bold">{points(row.total_points)}</span><span className="block text-[12px] text-white/45">доп. {points(row.additional_total)}</span></span>
                         </li>
                       ))}
@@ -192,7 +205,7 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
                             {item.candidates.map((candidate, index) => (
                               <li key={`${item.category}-${candidate.nickname}`} className="flex min-h-10 items-center gap-3 rounded-lg bg-white/[0.03] px-2.5">
                                 <span className="w-5 text-[13px] font-bold text-white/40">{index + 1}</span>
-                                <span className="min-w-0 flex-1 truncate text-[13px]">{candidate.nickname}</span>
+                                <span className="min-w-0 flex-1 break-words py-1 text-[13px]">{candidate.nickname}</span>
                                 <span className="text-[13px] font-semibold">{points(candidate.points)}</span>
                               </li>
                             ))}

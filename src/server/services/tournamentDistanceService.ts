@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { seatParticipants } from './tournamentSeatingPlan.ts';
+import { seatParticipantsByMode, type SeatingMode } from './tournamentSeatingPlan.ts';
 
 export const normalizeTournamentGameCount = (value: unknown, fallback = 10): number => {
   const parsed = Number(value);
@@ -14,6 +14,7 @@ export async function regenerateTournamentGames(
   chiefJudgeName: string | null,
   participants: Array<{ id: string }>,
   gameCount: number,
+  mode: SeatingMode = 'unique',
 ): Promise<void> {
   const distance = normalizeTournamentGameCount(gameCount);
   if (participants.length !== 10) throw new Error('Для рассадки требуется ровно 10 участников');
@@ -24,8 +25,9 @@ export async function regenerateTournamentGames(
   }
   await db.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
 
-  // Every block of ten games is a Latin square: nobody sits on one seat again before all ten were used.
-  const seatingByGame = seatParticipants(participants, distance);
+  // «Уникальная»: every block of ten games is a Latin square, nobody sits on one seat again before all ten were used;
+  // «Полностью случайная» (owner, 2026-11-18): every game shuffled on its own.
+  const seatingByGame = seatParticipantsByMode(participants, distance, mode);
   for (let gameNumber = 1; gameNumber <= distance; gameNumber += 1) {
     const gameId = crypto.randomUUID();
     await db.run(

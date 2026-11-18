@@ -88,6 +88,19 @@ export function buildBalancedSeatingPlan(
 }
 
 /** Orders participants into per-game seat lists using the balanced plan. */
+/**
+ * How the organizer wants the seating (owner, 2026-11-18): «Уникальная рассадка» — the balanced plan above;
+ * «Полностью случайная» — every game shuffled on its own, with no rule at all (a player may sit on one seat
+ * several times and next to the same people).
+ */
+export type SeatingMode = 'unique' | 'random';
+export const parseSeatingMode = (value: unknown): SeatingMode => (value === 'random' ? 'random' : 'unique');
+
+export function seatParticipantsByMode<T>(participants: T[], gameCount: number, mode: SeatingMode, random: SeatingRandom = Math.random): T[][] {
+  if (mode === 'random') return Array.from({ length: gameCount }, () => shuffle(participants, random));
+  return seatParticipants(participants, gameCount, random);
+}
+
 export function seatParticipants<T>(participants: T[], gameCount: number, random: SeatingRandom = Math.random): T[][] {
   // Which participant is "player 0" must not matter, so the identities are shuffled once.
   const identities = shuffle(participants, random);

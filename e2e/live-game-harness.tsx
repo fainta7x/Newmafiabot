@@ -4,6 +4,7 @@ import JudgeGameMusicController from '../src/components/JudgeGameMusicController
 import LiveGameEngine from '../src/components/LiveGameEngine.tsx';
 import { EveningDeathProtocolBridge } from '../src/components/crm/EveningDeathProtocolOverlay.tsx';
 import JudgeTestGameModal, { buildTestGame } from '../src/components/player/JudgeTestGameModal.tsx';
+import FreeGameCRM from '../src/components/crm/FreeGameCRM.tsx';
 import { EveningLiveGameModal } from '../src/components/crm/EveningLiveGameModal.tsx';
 import { TEST_GAME_ID } from '../src/lib/testGameSandbox.ts';
 import { TRAINING_PEOPLE } from '../src/lib/judgeTrainingSetup.ts';
@@ -14,6 +15,15 @@ import './appStyles.ts';
 
 const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === 'audit';
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
+/** «Игра без вечера» in the CRM (owner, 2026-11-18). */
+const FREE_MODE = new URLSearchParams(window.location.search).get('mode') === 'free';
+// ?parked=1: a free game left unfinished, for the layout audit of «Продолжить игру».
+if (FREE_MODE && new URLSearchParams(window.location.search).get('parked') === '1') {
+  try {
+    localStorage.setItem('free-game:parked:v1', JSON.stringify({ judge: 'Ведущий с очень длинным ником', parkedAt: new Date().toISOString(),
+      lineup: ['Очень длинный никнейм игрока клуба', 'Боря', 'Вика', 'Гена', 'Даша', 'Егор', 'Жора', 'Зоя', 'Илья', 'Катя'], keys: { '': '{"phase":"night"}' } }));
+  } catch { /* preview only */ }
+}
 const TRAINING_MODE = new URLSearchParams(window.location.search).get('mode') === 'training';
 const TRAINING_FINISH_MODE = new URLSearchParams(window.location.search).get('mode') === 'training-finish';
 /** A zero-round vote where the split was broken into #2 (six against four); `zeroRule` picks the game setting. */
@@ -215,7 +225,9 @@ function Harness() {
   return (
     <AppErrorBoundary>
       {result === 'running' ? (
-        TRAINING_FINISH_MODE ? (
+        FREE_MODE ? (
+          <div className="min-h-screen bg-[#090a0d] p-4"><FreeGameCRM /></div>
+        ) : TRAINING_FINISH_MODE ? (
           <TrainingFinishShell onResult={setResult} />
         ) : RECOVERY_MODE || AUDIT_MODE || ZERO_ROUND_RULE ? (
           <RecoveryShell onResult={setResult} />

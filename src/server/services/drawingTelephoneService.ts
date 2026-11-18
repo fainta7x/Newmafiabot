@@ -30,8 +30,9 @@ export async function telephonePlayers(db: DatabaseWrapper): Promise<TelephonePl
   const players = await db.all<TelephonePlayer>(`
     SELECT DISTINCT p.id, p.nickname, p.telegram_username FROM players p
       LEFT JOIN player_external_identities vk ON vk.player_id = p.id AND vk.platform = 'vk'
-     WHERE (p.telegram_user_id IS NOT NULL AND TRIM(p.telegram_user_id) != '') OR (vk.external_user_id IS NOT NULL AND TRIM(vk.external_user_id) != '')
-     ORDER BY p.nickname COLLATE NOCASE`).catch(async () => db.all<TelephonePlayer>(`SELECT id, nickname, telegram_username FROM players WHERE telegram_user_id IS NOT NULL AND TRIM(telegram_user_id) != '' ORDER BY nickname COLLATE NOCASE`));
+     WHERE ((p.telegram_user_id IS NOT NULL AND TRIM(p.telegram_user_id) != '') OR (vk.external_user_id IS NOT NULL AND TRIM(vk.external_user_id) != ''))
+       AND p.id NOT IN (SELECT player_id FROM telephone_optouts)
+     ORDER BY p.nickname COLLATE NOCASE`).catch(async () => db.all<TelephonePlayer>(`SELECT id, nickname, telegram_username FROM players WHERE telegram_user_id IS NOT NULL AND TRIM(telegram_user_id) != '' AND id NOT IN (SELECT player_id FROM telephone_optouts) ORDER BY nickname COLLATE NOCASE`));
   // Who blocked the bot can still get the turn, but the one passing it is asked to write him himself (owner, 2026-11-16).
   const blocked = await loadBotBlockedPlayers(db).catch(() => new Map<string, string>());
   return players.map((player) => ({ ...player, telegram_username: player.telegram_username ? String(player.telegram_username).replace(/^@/, '') : null, bot_blocked: blocked.has(String(player.id)) }));
@@ -80,7 +81,30 @@ export async function loadTelephoneList(db: DatabaseWrapper, playerId: string): 
     running: await Promise.all(running.map(async (chain) => ({ id: chain.id, author: chain.author, guesser: chain.guesser, done_links: Number(chain.done), length: chain.length, step: chain.step, current: chain.current_player_id ? await nicknameOf(db, chain.current_player_id) : null, deadline_at: chain.deadline_at }))),
     finished: finished.map((chain) => ({ id: chain.id, author: chain.author, guesser: chain.guesser, phrase: chain.phrase, guess: chain.guess, length: chain.length, finished_at: chain.finished_at!, cover: covers.get(chain.id) || null })),
     reward: TELEPHONE_REWARD,
+    opted_out: await isOptedOut(db, playerId),
   };
+}
+
+const isOptedOut = async (db: DatabaseWrapper, playerId: string) => Boolean(await db.get('SELECT 1 FROM telephone_optouts WHERE player_id = ?', [playerId]));
+
+/**
+ * «Не зовите меня в цепочки» (owner, 2026-11-18). On: the player leaves every list of whom to pass the turn or who guesses,
+ * and every turn he has now in other people's chains returns at once, as after «Не хочу» (a choice he had to make goes one
+ * link back). If he is the guesser of a running chain, its author chooses another guesser when the last link is done.
+ * His own chain is not touched. Off: he can be chosen again.
+ */
+export async function setTelephoneOptOut(db: DatabaseWrapper, playerId: string, input: { on?: unknown }, now = new Date()) {
+  await ensureDrawingTelephoneSchema(db);
+  const on = input.on === true;
+  const notices: TelephoneNotice[] = [];
+  await db.transaction(async (tx) => {
+    if (!on) { await tx.run('DELETE FROM telephone_optouts WHERE player_id = ?', [playerId]); return; }
+    await tx.run('INSERT OR IGNORE INTO telephone_optouts (player_id, created_at) VALUES (?, ?)', [playerId, now.toISOString()]);
+    const mine = await tx.all<Chain>(`SELECT * FROM telephone_chains WHERE status = 'active' AND current_player_id = ? AND author_player_id != ?`, [playerId, playerId]);
+    // The texts read «Ход вернулся к тебе: X отключил участие в игре.» and «X отключил участие и не сможет отгадать твою цепочку».
+    for (const chain of mine) await returnTurn(tx, chain, now, notices, chain.step === 'guess' ? 'отключил участие и не сможет' : 'отключил участие в игре');
+  });
+  return { notices };
 }
 
 export async function loadTelephoneChain(db: DatabaseWrapper, playerId: string, chainId: string): Promise<TelephoneChainState> {
@@ -184,6 +208,12 @@ export async function moveTelephoneChain(db: DatabaseWrapper, playerId: string, 
     }
     const stamp = now.toISOString();
     await tx.run('INSERT INTO telephone_links (chain_id, position, player_id, kind, text, image_png, created_at) VALUES (?,?,?,?,?,?,?)', [chainId, position, playerId, kind, text, image, stamp]);
+    // The guesser has since asked not to be called: the author chooses another one, as when a guesser declines.
+    if (last && await isOptedOut(tx, chain.guesser_player_id)) {
+      await pay(tx, playerId, chainId, `link-${position}`);
+      await returnTurn(tx, { ...chain, step: 'guess', current_player_id: chain.guesser_player_id }, now, notices, 'отключил участие и не сможет');
+      return;
+    }
     const to = last ? chain.guesser_player_id : next!;
     await tx.run(`UPDATE telephone_chains SET step = ?, current_player_id = ?, turn_started_at = ?, deadline_at = ?, reminded = 0, updated_at = ? WHERE id = ?`,
       [last ? 'guess' : 'move', to, stamp, telephoneDeadline(now).toISOString(), stamp, chainId]);

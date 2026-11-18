@@ -83,6 +83,8 @@ export type TelephoneListState = {
   running: Array<{ id: string; author: string; guesser: string; done_links: number; length: number; step: TelephoneStep | null; current: string | null; deadline_at: string | null }>;
   finished: Array<{ id: string; author: string; guesser: string; phrase: string; guess: string | null; length: number; finished_at: string; cover: string | null }>;
   reward: number;
+  /** «Не зовите меня в цепочки» is on for the viewer (owner, 2026-11-18). */
+  opted_out: boolean;
 };
 /**
  * Words of a caption for the «no word of an earlier caption» rule: words of 3+ letters, each reduced to its stem, so

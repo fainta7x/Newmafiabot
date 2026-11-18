@@ -20,5 +20,10 @@ export async function ensureDrawingTelephoneSchema(db: DatabaseWrapper): Promise
       kind TEXT NOT NULL, text TEXT, image_png TEXT, created_at TEXT NOT NULL,
       PRIMARY KEY(chain_id, position)
     );
+    -- «Не зовите меня в цепочки» (owner, 2026-11-18): such a player is in no list of whom to pass the turn or who guesses.
+    CREATE TABLE IF NOT EXISTS telephone_optouts (
+      player_id TEXT PRIMARY KEY REFERENCES players(id),
+      created_at TEXT NOT NULL
+    );
   `);
 }

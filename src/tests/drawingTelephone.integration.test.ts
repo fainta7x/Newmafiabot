@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import {
   chooseTelephoneNext, declineTelephoneTurn, guessTelephoneChain, loadTelephoneChain, loadTelephoneList, moveTelephoneChain,
-  runTelephoneTimers, startTelephoneChain, telephoneCandidates, telephonePost,
+  runTelephoneTimers, setTelephoneOptOut, startTelephoneChain, telephoneCandidates, telephonePost,
 } from '../server/services/drawingTelephoneService.ts';
 import { runDrawingTelephone } from '../server/services/drawingTelephoneNotifyService.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
@@ -120,6 +120,41 @@ describe('drawing telephone', () => {
     expect((await runTelephoneTimers(db, msk('2026-11-17T10:00:00'))).map((n) => n.playerId)).toEqual(['b']);
     expect(await runTelephoneTimers(db, msk('2026-11-17T13:59:00'))).toEqual([]);
     expect((await runTelephoneTimers(db, msk('2026-11-17T14:00:00'))).map((n) => n.playerId)).toEqual(['a']);
+  });
+
+  it('«Не зовите меня в цепочки» (owner, 2026-11-18): out of every list, current turns return at once, back in when off', async () => {
+    const { chain } = await start(); // a → b, the guesser h
+    expect((await telephoneCandidates(db, 'a', chain.id)).map((p) => p.id)).toContain('c');
+    // b has the turn: switching on returns it to a, as «Не хочу».
+    const off = await setTelephoneOptOut(db, 'b', { on: true }, t0);
+    expect(off.notices.map((n) => [n.playerId, n.text.includes('отключил участие в игре')])).toEqual([['a', true]]);
+    expect(await loadTelephoneChain(db, 'a', chain.id)).toMatchObject({ step: 'choose', current: { id: 'a' } });
+    expect((await loadTelephoneList(db, 'b')).opted_out).toBe(true);
+    await setTelephoneOptOut(db, 'c', { on: true }, t0);
+    expect((await telephoneCandidates(db, 'a', chain.id)).map((p) => p.id)).not.toContain('c');
+    await expect(chooseTelephoneNext(db, 'a', chain.id, { next_id: 'c' }, t0)).rejects.toThrow('кто ещё не ходил');
+    // Off again: c can be chosen.
+    await setTelephoneOptOut(db, 'c', { on: false }, t0);
+    expect((await loadTelephoneList(db, 'c')).opted_out).toBe(false);
+    await chooseTelephoneNext(db, 'a', chain.id, { next_id: 'c' }, t0);
+    expect((await loadTelephoneChain(db, 'c', chain.id)).my_task).toMatchObject({ step: 'move' });
+    // A player who switched it on can still start his own chain.
+    await expect(startTelephoneChain(db, 'b', { phrase: 'Своя фраза', links: 5, guesser_id: 'g', next_id: 'd' }, t0)).resolves.toBeDefined();
+  });
+
+  it('a guesser who switched it on: after the last link the author chooses another guesser', async () => {
+    const { chain } = await start();
+    await setTelephoneOptOut(db, 'h', { on: true }, t0);
+    const order = ['b', 'c', 'd', 'e', 'f'];
+    let notices: any[] = [];
+    for (let i = 0; i < 5; i++) {
+      const res = await moveTelephoneChain(db, order[i], chain.id, telephoneLinkKind(i + 1) === 'drawing' ? { image: PNG, next_id: order[i + 1] } : { text: `подпись${i}`, next_id: order[i + 1] }, t0);
+      notices = res.notices;
+    }
+    expect(notices.map((n) => n.playerId)).toEqual(['a']);
+    expect(notices[0].text).toContain('отключил участие и не сможет отгадать');
+    expect(await loadTelephoneChain(db, 'a', chain.id)).toMatchObject({ step: 'choose_guesser', current: { id: 'a' } });
+    expect(await tokens('f')).toBe(50);
   });
 
   it('everybody sees every running chain with its stage, never its content (owner, 2026-11-16)', async () => {

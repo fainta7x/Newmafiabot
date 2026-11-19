@@ -76,7 +76,8 @@ test.describe('Игра без вечера', () => {
     await expect(parked).toContainText('Аня');
     await page.getByTestId('free-game-resume').click();
     const restore = page.getByRole('button', { name: 'Восстановить' });
-    if (await restore.isVisible().catch(() => false)) await restore.click();
+    // The engine offers «Восстановить» once it has read the saved game (a moment later on a slow machine).
+    await restore.waitFor({ timeout: 8000 }).then(() => restore.click()).catch(() => undefined);
     // Back in the same game: past the deal, at the night, with the same roles.
     await expect(page.getByRole('button', { name: 'Подтвердить состав' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Включите музыку/ })).toBeVisible({ timeout: 10000 });

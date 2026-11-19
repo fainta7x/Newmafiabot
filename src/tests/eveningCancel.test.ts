@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { buildCancelPostDraft, cancelEveningByOrganizer, loadCancelPost } from '../server/services/eveningCancelService.ts';
+import { buildCancelPostDraft, cancelEveningByOrganizer, loadCancelPost, retryCancelPosts } from '../server/services/eveningCancelService.ts';
 import { loadEveningRoute } from '../server/services/eveningRouteService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -90,14 +90,15 @@ describe('cancelling an evening from «Закрытие»', () => {
       return fail ? new Response(JSON.stringify({ ok: false, error_code:429, description: 'rate limited' }), { status:429 }) : new Response(JSON.stringify({ ok: true, result:{message_id:100} }), { status: 200 });
     }) as any;
     await cancelEveningByOrganizer(db, 'nov', { text: 'Отмена' }, fetchImpl);
-    expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('failed');
+    // A rate limit is temporary: «retry», sent again by the minute scan (owner, 2026-11-19).
+    expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('retry');
     const route = await loadEveningRoute(db, 'nov');
     const step = route.stages.find((stage) => stage.id === 'closeout')!.steps.find((item) => item.id === 'cancel')!;
     expect(step.status).toBe('attention');
     expect(step.action).toBe('cancel_evening');
     fail = false;
     await db.run("UPDATE publication_deliveries SET next_attempt_at=NULL");
-    await cancelEveningByOrganizer(db, 'nov', {}, fetchImpl);
+    expect(await retryCancelPosts(db, fetchImpl)).toBeGreaterThanOrEqual(0);
     expect(calls).toHaveLength(2);
     expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('published');
   });

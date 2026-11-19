@@ -36,7 +36,8 @@ import { clubGameCompletedSql, tournamentGameCompletedSql } from './gameService.
 // 12 attempts with a growing pause (30 s doubling to 15 min) keep a result post alive for about two hours, so a Telegram
 // confirmed rejection can recover without losing the game blank or evening summary. Durable network attempts
 // hold an unknown outcome; an expired preparation lease can recover only through that same network guard.
-const MAX_ATTEMPTS = 12;
+// A post keeps trying through a long network outage: after 15 minutes between tries that is about 9 hours (2026-11-19).
+const MAX_ATTEMPTS = 40;
 const RETRY_BASE_MS = 30_000;
 const RETRY_MAX_MS = 15 * 60_000;
 const STALE_SENDING_MS = 15 * 60_000;

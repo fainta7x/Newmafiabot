@@ -158,7 +158,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/notifications': return json({ items: [], unread_count: 0 });
   case '/api/player/games/all': return json({ games: [1,2,3].map(number => ({ id: `club:g${number}`, source: 'club', title: 'Клубный вечер', date: new Date(Date.now()-86400000).toISOString(), game_number: number, format: 'CASUAL', winner_team: number===2 ? 'black' : 'red', judge_name: 'Кавасаки' })) });
   case '/api/player/games/elo': return json({ games: [] });
-  case '/api/player/players': return json({ players: NAMES.map((nickname,index) => ({ id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, game_level: 'club', avatar_url: null })) });
+  case '/api/player/players': return json({ players: NAMES.map((nickname,index) => ({ id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, game_level: 'club', avatar_url: null, ...(index === 1 ? { curse_until: '2026-11-26T16:00:00Z' } : {}) })) });
   case '/api/player/pulse': return json(pulse);
   case '/api/player/club-world': return json(new URLSearchParams(location.search).has('results-context') ? {...clubWorld,season_history:[resultsContextSeason('2026-summer','Лето 2026'),resultsContextSeason('2026-spring','Весна 2026',true)]} : clubWorld);
   case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });

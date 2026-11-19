@@ -39,6 +39,8 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   + (await step('bot_news', async () => (await import('./botNewsPostService.ts')).runBotNewsPosts(db)).catch((error) => { console.error('[BOT NEWS] failed:', error); return 0; }))
   // «Испорченный телефон с рисунками»: reminders, returned turns and the «Новости» post of finished chains.
   + (await step('drawing_telephone', async () => (await import('./drawingTelephoneNotifyService.ts')).runDrawingTelephone(db)).catch((error) => { console.error('[TELEPHONE] failed:', error); return 0; }))
+  // «Проклятье на понос»: the «Новости» post of the marks of an evening (playerCurseService).
+  + (await step('player_curse_posts', async () => (await import('./playerCurseService.ts')).runCursePosts(db)).catch((error) => { console.error('[CURSE] failed:', error); return 0; }))
   // A cancellation post Telegram or VK did not answer is sent again (owner, 2026-11-19: every 15 minutes, all posts).
   + (await step('cancel_post_retry', async () => (await import('./eveningCancelService.ts')).retryCancelPosts(db)).catch((error) => { console.error('[CANCEL POST] failed:', error); return 0; }))
   // «Тайный Санта»: the «Новости» post when the organizer opens the registration, and the reminders (secretSantaService).

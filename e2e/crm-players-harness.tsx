@@ -153,6 +153,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       lead('anna', 'Анна', { status: 'recall', recall_count: 1 }),
     ] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
+  if (url.pathname === '/api/crm/curses' && method === 'GET') return new Response(JSON.stringify({ until: '2026-11-26T16:00:00Z' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   if (url.pathname.includes('/tokens')) {
     return new Response(JSON.stringify({ player_id: url.pathname.split('/')[3] || 'bogdan', balance: 120, ledger: { items: [], total: 0, limit: 5, offset: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }

@@ -4,6 +4,7 @@ import { CURSE_NAME } from '../../shared/playerCurse.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { claim, ensureClubResultPostSchema, finish, sendText } from './clubResultPostService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
+import { openEveningSql } from '../../lib/eveningStatus.ts';
 
 /**
  * «Проклятье на понос» (owner, 2026-11-19): on Friday at 10:00 Moscow time the bot marks everybody who got the personal
@@ -143,7 +144,7 @@ export async function runCursePosts(db: DatabaseWrapper, fetchImpl: typeof fetch
   if (local.getUTCDay() === CURSE_WEEKDAY && local.getUTCHours() >= CURSE_HOUR) {
     const today = await db.all<{ id: string; starts_at: string }>(`
       SELECT e.id, e.starts_at FROM game_evenings e LEFT JOIN player_curse_checks c ON c.evening_id = e.id
-       WHERE c.evening_id IS NULL AND e.status IN ('published', 'active') AND e.starts_at > ?`, [now.toISOString()]);
+       WHERE c.evening_id IS NULL AND ${openEveningSql('e')} AND e.starts_at > ?`, [now.toISOString()]);
     for (const evening of today.filter((row) => moscowDay(new Date(row.starts_at)) === moscowDay(now))) {
       // Recorded first: a failure in the middle must not mark (and message) the same people twice.
       const fresh = await db.run('INSERT OR IGNORE INTO player_curse_checks (evening_id, checked_at) VALUES (?, ?)', [evening.id, now.toISOString()]);

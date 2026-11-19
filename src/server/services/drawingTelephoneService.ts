@@ -4,7 +4,7 @@ import { ensureDrawingTelephoneSchema } from '../../db/ensureDrawingTelephoneSch
 import {
   TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_REWARD, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS, TELEPHONE_NIGHT_FROM_HOUR, TELEPHONE_NIGHT_TO_HOUR, telephoneDayMsBetween, telephoneDeadline,
   normalizeTelephonePhrase, telephoneLinkKind, telephoneWords,
-  type TelephoneChainState, type TelephoneItem, type TelephoneListState, type TelephonePlayer, type TelephoneStep,
+  type TelephoneActivity, type TelephoneChainState, type TelephoneItem, type TelephoneListState, type TelephonePlayer, type TelephoneStep,
 } from '../../shared/drawingTelephone.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 import { loadBotBlockedPlayers } from './botBlockedService.ts';
@@ -37,39 +37,48 @@ export async function telephonePlayers(db: DatabaseWrapper): Promise<TelephonePl
   // Who blocked the bot is not in the lists (owner, 2026-11-18; before that he could be chosen with «напиши ему сам»):
   // the bot cannot tell him «твой ход».
   const blocked = await loadBotBlockedPlayers(db).catch(() => new Map<string, string>());
-  const quiet = await rarelyAnswering(db).catch(() => new Set<string>());
+  const activity = await telephoneActivity(db).catch(() => new Map<string, TelephoneActivity>());
   return players.filter((player) => !blocked.has(String(player.id)))
-    .map((player) => ({ ...player, telegram_username: player.telegram_username ? String(player.telegram_username).replace(/^@/, '') : null, bot_blocked: false, rarely_answers: quiet.has(String(player.id)) }));
+    .map((player) => {
+      const group = activity.get(String(player.id)) || 'sometimes';
+      return { ...player, telegram_username: player.telegram_username ? String(player.telegram_username).replace(/^@/, '') : null, bot_blocked: false, rarely_answers: group === 'rarely', activity: group };
+    });
 }
 
 /** How many of the last turns given to a player count (owner, 2026-11-18: «последние 5 ходов»). */
 export const TELEPHONE_ACTIVITY_TURNS = 5;
+type TurnOutcome = 'answered' | 'declined' | 'missed';
 /**
- * «Часто не отвечает» (owner, 2026-11-18): of the last 5 turns given to a player (a move or the guess) more than half
- * ran out of the 8 hours. A move, a guess and «Не хочу» are answers. The history is read from what the game already keeps:
- * the links and guesses, and the «ход вернулся» messages, which say why the turn came back. A turn returned because the
- * player switched «Не зовите меня в цепочки» on does not count. At least 2 turns are needed (assistant's default).
+ * The groups of the list (owner, 2026-11-19; see TelephoneActivity): by the last 5 turns given to a player (a move or the
+ * guess). The history is read from what the game already keeps: the links and guesses, and the «ход вернулся» messages,
+ * which say why the turn came back («не успел» — ran out of time, «отказался» — «Не хочу»). A turn returned because the
+ * player switched «Не зовите меня в цепочки» on does not count.
  */
-export async function rarelyAnswering(db: DatabaseWrapper): Promise<Set<string>> {
-  const events: Array<{ player: string; at: string; answered: boolean }> = [];
-  for (const row of await db.all<{ player_id: string; created_at: string }>('SELECT player_id, created_at FROM telephone_links')) events.push({ player: String(row.player_id), at: String(row.created_at), answered: true });
-  for (const row of await db.all<{ guesser_player_id: string; finished_at: string }>(`SELECT guesser_player_id, finished_at FROM telephone_chains WHERE status = 'done' AND guess IS NOT NULL`)) events.push({ player: String(row.guesser_player_id), at: String(row.finished_at), answered: true });
+export async function telephoneActivity(db: DatabaseWrapper): Promise<Map<string, TelephoneActivity>> {
+  const events: Array<{ player: string; at: string; outcome: TurnOutcome }> = [];
+  for (const row of await db.all<{ player_id: string; created_at: string }>('SELECT player_id, created_at FROM telephone_links')) events.push({ player: String(row.player_id), at: String(row.created_at), outcome: 'answered' });
+  for (const row of await db.all<{ guesser_player_id: string; finished_at: string }>(`SELECT guesser_player_id, finished_at FROM telephone_chains WHERE status = 'done' AND guess IS NOT NULL`)) events.push({ player: String(row.guesser_player_id), at: String(row.finished_at), outcome: 'answered' });
   const returns = await db.all<{ notification_key: string; text: string; created_at: string }>(`SELECT notification_key, text, created_at FROM personal_notification_deliveries WHERE notification_key LIKE 'telephone:%:back:%' OR notification_key LIKE 'telephone:%:guesser-back:%'`).catch(() => []);
   for (const row of returns) {
     const text = String(row.text || '');
     if (text.includes('отключил участие')) continue;
     const player = String(row.notification_key).split(':').pop() || '';
-    if (player) events.push({ player, at: String(row.created_at), answered: !text.includes('не успел') });
+    if (player) events.push({ player, at: String(row.created_at), outcome: text.includes('не успел') ? 'missed' : text.includes('отказался') ? 'declined' : 'answered' });
   }
   const byPlayer = new Map<string, typeof events>();
   for (const event of events) byPlayer.set(event.player, [...(byPlayer.get(event.player) || []), event]);
-  const quiet = new Set<string>();
+  const groups = new Map<string, TelephoneActivity>();
   for (const [player, list] of byPlayer) {
     const last = list.sort((a, b) => b.at.localeCompare(a.at)).slice(0, TELEPHONE_ACTIVITY_TURNS);
-    const missed = last.filter((event) => !event.answered).length;
-    if (last.length >= 2 && missed * 2 > last.length) quiet.add(player);
+    const missed = last.filter((event) => event.outcome === 'missed').length;
+    const notPlayed = last.filter((event) => event.outcome !== 'answered').length;
+    groups.set(player, last.length >= 2 && notPlayed * 2 > last.length ? 'rarely' : last.length >= 3 && missed <= 1 ? 'active' : 'sometimes');
   }
-  return quiet;
+  return groups;
+}
+/** «Часто не отвечает» — the bottom group (owner, 2026-11-18, widened 2026-11-19 by «Не хочу»). */
+export async function rarelyAnswering(db: DatabaseWrapper): Promise<Set<string>> {
+  return new Set([...(await telephoneActivity(db))].filter(([, group]) => group === 'rarely').map(([player]) => player));
 }
 const nicknameOf = async (db: DatabaseWrapper, id: string | null) => id ? (await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ?', [id]))?.nickname || '—' : '—';
 const linksOf = (db: DatabaseWrapper, chainId: string) => db.all<Link>('SELECT position, player_id, kind, text, image_png FROM telephone_links WHERE chain_id = ? ORDER BY position', [chainId]);

@@ -415,6 +415,7 @@ Needs an answer or content from the owner before anything is built:
 Everything else previously listed under «Waiting on the owner» was answered and implemented; the old wording is in the archive.
 
 ### Player-facing changes not yet announced
+- 2026-11-19: «Испорченный телефон»: в выборе «кому передать ход» игроки разбиты на группы — «Играют постоянно» (подсвечены, сверху), «Играют иногда или ещё не ходили», «Не играют или отвечают редко».
 - 2026-11-19: «Проклятье на понос»: кто не ответил на приглашение бота до пятницы 10:00, получает неделю проклятья за каждое приглашение (метка в профиле и списке игроков, личное сообщение, пост в «Новостях»).
 
 

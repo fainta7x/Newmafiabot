@@ -1,3 +1,7 @@
+## 2026-11-19 — группы в «кому передать ход»
+
+`telephoneActivity` (`drawingTelephoneService`) вместо `rarelyAnswering`: исходы последних 5 ходов — сходил / «Не хочу» («отказался» в сообщении «ход вернулся») / истёк («не успел»). Поле `activity` у `TelephonePlayer`, `rarely_answers` сохранён. Тесты: drawingTelephone.integration 14; аудит экранов телефона 105/105. Находок нет.
+
 ## 2026-11-19 — «Проклятье на понос»
 
 `playerCurseService` (таблица `player_curses`, отметка = игрок + вечер, не новая сущность участника), маршруты `/api/crm/curses*`, шаг минутного скана `player_curse_posts` (пятница 10:00 МСК, `player_curse_checks` — один раз на вечер). Прод (GET, 19.11): на 20.11 два вечера — «Игровой вечер» молчат 10 из 22, «Вечер для новичков» 6 из 7. Тесты: playerCurse.integration 4 (недели подряд, сообщение, снятие отметки, снятие проклятья; время и текст поста; API и профиль). Аудит вёрстки: cabinet-club, player-profile(-friend), crm-players, owner-evenings-answers — 35/35. Находок нет.

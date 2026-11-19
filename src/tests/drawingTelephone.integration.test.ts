@@ -158,19 +158,27 @@ describe('drawing telephone', () => {
     expect(await tokens('f')).toBe(50);
   });
 
-  it('«часто не отвечает» (owner, 2026-11-18): most of the last 5 turns ran out of time; a move or «Не хочу» is an answer', async () => {
-    const mark = async (id: string) => (await telephonePlayers(db)).find((p) => p.id === id)?.rarely_answers;
+  it('groups by the last 5 turns (owner, 2026-11-19): постоянно — at most one ran out; редко — most ran out or «Не хочу»', async () => {
+    const group = async (id: string) => (await telephonePlayers(db)).find((p) => p.id === id);
     // b lets two turns run out (two chains), c declines once and moves once.
     const first = (await start()).chain; // a → b
     const second = (await startTelephoneChain(db, 'g', { phrase: 'Вторая фраза', links: 5, guesser_id: 'h', next_id: 'b' }, t0)).chain;
     await deliverTelephoneNotices(db, await runTelephoneTimers(db, later(8 * 60 + 1))); // both turns of b come back: «не успел»
-    expect(await mark('b')).toBe(true);
+    expect(await group('b')).toMatchObject({ activity: 'rarely', rarely_answers: true });
     await deliverTelephoneNotices(db, (await chooseTelephoneNext(db, 'a', first.id, { next_id: 'c' }, later(8 * 60 + 2))).notices);
     await deliverTelephoneNotices(db, (await declineTelephoneTurn(db, 'c', first.id, later(8 * 60 + 3))).notices);
     await chooseTelephoneNext(db, 'g', second.id, { next_id: 'c' }, later(8 * 60 + 4));
     await moveTelephoneChain(db, 'c', second.id, { image: PNG, next_id: 'd' }, later(8 * 60 + 5));
-    expect(await mark('c')).toBe(false);
-    expect(await mark('d')).toBe(false); // no turns yet: no mark
+    // c: one «Не хочу», one move — half, not more: in the middle, and only 2 turns, too few for «постоянно».
+    expect(await group('c')).toMatchObject({ activity: 'sometimes', rarely_answers: false });
+    expect((await group('d'))?.activity).toBe('sometimes'); // no turns yet
+    // d: three turns, all answered — «играют постоянно».
+    await moveTelephoneChain(db, 'd', second.id, { text: 'подпись', next_id: 'e' }, later(8 * 60 + 6));
+    const third = (await startTelephoneChain(db, 'e', { phrase: 'Третья фраза', links: 5, guesser_id: 'h', next_id: 'd' }, later(8 * 60 + 7))).chain;
+    await moveTelephoneChain(db, 'd', third.id, { image: PNG, next_id: 'f' }, later(8 * 60 + 8));
+    const fourth = (await startTelephoneChain(db, 'f', { phrase: 'Четвёртая фраза', links: 5, guesser_id: 'h', next_id: 'd' }, later(8 * 60 + 9))).chain;
+    await moveTelephoneChain(db, 'd', fourth.id, { image: PNG, next_id: 'a' }, later(8 * 60 + 10));
+    expect((await group('d'))?.activity).toBe('active');
   });
 
   it('everybody sees every running chain with its stage, never its content (owner, 2026-11-16)', async () => {

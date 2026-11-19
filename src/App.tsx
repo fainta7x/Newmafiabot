@@ -41,9 +41,24 @@ type RootState =
   | { status: 'error' }
   | { status: 'restarting' };
 
+/**
+ * Telegram puts the launch data into the address (`#tgWebAppData=…`) when it opens the Mini App. Read once at start, so
+ * the login works even when the Telegram script did not load (owner, 2026-11-19: iPhones on mobile internet stayed on the
+ * login screen); the server checks its signature the same way.
+ */
+const LAUNCH_INIT_DATA = (() => {
+  try {
+    const fromHash = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tgWebAppData');
+    if (fromHash) return fromHash;
+    const stored = JSON.parse(window.sessionStorage.getItem('__telegram__initParams') || 'null') as { tgWebAppData?: unknown } | null;
+    return typeof stored?.tgWebAppData === 'string' ? stored.tgWebAppData : '';
+  } catch { return ''; }
+})();
+
 function getTelegramInitData(): string {
   const telegramWebApp = (window as any).Telegram?.WebApp;
-  return typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
+  const fromScript = typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
+  return fromScript || LAUNCH_INIT_DATA;
 }
 
 /**

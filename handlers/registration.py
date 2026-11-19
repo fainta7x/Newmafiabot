@@ -237,7 +237,8 @@ async def open_player_app(message: Message):
 
 @router.message(F.text == bot_menu.APP_BUTTON_TEXT, F.chat.type == "private")
 async def open_player_app_fallback(message: Message):
-    """Used only when a WebApp URL is not configured and Telegram sends plain button text."""
+    """The keyboard button «🎭 Открыть 2LA Noire» is plain text (a keyboard Mini App gets no user data): answer with the
+    inline button that opens the app signed in."""
     await open_player_app(message)
 
 

@@ -15,7 +15,7 @@ describe('Telegram publication network failures', () => {
     expect(networkErrorCode(new Error('x'))).toBeNull();
   });
 
-  it('no connection → retried by itself; lost answer after sending → still held as «may have been posted»', async () => {
+  it('no connection → retried in 30 s; no answer after sending → retried in 15 minutes; other errors → held', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const db = createDatabaseConnection(':memory:');
     try {
@@ -23,8 +23,13 @@ describe('Telegram publication network failures', () => {
       for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']) {
         expect(await sendPublicTelegram(db, request, failing(code))).toMatchObject({ ok: false, certainty: 'rejected', temporary: true });
       }
-      expect(await sendPublicTelegram(db, request, failing('ECONNRESET'))).toMatchObject({ ok: false, certainty: 'uncertain' });
-      expect(await sendPublicTelegram(db, request, (async () => { throw new TypeError('fetch failed'); }) as unknown as typeof fetch)).toMatchObject({ certainty: 'uncertain' });
+      // No answer after sending (2026-11-19, ETIMEDOUT): sent again in 15 minutes (owner: «каждые 15 минут… по всем постам»).
+      for (const code of ['ETIMEDOUT', 'ECONNRESET', 'UND_ERR_SOCKET']) {
+        expect(await sendPublicTelegram(db, request, failing(code))).toMatchObject({ ok: false, certainty: 'rejected', temporary: true, retryAfter: 900 });
+      }
+      expect(await sendPublicTelegram(db, request, (async () => { throw new TypeError('fetch failed'); }) as unknown as typeof fetch)).toMatchObject({ certainty: 'rejected', temporary: true, retryAfter: 900 });
+      // A bug in our own code is not a network failure: still held for a check.
+      expect(await sendPublicTelegram(db, request, (async () => { throw new Error('boom'); }) as unknown as typeof fetch)).toMatchObject({ certainty: 'uncertain' });
     } finally { db.sqlite.close(); }
   });
 });

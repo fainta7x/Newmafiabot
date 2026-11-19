@@ -16,7 +16,11 @@
 .tp-stepper strong{min-width:40px;text-align:center;font-size:22px;color:#fff}
 .tp-picker{border:1px solid #ffffff1c;border-radius:16px;padding:10px 12px;display:grid;gap:8px;min-width:0}
 .tp-picker legend{font-size:13px;line-height:1.6;color:#bfc0c7;padding:0 4px}
-.tp-picker ul{display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow-y:auto}
+.tp-picker ul{display:flex;flex-wrap:wrap;gap:6px}
+.tp-groups{display:grid;gap:10px;max-height:300px;overflow-y:auto}
+.tp-group{display:grid;gap:6px;min-width:0}
+.tp-group-title{font-size:12px;line-height:1.4;color:#9a9ca6;margin:0}
+.dw-content .tp-picker ul button.tp-active{background:#1f3a2a;box-shadow:inset 0 0 0 1px #4caf7a;color:#d6ffe4}
 .dw-content .tp-picker ul button{min-height:40px;padding:6px 12px;background:#20232c;font-size:14px}
 .dw-content .tp-picker input{font-size:16px;min-height:44px}
 .tp-chosen{display:flex;align-items:center;justify-content:space-between;gap:12px}

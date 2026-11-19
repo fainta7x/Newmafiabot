@@ -61,8 +61,19 @@ export type TelephoneLinkKind = 'drawing' | 'caption';
 export const telephoneLinkKind = (position: number): TelephoneLinkKind => (position % 2 === 1 ? 'drawing' : 'caption');
 export type TelephoneItem = { kind: 'phrase' | TelephoneLinkKind | 'guess'; position: number; nickname: string; text: string | null; image: string | null };
 /** `bot_blocked`: the player blocked the club bot, so «твой ход» will not reach him (owner, 2026-11-16). */
-/** rarely_answers: «часто не отвечает» — most of his last 5 turns ran out of time (owner, 2026-11-18). */
-export type TelephonePlayer = { id: string; nickname: string; bot_blocked?: boolean; telegram_username?: string | null; rarely_answers?: boolean };
+/**
+ * activity — the groups of the «кому передать ход» list by the last 5 turns given to the player (owner, 2026-11-19):
+ * `active` «играют постоянно» — at least 3 turns, at most one ran out of time («Не хочу» is an answer);
+ * `rarely` «не играют или отвечают редко» — more than half of them ran out of time or were «Не хочу» (at least 2 turns);
+ * `sometimes` — everybody else, also who has had no turns yet. rarely_answers = activity `rarely` (kept for old clients).
+ */
+export type TelephoneActivity = 'active' | 'sometimes' | 'rarely';
+export const TELEPHONE_ACTIVITY_GROUPS: Array<{ activity: TelephoneActivity; title: string }> = [
+  { activity: 'active', title: 'Играют постоянно' },
+  { activity: 'sometimes', title: 'Играют иногда или ещё не ходили' },
+  { activity: 'rarely', title: 'Не играют или отвечают редко' },
+];
+export type TelephonePlayer = { id: string; nickname: string; bot_blocked?: boolean; telegram_username?: string | null; rarely_answers?: boolean; activity?: TelephoneActivity };
 /** move — draw or caption and choose the next; choose — a turn came back, choose another player; guess — the last link;
  * choose_guesser — the guesser did not answer, the author chooses another one. Every step has 8 hours. */
 export type TelephoneStep = 'move' | 'choose' | 'guess' | 'choose_guesser';

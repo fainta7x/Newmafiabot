@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { getJson, sendJson } from '../../lib/requestJson.ts';
 import { appConfirm } from '../../lib/appConfirm.ts';
 import {
-  TELEPHONE_COLORS, TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS,
+  TELEPHONE_ACTIVITY_GROUPS, TELEPHONE_COLORS, TELEPHONE_MAX_LINKS, TELEPHONE_MIN_LINKS, TELEPHONE_TEXT_MAX, TELEPHONE_TURN_HOURS,
   type TelephoneChainState, type TelephoneItem, type TelephoneListState, type TelephonePlayer,
 } from '../../shared/drawingTelephone.ts';
 import './dailyWord.css';
@@ -153,7 +153,14 @@ function PlayerPicker({ label, chainId, exclude, value, onChange, testId }: { la
       {chosen.bot_blocked && <p className="tp-blocked-note" data-testid="telephone-blocked-note">{chosen.nickname} заблокировал бота: сообщение «твой ход» до него не дойдёт. После передачи хода напишите ему сами — дадим ссылку.</p>}</> : <>
       <input type="search" placeholder="Найти по нику" value={query} onChange={(e) => setQuery(e.target.value)} aria-label={`${label}: поиск`} />
       {error && <p role="alert">{error}</p>}
-      <ul>{list.slice(0, 40).map((p) => <li key={p.id}><button type="button" onClick={() => onChange(p.id, p)}>{p.nickname}{p.bot_blocked ? <span className="tp-blocked"> · бот не пишет</span> : null}{p.rarely_answers ? <span className="tp-blocked" data-testid="telephone-rarely-answers"> · часто не отвечает</span> : null}</button></li>)}</ul>
+      {/* Groups by the last 5 turns (owner, 2026-11-19): who plays all the time is on top and highlighted. */}
+      <div className="tp-groups">{TELEPHONE_ACTIVITY_GROUPS.map((group) => {
+        const members = list.filter((p) => (p.activity || (p.rarely_answers ? 'rarely' : 'sometimes')) === group.activity).slice(0, 40);
+        return members.length ? <div key={group.activity} className="tp-group" data-testid={`telephone-group-${group.activity}`}>
+          <p className="tp-group-title">{group.title}</p>
+          <ul>{members.map((p) => <li key={p.id}><button type="button" className={group.activity === 'active' ? 'tp-active' : undefined} onClick={() => onChange(p.id, p)}>{p.nickname}{p.bot_blocked ? <span className="tp-blocked"> · бот не пишет</span> : null}</button></li>)}</ul>
+        </div> : null;
+      })}</div>
       {!list.length && !error && <p>Никого не нашли.</p>}
     </>}
   </fieldset>;

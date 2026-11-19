@@ -6,16 +6,18 @@ import { claim, ensureClubResultPostSchema, finish, sendText } from './clubResul
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 
 /**
- * «Проклятье на понос» (owner, 2026-11-19): the organizer marks a player who ignored the bot's invitation to an evening
- * completely (no answer at all; somebody who wrote him in private is not marked — the organizer decides, so it is a
- * button, never automatic). Each mark is one week of the curse, added one after another. The player gets a personal
- * message, the curse shows in his profile and in the lists of players, and the marks of an evening go out in one
- * «Новости» post after the evening. Only the organizer lifts it earlier, in the CRM player card.
+ * «Проклятье на понос» (owner, 2026-11-19): on Friday at 10:00 Moscow time the bot marks everybody who got the personal
+ * invitation to that day's evening and gave no answer at all («Иду», «Не смогу», «Думаю» — any answer is fine). Somebody
+ * who wrote the organizer in private gets his answer set in «Ответы и игры» before that. Each mark is one week of the
+ * curse, added one after another. The player gets a personal message, the curse shows in his profile and in the lists
+ * of players, and the marks of the day go out in one separate «Новости» post right away (both Friday evenings in it). The organizer takes a wrong mark back in
+ * «Ответы и игры» or lifts the whole curse in the CRM player card.
  */
 export const CURSE_WEEK_MS = 7 * 24 * 3_600_000;
-/** The post of an evening waits until no new mark came for this long, so the organizer can mark everybody first. */
-const POST_QUIET_MS = 30 * 60_000;
 const NEWS_DESTINATION = 'club_mvp';
+const MOSCOW_OFFSET_MS = 3 * 3_600_000;
+export const CURSE_WEEKDAY = 5; // Friday
+export const CURSE_HOUR = 10;
 
 export async function ensurePlayerCurseSchema(db: DatabaseWrapper) {
   await db.exec(`
@@ -28,6 +30,11 @@ export async function ensurePlayerCurseSchema(db: DatabaseWrapper) {
       removed_at TEXT,
       posted INTEGER NOT NULL DEFAULT 0,
       UNIQUE(player_id, evening_id)
+    );
+    CREATE TABLE IF NOT EXISTS player_curse_checks (
+      evening_id TEXT PRIMARY KEY REFERENCES game_evenings(id),
+      checked_at TEXT NOT NULL,
+      marked INTEGER NOT NULL DEFAULT 0
     );
   `);
 }
@@ -64,12 +71,12 @@ export async function eveningCurses(db: DatabaseWrapper, eveningId: string, now 
 const personalText = (until: string, evening: { title: string; starts_at: string }) => [
   `🤢 На тебя наложено «${CURSE_NAME}» до ${dayMonth(until)}.`,
   '',
-  `Ты так и не ответил боту про вечер «${evening.title}», ${dayMonth(evening.starts_at)}. За каждый такой вечер — неделя проклятья. Снять его раньше может только организатор.`,
+  `Ты так и не ответил боту на приглашение на вечер «${evening.title}», ${dayMonth(evening.starts_at)}. За каждое проигнорированное приглашение — неделя проклятья. Снять его раньше может только организатор.`,
   '',
   'В следующий раз ответь на приглашение — подойдёт любой ответ: «Иду», «Не смогу» или «Думаю».',
 ].join('\n');
 
-/** The organizer's button «Проигнорировал бота» (on) or taking the mark back (off). */
+/** A mark (on; the bot's Friday check, or the API) or taking it back (off; the organizer in «Ответы и игры»). */
 export async function setEveningCurse(db: DatabaseWrapper, input: { evening_id?: unknown; player_id?: unknown; on?: unknown }, actor: string | null, now = new Date()) {
   await ensurePlayerCurseSchema(db);
   const eveningId = typeof input.evening_id === 'string' ? input.evening_id : '';
@@ -103,39 +110,72 @@ export async function liftCurse(db: DatabaseWrapper, playerId: string, now = new
   return { until: await curseUntil(db, playerId, now) };
 }
 
-export const cursePostText = (evening: { title: string; starts_at: string }, rows: Array<{ nickname: string; until: string }>) => [
+/** One post for the day: every player once, with the date his curse lasts until (all his weeks counted). */
+export const cursePostText = (day: string, rows: Array<{ nickname: string; until: string }>) => [
   `🤢 «${CURSE_NAME}»`,
   '',
-  `За вечер «${evening.title}», ${dayMonth(evening.starts_at)}, бота проигнорировали:`,
+  `Приглашения бота на ${dayMonth(day)} проигнорировали:`,
   ...rows.map((row) => `• ${row.nickname} — до ${dayMonth(row.until)}`),
   '',
-  'За каждый проигнорированный вечер — неделя проклятья. Отвечайте боту — подойдёт любой ответ.',
+  'За каждое проигнорированное приглашение — неделя проклятья. Отвечайте боту — подойдёт любой ответ.',
 ].join('\n');
 
-/** The minute scan: one «Новости» post per evening after it started, once no new mark came for 30 minutes. */
+/** The Friday check of one evening: everybody invited and still without an answer gets a mark. Returns the marked ids. */
+export async function markIgnoredInvitations(db: DatabaseWrapper, eveningId: string, now = new Date()) {
+  const { loadAnnouncementOverview } = await import('./eveningAnnouncementTrackingService.ts');
+  const overview = await loadAnnouncementOverview(db, eveningId);
+  const ignored = (overview?.players || []).filter((player: any) => player.attention_status === 'unanswered').map((player: any) => String(player.id));
+  for (const playerId of ignored) await setEveningCurse(db, { evening_id: eveningId, player_id: playerId }, 'bot', now);
+  return ignored;
+}
+
+const moscow = (at: Date) => new Date(at.getTime() + MOSCOW_OFFSET_MS);
+const moscowDay = (at: Date) => moscow(at).toISOString().slice(0, 10);
+
+/**
+ * The minute scan: on Friday from 10:00 Moscow time until the evening starts, every published evening of that day is
+ * checked once; the marks go out at once in one «Новости» post. Nobody marked — no post.
+ */
 export async function runCursePosts(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch, now = new Date()) {
   if (isEveningPublishingPaused()) return 0;
   await ensurePlayerCurseSchema(db);
-  const evenings = await db.all<{ evening_id: string; last: string; title: string; starts_at: string }>(`
-    SELECT c.evening_id, MAX(c.created_at) AS last, e.title, e.starts_at FROM player_curses c JOIN game_evenings e ON e.id = c.evening_id
-     WHERE c.posted = 0 AND c.removed_at IS NULL GROUP BY c.evening_id, e.title, e.starts_at`);
+  const local = moscow(now);
+  if (local.getUTCDay() === CURSE_WEEKDAY && local.getUTCHours() >= CURSE_HOUR) {
+    const today = await db.all<{ id: string; starts_at: string }>(`
+      SELECT e.id, e.starts_at FROM game_evenings e LEFT JOIN player_curse_checks c ON c.evening_id = e.id
+       WHERE c.evening_id IS NULL AND e.status IN ('published', 'active') AND e.starts_at > ?`, [now.toISOString()]);
+    for (const evening of today.filter((row) => moscowDay(new Date(row.starts_at)) === moscowDay(now))) {
+      // Recorded first: a failure in the middle must not mark (and message) the same people twice.
+      const fresh = await db.run('INSERT OR IGNORE INTO player_curse_checks (evening_id, checked_at) VALUES (?, ?)', [evening.id, now.toISOString()]);
+      if (!fresh.changes) continue;
+      const marked = await markIgnoredInvitations(db, String(evening.id), now);
+      await db.run('UPDATE player_curse_checks SET marked = ? WHERE evening_id = ?', [marked.length, evening.id]);
+    }
+  }
+  // One «Новости» post per day of the evenings (owner, 2026-11-19: «отдельный пост», both Friday evenings in it).
+  const marks = await db.all<{ id: string; player_id: string; evening_id: string; nickname: string; starts_at: string }>(`
+    SELECT c.id, c.player_id, c.evening_id, p.nickname, e.starts_at FROM player_curses c JOIN players p ON p.id = c.player_id JOIN game_evenings e ON e.id = c.evening_id
+     WHERE c.posted = 0 AND c.removed_at IS NULL ORDER BY p.nickname COLLATE NOCASE`);
+  const byDay = new Map<string, typeof marks>();
+  for (const mark of marks) {
+    const day = moscowDay(new Date(mark.starts_at));
+    byDay.set(day, [...(byDay.get(day) || []), mark]);
+  }
   let sent = 0;
   const until = await curseUntilByPlayer(db, now);
-  for (const evening of evenings) {
-    if (new Date(evening.starts_at).getTime() > now.getTime() || now.getTime() - new Date(evening.last).getTime() < POST_QUIET_MS) continue;
-    const marks = await db.all<{ id: string; player_id: string; nickname: string }>(`
-      SELECT c.id, c.player_id, p.nickname FROM player_curses c JOIN players p ON p.id = c.player_id
-       WHERE c.evening_id = ? AND c.posted = 0 AND c.removed_at IS NULL ORDER BY p.nickname COLLATE NOCASE`, [evening.evening_id]);
-    const rows = marks.map((mark) => ({ nickname: String(mark.nickname), until: until.get(String(mark.player_id)) || '' })).filter((row) => row.until);
-    if (!rows.length) { for (const mark of marks) await db.run('UPDATE player_curses SET posted = 1 WHERE id = ?', [mark.id]); continue; }
+  for (const [day, dayMarks] of byDay) {
+    const seen = new Set<string>();
+    const rows = dayMarks.filter((mark) => !seen.has(String(mark.player_id)) && seen.add(String(mark.player_id)))
+      .map((mark) => ({ nickname: String(mark.nickname), until: until.get(String(mark.player_id)) || '' })).filter((row) => row.until);
+    if (!rows.length) { for (const mark of dayMarks) await db.run('UPDATE player_curses SET posted = 1 WHERE id = ?', [mark.id]); continue; }
     await ensureClubResultPostSchema(db);
-    // A later batch of the same evening gets its own key, so marks added after the first post go out too.
-    const key = `curse:${evening.evening_id}:${marks.map((mark) => mark.id).sort().join(',').slice(0, 120)}`;
-    if (!(await claim(db, key, 'player-curse', String(evening.evening_id), null))) continue;
+    // A later mark of the same day gets its own key, so it goes out too.
+    const key = `curse:${day}:${dayMarks.map((mark) => mark.id).sort().join(',').slice(0, 120)}`;
+    if (!(await claim(db, key, 'player-curse', String(dayMarks[0].evening_id), null))) continue;
     try {
-      const result = await sendText(db, NEWS_DESTINATION, cursePostText({ title: String(evening.title || 'Игровой вечер'), starts_at: String(evening.starts_at) }, rows), fetchImpl, undefined, undefined, { key: `club:${key}`, kind: 'club-result' });
+      const result = await sendText(db, NEWS_DESTINATION, cursePostText(`${day}T12:00:00Z`, rows), fetchImpl, undefined, undefined, { key: `club:${key}`, kind: 'club-result' });
       await finish(db, key, result);
-      if (result.ok) { for (const mark of marks) await db.run('UPDATE player_curses SET posted = 1 WHERE id = ?', [mark.id]); sent += 1; }
+      if (result.ok) { for (const mark of dayMarks) await db.run('UPDATE player_curses SET posted = 1 WHERE id = ?', [mark.id]); sent += 1; }
     } catch (error: any) {
       await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
     }

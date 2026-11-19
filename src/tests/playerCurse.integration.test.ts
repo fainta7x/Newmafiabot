@@ -5,9 +5,10 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { CURSE_WEEK_MS, curseUntil, cursePostText, eveningCurses, liftCurse, runCursePosts, setEveningCurse } from '../server/services/playerCurseService.ts';
+import { recordInitialAnnouncementAttempt } from '../server/services/eveningAnnouncementTrackingService.ts';
 
-// «Проклятье на понос» (owner, 2026-11-19): the organizer's button «проигнорировал бота», a week per ignored evening,
-// a personal message, the mark in the profile and lists, a «Новости» post after the evening; only the organizer lifts it.
+// «Проклятье на понос» (owner, 2026-11-19): on Friday 10:00 the bot marks who ignored the invitation, a week per ignored
+// evening, a personal message, the mark in the profile and lists, a separate «Новости» post; the organizer takes it back.
 const t0 = new Date('2026-11-20T10:00:00Z');
 const hours = (h: number) => new Date(t0.getTime() + h * 3_600_000);
 describe('Проклятье на понос', () => {
@@ -15,7 +16,7 @@ describe('Проклятье на понос', () => {
   beforeEach(async () => {
     db = createDatabaseConnection(':memory:');
     await createApp(db);
-    for (const id of ['a', 'b']) await db.run("INSERT INTO players(id,nickname,tokens,telegram_user_id,created_at,updated_at) VALUES (?,?,0,?,'x','x')", [id, id.toUpperCase(), `tg-${id}`]);
+    for (const id of ['a', 'b', 'c']) await db.run("INSERT INTO players(id,nickname,tokens,telegram_user_id,created_at,updated_at) VALUES (?,?,0,?,'x','x')", [id, id.toUpperCase(), `tg-${id}`]);
     for (const [id, at] of [['e1', '2026-11-20T16:00:00Z'], ['e2', '2026-11-22T16:00:00Z']]) {
       await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES (?,?,?,'Europe/Moscow','CASUAL','published',20,0,'x','x')`, [id, `Вечер ${id}`, at]);
     }
@@ -44,19 +45,46 @@ describe('Проклятье на понос', () => {
     expect(await curseUntil(db, 'a', hours(4))).toBeNull();
   });
 
-  it('the «Новости» post goes after the evening started and 30 minutes after the last mark, once', async () => {
+  it('Friday 10:00 Moscow: everybody invited without an answer is marked once, one «Новости» post at once', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     await ensureTelegramPublishingSchema(db);
     const sent: any[] = [];
     const fetchImpl = (async (_url: string, init: any) => { sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ ok: true, result: { message_id: 5 } }), { status: 200 }); }) as unknown as typeof fetch;
-    await setEveningCurse(db, { evening_id: 'e1', player_id: 'a' }, 'org', hours(7));
-    await setEveningCurse(db, { evening_id: 'e1', player_id: 'b' }, 'org', hours(7.2));
-    expect(await runCursePosts(db, fetchImpl, hours(5))).toBe(0); // before the evening
-    expect(await runCursePosts(db, fetchImpl, hours(7.4))).toBe(0); // the last mark was 12 minutes ago
-    expect(await runCursePosts(db, fetchImpl, hours(7.8))).toBe(1);
-    expect(await runCursePosts(db, fetchImpl, hours(8))).toBe(0);
+    // a: invited, silent; b: invited, answered «Думаю»; c: the invitation never reached him.
+    for (const id of ['a', 'b']) await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: id, telegramUserId: `tg-${id}`, success: true, telegramMessageId: 1 });
+    await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: 'c', telegramUserId: 'tg-c', success: false, error: 'blocked' });
+    await db.run("INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,response_status,registration_status,created_at,updated_at) VALUES ('ep-b','e1','b','pending','thinking','thinking','x','x')");
+    const at = (iso: string) => new Date(iso);
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-19T08:00:00Z'))).toBe(0); // Thursday
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T06:59:00Z'))).toBe(0); // Friday 09:59 Moscow
+    expect(await curseUntil(db, 'a', at('2026-11-20T06:59:00Z'))).toBeNull();
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T07:00:00Z'))).toBe(1); // Friday 10:00 Moscow
+    expect((await eveningCurses(db, 'e1', at('2026-11-20T07:00:00Z'))).map((row) => row.player_id)).toEqual(['a']);
+    // Once: a mark taken back by the organizer does not come again.
+    await setEveningCurse(db, { evening_id: 'e1', player_id: 'a', on: false }, 'org', at('2026-11-20T07:05:00Z'));
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T07:10:00Z'))).toBe(0);
+    expect(await curseUntil(db, 'a', at('2026-11-20T07:10:00Z'))).toBeNull();
     expect(sent).toHaveLength(1);
-    expect(sent[0].text).toBe(cursePostText({ title: 'Вечер e1', starts_at: '2026-11-20T16:00:00Z' }, [{ nickname: 'A', until: (await curseUntil(db, 'a', hours(8)))! }, { nickname: 'B', until: (await curseUntil(db, 'b', hours(8)))! }]));
+    expect(sent[0].text).toBe(cursePostText('2026-11-20T12:00:00Z', [{ nickname: 'A', until: new Date(at('2026-11-20T07:00:00Z').getTime() + CURSE_WEEK_MS).toISOString() }]));
+    expect(sent[0].text).toContain('Приглашения бота на 20 ноября проигнорировали:');
+    const messages = await db.all<{ player_id: string }>("SELECT player_id FROM personal_notification_deliveries WHERE event_type = 'player_curse'");
+    expect(messages.map((row) => row.player_id)).toEqual(['a']);
+  });
+
+  it('two Friday evenings: a week for each ignored invitation, one post with everybody once', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    await ensureTelegramPublishingSchema(db);
+    const sent: any[] = [];
+    const fetchImpl = (async (_url: string, init: any) => { sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ ok: true, result: { message_id: 5 } }), { status: 200 }); }) as unknown as typeof fetch;
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES ('n1','Новички','2026-11-20T15:00:00Z','Europe/Moscow','CASUAL','published',20,0,'x','x')`);
+    for (const evening of ['e1', 'n1']) await recordInitialAnnouncementAttempt(db, { eveningId: evening, playerId: 'a', telegramUserId: 'tg-a', success: true, telegramMessageId: 1 });
+    await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: 'b', telegramUserId: 'tg-b', success: true, telegramMessageId: 1 });
+    const at = new Date('2026-11-20T07:01:00Z');
+    expect(await runCursePosts(db, fetchImpl, at)).toBe(1);
+    expect(await curseUntil(db, 'a', at)).toBe(new Date(at.getTime() + 2 * CURSE_WEEK_MS).toISOString());
+    expect(sent).toHaveLength(1);
+    expect(sent[0].text.match(/• A —/g)).toHaveLength(1);
+    expect(sent[0].text).toContain('• B —');
   });
 
   it('API: the organizer marks; players see the mark in the list and the profile', async () => {

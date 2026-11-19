@@ -92,7 +92,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingSlotIds, setEditingSlotIds] = useState<string[]>([]);
-  // «Проклятье на понос» (owner, 2026-11-19): the organizer marks who ignored the bot completely; never automatic.
+  // «Проклятье на понос» (owner, 2026-11-19): the bot marks on Friday 10:00 whoever ignored the invitation; here the organizer takes a wrong mark back.
   const [cursed, setCursed] = useState<Set<string>>(() => new Set());
   const [cursingId, setCursingId] = useState<string | null>(null);
   const applyCurses = (body: any) => setCursed(new Set((Array.isArray(body?.items) ? body.items : []).map((item: any) => String(item.player_id))));
@@ -102,9 +102,9 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       if (response.ok) applyCurses(await response.json());
     } catch { /* the button just shows unpressed */ }
   };
-  const toggleCurse = async (row: { playerId: string; nickname: string }) => {
-    const on = !cursed.has(row.playerId);
-    if (on && !await appConfirm(`${row.nickname} проигнорировал бота? Он получит неделю «${CURSE_NAME}», личное сообщение, а после вечера — упоминание в «Новостях».`)) return;
+  const uncurse = async (row: { playerId: string; nickname: string }) => {
+    if (!await appConfirm(`Снять с ${row.nickname} «${CURSE_NAME}» за этот вечер? Неделя за этот вечер отменится.`)) return;
+    const on = false;
     setCursingId(row.playerId);
     setError('');
     try {
@@ -434,10 +434,11 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
               {!row.isGuest ? <button type="button" aria-expanded={editing} disabled={busy || readonly} onClick={() => { setEditingResponseId(null); openSlotEditor(row); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Игры {editing ? '▴' : '▾'}</button> : null}
               {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${row.nickname}`} className="flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-surface-1 px-2 text-[12px] font-semibold text-accent"><MessageCircle className="h-4 w-4" />Написать</a> : <span className="flex min-h-11 items-center justify-center rounded-[10px] bg-surface-1 px-2 text-center text-[11px] text-text-muted">Нет контакта</span>}
             </div>
-            {!row.isGuest && (row.responseStatus === 'unanswered' || cursed.has(row.playerId)) ? <button type="button" aria-pressed={cursed.has(row.playerId)} disabled={cursingId === row.playerId} onClick={() => void toggleCurse(row)} data-testid="evening-curse-toggle"
-              className={`mt-2 min-h-11 w-full rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${cursed.has(row.playerId) ? 'bg-warning-soft text-warning' : 'bg-surface-1 text-text-secondary'}`}>
-              {cursed.has(row.playerId) ? `🤢 «${CURSE_NAME}» — снять отметку` : '🤢 Проигнорировал бота'}
-            </button> : null}
+            {cursed.has(row.playerId) ? <div className="mt-2 flex items-center justify-between gap-2 rounded-[10px] bg-warning-soft px-3 py-1.5" data-testid="evening-curse">
+              <span className="min-w-0 text-[12px] font-semibold text-warning">🤢 «{CURSE_NAME}»</span>
+              <button type="button" disabled={cursingId === row.playerId} onClick={() => void uncurse(row)} data-testid="evening-curse-remove"
+                className="min-h-11 shrink-0 rounded-[10px] bg-surface-1 px-3 text-[12px] font-semibold text-text-primary disabled:opacity-40">Снять проклятье</button>
+            </div> : null}
             {responseOpen ? <fieldset className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2" aria-label={`Ответ ${row.nickname}`}>
               <legend className="px-1 text-[12px] font-semibold text-text-primary">Ответ {row.nickname}</legend>
               <p className="px-2 pb-2 text-[12px] text-text-muted">Выбери ответ — он сохранится сразу.</p>

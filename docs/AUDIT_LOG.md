@@ -1,6 +1,6 @@
 ## 2026-11-19 — «Проклятье на понос»
 
-`playerCurseService` (таблица `player_curses`, отметка = игрок + вечер, не новая сущность участника), маршруты `/api/crm/curses*`, шаг минутного скана `player_curse_posts`. Тесты: playerCurse.integration 3 (недели подряд, сообщение, снятие отметки, снятие проклятья; время и текст поста; API и профиль). Аудит вёрстки: cabinet-club, player-profile(-friend), crm-players, owner-evenings-answers — 35/35. Находок нет.
+`playerCurseService` (таблица `player_curses`, отметка = игрок + вечер, не новая сущность участника), маршруты `/api/crm/curses*`, шаг минутного скана `player_curse_posts` (пятница 10:00 МСК, `player_curse_checks` — один раз на вечер). Прод (GET, 19.11): на 20.11 два вечера — «Игровой вечер» молчат 10 из 22, «Вечер для новичков» 6 из 7. Тесты: playerCurse.integration 4 (недели подряд, сообщение, снятие отметки, снятие проклятья; время и текст поста; API и профиль). Аудит вёрстки: cabinet-club, player-profile(-friend), crm-players, owner-evenings-answers — 35/35. Находок нет.
 
 ## 2026-11-19 — пост «Слово дня» снова не вышел
 

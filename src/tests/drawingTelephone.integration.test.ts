@@ -4,7 +4,8 @@ import {
   chooseTelephoneNext, declineTelephoneTurn, guessTelephoneChain, loadTelephoneChain, loadTelephoneList, moveTelephoneChain,
   runTelephoneTimers, setTelephoneOptOut, startTelephoneChain, telephoneCandidates, telephonePost,
 } from '../server/services/drawingTelephoneService.ts';
-import { runDrawingTelephone } from '../server/services/drawingTelephoneNotifyService.ts';
+import { deliverTelephoneNotices, runDrawingTelephone } from '../server/services/drawingTelephoneNotifyService.ts';
+import { telephonePlayers } from '../server/services/drawingTelephoneService.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 import { ensureClubResultPostSchema } from '../server/services/clubResultPostService.ts';
 import { telephoneDayMsBetween, telephoneDeadline, telephoneLinkKind } from '../shared/drawingTelephone.ts';
@@ -155,6 +156,21 @@ describe('drawing telephone', () => {
     expect(notices[0].text).toContain('отключил участие и не сможет отгадать');
     expect(await loadTelephoneChain(db, 'a', chain.id)).toMatchObject({ step: 'choose_guesser', current: { id: 'a' } });
     expect(await tokens('f')).toBe(50);
+  });
+
+  it('«часто не отвечает» (owner, 2026-11-18): most of the last 5 turns ran out of time; a move or «Не хочу» is an answer', async () => {
+    const mark = async (id: string) => (await telephonePlayers(db)).find((p) => p.id === id)?.rarely_answers;
+    // b lets two turns run out (two chains), c declines once and moves once.
+    const first = (await start()).chain; // a → b
+    const second = (await startTelephoneChain(db, 'g', { phrase: 'Вторая фраза', links: 5, guesser_id: 'h', next_id: 'b' }, t0)).chain;
+    await deliverTelephoneNotices(db, await runTelephoneTimers(db, later(8 * 60 + 1))); // both turns of b come back: «не успел»
+    expect(await mark('b')).toBe(true);
+    await deliverTelephoneNotices(db, (await chooseTelephoneNext(db, 'a', first.id, { next_id: 'c' }, later(8 * 60 + 2))).notices);
+    await deliverTelephoneNotices(db, (await declineTelephoneTurn(db, 'c', first.id, later(8 * 60 + 3))).notices);
+    await chooseTelephoneNext(db, 'g', second.id, { next_id: 'c' }, later(8 * 60 + 4));
+    await moveTelephoneChain(db, 'c', second.id, { image: PNG, next_id: 'd' }, later(8 * 60 + 5));
+    expect(await mark('c')).toBe(false);
+    expect(await mark('d')).toBe(false); // no turns yet: no mark
   });
 
   it('everybody sees every running chain with its stage, never its content (owner, 2026-11-16)', async () => {

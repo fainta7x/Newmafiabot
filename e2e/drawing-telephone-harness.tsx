@@ -7,7 +7,7 @@ import type {TelephoneChainState, TelephoneItem, TelephoneListState} from '../sr
 // Preview of every state of «Испорченный телефон с рисунками»; the harness answers like the server.
 const mode=new URLSearchParams(location.search).get('mode')||'list';
 const drawing=(()=>{const c=document.createElement('canvas');c.width=c.height=480;const x=c.getContext('2d')!;x.fillStyle='#fff';x.fillRect(0,0,480,480);x.strokeStyle='#1e88e5';x.lineWidth=10;x.beginPath();x.arc(240,220,120,0,Math.PI*2);x.stroke();x.strokeStyle='#e53935';x.beginPath();x.moveTo(140,400);x.lineTo(340,400);x.stroke();return c.toDataURL('image/png').split(',')[1];})();
-const players=['Богданчик','Очень длинный никнейм игрока клуба','Серый','ФМ','Дина','Алоэ','Перец','Ольга'].map((nickname,i)=>({id:`p${i}`,nickname,telegram_username:i===1?'long_nick':null,bot_blocked:i===1}));
+const players=['Богданчик','Очень длинный никнейм игрока клуба','Серый','ФМ','Дина','Алоэ','Перец','Ольга'].map((nickname,i)=>({id:`p${i}`,nickname,telegram_username:i===1?'long_nick':null,bot_blocked:i===1,rarely_answers:i===1||i===3}));
 // A player who blocked the bot got the turn: the offer to write him (owner, 2026-11-16).
 if(mode==='contact'){try{sessionStorage.setItem('telephone-contact:c1',JSON.stringify({nickname:'Очень длинный никнейм игрока клуба',username:'long_nick'}));}catch{/* preview only */}}
 const item=(kind:TelephoneItem['kind'],position:number,nickname:string,text:string|null,image:string|null=null):TelephoneItem=>({kind,position,nickname,text,image});

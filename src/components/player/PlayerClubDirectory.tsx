@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '../ui/Input.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { getJson } from '../../lib/requestJson.ts';
+import { curseLabel } from '../../shared/playerCurse.ts';
 
-type DirectoryPlayer = { id: string; nickname: string; elo: number; game_level: string; avatar_url: string | null };
+type DirectoryPlayer = { id: string; nickname: string; elo: number; game_level: string; avatar_url: string | null ; curse_until?: string | null };
 
 const gameLevelLabel = (level: string) => level === 'novice' ? 'Новичок' : level === 'tournament' ? 'Турнирный игрок' : 'Игрок клуба';
 
@@ -87,6 +88,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
                 <span className="min-w-0 flex-1">
                   <span className="block line-clamp-2 break-words text-[15px] font-semibold leading-5 text-white">{item.nickname}</span>
                   <span className="mt-1 block text-[12px] leading-4 text-white/50">{isSelf ? `Мой профиль · ${gameLevelLabel(item.game_level)}` : gameLevelLabel(item.game_level)}</span>
+                  {item.curse_until ? <span className="mt-1 block text-[12px] leading-4 text-lime-200/85" data-testid="player-curse">{curseLabel(item.curse_until)}</span> : null}
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block text-[17px] font-semibold tabular-nums leading-5 text-white">{Math.round(Number(item.elo || 0))}</span>

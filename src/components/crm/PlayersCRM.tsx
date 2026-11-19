@@ -47,6 +47,7 @@ import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
 import PlayerActivityCard from './PlayerActivityCard.tsx';
 import { openCrmSection } from '../../lib/crmSectionNavigation.ts';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
+import PlayerCurseCard from './PlayerCurseCard.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfile.tsx';
@@ -715,6 +716,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               </div>
             </details>
 
+            <PlayerCurseCard playerId={String(playerDetails.id)} nickname={String(playerDetails.nickname || 'игрока')} />
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
               <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Игры и статистика <span className="ml-auto text-[11px] font-medium text-text-muted">{allGames.length}</span></summary>
               <div className="space-y-2 border-t border-border-soft p-3">{allGames.length ? allGames.map((game) => <PlayerGameCard key={game.id} game={game} />) : <div className="py-6 text-center text-[12px] text-text-muted">Игр пока нет</div>}</div>

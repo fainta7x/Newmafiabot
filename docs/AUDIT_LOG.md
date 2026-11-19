@@ -1,3 +1,7 @@
+## 2026-11-19 — «Проклятье на понос»
+
+`playerCurseService` (таблица `player_curses`, отметка = игрок + вечер, не новая сущность участника), маршруты `/api/crm/curses*`, шаг минутного скана `player_curse_posts`. Тесты: playerCurse.integration 3 (недели подряд, сообщение, снятие отметки, снятие проклятья; время и текст поста; API и профиль). Аудит вёрстки: cabinet-club, player-profile(-friend), crm-players, owner-evenings-answers — 35/35. Находок нет.
+
 ## 2026-11-18 — «часто не отвечает» в телефоне
 
 `rarelyAnswering` (`drawingTelephoneService`): исходы последних 5 ходов игрока из `telephone_links`, отгадок и сообщений «ход вернулся» (`personal_notification_deliveries`, ключи `telephone:*:back:*` / `guesser-back`, текст «не успел» — истекло). Тесты: drawingTelephone.integration 14 (+1); аудит экранов телефона 105/105.

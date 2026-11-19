@@ -26,14 +26,16 @@ api.updateParticipant = async (id, patch) => {
   document.body.dataset.savedResponse = String(patch.response_status);
   return { ...person } as any;
 };
+const query = new URLSearchParams(location.search);
 globalThis.fetch = async (input) => {
   const path = String(input);
   const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
   if (path.endsWith('/announcement-overview')) return json({ players: people, summary: { audience: 3 } });
   if (path.endsWith('/slots')) return json({ slots: [], event: {} });
+  // «Проклятье на понос»: Богдан is marked, so the audit sees the pressed (longest) label.
+  if (path.includes('/api/crm/curses')) return json({ items: query.has('before') ? [] : [{ player_id: 'p1', until: '2026-11-26T16:00:00Z' }] });
   return new Response('{}', { status: 404 });
 };
-const query = new URLSearchParams(location.search);
 const before = query.has('before');
 const wide = query.has('wide');
 const screen = query.get('screen');

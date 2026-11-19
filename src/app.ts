@@ -56,6 +56,7 @@ import dailyWordRoutes from './server/routes/dailyWordRoutes.ts';
 import dailySudokuRoutes from './server/routes/dailySudokuRoutes.ts';
 import drawingTelephoneRoutes from './server/routes/drawingTelephoneRoutes.ts';
 import { organizerSantaRouter, playerSantaRouter } from './server/routes/secretSantaRoutes.ts';
+import playerCurseRoutes from './server/routes/playerCurseRoutes.ts';
 import { birthdayPostRouter, organizerGiftRouter, playerGiftRouter } from './server/routes/giftCollectionRoutes.ts';
 import pokerRoutes from './server/routes/pokerRoutes.ts';
 import clocktowerRoutes from './server/routes/clocktowerRoutes.ts';
@@ -358,6 +359,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', drawingTelephoneRoutes);
   app.use('/api/player', playerSantaRouter);
   app.use('/api/crm', organizerSantaRouter);
+  app.use('/api/crm', playerCurseRoutes);
   app.use('/api/player/gift-collections', playerGiftRouter);
   app.use('/api/gift-collections', organizerGiftRouter);
   app.use('/api/birthday-posts', birthdayPostRouter);

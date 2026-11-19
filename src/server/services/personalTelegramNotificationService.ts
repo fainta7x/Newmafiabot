@@ -39,6 +39,8 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   + (await step('bot_news', async () => (await import('./botNewsPostService.ts')).runBotNewsPosts(db)).catch((error) => { console.error('[BOT NEWS] failed:', error); return 0; }))
   // «Испорченный телефон с рисунками»: reminders, returned turns and the «Новости» post of finished chains.
   + (await step('drawing_telephone', async () => (await import('./drawingTelephoneNotifyService.ts')).runDrawingTelephone(db)).catch((error) => { console.error('[TELEPHONE] failed:', error); return 0; }))
+  // «Проклятье на понос»: the «Новости» post of the marks of an evening (playerCurseService).
+  + (await step('player_curse_posts', async () => (await import('./playerCurseService.ts')).runCursePosts(db)).catch((error) => { console.error('[CURSE] failed:', error); return 0; }))
   // «Тайный Санта»: the «Новости» post when the organizer opens the registration, and the reminders (secretSantaService).
   + (await step('secret_santa', async () => (await import('./secretSantaService.ts')).runSecretSanta(db)).catch((error) => { console.error('[SANTA] failed:', error); return 0; }))
   // «Как часто ходит» from the real visits, once a day (playerActivityAutoService).

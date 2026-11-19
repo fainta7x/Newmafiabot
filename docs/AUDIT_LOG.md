@@ -1,3 +1,7 @@
+## 2026-11-18 — «часто не отвечает» в телефоне
+
+`rarelyAnswering` (`drawingTelephoneService`): исходы последних 5 ходов игрока из `telephone_links`, отгадок и сообщений «ход вернулся» (`personal_notification_deliveries`, ключи `telephone:*:back:*` / `guesser-back`, текст «не успел» — истекло). Тесты: drawingTelephone.integration 14 (+1); аудит экранов телефона 105/105.
+
 ## 2026-11-18 — «Не зовите меня в цепочки»
 
 Новая настройка игрока в «Испорченном телефоне» (`telephone_optouts`, `setTelephoneOptOut`, `POST /api/player/telephone/opt-out`). Тесты: drawingTelephone.integration 13; аудит экрана списка 21/21.

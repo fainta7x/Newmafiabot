@@ -47,6 +47,27 @@ const readPending = (): { state: string; at: number } | null => {
   return null;
 };
 const clearPending = () => { try { localStorage.removeItem(PENDING_KEY); } catch { /* storage blocked */ } };
+const postVk = async (path: string, payload: Record<string, string>) => {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(path, {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const body = await response.json().catch((error) => {
+      if (controller.signal.aborted) throw error;
+      return {};
+    });
+    return { response, body };
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('Сервер не ответил. Проверьте интернет и попробуйте ещё раз.');
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+};
 type TelegramLinks = { openLink?: (url: string) => void; platform?: string };
 const telegramApp = (): TelegramLinks | null => {
   const app = (window as unknown as { Telegram?: { WebApp?: TelegramLinks } }).Telegram?.WebApp;
@@ -56,37 +77,34 @@ const telegramApp = (): TelegramLinks | null => {
 export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(() => readPending() !== null);
+  // Storage only resumes a login after reload. Safari may deny it even though this tab can still finish the handoff.
+  const [pending, setPending] = useState(readPending);
+  const waiting = pending !== null;
   const pollRef = useRef<number | null>(null);
   const callbackError = useMemo(() => {
     return safeVkErrorMessage(new URLSearchParams(window.location.search).get('vk_error'));
   }, []);
 
   useEffect(() => {
-    if (!waiting) return undefined;
+    if (!pending) return undefined;
     let stopped = false;
     const check = async () => {
-      const pending = readPending();
-      if (!pending) { setWaiting(false); return; }
+      if (Date.now() - pending.at >= PENDING_MS) { clearPending(); setPending(null); setBusy(false); return; }
       try {
-        const response = await fetch('/api/integrations/player/vk/handoff', {
-          method: 'POST', credentials: 'same-origin', cache: 'no-store',
-          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: pending.state }),
-        });
-        const body = await response.json().catch(() => ({}));
+        const { body } = await postVk('/api/integrations/player/vk/handoff', { state: pending.state });
         if (stopped) return;
         if (body?.status === 'done') { clearPending(); window.location.replace(String(body.return_to || '/player')); return; }
         // Finished in this browser (another tab got the session): this tab only needs to reload.
         if (body?.status === 'finished') { clearPending(); window.location.reload(); return; }
-        if (body?.status === 'error') { clearPending(); setWaiting(false); setBusy(false); setError(safeVkErrorMessage(body.code)); return; }
+        if (body?.status === 'error') { clearPending(); setPending(null); setBusy(false); setError(safeVkErrorMessage(body.code)); return; }
         // Another browser that does not hold this login, or it ran out: nothing to wait for here.
-        if (body?.status === 'unknown' || body?.status === 'expired') { clearPending(); setWaiting(false); setBusy(false); return; }
+        if (body?.status === 'unknown' || body?.status === 'expired') { clearPending(); setPending(null); setBusy(false); return; }
       } catch { /* the next check tries again */ }
       if (!stopped) pollRef.current = window.setTimeout(() => void check(), 2000);
     };
     void check();
     return () => { stopped = true; if (pollRef.current) window.clearTimeout(pollRef.current); };
-  }, [waiting]);
+  }, [pending]);
 
   const startVk = async () => {
     setBusy(true);
@@ -97,34 +115,30 @@ export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps)
     let tab: Window | null = null;
     if (!telegram) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
     try {
-      const response = await fetch('/api/integrations/player/vk/start', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ return_to: currentPlayerDestination() }),
-      });
-      const body = await response.json().catch(() => ({}));
+      const { response, body } = await postVk('/api/integrations/player/vk/start', { return_to: currentPlayerDestination() });
       if (!response.ok || !body?.authorize_url) {
         throw new Error(body?.error || safeVkErrorMessage(body?.code) || 'Не удалось открыть VK ID.');
       }
       const url = String(body.authorize_url);
       const state = new URL(url).searchParams.get('state') || '';
-      try { if (state) localStorage.setItem(PENDING_KEY, JSON.stringify({ state, at: Date.now() })); } catch { /* storage blocked */ }
-      if (telegram?.openLink && state) {
+      const nextPending = state ? { state, at: Date.now() } : null;
+      try { if (nextPending) localStorage.setItem(PENDING_KEY, JSON.stringify(nextPending)); } catch { /* storage blocked */ }
+      if (telegram?.openLink && nextPending) {
         // Inside Telegram the app stays open and waits: VK opens outside, wherever it comes back, the login reaches here.
         telegram.openLink(url);
-        setWaiting(true);
+        setPending(nextPending);
         return;
       }
-      if (tab && state) {
+      if (tab && !tab.closed && nextPending) {
         tab.location.href = url;
-        setWaiting(true);
+        setPending(nextPending);
         return;
       }
       window.location.assign(url);
     } catch (startError: any) {
       try { tab?.close(); } catch { /* already closed */ }
+      clearPending();
+      setPending(null);
       setError(startError?.message || 'Не удалось открыть VK ID.');
       setBusy(false);
     }
@@ -133,7 +147,7 @@ export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps)
   if (waiting) {
     return <section className={compact ? '' : 'mt-5 border-t border-white/10 pt-5'} data-testid="vk-player-access-waiting">
       <p className="text-sm leading-6 text-white/80">Подтвердите вход в VK. Потом вернитесь сюда — кабинет откроется сам.</p>
-      <button type="button" onClick={() => { clearPending(); setWaiting(false); setBusy(false); }} className="mt-3 min-h-11 w-full rounded-2xl border border-white/10 px-4 text-sm font-semibold text-white/80">Отменить</button>
+      <button type="button" onClick={() => { clearPending(); setPending(null); setBusy(false); }} className="mt-3 min-h-11 w-full rounded-2xl border border-white/10 px-4 text-sm font-semibold text-white/80">Отменить</button>
     </section>;
   }
 

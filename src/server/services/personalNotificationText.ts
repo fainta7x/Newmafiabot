@@ -26,20 +26,34 @@ export function miniAppButtons<T>(markup: T): T {
   try { origin = new URL(base).origin; } catch { return markup; }
   const rows = (markup as { inline_keyboard?: unknown }).inline_keyboard;
   if (!Array.isArray(rows)) return markup;
+  let appUrl = '';
+  const ofApp = (value: unknown) => {
+    if (typeof value !== 'string') return false;
+    try { return new URL(value).origin === origin; } catch { return false; }
+  };
   const inline_keyboard = rows.map((row) => (Array.isArray(row) ? row.map((button) => {
-    const url = button && typeof button === 'object' ? (button as { url?: unknown }).url : null;
-    if (typeof url !== 'string') return button;
-    try { if (new URL(url).origin !== origin) return button; } catch { return button; }
+    const fields = button && typeof button === 'object' ? button as { url?: unknown; web_app?: { url?: unknown } } : {};
+    if (!appUrl && ofApp(fields.web_app?.url)) appUrl = String(fields.web_app!.url);
+    const url = fields.url;
+    if (!ofApp(url)) return button;
+    if (!appUrl) appUrl = String(url);
     const { url: _url, ...rest } = button as Record<string, unknown>;
     return { ...rest, web_app: { url } };
   }) : row));
-  return { ...(markup as object), inline_keyboard } as T;
+  return { ...(markup as object), inline_keyboard: appUrl ? [...inline_keyboard, browserRow(appUrl)] : inline_keyboard } as T;
 }
+
+/**
+ * Every button to the app is followed by «🌐 Открыть в браузере» (owner, 2026-11-20: when the app does not open inside
+ * Telegram, the player opens the same page in the browser and signs in through VK there).
+ */
+export const BROWSER_BUTTON_TEXT = '🌐 Открыть в браузере';
+const browserRow = (url: string) => [{ text: BROWSER_BUTTON_TEXT, url }];
 
 /** A personal message without its own buttons gets one «📱 Открыть в приложении» button to its page (as a Mini App). */
 export function telegramActionMarkup(actionPath?: string | null): Record<string, unknown> | null {
   const base = playerAppBaseUrl().replace(/\/player$/, '');
   const path = String(actionPath || '').trim();
   if (!base || !path.startsWith('/player')) return null;
-  return { inline_keyboard: [[{ text: '📱 Открыть в приложении', web_app: { url: `${base}${path}` } }]] };
+  return { inline_keyboard: [[{ text: '📱 Открыть в приложении', web_app: { url: `${base}${path}` } }], browserRow(`${base}${path}`)] };
 }

@@ -16,7 +16,7 @@ export const SCREEN_MAX_AGE_MS = 5 * 60_000;
 const CHECK_EVERY_MS = 60_000;
 /** Non-GET requests that never change «Сегодня», «Дела» or «Обзор» (telemetry and mini-games). */
 const IGNORED_WRITES = [
-  '/api/presence', '/api/ui-events', '/api/games/betting/reconcile',
+  '/api/presence', '/api/ui-events', '/api/games/betting/reconcile', '/api/integrations/player/vk/handoff',
   '/api/player/daily-sudoku', '/api/player/daily-word', '/api/player/telephone', '/api/player/santa', '/api/player/poker', '/api/poker', '/api/clocktower',
 ];
 export const screenChangingRequest = (method: string, path: string) => !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())

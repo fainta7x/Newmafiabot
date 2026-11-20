@@ -228,6 +228,9 @@ Current canonical launcher passes controlled hidden-role state. A bare direct `L
 ### Links into the app from Telegram
 Personal messages: buttons to the app are `web_app` (`personalNotificationText.miniAppButtons` / `telegramActionMarkup`). Group posts: `miniAppLink(path)` (gameResultCardService) builds `t.me/<bot>?startapp=<param>` for the bot's Main Mini App; `src/shared/miniAppStart.ts` maps `/player/a/b` ↔ `a__b`, and `App.tsx` (`openTelegramStartPage`) opens that page once before the first render.
 
+### VK login handoff
+A cabinet VK login whose callback lands in another browser (iPhone: the VK app returns to Safari) is finished but signs nobody in there: `vkPlayerAuthService.storeVkPlayerHandoff` keeps the result on `vk_player_oauth_states` (`handoff_*`), and the window holding the OAuth binding cookie claims it once through `POST /api/integrations/player/vk/handoff` (`VkPlayerAccess` polls every 2 s; Telegram opens VK with `openLink`, a browser in a new tab).
+
 ### Player curse («Проклятье на понос»)
 `player_curses` (player + evening mark, `removed_at` when lifted, `posted`), `player_curse_checks` (the Friday 10:00 check done once per evening) — a mark on an existing Участник/Событие pair, not a new participant table. `playerCurseService.ts` owns the rules (weeks chained in `curseUntilByPlayer`); the personal message goes through `queuePersonalNotification` (`curse:<evening>:<player>`), the Friday check and the «Новости» post (one per day) through the personal-notification minute scan (`runCursePosts`, claim key `curse:<day>:<mark ids>`); unanswered = `loadAnnouncementOverview` attention `unanswered`. Routes `/api/crm/curses*` (organizer); `curse_until` is added to `/api/player/players` and the profile summary.
 

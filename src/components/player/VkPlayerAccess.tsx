@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type VkPlayerAccessProps = {
   compact?: boolean;
@@ -7,7 +7,7 @@ type VkPlayerAccessProps = {
 const VK_ERROR_MESSAGES: Record<string, string> = {
   vk_callback_invalid: 'VK ID вернул неполный ответ. Вход через VK нужно начать ещё раз.',
   vk_state_expired: 'Сессия входа через VK устарела или уже использована. Вход нужно начать заново.',
-  vk_state_browser_mismatch: 'Вход через VK вернулся в другой браузер. Ссылку нужно открыть и завершить вход в одном окне.',
+  vk_state_browser_mismatch: 'Вход через VK вернулся в другой браузер. Начните вход ещё раз.',
   vk_state_mismatch: 'Вход через VK не удался. Вход нужно начать заново.',
   vk_user_missing: 'VK ID не смог подтвердить аккаунт. Можно попробовать войти через VK ещё раз.',
   vk_identity_conflict: 'Этот VK уже связан с другим игровым профилем. Обратитесь к организатору.',
@@ -32,16 +32,70 @@ const currentPlayerDestination = () => {
   return `${url.pathname}${url.search}${url.hash}` || '/player';
 };
 
+/**
+ * A VK login started here may finish in another browser (2026-11-20: on iPhones the VK app returns to Safari, not to
+ * Telegram). The started login is remembered on this device and this window asks the server every 2 seconds whether it
+ * was confirmed; the server gives the session only to the browser that started it.
+ */
+const PENDING_KEY = 'vk-login-pending:v1';
+const PENDING_MS = 30 * 60_000;
+const readPending = (): { state: string; at: number } | null => {
+  try {
+    const value = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null') as { state?: unknown; at?: unknown } | null;
+    if (value && typeof value.state === 'string' && typeof value.at === 'number' && Date.now() - value.at < PENDING_MS) return { state: value.state, at: value.at };
+  } catch { /* storage blocked */ }
+  return null;
+};
+const clearPending = () => { try { localStorage.removeItem(PENDING_KEY); } catch { /* storage blocked */ } };
+type TelegramLinks = { openLink?: (url: string) => void; platform?: string };
+const telegramApp = (): TelegramLinks | null => {
+  const app = (window as unknown as { Telegram?: { WebApp?: TelegramLinks } }).Telegram?.WebApp;
+  return app && app.platform && app.platform !== 'unknown' ? app : null;
+};
+
 export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(() => readPending() !== null);
+  const pollRef = useRef<number | null>(null);
   const callbackError = useMemo(() => {
     return safeVkErrorMessage(new URLSearchParams(window.location.search).get('vk_error'));
   }, []);
 
+  useEffect(() => {
+    if (!waiting) return undefined;
+    let stopped = false;
+    const check = async () => {
+      const pending = readPending();
+      if (!pending) { setWaiting(false); return; }
+      try {
+        const response = await fetch('/api/integrations/player/vk/handoff', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: pending.state }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (stopped) return;
+        if (body?.status === 'done') { clearPending(); window.location.replace(String(body.return_to || '/player')); return; }
+        // Finished in this browser (another tab got the session): this tab only needs to reload.
+        if (body?.status === 'finished') { clearPending(); window.location.reload(); return; }
+        if (body?.status === 'error') { clearPending(); setWaiting(false); setBusy(false); setError(safeVkErrorMessage(body.code)); return; }
+        // Another browser that does not hold this login, or it ran out: nothing to wait for here.
+        if (body?.status === 'unknown' || body?.status === 'expired') { clearPending(); setWaiting(false); setBusy(false); return; }
+      } catch { /* the next check tries again */ }
+      if (!stopped) pollRef.current = window.setTimeout(() => void check(), 2000);
+    };
+    void check();
+    return () => { stopped = true; if (pollRef.current) window.clearTimeout(pollRef.current); };
+  }, [waiting]);
+
   const startVk = async () => {
     setBusy(true);
     setError(null);
+    // Outside Telegram VK opens in a new tab and this one waits, so the login reaches here wherever VK comes back. The tab
+    // is opened now, in the tap, or the browser would block it after the request below.
+    const telegram = telegramApp();
+    let tab: Window | null = null;
+    if (!telegram) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
     try {
       const response = await fetch('/api/integrations/player/vk/start', {
         method: 'POST',
@@ -54,12 +108,34 @@ export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps)
       if (!response.ok || !body?.authorize_url) {
         throw new Error(body?.error || safeVkErrorMessage(body?.code) || 'Не удалось открыть VK ID.');
       }
-      window.location.assign(String(body.authorize_url));
+      const url = String(body.authorize_url);
+      const state = new URL(url).searchParams.get('state') || '';
+      try { if (state) localStorage.setItem(PENDING_KEY, JSON.stringify({ state, at: Date.now() })); } catch { /* storage blocked */ }
+      if (telegram?.openLink && state) {
+        // Inside Telegram the app stays open and waits: VK opens outside, wherever it comes back, the login reaches here.
+        telegram.openLink(url);
+        setWaiting(true);
+        return;
+      }
+      if (tab && state) {
+        tab.location.href = url;
+        setWaiting(true);
+        return;
+      }
+      window.location.assign(url);
     } catch (startError: any) {
+      try { tab?.close(); } catch { /* already closed */ }
       setError(startError?.message || 'Не удалось открыть VK ID.');
       setBusy(false);
     }
   };
+
+  if (waiting) {
+    return <section className={compact ? '' : 'mt-5 border-t border-white/10 pt-5'} data-testid="vk-player-access-waiting">
+      <p className="text-sm leading-6 text-white/80">Подтвердите вход в VK. Потом вернитесь сюда — кабинет откроется сам.</p>
+      <button type="button" onClick={() => { clearPending(); setWaiting(false); setBusy(false); }} className="mt-3 min-h-11 w-full rounded-2xl border border-white/10 px-4 text-sm font-semibold text-white/80">Отменить</button>
+    </section>;
+  }
 
   return (
     <section className={compact ? '' : 'mt-5 border-t border-white/10 pt-5'} data-testid="vk-player-access">

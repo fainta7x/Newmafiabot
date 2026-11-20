@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId } from '../auth.ts';
-import { createVkPlayerOAuthStart } from './vkPlayerAuthService.ts';
+import { claimVkPlayerHandoff, createVkPlayerOAuthStart } from './vkPlayerAuthService.ts';
+import { setPlayerSessionCookie } from './playerSessionCookie.ts';
+import { setPlayerOnboardingCookie } from './playerOnboardingCookie.ts';
 import { buildTrustedPublicAppUrl } from './publicAppOriginService.ts';
 
 const router = Router();
@@ -44,7 +46,7 @@ const safeStartError = (error: any) => {
   return { code: 'vk_auth_start_failed', message: 'Не удалось начать вход через VK. Попробуйте ещё раз чуть позже.', status: Number(error?.statusCode || 500) };
 };
 
-const logStart = (stage: 'start_ok' | 'start_failed', req: any, details: Record<string, unknown>) => {
+const logStart = (stage: 'start_ok' | 'start_failed' | 'handoff_claimed', req: any, details: Record<string, unknown>) => {
   console.info('[VK PLAYER AUTH]', {
     stage,
     method: req.method,
@@ -102,6 +104,31 @@ router.post('/player/vk/start', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     logStart('start_failed', req, { code: safe.code, status: safe.status });
     return res.status(safe.status).json({ error: safe.message, code: safe.code });
+  }
+});
+
+/**
+ * The window that started a VK login asks whether it was finished in another browser (2026-11-20: on iPhones the VK
+ * app returns to Safari). Only this browser's binding cookie opens the result, and only once.
+ */
+router.post('/player/vk/handoff', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const result = await claimVkPlayerHandoff(req.db as DatabaseWrapper, {
+      state: typeof req.body?.state === 'string' ? req.body.state : '',
+      browserBinding: req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE],
+    });
+    if (result.status === 'done') {
+      if (result.playerId) setPlayerSessionCookie(res, result.playerId);
+      else if (result.onboardingToken) setPlayerOnboardingCookie(res, result.onboardingToken);
+      res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
+      logStart('handoff_claimed', req, { kind: result.playerId ? 'session' : 'onboarding' });
+      return res.json({ status: 'done', return_to: result.returnTo });
+    }
+    if (result.status === 'error') return res.json({ status: 'error', code: result.code, return_to: result.returnTo });
+    return res.json({ status: result.status });
+  } catch (error: any) {
+    return res.status(500).json({ status: 'error', code: 'vk_auth_callback_failed', error: error?.message || 'handoff failed' });
   }
 });
 

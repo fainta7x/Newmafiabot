@@ -85,7 +85,7 @@ describe('hardened player evening invitations', () => {
 
     const outbox = await db.get<any>(`SELECT text, reply_markup_json FROM telegram_message_outbox WHERE event_type='evening_invite' LIMIT 1`);
     // The link is a button that opens the app as a Mini App, signed in through Telegram (2026-11-17).
-    expect(JSON.parse(outbox?.reply_markup_json || 'null')).toEqual({ inline_keyboard: [[{ text: '📱 Открыть в приложении', web_app: { url: 'https://club.example.test/player/events/casual-evening' } }]] });
+    expect(JSON.parse(outbox?.reply_markup_json || 'null')).toEqual({ inline_keyboard: [[{ text: '📱 Открыть в приложении', web_app: { url: 'https://club.example.test/player/events/casual-evening' } }], [{ text: '🌐 Открыть в браузере', url: 'https://club.example.test/player/events/casual-evening' }]] });
     expect(String(outbox?.text || '')).toContain('не создаёт запись автоматически');
   });
 

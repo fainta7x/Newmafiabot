@@ -164,7 +164,9 @@ def club_home(first_name: str | None, home: dict | None, evenings: list[dict]) -
     rows: list[list[InlineKeyboardButton]] = []
     app = _app_button(bot_menu.APP_BUTTON_TEXT, "/player")
     if app:
-        rows.append([app])
+        # The same cabinet in the browser next to it (owner, 2026-11-20), in one row: the card stays four rows.
+        browser = bot_menu.browser_button()
+        rows.append([app, browser] if browser else [app])
     if action_evening and action_label:
         rows.append([InlineKeyboardButton(text=action_label, callback_data=f"home:ev:{action_evening}")])
     elif not upcoming:

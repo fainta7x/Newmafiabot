@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express';
 import { requireOrganizerAuth, getAuthenticatedOrganizerActorId, type AuthenticatedRequest } from '../auth.ts';
+import { sendOrganizerPlayerMessage } from '../services/organizerPlayerMessageService.ts';
 import { curseUntil, eveningCurses, liftCurse, setEveningCurse } from '../services/playerCurseService.ts';
 
 /** «Проклятье на понос» for the organizer (owner, 2026-11-19). */
@@ -23,5 +24,9 @@ router.post('/curses/lift', async (req: AuthenticatedRequest, res) => {
     const playerId = typeof bodyOf(req).player_id === 'string' ? String(bodyOf(req).player_id) : '';
     return res.json(await liftCurse(req.db!, playerId));
   } catch (error) { return fail(res, error); }
+});
+/** One personal message (optionally with the bot's bottom keyboard) to chosen players, once per key. */
+router.post('/player-messages', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try { return res.json(await sendOrganizerPlayerMessage(req.db!, bodyOf(req))); } catch (error) { return fail(res, error); }
 });
 export default router;

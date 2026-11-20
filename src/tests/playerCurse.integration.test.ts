@@ -16,7 +16,7 @@ describe('Проклятье на понос', () => {
   beforeEach(async () => {
     db = createDatabaseConnection(':memory:');
     await createApp(db);
-    for (const id of ['a', 'b', 'c']) await db.run("INSERT INTO players(id,nickname,tokens,telegram_user_id,created_at,updated_at) VALUES (?,?,0,?,'x','x')", [id, id.toUpperCase(), `tg-${id}`]);
+    for (const id of ['a', 'b', 'c', 'd']) await db.run("INSERT INTO players(id,nickname,tokens,telegram_user_id,created_at,updated_at) VALUES (?,?,0,?,'x','x')", [id, id.toUpperCase(), `tg-${id}`]);
     for (const [id, at] of [['e1', '2026-11-20T16:00:00Z'], ['e2', '2026-11-22T16:00:00Z']]) {
       await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES (?,?,?,'Europe/Moscow','CASUAL','published',20,0,'x','x')`, [id, `Вечер ${id}`, at]);
     }
@@ -45,46 +45,75 @@ describe('Проклятье на понос', () => {
     expect(await curseUntil(db, 'a', hours(4))).toBeNull();
   });
 
-  it('Friday 10:00 Moscow: everybody invited without an answer is marked once, one «Новости» post at once', async () => {
+  it('Friday 11:00 Moscow: everybody invited without an answer is marked once, one «Новости» post; later changes edit it', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     await ensureTelegramPublishingSchema(db);
-    const sent: any[] = [];
-    const fetchImpl = (async (_url: string, init: any) => { sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ ok: true, result: { message_id: 5 } }), { status: 200 }); }) as unknown as typeof fetch;
-    // a: invited, silent; b: invited, answered «Думаю»; c: the invitation never reached him.
-    for (const id of ['a', 'b']) await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: id, telegramUserId: `tg-${id}`, success: true, telegramMessageId: 1 });
+    const calls: Array<{ method: string; body: any }> = [];
+    const fetchImpl = (async (url: string, init: any) => { calls.push({ method: String(url).split('/').pop()!, body: JSON.parse(String(init.body)) }); return new Response(JSON.stringify({ ok: true, result: { message_id: 5 } }), { status: 200 }); }) as unknown as typeof fetch;
+    // a, d: invited, silent; b: invited, answered «Думаю»; c: the invitation never reached him.
+    for (const id of ['a', 'b', 'd']) await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: id, telegramUserId: `tg-${id}`, success: true, telegramMessageId: 1 });
     await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: 'c', telegramUserId: 'tg-c', success: false, error: 'blocked' });
     await db.run("INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,response_status,registration_status,created_at,updated_at) VALUES ('ep-b','e1','b','pending','thinking','thinking','x','x')");
     const at = (iso: string) => new Date(iso);
-    expect(await runCursePosts(db, fetchImpl, at('2026-11-19T08:00:00Z'))).toBe(0); // Thursday
-    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T06:59:00Z'))).toBe(0); // Friday 09:59 Moscow
-    expect(await curseUntil(db, 'a', at('2026-11-20T06:59:00Z'))).toBeNull();
-    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T07:00:00Z'))).toBe(1); // Friday 10:00 Moscow
-    expect((await eveningCurses(db, 'e1', at('2026-11-20T07:00:00Z'))).map((row) => row.player_id)).toEqual(['a']);
-    // Once: a mark taken back by the organizer does not come again.
-    await setEveningCurse(db, { evening_id: 'e1', player_id: 'a', on: false }, 'org', at('2026-11-20T07:05:00Z'));
-    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T07:10:00Z'))).toBe(0);
-    expect(await curseUntil(db, 'a', at('2026-11-20T07:10:00Z'))).toBeNull();
-    expect(sent).toHaveLength(1);
-    expect(sent[0].text).toBe(cursePostText('2026-11-20T12:00:00Z', [{ nickname: 'A', until: new Date(at('2026-11-20T07:00:00Z').getTime() + CURSE_WEEK_MS).toISOString() }]));
-    expect(sent[0].text).toContain('Приглашения бота на 20 ноября проигнорировали:');
-    const messages = await db.all<{ player_id: string }>("SELECT player_id FROM personal_notification_deliveries WHERE event_type = 'player_curse'");
-    expect(messages.map((row) => row.player_id)).toEqual(['a']);
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-19T09:00:00Z'))).toBe(0); // Thursday
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T07:59:00Z'))).toBe(0); // Friday 10:59 Moscow
+    expect(await curseUntil(db, 'a', at('2026-11-20T07:59:00Z'))).toBeNull();
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T08:00:00Z'))).toBe(1); // Friday 11:00 Moscow
+    expect((await eveningCurses(db, 'e1', at('2026-11-20T08:00:00Z'))).map((row) => row.player_id).sort()).toEqual(['a', 'd']);
+    const week = (iso: string) => new Date(at(iso).getTime() + CURSE_WEEK_MS).toISOString();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.text).toBe(cursePostText('2026-11-20T12:00:00Z', [{ nickname: 'A', until: week('2026-11-20T08:00:00Z'), count: 1 }, { nickname: 'D', until: week('2026-11-20T08:00:00Z'), count: 1 }]));
+    expect(calls[0].body.text).toContain('• A — до 27 ноября (1 проклятье)');
+    expect(calls[0].body.text).toContain('Проклятье можно избежать, если ответить боту до начала вечера или его отмены.');
+    const messages = await db.all<{ player_id: string; text: string }>("SELECT player_id, text FROM personal_notification_deliveries WHERE event_type = 'player_curse' ORDER BY player_id");
+    expect(messages.map((row) => row.player_id)).toEqual(['a', 'd']);
+    expect(messages[0].text).toContain('Проклятье можно избежать, если ответить боту до начала вечера или его отмены.');
+    // a answers before the evening: his week goes and the sent post is edited.
+    await db.run("INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,response_status,registration_status,created_at,updated_at) VALUES ('ep-a','e1','a','pending','declined','declined','x','x')");
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T09:00:00Z'))).toBe(0);
+    expect(await curseUntil(db, 'a', at('2026-11-20T09:00:00Z'))).toBeNull();
+    expect(calls.at(-1)).toMatchObject({ method: 'editMessageText', body: { message_id: 5 } });
+    expect(calls.at(-1)!.body.text).not.toContain('• A —');
+    expect(calls.at(-1)!.body.text).toContain('• D —');
+    // The same text is not edited again; once the evening started an answer no longer lifts it.
+    expect(await runCursePosts(db, fetchImpl, at('2026-11-20T09:05:00Z'))).toBe(0);
+    expect(calls).toHaveLength(2);
+    await db.run("INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,response_status,registration_status,created_at,updated_at) VALUES ('ep-d','e1','d','pending','going','going','x','x')");
+    await runCursePosts(db, fetchImpl, at('2026-11-20T16:30:00Z'));
+    expect(await curseUntil(db, 'd', at('2026-11-20T16:30:00Z'))).toBeTruthy();
+    // The organizer takes the last mark back: the post says nobody.
+    await setEveningCurse(db, { evening_id: 'e1', player_id: 'd', on: false }, 'org', at('2026-11-20T16:40:00Z'));
+    await runCursePosts(db, fetchImpl, at('2026-11-20T16:41:00Z'));
+    expect(calls.at(-1)!.body.text).toContain('все ответили — проклятий нет');
   });
 
-  it('two Friday evenings: a week for each ignored invitation, one post with everybody once', async () => {
+  it('two Friday evenings: a week for each ignored invitation, one post with everybody once and the count; novice evenings are off', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     await ensureTelegramPublishingSchema(db);
     const sent: any[] = [];
     const fetchImpl = (async (_url: string, init: any) => { sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ ok: true, result: { message_id: 5 } }), { status: 200 }); }) as unknown as typeof fetch;
-    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES ('n1','Новички','2026-11-20T15:00:00Z','Europe/Moscow','CASUAL','published',20,0,'x','x')`);
-    for (const evening of ['e1', 'n1']) await recordInitialAnnouncementAttempt(db, { eveningId: evening, playerId: 'a', telegramUserId: 'tg-a', success: true, telegramMessageId: 1 });
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES ('n1','Второй','2026-11-20T15:00:00Z','Europe/Moscow','CASUAL','published',20,0,'x','x')`);
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES ('nov','Новички','2026-11-20T14:00:00Z','Europe/Moscow','NOVICE','published',20,0,'x','x')`);
+    for (const evening of ['e1', 'n1', 'nov']) await recordInitialAnnouncementAttempt(db, { eveningId: evening, playerId: 'a', telegramUserId: 'tg-a', success: true, telegramMessageId: 1 });
     await recordInitialAnnouncementAttempt(db, { eveningId: 'e1', playerId: 'b', telegramUserId: 'tg-b', success: true, telegramMessageId: 1 });
-    const at = new Date('2026-11-20T07:01:00Z');
+    const at = new Date('2026-11-20T08:01:00Z');
     expect(await runCursePosts(db, fetchImpl, at)).toBe(1);
     expect(await curseUntil(db, 'a', at)).toBe(new Date(at.getTime() + 2 * CURSE_WEEK_MS).toISOString());
+    expect(await eveningCurses(db, 'nov', at)).toEqual([]);
     expect(sent).toHaveLength(1);
     expect(sent[0].text.match(/• A —/g)).toHaveLength(1);
+    expect(sent[0].text).toContain('• A — до 4 декабря (2 проклятья)');
     expect(sent[0].text).toContain('• B —');
+  });
+
+  it('marks of a novice evening made before it was switched off are taken back', async () => {
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES ('nov','Новички','2026-11-20T14:00:00Z','Europe/Moscow','NOVICE','published',20,0,'x','x')`);
+    await setEveningCurse(db, { evening_id: 'nov', player_id: 'a' }, 'bot', new Date('2026-11-20T07:00:00Z'));
+    await setEveningCurse(db, { evening_id: 'e1', player_id: 'a' }, 'bot', new Date('2026-11-20T07:00:00Z'));
+    expect(await curseUntil(db, 'a', new Date('2026-11-20T07:01:00Z'))).toBe(new Date(new Date('2026-11-20T07:00:00Z').getTime() + 2 * CURSE_WEEK_MS).toISOString());
+    await runCursePosts(db, (async () => new Response('{}')) as unknown as typeof fetch, new Date('2026-11-20T07:05:00Z'));
+    expect(await eveningCurses(db, 'nov', new Date('2026-11-20T07:05:00Z'))).toEqual([]);
+    expect(await curseUntil(db, 'a', new Date('2026-11-20T07:05:00Z'))).toBe(new Date(new Date('2026-11-20T07:00:00Z').getTime() + CURSE_WEEK_MS).toISOString());
   });
 
   it('API: the organizer marks; players see the mark in the list and the profile', async () => {

@@ -1414,6 +1414,8 @@ Applies to club (CASUAL) evenings only; novice, rating and tournament evenings k
 
 The owner: «чтобы я видел тех, кто бота в ЧС добавили». A player counts as having blocked the club bot when Telegram answered «Forbidden: bot was blocked by the user» to a personal message (the message outbox or the evening invitation journal) and no later message reached him (`src/server/services/botBlockedService.ts`). CRM «Игроки» shows the mark «Бот заблокирован» next to TG/VK, and «Фильтры → Дополнительно → Бот заблокирован» lists only them. In «Испорченный телефон» such a player is not in the lists (see its rules).
 
+- **Blocked the bot = «Перестал ходить», no curse (owner, 2026-11-20).** The owner: «тем, кто бота блокнул, не давать проклятье… эти игроки не хотят участвовать в жизни клуба активно, пусть идут своей дорогой… и статус им менять на "Перестал ходить"». A player who blocked the bot (as defined above) gets no «Проклятье на понос» (marks he already has are taken back) and is set to «Перестал ходить» — at once and every ten minutes, in automatic and manual mode alike; the daily automatic status does not bring him back while the bot is blocked (`playerActivityAutoService.stopBotBlockedPlayers`). «Из другого города» stays as it is. Coming back follows the existing rule (a visit moves «Перестал ходить» to «Ходит иногда»). **Open (asked the owner):** what else «не учитывать нигде в опросах, играх и всем остальном» covers beyond what «Перестал ходить» already does (no invitations and nudges, 200 ₽ per game).
+
 ## Экраны без подгрузки (владелец, 2026-11-17)
 
 The owner: «постоянные везде подгрузки… чтобы сразу информация показывалась без прогрузок, а прогрузки совершались независимо от того, зашёл ли человек»; both parts agreed («Да, делай оба пункта»).

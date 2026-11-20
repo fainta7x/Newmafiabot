@@ -46,7 +46,7 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
   // «Тайный Санта»: the «Новости» post when the organizer opens the registration, and the reminders (secretSantaService).
   + (await step('secret_santa', async () => (await import('./secretSantaService.ts')).runSecretSanta(db)).catch((error) => { console.error('[SANTA] failed:', error); return 0; }))
   // «Как часто ходит» from the real visits, once a day (playerActivityAutoService).
-  + (await step('player_activity_auto', async () => (await import('./playerActivityAutoService.ts')).runAutoPlayerActivity(db).then((changes) => changes.length)).catch((error) => { console.error('[ACTIVITY AUTO] failed:', error); return 0; }))
+  + (await step('player_activity_auto', async () => { const service = await import('./playerActivityAutoService.ts'); return (await service.runAutoPlayerActivity(db)).length + (await service.stopBotBlockedPlayers(db)).length; }).catch((error) => { console.error('[ACTIVITY AUTO] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).
   + (await step('today_post', () => runTodayPostSchedule(db)).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }))
   // The organizer's own reminders: the evening route, an unclosed evening, debts, overdue tasks (organizerReminderService).

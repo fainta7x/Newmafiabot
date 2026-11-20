@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { loadBotBlockedPlayers } from './botBlockedService.ts';
 import { CURSE_NAME } from '../../shared/playerCurse.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { claim, ensureClubResultPostSchema, finish, sendText } from './clubResultPostService.ts';
@@ -156,7 +157,9 @@ export const cursePostText = (day: string, rows: Array<{ nickname: string; until
 export async function markIgnoredInvitations(db: DatabaseWrapper, eveningId: string, now = new Date()) {
   const { loadAnnouncementOverview } = await import('./eveningAnnouncementTrackingService.ts');
   const overview = await loadAnnouncementOverview(db, eveningId);
-  const ignored = (overview?.players || []).filter((player: any) => player.attention_status === 'unanswered').map((player: any) => String(player.id));
+  // A player who blocked the bot is not cursed (owner, 2026-11-20: «пусть идут своей дорогой»).
+  const blocked = await loadBotBlockedPlayers(db);
+  const ignored = (overview?.players || []).filter((player: any) => player.attention_status === 'unanswered' && !blocked.has(String(player.id))).map((player: any) => String(player.id));
   for (const playerId of ignored) await setEveningCurse(db, { evening_id: eveningId, player_id: playerId }, 'bot', now);
   return ignored;
 }
@@ -184,10 +187,11 @@ async function liftAnsweredMarks(db: DatabaseWrapper, now: Date) {
     SELECT c.id, c.player_id, c.evening_id, e.status, e.settled_at, e.starts_at, e.format FROM player_curses c JOIN game_evenings e ON e.id = c.evening_id
      WHERE c.removed_at IS NULL`);
   let lifted = 0;
+  const blocked = await loadBotBlockedPlayers(db);
   const overviews = new Map<string, Map<string, string>>();
   const { loadAnnouncementOverview } = await import('./eveningAnnouncementTrackingService.ts');
   for (const mark of marks) {
-    let lift = !cursedFormat(mark.format);
+    let lift = !cursedFormat(mark.format) || blocked.has(String(mark.player_id));
     if (!lift && isOpenEvening(mark) && new Date(mark.starts_at).getTime() > now.getTime()) {
       if (!overviews.has(mark.evening_id)) {
         const overview = await loadAnnouncementOverview(db, String(mark.evening_id));

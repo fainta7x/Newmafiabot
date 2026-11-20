@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureJudgeAuthoritySchema } from '../../db/ensureJudgeAuthoritySchema.ts';
+import { loadBotBlockedPlayers } from './botBlockedService.ts';
 import { PLAYER_VISITS_SQL } from './playerVisitsService.ts';
 import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 
@@ -79,6 +80,7 @@ export async function runAutoPlayerActivity(db: DatabaseWrapper, now = new Date(
   const key = `player-activity-auto:${moscowDay(now)}`;
   if ((await db.run('INSERT OR IGNORE INTO app_data_migrations (id, applied_at) VALUES (?, ?)', [key, now.toISOString()])).changes === 0) return [];
   const targets = await computeAutoActivities(db, now);
+  const blocked = await loadBotBlockedPlayers(db);
   const changes: Array<{ id: string; nickname: string; from: AutoActivity; to: AutoActivity }> = [];
   await db.transaction(async (tx) => {
     const players = await tx.all<any>(
@@ -88,12 +90,42 @@ export async function runAutoPlayerActivity(db: DatabaseWrapper, now = new Date(
           AND COALESCE(source, '') <> 'legacy_guest_migrated'`,
     );
     for (const player of players) {
-      const target = targets.get(String(player.id));
+      const target = blocked.has(String(player.id)) ? 'stopped' : targets.get(String(player.id));
       if (!target) continue;
       const from = currentActivity(player);
       if (from === target) continue;
       await writeActivity(tx, String(player.id), player, target, now.toISOString());
       changes.push({ id: String(player.id), nickname: String(player.nickname), from, to: target });
+    }
+  });
+  return changes;
+}
+
+const BLOCKED_STOP_EVERY_MS = 10 * 60_000;
+let lastBlockedStop = 0;
+
+/**
+ * A player who blocked the club bot is «Перестал ходить» (owner, 2026-11-20: «эти игроки не хотят участвовать в жизни
+ * клуба активно… статус им менять на "Перестал ходить"»). Applied at once and every ten minutes, whatever the player's
+ * automatic or manual mode; «Из другого города», archived and merged players stay as they are. `force` skips the pause.
+ */
+export async function stopBotBlockedPlayers(db: DatabaseWrapper, now = new Date(), force = false): Promise<Array<{ id: string; nickname: string; from: AutoActivity }>> {
+  if (!force && now.getTime() - lastBlockedStop < BLOCKED_STOP_EVERY_MS) return [];
+  lastBlockedStop = now.getTime();
+  await ensurePlayerActivityAutoSchema(db);
+  const blocked = await loadBotBlockedPlayers(db);
+  if (!blocked.size) return [];
+  const changes: Array<{ id: string; nickname: string; from: AutoActivity }> = [];
+  await db.transaction(async (tx) => {
+    for (const id of blocked.keys()) {
+      const player = await tx.get<any>(
+        `SELECT id, nickname, club_role, contact_status, lifecycle_status, pause_reason, stopped_attending, from_other_city, attends_sometimes
+           FROM players WHERE id = ? AND COALESCE(from_other_city, 0) = 0
+            AND COALESCE(lifecycle_status, '') NOT IN ('merged', 'archived') AND COALESCE(contact_status, '') NOT IN ('archived', 'blocked')
+            AND merged_into_player_id IS NULL`, [id]);
+      if (!player || currentActivity(player) === 'stopped') continue;
+      await writeActivity(tx, String(player.id), player, 'stopped', now.toISOString());
+      changes.push({ id: String(player.id), nickname: String(player.nickname), from: currentActivity(player) });
     }
   });
   return changes;

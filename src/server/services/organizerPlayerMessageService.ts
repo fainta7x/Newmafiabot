@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadBotBlockedPlayers } from './botBlockedService.ts';
-import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 
 /** The bottom keyboard of the bot (bot_menu.py `main_menu_for_user`): the app and the menu card in one row. */
 export const BOT_BOTTOM_KEYBOARD = {
@@ -38,6 +38,11 @@ export async function sendOrganizerPlayerMessage(db: DatabaseWrapper, input: Org
   for (const playerId of ids) {
     const exists = await db.get<{ id: string }>('SELECT id FROM players WHERE id = ?', [playerId]);
     if (!exists) { result.skipped.push({ player_id: playerId, reason: 'player_not_found' }); continue; }
+    if (input.keyboard === true) {
+      // A keyboard exists only in Telegram: a player whose personal messages go to VK (or are off) is reported, not counted.
+      const routing = await resolvePersonalNotificationRouting(db, playerId);
+      if (!routing.personal_enabled || routing.selected_channel !== 'telegram') { result.skipped.push({ player_id: playerId, reason: 'keyboard_needs_telegram' }); continue; }
+    }
     const outcome = await queuePersonalNotification(db, {
       notificationKey: `organizer-message:${key}:${playerId}`,
       playerId,

@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
+import { savePersonalNotificationPreference } from '../server/services/personalNotificationRouterService.ts';
 import { BOT_BOTTOM_KEYBOARD, sendOrganizerPlayerMessage } from '../server/services/organizerPlayerMessageService.ts';
 
 // Owner, 2026-11-20: «проклятье снято» to the novice-evening players, the new bottom keyboard to everyone.
@@ -27,6 +28,16 @@ describe('Organizer personal messages', () => {
     expect(rows).toHaveLength(1);
     expect(String(rows[0].reply_markup_json || '')).toContain('Открыть 2LA Noire');
     expect(BOT_BOTTOM_KEYBOARD.keyboard[0].map((b) => b.text)).toEqual(['🎭 Открыть 2LA Noire', '📋 Меню']);
+  });
+
+  it('a keyboard is not sent through VK or to a player with personal messages off: reported as skipped', async () => {
+    await savePersonalNotificationPreference(db, 'a', { preferredChannel: 'vk', personalEnabled: true });
+    await db.run("INSERT INTO player_external_identities (platform, external_user_id, player_id, linked_at, updated_at) VALUES ('vk','vk-a','a','x','x')");
+    await savePersonalNotificationPreference(db, 'b', { preferredChannel: 'auto', personalEnabled: false });
+    const result = await sendOrganizerPlayerMessage(db, { key: batch, text: 'Привет', player_ids: ['a', 'b'], keyboard: true });
+    expect(result.queued).toBe(0);
+    expect(result.skipped).toEqual([{ player_id: 'a', reason: 'keyboard_needs_telegram' }, { player_id: 'b', reason: 'keyboard_needs_telegram' }]);
+    expect(await db.all("SELECT 1 FROM telegram_message_outbox WHERE event_type = 'organizer_message'")).toHaveLength(0);
   });
 
   it('all_linked reaches every Telegram-linked player; the route needs the organizer and valid input', async () => {

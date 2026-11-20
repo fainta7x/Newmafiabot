@@ -165,6 +165,40 @@ describe('live seats and photos of the welcome page (owner, 2026-11-11)', () => 
     expect(seats.status).toBe(200);
     expect(seats.body).toMatchObject({ evening_id: null, games: [], going: 0 });
   });
+
+  it('shows the chosen club evening roster to the site while keeping the novice default', async () => {
+    const app = await createApp(db);
+    const stamp = new Date().toISOString();
+    for (const [id, format, hours] of [['club', 'CASUAL', 24], ['nov', 'NOVICE', 48]] as const) {
+      await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,venue,format,status,capacity,default_price,created_at,updated_at) VALUES (?,?,?,'Europe/Moscow','Суп с Котом',?,'published',20,200,?,?)`,
+        [id, id, new Date(Date.now() + hours * 3600_000).toISOString(), format, stamp, stamp]);
+    }
+    await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,created_at,updated_at) VALUES ('club-player','Клубный игрок','normal','test',1000,0,?,?)`, [stamp, stamp]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES ('club-participant','club','club-player','going','going','pending','unknown','waived',0,0,?,?)`, [stamp, stamp]);
+    const chosen = await request(app).get('/api/public/welcome/seats?evening=club').set('Origin', 'https://2lamafia.ru');
+    expect(chosen.status).toBe(200);
+    expect(chosen.headers['access-control-allow-origin']).toBe('https://2lamafia.ru');
+    expect(chosen.body).toMatchObject({ evening_id: 'club', going: 1 });
+    expect(chosen.body.games[0].people).toContain('Клубный игрок');
+    expect(Object.keys(chosen.body.games[0]).sort()).toEqual(['number', 'people', 'starts_at', 'taken', 'target']);
+    expect((await request(app).get('/api/public/welcome/seats')).body.evening_id).toBe('nov');
+  });
+
+  it('does not expose unpublished, finished, settled or past club evening rosters', async () => {
+    const app = await createApp(db);
+    const stamp = new Date().toISOString();
+    for (const [id, status, hours, settled] of [
+      ['draft', 'draft', 24, null], ['cancelled', 'cancelled', 24, null],
+      ['done', 'completed', 24, null], ['settled', 'published', 24, stamp],
+      ['past', 'published', -24, null],
+    ] as const) {
+      await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,venue,format,status,capacity,default_price,settled_at,created_at,updated_at) VALUES (?,?,?,'Europe/Moscow','Суп с Котом','CASUAL',?,20,200,?,?,?)`,
+        [id, id, new Date(Date.now() + hours * 3600_000).toISOString(), status, settled, stamp, stamp]);
+      const result = await request(app).get('/api/public/welcome/seats?evening=' + id);
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({ evening_id: null, games: [], going: 0 });
+    }
+  });
 });
 
 describe('the welcome page on the club site (owner, 2026-11-11)', () => {

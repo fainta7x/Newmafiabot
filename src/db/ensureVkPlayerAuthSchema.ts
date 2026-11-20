@@ -44,6 +44,14 @@ export async function ensureVkPlayerAuthSchema(db: DatabaseWrapper): Promise<voi
   await ensureColumn(db, 'vk_player_oauth_states', 'browser_binding_hash', 'TEXT');
   await ensureColumn(db, 'vk_player_oauth_states', 'initiating_player_id', 'TEXT');
   await ensureColumn(db, 'vk_player_oauth_states', 'consumed_at', 'TEXT');
+  // A VK login that came back in another browser (2026-11-20: on iPhones the VK app returns to Safari, not to Telegram)
+  // is finished there and handed to the window that started it (vkPlayerAuthService: storeVkPlayerHandoff).
+  await ensureColumn(db, 'vk_player_oauth_states', 'handoff_player_id', 'TEXT');
+  await ensureColumn(db, 'vk_player_oauth_states', 'handoff_onboarding_token', 'TEXT');
+  await ensureColumn(db, 'vk_player_oauth_states', 'handoff_return_to', 'TEXT');
+  await ensureColumn(db, 'vk_player_oauth_states', 'handoff_error', 'TEXT');
+  await ensureColumn(db, 'vk_player_oauth_states', 'handoff_ready_at', 'TEXT');
+  await ensureColumn(db, 'vk_player_oauth_states', 'handoff_claimed_at', 'TEXT');
 
   await db.run(`CREATE INDEX IF NOT EXISTS idx_vk_player_oauth_states_binding_created
     ON vk_player_oauth_states(browser_binding_hash, created_at)`);

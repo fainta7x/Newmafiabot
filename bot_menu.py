@@ -56,8 +56,10 @@ def app_inline_keyboard(path: str = "/player", text: str = APP_BUTTON_TEXT) -> I
     url = player_app_url(path)
     if not url:
         return None
+    # Every app button is followed by the same page in the browser (owner, 2026-11-20: when the app does not open in
+    # Telegram, the player opens it in the browser and signs in through VK).
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))]]
+        inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))], [InlineKeyboardButton(text=BROWSER_BUTTON_TEXT, url=url)]]
     )
 
 

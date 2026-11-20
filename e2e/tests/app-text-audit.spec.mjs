@@ -50,6 +50,8 @@ export const PAGES = [
   ['poker', '/e2e/poker-harness.html'],
   ['publication-recovery', '/e2e/publication-recovery.html'],
   ['crm-login', '/e2e/crm-login.html'],
+  ['player-login', '/e2e/vk-login.html'],
+  ['player-login-vk-waiting', '/e2e/vk-login.html?mode=waiting'],
   ['organizer-crm', '/e2e/organizer-crm.html'],
   ['organizer-crm-active', '/e2e/organizer-crm.html?scenario=active'],
   ['crm-overview', '/e2e/crm-overview.html'],

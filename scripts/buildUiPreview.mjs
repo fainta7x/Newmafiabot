@@ -30,6 +30,7 @@ const pages = [
   'e2e/crm-overview.html',
   'e2e/publication-recovery.html',
   'e2e/crm-login.html',
+  'e2e/vk-login.html',
   'e2e/organizer-crm.html',
   'e2e/crm-analytics.html',
   'e2e/player-game-detail.html',

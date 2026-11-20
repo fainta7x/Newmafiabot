@@ -8,7 +8,7 @@ import { appendVkOAuthResult } from './vkOAuthService.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { linkVkIdentity } from './vkEveningIntegrationService.ts';
 import { confirmVkIdentityClaim, createVkIdentityClaim, peekVkIdentityClaim } from './vkIdentityClaimService.ts';
-import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
+import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, storeVkPlayerHandoff, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
 import { beginVerifiedPlayerOnboarding } from './playerOnboardingService.ts';
 import { setPlayerOnboardingCookie } from './playerOnboardingCookie.ts';
 import { setPlayerSessionCookie } from './playerSessionCookie.ts';
@@ -65,6 +65,11 @@ const confirmationPage = (input: { token: string; nickname?: string; title?: str
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2LA Noire · Связать VK</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090a0d;color:#fff;font:16px system-ui;padding:24px;box-sizing:border-box}.card{width:min(100%,420px);border:1px solid #ffffff1a;border-radius:24px;background:#ffffff0b;padding:24px;box-sizing:border-box}h1{margin:0 0 12px;font-size:24px}p{color:#ffffffa8;line-height:1.55}button{width:100%;min-height:52px;border:0;border-radius:16px;background:#2688eb;color:#fff;font-weight:700;font-size:15px}.error{color:#fecdd3;line-height:1.55}</style></head><body><main class="card"><h1>Подтверждение профиля</h1>${body}</main></body></html>`;
 };
 
+/** The VK login came back in another browser than the one that started it (iPhone: the VK app returns to Safari). */
+const handoffPage = (error?: string) => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2LA Noire · Вход через VK</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090a0d;color:#fff;font:16px system-ui;padding:24px;box-sizing:border-box}.card{width:min(100%,420px);border:1px solid #ffffff1a;border-radius:24px;background:#ffffff0b;padding:24px;box-sizing:border-box}h1{margin:0 0 12px;font-size:24px}p{color:#ffffffa8;line-height:1.55;margin:0}</style></head><body><main class="card" data-testid="vk-handoff-page">${error
+  ? `<h1>Вход не завершён</h1><p>${escapeHtml(error)}</p>`
+  : '<h1>Вход через VK подтверждён</h1><p>Вернитесь в Telegram или в окно, где нажимали «Продолжить через VK», — кабинет откроется там сам. Эту страницу можно закрыть.</p>'}</main></body></html>`;
+
 router.get('/vk/oauth/callback', async (req, res, next) => {
   const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
@@ -91,6 +96,11 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
       });
       if (result.initiatingPlayerId && result.playerId && result.playerId !== result.initiatingPlayerId) {
         logPlayerCallback('callback_failed', req, { code: 'vk_identity_conflict', status: 409 });
+        if (result.crossBrowser) {
+          await storeVkPlayerHandoff(db, state, { returnTo: result.returnTo, error: 'vk_identity_conflict' });
+          res.setHeader('Cache-Control', 'no-store');
+          return res.type('html').send(handoffPage('Этот VK уже связан с другим игровым профилем. Обратитесь к организатору.'));
+        }
         return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_error', 'vk_identity_conflict'));
       }
 
@@ -101,6 +111,15 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         logPlayerCallback('identity_linked_to_initiator', req);
       }
 
+      // Another browser: nothing is signed in here, the starting window picks the result up (POST /player/vk/handoff).
+      const handOff = async (handoff: { playerId?: string; onboardingToken?: string; returnTo: string }) => {
+        await storeVkPlayerHandoff(db, state, handoff);
+        logPlayerCallback('handoff_stored', req, { kind: handoff.playerId ? 'session' : 'onboarding' });
+        res.setHeader('Cache-Control', 'no-store');
+        return res.type('html').send(handoffPage());
+      };
+
+      if (playerId && result.crossBrowser) return handOff({ playerId, returnTo: result.returnTo });
       if (playerId) {
         setPlayerSessionCookie(res, playerId);
         res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
@@ -112,6 +131,8 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         platform: 'vk',
         externalUserId: result.vkUserId,
       }, result.returnTo);
+      if (onboarding.status === 'linked' && result.crossBrowser) return handOff({ playerId: onboarding.playerId, returnTo: onboarding.returnTo });
+      if (onboarding.status !== 'linked' && result.crossBrowser) return handOff({ onboardingToken: onboarding.token, returnTo: onboarding.returnTo });
       if (onboarding.status === 'linked') {
         setPlayerSessionCookie(res, onboarding.playerId);
         res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });

@@ -12,3 +12,14 @@ describe('Telegram script from our server', () => {
     expect(readFileSync('public/telegram-web-app.js', 'utf8')).toContain('window.Telegram.WebApp');
   });
 });
+
+// Owner, 2026-11-20: an iPhone user still saw nothing load. The Google Fonts stylesheet in <head> blocked the app from
+// starting while fonts.googleapis.com was slow or unreachable; fonts must load without blocking the first screen.
+describe('Fonts never block the first screen', () => {
+  it('the Google Fonts stylesheet is non-blocking', () => {
+    const html = readFileSync('index.html', 'utf8');
+    const tag = html.match(/<link href="https:\/\/fonts\.googleapis\.com[^>]*rel="stylesheet"[^>]*>/)?.[0] || '';
+    expect(tag).toContain('media="print"');
+    expect(tag).toContain("onload=\"this.media='all'\"");
+  });
+});

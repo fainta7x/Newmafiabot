@@ -1,3 +1,4 @@
+import { parseSeatingMode } from '../services/tournamentSeatingPlan.ts';
 import { Router, type Response } from 'express';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
@@ -226,6 +227,7 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
       tournament.chief_judge_name || null,
       participants,
       normalizeTournamentGameCount(tournament.game_count),
+      parseSeatingMode(req.body?.mode),
     );
     const games = await loadTournamentGames(db, String(req.params.id));
     return res.json({ success: true, game_count: normalizeTournamentGameCount(tournament.game_count), games });

@@ -69,7 +69,7 @@ describe('VK player authentication routing', () => {
     expect(onboardingUi).toContain('Я уже играл в клубе');
     expect(onboardingUi).toContain('Я новый игрок');
     expect(onboardingUi).toContain('VkPlayerAccess');
-    expect(vkAccess).toContain("fetch('/api/integrations/player/vk/start'");
+    expect(vkAccess).toContain("postVk('/api/integrations/player/vk/start'");
     expect(vkAccess).toContain('new URL(window.location.href)');
     expect(vkAccess).toContain('return_to: currentPlayerDestination()');
     expect(vkAccess).not.toContain('initialNickname');

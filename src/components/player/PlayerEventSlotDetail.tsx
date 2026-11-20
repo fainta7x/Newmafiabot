@@ -2,7 +2,8 @@ import ConfirmDialog from '../ui/ConfirmDialog.tsx';
 import PlayerEveningSeatBooking from './PlayerEveningSeatBooking.tsx';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.ts';
 import { confirmPageLeave } from '../../lib/pageLeave.ts';
-import { countGames, countPlayers } from '../../lib/russianPlural';
+import { countGames } from '../../lib/russianPlural';
+import { judgeLine, playersLine, slotGathered } from '../../lib/eveningSlotStaff.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
@@ -37,7 +38,7 @@ type Slot = {
 };
 
 type Plan = {
-  event: EventItem & { assembled: boolean; assembled_slots: number; max_evening_price?: number | null; price_per_game?: number; required_slots?: number; required_players_per_slot?: number };
+  event: EventItem & { judge?: { id: string; nickname: string } | null; assembled: boolean; assembled_slots: number; max_evening_price?: number | null; price_per_game?: number; required_slots?: number; required_players_per_slot?: number };
   pricing?: EveningPrices;
   personal_price?: PersonalPrice | null;
   first_application_required?: boolean;
@@ -296,8 +297,8 @@ export default function PlayerEventSlotDetail({
             <div className="mt-3 space-y-2">
               {plan.slots.map((slot) => {
                 const selected = draft.includes(slot.id);
-                const target = slot.target_players ?? plan.event.required_players_per_slot;
-                const ready = typeof target === 'number' && target > 0 && slot.registered_count >= target;
+                const target = slot.target_players ?? plan.event.required_players_per_slot ?? 0;
+                const ready = slotGathered(slot.registered_count, target, plan.event.judge);
                 return (
                   <div key={slot.id} className={`w-full rounded-2xl border p-3 transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
                     <div className="flex items-center gap-2">
@@ -307,7 +308,7 @@ export default function PlayerEventSlotDetail({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>
-                        <div className={`mt-1 text-xs ${ready ? 'text-emerald-200/60' : 'text-white/35'}`}>{countPlayers(slot.registered_count)}{ready ? ' · собрано' : ''}</div>
+                        <div className={`mt-1 text-xs ${ready ? 'text-emerald-200/60' : 'text-white/35'}`} data-testid="slot-staff">{judgeLine(plan.event.judge)} · {playersLine(slot.registered_count, target)}{ready ? ' · собрано' : ''}</div>
                         {seatSummary.find(item => item.slot_id === slot.id) && <div className="mt-1 text-xs font-semibold text-emerald-200">{seatTables.find(t => t.id === seatSummary.find(item => item.slot_id === slot.id)?.tableId)?.name || 'Стол'} · место №{seatSummary.find(item => item.slot_id === slot.id)?.seat}</div>}
                       </div>
                       <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${selected ? 'bg-white text-black' : 'bg-white/[0.05] text-white/20'}`}>{selected ? <Check className="h-4 w-4" /> : ''}</span>

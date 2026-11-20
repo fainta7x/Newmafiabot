@@ -29,9 +29,10 @@ describe('owner evening tracker rows 3, 5 and 6', () => {
     // Also covers the legacy whole-evening fallback: no exact registrations yet.
     const guest = await createGuestPlaceholder(db, { eveningId: 'ev', displayName: 'Гость', responseStatus: 'going', plusCount: 1 });
     const short = await loadEveningSlotPlan(db, 'ev');
-    expect(short.event.required_players_per_slot).toBe(minimum);
+    // Players are counted without the judge: 10 (novices 8) players + 1 judge (owner, 2026-11-16).
+    expect(short.event.required_players_per_slot).toBe(minimum - 1);
     expect(short.event.assembled).toBe(false);
-    expect(short.slots.every((slot) => slot.registered_count === minimum - 1 && slot.target_players === minimum)).toBe(true);
+    expect(short.slots.every((slot) => slot.registered_count === minimum - 1 && slot.target_players === minimum - 1)).toBe(true);
 
     // A judge already among these people must not add another human.
     await db.run('INSERT INTO evening_staff_assignments (evening_id,judge_player_id,assigned_at,updated_at) VALUES (?,?,?,?)', ['ev', 'p0', now, now]);
@@ -95,4 +96,22 @@ describe('owner evening tracker rows 3, 5 and 6', () => {
     expect(seats.some(seat => seat.player_id === 'seat-p0')).toBe(false);
   });
 
+});
+
+describe('the evening judge is the assigned one, whatever he answered (owner, 2026-11-16)', () => {
+  it('needs 10 players and shows the judge even when the judge has not answered «Иду»', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    await createApp(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('ev2','Вечер','2099-10-16T18:00:00Z','Europe/Moscow','CASUAL','published',20,100,?,?)`, [now, now]);
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['olga', 'Ольга', now, now]);
+    // The judge only thinks about coming: before, he was counted as a player and 11 players were needed.
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,created_at,updated_at) VALUES ('ep-olga','ev2','olga','thinking','thinking',?,?)`, [now, now]);
+    await db.run('INSERT INTO evening_staff_assignments (evening_id,judge_player_id,assigned_at,updated_at) VALUES (?,?,?,?)', ['ev2', 'olga', now, now]);
+    const plan = await loadEveningSlotPlan(db, 'ev2');
+    expect(plan.event.required_players_per_slot).toBe(10);
+    expect(plan.event.judge).toMatchObject({ id: 'olga', nickname: 'Ольга' });
+    expect(plan.slots.every((slot) => slot.target_players === 10)).toBe(true);
+  });
 });

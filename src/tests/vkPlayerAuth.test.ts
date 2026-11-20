@@ -128,16 +128,17 @@ describe('VK canonical player authentication', () => {
       .rejects.toMatchObject({ code: 'vk_state_expired' });
   });
 
-  it('rejects a valid OAuth state presented from another browser binding without consuming it', async () => {
+  it('finishes a login that came back in another browser, marked for a handoff (iPhone: the VK app returns to Safari)', async () => {
     vi.stubEnv('VK_APP_ID', '123456');
     const { db, states } = makeDb(null);
     const start = await createVkPlayerOAuthStart(db, {
       redirectUri: 'https://club.example/api/integrations/vk/oauth/callback', nickname: 'BoundPlayer', returnTo: '/player', browserBinding: binding,
     });
     const state = new URL(start.authorize_url).searchParams.get('state') || '';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ access_token: 'x', user_id: 777, state }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
     await expect(completeVkPlayerOAuth(db, { code: 'code', deviceId: 'device', state, browserBinding: `${binding}x` }))
-      .rejects.toMatchObject({ code: 'vk_state_browser_mismatch' });
-    expect(states.get(state)?.consumed_at).toBeNull();
+      .resolves.toMatchObject({ vkUserId: '777', crossBrowser: true });
+    expect(states.get(state)?.consumed_at).toBeTruthy();
   });
 
   it('records the canonical player that explicitly initiated VK linking instead of trusting callback cookies', async () => {

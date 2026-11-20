@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type CrmOverview, type GameEvening, type Player } from '../../lib/api.ts';
+import { clearScreenCache, readScreenCache, writeScreenCache } from '../../lib/screenCache.ts';
+
+/** The organizer's last cabinet, shown at once after a reload while the fresh one loads («Экраны без подгрузки»). */
+type CachedCabinet = { overview: CrmOverview; evenings: GameEvening[]; players: Player[]; isClubOwner: boolean | null };
+const CABINET_KEY = 'crm:cabinet';
 
 const refreshTelegramPlayerSession = async () => {
   if (typeof window === 'undefined') return;
@@ -40,16 +45,25 @@ export const useOrganizerCrmSession = () => {
   const resumeRefreshTimerRef = useRef<number | null>(null);
   const refreshGenerationRef = useRef(0);
   const overviewAbortRef = useRef<AbortController | null>(null);
-  const [isOrganizer, setIsOrganizer] = useState(false);
-  const [isClubOwner, setIsClubOwner] = useState<boolean | null>(null);
+  const [cachedCabinet] = useState(() => readScreenCache<CachedCabinet>(CABINET_KEY));
+  const [isOrganizer, setIsOrganizer] = useState(Boolean(cachedCabinet));
+  const [isClubOwner, setIsClubOwner] = useState<boolean | null>(cachedCabinet?.isClubOwner ?? null);
   // «Проводит вечера»: a player without the cabinet who may create and run evenings of these kinds.
   const [eventHost, setEventHost] = useState<{ playerId: string; formats: string[] } | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null);
-  const [evenings, setEvenings] = useState<GameEvening[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(cachedCabinet?.overview ?? null);
+  const [evenings, setEvenings] = useState<GameEvening[]>(cachedCabinet?.evenings ?? []);
+  const [players, setPlayers] = useState<Player[]>(cachedCabinet?.players ?? []);
+  const [loading, setLoading] = useState(!cachedCabinet);
+  const isClubOwnerRef = useRef<boolean | null>(cachedCabinet?.isClubOwner ?? null);
+  const keptRef = useRef<CachedCabinet | null>(cachedCabinet);
+  const keepCabinet = (patch: Partial<CachedCabinet>) => {
+    const next = { ...(keptRef.current || { players: [], isClubOwner: isClubOwnerRef.current }), ...patch } as CachedCabinet;
+    keptRef.current = next;
+    if (next.overview && next.evenings) writeScreenCache(CABINET_KEY, { ...next, isClubOwner: isClubOwnerRef.current });
+  };
+  const forgetCabinet = () => { keptRef.current = null; clearScreenCache(); };
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const measureRequest = async <T,>(label: string, request: () => Promise<T>): Promise<T> => {
@@ -82,7 +96,7 @@ export const useOrganizerCrmSession = () => {
     // newer manual refresh or foreground refresh.
     const playersPromise = measureRequest('players', () => api.getPlayers())
       .then((value) => {
-        if (generation === refreshGenerationRef.current) setPlayers(value);
+        if (generation === refreshGenerationRef.current) { setPlayers(value); keepCabinet({ players: value }); }
       })
       .catch((error) => {
         if (generation === refreshGenerationRef.current) console.error('Failed to load organizer player directory:', error);
@@ -96,6 +110,7 @@ export const useOrganizerCrmSession = () => {
       if (generation !== refreshGenerationRef.current) return false;
       setCrmOverview(overview);
       setEvenings(eveningList);
+      keepCabinet({ overview, evenings: eveningList });
       void playersPromise;
       return true;
     } catch (error: any) {
@@ -113,13 +128,17 @@ export const useOrganizerCrmSession = () => {
   };
 
   const checkAuthAndLoad = async () => {
-    setLoading(true);
+    // With the last cabinet on screen the check and the refresh go on in the background, without the loader.
+    if (!keptRef.current) setLoading(true);
     setLoadError(null);
     try {
       await refreshTelegramPlayerSession();
       const me = await api.getMe();
       if (!me.isOrganizer) {
         setIsOrganizer(false);
+        forgetCabinet();
+        setCrmOverview(null);
+        setPlayers([]);
         const formats = Array.isArray(me.eventHostFormats) ? me.eventHostFormats : [];
         // «Организатор вечера» without marks gets the same cabinet, limited to the evenings he runs.
         if ((formats.length || me.eventOrganizer) && me.player?.id) {
@@ -136,13 +155,18 @@ export const useOrganizerCrmSession = () => {
       setEventHost(null);
       setIsOrganizer(true);
       setIsClubOwner(typeof me.isClubOwner === 'boolean' ? me.isClubOwner : null);
+      isClubOwnerRef.current = typeof me.isClubOwner === 'boolean' ? me.isClubOwner : null;
       setShowLoginModal(false);
       await loadAllData();
     } catch (error: any) {
       if (error?.status === 401 || error?.status === 403) {
         setIsOrganizer(false);
         setShowLoginModal(true);
-      } else {
+        forgetCabinet();
+        setCrmOverview(null);
+        setEvenings([]);
+        setPlayers([]);
+      } else if (!keptRef.current) {
         setLoadError(error?.message || 'Не удалось загрузить кабинет организатора');
       }
     } finally {
@@ -182,6 +206,7 @@ export const useOrganizerCrmSession = () => {
     refreshGenerationRef.current += 1;
     overviewAbortRef.current?.abort();
     overviewAbortRef.current = null;
+    forgetCabinet();
     await api.logout();
     setIsOrganizer(false);
     setShowLoginModal(true);

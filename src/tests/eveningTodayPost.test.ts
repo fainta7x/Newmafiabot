@@ -60,7 +60,7 @@ describe('NOVICE gathering rules', () => {
     // First two games now have nine participants, including existing confirmed arrivals.
     const plan = await loadEveningSlotPlan(db, 'ev');
     expect(plan.event.required_slots).toBe(2);
-    expect(plan.event.required_players_per_slot).toBe(9);
+    expect(plan.event.required_players_per_slot).toBe(8); // 8 novice players + 1 judge (owner, 2026-11-16)
     const firstTwo = plan.slots.slice(0, 2);
     for (let i = 0; i < 7; i++) {
       const id = `nv${i}`;
@@ -84,6 +84,19 @@ describe('«Сегодня играем» post', () => {
     await publishTodayPost(db,'ev',{text:'Original'},fetchImpl);expect(fetchImpl).not.toHaveBeenCalled();
     vi.stubEnv('TELEGRAM_BOT_TOKEN','test-token');
     expect((await publishTodayPost(db,'ev',{},fetchImpl)).telegram_status).toBe('published');expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it('no answer from Telegram: «retry», sent again after 15 minutes (owner, 2026-11-19)',async()=>{
+    const db=await setup();vi.stubEnv('TELEGRAM_BOT_TOKEN','test-token');
+    let up=false;
+    const fetchImpl=vi.fn(async()=>{ if(!up) throw Object.assign(new TypeError('fetch failed'),{cause:{code:'ETIMEDOUT'}}); return new Response(JSON.stringify({ok:true,result:{message_id:13}})); });
+    expect((await publishTodayPost(db,'ev',{text:'Сегодня'},fetchImpl)).telegram_status).toBe('retry');
+    up=true;
+    // Within the 15 minutes nothing is sent again.
+    expect((await publishTodayPost(db,'ev',{onlyRetry:true},fetchImpl)).telegram_status).toBe('retry');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await db.run("UPDATE publication_deliveries SET next_attempt_at=? WHERE delivery_key='today:ev:telegram'",[new Date(Date.now()-1000).toISOString()]);
+    expect((await publishTodayPost(db,'ev',{onlyRetry:true},fetchImpl)).telegram_status).toBe('published');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
   it('two clicks claim one channel with the first saved text',async()=>{
     const db=await setup();vi.stubEnv('TELEGRAM_BOT_TOKEN','test-token');

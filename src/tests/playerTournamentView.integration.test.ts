@@ -76,6 +76,25 @@ describe('player tournament view (owner, 2026-10-06)', () => {
     expect((await request(app).get('/api/player/tournaments/live').set('Cookie', playerCookie('viewer'))).body.table_hidden).toBe(false);
   });
 
+  it('shows the доп of every game: everybody\'s with the table open, only one\'s own with it closed (owner, 2026-11-18)', async () => {
+    const { db, app } = await seed();
+    // A game counts in the table once its protocol is completed.
+    await db.run("INSERT INTO tournament_game_protocols (id, game_id, status, winner_team, best_move_seats_json, created_at, updated_at) VALUES ('pr1','g1','completed','red','[]',?,?)", [NOW, NOW]);
+    const open = (await request(app).get('/api/player/tournaments/live').set('Cookie', playerCookie('p1'))).body;
+    const [played, running] = open.games;
+    expect(played.seats.map((seat: any) => typeof seat.additional)).toEqual(['number', 'number', 'number']);
+    expect(running.seats.map((seat: any) => seat.additional)).toEqual([null, null]);
+
+    await request(app).post('/api/tournaments/live/standings-hidden').set('Cookie', organizerCookie()).send({ hidden: true });
+    const hidden = (await request(app).get('/api/player/tournaments/live').set('Cookie', playerCookie('p1'))).body;
+    expect(hidden.standings).toBeNull();
+    expect(hidden.games[0].seats.map((seat: any) => [seat.is_me, typeof seat.additional])).toEqual([[true, 'number'], [false, 'object'], [false, 'object']]);
+    expect(hidden.games[0].seats[1].additional).toBeNull();
+    // Somebody who does not play sees no доп at all while the table is closed.
+    const outsider = (await request(app).get('/api/player/tournaments/live').set('Cookie', playerCookie('viewer'))).body;
+    expect(outsider.games[0].seats.every((seat: any) => seat.additional === null)).toBe(true);
+  });
+
   it('shows registration to a player and keeps a never-published draft private', async () => {
     const { app } = await seed();
     const open = (await request(app).get('/api/player/tournaments/open').set('Cookie', playerCookie('viewer'))).body;

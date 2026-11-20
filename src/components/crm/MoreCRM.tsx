@@ -21,7 +21,7 @@ import {
   Crown,
   Wallet,
   Settings2,
-  Sprout, ShoppingBag, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion, Globe, CalendarDays } from 'lucide-react';
+  Sprout, Gift, ShoppingBag, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion, Globe, CalendarDays } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
@@ -45,6 +45,8 @@ import ShopCRM from './ShopCRM.tsx';
 import SiteCRM from './SiteCRM.tsx';
 import GameScheduleCRM from './GameScheduleCRM.tsx';
 import { EveningPriceSettingsCard } from './EveningPriceSettingsCard.tsx';
+import SecretSantaCRM from './SecretSantaCRM.tsx';
+import FreeGameCRM from './FreeGameCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -64,7 +66,7 @@ type MenuItem = { id: string; label: string; detail: string; icon: React.Compone
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки', achievements: 'Достижения', vip: 'VIP', tokens: 'Жетоны', shop: 'Магазин', site: 'Сайт клуба', schedule: 'Расписание игр', prices: 'Стоимость вечеров', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
-  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок',
+  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота', gifts: 'Сбор на подарок', santa: 'Тайный Санта', freegame: 'Игра без вечера',
 };
 
 const menuTone = (id: string) => {
@@ -89,7 +91,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const [localSubscreen, setLocalSubscreen] = useState<Subscreen>(null);
   const subscreen = activeScreen === undefined ? localSubscreen : activeScreen;
   // The category stays open while one of its screens is open and closed again, so Back lands in the same list.
-  const SCREEN_CATEGORY: Record<string, string> = { tasks: 'run', game: 'run', music: 'run', analytics: 'run', development: 'people', access: 'people', learning: 'people', gifts: 'people', achievements: 'game', vip: 'game', tokens: 'game', shop: 'game', betting: 'game', telegram: 'messages', whatsnew: 'messages', botfaq: 'messages', site: 'messages', schedule: 'run', commerce: 'money', prices: 'money', data: 'system', project: 'system', system: 'system', developer: 'system' };
+  const SCREEN_CATEGORY: Record<string, string> = { tasks: 'run', game: 'run', freegame: 'run', music: 'run', analytics: 'run', development: 'people', access: 'people', learning: 'people', gifts: 'people', santa: 'people', achievements: 'game', vip: 'game', tokens: 'game', shop: 'game', betting: 'game', telegram: 'messages', whatsnew: 'messages', botfaq: 'messages', site: 'messages', schedule: 'run', commerce: 'money', prices: 'money', data: 'system', project: 'system', system: 'system', developer: 'system' };
   const [category, setCategory] = useState<string | null>(() => (activeScreen && SCREEN_CATEGORY[activeScreen]) || null);
   const chooseCategory = (id: string | null) => setCategory(id);
   const setSubscreen = (screen: Subscreen) => { if (activeScreen === undefined) setLocalSubscreen(screen); onScreenChange?.(screen); };
@@ -125,6 +127,8 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'whatsnew' ? <WhatsNewCRM /> : null}
       {subscreen === 'botfaq' ? <BotFaqCRM /> : null}
       {subscreen === 'gifts' ? <GiftCollectionCRM /> : null}
+      {subscreen === 'santa' ? <SecretSantaCRM /> : null}
+      {subscreen === 'freegame' ? <FreeGameCRM /> : null}
     </div>;
   }
 
@@ -132,6 +136,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const dailyItems: MenuItem[] = [
     { id: 'tasks', label: 'Дела', detail: 'Что нужно сделать и кому написать — по срочности', icon: ClipboardList, onClick: onOpenTasks },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
+    { id: 'freegame', label: 'Игра без вечера', detail: 'Провести игру в движке для любых 8–10 человек, без записи и рейтинга', icon: Gamepad2, onClick: () => setSubscreen('freegame') },
     { id: 'schedule', label: 'Расписание игр', detail: 'День недели и время игр', icon: CalendarDays, onClick: () => setSubscreen('schedule') },
     { id: 'music', label: 'Музыкальная база', detail: 'Музыка для ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
@@ -141,6 +146,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'access', label: 'Уровни и роли', detail: 'Уровень, роль в клубе и ведение игр — сразу нескольким игрокам', icon: ShieldCheck, onClick: () => setSubscreen('access') },
     { id: 'learning', label: 'Обучение', detail: 'Кто какие экзамены тренажёра сдал и памятка для новичка', icon: GraduationCap, onClick: () => setSubscreen('learning') },
     { id: 'gifts', label: 'Сбор на подарок', detail: 'Опрос игроков ко дню рождения и кто сколько внёс', icon: Coins, onClick: () => setSubscreen('gifts') },
+    { id: 'santa', label: 'Тайный Санта', detail: 'Запись игроков, жеребьёвка и кому бот написал', icon: Gift, onClick: () => setSubscreen('santa') },
   ];
   const gameItems: MenuItem[] = [
     { id: 'achievements', label: 'Достижения', detail: 'Каталог, выдача вручную и награды игроков', icon: Award, onClick: () => setSubscreen('achievements') },
@@ -167,8 +173,8 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   ];
   // «Ещё» is a short list of categories that fits one screen; a tap goes one level down to that category's items (owner, 2026-11-10).
   const categories: Array<{ id: string; title: string; detail: string; icon: React.ComponentType<{ className?: string }>; items: MenuItem[] }> = [
-    { id: 'run', title: 'Ведение игр', detail: 'Дела, движок, музыка, аналитика', icon: ClipboardList, items: dailyItems },
-    { id: 'people', title: 'Игроки', detail: 'Заявки, уровни, обучение, подарки', icon: Users, items: peopleItems },
+    { id: 'run', title: 'Ведение игр', detail: 'Дела, игра без вечера, музыка, аналитика', icon: ClipboardList, items: dailyItems },
+    { id: 'people', title: 'Игроки', detail: 'Заявки, уровни, обучение, подарки, Санта', icon: Users, items: peopleItems },
     { id: 'game', title: 'Игровая часть', detail: 'Достижения, VIP, жетоны, магазин, ставки', icon: Award, items: gameItems },
     { id: 'messages', title: 'Сообщения', detail: 'Публикации, новости, ответы бота', icon: Send, items: publicationItems },
     { id: 'money', title: 'Деньги', detail: 'Оплата и стоимость вечеров', icon: Coins, items: moneyItems },

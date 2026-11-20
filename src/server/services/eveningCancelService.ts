@@ -94,6 +94,22 @@ export async function publishCancelPost(db: DatabaseWrapper, eveningId: string, 
   return loadCancelPost(db, eveningId);
 }
 
+/**
+ * The minute scan: a cancellation post that Telegram or VK did not answer («retry») is sent again; the delivery keeps the
+ * 15-minute pause between tries (owner, 2026-11-19: «каждые 15 минут… по всем постам»). Only cancellations of the last
+ * two days, so an old one never surfaces.
+ */
+export async function retryCancelPosts(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch) {
+  await ensureEveningCancelPostSchema(db);
+  const rows = await db.all<{ evening_id: string }>(`SELECT evening_id FROM evening_cancel_posts WHERE (telegram_status = 'retry' OR vk_status = 'retry') AND datetime(created_at) > datetime('now', '-2 days')`);
+  let sent = 0;
+  for (const row of rows) {
+    try { if ((await publishCancelPost(db, String(row.evening_id), {}, fetchImpl)).state === 'published') sent += 1; }
+    catch (error) { console.error('[CANCEL POST] repeat failed:', error); }
+  }
+  return sent;
+}
+
 /** The organizer's cancellation: status, player notices, VK announcement update, and the group posts. */
 export async function cancelEveningByOrganizer(db: DatabaseWrapper, eveningId: string, input: { text?: unknown; reason?: string | null } = {}, fetchImpl: typeof fetch = fetch) {
   await ensureGuestPlayerPlaceholderSchema(db);

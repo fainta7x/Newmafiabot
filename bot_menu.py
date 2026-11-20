@@ -38,9 +38,11 @@ def main_menu_for_user(*, is_admin: bool = False, is_judge: bool = False):
     """One short row for everyone: the app and the menu card. Access, organizer and judge entries live inside the card
     (owner, 2026-10-13: the big keyboard covered the card and repeated the same entry three times)."""
     builder = ReplyKeyboardBuilder()
-    app_url = player_app_url()
+    # A plain text button, not a Mini App one (2026-11-19): Telegram opens a keyboard-button Mini App without the
+    # user's data (keyboardButtonSimpleWebView), so the app could not sign the player in and iPhones stayed on the
+    # login screen. The bot answers the button with an inline «Открыть» button, which signs in (registration.py).
     builder.row(
-        KeyboardButton(text=APP_BUTTON_TEXT, web_app=WebAppInfo(url=app_url)) if app_url else KeyboardButton(text=APP_BUTTON_TEXT),
+        KeyboardButton(text=APP_BUTTON_TEXT),
         KeyboardButton(text=MENU_BUTTON_TEXT),
     )
     return builder.as_markup(
@@ -54,8 +56,10 @@ def app_inline_keyboard(path: str = "/player", text: str = APP_BUTTON_TEXT) -> I
     url = player_app_url(path)
     if not url:
         return None
+    # Every app button is followed by the same page in the browser (owner, 2026-11-20: when the app does not open in
+    # Telegram, the player opens it in the browser and signs in through VK).
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))]]
+        inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))], [InlineKeyboardButton(text=BROWSER_BUTTON_TEXT, url=url)]]
     )
 
 

@@ -1,5 +1,7 @@
 # 2LA Noire — Feature Map
 
+- Управление своей записью с сайта без регистрации: `guestBookingService.ts` (токен, чтение, атомарная отмена/перенос), `welcomeRoutes.ts` (`/welcome/booking`), `newcomerFunnelService.ts` (первичная выдача). Для старых лидов: `crmRoutes.ts` (`/leads/:playerId/booking-link`) и меню `LeadsPanel.tsx`. Проверки: `guestBooking.test.ts`, `leads-tab-audit.spec.mjs`; сайт — отдельный репозиторий `2la-noire-site`, `booking.js`.
+
 Fast first-hop map for known features. For fuzzy terms use `npm run project:find -- "<query>"`; after edits use `npm run project:affected -- <files>`.
 
 This map reflects current `main`. Do not use old roadmap text to infer that a subsystem is missing when it is listed here as implemented.
@@ -66,6 +68,12 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Organizer evening games: `src/components/crm/EveningGamesView.tsx`, new-game sheet `EveningGameCreateSheet.tsx` (opens filled, owner 2026-11-15: next planned game with its seating, the table's judge — evening judge on the first table — changed in its own «Судья игры» window, one «Подобрать»; add a player or guest and «Пришёл · за стол» under one fold, an arrived planned player takes his planned seat; audit `e2e/tests/evening-game-create-audit.spec.mjs`, test `eveningGameCreateDefaults.test.ts`); tables `EveningTablesView.tsx` (name + judge; the first table is the evening's, its judge is the evening judge and it cannot be deleted; `host_player_id` in `eveningsRoutesBase.ts`), `EveningGameProtocolModal.tsx` (state, saving, handlers), `EveningLiveGameModal.tsx`; its OBS publication, replay frames and alive seats are `useClubLiveBroadcast.ts` (test `useClubLiveBroadcast.test.ts`); the saved frames live in the `game_replay_frames` table (`src/server/services/gameReplayFramesStore.ts`), read by `playerReplayRoutes.ts`, not in `games.protocol_text`.
 - Club game protocol window (check / correct / confirm; two places «Протокол» + «Ход игры», sheets, tags, «Вы изменили»): `src/components/crm/gameProtocol/` — frame `ProtocolWindow.tsx`, views `OverviewView.tsx` / `GameFlowView.tsx` / `PlayersView.tsx` / `ResultView.tsx`, tag language `tags.tsx`, primitives `ui.tsx`, pure model (circles, ballots from the chronology, issues, changes with undo) `protocolReview.ts`; legacy-record repair `src/lib/legacyClubProtocol.ts`. Tests `gameProtocolReview.test.ts`, `EveningGameProtocolModalAutosave.test.tsx`; browser `e2e/tests/protocol-window-preview.spec.mjs` (+ `e2e/protocol-window.html`). One protocol for both kinds of game (owner, 2026-10-24): every edit is `useProtocolEditing.ts`, the autosave `useProtocolAutosave.ts`, the window with its checks is `ProtocolWorkspace.tsx`, reveals `RevealsCard.tsx`; `EveningGameProtocolModal.tsx` (club) and `tournaments/GameProtocolModal.tsx` (tournament) only load, save, confirm and reopen, and the tournament adds the judge's points (`tournaments/protocol/TournamentPointsView.tsx`) and its confirmation dialogs. Tests `tournamentProtocolWindow.test.tsx`, `protocolRevealsCard.test.tsx`.
 - API: `gamesRoutes.ts`, `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
+
+### «Испорченный телефон с рисунками»
+
+- Player page `PlayerDrawingTelephone.tsx` + `drawingTelephone.css` (frame `dailyWord.css`), at `/player/telephone[/<chain>]` through `PlayerCabinetShell.tsx`; entry from Community → Mini-games and the bot's personal messages.
+- Contract `shared/drawingTelephone.ts`; API `drawingTelephoneRoutes.ts` under `/api/player/telephone`; rules/state `drawingTelephoneService.ts`; personal messages, timers and the «Новости» album `drawingTelephoneNotifyService.ts` (minute scan in `personalTelegramNotificationService.ts`); schema `ensureDrawingTelephoneSchema.ts`.
+- Coverage: `drawingTelephone.integration.test.ts`; all-app audit `telephone-*` pages (`e2e/drawing-telephone-harness.tsx`).
 
 ### Daily sudoku
 
@@ -534,3 +542,5 @@ Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inlin
 - Quick lead from the bot: `handlers/organizer_lead.py` (`/lead`), `bot_api.add_lead`, API `POST /api/bot/leads` (`botRoutes.ts`); organizer message about a self-registered lead: `src/server/services/leadNotificationService.ts`.
 - Roster for the club site: `GET /api/public/welcome/seats?evening=…` in `welcomeRoutes.ts` accepts any explicitly selected open upcoming evening; without id it defaults to NOVICE. Uses the existing `loadEveningSlotPlan` nick-only projection; tests `src/tests/newcomerFunnel.test.ts`.
 - Club site (separate repository `fainta7x/2la-noire-site`, GitHub Pages): `index.html`, `join.js` (live block, form), `join.css`. App side: CORS and redirect in `src/server/routes/welcomeRoutes.ts` / `src/app.ts`, settings in `src/server/runtimeConfig.ts`.
+
+- Разовое личное сообщение выбранным игрокам или всем с Telegram (организатор, по ключу один раз; можно с нижней клавиатурой бота): `POST /api/crm/player-messages` — `src/server/routes/playerCurseRoutes.ts`, `src/server/services/organizerPlayerMessageService.ts`, через очередь личных сообщений.

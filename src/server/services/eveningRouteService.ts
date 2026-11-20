@@ -83,7 +83,10 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   // gathered once `required_slots` games (4 by default) have a full table, not only when every game does.
   const plan = has.has('evening_game_slots') ? await loadEveningSlotPlan(db, eveningId).catch(() => null) : null;
   const slots: Array<{ slot_number: number; registered_count: number }> = plan?.slots || [];
-  const perSlot = Number(plan?.event.required_players_per_slot || 11);
+  // 10 players (novices 8) and the judge; without an assigned judge one more person to judge (owner, 2026-11-16).
+  const judge = (plan?.event as any)?.judge as { nickname: string } | null | undefined;
+  const playersNeeded = Number(plan?.event.required_players_per_slot || 10);
+  const perSlot = playersNeeded + (judge ? 0 : 1);
   const neededSlots = Number(plan?.event.required_slots || 4);
   const assembled = Boolean(plan?.event.assembled);
   const fullSlots = slots.filter((slot) => slot.registered_count >= perSlot);
@@ -149,7 +152,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     {
       id: 'shortfall',
       title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${russianPlural(slots.length, 'игры', 'игр', 'игр')} набраны` : decidedToPlay ? `Играем: набрано ${fullSlots.length} из ${neededSlots} игр, решение организатора` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
-      detail: slots.length ? `Сбор — ${perSlot} человек с судьёй. ${gameList}` : 'Игры не настроены',
+      detail: slots.length ? `Сбор — ${playersNeeded} игроков и ведущий (${judge ? judge.nickname : 'не назначен — нужен ещё 1 человек'}). ${gameList}` : 'Игры не настроены',
       status: slots.length && (assembled || decidedToPlay) ? 'done' : 'attention',
       target: 'participants',
     },

@@ -346,6 +346,8 @@ def test_keyboard_is_one_short_row_for_everyone():
     for admin, judge in ((False, False), (True, True), (False, True)):
         kb = bot_menu.main_menu_for_user(is_admin=admin, is_judge=judge)
         assert [[b.text for b in row] for row in kb.keyboard] == [[bot_menu.APP_BUTTON_TEXT, bot_menu.MENU_BUTTON_TEXT]]
+        # A keyboard Mini App opens without the user's data (iPhones stayed on the login screen, 2026-11-19): plain text.
+        assert all(b.web_app is None for row in kb.keyboard for b in row)
 
 
 def test_staff_view_offers_cabinet_status_and_back(monkeypatch):

@@ -20,7 +20,7 @@ const evening = {
 } as any;
 
 const players = [
-  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: true },
+  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: true , telegram_linked: true, bot_blocked_at: '2026-11-15T10:00:00Z' },
   { id: 'kinder', nickname: 'Киндер', full_name: null, contact_status: 'normal', days_since_last_visit: 6, open_tasks_count: 0, attendance_count: 3, avatar_updated_at: null, game_level: 'novice', club_role: 'member', judge_level: 'none', organizer_player_access: false },
   { id: 'pristan', nickname: 'Пристань', full_name: null, contact_status: 'normal', days_since_last_visit: 9, open_tasks_count: 0, attendance_count: 12, avatar_updated_at: null, game_level: 'tournament', club_role: 'team', judge_level: 'host', organizer_player_access: false },
   { id: 'matroskina', nickname: 'Матроскина', full_name: 'Анна', contact_status: 'normal', days_since_last_visit: 32, open_tasks_count: 0, attendance_count: 5, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: false },
@@ -140,6 +140,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     ] });
     return reply({ ok: true });
   }
+  if (/^\/api\/crm\/leads\/[^/]+\/booking-link$/.test(url.pathname) && method === 'POST') return new Response(JSON.stringify({ url: 'https://2lamafia.ru/igry/#booking=' + 'a'.repeat(43) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   // «Лиды» (owner, 2026-11-16): three leads at different stages and one open novice evening.
   if (url.pathname === '/api/crm/leads' && method === 'GET') {
     const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
@@ -152,6 +153,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       lead('anna', 'Анна', { status: 'recall', recall_count: 1 }),
     ] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
+  if (url.pathname === '/api/crm/curses' && method === 'GET') return new Response(JSON.stringify({ until: '2026-11-26T16:00:00Z' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   if (url.pathname.includes('/tokens')) {
     return new Response(JSON.stringify({ player_id: url.pathname.split('/')[3] || 'bogdan', balance: 120, ledger: { items: [], total: 0, limit: 5, offset: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }

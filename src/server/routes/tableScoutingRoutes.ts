@@ -7,6 +7,8 @@ import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackin
 import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 import { winRatePercent } from '../../shared/stats.ts';
+import { cachedScreen, registerScreen } from '../services/screenPrecomputeService.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
 
 const router = Router();
 router.use(requireOrganizerAuth);
@@ -40,9 +42,8 @@ export const needsCurrentCommunicationAttention = (player: any) => (
   Boolean(player?.eligible_now) && player?.attention_status !== 'answered' && player?.attention_status !== 'not_published'
 );
 
-router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
-  try {
-    const db = req.db;
+/** «Сегодня» (пульт организатора); computed in the background every minute (screenPrecomputeService) and on request when stale. */
+export async function loadCommandCenter(db: DatabaseWrapper) {
     const nowIso = new Date().toISOString();
     const wrapupSince = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
@@ -188,7 +189,14 @@ router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
       evening: { id: String(row.evening_id), title: String(row.evening_title || 'Игровой вечер'), starts_at: row.starts_at || null },
     }));
 
-    return res.json({ snapshot, wrapup, unfinished_games, generated_at: new Date().toISOString() });
+    return { snapshot, wrapup, unfinished_games, generated_at: new Date().toISOString() };
+}
+registerScreen('crm-command-center', loadCommandCenter);
+
+router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
+  try {
+    // A copy: the freshness middleware adds payment scopes to the body, the stored screen stays as computed.
+    return res.json(structuredClone(await cachedScreen(req.db, 'crm-command-center', loadCommandCenter)));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось собрать пульт организатора' });
   }

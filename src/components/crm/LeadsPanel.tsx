@@ -62,6 +62,8 @@ export function LeadsPanel({ onChanged, onCountChange }: { onChanged?: () => voi
   const [menuFor, setMenuFor] = useState<Lead | null>(null);
   const [removing, setRemoving] = useState<Lead | null>(null);
   const [copied, setCopied] = useState('');
+  const [bookingLink, setBookingLink] = useState<{ playerId: string; url: string; copied: boolean } | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +91,17 @@ export function LeadsPanel({ onChanged, onCountChange }: { onChanged?: () => voi
     if (lead.stage === 'new') void act(`/api/crm/leads/${encodeURIComponent(lead.player_id)}/written`, {}, 'Не удалось отметить');
   };
   const setStatus = (lead: Lead, status: Lead['status']) => act(`/api/crm/leads/${encodeURIComponent(lead.player_id)}/status`, { status }, 'Не удалось изменить статус');
+  const createBookingLink = async (lead: Lead) => {
+    if (linkBusy) return;
+    setLinkBusy(true);
+    try {
+      const data = await sendJson<{ url: string }>(`/api/crm/leads/${encodeURIComponent(lead.player_id)}/booking-link`, 'POST', {}, 'Не удалось создать ссылку');
+      let copied = false;
+      try { await navigator.clipboard.writeText(data.url); copied = true; } catch { /* The selectable field remains available. */ }
+      setBookingLink({ playerId: lead.player_id, url: data.url, copied });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось создать ссылку'); }
+    finally { setLinkBusy(false); }
+  };
 
   const shown = byView[view];
   return (
@@ -149,6 +162,11 @@ export function LeadsPanel({ onChanged, onCountChange }: { onChanged?: () => voi
               {day(evening.starts_at, true)} · вечер новичков{menuFor.evening?.id === evening.id ? <span>записан</span> : null}
             </button>
           )) : <p className="text-[12px] text-text-muted">Открытых вечеров новичков пока нет.</p>}
+          <div className="space-y-2 border-t border-border-soft pt-3">
+            <button type="button" disabled={linkBusy} onClick={() => void createBookingLink(menuFor)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft px-3 text-[13px] font-semibold text-text-primary disabled:opacity-50"><Copy className="h-4 w-4" />{linkBusy ? 'Создаём ссылку…' : 'Создать новую ссылку на запись'}</button>
+            <p className="text-[12px] leading-5 text-text-muted">По ней человек сможет сам отменить или перенести запись без входа. Новая ссылка заменяет предыдущую.</p>
+            {bookingLink?.playerId === menuFor.player_id ? <div className="space-y-2"><label className="block text-[12px] text-text-secondary">Ссылка на запись<input readOnly value={bookingLink.url} onFocus={event => event.currentTarget.select()} className="mt-1 min-h-11 w-full rounded-[10px] border border-border-soft bg-surface-1 px-3 text-[12px] text-text-primary" /></label><p role="status" className="text-[12px] text-success">{bookingLink.copied ? 'Ссылка скопирована. Отправь её человеку.' : 'Скопируй ссылку и отправь её человеку.'}</p></div> : null}
+          </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
             {menuFor.status !== 'archived' ? <button type="button" onClick={() => { const lead = menuFor; setMenuFor(null); void setStatus(lead, 'archived'); }} className="min-h-11 rounded-[12px] border border-border-soft text-[13px] font-semibold text-text-primary">В архив</button> : null}
             {menuFor.status === 'active' && menuFor.stage !== 'came' ? <button type="button" onClick={() => { const lead = menuFor; setMenuFor(null); void setStatus(lead, 'converted'); }} className="min-h-11 rounded-[12px] border border-border-soft text-[13px] font-semibold text-text-primary">Сделать игроком</button> : null}

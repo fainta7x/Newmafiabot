@@ -149,6 +149,9 @@ Main areas:
 
 Broad CRM UX redesign is product work, not an architecture prerequisite. It is currently deferred by user preference.
 
+### Ready screens
+`screenPrecomputeService.ts` keeps `loadCommandCenter` (tableScoutingRoutes), `loadAgenda` and `loadCrmOverview` (crmRoutes) computed per database: a generation counter is bumped by `screenInvalidationMiddleware` on every non-GET `/api` request (before and after it), a result computed across a bump is not kept, max age 90 s, warm-up every minute for the club database (`startScreenPrecomputeWorker`). Writes that bypass the API rely on the minute warm-up; tests call `invalidateScreens`. The client keeps the last answers in localStorage (`src/lib/screenCache.ts`, cleared by `api.logout`).
+
 ### Novice funnel ownership
 
 The canonical first-visit/novice funnel is Node/WebApp-owned. `novice_applications` records the first route; novices self-activate, while experienced visitors await organizer review. `players.club_stage` owns the relationship with 2LA Noire; neither Telegram nor VK keeps a parallel funnel. `players.game_level` remains the independent playing-skill/access classification. Player entry lives in the events calendar, experienced-player decisions live in CRM **Ещё → Люди и обучение → Заявки новых игроков** (internal id `development`), and both external channels receive organizer decisions through the existing personal notification router.
@@ -217,6 +220,22 @@ Voting outcomes remain authoritative in `src/shared/tournamentVoting.ts`.
 Before changing voting/fouls/removals/PPK/speech timing/zero round/game completion, read `docs/BUSINESS_RULES.md` and focused tests.
 
 Current canonical launcher passes controlled hidden-role state. A bare direct `LiveGameEngine` fallback still starts internal role visibility as visible; treat this as low-priority cleanup, not evidence that the real club launcher exposes roles.
+
+### Drawing telephone persistence
+
+`drawingTelephoneRoutes.ts` → `drawingTelephoneService.ts` → `telephone_chains` / `telephone_links`. A chain row holds the step (`move` / `choose` / `guess`), the current player and the 8-hour deadline; links hold the drawings (PNG, base64) and captions. Each response shows the viewer only what the rules allow. Rewards go through `tokenLedgerService.ts` with one idempotency key per move. `drawingTelephoneNotifyService.ts` queues personal messages through `personalNotificationRouterService.ts` and posts finished chains to «Новости» through `clubResultPostService.ts` (claim/finish, once).
+
+### Links into the app from Telegram
+Personal messages: buttons to the app are `web_app` (`personalNotificationText.miniAppButtons` / `telegramActionMarkup`). Group posts: `miniAppLink(path)` (gameResultCardService) builds `t.me/<bot>?startapp=<param>` for the bot's Main Mini App; `src/shared/miniAppStart.ts` maps `/player/a/b` ↔ `a__b`, and `App.tsx` (`openTelegramStartPage`) opens that page once before the first render.
+
+### VK login handoff
+A cabinet VK login whose callback lands in another browser (iPhone: the VK app returns to Safari) is finished but signs nobody in there: `vkPlayerAuthService.storeVkPlayerHandoff` keeps the result on `vk_player_oauth_states` (`handoff_*`), and the window holding the OAuth binding cookie claims it once through `POST /api/integrations/player/vk/handoff` (`VkPlayerAccess` polls every 2 s; Telegram opens VK with `openLink`, a browser in a new tab).
+
+### Player curse («Проклятье на понос»)
+`player_curses` (player + evening mark, `removed_at` when lifted, `posted`), `player_curse_checks` (the Friday 11:00 check done once per evening), `player_curse_day_posts` (the «Новости» post of a day, edited when its marks change) — a mark on an existing Участник/Событие pair, not a new participant table. `playerCurseService.ts` owns the rules (weeks chained in `curseUntilByPlayer`); the personal message goes through `queuePersonalNotification` (`curse:<evening>:<player>`), the Friday check and the «Новости» post (one per day) through the personal-notification minute scan (`runCursePosts`, claim key `curse:<day>:<mark ids>`); unanswered = `loadAnnouncementOverview` attention `unanswered`. Routes `/api/crm/curses*` (organizer); `curse_until` is added to `/api/player/players` and the profile summary.
+
+### Secret Santa persistence
+`santa_events` (exchange evening, bound later, may be NULL; status open → drawn | cancelled; `posted`), `santa_members` (who is in the draw — not an event Участник: no RSVP, attendance or payment; the exchange evening's people stay in `evening_participants`, from where the шмурдяк is taken), `santa_pairs` (giver → receiver, `shmurdyak_id`). `secretSantaService.ts` owns the rules; `santaCircle` (src/shared/secretSanta.ts) makes one cycle with `crypto.randomInt`. The «Новости» post is sent by the personal-notification minute scan (`runSecretSanta`, claim key `secret-santa:<id>`), which also queues the Monday and day-before reminders; the messages go through `queuePersonalNotification` (`santa:<event>:result|monday:<day>|day-before:<giver>`). Routes: `/api/player/santa*` (player session), `/api/crm/santa*` (organizer).
 
 ### Daily sudoku persistence
 

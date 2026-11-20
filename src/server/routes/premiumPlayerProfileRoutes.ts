@@ -1,3 +1,4 @@
+import { curseUntil } from '../services/playerCurseService.ts';
 import { loadDirectContacts } from '../services/playerInvitePreferencesService.ts';
 import { ensureAdminDataSchema } from '../../db/ensureAdminDataSchema.ts';
 import { STORY_PATHS, STORY_IDS } from '../../lib/achievementStories.ts';
@@ -87,7 +88,8 @@ router.get('/profiles/:playerId/summary', async (req, res) => {
     }
     // Staff work: judging only for those who judged, organizing only on organizers' profiles.
     const staff = await loadPlayerStaffStats(req.db, playerId).catch(() => null);
-    return res.json({ ...summary, staff });
+    const curse_until = await curseUntil(req.db, playerId).catch(() => null);
+    return res.json({ ...summary, staff, player: { ...summary.player, curse_until } });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить профиль' });
   }

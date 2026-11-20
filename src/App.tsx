@@ -22,6 +22,16 @@ import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboardi
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
+import { startParamToPlayerPath } from './shared/miniAppStart.ts';
+import { clearScreenCache, readScreenCache, writeScreenCache } from './lib/screenCache.ts';
+
+/** The player's last cabinet on this device, per Telegram account («Экраны без подгрузки», 2026-11-17). */
+type CachedPlayerRoot = { data: PlayerMeResponse; canOpenAdmin: boolean; canOpenEventHost: boolean };
+const playerRootCacheKey = () => {
+  let telegramId = '';
+  try { telegramId = String((window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || ''); } catch { /* no Telegram */ }
+  return `player:root:${telegramId || 'web'}`;
+};
 import { MAINTENANCE_TEXT, MAINTENANCE_TITLE, ServerRestartingError, fetchOrRestarting, isRestartingStatus, maintenanceContacts } from './lib/maintenance.ts';
 
 type RootState =
@@ -31,10 +41,47 @@ type RootState =
   | { status: 'error' }
   | { status: 'restarting' };
 
+/**
+ * Telegram puts the launch data into the address (`#tgWebAppData=…`) when it opens the Mini App. Read once at start, so
+ * the login works even when the Telegram script did not load (owner, 2026-11-19: iPhones on mobile internet stayed on the
+ * login screen); the server checks its signature the same way.
+ */
+const LAUNCH_INIT_DATA = (() => {
+  try {
+    const fromHash = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tgWebAppData');
+    if (fromHash) return fromHash;
+    const stored = JSON.parse(window.sessionStorage.getItem('__telegram__initParams') || 'null') as { tgWebAppData?: unknown } | null;
+    return typeof stored?.tgWebAppData === 'string' ? stored.tgWebAppData : '';
+  } catch { return ''; }
+})();
+
 function getTelegramInitData(): string {
   const telegramWebApp = (window as any).Telegram?.WebApp;
-  return typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
+  const fromScript = typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
+  return fromScript || LAUNCH_INIT_DATA;
 }
+
+/**
+ * Opened from a group post as the bot's Main Mini App (`t.me/<bot>?startapp=telephone__<id>`): go straight to that page
+ * of the player cabinet. Done once, before the first render, and only on the app's start page.
+ */
+function openTelegramStartPage() {
+  try {
+    if (window.location.pathname !== '/' && window.location.pathname !== '/player') return;
+    const telegramWebApp = (window as any).Telegram?.WebApp;
+    const fromHash = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tgWebAppStartParam');
+    const param = telegramWebApp?.initDataUnsafe?.start_param ?? new URLSearchParams(window.location.search).get('tgWebAppStartParam') ?? fromHash;
+    const path = startParamToPlayerPath(param);
+    if (!path) return;
+    const handled = `telegram-start:${param}`;
+    if (window.sessionStorage.getItem(handled)) return;
+    window.sessionStorage.setItem(handled, '1');
+    window.history.replaceState(window.history.state, '', `${path}${window.location.hash}`);
+  } catch {
+    // Not inside Telegram or storage blocked: the app opens its start page as before.
+  }
+}
+if (typeof window !== 'undefined') openTelegramStartPage();
 
 function currentPlayerReturnPath() {
   const url = new URL(window.location.href);
@@ -196,7 +243,10 @@ function AppContent() {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
     // Fetch the player code alongside authentication, never after its network round trip.
     void loadPlayerCabinet().catch(() => undefined);
-    setRootState({ status: 'loading' });
+    // The last cabinet is shown at once; the checks below replace it with the fresh one.
+    const cachedRoot = readScreenCache<CachedPlayerRoot>(playerRootCacheKey());
+    // While the server restarts (retry every 20 s) the restart screen stays instead of blinking the old cabinet.
+    setRootState((previous) => (cachedRoot && previous.status !== 'restarting' && previous.status !== 'error' ? { status: 'player', ...cachedRoot } : { status: 'loading' }));
     rememberSiteReturn(window.location.search);
 
     const telegramWebApp = (window as any).Telegram?.WebApp;
@@ -219,7 +269,10 @@ function AppContent() {
           body: JSON.stringify({ initData, return_to: currentPlayerReturnPath() }),
         });
         if (isRestartingStatus(telegramResponse.status)) throw new ServerRestartingError();
-        if (!telegramResponse.ok) throw new Error('telegram-auth');
+        // A refused Telegram sign-in (its data is older than 24 hours when the app stayed open in Telegram) is not the
+        // end: the player's session from the last sign-in is checked below, and only without it does he see the entry
+        // screen (owner, 2026-11-17: «авторизации сбрасываются»).
+        if (!telegramResponse.ok) console.warn('[auth] Telegram sign-in refused, trying the saved session:', telegramResponse.status);
       }
 
       // After Telegram auth the session cookie is already set. These reads are
@@ -241,10 +294,12 @@ function AppContent() {
         const data = await profileResponse.json() as PlayerMeResponse;
         const backToSite = takeSiteReturn();
         if (backToSite) { window.location.replace(backToSite); return; }
+        writeScreenCache(playerRootCacheKey(), { data, canOpenAdmin, canOpenEventHost });
         setRootState({ status: 'player', data, canOpenAdmin, canOpenEventHost });
         return;
       }
 
+      clearScreenCache('player:');
       setRootState({ status: 'unlinked', canOpenAdmin });
     } catch (error) {
       // No answer at all (TypeError from fetch) or a gateway error: the server is restarting.

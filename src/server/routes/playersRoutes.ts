@@ -1,4 +1,5 @@
 import { isNoviceLevel } from '../../lib/noviceRule.ts';
+import { loadBotBlockedPlayers } from '../services/botBlockedService.ts';
 import { syncPlayersWithOrganizerLevel } from '../services/noviceService.ts';
 import { Router } from 'express';
 import { PLAYER_VISIT_STATS_SQL } from '../services/playerVisitsService.ts';
@@ -124,6 +125,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       ? (await db.all<any>("SELECT DISTINCT player_id FROM player_external_identities WHERE platform = 'vk'")).map((row: any) => String(row.player_id))
       : []);
 
+    // «Бот заблокирован» (owner, 2026-11-16): who blocked the club bot in Telegram, from the delivery journals.
+    const botBlocked = await loadBotBlockedPlayers(db).catch(() => new Map<string, string>());
     const mapped = players.map((p: any) => {
       const cStatus = deriveContactStatus(p);
       const eStage = calculateEngagementStage(p.attendance_count || 0, p.last_visit);
@@ -138,6 +141,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
         ...p,
         contact_status: cStatus,
         engagement_stage: eStage,
+        bot_blocked_at: botBlocked.get(String(p.id)) ?? null,
         calculated_stage: eStage,
         lifecycle_status: cStatus === 'blocked' ? 'blocked' : eStage,
         stored_lifecycle_status: p.lifecycle_status || null,

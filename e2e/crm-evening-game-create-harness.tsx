@@ -26,7 +26,8 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     participants = participants.map((item) => item.id === participant[1] ? { ...item, ...body } : item);
     return json(participants.find((item) => item.id === participant[1]));
   }
-  if (url.pathname.includes('/players')) return json([{ id: 'judge-1', nickname: 'Ольга', club_role: 'ORGANIZER', host_formats: 'STANDARD,CASUAL,NOVICE,RATING' }]);
+  // «Чужой судья» is not in this evening: the judge list must not offer him (owner, 2026-11-16).
+  if (url.pathname.includes('/players')) return json([{ id: 'judge-1', nickname: 'Ольга', club_role: 'ORGANIZER', host_formats: 'STANDARD,CASUAL,NOVICE,RATING' }, { id: 'judge-out', nickname: 'Чужой судья', club_role: 'ORGANIZER', host_formats: 'STANDARD,CASUAL,NOVICE,RATING' }]);
   return json({});
 };
 

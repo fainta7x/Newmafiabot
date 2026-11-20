@@ -1,3 +1,4 @@
+import { curseUntilByPlayer } from '../services/playerCurseService.ts';
 import { isOpenEvening, openEveningSql } from '../../lib/eveningStatus.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
@@ -110,6 +111,7 @@ router.get('/players', async (req, res) => {
        ORDER BY p.nickname COLLATE NOCASE ASC
     `);
 
+    const curses = await curseUntilByPlayer(db).catch(() => new Map<string, string>());
     return res.json({
       players: rows.map((row: any) => ({
         id: String(row.id),
@@ -117,6 +119,8 @@ router.get('/players', async (req, res) => {
         elo: Number(row.elo || 0),
         game_level: String(row.game_level || 'club'),
         avatar_url: playerAvatarUrl(String(row.id), row.has_db_avatar, row.avatar_suppressed),
+        // «Проклятье на понос» (owner, 2026-11-19): until when, or null.
+        curse_until: curses.get(String(row.id)) || null,
       })),
     });
   } catch (error: any) {

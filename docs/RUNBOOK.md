@@ -305,6 +305,8 @@ Every WAL connection opens with `synchronous = NORMAL` (owner decision 2026-10-2
 
 ## 9. Combined Amvera deployment
 
+Cookie-authenticated browser writes pass `cookieCsrfProtection` after `cookieParser` in both app entry points. An explicit trusted application Origin (or same-origin Fetch Metadata / trusted Referer fallback) is required; an explicit double-submit `csrf_token` / `X-CSRF-Token` pair is also accepted. Non-browser API clients without browser metadata retain their existing credential path. Public welcome signup/booking never authorizes by cookie and retains its separate bearer/CORS contract. Regression tests: `cookieCsrfProtection.test.ts`, `guestBooking.test.ts` (untrusted sibling Origin). Do not remove this guard to fix an integration; check the actual Origin and configured app aliases.
+
 **Amvera sometimes misses a merge** (seen after #1000 and #1006, 2026-10-22/23). Its mirror commit (`getCommitHistory`, author «amvera», «Merge branch 'main'») stays on the previous SHA, and `/api/health/runtime` keeps the old `build.sha`. `rebuildProject` rebuilds the mirror as it is; it does not fetch GitHub. The next merge to `main` brings every missed commit with it. Check `build.sha` after each merge and never report a merge as deployed until it changes.
 
 Canonical target: one Docker application from `fainta7x/Newmafiabot` `main` running nginx + Node + Python bot.

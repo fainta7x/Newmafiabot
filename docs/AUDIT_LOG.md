@@ -1,3 +1,89 @@
+## 2026-11-20 — заблокировавшие бота: без проклятья, «Перестал ходить»
+
+Просьба владельца (см. BUSINESS_RULES «Бот заблокирован»). Статус: исправлено в коде — `playerCurseService` (не метит, снимает метки), `playerActivityAutoService.stopBotBlockedPlayers` + приоритет в суточном расчёте, шаг в минутной проверке; тесты `botBlockedPlayers.integration`. Открыто: что ещё значит «не учитывать нигде» — спросить владельца.
+
+## 2026-11-20 — айфон Аннушки: что показали видео
+
+Видео: приложение — чёрный экран с вечной загрузкой (LTE и Wi‑Fi); вход через VK доходит до «Разрешить», дальше ничего; `fonts.googleapis.com` в её браузере — «подключение не защищено, может имитировать» (подмена защищённого соединения на её устройстве или в сети). `https://2lamafia.ru` у неё открывается. Сервер и домен `app.2lamafia.ru` отдают страницу и скрипты (200, одинаковый HTML). Статус: причина у неё на устройстве/в сети не доказана; шрифты уже не блокируют запуск.
+
+## 2026-11-20 — приложение не грузится на айфоне (шрифты Google)
+
+Владелец: игрок с айфоном перепробовал все варианты входа, ничего не прогружается. Сервер отдаёт страницу и скрипты быстро (`/player` 200 за ~1 с). `index.html` подключал таблицу стилей `fonts.googleapis.com` как блокирующую: пока она не загрузится, приложение не стартует. Гипотеза (на устройстве не проверена): при медленном или недоступном Google Fonts экран остаётся пустым. Статус: исправлено — таблица шрифтов грузится без блокировки (`media="print"` + `onload`), тест `telegramScriptLocal`. На устройстве игрока не подтверждено.
+
+## 2026-11-20 — вход через VK на айфонах
+
+Логи Amvera 19.11 (17:14–18:08 UTC): `GET /api/integrations/vk/oauth/callback` → `/player?vk_error=vk_state_browser_mismatch`. Вход через VK начат в окне Telegram, а приложение VK вернуло его в Safari, без cookie привязки, и сервер отказал. Исправлено: `completeVkPlayerOAuth` при чужом браузере завершает вход (`crossBrowser`), но сессию не выдаёт; результат хранится в `vk_player_oauth_states.handoff_*`. Начавшее окно забирает его по `POST /api/integrations/player/vk/handoff`: только по своей cookie привязки, один раз, 30 минут; в исключениях пересчёта экранов. В Telegram VK открывается через `Telegram.WebApp.openLink`, в браузере — в новой вкладке, а исходная ждёт. Кнопка «🌐 Открыть в браузере» добавлена ко всем кнопкам приложения в личных сообщениях (`miniAppButtons`, `telegramActionMarkup`) и в карточке «Меню» бота. Тесты: vkPlayerHandoff.integration (новый), vk* 101, кнопки 125, бот 103; аудит экрана входа 14/14 (новый `e2e/vk-login.html`). **fixed (ждёт проверки у игроков)**
+
+## 2026-11-20 — правки «Проклятья на понос»
+
+Пост 20.11 в 10:01 (скриншот владельца): 12 игроков, у Millourt, Пикми, Точка — две недели (основной вечер + вечер новичков). `playerCurseService`: `CURSE_HOUR` 11, `CURSE_NOVICE_EVENINGS=false`, `liftAnsweredMarks` (ответ до начала открытого вечера снимает отметку; отметки вечеров новичков снимаются), `curseStateByPlayer` (до какого числа и сколько отметок), `player_curse_day_posts` + `editMessageText` (пост дня правится; пост 20.11 подхватывается по `publication_deliveries`). Личные сообщения, уже ушедшие игрокам вечера новичков, не исправляются. Тесты: playerCurse.integration 5.
+
+## 2026-11-19 — айфоны не входят в приложение из Telegram
+
+Скриншоты владельца, 18:10: кнопка из сообщения бота открывает пустое мини-приложение (бесконечная загрузка), кнопка меню показывает «Войти в кабинет игрока» вместо автоматического входа, айфон, мобильный интернет.
+- `index.html` грузил `https://telegram.org/js/telegram-web-app.js` с `defer`. Модуль приложения ждёт этот скрипт: пока telegram.org не отвечает (в РФ на мобильном интернете домен часто заблокирован или очень медленный), экран пустой. Если скрипт не загрузился, нет `Telegram.WebApp.initData` и показывается экран входа. **Гипотеза** (отсюда telegram.org тоже недоступен; сеть игрока не проверить). Исправлено: официальный скрипт (копия Bot API 8.0 из @twa-dev/sdk 8.0.2, MIT) лежит у нас — `public/telegram-web-app.js`. `getTelegramInitData` берёт `tgWebAppData` из адреса или из sessionStorage, если скрипта нет. **fixed (ждёт проверки у игроков)**
+- Вход через VK на айфоне тоже не прошёл (со слов игрока). Причина не найдена. **open**
+- **Найдено по логам Amvera после выкладки #1311** (17:14–17:17 UTC): айфон открывает `/player`, наш `/telegram-web-app.js` грузится (200), но `POST /api/auth/telegram` нет — Telegram не дал `initData`. Нижняя кнопка клавиатуры бота «🎭 Открыть 2LA Noire» (`bot_menu.main_menu_for_user`) была Mini App-кнопкой клавиатуры, а Telegram открывает такие без данных пользователя (keyboardButtonSimpleWebView). Исправлено: кнопка стала текстовой, бот отвечает на неё инлайн-кнопкой «Открыть», которая передаёт вход (`open_player_app_fallback`). У игроков старая клавиатура остаётся, пока бот не пришлёт новую (/start). **fixed (ждёт проверки)**
+- После входа через VK на айфоне следующее открытие снова без сессии (`/api/player/me` 401 в 17:16): между запусками мини-приложения cookie не сохраняется. Пока вход через Telegram работает при каждом открытии, это не мешает. **open**
+
+## 2026-11-19 — группы в «кому передать ход»
+
+`telephoneActivity` (`drawingTelephoneService`) вместо `rarelyAnswering`: исходы последних 5 ходов — сходил / «Не хочу» («отказался» в сообщении «ход вернулся») / истёк («не успел»). Поле `activity` у `TelephonePlayer`, `rarely_answers` сохранён. Тесты: drawingTelephone.integration 14; аудит экранов телефона 105/105. Находок нет.
+
+## 2026-11-19 — «Проклятье на понос»
+
+`playerCurseService` (таблица `player_curses`, отметка = игрок + вечер, не новая сущность участника), маршруты `/api/crm/curses*`, шаг минутного скана `player_curse_posts` (пятница 10:00 МСК, `player_curse_checks` — один раз на вечер). Прод (GET, 19.11): на 20.11 два вечера — «Игровой вечер» молчат 10 из 22, «Вечер для новичков» 6 из 7. Тесты: playerCurse.integration 4 (недели подряд, сообщение, снятие отметки, снятие проклятья; время и текст поста; API и профиль). Аудит вёрстки: cabinet-club, player-profile(-friend), crm-players, owner-evenings-answers — 35/35. Находок нет.
+
+## 2026-11-19 — пост «Слово дня» снова не вышел
+
+`/api/crm/publications/held`: `club:daily-word-invite:2026-11-19`, `fetch failed (ETIMEDOUT)` в 10:00 (Amvera предупреждала о проблемах сети). По подтверждению владельца пост отправлен сверкой (сообщение 28552). Исправление по просьбе владельца («если в 10 не получилось, пускай каждые 15 минут… и так по всем постам»): любой сетевой сбой без ответа Telegram (ETIMEDOUT, ECONNRESET, сокет, «fetch failed») — временный отказ с повтором через 15 минут; сбой соединения до отправки — через 30 с; посты клуба пробуют до 40 раз (около 9 часов); «Сегодня играем» получил статус `retry` и повтор минутным проходом только этого канала. Ошибка в нашем коде по-прежнему придерживается до сверки. Риск: Telegram не даёт боту проверить, вышел ли пост, поэтому при потерянном ответе возможен дубль.
+
+## 2026-11-18 — «часто не отвечает» в телефоне
+
+`rarelyAnswering` (`drawingTelephoneService`): исходы последних 5 ходов игрока из `telephone_links`, отгадок и сообщений «ход вернулся» (`personal_notification_deliveries`, ключи `telephone:*:back:*` / `guesser-back`, текст «не успел» — истекло). Тесты: drawingTelephone.integration 14 (+1); аудит экранов телефона 105/105.
+
+## 2026-11-18 — «Не зовите меня в цепочки»
+
+Новая настройка игрока в «Испорченном телефоне» (`telephone_optouts`, `setTelephoneOptOut`, `POST /api/player/telephone/opt-out`). Тесты: drawingTelephone.integration 13; аудит экрана списка 21/21.
+
+## 2026-11-18 — шапка кабинета и «Следующий вечер»
+
+Владелец (скриншот): «2LA Noire» слева в шапке идёт по буквам; «Следующий вечер» долго «Загрузка…». Причины: (1) `PlayerQuickAccessBar` — справа CRM, «Ведение», кошелёк с пятизначным балансом, настройки и колокольчик; для названия оставалось 3–30 px (воспроизведено при 360/390 и балансе 26 280). Исправлено: название клуба держит место (без переноса), кнопки 40 px в ширину, баланс одной строкой (уменьшается), монетка скрыта при ширине меньше 375 px. (2) Профиль игрока брался из кеша устройства, а список вечеров всегда запрашивался заново (около 1 с через сеть, параллельно с другими запросами главной). Исправлено: последний список вечеров кешируется на устройстве. Попутно: заглушка `/api/player/judging` в кабинете для проверки не отдавала `permissions` — экран «Ведение» падал только в проверке; дописано. Аудит: 151/151 экранов кабинета + новый маршрут `cabinet-home-busy-topbar`.
+
+## 2026-11-18 — Игра без вечера
+
+Новый экран `FreeGameCRM` поверх тестовой игры судьи (`JudgeTestGameModal`, синтетическая игра −2147483000, локальная колода, запросы игры перехватываются). Браузерный сценарий `e2e/tests/free-game.spec.mjs`: 10 и 9 игроков — имена → состав → виртуальная раздача → ночь, ни одного запроса записи на сервер; имена сохраняются на устройстве; игра, прерванная перезагрузкой страницы (как закрытый Telegram), продолжается с ночи с теми же ролями (парковка в `testGameSandbox`). Аудит текста 14/14.
+
+## 2026-11-18 — пост «Слово дня» не вышел
+
+Владелец: «пост сегодня не вышел». `/api/crm/publications/held`: `club:daily-word-invite:2026-11-18`, `fetch failed`, статус «мог выйти». Попытка в 10:00 МСК совпала с перезапуском сервера после выкатки #1302 (SIGTERM 06:58:59 UTC, затем зависание event loop на 6,9 с). По подтверждению владельца пост отправлен сверкой «absent», Telegram принял его (сообщение 28498). Исправление: если соединение с Telegram не установилось (ENOTFOUND, EAI_AGAIN, ECONNREFUSED, ENETUNREACH, EHOSTUNREACH, UND_ERR_CONNECT_TIMEOUT), пост точно не ушёл и повторяется сам через 30 с. Оборванный после отправки запрос (ECONNRESET или без кода) по-прежнему придерживается до сверки. Код ошибки пишется в лог.
+
+## 2026-11-18 — турнир: случайная рассадка и доп по играм
+
+Режим рассадки `unique|random` (`seatParticipantsByMode`) в `/api/tournaments/:id/generate-seating` и турнирном вечере; доп за игру (`additional_points`) в турнирной таблице и в `/api/player/tournaments/:id` (при закрытой таблице — только свой). Аудит текста: найдены и исправлены обрезанные ники в составе, играх и таблице турнира в кабинете игрока (`truncate` → перенос). Тесты: турниры 68 файлов / 423 теста; аудит 35/35.
+
+## 2026-11-17 — «авторизации сбрасываются» (жалоба игроков)
+
+Диагностика по логам Amvera (только чтение) и коду:
+- 🔴 исправлено — **зависания сервера после #1296**: `screenPrecomputeService` пересчитывал «Сегодня», «Дела» и «Обзор» через 1,5 с после каждого не-GET запроса. Почти все такие запросы — `POST /api/presence` (каждые 15 с от каждого открытого приложения), `ui-events`, ходы судоку, `betting/reconcile`, около 450 за 2 часа. Получался непрерывный пересчёт на синхронном SQLite. Медианное зависание event loop — 8,5 с против 1,6 с до выкатки, максимум 42 с, всего около 6300 с блокировки за 6 часов. Запросы входа (`/api/auth/telegram`, `/api/auth/me`) обрывались (499), и игрок видел ошибку или экран входа. Исправление: служебные запросы и мини-игры не делают экраны старыми; пересчёт идёт только проверкой раз в минуту после изменения или раз в 5 минут; время пересчёта видно в `/api/health/performance` (`screens/*`).
+- 🔴 исправлено — **кнопки в личных сообщениях бота открывали браузер**, а не Mini App (`url` вместо `web_app`). На iPhone браузер Telegram не хранит куки, поэтому игрок каждый раз «не вошёл»: `/api/auth/me` без профиля из iOS — 1 раз 15.11 и по 16 раз 16–17.11, после запуска телефона и Санты, у которых такие кнопки. Исправление: в личных сообщениях кнопки на приложение превращаются в `web_app`; ссылка в тексте заменена кнопкой «📱 Открыть в приложении».
+- 🟡 исправлено — **если вход через Telegram не принят** (данные Telegram старше 24 часов, когда приложение долго открыто), приложение показывало ошибку, хотя сохранённый вход был. Теперь проверяется сохранённый вход.
+- 🟡 исправлено отдельным PR — кнопки в постах группы («Новости») — тоже `url`; `web_app` в группах Telegram не разрешает. Владелец включил «Main App» у @MafiaTulaBot (`https://app.2lamafia.ru/`); кнопки постов стали `t.me/<бот>?startapp=<страница>`, приложение открывает эту страницу (`src/shared/miniAppStart.ts`).
+- ✅ проверено после выкатки #1299 (d1a5a76c): худшее зависание event loop за 5 минут — 2,3 с (было до 22 с).
+- ⚪ не причина — частые перезапуски при выкатках (7 за 17.11): на время перезапуска приложение показывает экран «перезапускается» и само повторяет вход.
+
+## 2026-11-17 — Тайный Санта
+
+Новая функция: запись игроков с подтверждением без вечера, привязка вечера, жеребьёвка одним кругом + шмурдяк из «Иду» вне Санты, напоминания (понедельник 12:00, за 24 ч), (`santaCircle`, crypto.randomInt), пост в «Новости» по минутному проходу, личные сообщения через очередь уведомлений. Пары не видны никому, кроме дарящего. Тесты: secretSanta.integration (9); аудит текста 84/84 (secret-santa harness, 11 режимов × 7 размеров, и «Мини-игры»).
+
+## 2026-11-17 — экраны без подгрузки
+
+Сервер: готовые ответы `/api/crm/command-center`, `/api/crm/agenda`, `/api/crm/overview` с поколением, сбрасываемым любым не-GET запросом, пересчётом через 1,5 с и прогревом раз в минуту. Клиент: последний экран из localStorage без лоадера, очистка при выходе и отказе в доступе. Тесты: screenPrecompute (4), useOrganizerCrmSessionFreshness (+2), OrganizerCommandCenterPaymentFreshness (+1); полный прогон зелёный, кроме 3 тестов входа по паролю, которые падают и на main в этом контейнере. Замеры production до: command-center ≈0,8–1,0 с, agenda ≈1,4–1,6 с, overview ≈1,0 с.
+
+## 2026-11-17 — ночь в «Испорченном телефоне»
+
+Сроки цепочки (ход, выбор, отгадка) считаются без ночи 00:00–08:00 МСК (`telephoneDeadline`, `src/shared/drawingTelephone.ts`); напоминание — при 4 оставшихся дневных часах. Тесты: drawingTelephone.integration (11).
+
 ## 2026-11-15 — завершение согласованных пакетов
 
 Пакеты функционального аудита, статической доставки и первоначальной загрузки смёржены после обязательных проверок. Фактические merge SHA и ограничения runtime — в PROJECT_STATE. Финальная проверка объединённого исходного кода: production build и 33 выбранных проверки проходят; все восемь browser-сценариев локального production preview с подменёнными API также прошли. Коррекция предыдущего вывода PF01: ошибка 403 относилась к неверно составленному URL после выбора внешнего Telegram script, а не к правильному JS-модулю сайта. Корректный публичный модуль прочитан: 1,192,399 байт, Content-Encoding отсутствует, Cache-Control max-age=0, ссылки на выделенный кабинет нет; production-оптимизации пока не видны. Этот завершающий пакет меняет только документацию и не добавляет функций/правил.
@@ -3097,6 +3183,51 @@ VO01 (fixed): `src/lib/playerContribution.ts` — only `killed` exits counted as
 Owner report (screenshot of «Требует уточнения» on the CRM home): before the novice evening was published it listed «Алоэ: Анонс не отправлен · Дина: … · Диссонанс: …».
 
 DA01 (fixed): `eveningAnnouncementTrackingService.ts:loadAnnouncementOverview` marked every eligible player of a **draft** evening as `not_sent`, and `tableScoutingRoutes.ts:needsCurrentCommunicationAttention` put them into «Требует уточнения». A draft is not announced yet, so this is no problem. Now a draft gives `not_published` (left out of the attention list) and `summary.not_sent` counts only published evenings. Regression: `commandCenterCommunicationAttention.test.ts`.
+
+## 2026-11-16 — «Что нового» не выходила
+
+Owner: the digest of bot changes should come out once in 3 days but did not.
+
+ND01 (process, fixed): `botNewsPostService.ts:runBotChangesDigest` posts only entries of `src/server/data/botChangesDigest.ts` not sent yet. After the first digest (entries of 2026-11-10) nobody added new entries until 16.11, so there was nothing to post. Code works as designed. Now added: «Испорченный телефон» (#1282) and, chosen by the owner from a draft list, the voted-out opinion in Elo; the owner judged the other candidates («Вордли» keyboard, MVP on Saturday, results in «Новости») not interesting. Rule reminder: a fun player-facing change gets its digest line in the same PR.
+
+## 2026-11-16 — цена клубного вечера для «иногда» (Знак, Кавасаки)
+
+Owner report: Знак (last visit 16.10 by the owner's memory) and Кавасаки (came last week) paid 527 on 13.11. Production read (organizer GET only): both are «Ходит иногда»; 527 = the «иногда» cap 500 + 27 extension share; regulars paid 427. Visits before 13.11: Знак 16.10 and 23.10, Кавасаки 9.10 and 3.11 — fewer than 3 in 30 days, so the rule of 2026-11-11 priced them «иногда» correctly.
+
+PT01 (rule changed by the owner, fixed): the owner's rule is «дороже только после 3 недель пропуска». The tier now follows the last visit before the evening (`clubPriceTierService.ts`), used by payments, the player's evening page and the bot's invitation. The closed evening 13.11 is repriced once (`repriceEvening20261113Once`). Tests: `clubPriceByActivity.test.ts`.
+
+## 2026-11-16 — судья игры не из вечера; судьи 13.11
+
+GJ01 (fixed): `EveningGameCreateSheet.tsx` offered every club player who may judge, not only the evening's people — «Точка», who had declined 13.11, was recorded as the judge of games 40 and 41. Now the list is the evening's people (answered «Иду»/«Опоздаю» or came), the evening judge and the table judges; e2e `evening-game-create-audit.spec.mjs` checks an outsider is not offered.
+GJ02 (fixed by the owner's decision): production read showed «Точка» only as `judge_name/judge_player_id` of games 40 and 41 of 13.11; Millourt played game 41 (Дон, seat 10), Насон played 37–40. Owner: game 40 — Millourt, game 41 — Насон. One-time `fixGameJudges20261113Once` (`gameJudgeFixes.ts`), test `gameJudgeFixes.test.ts`.
+
+## 2026-11-16 — набор игроков по слотам вечера
+
+Owner: on the site registration the slot counts looked wrong and different for each viewer.
+
+SL01 (fixed): `eveningSlotPlanningService.ts` treated the evening judge as the judge only when he had answered «Иду»; otherwise the judge was counted as a player and the players needed became 11 instead of 10 (novices 9 instead of 8). SL02 (fixed): every registration showed its own number — the join page «N/11» with the judge inside, CRM «N/10», the novice page «из 9», the cabinet only «N игроков»; none named the judge. Now the plan takes the assigned judge, needs 10/8 players and carries `event.judge`; the join page, the cabinet and the welcome page show «Ведущий: ник · Игроки: N из 10/8» (`src/lib/eveningSlotStaff.ts`). Tests: `ownerEveningSheet.test.ts`, `PlayerBookingUsability.test.tsx`, `eveningTodayPost.test.ts`, `eveningRecruitmentService.test.ts`; e2e `current-booking-preview.spec.mjs`.
+## Запись гостя с сайта — 2026-11-16
+
+- **GB01, fixed; deployment status in PROJECT_STATE.** `src/server/routes/welcomeRoutes.ts`, `src/server/services/newcomerFunnelService.ts`: лид мог записаться без аккаунта, но не получал доступа к собственной записи. По просьбе владельца добавлены персональный секрет, общие операции записи и проверки чужого контакта, отмены, переноса, отзыва ссылки и отката при ошибке. Для старых лидов — выдача новой ссылки полным организатором. Интеграционная проверка сайта проходит с локальным API и отдельной БД в памяти; production-записи не создаются.
+- **GB02, review finding, fixed in code.** `newcomerFunnelService.ts:createWelcomeLead`: повторная отправка формы проверяла секрет до записи вне транзакции; одновременная выдача новой ссылки организатором могла отозвать старый секрет между проверкой и повторным бронированием. Проверка актуального владельца и изменение теперь в одной транзакции. Регрессия принудительно меняет секрет после первого чтения контакта и проверяет отказ старому секрету без создания записи; production не затрагивается.
+- **GB03, CodeQL review finding, fixed in code.** `src/app.ts:cookieParser`, `src/app.vk-direct.ts:cookieParser`: cookie-authenticated writes had no common CSRF guard; the regression reproduced a link rotation from an untrusted sibling Origin. `cookieCsrfProtection.ts` now checks browser Origin/Fetch Metadata/Referer or explicit double-submit proof in both app entry points. First-party writes and non-browser API clients remain compatible; public welcome writes remain independent of cookie credentials. 41 focused scenarios pass; CodeQL is rerun without exclusions or dismissals.
+
+## 2026-11-16 — судоку подлагивает при вводе цифр
+
+SD01 (fixed): `PlayerDailySudoku.tsx:put` locked the whole pad (`busy`) for every final digit until the server answered the move, so each digit waited a round trip (about 0.4–1.5 s measured from the test environment to Amvera). Now the digit shows at once, moves go to the server in order, a wrong one turns red when the answer comes; a failed check drops the unchecked digits. Verified in the harness with a slowed server (`?delay=800`): 4 digits in 0.36 s, 1 mistake counted, the wrong digit cleared after the red flash.
+
+
+## 2026-11-20 — iPhone entry / VK button recovery
+
+IP01 fixed in code; baseline confirmed on main 7acdac0: in the full production App, denying localStorage then tapping «Продолжить через VK» loses pending OAuth state; the waiting view disappears while busy remains true, permanently disabling the button. Baseline reproduction fails in both WebKit and Chromium; normal-storage control passes. Active pending state now lives in React memory; storage is best-effort resume only. The same failure test now passes, including synthetic completion and cancellation. Local TTL expiry also releases busy. User screenshot identifies our onboarding screen in Telegram's ordinary iPhone in-app browser, not VK's external page. This reproduces a matching failure class; the exact device iOS/storage configuration and Annushka's personal server logs remain unavailable. No organizer/developer credentials are bound in this session; public runtime health is ok and a read-only live browser has no initial page errors. Recent #1311/#1314/#1315 fixes are present in deployed entry.
+
+IP02 fixed in code; found by call path: start/handoff requests have no deadline, so a nonresponding API leaves «Открываем VK ID…» or polling occupied indefinitely. Preserve PKCE and cookie-bound handoff checks; requests now use AbortController with a 15-second deadline covering headers and JSON body. Component tests verify stuck start/body retry, stalled handoff recovery, stale cancelled responses and reload resume; browser tests verify timeout and usable retry. A closed/blocked/throwing popup falls back to the same tab. Tests use synthetic API responses, no real OAuth codes or production writes.
+
+
+Acceptance: 32 focused component/auth/handoff/CSRF tests pass; all 12 full-App browser cases pass per engine (11 in the initial run plus the repaired Telegram-bridge fixture checked separately). The initial bridge fixture was overwritten by the real SDK, so it is now installed after SDK initialization; no production code was changed for that fixture failure. Entry/waiting/timeout layout audit passes at 360×640, 390×844, 1366×768, 1440×900 and 1920×1089. Production build passes. Run: `npm run build`, then `./e2e/node_modules/.bin/playwright test --config=e2e/iphone-entry.config.mjs`; set `IPHONE_ENGINE=webkit` for WebKit and optional `CHROMIUM_EXECUTABLE_PATH` / `WEBKIT_EXECUTABLE_PATH` for user-installed browsers. All API/OAuth responses are synthetic; no production writes, real account claims or messages. Real iPhone reproduction and deployment confirmation remain separate.
+
 ## 2026-11-16 — состав вечеров на сайте клуба
 
-SR01 (fixed in candidate; 16 newcomer-funnel integration tests passed): `src/server/routes/welcomeRoutes.ts`, `GET /welcome/seats?evening=…` применяет NOVICE-фильтр даже к явно выбранному опубликованному клубному вечеру из `/welcome/agenda`; ответ пустой. Владелец просит видимый стол с никами у каждого вечера на 2lamafia.ru. Диагностика: GET production вернул игры для NOVICE и `evening_id: null` для CASUAL; состав CASUAL уже публичен через same-origin `/api/public/evenings/:id/slots`, но этот адрес не разрешает чтение с домена сайта. Исправление: выбранный по id открытый предстоящий вечер любого формата через существующий безопасный nick-only ответ; без id сохраняется ближайший новичковый вечер. Черновики, закрытые, рассчитанные и прошлые вечера недоступны. Правила записи и данные production не меняются.
+SR01 (fixed in PR #1283; awaiting checks after reconciliation with main): `src/server/routes/welcomeRoutes.ts`, `GET /welcome/seats?evening=…` применяет NOVICE-фильтр даже к явно выбранному опубликованному клубному вечеру из `/welcome/agenda`; ответ пустой. Владелец просит видимый стол с никами у каждого вечера на 2lamafia.ru. Диагностика: GET production вернул игры для NOVICE и `evening_id: null` для CASUAL; состав CASUAL уже публичен через same-origin `/api/public/evenings/:id/slots`, но этот адрес не разрешает чтение с домена сайта. Исправление: выбранный по id открытый предстоящий вечер любого формата через существующий безопасный nick-only ответ; без id сохраняется ближайший новичковый вечер. Черновики, закрытые, рассчитанные и прошлые вечера недоступны. Правила записи и данные production не меняются.
+
+2026-11-20 reconciliation: retained the current main audit and project state when resolving documentation-only conflicts; the route and regression tests merged automatically with the newer guest-booking and judge fields. No production writes. Fresh npm ci uses the merged #1291 lockfile (better-sqlite3 13.1.1, Vite 8.3.8, supertest 7.3.2). All 46 focused newcomer-funnel, guest-booking, CSRF, VK component and cookie-bound handoff scenarios pass on the combined tree; production build passes. No application behavior was changed beyond the original roster fix.

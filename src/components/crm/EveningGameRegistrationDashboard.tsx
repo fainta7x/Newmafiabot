@@ -7,6 +7,8 @@ import { api, type EveningParticipant } from '../../lib/api.ts';
 import { guestContactHref } from '../../lib/guestContact.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { formatRubles } from '../../lib/formatRubleAmount.ts';
+import { appConfirm } from '../../lib/appConfirm.ts';
+import { CURSE_NAME } from '../../shared/playerCurse.ts';
 
 type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
 type Filter = 'all' | RegistrationState;
@@ -90,6 +92,32 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingSlotIds, setEditingSlotIds] = useState<string[]>([]);
+  // «Проклятье на понос» (owner, 2026-11-19): the bot marks on Friday 10:00 whoever ignored the invitation; here the organizer takes a wrong mark back.
+  const [cursed, setCursed] = useState<Set<string>>(() => new Set());
+  const [cursingId, setCursingId] = useState<string | null>(null);
+  const applyCurses = (body: any) => setCursed(new Set((Array.isArray(body?.items) ? body.items : []).map((item: any) => String(item.player_id))));
+  const loadCurses = async () => {
+    try {
+      const response = await fetch(`/api/crm/curses?evening_id=${encodeURIComponent(eveningId)}`, { credentials: 'include', headers: organizerHeaders(false) });
+      if (response.ok) applyCurses(await response.json());
+    } catch { /* the button just shows unpressed */ }
+  };
+  const uncurse = async (row: { playerId: string; nickname: string }) => {
+    if (!await appConfirm(`Снять с ${row.nickname} «${CURSE_NAME}» за этот вечер? Неделя за этот вечер отменится.`)) return;
+    const on = false;
+    setCursingId(row.playerId);
+    setError('');
+    try {
+      const response = await fetch('/api/crm/curses', { method: 'POST', credentials: 'include', headers: organizerHeaders(true), body: JSON.stringify({ evening_id: eveningId, player_id: row.playerId, on }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить проклятье');
+      applyCurses(body);
+    } catch (curseError: any) {
+      setError(curseError?.message || 'Не удалось сохранить проклятье');
+    } finally {
+      setCursingId(null);
+    }
+  };
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -180,6 +208,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     const quiet = loadedEveningRef.current === eveningId;
     loadedEveningRef.current = eveningId;
     void load(quiet);
+    void loadCurses();
   }, [eveningId, refreshKey]);
 
   const counts = useMemo(() => ({
@@ -405,6 +434,11 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
               {!row.isGuest ? <button type="button" aria-expanded={editing} disabled={busy || readonly} onClick={() => { setEditingResponseId(null); openSlotEditor(row); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Игры {editing ? '▴' : '▾'}</button> : null}
               {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${row.nickname}`} className="flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-surface-1 px-2 text-[12px] font-semibold text-accent"><MessageCircle className="h-4 w-4" />Написать</a> : <span className="flex min-h-11 items-center justify-center rounded-[10px] bg-surface-1 px-2 text-center text-[11px] text-text-muted">Нет контакта</span>}
             </div>
+            {cursed.has(row.playerId) ? <div className="mt-2 flex items-center justify-between gap-2 rounded-[10px] bg-warning-soft px-3 py-1.5" data-testid="evening-curse">
+              <span className="min-w-0 text-[12px] font-semibold text-warning">🤢 «{CURSE_NAME}»</span>
+              <button type="button" disabled={cursingId === row.playerId} onClick={() => void uncurse(row)} data-testid="evening-curse-remove"
+                className="min-h-11 shrink-0 rounded-[10px] bg-surface-1 px-3 text-[12px] font-semibold text-text-primary disabled:opacity-40">Снять проклятье</button>
+            </div> : null}
             {responseOpen ? <fieldset className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2" aria-label={`Ответ ${row.nickname}`}>
               <legend className="px-1 text-[12px] font-semibold text-text-primary">Ответ {row.nickname}</legend>
               <p className="px-2 pb-2 text-[12px] text-text-muted">Выбери ответ — он сохранится сразу.</p>

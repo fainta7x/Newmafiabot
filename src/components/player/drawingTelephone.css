@@ -1,0 +1,56 @@
+/* «Испорченный телефон с рисунками» (owner, 2026-11-16): the frame is dailyWord.css (dw-*), these are the game's own parts. */
+.dw-content button.tp-row{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;text-align:left;background:#ffffff08;margin-top:8px}
+.dw-content button.tp-row--accent{border-color:#e6c78788;background:#e6c7871a}
+.tp-row>span:not(.tp-thumb){display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.tp-row strong{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.tp-row small{font-size:12px;line-height:1.5;color:#bfc0c7;overflow-wrap:anywhere}
+.tp-thumb{width:56px;height:56px;flex:none;border-radius:10px;background:#fff;object-fit:cover;border:1px solid #ffffff26}
+.tp-finished{display:grid;gap:4px;margin-top:8px}
+.dw-content .tp-primary{background:#f4f4f5;color:#16130d;font-weight:650}
+.tp-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dw-content .tp-decline{background:transparent;color:#ffcaca;border-color:#e8919155}
+.tp-field{display:grid;gap:6px;font-size:13px;line-height:1.6;color:#bfc0c7}
+.dw-content .tp-field textarea{width:100%;min-width:0;border:1px solid #ffffff30;border-radius:12px;padding:10px 12px;background:#15171d;color:#fff;font-size:16px;line-height:1.5;resize:vertical}
+.tp-stepper{display:flex;align-items:center;gap:12px}
+.dw-content .tp-stepper button{width:48px;font-size:22px;padding:0}
+.tp-stepper strong{min-width:40px;text-align:center;font-size:22px;color:#fff}
+.tp-picker{border:1px solid #ffffff1c;border-radius:16px;padding:10px 12px;display:grid;gap:8px;min-width:0}
+.tp-picker legend{font-size:13px;line-height:1.6;color:#bfc0c7;padding:0 4px}
+.tp-picker ul{display:flex;flex-wrap:wrap;gap:6px}
+.tp-groups{display:grid;gap:10px;max-height:300px;overflow-y:auto}
+.tp-group{display:grid;gap:6px;min-width:0}
+.tp-group-title{font-size:12px;line-height:1.4;color:#9a9ca6;margin:0}
+.dw-content .tp-picker ul button.tp-active{background:#1f3a2a;box-shadow:inset 0 0 0 1px #4caf7a;color:#d6ffe4}
+.dw-content .tp-picker ul button{min-height:40px;padding:6px 12px;background:#20232c;font-size:14px}
+.dw-content .tp-picker input{font-size:16px;min-height:44px}
+.tp-chosen{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tp-chosen strong{font-size:16px;color:#fff;overflow-wrap:anywhere;min-width:0}
+.dw-content .tp-chosen button{background:transparent}
+.tp-prompt{border:1px solid #e6c78755;border-radius:16px;padding:12px 14px;background:#e6c78712;display:grid;gap:4px}
+.tp-prompt small{font-size:12px;color:#bfc0c7}
+.tp-prompt strong{font-size:20px;line-height:1.4;color:#fff;overflow-wrap:anywhere}
+.tp-chain{display:grid;gap:12px}
+.tp-item{margin:0;border:1px solid #ffffff1c;border-radius:16px;padding:10px;background:#ffffff08;display:grid;gap:8px}
+.tp-item figcaption{font-size:12px;line-height:1.5;color:#b9a16e}
+.tp-item img{width:100%;aspect-ratio:1;border-radius:10px;background:#fff;display:block}
+.tp-item blockquote{margin:0;font-size:18px;line-height:1.5;color:#fff;overflow-wrap:anywhere}
+.tp-item--phrase,.tp-item--guess{border-color:#e6c78766}
+.tp-pad{display:grid;gap:8px}
+.tp-pad canvas{width:100%;aspect-ratio:1;border-radius:12px;background:#fff;touch-action:none;display:block}
+.tp-colors{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.dw-content .tp-colors button{min-height:40px;padding:0;border-radius:10px;border:2px solid #ffffff22;color:transparent}
+.dw-content .tp-colors button.tp-on{border-color:#fff;box-shadow:0 0 0 2px #e6c787}
+.tp-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.dw-content .tp-tools button{min-height:44px;padding:6px 4px;font-size:13px;background:transparent}
+.dw-content .tp-tools button.tp-on{background:#e6c78733;border-color:#e6c787}
+.tp-saved{border:1px solid #e6c78788;border-radius:14px;padding:10px 12px;background:#e6c7871a;display:grid;gap:8px}
+.tp-saved strong{font-size:14px;color:#fff}
+.tp-pad canvas{overscroll-behavior:contain}
+.tp-pad canvas.tp-waiting{opacity:.35;pointer-events:none}
+.tp-blocked{color:#ffb4a8;font-weight:500}
+.tp-blocked-note{font-size:12px;line-height:1.5;color:#ffcaca;margin:4px 0 0}
+/* «Тайный Санта»: the promise to bring a gift, ticked before joining. */
+.tp-promise{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;color:#e4e4e7;cursor:pointer;margin:10px 0}
+.dw-content .tp-promise input{width:22px;height:22px;min-height:0;flex-shrink:0;padding:0;margin-top:1px;accent-color:#e6c787}
+.dw-card .tp-primary{justify-content:center}
+.dw-card button.tp-quiet{background:transparent;color:#f4f4f5;justify-content:center}

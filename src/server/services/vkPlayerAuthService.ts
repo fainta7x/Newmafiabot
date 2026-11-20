@@ -189,9 +189,11 @@ export async function completeVkPlayerOAuth(
   if (!code || !deviceId || !state) throw claimError('VK ID вернул неполный OAuth callback', 400, 'vk_callback_invalid');
   const pending = await peekVkPlayerOAuthState(db, state);
   if (!pending) throw claimError('VK OAuth-сессия не найдена или уже использована', 410, 'vk_state_expired');
-  if (!bindingMatches(pending.browser_binding_hash, browserBinding)) {
-    throw claimError('Эта VK OAuth-сессия была начата в другом браузере. Начните вход заново.', 401, 'vk_state_browser_mismatch');
-  }
+  // Another browser (formerly the error vk_state_browser_mismatch): on iPhones the VK app returns to Safari, not to the
+  // Telegram window that started the login (2026-11-20). The login is still finished, but this browser gets no session:
+  // the result is handed to the window holding the binding (claimVkPlayerHandoff), so a callback link sent to somebody
+  // else cannot sign him into a foreign account.
+  const crossBrowser = !bindingMatches(pending.browser_binding_hash, browserBinding);
 
   // Consume before exchanging the code so retries or parallel callbacks cannot create/link two players.
   const consumedAt = new Date().toISOString();
@@ -227,7 +229,57 @@ export async function completeVkPlayerOAuth(
     initiatingPlayerId: pending.initiating_player_id ? String(pending.initiating_player_id) : null,
     nickname: pending.nickname,
     returnTo: validateVkPlayerReturnPath(pending.return_to),
+    crossBrowser,
   };
+}
+
+/** How long the starting window may pick up a login finished in another browser. */
+export const VK_PLAYER_HANDOFF_TTL_MS = 30 * 60 * 1000;
+
+export type VkPlayerHandoff = { playerId?: string | null; onboardingToken?: string | null; returnTo: string; error?: string | null };
+
+/** The callback landed in another browser: keep the result for the starting window. */
+export async function storeVkPlayerHandoff(db: DatabaseWrapper, state: string, handoff: VkPlayerHandoff) {
+  await ensureVkPlayerAuthSchema(db);
+  await db.run(`
+    UPDATE vk_player_oauth_states
+       SET handoff_player_id=?, handoff_onboarding_token=?, handoff_return_to=?, handoff_error=?, handoff_ready_at=?
+     WHERE state=?
+  `, [handoff.playerId || null, handoff.onboardingToken || null, validateVkPlayerReturnPath(handoff.returnTo), handoff.error || null, new Date().toISOString(), state]);
+}
+
+/**
+ * The starting window asks whether its VK login was finished elsewhere. Only the browser holding the binding of that
+ * state gets an answer; the result is given out once.
+ */
+export async function claimVkPlayerHandoff(db: DatabaseWrapper, input: { state: unknown; browserBinding: unknown }, now = new Date()) {
+  await ensureVkPlayerAuthSchema(db);
+  const state = String(input.state || '').trim();
+  const browserBinding = String(input.browserBinding || '').trim();
+  if (!state || !browserBinding) return { status: 'unknown' as const };
+  const row = await db.get<{
+    browser_binding_hash: string | null; created_at: string; consumed_at: string | null; handoff_player_id: string | null; handoff_onboarding_token: string | null;
+    handoff_return_to: string | null; handoff_error: string | null; handoff_ready_at: string | null; handoff_claimed_at: string | null;
+  }>(`
+    SELECT browser_binding_hash, created_at, consumed_at, handoff_player_id, handoff_onboarding_token, handoff_return_to, handoff_error, handoff_ready_at, handoff_claimed_at
+      FROM vk_player_oauth_states WHERE state=? LIMIT 1
+  `, [state]);
+  if (!row || !bindingMatches(row.browser_binding_hash, browserBinding)) return { status: 'unknown' as const };
+  if (row.handoff_claimed_at || now.getTime() - new Date(row.created_at).getTime() > VK_PLAYER_HANDOFF_TTL_MS) return { status: 'expired' as const };
+  if (!row.handoff_ready_at) {
+    // Finished in this same browser (the callback already gave it the session, e.g. in another tab): reload here. A few
+    // seconds of grace: a callback in another browser consumes the state just before it stores the handoff.
+    if (row.consumed_at && now.getTime() - new Date(row.consumed_at).getTime() > 5_000) return { status: 'finished' as const };
+    return { status: 'pending' as const };
+  }
+  const claimed = await db.run(`
+    UPDATE vk_player_oauth_states SET handoff_claimed_at=?, handoff_onboarding_token=NULL
+     WHERE state=? AND handoff_claimed_at IS NULL AND handoff_ready_at IS NOT NULL
+  `, [now.toISOString(), state]);
+  if (Number(claimed?.changes || 0) !== 1) return { status: 'expired' as const };
+  const returnTo = validateVkPlayerReturnPath(row.handoff_return_to);
+  if (row.handoff_error) return { status: 'error' as const, code: row.handoff_error, returnTo };
+  return { status: 'done' as const, playerId: row.handoff_player_id, onboardingToken: row.handoff_onboarding_token, returnTo };
 }
 
 async function sendTelegramClaimConfirmation(input: {

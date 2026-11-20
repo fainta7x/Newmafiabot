@@ -4,7 +4,7 @@ for (const width of [360,390]) test(`booking uses server facts and survives save
  await page.goto('/e2e/player-cabinet.html?booking=novice&route=%2Fplayer%2Fevents%2Fpreview-evening&saveFailures=1&slowSave=1');
  await expect(page.getByText('2/2',{exact:true})).toBeVisible();
  await expect(page.getByText(/нужно 2 игры/)).toBeVisible();
- await expect(page.getByText('9 игроков · собрано')).toHaveCount(2);
+ await expect(page.getByText('Ведущий: Очень длинный ник ведущего вечера · Игроки: 8 из 8 · собрано')).toHaveCount(2);
  const first=page.getByRole('button',{name:'Выбрать игру 1'});
  await first.click();
  const save=page.getByRole('button',{name:'Сохранить мой план'});

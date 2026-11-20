@@ -15,7 +15,7 @@ const now = new Date();
 const iso = (daysAgo: number) => new Date(now.getTime() - daysAgo * 86400000).toISOString();
 const summaryFor = (id: string) => ({
   viewer: { is_self: id === 'preview-player', is_organizer: false },
-  player: { id, nickname: id === 'preview-player' ? 'Чагин' : id === 'friend-1' ? 'Дэнди' : 'Недоступный игрок', full_name: id === 'preview-player' ? 'Евгений Чагин' : null, avatar_url: null, elo: 1542, rating_position: 4, rating_movement_30d: 18.4 },
+  player: { id, nickname: id === 'preview-player' ? 'Чагин' : id === 'friend-1' ? 'Дэнди' : 'Недоступный игрок', full_name: id === 'preview-player' ? 'Евгений Чагин' : null, avatar_url: null, elo: 1542, rating_position: 4, rating_movement_30d: 18.4, ...(id === 'friend-1' ? { curse_until: '2026-11-26T16:00:00Z' } : {}) },
   stats: { games: 48, wins: 29, win_rate: 60.4 },
   ...(params.has("content")?{filters:{period_label:"Вся карьера",format_label:"Все форматы",seasons:[],formats:[]},season:{label:"Осень 2026",games:9,wins:6,win_rate:67,place:3,total_players:21},night_shots:{killed:4,games_as_red:20,black_nights:12,black_misses:2,partners:[{player_id:"mate",nickname:"Напарник",kills:2,together:6}]},reveals:{sheriffGames:12,sheriffReveals:5,sheriffCheckedDon:1,sheriffCheckedMafia:2,sheriffCheckedRed:3,blackGames:16,blackReveals:0,blackCovers:0,townChances:0},circle_exits:{games:48,votedOut:8,byAlive:{"3":2,"5":3,"8":3},critical:2}}:{}),
   game_stats: { games:12, votesAsRed:{count:8,total:12,percent:66.7}, nominationsAsRed:{count:3,total:5,percent:60},bestMove:{count:2,averageBlack:2},firstKilled:{count:2,total:20},sheriffChecks:{count:2,total:4,percent:50},donChecks:{count:1,total:3,percent:33.3},

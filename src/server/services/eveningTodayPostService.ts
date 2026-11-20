@@ -161,7 +161,8 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
     chat_id:destination.chat_id, ...(destination.topic_id ? { message_thread_id:Number(destination.topic_id) } : {}), text,
     ...(cover ? { link_preview_options:{ url:cover, prefer_large_media:true, show_above_text:true } } : { disable_web_page_preview:true }),
   } }, fetchImpl, context);
-  return { ...result, status: result.ok ? 'published' : result.certainty === 'uncertain' ? 'uncertain' : 'failed', error:result.error || null };
+  // No answer from Telegram (a network failure): «retry», the minute scan sends it again (owner, 2026-11-19).
+  return { ...result, status: result.ok ? 'published' : result.certainty === 'rejected' && result.temporary ? 'retry' : result.certainty === 'uncertain' ? 'uncertain' : 'failed', error:result.error || null };
 }
 
 export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string }; context?: PublicationContext; noPhoto?: boolean }) {
@@ -215,7 +216,7 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
   }
 }
 
-export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, input: { text?: unknown; game_number?: unknown }, fetchImpl: typeof fetch = fetch) {
+export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, input: { text?: unknown; game_number?: unknown; onlyRetry?: boolean }, fetchImpl: typeof fetch = fetch) {
   await ensureEveningTodayPostSchema(db);
   await importLegacyPublicationHolds(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
@@ -237,6 +238,8 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
   const row = await db.get<any>('SELECT * FROM evening_today_posts WHERE evening_id=?',[eveningId]);
   await Promise.all((['telegram','vk'] as const).map(async channel => {
     if (row[channel+'_status'] === 'published') return;
+    // The scan's repeat touches only a channel waiting for a repeat, never one that failed or may have been posted.
+    if (input.onlyRetry && row[channel+'_status'] !== 'retry') return;
     const context = {key:`today:${eveningId}:${channel}`,entityId:eveningId,kind:'today'};
     const result = channel === 'telegram' ? await sendTelegram(db,evening,row.text,fetchImpl,context) : await sendVk(row.text,{db,eveningId,format:evening.format,context});
     if ('inFlight' in result && result.inFlight) return;
@@ -346,6 +349,11 @@ export async function runTodayPostSchedule(db: DatabaseWrapper, now = Date.now()
   let actions = 0;
   for (const evening of evenings) {
     if (moscowParts(new Date(String(evening.starts_at)).getTime()).date !== clock.date) continue;
+    // A channel Telegram did not answer is sent again (every 15 minutes, the delivery keeps the pause).
+    if (!evening.skipped_at && (evening.telegram_status === 'retry' || evening.vk_status === 'retry')) {
+      try { await publishTodayPost(db, String(evening.id), { onlyRetry: true }, fetchImpl); actions += 1; } catch (error) { console.error('[TODAY POST] repeat failed:', error); }
+      continue;
+    }
     // Anything already sent or skipped is the organizer's decision.
     if (evening.telegram_status || evening.vk_status || evening.skipped_at) continue;
     const id = String(evening.id);

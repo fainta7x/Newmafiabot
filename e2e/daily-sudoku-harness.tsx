@@ -23,6 +23,8 @@ globalThis.fetch=async(input:RequestInfo|URL,init?:RequestInit)=>{
  if(fail){fail=false;return json({error:'Нет связи. Загрузка недоступна.'},503);}
  if(url.endsWith('/start')){state={...state,status:'playing',givens:PUZZLE,board:PUZZLE,started_at:new Date().toISOString()};return json(state);}
  if(url.endsWith('/move')){
+  // ?delay=ms imitates a slow network: the digit must show at once anyway.
+  const delay=Number(new URLSearchParams(location.search).get('delay')||0);if(delay)await new Promise(r=>setTimeout(r,delay));
   const ok=SOLUTION[body.cell]===String(body.digit);
   const board=ok?state.board.slice(0,body.cell)+body.digit+state.board.slice(body.cell+1):state.board;
   const mistakes=state.mistakes+(ok?0:1);

@@ -14,7 +14,7 @@ import './appStyles.ts';
 import {wordFixture} from './daily-word-fixture.ts';
 
 const data: PlayerMeResponse = {
- player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: 100, game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },
+ player: { id: 'preview-player', nickname: 'Чагин', full_name: null, phone: null, telegram_username: null, elo: 1542, tokens: Number(new URLSearchParams(location.search).get('tokens') || 100), game_level: 'experienced', club_role: 'organizer', judge_level: 'judge', avatar_url: null },
  achievements: { earned: 0, total: 0, percentage: 0, categories: [] },
  games: { all: [], stats: { totalGames: 24, completedGames: 24, wins: 14, losses: 10, winRate: 58.3, clubGames: 24, tournamentGames: 0, redGames: 16, blackGames: 8, bestMoves: 2, firstKilled: 3, zeroRoundVoted: 0, lastGameAt: null, roleCounts: { citizen: 12, sheriff: 4, mafia: 5, don: 3, unknown: 0 } } },
  tournaments: { games: [], awards: [], award_stats: { firstPlaces: 0, secondPlaces: 0, thirdPlaces: 0, nominations: 0 }, completed_participations: [] },
@@ -38,9 +38,9 @@ let slotFailures = Number(new URLSearchParams(location.search).get('slotFailures
 let saveFailures = Number(new URLSearchParams(location.search).get('saveFailures') || 0);
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));
 const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: booking === 'rating' ? 500 : 100, slots: eventSlots };
-const bookingSlots = (booking === 'novice' ? eventSlots.slice(0,2) : eventSlots).map((slot) => ({ ...slot, price: booking === 'novice' ? 200 : 100, target_players: booking === 'novice' ? 9 : 11, registered_count: booking === 'novice' ? 9 : slot.registered_count, participants: [] }));
+const bookingSlots = (booking === 'novice' ? eventSlots.slice(0,2) : eventSlots).map((slot) => ({ ...slot, price: booking === 'novice' ? 200 : 100, target_players: booking === 'novice' ? 8 : 10, registered_count: booking === 'novice' ? 8 : slot.registered_count, participants: [] }));
 let slotPlan = {
- event: { ...evening, event_type: 'evening', assembled: true, assembled_slots: booking === 'novice' ? 2 : 1, required_slots: booking === 'novice' ? 2 : 4, required_players_per_slot: booking === 'novice' ? 9 : 11, price_per_game: booking === 'rating' ? 500 : booking === 'novice' ? 200 : 100, max_evening_price: booking ? null : 400 },
+ event: { ...evening, event_type: 'evening', assembled: true, assembled_slots: booking === 'novice' ? 2 : 1, required_slots: booking === 'novice' ? 2 : 4, required_players_per_slot: booking === 'novice' ? 8 : 10, judge: { id: 'judge-preview', nickname: 'Очень длинный ник ведущего вечера' }, price_per_game: booking === 'rating' ? 500 : booking === 'novice' ? 200 : 100, max_evening_price: booking ? null : 400 },
  pricing: DEFAULT_EVENING_PRICES, slots: bookingSlots,
  selection: { slot_ids: bookingSlots.filter(s=>s.selected).map(s=>s.id), games: 2, total: booking === 'rating' ? 500 : booking === 'novice' ? 400 : 200 },
 };
@@ -152,13 +152,13 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
    return json(paymentData);
   }
   case '/api/rating': return json({ players: NAMES.map((nickname,index) => ({ player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, place: index+1 })) });
-  case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, club_games: [], tournament_games: [] });
+  case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, permissions: { novice: true, casual: true, rating: true, tournament: false }, club_games: [], tournament_games: [] });
   case '/api/player/evening-journey': return json({ journey: new URLSearchParams(location.search).get('scenario') === 'live' ? liveJourney : { phase: 'idle' } });
   case '/api/player/evening-live-status': return json({ live: new URLSearchParams(location.search).get('scenario') === 'live' });
   case '/api/player/notifications': return json({ items: [], unread_count: 0 });
   case '/api/player/games/all': return json({ games: [1,2,3].map(number => ({ id: `club:g${number}`, source: 'club', title: 'Клубный вечер', date: new Date(Date.now()-86400000).toISOString(), game_number: number, format: 'CASUAL', winner_team: number===2 ? 'black' : 'red', judge_name: 'Кавасаки' })) });
   case '/api/player/games/elo': return json({ games: [] });
-  case '/api/player/players': return json({ players: NAMES.map((nickname,index) => ({ id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, game_level: 'club', avatar_url: null })) });
+  case '/api/player/players': return json({ players: NAMES.map((nickname,index) => ({ id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, game_level: 'club', avatar_url: null, ...(index === 1 ? { curse_until: '2026-11-26T16:00:00Z' } : {}) })) });
   case '/api/player/pulse': return json(pulse);
   case '/api/player/club-world': return json(new URLSearchParams(location.search).has('results-context') ? {...clubWorld,season_history:[resultsContextSeason('2026-summer','Лето 2026'),resultsContextSeason('2026-spring','Весна 2026',true)]} : clubWorld);
   case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });

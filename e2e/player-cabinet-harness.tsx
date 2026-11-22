@@ -164,7 +164,12 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });
   // Purchases before a game (#1160): nothing ordered yet, no game open for orders.
   case '/api/player/music-orders': case '/api/player/role-purchases': case '/api/player/seat-swap-orders': return json({ orders: [] });
-  case '/api/player/game-purchase-options': return json({ games: [] });
+  // A player seated in a game of a running evening (2026-11-22: the shop failed to open exactly then).
+  case '/api/player/game-purchase-options': return json(new URLSearchParams(location.search).get('scenario') === 'seated' ? {
+    games: [{ gameId: 42, eveningId: 'preview-evening', eveningTitle: 'Игровой вечер — 20 ноября', number: 1, format: 'CASUAL', canRoleOrSwap: true, ownSeat: 3,
+      seats: Array.from({ length: 10 }, (_, index) => ({ seat_number: index + 1, player_id: index === 2 ? data.player.id : `p-${index}`, nickname: index === 2 ? 'Чагин' : `Игрок ${index + 1}` })) }],
+    tokenPrices: { role: 10000, music: 5000 }, balance: 26280,
+  } : { games: [] });
   default: return json({ error: 'Этот сценарий пока не подготовлен в предпросмотре' }, 404);
  }
 };

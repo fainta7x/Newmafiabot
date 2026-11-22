@@ -222,6 +222,8 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper, options: { isolat
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'archived_at', 'TEXT');
   addColumnIfNotExists('games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
+  // A game with a guest or a novice at the table counts for nobody (owner, 2026-11-22; gameStatsExclusion.ts). NULL = not decided yet.
+  addColumnIfNotExists('games', 'stats_excluded', 'INTEGER');
   addColumnIfNotExists('organizer_tasks', 'automation_key', 'TEXT');
   addColumnIfNotExists('players', 'preferred_format', 'TEXT');
   addColumnIfNotExists('players', 'referred_by', 'TEXT');

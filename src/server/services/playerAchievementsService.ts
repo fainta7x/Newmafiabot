@@ -1,3 +1,4 @@
+import { ensureGameStatsColumn } from './gameStatsExclusion.ts';
 import { isCompletedClubGame } from './completedClubGame.ts';
 import { loadPlayerAchievementStories } from './playerAchievementStoriesService.ts';
 import { STORY_IDS, type StoryResult } from '../../lib/achievementStories.ts';
@@ -161,6 +162,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
   };
 
   const seenGames = new Set<string>();
+  await ensureGameStatsColumn(db);
   const clubRows = await db.all(`
     SELECT g.id, g.protocol_text, g.winner_team, e.status AS evening_status
       FROM games g
@@ -168,6 +170,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
      WHERE g.archived_at IS NULL
        AND g.protocol_text IS NOT NULL
        AND (e.status IS NULL OR e.status != 'cancelled')
+       AND COALESCE(g.stats_excluded, 0) = 0
   `);
 
   for (const row of clubRows) {

@@ -6,8 +6,9 @@ import { rebuildCanonicalEloRatings } from '../server/services/eloRatingService'
 const ROLES = ['Дон', 'Мафия', 'Мафия', 'Шериф', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный'];
 
 /** A completed club game; `guestSeat` hands one seat to a guest without a profile (no player_id). */
-const seedGame = async (db: ReturnType<typeof createDatabaseConnection>, number: number, guestSeat: boolean, prefix: string) => {
-  const now = new Date().toISOString();
+// Before 20 November 2026: a guest seat still left the game rated from the others (from then on it counts for nobody —
+// guestGamesNoStats.integration.test.ts).
+const seedGame = async (db: ReturnType<typeof createDatabaseConnection>, number: number, guestSeat: boolean, prefix: string, now = '2026-11-01T17:00:00.000Z') => {
   const results: Array<Record<string, unknown>> = [];
   for (let index = 0; index < 10; index += 1) {
     const playerId = `${prefix}-p${index + 1}`;

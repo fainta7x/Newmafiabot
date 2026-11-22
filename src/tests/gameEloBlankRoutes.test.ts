@@ -21,6 +21,8 @@ async function setup() {
   for (const id of [...PLAYERS, 'org']) {
     await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,club_role,created_at,updated_at) VALUES (?,?,'normal','manual',?,?,?)`, [id, `Игрок ${id.toUpperCase()}`, id === 'org' ? 'organizer' : 'member', now, now]);
   }
+  // Club players: a novice at the table would leave the game out of Elo (owner, 2026-11-22).
+  await db.run("UPDATE players SET game_level = 'club'");
   await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
     VALUES ('ev','Пятничный вечер',?,'Europe/Moscow','CASUAL','active',20,100,?,?)`, [new Date(Date.now() - 3 * 3600_000).toISOString(), now, now]);
   const envelope = {

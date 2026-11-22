@@ -167,6 +167,7 @@ import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxSer
 import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSchema.ts';
 import { applyEloScaleMigration } from './server/dataMigrations/applyEloScaleMigration.ts';
 import { applyEloTableLevelMigration } from './server/dataMigrations/applyEloTableLevelMigration.ts';
+import { applyGuestGamesStatsExclusion } from './server/dataMigrations/applyGuestGamesStatsExclusion.ts';
 import { applyOwnerNoScoringTags } from './server/dataMigrations/applyOwnerNoScoringTags.ts';
 import { moveReplayFramesOutOfProtocols } from './server/dataMigrations/moveReplayFramesOutOfProtocols.ts';
 import { completeGame20AfterOwnerFix } from './server/dataMigrations/completeGame20AfterOwnerFix.ts';
@@ -248,6 +249,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
     // The owner's «без оценок» tags first, so the one-time Elo rebuild below already uses them.
     try { await applyOwnerNoScoringTags(db); } catch (error) { console.error('[ELO] Owner no-scoring tags failed:', error); }
     try { await applyEloTableLevelMigration(db); } catch (error) { console.error('[ELO] Table-level rebuild failed:', error); }
+    // Games with a guest or a novice count for nobody from 20 November on (owner, 2026-11-22).
+    try { console.info('[STATS] guest games:', JSON.stringify(await applyGuestGamesStatsExclusion(db))); } catch (error) { console.error('[STATS] guest games exclusion failed:', error); }
     // Game №20: the misses, the stale note and the completion the owner asked for after fixing the split (2026-10-27).
     try { console.info('[DATA CORRECTION] game №20:', JSON.stringify(await completeGame20AfterOwnerFix(db))); } catch (error) { console.error('[DATA CORRECTION] game №20 failed (nothing changed):', error); }
     // Game №17: a reopened draft left unfinished; the owner: «Завершить как есть» (2026-10-27).

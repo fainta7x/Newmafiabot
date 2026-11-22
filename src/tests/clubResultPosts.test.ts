@@ -18,6 +18,8 @@ async function setup(format = 'CASUAL', startsAt = new Date(Date.now() - 3 * 360
   for (const id of PLAYERS) {
     await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,created_at,updated_at) VALUES (?,?,'normal','manual',?,?)`, [id, `Игрок ${id.toUpperCase()}`, now, now]);
   }
+  // Club players: a novice at the table would leave the games out of Elo and statistics (owner, 2026-11-22).
+  await db.run("UPDATE players SET game_level = 'club'");
   await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
     VALUES ('ev','Пятничный вечер',?,'Europe/Moscow',?,'active',20,100,?,?)`, [startsAt, format, now, now]);
   await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)

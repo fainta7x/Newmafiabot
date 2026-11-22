@@ -1,3 +1,4 @@
+import { ensureGameStatsColumn } from './gameStatsExclusion.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
@@ -44,6 +45,7 @@ type IncludedGame = {
 };
 
 const loadIncludedCompletedGames = async (db: DatabaseWrapper, period: any) => {
+  await ensureGameStatsColumn(db);
   const rows = await db.all<any>(`
     SELECT g.id, g.global_game_number, g.game_date, g.protocol_text,
            e.id AS evening_id, e.title AS evening_title, e.starts_at, e.format,
@@ -55,7 +57,7 @@ const loadIncludedCompletedGames = async (db: DatabaseWrapper, period: any) => {
         ON reo.period_id = ? AND reo.evening_id = e.id
       LEFT JOIN rating_period_game_overrides rgo
         ON rgo.period_id = ? AND rgo.game_id = g.id
-     WHERE g.archived_at IS NULL
+     WHERE g.archived_at IS NULL AND COALESCE(g.stats_excluded, 0) = 0
      ORDER BY e.starts_at ASC, g.global_game_number ASC, g.id ASC
   `, [period.id, period.id]);
 

@@ -1,3 +1,4 @@
+import { ensureGameStatsColumn } from './gameStatsExclusion.ts';
 import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
 import type { StatGame, StatRole } from '../../lib/gameStatistics.ts';
 import { normalizeGameRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
@@ -50,6 +51,7 @@ const clubHighlights = (payload: any): NonNullable<StatGame['highlights']> => {
 };
 
 async function loadStatGamesUncached(db: any, options: StatOptions): Promise<StatGame[]> {
+  await ensureGameStatsColumn(db);
   const games: StatGame[] = [];
   const since = new Date(options.sinceMs ?? 0).toISOString();
   const until = new Date(options.untilMs ?? Date.parse('9999-12-31')).toISOString();
@@ -59,7 +61,7 @@ async function loadStatGamesUncached(db: any, options: StatOptions): Promise<Sta
     SELECT g.id, g.evening_id, g.created_at, g.game_date, g.protocol_text, e.starts_at AS evening_date,
       COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at) AS completed_at
       FROM games g LEFT JOIN game_evenings e ON e.id = g.evening_id
-     WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL AND (e.status IS NULL OR e.status!='cancelled')
+     WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL AND (e.status IS NULL OR e.status!='cancelled') AND COALESCE(g.stats_excluded,0)=0
        AND CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text,'$.kind')='club_evening_protocol' AND json_extract(g.protocol_text,'$.protocol.status')='completed' AND json_type(g.protocol_text,'$.player_results')='array' ELSE 0 END
        AND julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at))>=julianday(?)
        AND julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at))<julianday(?)

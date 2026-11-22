@@ -63,7 +63,7 @@ const timelineCache = new WeakMap<object, { version: string | null; fingerprint:
 async function eloInputsFingerprint(db: DatabaseWrapper): Promise<string | null> {
   try {
     const parts = await Promise.all([
-      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(protocol_text)) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w, COUNT(archived_at) AS a FROM games`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(protocol_text)) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w, COUNT(archived_at) AS a, TOTAL(COALESCE(stats_excluded, 0)) AS x FROM games`),
       db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(COALESCE(format, ''))) AS f FROM game_evenings`),
       db.get(`SELECT COUNT(*) AS c, TOTAL(COALESCE(elo_seed, 0)) AS seed, TOTAL(COALESCE(elo, 0)) AS elo, TOTAL(LENGTH(COALESCE(source, ''))) AS src FROM players`),
       db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r FROM tournaments`),

@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
+import { clubGameCountsSql, decideGameStatsExclusion } from './gameStatsExclusion.ts';
 import { gameTeamOfRole, normalizeWinnerTeam } from '../../shared/gameRoles.ts';
 import { clubBestMovePointsForParticipant } from './bestMovePoints.ts';
 import { gameContribution } from '../../lib/playerContribution.ts';
@@ -334,6 +335,8 @@ export async function prepareCanonicalEloEvents(db: DatabaseWrapper, knownPlayer
     }
   }
 
+  // A game with a guest or a novice at the table gives Elo to nobody (owner, 2026-11-22; gameStatsExclusion.ts).
+  await decideGameStatsExclusion(db);
   const clubGames = await db.all<any>(`
     SELECT g.id, g.global_game_number, g.game_date, g.created_at, g.winner_team, g.protocol_text,
            e.format AS evening_format
@@ -342,6 +345,7 @@ export async function prepareCanonicalEloEvents(db: DatabaseWrapper, knownPlayer
      WHERE g.evening_id IS NOT NULL
        AND g.archived_at IS NULL
        AND g.protocol_text IS NOT NULL
+       AND ${clubGameCountsSql('g')}
      ORDER BY COALESCE(g.game_date, g.created_at) ASC, g.global_game_number ASC, g.id ASC
   `);
   for (const game of clubGames) {

@@ -228,6 +228,9 @@ Current canonical launcher passes controlled hidden-role state. A bare direct `L
 ### Links into the app from Telegram
 Personal messages: buttons to the app are `web_app` (`personalNotificationText.miniAppButtons` / `telegramActionMarkup`). Group posts: `miniAppLink(path)` (gameResultCardService) builds `t.me/<bot>?startapp=<param>` for the bot's Main Mini App; `src/shared/miniAppStart.ts` maps `/player/a/b` ↔ `a__b`, and `App.tsx` (`openTelegramStartPage`) opens that page once before the first render.
 
+### Games out of the statistics
+`games.stats_excluded` (1 out, 0 counts, NULL undecided) — a club game with a guest or a novice at the table counts for nobody (owner, 2026-11-22). `gameStatsExclusion.decideGameStatsExclusion` decides completed games (from 2026-11-20); every Elo/statistics reader filters `clubGameCountsSql` (`prepareCanonicalEloEvents`, `gameService` list functions and `COMPLETED_GAME_PLAYERS_SQL`, `loadStatGames`, achievements, rating periods). Evening and protocol screens still list the game (`Game.countsForStats`).
+
 ### VK login handoff
 A cabinet VK login whose callback lands in another browser (iPhone: the VK app returns to Safari) is finished but signs nobody in there: `vkPlayerAuthService.storeVkPlayerHandoff` keeps the result on `vk_player_oauth_states` (`handoff_*`), and the window holding the OAuth binding cookie claims it once through `POST /api/integrations/player/vk/handoff` (`VkPlayerAccess` polls every 2 s; Telegram opens VK with `openLink`, a browser in a new tab).
 

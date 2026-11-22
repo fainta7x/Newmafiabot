@@ -1,3 +1,4 @@
+import { clubGameCountsSql, ensureGameStatsColumn } from './gameStatsExclusion.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { normalizeWinnerTeam } from '../../shared/gameRoles.ts';
@@ -51,8 +52,9 @@ const clubSeats = (payload: any): GameSeat[] => (Array.isArray(payload?.player_r
   .sort((a: GameSeat, b: GameSeat) => a.seat - b.seat);
 
 async function loadClubGames(db: DatabaseWrapper, where: string, params: unknown[]): Promise<Array<Game & { _payload?: any }>> {
+  await ensureGameStatsColumn(db);
   const rows = await db.all<any>(`
-    SELECT g.id, g.evening_id, g.global_game_number, g.game_date, g.created_at, g.archived_at, g.judge_player_id, g.judge_name, g.protocol_text,
+    SELECT g.id, g.evening_id, g.global_game_number, g.game_date, g.created_at, g.archived_at, g.judge_player_id, g.judge_name, g.protocol_text, g.stats_excluded,
            e.format AS evening_format, e.status AS evening_status, e.starts_at, e.title AS evening_title, et.name AS table_name
       FROM games g LEFT JOIN game_evenings e ON e.id = g.evening_id
  LEFT JOIN evening_tables et ON et.id = g.evening_table_id
@@ -75,6 +77,7 @@ async function loadClubGames(db: DatabaseWrapper, where: string, params: unknown
       eventTitle: row.evening_title ? String(row.evening_title) : null,
       tableName: row.table_name ? String(row.table_name) : null,
       seats: clubSeats(payload),
+      countsForStats: Number(row.stats_excluded || 0) !== 1,
       _payload: payload,
     } as Game & { _payload?: any };
   });
@@ -151,7 +154,7 @@ const bestSource = (value: unknown): GameSeatResult['bestMoveSource'] => (value 
  */
 export async function listPlayerGameResults(db: DatabaseWrapper, playerId: string): Promise<Array<{ game: Game; result: GameSeatResult }>> {
   const out: Array<{ game: Game; result: GameSeatResult }> = [];
-  const club = await loadClubGames(db, `g.evening_id IS NOT NULL AND g.protocol_text IS NOT NULL AND json_valid(g.protocol_text)
+  const club = await loadClubGames(db, `g.evening_id IS NOT NULL AND g.protocol_text IS NOT NULL AND json_valid(g.protocol_text) AND ${clubGameCountsSql('g')}
       AND EXISTS (SELECT 1 FROM json_each(g.protocol_text, '$.player_results') r WHERE CAST(json_extract(r.value, '$.player_id') AS TEXT) = ?)`, [playerId]);
   for (const entry of club) {
     const payload = entry._payload;
@@ -225,7 +228,7 @@ export const COMPLETED_GAME_PLAYERS_SQL = `
     FROM games g
     LEFT JOIN game_evenings e ON e.id = g.evening_id,
          json_each(CASE WHEN json_valid(g.protocol_text) THEN g.protocol_text ELSE '{}' END, '$.player_results') r
-   WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND COALESCE(e.status, '') <> 'cancelled'
+   WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND COALESCE(e.status, '') <> 'cancelled' AND COALESCE(g.stats_excluded, 0) = 0
      AND json_extract(g.protocol_text, '$.kind') = 'club_evening_protocol'
      AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'
      AND json_extract(r.value, '$.player_id') IS NOT NULL
@@ -240,7 +243,7 @@ export const COMPLETED_GAME_PLAYERS_SQL = `
 
 /** Every completed game of every format (analytics, seasons); played-date order, oldest first. */
 export async function listCompletedGames(db: DatabaseWrapper): Promise<Game[]> {
-  const club = (await loadClubGames(db, `g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL
+  const club = (await loadClubGames(db, `g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL AND ${clubGameCountsSql('g')}
       AND COALESCE(e.status, '') <> 'cancelled' AND json_valid(g.protocol_text) AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'`, [])).map(strip);
   const tournament = await loadTournamentGames(db, `tg.status = 'completed' AND tgp.status = 'completed'`, []);
   const time = (game: Game) => (game.date ? new Date(game.date).getTime() : 0);

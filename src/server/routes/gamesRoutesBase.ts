@@ -287,7 +287,8 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
     await db.transaction(async (tx: any) => {
       await tx.run(
         `UPDATE games
-            SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ?
+            SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ?,
+                stats_excluded = NULL
           WHERE id = ?`,
         [
           winner || 'draft',
@@ -305,6 +306,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
       });
     });
 
+    // The rebuild decides again whether the game counts (a guest or a novice at the table: for nobody — owner, 2026-11-22).
     if (previousStatus === 'completed' || status === 'completed') {
       await rebuildCanonicalEloRatings(db);
     }

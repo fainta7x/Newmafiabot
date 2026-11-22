@@ -30,6 +30,8 @@ export interface Game {
   /** The row id inside its storage table. */
   id: string;
   format: GameFormat;
+  /** False for a game with a guest or a novice at the table: it counts for nobody (owner, 2026-11-22). */
+  countsForStats?: boolean;
   status: GameStatus;
   /** The event the game belongs to: an evening or a tournament. */
   eventId: string | null;

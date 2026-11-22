@@ -9,8 +9,10 @@ type AvailableGame = { gameId: number; eveningId: string; eveningTitle: string; 
 /** Ruble purchases, separate from the existing token-based shop goods. */
 export default function PlayerRolePurchasesShop() {
   const [games, setGames] = useState<AvailableGame[]>([]);
-  const chosenGame = games.find((game) => String(game.gameId) === selected);
   const [selected, setSelected] = useState('');
+  // After `selected`: read before its declaration it threw as soon as the player had a game, and the whole wallet with
+  // the shop failed to open (2026-11-22, since 2026-11-09).
+  const chosenGame = games.find((game) => String(game.gameId) === selected);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {

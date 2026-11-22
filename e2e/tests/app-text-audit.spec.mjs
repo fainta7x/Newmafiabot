@@ -32,6 +32,7 @@ export const PAGES = [
   ['cabinet-settings', cabinet('/player/settings')],
   ['cabinet-wallet', cabinet('/player/wallet')],
   ['cabinet-wallet-shop', cabinet('/player/wallet/shop', '&scenario=personal')],
+  ['cabinet-wallet-shop-seated', cabinet('/player/wallet/shop', '&scenario=seated')],
   ['cabinet-poker', cabinet('/player/poker')],
   ['cabinet-clocktower', cabinet('/player/clocktower')],
   ['cabinet-conduct', cabinet('/player/conduct')],
